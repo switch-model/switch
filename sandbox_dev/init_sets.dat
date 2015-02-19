@@ -1,0 +1,8 @@
+set INVEST_PERIODS := 2020 2030 ;
+set DISPATCH_SCENARIO := low_hydro_2020 high_hydro_2020 low_hydro_2030 high_hydro_2030;
+
+param dispatch_scenario_period :=
+  low_hydro_2020 2020
+  high_hydro_2020 2020
+  low_hydro_2030 2030
+  high_hydro_2030 2030;

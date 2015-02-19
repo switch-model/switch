@@ -1,0 +1,21 @@
+set INVEST_PERIODS := 2020 2030 ;
+
+set DISPATCH_SCENARIO := low_hydro_2020 high_hydro_2020 low_hydro_2030 high_hydro_2030;
+
+
+# This doesn't work
+#set DISPATCH_TIMEPOINTS[*] := 1 2 3;
+
+# This doesn't work if I make DISPATCH_TIMEPOINTS dimension 2. Error: Cannot tuplize data for set DISPATCH_TIMEPOINTS because its length 3 is not a multiple of dimen 2
+# set DISPATCH_TIMEPOINTS[low_hydro_2020] := 1 2 3; ...
+
+# This doesn't work either. Error: 'Cannot construct index None in array set DISPATCH_TIMEPOINTS'
+# set DISPATCH_TIMEPOINTS := low_hydro_2020 1 low_hydro_2020 2 low_hydro_2020 3
+#   high_hydro_2020 1 high_hydro_2020 2 high_hydro_2020 3;
+
+# This would initalize a set of dispatch timepoints by dispatch scenario, but it won't work because if DISPATCH_TIMEPOINTS is an indexed set, I cannot use it to index parameters like timepoint_weight
+#set DISPATCH_TIMEPOINTS[low_hydro_2020] := 1 2 3;
+#set DISPATCH_TIMEPOINTS[high_hydro_2020] := 1 2 3;
+#set DISPATCH_TIMEPOINTS[low_hydro_2030] := 1 2 3;
+#set DISPATCH_TIMEPOINTS[high_hydro_2030] := 1 2 3;
+

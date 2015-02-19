@@ -1,0 +1,92 @@
+set INVEST_PERIODS := 2020 2030 ;
+param period_length_years :=
+  2020 10
+  2030 10;
+param period_start :=
+  2020 2015
+  2030 2025;
+param period_end :=
+  2020 2024
+  2030 2034;
+
+set DISPATCH_SCENARIOS := low_hydro_2020 high_hydro_2020 low_hydro_2030 high_hydro_2030;
+
+param period_of_scenario :=
+  low_hydro_2020 2020
+  high_hydro_2020 2020
+  low_hydro_2030 2030
+  high_hydro_2030 2030;
+
+param dbid_of_scenario :=
+  low_hydro_2020 1
+  high_hydro_2020 2
+  low_hydro_2030 3
+  high_hydro_2030 4;
+
+
+set TIMEPOINTS := 1 2 3 4 5 6 7 8 9 10 11 12 13 14;
+
+param timepoint_label :=
+  1 2025011500
+  2 2025011512
+  3 2025011600
+  4 2025011612
+  5 2025061500
+  6 2025061512
+  7 2025011500
+  8 2025011512
+  9 2025011600
+  10 2025011612
+  11 2025061500
+  12 2025061512
+  13 2035011512
+  14 2035011512;
+
+param timepoint_weight_in_hours :=
+  1 10957.5
+  2 10957.5
+  3 10957.5
+  4 10957.5
+  5 21915
+  6 21915
+  7 10957.5
+  8 10957.5
+  9 10957.5
+  10 10957.5
+  11 21915
+  12 21915
+  13 87660
+  14 87660;
+  
+
+param scenario_of_timepoint :=
+  1 low_hydro_2020
+  2 low_hydro_2020
+  3 low_hydro_2020
+  4 low_hydro_2020
+  5 low_hydro_2020
+  6 low_hydro_2020
+  7 high_hydro_2020
+  8 high_hydro_2020
+  9 high_hydro_2020
+  10 high_hydro_2020
+  11 high_hydro_2020
+  12 high_hydro_2020
+  13 low_hydro_2030
+  14 high_hydro_2040;
+
+param timeseries_of_timepoint :=
+  1 low_hydro_2020_01winter
+  2 low_hydro_2020_01winter
+  3 low_hydro_2020_01winter
+  4 low_hydro_2020_01winter
+  5 low_hydro_2020_06summer
+  6 low_hydro_2020_06summer
+  7 high_hydro_2020_01winter
+  8 high_hydro_2020_01winter
+  9 high_hydro_2020_01winter
+  10 high_hydro_2020_01winter
+  11 high_hydro_2020_06summer
+  12 high_hydro_2020_06summer
+  13 low_hydro_2030_01winter
+  14 high_hydro_2030_01winter;
