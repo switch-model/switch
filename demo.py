@@ -9,6 +9,6 @@ from timescales import *
 switch_model = AbstractModel()
 define_timescales(switch_model)
 switch_instance = switch_model.create('test_dat/timescale_test_valid.dat')
-switch_instance.pprint()
-
+#switch_instance.pprint()
+switch_instance.hours_in_scenario.pprint()
 

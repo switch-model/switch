@@ -1,0 +1,61 @@
+"""
+
+time
+    ...
+    present year = period_0 where investments decisions are locked in place based on legacy decisions. 
+    
+generic financial parameters
+    base financial year
+    finance rate
+    discount rate
+    bring costs_to_start_of_period
+    bring period costs to npv
+load zones
+    demand_mw[Z,t]
+    max_system_load_mw[z,p]
+    geographical_region ? (could mean either state or province, but is less familiar and more vague. SubnationalDivision could work, but may not be as flexible for international interconnections. )
+    overall economic multipliers
+? BALANCING_AREAS, FUEL_REGIONS
+Fuels
+    fuel_info ...
+    carbon intensity tCO2/MMBTU
+    fuel cost[period, load zone]
+    ? dummy fuels for solar, wind, hydro & geothermal?
+Technologies
+    gen_info ...
+    emissions rate is derived from heat rate & carbon intensity of fuel
+Project capacity
+    location
+    build limits
+    min_build_year?
+    vintage stuff?
+    project-specific financial calculations
+    auto-generate vintages from tech's min_build_year, etc?
+Project dispatch
+    capacity factors
+Tech sub-types
+    dispatchable, intermittent, hydro, storage, CAES, ...
+Transmission
+energy balancing
+    bus-level
+    Storage balancing
+        circular time series vs cut off ends
+Reliability...
+    planning_reserve_margin
+    quickstart, spinning reserve margins
+    satisfy load
+    satisfy various reserve margins
+Policies
+    rps_technologies[zone] = set(in Tech)
+    RPS targets (overall & carve-outs)
+    carbon caps
+    tech build restrictions (could also implement with proposed project restrictions..)
+    
+
+"""
+
+from coopr.pyomo import *
+
+def define_load_zones(switch):
+    model.PROJECTS = Set()
+

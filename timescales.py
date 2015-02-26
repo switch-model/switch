@@ -19,109 +19,161 @@ def define_timescales(switch):
         
     INVEST_PERIODS is the set of multi-year periods describing the timescale of investment decisions.
     Related parameters that are indexed by period p include:
-        * period_length_years[p]
-        * period_start[p]
-        * period_end[p]
+        * period_length_years[p]: The number of years in an investment period.
+        * period_start[p]: The starting year of an investment period.
+        * period_end[p]: The last year of an investment period.
     
     DISPATCH_SCENARIOS is the set of conditions in which dispatch may occur within an investment period. Examples include low hydro, high hydro, El Nina, La Nina, etc. In the stochastic version of switch, each investment period may contain multiple dispatch scenarios. For ease of development, the scenarios are assumed to be human-readable text that are unique within a run such as low_hydro_2020 rather than database ids. 
-    Related parameters that are indexed by scenario s include:
-        * period_of_scenario[s]
-        * dbid_of_scenario[s] describes the external database id for a dispatch scenario
-        * hours_in_scenario[s] = [Sum of weights of all timepoints within a scenario]
+    Related parameters that are indexed by dispatch scenario ds include:
+        * scenario_period[ds]: The investment period of a dispatch scenario. 
+        * scenario_dbid[ds]: The external database id for a dispatch scenario.
+        * hours_in_scenario[ds]: The sum of weights of all timepoints within a scenario.
             Currently, the hours_in_scenario must be within 1% of the expected length of the period. Period length is calculated by multiplying the average number of hours in a year rounded to the nearest integer (8766) by the number of years per period. I implemented this rule because these are used as weights for variable costs of dispatch and operations, and I think it is important for those costs to reflect those expected costs over an entire period or else the levelized costs of power that is being optimized will not make sense. 
  
     TIMESERIES denote blocks of consecutive timepoints within a dispatch scenario. An individual time series could represent a single day, a week, a month or an entire year. This replaces the DATE construct in the old SWITCH code and is meant to be more versatile. TIMESERIES ids need to be unique across dispatch scenarios. 
-    Related parameters indexed by TIMESERIES include
-        * scenario_of_timeseries[timeseries] = [dispatch scenario that timeseries belongs to]
+    Related parameters indexed by ts in TIMESERIES include
+        * ts_scenario[ts]: The dispatch scenario of a timeseries.
+        * ts_num_tps[ts]: The number of timepoints in a timeseries.
+        * ts_duration_of_tp[ts]: The duration in hours of each timepoint within a timeseries.
+            This is used for calculations that ensure a storage project has a sufficient energy charge when it is dedicated to providing reserves.
+        * ts_duration_hrs[ts]: The total duration of a timeseries in hours. 
+            = ts_duration_of_tp[ts] * ts_num_tps[ts]
+        * ts_scale_to_period[ts]: Scaling factor to adjust the weight from ts_duration_hrs up to a period. See examples below. 
+
+    TIMEPOINTS describe unique timepoints within a time series and typically index exogenous variables such as electricity demand and variable renewable energy output. This replaces the HOURS construct in some of the old versions of SWITCH. Timepoints need ids that are unique across dispatch scenarios rather than a simple timestamp that may be replicated across dispatch scenarios. Timepoint ids should also indicate their relative ordering within a timeseries. Each timepoint within a series needs to have the same duration to simplify calculations. 
+     Related parameters indexed by t in TIMEPOINTS include: 
+        * tp_weight[t]: The weight of a timepoint within an investment period in units of hours per period. 
+             = ts_duration_of_tp[ts] * ts_scale_to_period[ts]
+        * tp_label[t]: These human-readable timestamp labels should be unique within a dispatch scenario. Expected format is YYYYMMDDHH
+        * tp_scenario[t]: The dispatch scenario of this timepoint
+        * tp_ts[t]: The timeseries of this timepoint
+
+    Other indexed sets describe memberships of dispatch scenarios to investment periods, timeseries to dispatch scenarios, etc. These include:
+        * PERIOD_SCENARIOS[period]: The set of dispatch scenarios in a period.
+        * SCENARIO_TS[scenario]: The set of timeseries in a dispatch scenario.
+        * TS_TPS[timeseries]: The ordered set of timepoints in a timeseries.
+        * SCENARIO_TPS[scenario]: The set of timepoints in a dispatch scenario.
     
-    TIMEPOINTS describe unique timepoints within a time series and typically index exogenous variables such as electricity demand and variable renewable energy output. This replaces the HOURS construct in some of the old versions of SWITCH. Timepoints need ids that are unique across dispatch scenarios rather than a simple timestamp that may be replicated across dispatch scenarios. Timepoint ids should also indicate their relative ordering within a timeseries.
-    Related parameters indexed by timepoint t include:
-        * timepoint_weight_in_hours[t] The "weight" of a timepoint within an investment period in units of hours
-        * timepoint_label[t] = YYYYMMDDHH These human-readable timestamp label should be unique within a dispatch scenario
-        * scenario_of_timepoint[t] = [scenario this timepoint belongs to]
-        * timeseries_of_timepoint[t] = [timeseries this timepoint belongs to]
-    
-    Other indexed sets describe memberships of dispatch scenarios to investment periods, timeseries to dispatch scenarios, etc.    These include:
-        * DISPATCH_SCENARIOS_IN_PERIOD[period] = [set of dispatch scenarios within that period]
-        * TIMESERIES_IN_SCENARIO[scenario] = [set of timeseries within that scenario]
-        * TIMEPOINTS_IN_TIMESERIES[timeseries] = [ordered set of timepoints within that timeseries]
-        * TIMEPOINTS_IN_SCENARIO[scenario] = [set of timepoints in that dispatch scenario]
-    
+    EXAMPLES
+    These hypothetical examples illustrate differential weighting of timepoints and timeseries. Each timepoint adds additional computational complexity, and you may wish to reduce the time resolution in low-stress periods and increase the time resolution in high-stress periods. These examples are probably not the resolutions you would choose, but are meant to illustrate calculations. When calculating these for your own models, you may check your caluclations by adding all of the tp_weights in a dispatch scenario and ensuring that it yields the number of hours you expect in an entire investment period. That weighting ensures an accurate depiction of fixed and variable costs. 
+
+    Example 1: The month of January is described by two timeseries: one to represent a median load day (example 1) and one to represent a peak day (example 2). In these examples, the timeseries for the median load day has a much larger weight than the timeseries for the peak load day. 
+    January median timeseries:
+        A timeseries describing a median day in January is composed of 6 timepoints, each representing a 4-hour block. This is scaled up by factor of 30 to represent all but 1 day in January, then scaled up by a factor of 10 to represent all Januaries in a 10-year period. 
+        * ts_num_tps = 6 tp/ts
+        * ts_duration_of_tp = 4 hr/tp
+        * ts_duration_hrs = 24 hr/ts 
+            = 6 tp/ts * 4 hr/tp
+        * ts_scale_to_period = 300 ts/period
+            = 1 ts/24 hr * 24 hr/day * 30 day/yr * 10 yr/period
+            24 hr/day is a conversion factor. 30 day/yr indicates this timeseries is meant to represent 30 days out of every year. If it represented every day in January instead of all but one day, this term would be 31 day/hr
+        * tp_weight[t] = 1200 hr/period
+            = 4 hr/tp * 1 tp/ts * 300 ts/period
+    January peak timeseries: 
+        This timeseries describing a peak day in January is also composed of 6 timepoints, each representing a 4-hour block. This is scaled up by factor of 1 to represent a single peak day of the month January, then scaled up by a factor of 10 to represent all peak January days in a 10-year period. 
+        * ts_num_tps = 6 tp/ts
+        * ts_duration_of_tp = 4 hr/tp
+        * ts_duration_hrs = 24 hr/ts 
+            = 6 tp/ts * 4 hr/tp
+        * ts_scale_to_period = 10 ts/period
+            = 1 ts/24 hr * 24 hr/day * 1 day/yr * 10 yr/period
+            24 hr/day is a conversion factor. 1 day/yr indicates this timeseries is meant to represent a single day out of the year. 
+        * tp_weight[t] = 40 hr/period
+            = 4 hr/tp * 1 tp/ts * 10 ts/period
+
+    Example 2: The month of July is described by one timeseries that represents an entire week because July is a high-stress period for the grid and needs more time resolution to capture capacity and storage requirements. 
+        This timeseries describing 7 days in July is composed of 84 timepoints, each representing 2 hour blocks. These are scaled up to represent all 31 days of July, then scaled by another factor of 10 to represent a 10-year period. 
+        * ts_num_tps = 84 tp/ts
+        * ts_duration_of_tp = 2 hr/tp
+        * ts_duration_hrs = 168 hr/ts
+            = 84 tp/ts * 2 hr/tp
+        * ts_scale_to_period = 44.29 ts/period
+            = 1 ts/168 hr * 24 hr/day * 31 days/yr * 10 yr/period
+            24 hr/day is a conversion factor. 31 day/yr indicates this timeseries is meant to represent 31 days out of every year (31 days = duration of July). 
+        * tp_weight[t] = 88.58 hr/period
+            = 2 hr/tp * 1 tp/ts * 44.29 ts/period
+
+    Example 3: The windy season of March & April are described with a single timeseries spanning 3 days because this is a low-stress period on the grid with surplus wind power and frequent curtailments. 
+        This timeseries describing 3 days in Spring is composted of 72 timepoints, each representing 1 hour. The timeseries is scaled up by a factor of 21.3 to represent the 61 days of March and April, then scaled by another factor of 10 to represent a 10-year period. 
+        * ts_num_tps = 72 tp/ts
+        * ts_duration_of_tp = 1 hr/tp
+        * ts_duration_hrs = 72 hr/ts
+            = 72 tp/ts * 1 hr/tp
+        * ts_scale_to_period = 203.3 ts/period
+            = 1 ts/72 hr * 24 hr/day * 61 days/yr * 10 yr/period
+            24 hr/day is a conversion factor. 6a day/yr indicates this timeseries is meant to represent 61 days out of every year (31 days in March + 30 days in April).
+        * tp_weight[t] = 203.3 hr/period
+            = 1 hr/tp * 1 tp/ts * 203.3 ts/period
+
     """
 
+    # Investment Periods table has columns: period, period_length_years, period_start, period_end
     switch.INVEST_PERIODS = Set(ordered=True)
-    switch.period_length_years = Param(switch.INVEST_PERIODS, 
-        within=PositiveReals)
+    switch.period_length_years = Param(switch.INVEST_PERIODS, within=PositiveReals)
     switch.period_start = Param(switch.INVEST_PERIODS, within=PositiveReals)
     switch.period_end = Param(switch.INVEST_PERIODS, within=PositiveReals)
 
+    # Dispatch scenarios table has columns: dispatch scenario, period, scenario_dbid
     switch.DISPATCH_SCENARIOS = Set() 
-    switch.period_of_scenario = Param(switch.DISPATCH_SCENARIOS, 
+    switch.scenario_period = Param(switch.DISPATCH_SCENARIOS, 
         within=switch.INVEST_PERIODS)
-    switch.dbid_of_scenario = Param(switch.DISPATCH_SCENARIOS, 
+    switch.scenario_dbid = Param(switch.DISPATCH_SCENARIOS, 
         within=PositiveIntegers)
 
-    """
-    Most of the primary data will come from an extensive timepoints table.
-    Timeseries, scenarios and their memberships will be derived from this data.
-    Currently, the code does not validate data integrity of timeseries and 
-    and scenarios
-    """
+    # Timeseries table has columns: timeseries, dispatch scenario, ts_duration_of_tp, ts_num_tps, ts_scale_to_period. The last parameter is used to double-check the timepoints table
+    switch.TIMESERIES = Set()
+    switch.ts_scenario = Param(switch.TIMESERIES, within=switch.DISPATCH_SCENARIOS)
+    switch.ts_duration_of_tp = Param(switch.TIMESERIES, within=PositiveReals)
+    switch.ts_num_tps = Param(switch.TIMESERIES, within=PositiveIntegers)
+    switch.ts_scale_to_period = Param(switch.TIMESERIES, within=PositiveReals)
+    switch.ts_duration_hrs = Param(switch.TIMESERIES, 
+        initialize=lambda mod, ts: mod.ts_num_tps[ts] * mod.ts_duration_of_tp )
+
+    # Timepoints table has columns: timepoint_id, timepoint_label, timeseries    
     switch.TIMEPOINTS = Set()
-    switch.timepoint_weight_in_hours = Param(switch.TIMEPOINTS, 
-        within=NonNegativeReals)
-    switch.timepoint_label = Param(switch.TIMEPOINTS, within=PositiveIntegers)
-    switch.scenario_of_timepoint = Param(switch.TIMEPOINTS, 
-        within=switch.DISPATCH_SCENARIOS)
-    switch.timeseries_of_timepoint = Param(switch.TIMEPOINTS)
+    switch.tp_label = Param(switch.TIMEPOINTS)
+    switch.tp_ts = Param(switch.TIMEPOINTS, within=switch.TIMESERIES)
+    switch.tp_scenario = Param(switch.TIMEPOINTS, within=switch.DISPATCH_SCENARIOS
+        initialize=lambda mod,t: mod.ts_scenario[mod.tp_ts[t]])
+    switch.tp_weight = Param(switch.TIMEPOINTS, within=PositiveReals,
+        initialize=lambda mod, t: 
+            mod.ts_duration_of_tp[mod.tp_ts[t]] * mod.ts_scale_to_period[mod.tp_ts[t]] )
 
-    def init_TIMESERIES (switch):
-        return set(switch.timeseries_of_timepoint[t] for t in switch.TIMEPOINTS)
-    switch.TIMESERIES = Set( initialize=init_TIMESERIES) 
+    ############################################################
+    # "Helper" sets that are indexed for convenient look-up. 
+    # I can't use the filter option to construct these because 
+    # filter isn't currently implemented for indexed sets. 
 
-    def init_scenario_of_timeseries (switch, timeseries):
-        for t in switch.TIMEPOINTS:
-            if switch.timeseries_of_timepoint[t] == timeseries:
-                return switch.scenario_of_timepoint[t]
-    switch.scenario_of_timeseries = Param(switch.TIMESERIES, 
-        within=switch.DISPATCH_SCENARIOS, 
-        initialize=init_scenario_of_timeseries)
+    switch.SCENARIO_TS = Set(switch.DISPATCH_SCENARIOS, ordered=True, within=switch.TIMESERIES, 
+        initialize=lambda mod, ds: 
+            set(ts for ts in mod.TIMESERIES if mod.ts_scenario[ts] == ds)
+    )
 
-    # I may need to define period_of_timeseries at some point, but it doesn't look like I need it for now. 
+    switch.TS_TPS = Set(switch.TIMESERIES, ordered=True, within=switch.TIMEPOINTS, 
+        initialize=lambda mod, ts: 
+            set(t for t in mod.TIMEPOINTS if mod.tp_ts[t] == ts)
+    )
 
-    ####################
-    # "Helper" sets that are indexed for convenient look-up
+    switch.SCENARIO_TPS = Set(switch.DISPATCH_SCENARIOS, within=switch.TIMEPOINTS, 
+        initialize=lambda mod, ds:
+            [t for t in mod.TIMEPOINTS if mod.ts_scenario[t] == ds]
+    )
 
-    def init_TIMESERIES_IN_SCENARIO (switch, scenario):
-        return set(ts for ts in switch.TIMESERIES if switch.scenario_of_timeseries[ts] == scenario)
-    switch.TIMESERIES_IN_SCENARIO = Set(switch.DISPATCH_SCENARIOS, 
-        ordered=True, within=switch.TIMESERIES, 
-        initialize=init_TIMESERIES_IN_SCENARIO)
+    switch.PERIOD_SCENARIOS = Set(switch.INVEST_PERIODS, within=switch.DISPATCH_SCENARIOS, 
+        initialize=lambda mod, p:
+            [s for s in mod.DISPATCH_SCENARIOS if mod.scenario_period[s] == p]
+    )
 
-    def init_TIMEPOINTS_IN_TIMESERIES (switch, timeseries):
-        return (t for t in switch.TIMEPOINTS if switch.timeseries_of_timepoint[t] == timeseries)
-    switch.TIMEPOINTS_IN_TIMESERIES = Set(switch.TIMESERIES, ordered=True, 
-        within=switch.TIMEPOINTS, initialize=init_TIMEPOINTS_IN_TIMESERIES)
-
-    def init_TIMEPOINTS_IN_SCENARIO (switch, scenario):
-        return (t for t in switch.TIMEPOINTS if switch.scenario_of_timepoint[t] == scenario)
-    switch.TIMEPOINTS_IN_SCENARIO = Set(switch.DISPATCH_SCENARIOS, 
-        within=switch.TIMEPOINTS, initialize=init_TIMEPOINTS_IN_SCENARIO)
-
-    def init_DISPATCH_SCENARIOS_IN_PERIOD (switch, period):
-        return (s for s in switch.DISPATCH_SCENARIOS if switch.period_of_scenario[s] == period)
-    switch.DISPATCH_SCENARIOS_IN_PERIOD = Set(switch.INVEST_PERIODS, 
-        within=switch.DISPATCH_SCENARIOS, 
-        initialize=init_DISPATCH_SCENARIOS_IN_PERIOD)
-
-    def init_hours_in_scenario (switch, scenario):
-        return sum(switch.timepoint_weight_in_hours[t] for t in switch.TIMEPOINTS_IN_SCENARIO[scenario])
+    ########################################
+    # Additional derived parameters
+ 
     # Validate time weights: Total timepoint weights in a scenario must be within 1% of the expected length of the period
-    def validate_hours_in_scenario (switch, hours_in_scenario, scenario):
-        p = switch.period_of_scenario[scenario]
-        expected_hours_in_period = switch.period_length_years[p] * 8766
+    def validate_hours_in_scenario (mod, hours_in_scenario, ds):
+        p = mod.scenario_period[ds]
+        expected_hours_in_period = mod.period_length_years[p] * 8766
         return (hours_in_scenario < 1.01 * expected_hours_in_period and 
                 hours_in_scenario > 0.99 * expected_hours_in_period)
     switch.hours_in_scenario = Param(switch.DISPATCH_SCENARIOS, 
-        initialize=init_hours_in_scenario, 
+        initialize=lambda mod, ds:
+            1.0 * sum(mod.tp_weight[t] for t in switch.SCENARIO_TPS[ds]), 
         validate=validate_hours_in_scenario)
