@@ -19,17 +19,16 @@ def define_timescales(switch):
         
     INVEST_PERIODS is the set of multi-year periods describing the timescale of investment decisions.
     Related parameters that are indexed by period p include:
-        * period_length_years[p]: The number of years in an investment period.
         * period_start[p]: The starting year of an investment period.
         * period_end[p]: The last year of an investment period.
+        * period_length_years[p]: The number of years in an investment period; derived from period_start and period_end.
+        * period_length_hours[p]: The number of hours in an investment period; derived from period_length_years with an average of 8766 hours per year. 
     
     DISPATCH_SCENARIOS is the set of conditions in which dispatch may occur within an investment period. Examples include low hydro, high hydro, El Nina, La Nina, etc. In the stochastic version of switch, each investment period may contain multiple dispatch scenarios. For ease of development, the scenarios are assumed to be human-readable text that are unique within a run such as low_hydro_2020 rather than database ids. 
     Related parameters that are indexed by dispatch scenario ds include:
         * scenario_period[ds]: The investment period of a dispatch scenario. 
         * scenario_dbid[ds]: The external database id for a dispatch scenario.
-        * hours_in_scenario[ds]: The sum of weights of all timepoints within a scenario.
-            Currently, the hours_in_scenario must be within 1% of the expected length of the period. Period length is calculated by multiplying the average number of hours in a year rounded to the nearest integer (8766) by the number of years per period. I implemented this rule because these are used as weights for variable costs of dispatch and operations, and I think it is important for those costs to reflect those expected costs over an entire period or else the levelized costs of power that is being optimized will not make sense. 
- 
+  
     TIMESERIES denote blocks of consecutive timepoints within a dispatch scenario. An individual time series could represent a single day, a week, a month or an entire year. This replaces the DATE construct in the old SWITCH code and is meant to be more versatile. TIMESERIES ids need to be unique across dispatch scenarios. 
     Related parameters indexed by ts in TIMESERIES include
         * ts_scenario[ts]: The dispatch scenario of a timeseries.
@@ -54,6 +53,10 @@ def define_timescales(switch):
         * TS_TPS[timeseries]: The ordered set of timepoints in a timeseries.
         * SCENARIO_TPS[scenario]: The set of timepoints in a dispatch scenario.
     
+    Data validity check:
+        Currently, the sum of tp_weight for all timepoints in a scenario must be within 1% of the expected length of the investment period period. Period length is calculated by multiplying the average number of hours in a year rounded to the nearest integer (8766) by the number of years per period. I implemented this rule because these are used as weights for variable costs of dispatch and operations, and I think it is important for those costs to reflect those expected costs over an entire period or else the levelized costs of power that is being optimized will not make sense. 
+
+
     EXAMPLES
     These hypothetical examples illustrate differential weighting of timepoints and timeseries. Each timepoint adds additional computational complexity, and you may wish to reduce the time resolution in low-stress periods and increase the time resolution in high-stress periods. These examples are probably not the resolutions you would choose, but are meant to illustrate calculations. When calculating these for your own models, you may check your caluclations by adding all of the tp_weights in a dispatch scenario and ensuring that it yields the number of hours you expect in an entire investment period. That weighting ensures an accurate depiction of fixed and variable costs. 
 
@@ -109,9 +112,12 @@ def define_timescales(switch):
 
     # Investment Periods table has columns: period, period_length_years, period_start, period_end
     switch.INVEST_PERIODS = Set(ordered=True)
-    switch.period_length_years = Param(switch.INVEST_PERIODS, within=PositiveReals)
     switch.period_start = Param(switch.INVEST_PERIODS, within=PositiveReals)
     switch.period_end = Param(switch.INVEST_PERIODS, within=PositiveReals)
+    switch.period_length_years = Param(switch.INVEST_PERIODS, within=PositiveReals,
+        initialize=lambda mod, p: mod.period_end[p] - mod.period_start[p] + 1)
+    switch.period_length_hours = Param(switch.INVEST_PERIODS, within=PositiveReals,
+        initialize=lambda mod, p: mod.period_length_years[p] * 8766)
 
     # Dispatch scenarios table has columns: dispatch scenario, period, scenario_dbid
     switch.DISPATCH_SCENARIOS = Set() 
@@ -127,13 +133,13 @@ def define_timescales(switch):
     switch.ts_num_tps = Param(switch.TIMESERIES, within=PositiveIntegers)
     switch.ts_scale_to_period = Param(switch.TIMESERIES, within=PositiveReals)
     switch.ts_duration_hrs = Param(switch.TIMESERIES, 
-        initialize=lambda mod, ts: mod.ts_num_tps[ts] * mod.ts_duration_of_tp )
+        initialize=lambda mod, ts: mod.ts_num_tps[ts] * mod.ts_duration_of_tp[ts] )
 
     # Timepoints table has columns: timepoint_id, timepoint_label, timeseries    
     switch.TIMEPOINTS = Set()
     switch.tp_label = Param(switch.TIMEPOINTS)
     switch.tp_ts = Param(switch.TIMEPOINTS, within=switch.TIMESERIES)
-    switch.tp_scenario = Param(switch.TIMEPOINTS, within=switch.DISPATCH_SCENARIOS
+    switch.tp_scenario = Param(switch.TIMEPOINTS, within=switch.DISPATCH_SCENARIOS,
         initialize=lambda mod,t: mod.ts_scenario[mod.tp_ts[t]])
     switch.tp_weight = Param(switch.TIMEPOINTS, within=PositiveReals,
         initialize=lambda mod, t: 
@@ -146,34 +152,31 @@ def define_timescales(switch):
 
     switch.SCENARIO_TS = Set(switch.DISPATCH_SCENARIOS, ordered=True, within=switch.TIMESERIES, 
         initialize=lambda mod, ds: 
-            set(ts for ts in mod.TIMESERIES if mod.ts_scenario[ts] == ds)
-    )
-
+            set(ts for ts in mod.TIMESERIES if mod.ts_scenario[ts] == ds))
     switch.TS_TPS = Set(switch.TIMESERIES, ordered=True, within=switch.TIMEPOINTS, 
         initialize=lambda mod, ts: 
-            set(t for t in mod.TIMEPOINTS if mod.tp_ts[t] == ts)
-    )
-
+            set(t for t in mod.TIMEPOINTS if mod.tp_ts[t] == ts))
     switch.SCENARIO_TPS = Set(switch.DISPATCH_SCENARIOS, within=switch.TIMEPOINTS, 
+        ordered=True,
         initialize=lambda mod, ds:
-            [t for t in mod.TIMEPOINTS if mod.ts_scenario[t] == ds]
-    )
-
+            set(t for t in mod.TIMEPOINTS if mod.tp_scenario[t] == ds))
     switch.PERIOD_SCENARIOS = Set(switch.INVEST_PERIODS, within=switch.DISPATCH_SCENARIOS, 
         initialize=lambda mod, p:
-            [s for s in mod.DISPATCH_SCENARIOS if mod.scenario_period[s] == p]
-    )
+            [s for s in mod.DISPATCH_SCENARIOS if mod.scenario_period[s] == p])
 
-    ########################################
-    # Additional derived parameters
  
     # Validate time weights: Total timepoint weights in a scenario must be within 1% of the expected length of the period
-    def validate_hours_in_scenario (mod, hours_in_scenario, ds):
-        p = mod.scenario_period[ds]
-        expected_hours_in_period = mod.period_length_years[p] * 8766
-        return (hours_in_scenario < 1.01 * expected_hours_in_period and 
-                hours_in_scenario > 0.99 * expected_hours_in_period)
-    switch.hours_in_scenario = Param(switch.DISPATCH_SCENARIOS, 
-        initialize=lambda mod, ds:
-            1.0 * sum(mod.tp_weight[t] for t in switch.SCENARIO_TPS[ds]), 
-        validate=validate_hours_in_scenario)
+    def validate_time_weights_rule (mod):
+        for ds in mod.DISPATCH_SCENARIOS:
+            expected_hours = mod.period_length_hours[mod.scenario_period[ds]]
+            # If I use the indexed set SCENARIO_TPS for this sum, I get an error "ValueError: Error retrieving component SCENARIO_TPS[high_hydro_2020]: The component has not been constructed"
+            # hours_in_scenario = sum(mod.tp_weight[t] for t in switch.SCENARIO_TPS[s])
+            # Filtering the set TIMEPOINTS like I do when I create SCENARIO_TPS avoids this problem. So does defining this rule after I have created an instance from a .dat file. 
+            hours_in_scenario = sum(mod.tp_weight[t] for t in mod.TIMEPOINTS if mod.tp_scenario[t] == ds)
+            if (hours_in_scenario > 1.01 * expected_hours or
+                hours_in_scenario < 0.99 * expected_hours):
+                print "validate_time_weights_rule failed for dispatch scenario '{ds:s}'. The number of hours in the period is {period_h:0.2f}, but the number of hours in the scenario is {ds_h:0.2f}.\n".format(ds=ds, period_h=expected_hours, ds_h=hours_in_scenario)
+                return 0
+        return 1
+    switch.validate_time_weights = BuildCheck(rule=validate_time_weights_rule)
+    
