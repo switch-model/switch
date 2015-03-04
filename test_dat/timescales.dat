@@ -1,19 +1,22 @@
+# This file duplicates information from the four .tab timescale files. 
+# It allows the define_timescales() function in timescales.py to be tested independently of the import_timescales() function. 
+
 set INVEST_PERIODS := 2020 2030 ;
 param period_start :=
-  2020 2015
-  2030 2025;
+  2020 2017
+  2030 2027;
 param period_end :=
-  2020 2024
-  2030 2034;
+  2020 2026
+  2030 2036;
 
 set DISPATCH_SCENARIOS := low_hydro_2020 high_hydro_2020 median_2030;
 
-param scenario_period :=
+param disp_scen_period :=
   low_hydro_2020 2020
   high_hydro_2020 2020
   median_2030 2030;
 
-param scenario_dbid :=
+param disp_scen_dbid :=
   low_hydro_2020 1
   high_hydro_2020 2
   median_2030 3;
@@ -25,7 +28,7 @@ set TIMESERIES :=
   high_hydro_2020_06summer
   median_2030_all;
 
-param ts_scenario := 
+param ts_disp_scen := 
   low_hydro_2020_01winter low_hydro_2020
   low_hydro_2020_06summer low_hydro_2020
   high_hydro_2020_01winter high_hydro_2020

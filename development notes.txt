@@ -10,3 +10,29 @@ I'm trying to structure and document the code as I go for maximal readability. I
 I looked into python autodocumentation packages and started using pydoc to get started. I think Sphinx would be better eventually, but that has a bit more set-up and learning to it. Hopefully it won't be too hard to transition text from basic pydoc format (multi-line comments at the beginning of files, functions or classes) to whatever Sphinx prefers. As part of this autodoc effort, I moved most of the inline comments to the multi-line comments. That actually makes the code cleaner and easier to read, in my opinion. 
 As I was trying to figure out if pydoc supported any simple markup (it doesn't), I ran into doctest. It's a simple framework that will look for any example code snippets and expected output in the multi-line comments (same ones that pydoc examines). Whatever it finds, it executes and compares literal output to expected output. It's clean and simple, but not terribly scalable. Unittest is the scalable version, but that has a little more learning curve to it, so I'm punting on that for the moment. doctest can integrate with unittest, so whatever simple tests I do with doctest can be re-used later. Anyway, to take advantage of doctest, I merged the contents of the test_timescales() with the SYNOPSIS section. I wrote two more data files that should fail in different ways, but those aren't as appropriate for doctest because part of the error messages include library paths that are specific to my system. Oh well. 
 
+2/28
+I rewrote chunks of timescales.py last week, shortening parameter & set names, making them more consistent, moving timepoint weight specifications to timeseries to avoid potential for confusion.. I wrote some notes into a git commit. 
+
+3/2
+Pyomo has a reputation for being tricky to debug. A mistake or missing datum can cause funky error messages that don't tell you directly what's going on. Adding validation checks via BuildCheck() can relieve some of this headache, I think. I figured out a way of using python introspection to validate that an arbitrary list of mandatory parameters has been specified. It seems overkill for base financial info where I wrote it, because the list only has two members. Still, it's a useful bit of code to retain, so I'm pasting it here. 
+	def validate_minimum_financial_data_rule (mod):
+		mandatory_params = set(['base_financial_year', 'interest_rate'])
+		for active_param in mod.active_components(Param):
+			if ( active_param in mandatory_params ):
+				obj = getattr(mod, active_param)
+				if ( obj() is None ):
+					print "Mandatory parameter " + active_param + " is missing!"
+					return 0
+		return 1
+	switch.minimum_data_requirements = BuildCheck(rule=validate_minimum_financial_data_rule)
+
+3/4
+I tried using .dat file load commands to load .tab files because I thought this might be needed for some PySP scenario tree stuff. 
+See https://software.sandia.gov/downloads/pub/pyomo/PyomoOnlineDocs.html#_data_command_files
+I could only get it to work when the .tab files were in the current working directory. Specifying a path such as test_dat/dispatch_scenarios.tab instead of dispatch_scenarios.tab generated an error, complaining that / is an illegal character. Wrapping the path in quotes generated an even more obscure error message during model instantiation. The documentation didn't help at all with this. I read the code that parses these commands (pyomo/core/data/parse_datacmds.py, ampl.py, proess_data.py), but couldn't find a way of specifying a directory name.
+Anyway, the following commands work when the .tab files are in the working directory. 
+	load periods.tab : INVEST_PERIODS = [INVESTMENT_PERIOD] period_start period_end;
+	load dispatch_scenarios.tab : DISPATCH_SCENARIOS = [DISPATCH_SCENARIO] disp_scen_period=period disp_scen_dbid=dbid;
+	load timeseries.tab : TIMESERIES=[TIMESERIES] ts_disp_scen ts_duration_of_tp ts_num_tps ts_scale_to_period;
+	load timepoints.tab : TIMEPOINTS=[timepoint_id] tp_label=timepoint_label tp_ts=timeseries;
+

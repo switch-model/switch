@@ -6,10 +6,9 @@ time
     
 generic financial parameters
     base financial year
-    finance rate
+    interest rate
     discount rate
-    bring costs_to_start_of_period
-    bring period costs to npv
+    bring_annual_costs_to_base_year
 load zones
     demand_mw[Z,t]
     max_system_load_mw[z,p]

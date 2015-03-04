@@ -1,0 +1,14 @@
+timepoint_id	timepoint_label	timeseries
+1	2025011500	low_hydro_2020_01winter
+2	2025011512	low_hydro_2020_01winter
+3	2025011600	low_hydro_2020_01winter
+4	2025011612	low_hydro_2020_01winter
+5	2025061500	low_hydro_2020_06summer
+6	2025061512	low_hydro_2020_06summer
+7	2025011500	high_hydro_2020_01winter
+8	2025011512	high_hydro_2020_01winter
+9	2025011600	high_hydro_2020_01winter
+10	2025011612	high_hydro_2020_01winter
+11	2025061500	high_hydro_2020_06summer
+12	2025061512	high_hydro_2020_06summer
+13	2035011512	median_2030_all

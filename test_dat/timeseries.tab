@@ -1,0 +1,6 @@
+TIMESERIES	ts_disp_scen	ts_duration_of_tp	ts_num_tps	ts_scale_to_period
+low_hydro_2020_01winter	low_hydro_2020	12	4	913.12
+low_hydro_2020_06summer	low_hydro_2020	12	2	1826.25
+high_hydro_2020_01winter	high_hydro_2020	12	4	913.12
+high_hydro_2020_06summer	high_hydro_2020	12	2	1826.25
+median_2030_all	median_2030	24	1	3652.5
