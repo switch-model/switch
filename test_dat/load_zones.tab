@@ -1,0 +1,4 @@
+LOAD_ZONE	cost_multipliers	ccs_distance_km	balancing_area	dbid
+North	1	0	NorthCentral	1
+Central	0.8	0	NorthCentral	2
+South	1.2	0	South	3

@@ -36,3 +36,37 @@ Anyway, the following commands work when the .tab files are in the working direc
 	load timeseries.tab : TIMESERIES=[TIMESERIES] ts_disp_scen ts_duration_of_tp ts_num_tps ts_scale_to_period;
 	load timepoints.tab : TIMEPOINTS=[timepoint_id] tp_label=timepoint_label tp_ts=timeseries;
 
+3/6
+Today I pushed my boundaries of using DataPortal: loading parameters with multi-dimensional indexing. I encountered numerous problems that ultimately were rooted in the data file that I thought I was using really being in a different directory. Sublime doesn't update itself like BBEdit if an open file is moved to a new directory in the background. 
+I learned that DataPortal.load() is sparsely documented and doesn't appear at all in the Pyomo book, even though the website documentation for DataPortal references the book. https://software.sandia.gov/downloads/pub/pyomo/PyomoOnlineDocs.html#_dataportal_objects
+DataPortal seems to have suplanted the ModelData class. The load function in the DataPortal object has a bunch of TODO's in place of desscriptive text in its inline documentation. 
+I learned that if you want to select just one column from a text .tab file with load(), you need to wrap the column name in a tuple (not a list), or else the argument processing code in TableData.py will break it down character-by-character. So this works
+    switch_data.load(
+        filename=os.path.join(inputs_directory, 'load_zones.tab'),
+        select=['balancing_area'],
+        param=mod.foo)
+But select='balancing_area' and select=('balancing_area') both generate an error:
+"ValueError: 'b' is not in list", meaning the list of header columns in the .tab file. 
+You cannot build a set from a single column of a multi-column file. If you read a file into a set, the parser will ignore the select clause, will assume the set is multi-dimensional, cast the entire row as a tuple, try to append that tuple to the set, and generate an error message when the set complains about a dimensionality mis-match. 
+
+To print debugging messages in my code or the Pyomo code, this code injection works well:
+	import logging
+	logging.warning('obj value is')
+	logging.warning(obj)
+
+To deal with balancing areas being optional, I ended up initializing them to the unique values in the balancing_area column of load_zones.tab. Then I read in from the balancing_areas.tab file if it exists. If I set index=mod.BALANCING_AREAS, then this file overrides the initial value. Interesting. One upshot is that I still need to check that balancing area names match between load zone data and balancing area data if I specify the index. I can also leave the index clause out completely if I specify the index as the first column in the select clause like so:
+    switch_data.load(
+        filename=balancing_area_path,
+        select=(
+            'BALANCING_AREAS', 'quickstart_res_load_frac',
+            'quickstart_res_wind_frac', 'quickstart_res_solar_frac',
+            'spinning_res_load_frac', 'spinning_res_wind_frac',
+            'spinning_res_solar_frac'),
+        #index=mod.BALANCING_AREAS,
+        param=(mod.quickstart_res_load_frac, mod.quickstart_res_wind_frac,
+               mod.quickstart_res_solar_frac, mod.spinning_res_load_frac,
+               mod.spinning_res_wind_frac, mod.spinning_res_solar_frac))
+This formulation actually generates a reasonable error message if there is a balancing area in this file that doesn't match the pre-existing set. For example, I have NorthCentral and South defined in load_zones.tab. If I specify South_typo in balancing_areas.tab, I get the error:
+    RuntimeError: Failed to set value for param=quickstart_res_load_frac, index=South_typo, value=0.04.
+    	source error message="Error setting parameter value: Index 'South_typo' is not valid for array Param 'quickstart_res_load_frac'"
+

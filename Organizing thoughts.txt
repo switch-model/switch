@@ -1,25 +1,42 @@
-"""
-
+Done
+--------------
 time
     ...
     present year = period_0 where investments decisions are locked in place based on legacy decisions. 
-    
 generic financial parameters
     base financial year
     interest rate
     discount rate
     bring_annual_costs_to_base_year
-load zones
-    demand_mw[Z,t]
-    max_system_load_mw[z,p]
-    geographical_region ? (could mean either state or province, but is less familiar and more vague. SubnationalDivision could work, but may not be as flexible for international interconnections. )
-    overall economic multipliers
+Load Zones
+    LOAD_ZONES
+    lz_demand_mw[z,t]
+    lz_peak_demand_mw[z,p]
+    lz_dbid[z]
+    lz_cost_multipliers[z]
+    lz_ccs_distance_km[z]
+    lz_total_demand_in_period_mwh[z,p]
+    BALANCING_AREAS
+    lz_balancing_area[z]
+
+In Progress
+--------------
+
+To do
+--------------
 ? BALANCING_AREAS, FUEL_REGIONS
 Fuels
     fuel_info ...
+    ? dummy fuels for solar, wind, hydro & geothermal?
     carbon intensity tCO2/MMBTU
     fuel cost[period, load zone]
-    ? dummy fuels for solar, wind, hydro & geothermal?
+    regional fuel supply curves can override default fuel costs
+    biogas_limit_mmbtu_per_hr[z] describes the maximum amount of biogas that is expected from a load zone on an hourly basis. This parameter needs to be generalized into an supply curve that can optionally be specified for any fuel type.
+
+    FUEL_REGIONS describes regional fuel markets. Needs to be optional add-on. 
+    lz_fuel_region[z]
+
+
 Technologies
     gen_info ...
     emissions rate is derived from heat rate & carbon intensity of fuel
@@ -45,7 +62,10 @@ Reliability...
     satisfy load
     satisfy various reserve margins
 Policies
-    rps_technologies[zone] = set(in Tech)
+    POLICY_REGIONS 
+        ..geographical_region ? (could mean either state or province, but is less familiar and more vague. SubnationalDivision could work, but may not be as flexible for international interconnections. Jurisdiction and PolicyRegion are also options.)
+    lz_policy_region[z] default None
+    rps_technologies[z] = set(in Tech)
     RPS targets (overall & carve-outs)
     carbon caps
     tech build restrictions (could also implement with proposed project restrictions..)
