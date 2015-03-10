@@ -5,19 +5,19 @@ Demo aspects of SWITCH-Pyomo.
 """
 
 from coopr.pyomo import *
-from timescales import *
-from financials import *
-from load_zones import *
+import timescales
+import financials
+import load_zones
 
 switch_model = AbstractModel()
-define_timescales(switch_model)
-define_financials(switch_model)
-define_load_zones(switch_model)
+timescales.define_components(switch_model)
+financials.define_components(switch_model)
+load_zones.define_components(switch_model)
 
 switch_data = DataPortal(model=switch_model)
-import_timescales(switch_model, switch_data, 'test_dat')
-import_financials(switch_model, switch_data, 'test_dat')
-import_load_zones(switch_model, switch_data, 'test_dat')
+timescales.load_data(switch_model, switch_data, 'test_dat')
+financials.load_data(switch_model, switch_data, 'test_dat')
+load_zones.load_data(switch_model, switch_data, 'test_dat')
 
 switch_instance = switch_model.create(switch_data)
 

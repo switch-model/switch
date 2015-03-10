@@ -1,17 +1,16 @@
 """
-load_zones.py
-Defines load zone parameters for the mod model.
+Defines load zone parameters for the SWITCH-Pyomo model.
 
 SYNOPSIS
 >>> from coopr.pyomo import *
->>> from timescales import *
->>> from load_zones import *
+>>> import timescales
+>>> import load_zones
 >>> switch_model = AbstractModel()
->>> define_timescales(switch_model)
->>> define_load_zones(switch_model)
+>>> timescales.define_components(switch_model)
+>>> load_zones.define_components(switch_model)
 >>> switch_data = DataPortal(model=switch_model)
->>> import_timescales(switch_model, switch_data, 'test_dat')
->>> import_load_zones(switch_model, switch_data, 'test_dat')
+>>> timescales.load_data(switch_model, switch_data, 'test_dat')
+>>> load_zones.load_data(switch_model, switch_data, 'test_dat')
 >>> switch_instance = switch_model.create(switch_data)
 
 Note, this can be tested with `python -m doctest -v load_zones.py`
@@ -22,7 +21,7 @@ import os
 from utilities import check_mandatory_components
 
 
-def define_load_zones(mod):
+def define_components(mod):
     """
 
     Augments a Pyomo abstract model object with sets and parameters that
@@ -68,7 +67,7 @@ def define_load_zones(mod):
     specified in the lz_balancing_area[z] parameter. You can override
     the default operational reserve requirements (described below) by
     including an additional file in the input directory. See
-    import_load_zones() documentation for more details. Balancing areas
+    load_data() documentation for more details. Balancing areas
     are abbreviated as b for the purposed of indexing.
 
     quickstart_res_load_frac[b] describes the quickstart reserve
@@ -145,7 +144,7 @@ def define_load_zones(mod):
         mod.BALANCING_AREAS, within=PositiveReals, default=0.05,
         validate=lambda mod, val, b: val < 1)
 
-def import_load_zones(mod, switch_data, inputs_directory):
+def load_data(mod, switch_data, inputs_directory):
     """
 
     Import load zone data. The following files are expected in the input

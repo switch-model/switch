@@ -1,11 +1,10 @@
 """
-timescales.py
-Defines timescales for investment and dispatch for the SWITCH model.
+Defines timescales for investment and dispatch for the SWITCH-Pyomo model.
 This code can be tested with `python -m doctest -v timescales.py`
 
 SYNOPSIS
 >>> from coopr.pyomo import *
->>> from timescales import *
+>>> import timescales
 """
 
 from coopr.pyomo import *
@@ -14,16 +13,16 @@ import os
 from utilities import check_mandatory_components
 
 
-def define_timescales(switch_mod):
+def define_components(switch_mod):
     """
     Augments a Pyomo abstract model object with sets and parameters that
     describe timescales of investment and dispatch decisions.
 
     SYNOPSIS
     >>> from coopr.pyomo import *
-    >>> from timescales import *
+    >>> import timescales
     >>> switch_mod = AbstractModel()
-    >>> define_timescales(switch_mod)
+    >>> timescales.define_components(switch_mod)
     >>> switch_instance = switch_mod.create('test_dat/timescales.dat')
 
     INVEST_PERIODS is the set of multi-year periods describing the
@@ -348,7 +347,7 @@ def define_timescales(switch_mod):
         rule=validate_time_weights_rule)
 
 
-def import_timescales(switch_mod, switch_data, inputs_directory):
+def load_data(switch_mod, switch_data, inputs_directory):
     """
     Import data for timescales from .tab files.  The inputs_directory
     should contain the following files with these columns:
@@ -378,11 +377,11 @@ def import_timescales(switch_mod, switch_data, inputs_directory):
 
     EXAMPLE:
     >>> from coopr.pyomo import *
-    >>> from timescales import *
+    >>> import timescales
     >>> switch_mod = AbstractModel()
-    >>> define_timescales(switch_mod)
+    >>> timescales.define_components(switch_mod)
     >>> switch_data = DataPortal(model=switch_mod)
-    >>> import_timescales(switch_mod, switch_data, 'test_dat')
+    >>> timescales.load_data(switch_mod, switch_data, 'test_dat')
     >>> switch_instance = switch_mod.create(switch_data)
     >>> switch_instance.tp_weight_in_year.pprint()
     tp_weight_in_year : Size=13, Index=TIMEPOINTS, Domain=PositiveReals, Default=None, Mutable=False
