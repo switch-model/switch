@@ -1,9 +1,78 @@
 """
-Utility functions for switch-pyomo.
+Utility functions for SWITCH-pyomo.
+
+Currently, this implements functions to check that an instance of Pyomo
+abstract model has mandatory components defined. If a user attempts to
+create an instance without defining all of the necessary data, this will
+produce fatal errors with clear messages stating specifically what
+components have missing data.
+
+Without this check, I would get fatal errors if I forgot to specify data
+for a component that didn't have a default value, but the error message
+was obscure and gave me a line number with the first snippet of code
+that tried to reference the component with missing data. It took me a
+little bit of time to figure out what was causing that failure, and I'm
+a skilled programmer. I would like this model to be accessible to non-
+programmers as well, so I felt it was important to use the BuildCheck
+Pyomo function to validate data during construction of a model instance.
+
+I found that BuildCheck's message listed the name of the check that
+failed, but did not provide mechanisms for printing a specific error
+message. I tried printing to the screen, but that output tended to be
+obscured or hidden. I've settled on raising a ValueError for now with a
+clear and specific message. I could also use logging.error() or related
+logger methods, and rely on BuildCheck to throw an error, but I've
+already implemented this, and those other methods don't offer any clear
+advantages that I can see.
+
 This code can be tested with `python -m doctest -v utilities.py`
+
 """
 
+import types
 from coopr.pyomo import *
+
+
+def min_data_check(model, *mandatory_model_components):
+    model.__num_min_data_checks += 1
+    new_data_check_name = "min_data_check_" + str(model.__num_min_data_checks)
+    setattr(model, new_data_check_name, BuildCheck(
+        rule=lambda mod: check_mandatory_components(
+            mod, *mandatory_model_components)))
+
+
+def add_min_data_check(model):
+    """
+
+    Bind the min_data_check() method to an instance of a Pyomo AbstractModel
+    object if it has not already been added. Also add a counter to keep
+    track of what to name the next check that is added.
+
+    >>> from coopr.pyomo import *
+    >>> import utilities
+    >>> mod = AbstractModel()
+    >>> utilities.add_min_data_check(mod)
+    >>> mod.set_A = Set(initialize=[1,2])
+    >>> mod.paramA_full = Param(mod.set_A, initialize={1:'a',2:'b'})
+    >>> mod.paramA_empty = Param(mod.set_A)
+    >>> mod.min_data_check('set_A', 'paramA_full')
+    >>> instance_pass = mod.create()
+    >>> mod.min_data_check('set_A', 'paramA_empty')
+    >>> try:
+    ...     instance_fail = mod.create()
+    ... except ValueError as e:
+    ...     print e  # doctest: +NORMALIZE_WHITESPACE
+    ERROR: Constructing component 'min_data_check_2' from data=None failed:
+        ValueError: Values are not provided for every element of the
+        mandatory parameter 'paramA_empty'
+    Values are not provided for every element of the mandatory parameter
+    'paramA_empty'
+
+
+    """
+    if getattr(model, 'min_data_check', None) is None:
+        model.__num_min_data_checks = 0
+        model.min_data_check = types.MethodType(min_data_check, model)
 
 
 def check_mandatory_components(model, *mandatory_model_components):
@@ -40,46 +109,47 @@ def check_mandatory_components(model, *mandatory_model_components):
     1
     >>> utilities.check_mandatory_components(mod, 'paramC')
     1
-    >>> try:
-    ...     utilities.check_mandatory_components(mod, 'set_A', 'paramA_empty')
-    ... except ValueError as e:
-    ...     print e
-    ERROR! Values are not provided for every element of indexed parameter 'paramA_empty'
-    >>> try:
-    ...     utilities.check_mandatory_components(mod, 'set_A', 'set_B')
-    ... except ValueError as e:
-    ...     print e
-    ERROR! No data is defined for the set 'set_B'.
-    >>> try:
-    ...     utilities.check_mandatory_components(mod, 'paramC', 'paramD')
-    ... except ValueError as e:
-    ...     print e
-    ERROR! Value not provided for parameter 'paramD'
+    >>> utilities.check_mandatory_components(\
+        mod, 'set_A', 'paramA_empty') # doctest: +NORMALIZE_WHITESPACE
+    Traceback (most recent call last):
+        ...
+    ValueError: Values are not provided for every element of the
+    mandatory parameter 'paramA_empty'
+    >>> utilities.check_mandatory_components(mod, 'set_A', 'set_B')
+    Traceback (most recent call last):
+        ...
+    ValueError: No data is defined for the mandatory set 'set_B'.
+    >>> utilities.check_mandatory_components(mod, 'paramC', 'paramD')
+    Traceback (most recent call last):
+        ...
+    ValueError: Value not provided for mandatory parameter 'paramD'
 
     # Demonstration of incorporating this funciton into Pyomo's BuildCheck()
-    >>> mod.min_dat_pass = BuildCheck(rule=lambda m: \
-            utilities.check_mandatory_components(m, 'set_A', 'paramA_full', \
-                                               'paramB_empty', 'paramC'))
+    >>> mod.min_dat_pass = BuildCheck(\
+            rule=lambda m: utilities.check_mandatory_components(\
+                m, 'set_A', 'paramA_full','paramB_empty', 'paramC'))
     """
 
-    for e in mandatory_model_components:
-        obj = getattr(model, e)
+    for component_name in mandatory_model_components:
+        obj = getattr(model, component_name)
         o_class = type(obj).__name__
         if o_class == 'SimpleSet' or o_class == 'OrderedSimpleSet':
             if len(obj) == 0:
                 raise ValueError(
-                    "ERROR! No data is defined for the set '{}'.".format(e))
+                    "No data is defined for the mandatory set '{}'.".
+                    format(component_name))
         elif o_class == 'IndexedParam':
             if len(obj) != len(obj._index):
                 raise ValueError(
-                    ("ERROR! Values are not provided for every element of " +
-                     "indexed parameter '{}'").format(e))
+                    ("Values are not provided for every element of " +
+                     "the mandatory parameter '{}'").format(component_name))
         elif o_class == 'SimpleParam':
             if obj.value is None:
                 raise ValueError(
-                    "ERROR! Value not provided for parameter '{}'".format(e))
+                    "Value not provided for mandatory parameter '{}'".
+                    format(component_name))
         else:
             raise ValueError(
                 "Error! Object type not recognized for model element '{}'.".
-                format(e))
+                format(component_name))
     return 1

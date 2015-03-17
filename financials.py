@@ -17,8 +17,7 @@ Note, this can be tested with `python -m doctest -v financials.py`
 """
 from coopr.pyomo import *
 import os
-
-from utilities import check_mandatory_components
+import utilities
 
 
 def capital_recovery_factor(ir, t):
@@ -36,8 +35,10 @@ def capital_recovery_factor(ir, t):
     >>> print ("Capital recovery factor for a loan with a 7 percent annual " +
     ...        "interest rate, paid over 20 years is {crf:0.5f}. If the " +
     ...        "principal was $100, loan payments would be ${lp:0.2f}").\
-            format(crf=crf, lp=100 * crf)
-    Capital recovery factor for a loan with a 7 percent annual interest rate, paid over 20 years is 0.09439. If the principal was $100, loan payments would be $9.44
+            format(crf=crf, lp=100 * crf) # doctest: +NORMALIZE_WHITESPACE
+    Capital recovery factor for a loan with a 7 percent annual interest\
+    rate, paid over 20 years is 0.09439. If the principal was $100, loan\
+    payments would be $9.44
     """
     return ir/(1-(1+ir)**-t)
 
@@ -97,7 +98,7 @@ def present_to_future_value(ir, t):
     return (1+ir)**t
 
 
-def define_components(switch_mod):
+def define_components(mod):
     """
 
     Augments a Pyomo abstract model object with sets and parameters that
@@ -201,16 +202,16 @@ def define_components(switch_mod):
 
     """
 
-    switch_mod.base_financial_year = Param(within=PositiveIntegers)
-    switch_mod.interest_rate = Param(within=PositiveReals)
-    switch_mod.discount_rate = Param(
-        within=PositiveReals, default=switch_mod.interest_rate)
-    # Verify that mandatory data exists before using it.
-    switch_mod.validate_minimum_financial_data = BuildCheck(
-        rule=lambda mod: check_mandatory_components(
-            mod, 'base_financial_year', 'interest_rate'))
-    switch_mod.bring_annual_costs_to_base_year = Param(
-        switch_mod.INVEST_PERIODS,
+    # This will add a min_data_check() method to the model
+    utilities.add_min_data_check(mod)
+
+    mod.base_financial_year = Param(within=PositiveIntegers)
+    mod.interest_rate = Param(within=PositiveReals)
+    mod.discount_rate = Param(
+        within=PositiveReals, default=mod.interest_rate)
+    mod.min_data_check('base_financial_year', 'interest_rate')
+    mod.bring_annual_costs_to_base_year = Param(
+        mod.INVEST_PERIODS,
         within=PositiveReals,
         initialize=lambda mod, p: (
             uniform_series_to_present_value(
@@ -218,15 +219,15 @@ def define_components(switch_mod):
             future_to_present_value(
                 mod.discount_rate,
                 mod.period_start[p] - mod.base_financial_year)))
-    switch_mod.bring_timepoint_costs_to_base_year = Param(
-        switch_mod.TIMEPOINTS,
+    mod.bring_timepoint_costs_to_base_year = Param(
+        mod.TIMEPOINTS,
         within=PositiveReals,
         initialize=lambda mod, t: (
             mod.bring_annual_costs_to_base_year[mod.tp_period[t]] *
             mod.tp_weight_in_year[t]))
 
 
-def load_data(switch_mod, switch_data, inputs_directory):
+def load_data(mod, switch_data, inputs_directory):
     """
     Import base financial data from a .dat file. The inputs_directory should
     contain the file financials.dat that gives parameter values for

@@ -7,23 +7,15 @@ SYNOPSIS
 >>> import timescales
 """
 
-from coopr.pyomo import *
 import os
+from coopr.pyomo import *
+import utilities
 
-from utilities import check_mandatory_components
 
-
-def define_components(switch_mod):
+def define_components(mod):
     """
     Augments a Pyomo abstract model object with sets and parameters that
     describe timescales of investment and dispatch decisions.
-
-    SYNOPSIS
-    >>> from coopr.pyomo import *
-    >>> import timescales
-    >>> switch_mod = AbstractModel()
-    >>> timescales.define_components(switch_mod)
-    >>> switch_instance = switch_mod.create('test_dat/timescales.dat')
 
     INVEST_PERIODS is the set of multi-year periods describing the
     timescale of investment decisions.
@@ -40,7 +32,7 @@ def define_components(switch_mod):
     DISPATCH_SCENARIOS is the set of conditions in which dispatch may
     occur within an investment period. Examples include low hydro,
     high hydro, El Nina, La Nina, etc. In the stochastic version of
-    switch_mod, each investment period may contain multiple dispatch
+    mod, each investment period may contain multiple dispatch
     scenarios. For ease of development, the dispatch scenarios are
     assumed to be human-readable text that are unique within a run
     such as low_hydro_2020 rather than database ids. Dispatch
@@ -214,79 +206,73 @@ def define_components(switch_mod):
     * tp_weight[t] = 203.3 hr/period
         = 1 hr/tp * 1 tp/ts * 203.3 ts/period
 
+    SYNOPSIS
+    >>> from coopr.pyomo import *
+    >>> import timescales
+    >>> switch_mod = AbstractModel()
+    >>> timescales.define_components(switch_mod)
+    >>> switch_inst = switch_mod.create('test_dat/timescales.dat')
+    >>> switch_inst = switch_mod.create('test_dat/timescales_bad_weights.dat')
+    Traceback (most recent call last):
+        ...
+    ValueError: BuildCheck 'validate_time_weights' identified error
+
     """
 
-    switch_mod.INVEST_PERIODS = Set(ordered=True)
-    switch_mod.period_start = Param(
-        switch_mod.INVEST_PERIODS, within=PositiveReals)
-    switch_mod.period_end = Param(
-        switch_mod.INVEST_PERIODS, within=PositiveReals)
-    # Verify that mandatory data exists before using it.
-    switch_mod.minimal_period_data = BuildCheck(
-        rule=lambda mod: check_mandatory_components(
-            mod, 'INVEST_PERIODS', 'period_start', 'period_end'))
-    switch_mod.period_length_years = Param(
-        switch_mod.INVEST_PERIODS, within=PositiveReals,
+    # This will add a min_data_check() method to the model
+    utilities.add_min_data_check(mod)
+
+    mod.INVEST_PERIODS = Set(ordered=True)
+    mod.period_start = Param(mod.INVEST_PERIODS, within=PositiveReals)
+    mod.period_end = Param(mod.INVEST_PERIODS, within=PositiveReals)
+    mod.min_data_check('INVEST_PERIODS', 'period_start', 'period_end')
+    mod.period_length_years = Param(
+        mod.INVEST_PERIODS, within=PositiveReals,
         initialize=lambda mod, p: mod.period_end[p] - mod.period_start[p] + 1)
-    switch_mod.period_length_hours = Param(
-        switch_mod.INVEST_PERIODS, within=PositiveReals,
+    mod.period_length_hours = Param(
+        mod.INVEST_PERIODS, within=PositiveReals,
         initialize=lambda mod, p: mod.period_length_years[p] * 8766)
 
-    switch_mod.DISPATCH_SCENARIOS = Set()
-    switch_mod.disp_scen_period = Param(
-        switch_mod.DISPATCH_SCENARIOS, within=switch_mod.INVEST_PERIODS)
-    # Verify that mandatory data exists before using it.
-    switch_mod.minimal_disp_scen_data = BuildCheck(
-        rule=lambda mod: check_mandatory_components(
-            mod, 'DISPATCH_SCENARIOS', 'disp_scen_period'))
-    switch_mod.disp_scen_dbid = Param(
-        switch_mod.DISPATCH_SCENARIOS, within=PositiveIntegers)
+    mod.DISPATCH_SCENARIOS = Set()
+    mod.disp_scen_period = Param(
+        mod.DISPATCH_SCENARIOS, within=mod.INVEST_PERIODS)
+    mod.min_data_check('DISPATCH_SCENARIOS', 'disp_scen_period')
+    mod.disp_scen_dbid = Param(
+        mod.DISPATCH_SCENARIOS, within=PositiveIntegers)
 
-    switch_mod.TIMESERIES = Set()
-    switch_mod.ts_disp_scen = Param(
-        switch_mod.TIMESERIES, within=switch_mod.DISPATCH_SCENARIOS)
-    switch_mod.ts_duration_of_tp = Param(
-        switch_mod.TIMESERIES, within=PositiveReals)
-    switch_mod.ts_num_tps = Param(
-        switch_mod.TIMESERIES, within=PositiveIntegers)
-    switch_mod.ts_scale_to_period = Param(
-        switch_mod.TIMESERIES, within=PositiveReals)
-    # Verify that mandatory data exists before using it.
-    switch_mod.minimal_ts_data = BuildCheck(
-        rule=lambda mod: check_mandatory_components(
-            mod, 'TIMESERIES', 'disp_scen_period', 'ts_duration_of_tp',
-            'ts_num_tps'))
-    switch_mod.ts_duration_hrs = Param(
-        switch_mod.TIMESERIES,
+    mod.TIMESERIES = Set()
+    mod.ts_disp_scen = Param(mod.TIMESERIES, within=mod.DISPATCH_SCENARIOS)
+    mod.ts_duration_of_tp = Param(mod.TIMESERIES, within=PositiveReals)
+    mod.ts_num_tps = Param(mod.TIMESERIES, within=PositiveIntegers)
+    mod.ts_scale_to_period = Param(mod.TIMESERIES, within=PositiveReals)
+    mod.min_data_check(
+        'TIMESERIES', 'disp_scen_period', 'ts_duration_of_tp', 'ts_num_tps')
+    mod.ts_duration_hrs = Param(
+        mod.TIMESERIES,
         initialize=lambda mod, ts: (
             mod.ts_num_tps[ts] * mod.ts_duration_of_tp[ts]))
 
-    switch_mod.TIMEPOINTS = Set()
-    switch_mod.tp_ts = Param(
-        switch_mod.TIMEPOINTS, within=switch_mod.TIMESERIES)
-    # Verify that mandatory data exists before using it.
-    switch_mod.minimal_tp_data = BuildCheck(
-        rule=lambda mod: check_mandatory_components(
-            mod, 'TIMEPOINTS', 'tp_ts'))
-    switch_mod.tp_label = Param(
-        switch_mod.TIMEPOINTS, default=lambda mod, t: t)
-    switch_mod.tp_disp_scen = Param(
-        switch_mod.TIMEPOINTS,
-        within=switch_mod.DISPATCH_SCENARIOS,
+    mod.TIMEPOINTS = Set()
+    mod.tp_ts = Param(mod.TIMEPOINTS, within=mod.TIMESERIES)
+    mod.min_data_check('TIMEPOINTS', 'tp_ts')
+    mod.tp_label = Param(mod.TIMEPOINTS, default=lambda mod, t: t)
+    mod.tp_disp_scen = Param(
+        mod.TIMEPOINTS,
+        within=mod.DISPATCH_SCENARIOS,
         initialize=lambda mod, t: mod.ts_disp_scen[mod.tp_ts[t]])
-    switch_mod.tp_period = Param(
-        switch_mod.TIMEPOINTS,
-        within=switch_mod.INVEST_PERIODS,
+    mod.tp_period = Param(
+        mod.TIMEPOINTS,
+        within=mod.INVEST_PERIODS,
         initialize=lambda mod, t: (
             mod.disp_scen_period[mod.tp_disp_scen[t]]))
-    switch_mod.tp_weight = Param(
-        switch_mod.TIMEPOINTS,
+    mod.tp_weight = Param(
+        mod.TIMEPOINTS,
         within=PositiveReals,
         initialize=lambda mod, t: (
             mod.ts_duration_of_tp[mod.tp_ts[t]] *
             mod.ts_scale_to_period[mod.tp_ts[t]]))
-    switch_mod.tp_weight_in_year = Param(
-        switch_mod.TIMEPOINTS,
+    mod.tp_weight_in_year = Param(
+        mod.TIMEPOINTS,
         within=PositiveReals,
         initialize=lambda mod, t: (
             mod.tp_weight[t] / mod.period_length_years[mod.tp_period[t]]))
@@ -295,27 +281,27 @@ def define_components(switch_mod):
     # "Helper" sets that are indexed for convenient look-up.
     # I can't use the filter option to construct these because
     # filter isn't currently implemented for indexed sets.
-    switch_mod.DISP_SCEN_TS = Set(
-        switch_mod.DISPATCH_SCENARIOS,
+    mod.DISP_SCEN_TS = Set(
+        mod.DISPATCH_SCENARIOS,
         ordered=True,
-        within=switch_mod.TIMESERIES,
+        within=mod.TIMESERIES,
         initialize=lambda mod, ds: set(
             ts for ts in mod.TIMESERIES if mod.ts_disp_scen[ts] == ds))
-    switch_mod.DISP_SCEN_TPS = Set(
-        switch_mod.DISPATCH_SCENARIOS,
+    mod.DISP_SCEN_TPS = Set(
+        mod.DISPATCH_SCENARIOS,
         ordered=True,
-        within=switch_mod.TIMEPOINTS,
+        within=mod.TIMEPOINTS,
         initialize=lambda mod, ds: set(
             t for t in mod.TIMEPOINTS if mod.tp_disp_scen[t] == ds))
-    switch_mod.TS_TPS = Set(
-        switch_mod.TIMESERIES,
+    mod.TS_TPS = Set(
+        mod.TIMESERIES,
         ordered=True,
-        within=switch_mod.TIMEPOINTS,
+        within=mod.TIMEPOINTS,
         initialize=lambda mod, ts: set(
             t for t in mod.TIMEPOINTS if mod.tp_ts[t] == ts))
-    switch_mod.PERIOD_DISP_SCENS = Set(
-        switch_mod.INVEST_PERIODS,
-        within=switch_mod.DISPATCH_SCENARIOS,
+    mod.PERIOD_DISP_SCENS = Set(
+        mod.INVEST_PERIODS,
+        within=mod.DISPATCH_SCENARIOS,
         initialize=lambda mod, p: [
             s for s in mod.DISPATCH_SCENARIOS if mod.disp_scen_period[s] == p])
 
@@ -326,7 +312,7 @@ def define_components(switch_mod):
             # an error "ValueError: Error retrieving component
             # DISP_SCEN_TPS[high_hydro_2020]: The component has not been
             # constructed" hours_in_disp_scen = sum(mod.tp_weight[t] for
-            # t in switch_mod.DISP_SCEN_TPS[s]) Filtering the set TIMEPOINTS
+            # t in mod.DISP_SCEN_TPS[s]) Filtering the set TIMEPOINTS
             # like I do when I create DISP_SCEN_TPS avoids this problem.
             # So does defining this rule after I have created an
             # instance from a .dat file.
@@ -343,11 +329,11 @@ def define_components(switch_mod):
                               ds_h=hours_in_disp_scen)
                 return 0
         return 1
-    switch_mod.validate_time_weights = BuildCheck(
+    mod.validate_time_weights = BuildCheck(
         rule=validate_time_weights_rule)
 
 
-def load_data(switch_mod, switch_data, inputs_directory):
+def load_data(mod, switch_data, inputs_directory):
     """
     Import data for timescales from .tab files.  The inputs_directory
     should contain the following files with these columns:
@@ -407,22 +393,22 @@ def load_data(switch_mod, switch_data, inputs_directory):
     switch_data.load(
         filename=os.path.join(inputs_directory, 'periods.tab'),
         select=('INVESTMENT_PERIOD', 'period_start', 'period_end'),
-        index=switch_mod.INVEST_PERIODS,
-        param=(switch_mod.period_start, switch_mod.period_end))
+        index=mod.INVEST_PERIODS,
+        param=(mod.period_start, mod.period_end))
     switch_data.load(
         filename=os.path.join(inputs_directory, 'dispatch_scenarios.tab'),
         select=('DISPATCH_SCENARIO', 'period', 'dbid'),
-        index=switch_mod.DISPATCH_SCENARIOS,
-        param=(switch_mod.disp_scen_period, switch_mod.disp_scen_dbid))
+        index=mod.DISPATCH_SCENARIOS,
+        param=(mod.disp_scen_period, mod.disp_scen_dbid))
     switch_data.load(
         filename=os.path.join(inputs_directory, 'timeseries.tab'),
         select=('TIMESERIES', 'ts_disp_scen', 'ts_duration_of_tp',
                 'ts_num_tps', 'ts_scale_to_period'),
-        index=switch_mod.TIMESERIES,
-        param=(switch_mod.ts_disp_scen, switch_mod.ts_duration_of_tp,
-               switch_mod.ts_num_tps, switch_mod.ts_scale_to_period))
+        index=mod.TIMESERIES,
+        param=(mod.ts_disp_scen, mod.ts_duration_of_tp,
+               mod.ts_num_tps, mod.ts_scale_to_period))
     switch_data.load(
         filename=os.path.join(inputs_directory, 'timepoints.tab'),
         select=('timepoint_id', 'timepoint_label', 'timeseries'),
-        index=switch_mod.TIMEPOINTS,
-        param=(switch_mod.tp_label, switch_mod.tp_ts))
+        index=mod.TIMEPOINTS,
+        param=(mod.tp_label, mod.tp_ts))

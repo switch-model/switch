@@ -1,0 +1,90 @@
+# This file duplicates information from the four .tab timescale files. 
+# It allows the define_timescales() function in timescales.py to be tested independently of the import_timescales() function. 
+
+set INVEST_PERIODS := 2020 2030 ;
+param period_start :=
+  2020 2017
+  2030 2027;
+param period_end :=
+  2020 2026
+  2030 2036;
+
+set DISPATCH_SCENARIOS := low_hydro_2020 high_hydro_2020 median_2030;
+
+param disp_scen_period :=
+  low_hydro_2020 2020
+  high_hydro_2020 2020
+  median_2030 2030;
+
+param disp_scen_dbid :=
+  low_hydro_2020 1
+  high_hydro_2020 2
+  median_2030 3;
+
+set TIMESERIES := 
+  low_hydro_2020_01winter
+  low_hydro_2020_06summer
+  high_hydro_2020_01winter
+  high_hydro_2020_06summer
+  median_2030_all;
+
+param ts_disp_scen := 
+  low_hydro_2020_01winter low_hydro_2020
+  low_hydro_2020_06summer low_hydro_2020
+  high_hydro_2020_01winter high_hydro_2020
+  high_hydro_2020_06summer high_hydro_2020
+  median_2030_all median_2030;
+
+param ts_duration_of_tp := 
+  low_hydro_2020_01winter 12
+  low_hydro_2020_06summer 12
+  high_hydro_2020_01winter 12
+  high_hydro_2020_06summer 12
+  median_2030_all 24;
+
+
+param ts_num_tps := 
+  low_hydro_2020_01winter 4
+  low_hydro_2020_06summer 2
+  high_hydro_2020_01winter 4
+  high_hydro_2020_06summer 2
+  median_2030_all 1;
+
+param ts_scale_to_period := 
+  low_hydro_2020_01winter 913.12
+  low_hydro_2020_06summer 1500
+  high_hydro_2020_01winter 913.12
+  high_hydro_2020_06summer 1500
+  median_2030_all 3652.5;
+
+set TIMEPOINTS := 1 2 3 4 5 6 7 8 9 10 11 12 13;
+
+param tp_label :=
+  1 2025011500
+  2 2025011512
+  3 2025011600
+  4 2025011612
+  5 2025061500
+  6 2025061512
+  7 2025011500
+  8 2025011512
+  9 2025011600
+  10 2025011612
+  11 2025061500
+  12 2025061512
+  13 2035011512;
+
+param tp_ts :=
+  1 low_hydro_2020_01winter
+  2 low_hydro_2020_01winter
+  3 low_hydro_2020_01winter
+  4 low_hydro_2020_01winter
+  5 low_hydro_2020_06summer
+  6 low_hydro_2020_06summer
+  7 high_hydro_2020_01winter
+  8 high_hydro_2020_01winter
+  9 high_hydro_2020_01winter
+  10 high_hydro_2020_01winter
+  11 high_hydro_2020_06summer
+  12 high_hydro_2020_06summer
+  13 median_2030_all;

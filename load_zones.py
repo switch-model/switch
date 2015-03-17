@@ -15,10 +15,9 @@ SYNOPSIS
 
 Note, this can be tested with `python -m doctest -v load_zones.py`
 """
-from coopr.pyomo import *
 import os
-
-from utilities import check_mandatory_components
+from coopr.pyomo import *
+import utilities
 
 
 def define_components(mod):
@@ -101,22 +100,22 @@ def define_components(mod):
 
     """
 
+    # This will add a min_data_check() method to the model
+    utilities.add_min_data_check(mod)
+
     mod.LOAD_ZONES = Set()
     mod.lz_demand_mw = Param(
         mod.LOAD_ZONES, mod.TIMEPOINTS, within=NonNegativeReals)
     mod.lz_peak_demand_mw = Param(
         mod.LOAD_ZONES, mod.INVEST_PERIODS, within=PositiveReals)
-    mod.lz_cost_multipliers = Param(
-        mod.LOAD_ZONES, within=PositiveReals)
-    mod.lz_ccs_distance_km = Param(
-        mod.LOAD_ZONES, within=NonNegativeReals)
+    mod.lz_cost_multipliers = Param(mod.LOAD_ZONES, within=PositiveReals)
+    mod.lz_ccs_distance_km = Param(mod.LOAD_ZONES, within=NonNegativeReals)
     mod.lz_balancing_area = Param(mod.LOAD_ZONES)
     mod.lz_dbid = Param(mod.LOAD_ZONES)
     # Verify that mandatory data exists before using it.
-    mod.minimal_lz_data = BuildCheck(
-        rule=lambda mod: check_mandatory_components(
-            mod, 'LOAD_ZONES', 'lz_demand_mw', 'lz_dbid',
-            'lz_cost_multipliers', 'lz_ccs_distance_km', 'lz_balancing_area'))
+    mod.min_data_check(
+        'LOAD_ZONES', 'lz_demand_mw', 'lz_dbid', 'lz_cost_multipliers',
+        'lz_ccs_distance_km', 'lz_balancing_area')
     mod.lz_total_demand_in_disp_scen_mwh = Param(
         mod.LOAD_ZONES, mod.DISPATCH_SCENARIOS, within=PositiveReals,
         initialize=lambda mod, z, disp_scen: (
@@ -143,6 +142,7 @@ def define_components(mod):
     mod.spinning_res_solar_frac = Param(
         mod.BALANCING_AREAS, within=PositiveReals, default=0.05,
         validate=lambda mod, val, b: val < 1)
+
 
 def load_data(mod, switch_data, inputs_directory):
     """
