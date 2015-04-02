@@ -91,3 +91,23 @@ You can directly manipulate this objects, adding new elements or overwriting com
 ['Coal', 'ResidualFuelOil', 'DistillateFuelOil', 'NaturalGas', 'Uranium', 'BioSolid', 'SolidWaste']
 >>> switch_data.data(name='f_co2_intensity')
 {'ResidualFuelOil': 0.0788, 'Uranium': 0, 'DistillateFuelOil': 0.07315, 'Coal': 0.09552, 'SolidWaste': 0.095, 'NaturalGas': 0.05306, 'BioSolid': 0.09435}
+
+3/19/2015
+I'm thinking about how to implement hybrid facilities to reduce excessive code and related complexities. By hybrid facility, I mean a generator uses multiple energy sources or perhaps separate generating units are linked. The key use cases are:
+• Pumped Hydro which includes a storage component and a water-flowing-downhill component
+• Compressed Air Energy Storage which includes a storage component and a gas turbine component
+Other use cases could be:
+• Any combined cycle plant if the gas and steam generators are modeled separately
+• Solar thermal with fossil or biomass backup boilers
+• Cofiring Coal & biomass
+• Oil generators that can run on multiple fuels or need to start on a higher grade fuel before switching to a lower grade fuel
+
+The last three use cases could be modeled as plants that can run on multiple energy sources rather than separate generators with linked investment and operations. 
+
+The status quo for hybrid plants that include a storage plant was to add storage decision variables and attributes, write a number of extra terms and constraints to link their storage and non-storage components, and export their hourly dispatch decisions in two or three rows, for the non-storage component, the store/release of REC eligible energy, and the store/release of non-renewable energy. 
+
+The physical structure of pumped hydro & CAES has a single generator that produced all energy and a pump that stores energy. We tracked ReleaseEnergy separately from DispatchEnergy so that we could track Renewable Energy Credits into and out of storage for modeling renewable portfolio standards. At the time we wrote this, policy hadn't caught up with the idea of tracking renewable energy through storage. As of 2013, some California RPS documentation explicitly addresses this on pages 43-46 and 64-65 of 
+http://www.energy.ca.gov/2013publications/CEC-300-2013-005/CEC-300-2013-005-ED7-SD.pdf
+This say that storage projects can only count as renewable energy if they are directly connected to a renewable facility and generally owned by the same entity. Any energy that comes out of stand-alone storage projects is not eligible for RECs, even if some renewable energy was stored in it. So, if you are going to store renewable energy in a generic grid storage device, then you should unbundle the REC component before storage to maintain full economic value.
+
+I guess the other reason to track released energy is to ensure energy balancing in the storage vessel. We could tie this released energy to the dispatch variable to reflect that it is consumed by the generator to produce electricity, but it could be difficult to parse out how much of the dispatch is coming from storage vs the other energy source, at least for pumped hydro.

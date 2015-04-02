@@ -1,0 +1,4 @@
+generation_technology	g_ccs_capture_efficiency	g_ccs_energy_load
+Biomass_IGCC_CCS	0.85	0.234115557
+Coal_IGCC_CCS	0.85	0.234104046
+NG_CC_CCS	0.85	0.334821429

@@ -25,16 +25,16 @@ Fuels
     upstream CO2 intensity tCO2/MMBTU
     regional fuel markets
         tiered supply curve (period, cost, max avail annual at cost)
+Generators
+    gen_info ...
+    default costs (default, and allow projects to override?)
+    enable multi-energy source
+    ccs & storage attributes are only specified for generators of those types
+    generation category: dispatchable, baseload, variable, etc
 
 In Progress
 --------------
 
-Generators
-    gen_info ...
-    costs? (default, and allow projects to override?)
-    emissions rate is derived from heat rate & carbon intensity of fuel
-Generator sub-types
-    dispatchable, intermittent, dam-hydro, RoR-hydro, pumped-hydro, storage, CAES, ...
 
 To do
 --------------
@@ -46,8 +46,12 @@ Project capacity
     vintage stuff?
     project-specific financial calculations
     auto-generate vintages from tech's min_build_year, etc?
+    emissions rate is derived from heat rate & carbon intensity of fuel
 Project dispatch
     capacity factors
+    dispatch rules & capabilities. defined generically for categories like variable, dispatchable, baseload, storage, etc. generators that are more complex (like hydro, pumped hydro or CAES) can define additional rules in separate modules. 
+Units...
+    Incorporate Matthias's unit-level specifications
 Transmission
 energy balancing
     bus-level
@@ -66,6 +70,12 @@ Policies
     RPS targets (overall & carve-outs)
     carbon caps
     tech build restrictions (could also implement with proposed project restrictions..)
+
+Generators: delayed implementation
+    storage installation parameters
+    default heat rate (possibly put in thermal_generation.tab)
+    construction schedule
+    unit commitment & partial loading params (should go in separate module)
 
 Low priority
 ------------------

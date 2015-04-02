@@ -143,6 +143,11 @@ def check_mandatory_components(model, *mandatory_model_components):
                 raise ValueError(
                     ("Values are not provided for every element of " +
                      "the mandatory parameter '{}'").format(component_name))
+        elif o_class == 'IndexedSet':
+            if len(obj) != len(obj._index):
+                raise ValueError(
+                    ("Sets are not defined for every index of " +
+                     "the mandatory indexed set '{}'").format(component_name))
         elif o_class == 'SimpleParam':
             if obj.value is None:
                 raise ValueError(
@@ -150,6 +155,6 @@ def check_mandatory_components(model, *mandatory_model_components):
                     format(component_name))
         else:
             raise ValueError(
-                "Error! Object type not recognized for model element '{}'.".
-                format(component_name))
+                "Error! Object type {} not recognized for model element '{}'.".
+                format(o_class, component_name))
     return 1
