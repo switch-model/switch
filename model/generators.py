@@ -20,7 +20,9 @@ SYNOPSIS
 >>> generators.load_data(switch_model, switch_data, inputs_dir)
 >>> switch_instance = switch_model.create(switch_data)
 
-Note, this can be tested with `python -m doctest -v fuels.py`
+Note, this can be tested with `python -m doctest -v generators.py`
+
+Switch-pyomo is licensed under GPL v3. Project info at switch-model.org
 """
 
 import os

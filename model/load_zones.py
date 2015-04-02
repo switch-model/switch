@@ -14,6 +14,8 @@ SYNOPSIS
 >>> switch_instance = switch_model.create(switch_data)
 
 Note, this can be tested with `python -m doctest -v load_zones.py`
+
+Switch-pyomo is licensed under GPL v3. Project info at switch-model.org
 """
 import os
 from coopr.pyomo import *

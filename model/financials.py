@@ -14,6 +14,8 @@ SYNOPSIS
 >>> switch_instance = switch_mod.create(switch_data)
 
 Note, this can be tested with `python -m doctest -v financials.py`
+
+Switch-pyomo is licensed under GPL v3. Project info at switch-model.org
 """
 from coopr.pyomo import *
 import os

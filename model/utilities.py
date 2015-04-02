@@ -27,6 +27,8 @@ advantages that I can see.
 
 This code can be tested with `python -m doctest -v utilities.py`
 
+Switch-pyomo is licensed under GPL v3. Project info at switch-model.org
+
 """
 
 import types

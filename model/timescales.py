@@ -5,6 +5,8 @@ This code can be tested with `python -m doctest -v timescales.py`
 SYNOPSIS
 >>> from coopr.pyomo import *
 >>> import timescales
+
+Switch-pyomo is licensed under GPL v3. Project info at switch-model.org
 """
 
 import os
