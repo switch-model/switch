@@ -1,5 +1,6 @@
 """
-Defines energy source and fuel parameters for the SWITCH-Pyomo model.
+Defines model components to describe fuels and other energy sources for
+the SWITCH-Pyomo model.
 
 SYNOPSIS
 >>> from coopr.pyomo import *
@@ -57,6 +58,19 @@ def define_components(mod):
     including carbon intensity, costs, etc. These are described below.
     Fuels may be abbreviated as f in parameter names and indexes.
 
+    In this formulation of SWITCH, fuels are described in terms of heat
+    content rather than mass. This simplifies some aspects of modeling,
+    but it could be equally valid to describe fuels in terms of $/mass,
+    heat_content/mass (high- heating value and low heating value),
+    carbon_content/mass, upstream_co2_emissions/mass, then to normalize
+    all of those to units of heat content. We have chosen not to
+    implement that yet because we don't have a compelling reason.
+
+    For these data inputs, you may use either the high heating value or
+    low heating value for any given fuel. Just make sure that all of the
+    heat rates for generators that consume a given fuel match the
+    heating value you have chosen.
+
     f_co2_intensity[f] describes the carbon intensity of direct
     emissions incurred when a fuel is combusted in units of metric
     tonnes of Carbon Dioxide per Million British Thermal Units
@@ -64,15 +78,15 @@ def define_components(mod):
     fuels, including biomass. Currently the only fuel that can have a
     value of 0 for this is uranium.
 
-    f_upstream_co2_intensity[f] is the carbon emissions attributable
-    to a fuel before it is consumed in units of tCO2/MMBTU. For
-    sustainably harvested biomass, this can be negative to reflect the
-    CO2 that was extracted from the atmosphere while the biomass was
-    growing. For most fuels this can be set to 0 unless you wish to
-    perform Life Cycle Analysis investigations. The carbon intensity and
-    upstream carbon intensity need to be defined separately to support
-    Biomass Energy with Carbon Capture and Sequestration (BECCS)
-    generation technologies.
+    f_upstream_co2_intensity[f] is the carbon emissions attributable to
+    a fuel before it is consumed in units of tCO2/MMBTU. For sustainably
+    harvested biomass, this can be negative to reflect the CO2 that was
+    extracted from the atmosphere while the biomass was growing. For
+    most fuels this can be set to 0 unless you wish to perform Life
+    Cycle Analysis investigations. The carbon intensity and upstream
+    carbon intensity need to be defined separately to support Biomass
+    Energy with Carbon Capture and Sequestration (BECCS) generation
+    technologies. This is an optional parameter that defaults to 0.
 
     In BECCS it is important to know the carbon embedded in a given
     amount of fuel as well as the amount of negative emissions achieved
@@ -80,14 +94,14 @@ def define_components(mod):
     sustainably harvested crop residues, crops suck CO2 from the
     atmosphere while they are growing and producing biomass
     (f_upstream_co2_intensity). Combusting the the biomass in a power
-    plant releases that entire amount of CO2 (f_co2_intensity). If
-    this process were happening without CCS, the overall carbon
-    intensity would be 0 because f_upstream_co2_intensity = -1 *
-    f_co2_intensity under ideal conditions for sustainably harvested
-    biomass. With CCS, the overall carbon intensity is negative because
-    a large portion of the direct emissions are captured and sequestered
-    in stable underground geological formations with a capture and
-    storage efficiency determined by the BECCS technology.
+    plant releases that entire amount of CO2 (f_co2_intensity). If this
+    process were happening without CCS, the overall carbon intensity
+    would be 0 because f_upstream_co2_intensity = -1 * f_co2_intensity
+    under ideal conditions for sustainably harvested biomass. With CCS,
+    the overall carbon intensity is negative because a large portion of
+    the direct emissions are captured and sequestered in stable
+    underground geological formations with a capture and storage
+    efficiency determined by the BECCS technology.
 
     REGIONAL_FUEL_MARKET is the set of all regional fuel markets. This
     may be may be abbreviated as rfm in parameter names and indexes, and
@@ -234,7 +248,8 @@ def define_components(mod):
     mod.NON_FUEL_ENERGY_SOURCES = Set()
     mod.FUELS = Set()
     mod.f_co2_intensity = Param(mod.FUELS, within=NonNegativeReals)
-    mod.f_upstream_co2_intensity = Param(mod.FUELS, within=Reals)
+    mod.f_upstream_co2_intensity = Param(
+        mod.FUELS, within=Reals, default=0)
     mod.min_data_check(
         'FUELS', 'NON_FUEL_ENERGY_SOURCES', 'f_co2_intensity',
         'f_upstream_co2_intensity')
@@ -303,8 +318,11 @@ def define_components(mod):
 def load_data(mod, switch_data, inputs_directory):
     """
 
-    Import fuel data. The following files are expected in the input
-    directory:
+    Import fuel data. To skip optional parameters such as
+    upstream_co2_intensity, you need to specify 'default' in the given column
+    rather than leaving them blank. Leaving a column blank will generate
+    an error message like "IndexError: list index out of range". The
+    following files are expected in the input directory:
 
     non_fuel_energy_sources.tab
         energy_source
@@ -321,22 +339,19 @@ def load_data(mod, switch_data, inputs_directory):
     lz_to_regional_fuel_market.tab
         load_zone, regional_fuel_market
 
-    # This next file is optional. If unspecified, lz_fuel_cost_adder
-    # will default to 0.
+    The next file is optional. If unspecified, lz_fuel_cost_adder will
+    default to 0 for all load zones and periods.
 
     lz_fuel_cost_diff.tab
         load_zone, fuel, period, fuel_cost_adder
 
-    In the future, I may implement an extra (optional) file format that
-    allows simple specification of one cost per period, or possibly one
-    cost per zone per period. The extra layer of regional fuel markets
-    could be cumbersome for folks working on initial simple models.
-    Internally, the import process would convert the simple cost
-    specifications to a regional fuel market structure. I'm punting on
-    this for now because it is difficult to determine how to accomplish
-    this cleanly by just adding entries to a DataPortal object, and
-    adding a little logic to support this would force me to change the
-    data loading pattern I've managed to stick to so far.
+    The next file is also optional. This file allows simple
+    specification of one cost per load zone per period. The extra layer
+    of regional fuel markets could be cumbersome for folks working on
+    simple models. Internally, the import process converts the simple
+    cost specifications to a regional fuel market structure. Import of
+    this  file is accomplished through the internal
+    _load_simple_cost_data function.
 
     lz_simple_fuel_cost.tab
         load_zone, fuel, period, fuel_cost
@@ -354,6 +369,11 @@ def load_data(mod, switch_data, inputs_directory):
         select=('fuel', 'co2_intensity', 'upstream_co2_intensity'),
         index=mod.FUELS,
         param=(mod.f_co2_intensity, mod.f_upstream_co2_intensity))
+    # Optional parameters with default values can have values of 'default' in
+    # the input file. Find and delete those entries to prevent type errors.
+    for f in switch_data.data(name='FUELS'):
+        if switch_data.data(name='f_upstream_co2_intensity')[f] == 'default':
+            del switch_data.data(name='f_upstream_co2_intensity')[f]
     switch_data.load(
         filename=os.path.join(inputs_directory, 'regional_fuel_markets.tab'),
         select=('regional_fuel_market', 'fuel'),
@@ -377,12 +397,16 @@ def load_data(mod, switch_data, inputs_directory):
             filename=lz_fuel_cost_adder_path,
             select=('load_zone', 'fuel', 'period', 'fuel_cost_adder'),
             param=(mod.lz_fuel_cost_adder))
-    _load_simple_cost_data(mod, switch_data, inputs_directory)
 
-
-def _load_simple_cost_data(mod, switch_data, inputs_directory):
-    # Try loading in simple fuel costs if the file exists
+    # Load a simple specifications of costs if the file exists. The
+    # actual loading, error checking, and casting into a supply curve is
+    # slightly complicated, so I moved that logic to a separate function.
     simple_cost_path = os.path.join(inputs_directory, 'lz_simple_fuel_cost.tab')
+    if os.path.isfile(simple_cost_path):
+        _load_simple_cost_data(mod, switch_data, simple_cost_path)
+
+
+def _load_simple_cost_data(mod, switch_data, simple_cost_path):
     with open(simple_cost_path, 'rb') as simple_cost_file:
         simple_cost_dat = list(csv.DictReader(simple_cost_file, delimiter='	'))
         # Scan once for error checking

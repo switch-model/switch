@@ -98,17 +98,18 @@ def define_components(mod):
 
     Data validity check:
     Currently, the sum of tp_weight for all timepoints in a scenario
-    must be within 1% of the expected length of the investment period
-    period. Period length is calculated by multiplying the average
-    number of hours in a year rounded to the nearest integer (8766) by
-    the number of years per period. I implemented this rule because
-    these are used as weights for variable costs of dispatch and
+    must be within 1 percent of the expected length of the investment
+    period period. Period length is calculated by multiplying the
+    average number of hours in a year rounded to the nearest integer
+    (8766) by the number of years per period. I implemented this rule
+    because these are used as weights for variable costs of dispatch and
     operations, and I think it is important for those costs to reflect
     those expected costs over an entire period or else the levelized
     costs of power that is being optimized will not make sense.
 
 
     EXAMPLES
+
     These hypothetical examples illustrate differential weighting of
     timepoints and timeseries. Each timepoint adds additional
     computational complexity, and you may wish to reduce the time
@@ -121,8 +122,8 @@ def define_components(mod):
     entire investment period. That weighting ensures an accurate
     depiction of fixed and variable costs. This check is also performed
     when loading a model and will generate an error if the total weight
-    of all timeseries in a dispatch scenario are more than 1% different
-    than the expected number of hours in the target period.
+    of all timeseries in a dispatch scenario are more than 1 percent
+    different than the expected number of hours in the target period.
 
     Example 1: The month of January is described by two timeseries: one
     to represent a median load day (example 1) and one to represent a
@@ -227,10 +228,10 @@ def define_components(mod):
     mod.period_end = Param(mod.INVEST_PERIODS, within=PositiveReals)
     mod.min_data_check('INVEST_PERIODS', 'period_start', 'period_end')
     mod.period_length_years = Param(
-        mod.INVEST_PERIODS, within=PositiveReals,
+        mod.INVEST_PERIODS,
         initialize=lambda mod, p: mod.period_end[p] - mod.period_start[p] + 1)
     mod.period_length_hours = Param(
-        mod.INVEST_PERIODS, within=PositiveReals,
+        mod.INVEST_PERIODS,
         initialize=lambda mod, p: mod.period_length_years[p] * 8766)
 
     mod.DISPATCH_SCENARIOS = Set()
@@ -307,7 +308,7 @@ def define_components(mod):
 
     def validate_time_weights_rule(mod):
         for ds in mod.DISPATCH_SCENARIOS:
-            expected_hours = mod.period_length_hours[mod.disp_scen_period[ds]]
+            p = mod.disp_scen_period[ds]
             # If I use the indexed set DISP_SCEN_TPS for this sum, I get
             # an error "ValueError: Error retrieving component
             # DISP_SCEN_TPS[high_hydro_2020]: The component has not been
@@ -319,13 +320,14 @@ def define_components(mod):
             hours_in_disp_scen = \
                 sum(mod.tp_weight[t] for t in mod.TIMEPOINTS
                     if mod.tp_disp_scen[t] == ds)
-            if(hours_in_disp_scen > 1.01 * expected_hours or
-               hours_in_disp_scen < 0.99 * expected_hours):
+            tol = 0.01
+            if(hours_in_disp_scen > (1 + tol) * mod.period_length_hours[p] or
+               hours_in_disp_scen < (1 - tol) * mod.period_length_hours[p]):
                 print "validate_time_weights_rule failed for dispatch " + \
                       "scenario'{ds:s}'. The number of hours in the period " + \
                       " is {period_h:0.2f}, but the number of hours in the " + \
                       "dispatch scenario is {ds_h:0.2f}.\n"\
-                      .format(ds=ds, period_h=expected_hours,
+                      .format(ds=ds, period_h=mod.period_length_hours[p],
                               ds_h=hours_in_disp_scen)
                 return 0
         return 1

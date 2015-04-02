@@ -70,3 +70,24 @@ This formulation actually generates a reasonable error message if there is a bal
     RuntimeError: Failed to set value for param=quickstart_res_load_frac, index=South_typo, value=0.04.
     	source error message="Error setting parameter value: Index 'South_typo' is not valid for array Param 'quickstart_res_load_frac'"
 
+3/18/2015
+The implementation of the fuels module went slower than I liked. I did manage to merge all of the custom hacks into a single uniform implementation that relied on regional fuel markets with supply curves with optional load-zone level flat cost adjustments. To support NG price elasticity, biogas limits and biomass supply curves we need some code for supply curves and regional price adjustments, and the code complexity doesn't increase if that code supports that functionality for all fuels. Still, this module ended up a bit messier than others.
+
+I wanted to support an optional input file that specified simple costs for fuels per load zone and period without upper limits on consumption, and I learned how to manipulate Pyomo's DataPortal() object to accomplish this. Basically, it stores everything it reads in in a nested dictionary. Accessing one of the data components (sets or parameters at least) for reads or writes is just a matter of using the data() function. A read example from the switch_data object: switch_data.data(name='FUELS'). In theory, I could also access it with switch_data.data()['FUELS'], but this returns a dictionary of FUELS indexed by namespaces, with a default namespace of 'None':
+>>> switch_data.data()['FUELS']
+{None: ['Coal', 'ResidualFuelOil', 'DistillateFuelOil', 'NaturalGas', 'Uranium', 'BioSolid']}
+This namespace indexing is not consistent between sets and parameters, as you can see with the example from the parameter f_co2_intensity:
+>>> switch_data.data()['f_co2_intensity']
+{'ResidualFuelOil': 0.0788, 'Uranium': 0, 'DistillateFuelOil': 0.07315, 'Coal': 0.09552, 'NaturalGas': 0.05306, 'BioSolid': 0.09435}
+I can get uniform behavior of avoiding namespace indexing if I use switch_data.data(name='FUELS') and switch_data.data(name='f_co2_intensity'), so that is my preferred usage:
+>>> switch_data.data(name='FUELS')
+['Coal', 'ResidualFuelOil', 'DistillateFuelOil', 'NaturalGas', 'Uranium', 'BioSolid']
+>>> switch_data.data(name='f_co2_intensity')
+{'ResidualFuelOil': 0.0788, 'Uranium': 0, 'DistillateFuelOil': 0.07315, 'Coal': 0.09552, 'NaturalGas': 0.05306, 'BioSolid': 0.09435}
+You can directly manipulate this objects, adding new elements or overwriting components, and that data will be used when a model instance is instantiated. 
+>>> switch_data.data(name='FUELS').append('SolidWaste')
+>>> switch_data.data(name='f_co2_intensity')['SolidWaste'] = 0.095
+>>> switch_data.data(name='FUELS')
+['Coal', 'ResidualFuelOil', 'DistillateFuelOil', 'NaturalGas', 'Uranium', 'BioSolid', 'SolidWaste']
+>>> switch_data.data(name='f_co2_intensity')
+{'ResidualFuelOil': 0.0788, 'Uranium': 0, 'DistillateFuelOil': 0.07315, 'Coal': 0.09552, 'SolidWaste': 0.095, 'NaturalGas': 0.05306, 'BioSolid': 0.09435}
