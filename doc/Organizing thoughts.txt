@@ -18,6 +18,8 @@ Load Zones
     lz_total_demand_in_period_mwh[z,p]
     BALANCING_AREAS
     lz_balancing_area[z]
+    VAR: consume power, consume distrib power
+    CONS: Satisfy load
 Fuels
     ENERGY_SOURCES (FUELS is a subset)
     NON_FUEL_ENERGY_SOURCES
@@ -25,42 +27,48 @@ Fuels
     upstream CO2 intensity tCO2/MMBTU
     regional fuel markets
         tiered supply curve (period, cost, max avail annual at cost)
-Generators
+Generation technologies
     gen_info ...
     default costs (default, and allow projects to override?)
     enable multi-energy source
     ccs & storage attributes are only specified for generators of those types
     generation category: dispatchable, baseload, variable, etc
+Project capacity
+    location
+    build limits
+    build years
+        auto-generate from tech's allowed build years
+    emissions rate is derived from heat rate & carbon intensity of fuel
+        Later (as needed), write support for multi-fuel combustion generators
+    end_year
+    prj_capital_cost_hourly[proj, build_year]
+    prj_fixed_om_hourly[proj, build_year]
+    VARS: install, retire, ?
+    CONS: max_build
 
 In Progress
 --------------
 
+Project dispatch
+    DISPATCH_HOURS
+    capacity factors
+    carbon_cost_per_mwh[proj, build_year]
+    dispatch rules & capabilities. defined generically for categories like variable, dispatchable, baseload, storage, etc. generators that are more complex (like hydro, pumped hydro or CAES) can define additional rules in separate modules. 
 
 To do
 --------------
 
-Project capacity
-    location
-    build limits
-    min_build_year?
-    vintage stuff?
-    project-specific financial calculations
-    auto-generate vintages from tech's min_build_year, etc?
-    emissions rate is derived from heat rate & carbon intensity of fuel
-Project dispatch
-    capacity factors
-    dispatch rules & capabilities. defined generically for categories like variable, dispatchable, baseload, storage, etc. generators that are more complex (like hydro, pumped hydro or CAES) can define additional rules in separate modules. 
-Units...
-    Incorporate Matthias's unit-level specifications
-Transmission
-energy balancing
-    bus-level
-    Storage balancing
-        circular time series vs cut off ends
-Reliability...
-    planning_reserve_margin
-    quickstart, spinning reserve margins
+Basic Reliability...
     satisfy load
+    planning_reserve_margin
+Transmission
+    lines between areas
+    t & d params
+    Var: install Tx, install T&D, dispatch Tx
+    bus-level energy balancing
+        ... register a set of vars & coefs that must sum to 1
+Reserves
+    quickstart, spinning reserve margins
     satisfy various reserve margins
 Policies
     POLICY_REGIONS 
@@ -69,13 +77,32 @@ Policies
     rps_technologies[z] = set(in Tech)
     RPS targets (overall & carve-outs)
     carbon caps
-    tech build restrictions (could also implement with proposed project restrictions..)
+    # implement tech build restrictions with proposed project restrictions..
 
-Generators: delayed implementation
-    storage installation parameters
+Postpost implementation...
+
+Storage (gen & proj details)
+    gen/proj storage installation parameters
+    financial params
+        cost_of_storage_energy_capacity_one_year_before_operational
+        storage_energy_capacity_annual_payment
+        storage_energy_capacity_capital_cost
+    VARS: install storage bits
+    CONS: energy balancing, etc
+        circular time series vs cut off ends
+CCS
+    ccs_pipeline_cost_per_tonne_per_hour (could rename/rethink)
+Generators
     default heat rate (possibly put in thermal_generation.tab)
     construction schedule
     unit commitment & partial loading params (should go in separate module)
+Projects
+    integration with gen heat rate
+    replacing earlier projects
+    location competition
+    hourly fixed costs
+Units...
+    Incorporate Matthias's unit-level specifications
 
 Low priority
 ------------------
