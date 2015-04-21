@@ -8,8 +8,8 @@ NG_CC	1	20	0	0.04	0.06	0	0	0	0	1	0	0
 NG_CC_CCS	34	20	0	0.04	0.06	0	0	0	0	1	0	0
 NG_GT	2	20	0	0.04	0.06	0	0	0	0	1	0	0
 Nuclear	13	40	1000	0.04	0.06	0	0	1	0	0	0	0
-Biomass_IGCC	10	40	0	0.09	0.076	1	0	1	0	0	0	0
-Biomass_IGCC_CCS	37	40	0	0.09	0.076	1	0	1	0	0	0	0
+Biomass_IGCC	10	40	0	0.09	0.076	0	0	1	0	0	0	0
+Biomass_IGCC_CCS	37	40	0	0.09	0.076	0	0	1	0	0	0	0
 Residential_PV	6	20	0	0	0.02	1	1	0	0	0	0	1
 Commercial_PV	25	20	0	0	0.02	1	1	0	0	0	0	1
 Central_PV	26	20	0	0	0.02	1	1	0	0	0	0	1

@@ -111,3 +111,15 @@ http://www.energy.ca.gov/2013publications/CEC-300-2013-005/CEC-300-2013-005-ED7-
 This say that storage projects can only count as renewable energy if they are directly connected to a renewable facility and generally owned by the same entity. Any energy that comes out of stand-alone storage projects is not eligible for RECs, even if some renewable energy was stored in it. So, if you are going to store renewable energy in a generic grid storage device, then you should unbundle the REC component before storage to maintain full economic value.
 
 I guess the other reason to track released energy is to ensure energy balancing in the storage vessel. We could tie this released energy to the dispatch variable to reflect that it is consumed by the generator to produce electricity, but it could be difficult to parse out how much of the dispatch is coming from storage vs the other energy source, at least for pumped hydro.
+
+4/13
+
+cogen_thermal_demand[prj] was a parameter in SWITCH-WECC used in
+assessing the amount of biosolid and biogas fuels consumed by
+cogeneration projects. This was fine for the purposes of placing an
+upper limit on available fuel, but buggy in assigning the costs of
+that fuel to the electricity sector. The units were MMBTU/MWh.  In
+all scenarios I am familiar with, Biofuel cogeneration projects
+supply a miniscule amount of energy to the grid and are not a
+significant part of the results, so I am dropping this parameter for
+now.

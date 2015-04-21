@@ -34,7 +34,8 @@ def define_components(mod):
 
     Augments a Pyomo abstract model object with sets and parameters to
     describe energy sources and fuels. Unless otherwise stated, each set
-    and parameter is mandatory.
+    and parameter is mandatory. Unless otherwise specified, all dollar
+    values are real dollars in BASE_YEAR.
 
     ENERGY_SOURCES is the set of primary energy sources used to generate
     electricity. Some of these are fuels like coal, uranium or biomass,
@@ -143,22 +144,43 @@ def define_components(mod):
 
     RFM_P_SUPPLY_TIERS[rfm, period] is an indexed set of supply tiers
     for a given regional fuel market and period. Supply tiers are an
-    ordered set typically labeled 1-n. Each tier of a supply curve have
-    a cost and limit.
+    ordered set typically labeled 1 to n. Each tier of a supply curve
+    have a cost and limit.
 
     rfm_supply_tier_cost[rfm, period, tier] is the cost of a fuel in a
     particular tier of a supply curve of a particular regional fuel
-    market and investment period. The units are $BASE_YEAR / MMBTU.
+    market and investment period. The units are $ / MMBTU.
 
     rfm_supply_tier_limit[rfm, period, tier] is the annual limit of a
     fuel available at a particular cost in a supply curve of a
     particular regional fuel market and period. The default value of
     this parameter is infinity, indicating no limit. The units are MMBTU.
 
+    FuelConsumptionByTier[rfm, period, tier] is a decision variable that
+    denotes the amount of fuel consumed in each tier of a supply curve
+    in a particular regional fuel market and period. It has an upper bound
+    of rfm_supply_tier_limit.
+
+    FuelConsumptionInMarket[rfm, period] is a derived decision variable
+    specifying the total amount of fuel consumed in a regional fuel
+    market in a given period. In a dispatch module, a constraint should
+    set this equal to the sum of all fuel consumed in that region. At
+    some point in the future, I may convert this from a decision
+    variable to an expression.
+
+    Enforce_Fuel_Consumption_By_Tier[rfm, period] is a constraint that
+    forces the total fuel consumption FuelConsumptionInMarket to be
+    divided into distinct supply tiers.
+        FuelConsumptionInMarket = sum(FuelConsumptionByTier)
+
     lz_fuel_cost_adder[z, f, p] is an optional parameter that describes
     a localized flat cost adder for fuels. This could reflect local
     markup from a longer supply chain or more costly distribution
-    infrastructure. The units are $BASE_YEAR / MMBTU.
+    infrastructure. The units are $ / MMBTU and the default value is 0.
+
+    The total cost of of a given type of fuel is calculated as:
+        sum(FuelConsumptionByTier * rfm_supply_tier_cost) +
+        sum(fuel_consumption_in_load_zone * lz_fuel_cost_adder)
 
     Each regional fuel market has a supply curve with discrete tiers
     of escalating costs. Tiered supply curves are flexible format that
@@ -301,6 +323,21 @@ def define_components(mod):
         initialize=lambda m, rfm, ip: set(
             (r, p, st) for (r, p, st) in m.RFM_SUPPLY_TIERS
             if r == rfm and p == ip))
+
+    mod.FuelConsumptionByTier = Var(
+        mod.RFM_SUPPLY_TIERS,
+        domain=NonNegativeReals,
+        bounds=lambda m, r, p, st: (
+            0, m.rfm_supply_tier_limit[r, p, st]))
+    mod.FuelConsumptionInMarket = Var(
+        mod.REGIONAL_FUEL_MARKET, mod.INVEST_PERIODS,
+        domain=NonNegativeReals)
+    mod.Enforce_Fuel_Consumption_By_Tier = Constraint(
+        mod.REGIONAL_FUEL_MARKET, mod.INVEST_PERIODS,
+        rule=lambda m, rfm, p: (
+            m.FuelConsumptionInMarket[rfm, p] == sum(
+                m.FuelConsumptionByTier[rfm_supply_tier]
+                for rfm_supply_tier in m.RFM_P_SUPPLY_TIERS[rfm, p])))
 
     # Ensure that adjusted fuel costs of unbounded supply tiers are not
     # negative because that would create an unbounded optimization

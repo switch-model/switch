@@ -1,26 +1,27 @@
 """
-Defines model components to describe generators for the SWITCH-Pyomo model.
+Defines model components to describe generation technologies for the
+SWITCH-Pyomo model.
 
 SYNOPSIS
 >>> from coopr.pyomo import *
 >>> import timescales
 >>> import load_zones
 >>> import fuels
->>> import generators
+>>> import gen_tech
 >>> switch_model = AbstractModel()
 >>> timescales.define_components(switch_model)
 >>> load_zones.define_components(switch_model)
 >>> fuels.define_components(switch_model)
->>> generators.define_components(switch_model)
+>>> gen_tech.define_components(switch_model)
 >>> switch_data = DataPortal(model=switch_model)
 >>> inputs_dir = 'test_dat'
 >>> timescales.load_data(switch_model, switch_data, inputs_dir)
 >>> load_zones.load_data(switch_model, switch_data, inputs_dir)
 >>> fuels.load_data(switch_model, switch_data, inputs_dir)
->>> generators.load_data(switch_model, switch_data, inputs_dir)
+>>> gen_tech.load_data(switch_model, switch_data, inputs_dir)
 >>> switch_instance = switch_model.create(switch_data)
 
-Note, this can be tested with `python -m doctest -v generators.py`
+Note, this can be tested with `python -m doctest -v gen_tech.py`
 
 Switch-pyomo is licensed under GPL v3. Project info at switch-model.org
 """
@@ -70,6 +71,10 @@ def define_components(mod):
     oils after they are warmed up. Some coal plants are cofired with
     biomass... To support all of these situations, any generator may
     have multiple energy sources.
+
+    g_uses_fuel[g] is a derived binary parameter that is True if a
+    generator uses a fuel to produce electricity. Generators with this
+    flag set are expected to have a heat rate.
 
     g_max_age[g] is how many years a plant can remain operational once
     construction is complete.
@@ -174,8 +179,8 @@ def define_components(mod):
     a storage project has 1 MW of dischage capacity and a max_store_rate
     of 1.2, then it can consume up to 1.2 MW of power while charging.
 
-    CCS_TECHNOLOGIES is the set of generation technologies that
-    implement Carbon Capture and Sequestration (CCS). The model assumes
+    CCS_TECHNOLOGIES is a subset of generation technologies that
+    use Carbon Capture and Sequestration (CCS). The model assumes
     that all CCS technologies combust fuels such as coal, natural gas or
     biomass. The following two parameters are only defined for CCS
     technologies.
@@ -187,13 +192,14 @@ def define_components(mod):
     operate the CCS equipment. If a generator with a nameplate capacity
     of 1 MW consumes 0.3 MW to operate CCS equipment, this factor would
     be 0.3. In past versions of SWITCH, this energy load was modeled as
-    a degraded heat rate for the plant. We felt this new formulation
-    allowed for more explicit accounting of CCS operations and
-    simplified analysis of new proposed CCS technologies.
+    a distinct heat rate for the plant that was higher than a non-CCS
+    version of the plant. I felt this new formulation allowed for more
+    explicit accounting of CCS operations and simplified analysis of new
+    proposed CCS technologies.
 
     --- COST COMPONENTS ---
 
-    NEW_GENERATION_VINTAGES is a two-dimensional set of generation and
+    NEW_GENERATION_BUILDYEARS is a two-dimensional set of generation and
     investment periods [g, p] that describe when new generators can be
     built. This set effectively replaces the min_online_year and
     construction_time_years from the ampl versions of SWITCH. The
@@ -311,6 +317,10 @@ def define_components(mod):
 
     mod.G_ENERGY_SOURCES = Set(
         mod.GENERATION_TECHNOLOGIES, within=mod.ENERGY_SOURCES)
+    mod.g_uses_fuel = Param(
+        mod.GENERATION_TECHNOLOGIES,
+        initialize=lambda m, g: len(
+            set(m.G_ENERGY_SOURCES[g]) & set(m.FUELS)) > 0)
 
     mod.STORAGE_TECHNOLOGIES = Set(within=mod.GENERATION_TECHNOLOGIES)
     mod.g_storage_efficiency = Param(
@@ -326,7 +336,7 @@ def define_components(mod):
 
     # New generation vintages need to be within the cross product of
     # geeration technologies and investment periods.
-    mod.NEW_GENERATION_VINTAGES = Set(
+    mod.NEW_GENERATION_BUILDYEARS = Set(
         dimen=2,
         within=mod.GENERATION_TECHNOLOGIES * mod.INVEST_PERIODS)
     mod.g_overnight_cost = Param(
@@ -404,7 +414,7 @@ def load_data(mod, switch_data, inputs_directory):
         filename=os.path.join(inputs_directory, 'gen_vintage_costs.tab'),
         select=('generation_technology', 'investment_period',
                 'g_overnight_cost', 'g_fixed_o_m', 'g_variable_o_m'),
-        index=mod.NEW_GENERATION_VINTAGES,
+        index=mod.NEW_GENERATION_BUILDYEARS,
         param=(mod.g_overnight_cost, mod.g_fixed_o_m, mod.g_variable_o_m))
     # CCS info is optional because there may not be any CCS technologies
     ccs_info_path = os.path.join(
@@ -418,8 +428,7 @@ def load_data(mod, switch_data, inputs_directory):
             index=mod.CCS_TECHNOLOGIES,
             param=(mod.g_ccs_capture_efficiency, mod.g_ccs_energy_load))
     # Storage info is optional because there may be no storage technologies.
-    storage_info_path = os.path.join(
-        inputs_directory, 'storage_info.tab')
+    storage_info_path = os.path.join(inputs_directory, 'storage_info.tab')
     if os.path.isfile(storage_info_path):
         switch_data.load(
             filename=storage_info_path,
