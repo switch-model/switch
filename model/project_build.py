@@ -151,6 +151,10 @@ def define_components(mod):
 
         sum(InstallProj) <= proj_capacity_limit_mw
 
+    InstalledCapacity[proj, period] is an expression that returns the total
+    capacity online in a given period. This is the sum of installed capacity
+    minus all retirements.
+
     --- COSTS ---
 
     proj_connect_cost_per_mw[prj] is the cost of grid upgrades to support a
@@ -174,10 +178,6 @@ def define_components(mod):
     proj_fixed_om[proj, build_year] is the fixed Operations and
     Maintenance costs (O&M) per MW of capacity for given project that
     was installed in the given period.
-
-    proj_variable_om[proj, build_year] is the variable Operations and
-    Maintenance costs (O&M) per MWh of dispatched capacity for given
-    project installed in the given period.
 
     -- Derived cost parameters --
 
@@ -389,11 +389,18 @@ def define_components(mod):
         # rule=foo)
         rule=lambda m, proj, bld_yr: (
             m.InstallProj[proj, bld_yr] == m.proj_existing_cap[proj, bld_yr]))
+
+    # To Do: Subtract retirements after I write support for that.
+    mod.InstalledCapacity = Expression(
+        mod.PROJECTS, mod.INVEST_PERIODS,
+        initialize=lambda m, proj, period: sum(
+            m.InstallProj[proj, bld_yr]
+            for bld_yr in m.PROJECT_PERIOD_ONLINE_BUILD_YRS[proj, period]))
+
     mod.Max_Build_Potential = Constraint(
         mod.PROJECTS_CAP_LIMITED, mod.INVEST_PERIODS,
-        rule=lambda m, proj, p: m.proj_capacity_limit_mw[proj] >= sum(
-            m.InstallProj[proj, bld_yr]
-            for bld_yr in m.PROJECT_PERIOD_ONLINE_BUILD_YRS[proj, p]))
+        rule=lambda m, proj, p: (
+            m.proj_capacity_limit_mw[proj] >= m.InstalledCapacity[proj, p]))
 
     # Costs
     mod.proj_connect_cost_per_mw = Param(mod.PROJECTS, within=NonNegativeReals)
@@ -409,12 +416,6 @@ def define_components(mod):
         within=NonNegativeReals,
         default=lambda m, proj, bld_yr: (
             m.g_fixed_o_m[m.proj_gen_tech[proj], bld_yr] *
-            m.lz_cost_multipliers[m.proj_load_zone[proj]]))
-    mod.proj_variable_om = Param(
-        mod.PROJECT_BUILDYEARS,
-        within=NonNegativeReals,
-        default=lambda m, proj, bld_yr: (
-            m.g_variable_o_m[m.proj_gen_tech[proj], bld_yr] *
             m.lz_cost_multipliers[m.proj_load_zone[proj]]))
     # Derived hourly costs
     mod.proj_capital_cost_hourly = Param(
@@ -457,8 +458,7 @@ def load_data(mod, switch_data, inputs_dir):
     specified in this file.
 
     project_specific_costs.tab
-        PROJECT, build_year, proj_overnight_cost, proj_fixed_om,
-        proj_variable_om
+        PROJECT, build_year, proj_overnight_cost, proj_fixed_om
 
     """
     switch_data.load(
@@ -488,7 +488,5 @@ def load_data(mod, switch_data, inputs_dir):
         switch_data.load(
             filename=project_specific_costs_path,
             select=('PROJECT', 'build_year',
-                    'proj_overnight_cost', 'proj_fixed_om',
-                    'proj_variable_om'),
-            param=(mod.proj_overnight_cost, mod.proj_fixed_om,
-                   mod.proj_variable_om))
+                    'proj_overnight_cost', 'proj_fixed_om'),
+            param=(mod.proj_overnight_cost, mod.proj_fixed_om))

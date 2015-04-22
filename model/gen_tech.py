@@ -218,9 +218,9 @@ def define_components(mod):
     per MW of installed capacity for given generation technology that
     was installed in the given period.
 
-    g_variable_o_m[g, p] is the variable Operations and Maintenance costs
-    (O&M) per MWh of dispatched capacity for given generation technology
-    in the given period.
+    g_variable_o_m[g] is the variable Operations and Maintenance costs
+    (O&M) per MWh of dispatched capacity for given generation technology.
+    This is assumed to remain constant over time.
 
     --- DELAYED IMPLEMENATION ---
 
@@ -346,7 +346,7 @@ def define_components(mod):
         mod.GENERATION_TECHNOLOGIES, mod.INVEST_PERIODS,
         within=NonNegativeReals)
     mod.g_variable_o_m = Param(
-        mod.GENERATION_TECHNOLOGIES, mod.INVEST_PERIODS,
+        mod.GENERATION_TECHNOLOGIES,
         within=NonNegativeReals)
 
     mod.min_data_check(
@@ -374,11 +374,11 @@ def load_data(mod, switch_data, inputs_directory):
         g_scheduled_outage_rate, g_forced_outage_rate,
         g_is_resource_limited, g_is_variable, g_is_baseload,
         g_is_flexible_baseload, g_is_dispatchable, g_is_cogen,
-        g_competes_for_space
+        g_competes_for_space, g_variable_o_m
 
     gen_vintage_costs.tab
         generation_technology, investment_period,
-        g_overnight_cost, g_fixed_o_m, g_variable_o_m
+        g_overnight_cost, g_fixed_o_m
 
     ccs_info.tab
         generation_technology, g_ccs_capture_efficiency, g_ccs_energy_load
@@ -401,7 +401,7 @@ def load_data(mod, switch_data, inputs_directory):
                 'g_forced_outage_rate', 'g_is_resource_limited',
                 'g_is_variable', 'g_is_baseload',
                 'g_is_flexible_baseload', 'g_is_dispatchable',
-                'g_is_cogen', 'g_competes_for_space'),
+                'g_is_cogen', 'g_competes_for_space', 'g_variable_o_m'),
         index=mod.GENERATION_TECHNOLOGIES,
         param=(
             mod.g_dbid, mod.g_max_age,
@@ -409,13 +409,13 @@ def load_data(mod, switch_data, inputs_directory):
             mod.g_forced_outage_rate, mod.g_is_resource_limited,
             mod.g_is_variable, mod.g_is_baseload,
             mod.g_is_flexible_baseload, mod.g_is_dispatchable,
-            mod.g_is_cogen, mod.g_competes_for_space))
+            mod.g_is_cogen, mod.g_competes_for_space, mod.g_variable_o_m))
     switch_data.load(
         filename=os.path.join(inputs_directory, 'gen_vintage_costs.tab'),
         select=('generation_technology', 'investment_period',
-                'g_overnight_cost', 'g_fixed_o_m', 'g_variable_o_m'),
+                'g_overnight_cost', 'g_fixed_o_m'),
         index=mod.NEW_GENERATION_BUILDYEARS,
-        param=(mod.g_overnight_cost, mod.g_fixed_o_m, mod.g_variable_o_m))
+        param=(mod.g_overnight_cost, mod.g_fixed_o_m))
     # CCS info is optional because there may not be any CCS technologies
     ccs_info_path = os.path.join(
         inputs_directory, 'ccs_info.tab')

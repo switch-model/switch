@@ -11,6 +11,7 @@ SYNOPSIS
 >>> import fuels
 >>> import gen_tech
 >>> import project_build
+>>> import project_dispatch
 >>> switch_model = AbstractModel()
 >>> timescales.define_components(switch_model)
 >>> financials.define_components(switch_model)
@@ -30,7 +31,7 @@ SYNOPSIS
 >>> project_dispatch.load_data(switch_model, switch_data, inputs_dir)
 >>> switch_instance = switch_model.create(switch_data)
 
-Note, this can be tested with `python -m doctest -v project_build.py`
+Note, this can be tested with `python -m doctest -v project_dispatch.py`
 
 Switch-pyomo is licensed under GPL v3. Project info at switch-model.org
 """
@@ -53,15 +54,9 @@ def define_components(mod):
     that occur after a project build has reached the end of its life. A
     dispatch decisions is made for each member of this set: project,
     build_year and timepoint. Members of this set can be abbreviated as
-    (proj, build_yr, t) or (prj, b, t) in cases where brevity is more
-    important than clarity. In other versions of SWITCH, dispatch
-    decisions were aggregated for all build years (or vintages) of each
-    project. That formulation reduced the number of decision variables
-    but required a the variable O&M to be constant across build years,
-    and did not permit projects' heat rates, capacity factors, or outage
-    rates to get worse as a project aged.
+    (proj, t) or (prj, t).
 
-    DispatchProj[(proj, build_yr, t) in DISPATCH_TIMEPOINTS] is the set
+    DispatchProj[(proj, t) in DISPATCH_TIMEPOINTS] is the set
     of generation dispatch decisions: how much average power in MW to
     produce in each timepoint. This value can be multiplied by the
     duration of the timepoint in hours to determine the energy produced
@@ -80,7 +75,7 @@ def define_components(mod):
     FLEXIBLE_DISPATCH_TIMEPOINTS is a subset of DISPATCH_TIMEPOINTS that
     is not baseload or variable generators.
 
-    Dispatch_Capacity_Limit[(proj, build_yr, t) in FLEXIBLE_DISPATCH_TIMEPOINTS]
+    Dispatch_Capacity_Limit[(proj, t) in FLEXIBLE_DISPATCH_TIMEPOINTS]
     constraints DispatchProj to stay under the installed capacity after
     derating for maintenance. This constraint does not apply to baseload
     or variable renewable projects because they have different and more
@@ -91,7 +86,7 @@ def define_components(mod):
     BASELOAD_DISPATCH_TIMEPOINTS is a subset of DISPATCH_TIMEPOINTS
     that is limited to baseload generators.
 
-    Dispatch_as_Baseload[(proj, build_yr, t) in BASELOAD_DISPATCH_TIMEPOINTS]
+    Dispatch_as_Baseload[(proj, t) in BASELOAD_DISPATCH_TIMEPOINTS]
     constraints DispatchProj for baseload plants to stay equal to the
     installed capacity after derating for maintenance.
 
@@ -113,24 +108,24 @@ def define_components(mod):
     freezing. Those heating loads can be significant during certain
     timepoints.
 
-    Variable_Gen_Limit[(prj, build_yr, t) in VAR_DISPATCH_TIMEPOINTS] is
+    Variable_Gen_Limit[(prj, t) in VAR_DISPATCH_TIMEPOINTS] is
     a set of constraints that enforces the maximum power available from
     a variable generator in a given timepoint.
 
         DispatchProj <= prj_capacity_factor * InstallProj * proj_availability
 
-    THERMAL_DISPATCH_TIMEPOINTS is a subset of DISPATCH_TIMEPOINTS
-    that is limited to thermal generators that could produce emissions.
-
-    EmissionsInTimepoint[(proj, build_yr, t) in THERMAL_DISPATCH_TIMEPOINTS]
-    is an expression that defines the emissions in each timepoint from
-    dispatching a thermal generator.
-        = DispatchProj * proj_emission_rate
-
     proj_variable_om[proj] is the variable Operations and Maintenance
     costs (O&M) per MWh of dispatched capacity for a given project.
 
     --- Delayed implementation ---
+
+    THERMAL_DISPATCH_TIMEPOINTS is a subset of DISPATCH_TIMEPOINTS
+    that is limited to thermal generators that could produce emissions.
+
+    EmissionsInTimepoint[(proj, t) in THERMAL_DISPATCH_TIMEPOINTS]
+    is an expression that defines the emissions in each timepoint from
+    dispatching a thermal generator.
+        = DispatchProj * proj_emission_rate
 
     Flexible baseload support for plants that can ramp slowly over the
     course of days. These kinds of generators can provide important
@@ -146,16 +141,19 @@ def define_components(mod):
     # This will add a min_data_check() method to the model
     utilities.add_min_data_check(mod)
 
+    # I might be able to simplify this, but the current formulation
+    # should exclude any timepoints in periods in which a project will
+    # definitely be retired.
     def init_dispatch_timepoints(m):
         dispatch_timepoints = set()
         for (proj, bld_yr) in m.PROJECT_BUILDYEARS:
             for period in m.PROJECT_BUILDS_OPERATIONAL_PERIODS[proj, bld_yr]:
                 for t in m.TIMEPOINTS:
                     if(m.tp_period[t] == period):
-                        dispatch_timepoints.add((proj, bld_yr, t))
+                        dispatch_timepoints.add((proj, t))
         return dispatch_timepoints
     mod.DISPATCH_TIMEPOINTS = Set(
-        dimen=3,
+        dimen=2,
         initialize=init_dispatch_timepoints)
 
     mod.DispatchProj = Var(
@@ -176,41 +174,47 @@ def define_components(mod):
         initialize=init_proj_availability)
 
     mod.BASELOAD_DISPATCH_TIMEPOINTS = Set(
-        initialize=DISPATCH_TIMEPOINTS,
-        filter=lambda m, proj, bld_yr, t: (
+        dimen=2,
+        initialize=mod.DISPATCH_TIMEPOINTS,
+        filter=lambda m, proj, t: (
             m.g_is_baseload[m.proj_gen_tech[proj]]))
     mod.VAR_DISPATCH_TIMEPOINTS = Set(
-        initialize=DISPATCH_TIMEPOINTS,
-        filter=lambda m, proj, bld_yr, t: (
+        dimen=2,
+        initialize=mod.DISPATCH_TIMEPOINTS,
+        filter=lambda m, proj, t: (
             m.g_is_variable[m.proj_gen_tech[proj]]))
     mod.FLEXIBLE_DISPATCH_TIMEPOINTS = Set(
+        dimen=2,
         initialize=lambda m: set(
             m.DISPATCH_TIMEPOINTS - m.BASELOAD_DISPATCH_TIMEPOINTS -
             m.VAR_DISPATCH_TIMEPOINTS))
     mod.Dispatch_Capacity_Limit = Constraint(
         mod.FLEXIBLE_DISPATCH_TIMEPOINTS,
-        rule=lambda m, proj, bld_yr, t: (
-            m.DispatchProj[proj, bld_yr, t] <=
-            m.InstallProj[proj, bld_yr] * m.proj_availability[proj]))
+        rule=lambda m, proj, t: (
+            m.DispatchProj[proj, t] <=
+            m.InstalledCapacity[proj, m.tp_period[t]] *
+            m.proj_availability[proj]))
     mod.Dispatch_as_Baseload = Constraint(
         mod.BASELOAD_DISPATCH_TIMEPOINTS,
-        rule=lambda m, proj, bld_yr, t: (
-            m.DispatchProj[proj, bld_yr, t] ==
-            m.InstallProj[proj, bld_yr] * m.proj_availability[proj]))
+        rule=lambda m, proj, t: (
+            m.DispatchProj[proj, t] ==
+            m.InstalledCapacity[proj, m.tp_period[t]] *
+            m.proj_availability[proj]))
     mod.prj_capacity_factor = Param(
         mod.VAR_DISPATCH_TIMEPOINTS,
         within=Reals,
-        validata=lambda m, val: -1 < val < 2)
+        # default=0.5,
+        validate=lambda m, val, proj, t: -1 < val < 2)
     mod.min_data_check('prj_capacity_factor')
     mod.Variable_Gen_Limit = Constraint(
         mod.VAR_DISPATCH_TIMEPOINTS,
-        rule=lambda m, proj, bld_yr, t: (
-            m.DispatchProj[proj, bld_yr, t] <=
-            m.InstallProj[proj, bld_yr] * m.proj_availability[proj] *
-            m.prj_capacity_factor[proj, t]))
+        rule=lambda m, proj, t: (
+            m.DispatchProj[proj, t] <=
+            m.InstalledCapacity[proj, m.tp_period[t]] *
+            m.proj_availability[proj] * m.prj_capacity_factor[proj, t]))
 
     mod.proj_variable_om = Param(
-        mod.PROJECT_BUILDYEARS,
+        mod.PROJECTS,
         within=NonNegativeReals,
         default=lambda m, proj, bld_yr: (
             m.g_variable_o_m[m.proj_gen_tech[proj], bld_yr] *
