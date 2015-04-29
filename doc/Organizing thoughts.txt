@@ -45,28 +45,36 @@ Project capacity
     prj_fixed_om_hourly[proj, build_year]
     VARS: install, retire, ?
     CONS: max_build
-
-In Progress
---------------
-
 Project dispatch
     DISPATCH_HOURS
     capacity factors
-    carbon_cost_per_mwh[proj, build_year]
-    dispatch rules & capabilities. defined generically for categories like variable, dispatchable, baseload, storage, etc. generators that are more complex (like hydro, pumped hydro or CAES) can define additional rules in separate modules. 
+    dispatch limits
+
+In Progress
+--------------
+Transmission Build
+    lines between areas
+    t & d params
+    Var: BuildTrans, install T&D, dispatch Tx
+
 
 To do
 --------------
 
-Basic Reliability...
-    satisfy load
-    planning_reserve_margin
-Transmission
-    lines between areas
-    t & d params
-    Var: install Tx, install T&D, dispatch Tx
+Transmission Dispatch
+    TRANSMISSION_LINE_HOURS
+    DispatchTrans
+    DispatchTrans limit
+
+ConservationOfEnergy
     bus-level energy balancing
         ... register a set of vars & coefs that must sum to 1
+
+Basic Reliability...
+    satisfy load
+
+Postpost implementation...
+
 Reserves
     quickstart, spinning reserve margins
     satisfy various reserve margins
@@ -74,13 +82,21 @@ Policies
     POLICY_REGIONS 
         ..geographical_region ? (could mean either state or province, but is less familiar and more vague. SubnationalDivision could work, but may not be as flexible for international interconnections. Jurisdiction and PolicyRegion are also options.)
     lz_policy_region[z] default None
-    rps_technologies[z] = set(in Tech)
-    RPS targets (overall & carve-outs)
     carbon caps
     # implement tech build restrictions with proposed project restrictions..
+RPS Policy
+    rps_technologies[z] = set(in Tech)
+    RPS targets (overall & carve-outs)
+    TRANSMISSION_LINES_ENERGY_CATEGORIES
+    TransDispatchByEnergySource
+    transmission_line_is_between_rps_areas
 
-Postpost implementation...
 
+
+Basic Reliability
+    planning_reserve_margin
+
+Emmissions from Dispatch
 Storage (gen & proj details)
     gen/proj storage installation parameters
     financial params
@@ -96,9 +112,11 @@ Generators
     default heat rate (possibly put in thermal_generation.tab)
     construction schedule
     unit commitment & partial loading params (should go in separate module)
+Specialty dispatch
+    CAES, Pumped Hydro, Flexible baseload
 Projects
     integration with gen heat rate
-    replacing earlier projects
+    replacing earlier projects (partially implemented)
     location competition
     hourly fixed costs
 Units...

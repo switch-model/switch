@@ -45,11 +45,6 @@ def capital_recovery_factor(ir, t):
     return ir/(1-(1+ir)**-t)
 
 
-def crf(ir, t):
-    """ An alias for capital_recovery_factor(ir, t) """
-    return capital_recovery_factor(ir, t)
-
-
 def uniform_series_to_present_value(dr, t):
     """
     Returns a coefficient to convert a uniform series of payments over t

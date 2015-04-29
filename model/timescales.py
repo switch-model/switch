@@ -13,6 +13,7 @@ import os
 from coopr.pyomo import *
 import utilities
 
+hours_per_year = 8766
 
 def define_components(mod):
     """
@@ -234,7 +235,7 @@ def define_components(mod):
         initialize=lambda mod, p: mod.period_end[p] - mod.period_start[p] + 1)
     mod.period_length_hours = Param(
         mod.INVEST_PERIODS,
-        initialize=lambda mod, p: mod.period_length_years[p] * 8766)
+        initialize=lambda mod, p: mod.period_length_years[p] * hours_per_year)
 
     mod.DISPATCH_SCENARIOS = Set()
     mod.disp_scen_period = Param(

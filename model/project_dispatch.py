@@ -81,7 +81,7 @@ def define_components(mod):
     or variable renewable projects because they have different and more
     restrictive constraints.
 
-        DispatchProj <= InstallProj * proj_availability
+        DispatchProj <= BuildProj * proj_availability
 
     BASELOAD_DISPATCH_TIMEPOINTS is a subset of DISPATCH_TIMEPOINTS
     that is limited to baseload generators.
@@ -90,7 +90,7 @@ def define_components(mod):
     constraints DispatchProj for baseload plants to stay equal to the
     installed capacity after derating for maintenance.
 
-        DispatchProj = InstallProj * proj_availability
+        DispatchProj = BuildProj * proj_availability
 
     VAR_DISPATCH_TIMEPOINTS is a subset of DISPATCH_TIMEPOINTS
     that is limited to variable renewable generators.
@@ -112,7 +112,7 @@ def define_components(mod):
     a set of constraints that enforces the maximum power available from
     a variable generator in a given timepoint.
 
-        DispatchProj <= prj_capacity_factor * InstallProj * proj_availability
+        DispatchProj <= prj_capacity_factor * BuildProj * proj_availability
 
     proj_variable_om[proj] is the variable Operations and Maintenance
     costs (O&M) per MWh of dispatched capacity for a given project.
@@ -192,25 +192,24 @@ def define_components(mod):
         mod.FLEXIBLE_DISPATCH_TIMEPOINTS,
         rule=lambda m, proj, t: (
             m.DispatchProj[proj, t] <=
-            m.InstalledCapacity[proj, m.tp_period[t]] *
+            m.ProjCapacity[proj, m.tp_period[t]] *
             m.proj_availability[proj]))
     mod.Dispatch_as_Baseload = Constraint(
         mod.BASELOAD_DISPATCH_TIMEPOINTS,
         rule=lambda m, proj, t: (
             m.DispatchProj[proj, t] ==
-            m.InstalledCapacity[proj, m.tp_period[t]] *
+            m.ProjCapacity[proj, m.tp_period[t]] *
             m.proj_availability[proj]))
     mod.prj_capacity_factor = Param(
         mod.VAR_DISPATCH_TIMEPOINTS,
         within=Reals,
-        # default=0.5,
         validate=lambda m, val, proj, t: -1 < val < 2)
     mod.min_data_check('prj_capacity_factor')
     mod.Variable_Gen_Limit = Constraint(
         mod.VAR_DISPATCH_TIMEPOINTS,
         rule=lambda m, proj, t: (
             m.DispatchProj[proj, t] <=
-            m.InstalledCapacity[proj, m.tp_period[t]] *
+            m.ProjCapacity[proj, m.tp_period[t]] *
             m.proj_availability[proj] * m.prj_capacity_factor[proj, t]))
 
     mod.proj_variable_om = Param(

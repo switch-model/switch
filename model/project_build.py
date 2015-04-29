@@ -36,7 +36,8 @@ Switch-pyomo is licensed under GPL v3. Project info at switch-model.org
 import os
 from coopr.pyomo import *
 import utilities
-import financials
+from timescales import hours_per_year
+from financials import capital_recovery_factor as crf
 
 
 def define_components(mod):
@@ -117,10 +118,28 @@ def define_components(mod):
     EXISTING_PROJ_BUILDYEARS is a subset of PROJECT_BUILDYEARS that
     only includes existing projects.
 
-    proj_end_year[proj, build_year] is the last investment period in the
-    simulation that a given project build will be operated. It can
-    either indicate retirement or the end of the simulation. This is
-    derived from g_max_age.
+    proj_existing_cap[(proj, build_year) in EXISTING_PROJ_BUILDYEARS] is
+    a parameter that describes how much capacity was built in the past
+    for existing projects.
+
+    BuildProj[proj, build_year] is a decision variable that describes
+    how much capacity of a project to install in a given period. This also
+    stores the amount of capacity that was installed in existing projects
+    that are still online.
+
+    ProjCapacity[proj, period] is an expression that returns the total
+    capacity online in a given period. This is the sum of installed capacity
+    minus all retirements.
+
+    Max_Build_Potential[proj] is a constraint defined for each project
+    that enforces maximum capacity limits for resource-limited projects.
+
+        ProjCapacity <= proj_capacity_limit_mw
+
+    proj_end_year[(proj, build_year) in PROJECT_BUILDYEARS] is the last
+    investment period in the simulation that a given project build will
+    be operated. It can either indicate retirement or the end of the
+    simulation. This is derived from g_max_age.
 
     PROJECT_BUILDS_OPERATIONAL_PERIODS[proj, build_year] is an indexed
     set that describes which periods a given project/build will be
@@ -131,29 +150,6 @@ def define_components(mod):
     for the given project in the given period. For some project-period
     combinations, this will be an empty set.
 
-    InstallProj[proj, build_year] is a decision variable that describes
-    how much capacity of a project to install in a given period. This also
-    stores the amount of capacity that was installed in existing projects
-    that are still online.
-
-    proj_existing_cap[proj, build_year] is a parameter that describes
-    how much capacity was built in the past for existing projects. This
-    parameter is only defined for the set EXISTING_PROJ_BUILDYEARS.
-
-    Enforce_Existing_Capacity[proj, build_year] is a constraint for all
-    EXISTING_PROJECT_BUILDYEARS that forces InstallProj to match the
-    capacity of what was built in the past.
-
-        InstallProj = proj_existing_cap
-
-    Max_Build_Potential[proj] is a constraint defined for each project
-    that enforces maximum capacity limits for resource-limited projects.
-
-        sum(InstallProj) <= proj_capacity_limit_mw
-
-    InstalledCapacity[proj, period] is an expression that returns the total
-    capacity online in a given period. This is the sum of installed capacity
-    minus all retirements.
 
     --- COSTS ---
 
@@ -233,7 +229,7 @@ def define_components(mod):
     Max_Build_Location[location] is a constraint defined for each project
     that enforces maximum capacity limits for resource-limited locations.
 
-        sum(InstallProj/proj_land_footprint_mw_km2) <= loc_area_km2
+        sum(BuildProj/proj_land_footprint_mw_km2) <= loc_area_km2
 
     ccs_pipeline_cost_per_mw[proj, build_year] is the normalize cost of
     a ccs pipeline sized relative to a project's emissions intensity.
@@ -245,15 +241,15 @@ def define_components(mod):
     Enforce_Min_Build[proj, build_year] is a constraint that forces
     project build-outs to meet the minimum build requirements for
     generation technologies that have those requirements. This is
-    defined as a pair of constraints that force InstallProj to be 0 when
-    ProjCommitToMinBuild is 0, and force InstallProj to be greater than
+    defined as a pair of constraints that force BuildProj to be 0 when
+    ProjCommitToMinBuild is 0, and force BuildProj to be greater than
     g_min_build_capacity when ProjCommitToMinBuild is 1. The value used
     for max_reasonable_build_capacity can be set to something like three
     times the sum of the peak demand of all load zones in a given
     period, or just to the maximum possible floating point value. When
     ProjCommitToMinBuild is 1, the upper constraint should be non-binding.
 
-        ProjCommitToMinBuild * g_min_build_capacity <= InstallProj ...
+        ProjCommitToMinBuild * g_min_build_capacity <= BuildProj ...
             <= ProjCommitToMinBuild * max_reasonable_build_capacity
 
     Decommission[proj, build_year, period] is a decision variable that
@@ -266,7 +262,7 @@ def define_components(mod):
     build in a given period. This takes into account any decomissioning
     that occured.
 
-        NameplateCapacity = InstallProj - sum(Decommission)
+        NameplateCapacity = BuildProj - sum(Decommission)
 
     """
 
@@ -342,10 +338,14 @@ def define_components(mod):
         initialize=init_proj_buildyears)
     mod.EXISTING_PROJ_BUILDYEARS = Set(
         dimen=2)
+    mod.proj_existing_cap = Param(
+        mod.EXISTING_PROJ_BUILDYEARS,
+        within=PositiveReals)
+    mod.min_data_check('proj_existing_cap')
     mod.PROJECT_BUILDYEARS = Set(
         dimen=2,
         initialize=lambda m: set(
-            m.NEW_PROJ_BUILDYEARS | m.EXISTING_PROJ_BUILDYEARS))
+            m.EXISTING_PROJ_BUILDYEARS | m.NEW_PROJ_BUILDYEARS))
 
     def init_proj_end_year(m, proj, build_year):
         g = m.proj_gen_tech[proj]
@@ -376,31 +376,33 @@ def define_components(mod):
         initialize=lambda m, proj, p: set(
             bld_yr for (prj, bld_yr) in m.PROJECT_BUILDYEARS
             if prj == proj and bld_yr <= p <= m.proj_end_year[proj, bld_yr]))
-    mod.InstallProj = Var(
-        mod.PROJECT_BUILDYEARS,
-        within=NonNegativeReals)
-    mod.proj_existing_cap = Param(
-        mod.EXISTING_PROJ_BUILDYEARS,
-        within=PositiveReals)
-    mod.min_data_check('proj_existing_cap')
 
-    mod.Enforce_Existing_Capacity = Constraint(
-        mod.EXISTING_PROJ_BUILDYEARS,
-        # rule=foo)
-        rule=lambda m, proj, bld_yr: (
-            m.InstallProj[proj, bld_yr] == m.proj_existing_cap[proj, bld_yr]))
+    def bounds_BuildProj(model, proj, bld_yr):
+        if((proj, bld_yr) in model.EXISTING_PROJ_BUILDYEARS):
+            return (model.proj_existing_cap[proj, bld_yr],
+                    model.proj_existing_cap[proj, bld_yr])
+        elif(proj in model.PROJECTS_CAP_LIMITED):
+            # This does not replace Max_Build_Potential because
+            # Max_Build_Potential applies across all build years.
+            return (0, model.proj_capacity_limit_mw[proj])
+        else:
+            return (0, None)
+    mod.BuildProj = Var(
+        mod.PROJECT_BUILDYEARS,
+        within=NonNegativeReals,
+        bounds=bounds_BuildProj)
 
     # To Do: Subtract retirements after I write support for that.
-    mod.InstalledCapacity = Expression(
+    mod.ProjCapacity = Expression(
         mod.PROJECTS, mod.INVEST_PERIODS,
         initialize=lambda m, proj, period: sum(
-            m.InstallProj[proj, bld_yr]
+            m.BuildProj[proj, bld_yr]
             for bld_yr in m.PROJECT_PERIOD_ONLINE_BUILD_YRS[proj, period]))
 
     mod.Max_Build_Potential = Constraint(
         mod.PROJECTS_CAP_LIMITED, mod.INVEST_PERIODS,
         rule=lambda m, proj, p: (
-            m.proj_capacity_limit_mw[proj] >= m.InstalledCapacity[proj, p]))
+            m.proj_capacity_limit_mw[proj] >= m.ProjCapacity[proj, p]))
 
     # Costs
     mod.proj_connect_cost_per_mw = Param(mod.PROJECTS, within=NonNegativeReals)
@@ -423,13 +425,12 @@ def define_components(mod):
         initialize=lambda m, proj, bld_yr: (
             (m.proj_overnight_cost[proj, bld_yr] +
                 m.proj_connect_cost_per_mw[proj]) *
-            financials.capital_recovery_factor(
-                m.interest_rate, m.g_max_age[m.proj_gen_tech[proj]]) /
-            8766))
+            crf(m.interest_rate, m.g_max_age[m.proj_gen_tech[proj]]) /
+            hours_per_year))
     mod.proj_fixed_om_hourly = Param(
         mod.PROJECT_BUILDYEARS,
         initialize=lambda m, proj, bld_yr: (
-            m.proj_fixed_om[proj, bld_yr] / 8766))
+            m.proj_fixed_om[proj, bld_yr] / hours_per_year))
 
 
 def load_data(mod, switch_data, inputs_dir):

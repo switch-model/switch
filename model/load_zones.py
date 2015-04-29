@@ -160,7 +160,7 @@ def load_data(mod, switch_data, inputs_directory):
         LOAD_ZONE, PERIOD, peak_demand_mw
 
     loads.tab should be a tab-separated file with the columns:
-        LOAD_ZONE, TIMEPOINT, peak_demand_mw
+        LOAD_ZONE, TIMEPOINT, demand_mw
 
     balancing_areas.tab is optional and should be specified if you want
     to override the default values for operational reserves. If
