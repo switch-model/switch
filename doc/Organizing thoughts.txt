@@ -49,22 +49,21 @@ Project dispatch
     DISPATCH_HOURS
     capacity factors
     dispatch limits
-
-In Progress
---------------
 Transmission Build
     lines between areas
     t & d params
-    Var: BuildTrans, install T&D, dispatch Tx
+    Var: BuildTrans, install T&D
 
-
-To do
+In Progress
 --------------
-
 Transmission Dispatch
     TRANSMISSION_LINE_HOURS
     DispatchTrans
     DispatchTrans limit
+
+To do
+--------------
+
 
 ConservationOfEnergy
     bus-level energy balancing
