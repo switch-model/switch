@@ -23,7 +23,7 @@ SYNOPSIS
 
 Note, this can be tested with `python -m doctest -v gen_tech.py`
 
-Switch-pyomo is licensed under GPL v3. Project info at switch-model.org
+Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 """
 
 import os

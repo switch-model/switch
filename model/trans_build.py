@@ -1,7 +1,7 @@
 """
 
-Defines model components to describe generation projects build-outs for
-the SWITCH-Pyomo model.
+Defines model components to describe transmission build-outs for the
+SWITCH-Pyomo model.
 
 SYNOPSIS
 >>> from coopr.pyomo import *
@@ -24,7 +24,7 @@ SYNOPSIS
 
 Note, this can be tested with `python -m doctest -v trans_build.py`
 
-Switch-pyomo is licensed under GPL v3. Project info at switch-model.org
+Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 """
 
 import os
@@ -39,7 +39,7 @@ def define_components(mod):
 
     Adds components to a Pyomo abstract model object to describe
     transmission and distribution portions of an electric grid. This
-    includes parameters, build & dispatch decisions and constraints.
+    includes parameters, build decisions and constraints.
     Unless otherwise stated, all power capacity is specified in units of
     MW and all sets and parameters are mandatory.
 
@@ -96,13 +96,19 @@ def define_components(mod):
     to the existing capacity.
 
     TransCapacity[(tx, bld_yr) in TRANS_BUILD_YEARS] is an expression
-    that returns the total transfer capacity of a transmission line in a
-    given period. This is the sum of existing and newly-build capacity.
+    that returns the total nameplate transfer capacity of a transmission
+    line in a given period. This is the sum of existing and newly-build
+    capacity.
 
     trans_derating_factor[tx in TRANSMISSION_LINES] is an overall
     derating factor for each transmission line that can reflect forced
     outage rates, stability or contingency limitations. This parameter
     is optional and defaults to 0.
+
+    TransCapacityAvailable[(tx, bld_yr) in TRANS_BUILD_YEARS] is an
+    expression that returns the available transfer capacity of a
+    transmission line in a given period, taking into account the
+    nameplate capacity and derating factor.
 
     trans_terrain_multiplier[tx in TRANSMISSION_LINES] is
     a cost adjuster applied to each transmission line that reflects the
@@ -313,6 +319,10 @@ def define_components(mod):
         within=NonNegativeReals,
         default=0,
         validate=lambda m, val, tx: val <= 1)
+    mod.TransCapacityAvailable = Expression(
+        mod.TRANSMISSION_LINES, mod.INVEST_PERIODS,
+        initialize=lambda m, tx, period: (
+            m.TransCapacity[tx, period] * m.trans_derating_factor[tx]))
     mod.trans_terrain_multiplier = Param(
         mod.TRANSMISSION_LINES,
         within=Reals,
@@ -403,8 +413,8 @@ def define_components(mod):
 def load_data(mod, switch_data, inputs_dir):
     """
 
-    Import project-specific data. The following files are expected in
-    the input directory:
+    Import data related to transmission builds. The following files are
+    expected in the input directory:
 
     transmission_lines.tab
         TRANSMISSION_LINE, trans_lz1, trans_lz2, trans_length_km,
