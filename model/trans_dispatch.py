@@ -108,6 +108,8 @@ def define_components(mod):
     mod.LZ_TXNet = Expression(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         initialize=LZ_TXNet_calculation)
+    # Register net transmission as contributing to a load zone's energy
+    mod.LZ_Energy_Balance_components.append('LZ_TXNet')
 
 
 def load_data(mod, switch_data, inputs_dir):

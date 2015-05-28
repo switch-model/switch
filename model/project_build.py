@@ -65,6 +65,9 @@ def define_components(mod):
 
     proj_load_zone[prj] is the load zone this project is built in.
 
+    LZ_PROJECTS[lz in LOAD_ZONES] is an indexed set that lists all
+    projects within each load zone.
+
     PROJECTS_CAP_LIMITED is the subset of PROJECTS that are capacity
     limited. Most of these will be generator types that are resource
     limited like wind, solar or geothermal, but this can be specified
@@ -274,6 +277,10 @@ def define_components(mod):
     mod.proj_gen_tech = Param(mod.PROJECTS, within=mod.GENERATION_TECHNOLOGIES)
     mod.proj_load_zone = Param(mod.PROJECTS, within=mod.LOAD_ZONES)
     mod.min_data_check('PROJECTS', 'proj_gen_tech', 'proj_load_zone')
+    mod.LZ_PROJECTS = Set(
+        mod.LOAD_ZONES,
+        initialize=lambda m, lz: set(
+            p for p in m.PROJECTS if m.proj_load_zone[p] == lz))
     mod.PROJECTS_CAP_LIMITED = Set(within=mod.PROJECTS)
     mod.proj_capacity_limit_mw = Param(
         mod.PROJECTS_CAP_LIMITED,

@@ -34,6 +34,10 @@ Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 import types
 from coopr.pyomo import *
 
+# A set of modules that will be dynamically loaded to define components of the
+# switch model.
+_loaded_switch_modules = {}
+
 
 def min_data_check(model, *mandatory_model_components):
     model.__num_min_data_checks += 1
@@ -160,3 +164,82 @@ def check_mandatory_components(model, *mandatory_model_components):
                 "Error! Object type {} not recognized for model element '{}'.".
                 format(o_class, component_name))
     return 1
+
+
+def load_switch_modules(module_list):
+    """
+
+    Load switch modules that define components of an abstract model.
+
+    SYNOPSIS:
+    >>> from coopr.pyomo import *
+    >>> import utilities
+    >>> switch_modules = ('timescales', 'financials', 'load_zones')
+    >>> utilities.load_switch_modules(switch_modules)
+    >>> # That last line is equivalent to:
+    >>> import timescales
+    >>> import financials
+    >>> import load_zones
+
+    """
+    import importlib
+    for m in module_list:
+        _loaded_switch_modules[m] = importlib.import_module(m)
+
+
+def define_AbstractModel(module_list):
+    """
+
+    Construct an AbstractModel object using the modules in
+    the given list.
+
+    SYNOPSIS:
+    >>> from coopr.pyomo import *
+    >>> import utilities
+    >>> switch_modules = ('timescales', 'financials', 'load_zones')
+    >>> utilities.load_switch_modules(switch_modules)
+    >>> switch_model = utilities.define_AbstractModel(switch_modules)
+    >>> # That last line is equivalent to:
+    >>> switch_model = AbstractModel()
+    >>> import timescales
+    >>> import financials
+    >>> import load_zones
+    >>> timescales.define_components(switch_model)
+    >>> financials.define_components(switch_model)
+    >>> load_zones.define_components(switch_model)
+
+    """
+    model = AbstractModel()
+    for m in module_list:
+        _loaded_switch_modules[m].define_components(model)
+    return model
+
+
+def load_data(model, inputs_dir, module_list):
+    """
+
+    Construct an AbstractModel object using the modules in
+    the given list.
+
+    SYNOPSIS:
+    >>> from coopr.pyomo import *
+    >>> import utilities
+    >>> switch_modules = ('timescales', 'financials', 'load_zones')
+    >>> utilities.load_switch_modules(switch_modules)
+    >>> switch_model = utilities.define_AbstractModel(switch_modules)
+    >>> inputs_dir = 'test_dat'
+    >>> data = utilities.load_data(switch_model, inputs_dir, switch_modules)
+    >>> switch_instance = switch_model.create(data)
+    >>> # That last line is equivalent to:
+    >>> import timescales
+    >>> import financials
+    >>> import load_zones
+    >>> timescales.load_data(switch_model, data, inputs_dir)
+    >>> financials.load_data(switch_model, data, inputs_dir)
+    >>> load_zones.load_data(switch_model, data, inputs_dir)
+
+    """
+    data = DataPortal(model=model)
+    for m in module_list:
+        _loaded_switch_modules[m].load_data(model, data, inputs_dir)
+    return data

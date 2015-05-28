@@ -159,6 +159,13 @@ def define_components(mod):
     mod.DispatchProj = Var(
         mod.DISPATCH_TIMEPOINTS,
         within=NonNegativeReals)
+    mod.LZ_NetDispatch = Expression(
+        mod.LOAD_ZONES, mod.TIMEPOINTS,
+        initialize=lambda m, lz, tp: sum(
+            m.DispatchProj[p, tp] for p in m.LZ_PROJECTS[lz]
+            if (p, tp) in mod.DISPATCH_TIMEPOINTS))
+    # Register net dispatch as contributing to a load zone's energy
+    mod.LZ_Energy_Balance_components.append('LZ_NetDispatch')
 
     def init_proj_availability(model, project):
         tech = model.proj_gen_tech[project]

@@ -95,6 +95,21 @@ def define_components(mod):
     requirements as a fraction of solar energy produced in the balancing
     area in each hour. This defaults to 0.05.
 
+    DumpPower[load_zone, timepoint] is a decision variable that allows
+    overproduction of energy in every load zone and timepoint.
+    This may be interpretted either as the aggregate curtailment needed,
+    or as a literal dump load. In the language of linear programming,
+    this is a "slack variable" for an energy balancing constraint.
+
+    LZ_Energy_Balance_components is a list of components that contribute
+    to load-zone level energy balance equations. Other modules may add
+    elements to this list. The energy_balance module will construct a
+    Satisfy_Load constraint using this list. Each component in this list
+    needs to be indexed by(load_zone, timepoint). If this indexing is
+    not convenient for # native model components, I advise writing an
+    Expression object # indexed by (lz,t) that contains logic to access
+    or summarize # native model components.
+
     Derived parameters:
 
     lz_total_demand_in_disp_scen_mwh[z,p] describes the total energy demand
@@ -144,6 +159,10 @@ def define_components(mod):
     mod.spinning_res_solar_frac = Param(
         mod.BALANCING_AREAS, within=PositiveReals, default=0.05,
         validate=lambda mod, val, b: val < 1)
+    mod.DumpPower = Var(
+        mod.LOAD_ZONES, mod.TIMEPOINTS,
+        within=NonNegativeReals)
+    mod.LZ_Energy_Balance_components = ['DumpPower']
 
 
 def load_data(mod, switch_data, inputs_directory):
