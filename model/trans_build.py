@@ -4,22 +4,13 @@ Defines model components to describe transmission build-outs for the
 SWITCH-Pyomo model.
 
 SYNOPSIS
->>> from coopr.pyomo import *
->>> import timescales
->>> import financials
->>> import load_zones
->>> import trans_build
->>> switch_model = AbstractModel()
->>> timescales.define_components(switch_model)
->>> financials.define_components(switch_model)
->>> load_zones.define_components(switch_model)
->>> trans_build.define_components(switch_model)
->>> switch_data = DataPortal(model=switch_model)
+>>> from pyomo.environ import *
+>>> import utilities
+>>> switch_modules = ('timescales', 'financials', 'load_zones', 'trans_build')
+>>> utilities.load_switch_modules(switch_modules)
+>>> switch_model = utilities.define_AbstractModel(switch_modules)
 >>> inputs_dir = 'test_dat'
->>> timescales.load_data(switch_model, switch_data, inputs_dir)
->>> financials.load_data(switch_model, switch_data, inputs_dir)
->>> load_zones.load_data(switch_model, switch_data, inputs_dir)
->>> trans_build.load_data(switch_model, switch_data, inputs_dir)
+>>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
 >>> switch_instance = switch_model.create(switch_data)
 
 Note, this can be tested with `python -m doctest -v trans_build.py`
@@ -28,7 +19,7 @@ Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 """
 
 import os
-from coopr.pyomo import *
+from pyomo.environ import *
 import utilities
 from timescales import hours_per_year
 from financials import capital_recovery_factor as crf

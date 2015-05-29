@@ -4,7 +4,7 @@
 Demo aspects of SWITCH-Pyomo.
 """
 
-from coopr.pyomo import *
+from pyomo.environ import *
 import timescales
 import financials
 import load_zones

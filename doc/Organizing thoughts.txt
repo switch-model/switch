@@ -53,26 +53,22 @@ Transmission Build
     lines between areas
     t & d params
     Var: BuildTrans, install T&D
-
-In Progress
---------------
 Transmission Dispatch
     TRANSMISSION_LINE_HOURS
     DispatchTrans
     DispatchTrans limit
-
-To do
---------------
-
-
 ConservationOfEnergy
     bus-level energy balancing
         ... register a set of vars & coefs that must sum to 1
 
-Basic Reliability...
-    satisfy load
+In Progress
+--------------
+Define an objective function
 
-Postpost implementation...
+To do
+--------------
+Put together simple end-to-end tests
+
 
 Reserves
     quickstart, spinning reserve margins

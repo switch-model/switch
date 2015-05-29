@@ -2,15 +2,13 @@
 Defines load zone parameters for the SWITCH-Pyomo model.
 
 SYNOPSIS
->>> from coopr.pyomo import *
->>> import timescales
->>> import load_zones
->>> switch_model = AbstractModel()
->>> timescales.define_components(switch_model)
->>> load_zones.define_components(switch_model)
->>> switch_data = DataPortal(model=switch_model)
->>> timescales.load_data(switch_model, switch_data, 'test_dat')
->>> load_zones.load_data(switch_model, switch_data, 'test_dat')
+>>> from pyomo.environ import *
+>>> import utilities
+>>> switch_modules = ('timescales', 'load_zones')
+>>> utilities.load_switch_modules(switch_modules)
+>>> switch_model = utilities.define_AbstractModel(switch_modules)
+>>> inputs_dir = 'test_dat'
+>>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
 >>> switch_instance = switch_model.create(switch_data)
 
 Note, this can be tested with `python -m doctest -v load_zones.py`
@@ -18,7 +16,7 @@ Note, this can be tested with `python -m doctest -v load_zones.py`
 Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 """
 import os
-from coopr.pyomo import *
+from pyomo.environ import *
 import utilities
 
 

@@ -32,7 +32,7 @@ Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 """
 
 import types
-from coopr.pyomo import *
+from pyomo.environ import *
 
 # A set of modules that will be dynamically loaded to define components of the
 # switch model.
@@ -54,7 +54,7 @@ def add_min_data_check(model):
     object if it has not already been added. Also add a counter to keep
     track of what to name the next check that is added.
 
-    >>> from coopr.pyomo import *
+    >>> from pyomo.environ import *
     >>> import utilities
     >>> mod = AbstractModel()
     >>> utilities.add_min_data_check(mod)
@@ -99,7 +99,7 @@ def check_mandatory_components(model, *mandatory_model_components):
     This does not work with indexed sets.
 
     EXAMPLE:
-    >>> from coopr.pyomo import *
+    >>> from pyomo.environ import *
     >>> import utilities
     >>> mod = ConcreteModel()
     >>> mod.set_A = Set(initialize=[1,2])
@@ -172,7 +172,7 @@ def load_switch_modules(module_list):
     Load switch modules that define components of an abstract model.
 
     SYNOPSIS:
-    >>> from coopr.pyomo import *
+    >>> from pyomo.environ import *
     >>> import utilities
     >>> switch_modules = ('timescales', 'financials', 'load_zones')
     >>> utilities.load_switch_modules(switch_modules)
@@ -194,7 +194,7 @@ def define_AbstractModel(module_list):
     the given list.
 
     SYNOPSIS:
-    >>> from coopr.pyomo import *
+    >>> from pyomo.environ import *
     >>> import utilities
     >>> switch_modules = ('timescales', 'financials', 'load_zones')
     >>> utilities.load_switch_modules(switch_modules)
@@ -222,7 +222,7 @@ def load_data(model, inputs_dir, module_list):
     the given list.
 
     SYNOPSIS:
-    >>> from coopr.pyomo import *
+    >>> from pyomo.environ import *
     >>> import utilities
     >>> switch_modules = ('timescales', 'financials', 'load_zones')
     >>> utilities.load_switch_modules(switch_modules)

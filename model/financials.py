@@ -2,22 +2,20 @@
 Defines financial parameters for the SWITCH-Pyomo model.
 
 SYNOPSIS
->>> from coopr.pyomo import *
->>> import timescales
->>> import financials
->>> switch_mod = AbstractModel()
->>> timescales.define_components(switch_mod)
->>> financials.define_components(switch_mod)
->>> switch_data = DataPortal(model=switch_mod)
->>> timescales.load_data(switch_mod, switch_data, 'test_dat')
->>> financials.load_data(switch_mod, switch_data, 'test_dat')
->>> switch_instance = switch_mod.create(switch_data)
+>>> from pyomo.environ import *
+>>> import utilities
+>>> switch_modules = ('timescales', 'financials')
+>>> utilities.load_switch_modules(switch_modules)
+>>> switch_model = utilities.define_AbstractModel(switch_modules)
+>>> inputs_dir = 'test_dat'
+>>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
+>>> switch_instance = switch_model.create(switch_data)
 
 Note, this can be tested with `python -m doctest -v financials.py`
 
 Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 """
-from coopr.pyomo import *
+from pyomo.environ import *
 import os
 import utilities
 
@@ -231,16 +229,14 @@ def load_data(mod, switch_data, inputs_directory):
     base_financial_year, interest_rate and optionally discount_rate.
 
     EXAMPLE:
-    >>> from coopr.pyomo import *
-    >>> import timescales
-    >>> import financials
-    >>> switch_mod = AbstractModel()
-    >>> timescales.define_components(switch_mod)
-    >>> financials.define_components(switch_mod)
-    >>> switch_data = DataPortal(model=switch_mod)
-    >>> timescales.load_data(switch_mod, switch_data, 'test_dat')
-    >>> financials.load_data(switch_mod, switch_data, 'test_dat')
-    >>> switch_instance = switch_mod.create(switch_data)
+    >>> from pyomo.environ import *
+    >>> import utilities
+    >>> switch_modules = ('timescales', 'financials')
+    >>> utilities.load_switch_modules(switch_modules)
+    >>> switch_model = utilities.define_AbstractModel(switch_modules)
+    >>> inputs_dir = 'test_dat'
+    >>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
+    >>> switch_instance = switch_model.create(switch_data)
     >>> switch_instance.bring_timepoint_costs_to_base_year.pprint()
     bring_timepoint_costs_to_base_year : Size=13, Index=TIMEPOINTS, Domain=PositiveReals, Default=None, Mutable=False
         Key : Value

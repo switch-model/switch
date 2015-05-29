@@ -5,7 +5,7 @@ SWITCH-Pyomo model.
 
 
 SYNOPSIS
->>> from coopr.pyomo import *
+>>> from pyomo.environ import *
 >>> import utilities
 >>> switch_modules = ('timescales', 'financials', 'load_zones', 'fuels',\
     'gen_tech', 'project_build', 'project_dispatch', 'trans_build',\
@@ -21,7 +21,7 @@ Note, this can be tested with `python -m doctest -v energy_balance.py`
 Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 """
 
-from coopr.pyomo import *
+from pyomo.environ import *
 import utilities
 
 
