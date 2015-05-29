@@ -103,15 +103,15 @@ def define_components(mod):
     to load-zone level energy balance equations. Other modules may add
     elements to this list. The energy_balance module will construct a
     Satisfy_Load constraint using this list. Each component in this list
-    needs to be indexed by(load_zone, timepoint). If this indexing is
-    not convenient for # native model components, I advise writing an
-    Expression object # indexed by (lz,t) that contains logic to access
-    or summarize # native model components.
+    needs to be indexed by [load_zone, timepoint]. If this indexing is
+    not convenient for native model components, I advise writing an
+    Expression object indexed by [lz,t] that contains logic to access or
+    summarize native model components.
 
     Derived parameters:
 
-    lz_total_demand_in_disp_scen_mwh[z,p] describes the total energy demand
-    of each load zone in each dispatch scenario in Megawatt hours.
+    lz_total_demand_in_period_mwh[z,p] describes the total energy demand
+    of each load zone in each period in Megawatt hours.
 
     """
 
@@ -131,11 +131,11 @@ def define_components(mod):
     mod.min_data_check(
         'LOAD_ZONES', 'lz_demand_mw', 'lz_dbid', 'lz_cost_multipliers',
         'lz_ccs_distance_km', 'lz_balancing_area')
-    mod.lz_total_demand_in_disp_scen_mwh = Param(
-        mod.LOAD_ZONES, mod.DISPATCH_SCENARIOS, within=PositiveReals,
-        initialize=lambda mod, z, disp_scen: (
+    mod.lz_total_demand_in_period_mwh = Param(
+        mod.LOAD_ZONES, mod.INVEST_PERIODS, within=PositiveReals,
+        initialize=lambda mod, z, p: (
             sum(mod.lz_demand_mw[z, t] * mod.tp_weight[t]
-                for t in mod.DISP_SCEN_TPS[disp_scen])))
+                for t in mod.PERIOD_TPS[p])))
 
     mod.BALANCING_AREAS = Set(initialize=lambda mod: set(
         mod.lz_balancing_area[z] for z in mod.LOAD_ZONES))

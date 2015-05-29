@@ -15,6 +15,7 @@ import utilities
 
 hours_per_year = 8766
 
+
 def define_components(mod):
     """
     Augments a Pyomo abstract model object with sets and parameters that
@@ -32,29 +33,14 @@ def define_components(mod):
       period; derived from period_length_years with an average of
       8766 hours per year.
 
-    DISPATCH_SCENARIOS is the set of conditions in which dispatch may
-    occur within an investment period. Examples include low hydro,
-    high hydro, El Nina, La Nina, etc. In the stochastic version of
-    mod, each investment period may contain multiple dispatch
-    scenarios. For ease of development, the dispatch scenarios are
-    assumed to be human-readable text that are unique within a run
-    such as low_hydro_2020 rather than database ids. Dispatch
-    scenarios are abbreviated as "disp_scen" throughout the model.
-
-    Related parameters that are indexed by dispatch scenario ds
-    include:
-    * disp_scen_period[ds]: The investment period of a dispatch scenario.
-    * disp_scen_dbid[ds]: The external database id for a dispatch scenario.
-
-    TIMESERIES denote blocks of consecutive timepoints within a
-    dispatch scenario. An individual time series could represent a
-    single day, a week, a month or an entire year. This replaces the
-    DATE construct in the old SWITCH code and is meant to be more
-    versatile. TIMESERIES ids need to be unique across dispatch
-    scenarios.
+    TIMESERIES denote blocks of consecutive timepoints within a period.
+    An individual time series could represent a single day, a week, a
+    month or an entire year. This replaces the DATE construct in the old
+    SWITCH code and is meant to be more versatile. TIMESERIES ids need
+    to be unique across different periods.
 
     Related parameters indexed by ts in TIMESERIES include:
-    * ts_disp_scen[ts]: The dispatch scenario of a timeseries.
+    * ts_period[ts]: The period a timeseries falls in.
     * ts_num_tps[ts]: The number of timepoints in a timeseries.
     * ts_duration_of_tp[ts]: The duration in hours of each timepoint
       within a timeseries. This is used for calculations that ensure a
@@ -72,11 +58,10 @@ def define_components(mod):
     with timepoints are specified in hourly units, and the weights of
     timepoints are specified in units of hours. TIMEPOINTS replaces the
     HOURS construct in some of the old versions of SWITCH. Timepoints
-    need ids that are unique across dispatch scenarios rather than a
-    simple timestamp that may be replicated across dispatch scenarios.
-    Timepoint ids should also indicate their relative ordering within a
-    timeseries. Each timepoint within a series needs to have the same
-    duration to simplify calculations.
+    need ids that are unique across periods. Timepoint ids should also
+    indicate their relative ordering within a timeseries. Each timepoint
+    within a series needs to have the same duration to simplify
+    calculations.
 
     Related parameters indexed by t in TIMEPOINTS include:
     * tp_weight[t]: The weight of a timepoint within an investment
@@ -86,21 +71,17 @@ def define_components(mod):
       in units of hours per year.
          = tp_weight[t] / period_length_years[p]
     * tp_label[t]: These human-readable timestamp labels should be
-      unique within a dispatch scenario. Expected format is YYYYMMDDHH
+      unique within a single period. Expected format is YYYYMMDDHH
     * tp_ts[t]: This timepoint's timeseries.
-    * tp_disp_scen[t]: This timepoint's dispatch scenario.
     * tp_period[t]: This timepoint's period.
 
-    Other indexed sets describe memberships of dispatch scenarios to
-    investment periods, timeseries to dispatch scenarios, etc. These
-    include:
-    * PERIOD_SCENARIOS[period]: The set of dispatch scenarios in a period.
-    * SCENARIO_TS[scenario]: The set of timeseries in a dispatch scenario.
+    Other indexed sets list timepoints within each timeseries or
+    period. These include:
+    * PERIOD_TPS[period]: The set of timepoints in a period.
     * TS_TPS[timeseries]: The ordered set of timepoints in a timeseries.
-    * SCENARIO_TPS[scenario]: The set of timepoints in a dispatch scenario.
 
     Data validity check:
-    Currently, the sum of tp_weight for all timepoints in a scenario
+    Currently, the sum of tp_weight for all timepoints in a period
     must be within 1 percent of the expected length of the investment
     period period. Period length is calculated by multiplying the
     average number of hours in a year rounded to the nearest integer
@@ -120,13 +101,14 @@ def define_components(mod):
     high-stress periods. These examples are probably not the resolutions
     you would choose, but are meant to illustrate calculations. When
     calculating these for your own models, you may check your
-    calculations by adding all of the tp_weights in a dispatch scenario
-    and ensuring that it yields the number of hours you expect in an
-    entire investment period. That weighting ensures an accurate
-    depiction of fixed and variable costs. This check is also performed
-    when loading a model and will generate an error if the total weight
-    of all timeseries in a dispatch scenario are more than 1 percent
-    different than the expected number of hours in the target period.
+    calculations by adding all of the tp_weights in a period and
+    ensuring that it is equal to the length of the period in years times
+    8766, the average number of hours per year. That weighting ensures
+    an accurate depiction of variable costs and dispatch relative to
+    fixed costs such as capital. This check is also performed when
+    loading a model and will generate an error if the sum of weights of
+    all timepoints in a period are more than 1 percent different than
+    the expected number of hours.
 
     Example 1: The month of January is described by two timeseries: one
     to represent a median load day (example 1) and one to represent a
@@ -219,7 +201,7 @@ def define_components(mod):
     >>> switch_inst = switch_mod.create('test_dat/timescales_bad_weights.dat')
     Traceback (most recent call last):
         ...
-    ValueError: BuildCheck 'validate_time_weights' identified error
+    ValueError: BuildCheck 'validate_time_weights' identified error with index '2020'
 
     """
 
@@ -237,20 +219,13 @@ def define_components(mod):
         mod.INVEST_PERIODS,
         initialize=lambda mod, p: mod.period_length_years[p] * hours_per_year)
 
-    mod.DISPATCH_SCENARIOS = Set()
-    mod.disp_scen_period = Param(
-        mod.DISPATCH_SCENARIOS, within=mod.INVEST_PERIODS)
-    mod.min_data_check('DISPATCH_SCENARIOS', 'disp_scen_period')
-    mod.disp_scen_dbid = Param(
-        mod.DISPATCH_SCENARIOS, within=PositiveIntegers)
-
     mod.TIMESERIES = Set()
-    mod.ts_disp_scen = Param(mod.TIMESERIES, within=mod.DISPATCH_SCENARIOS)
+    mod.ts_period = Param(mod.TIMESERIES, within=mod.INVEST_PERIODS)
     mod.ts_duration_of_tp = Param(mod.TIMESERIES, within=PositiveReals)
     mod.ts_num_tps = Param(mod.TIMESERIES, within=PositiveIntegers)
     mod.ts_scale_to_period = Param(mod.TIMESERIES, within=PositiveReals)
     mod.min_data_check(
-        'TIMESERIES', 'disp_scen_period', 'ts_duration_of_tp', 'ts_num_tps')
+        'TIMESERIES', 'ts_period', 'ts_duration_of_tp', 'ts_num_tps')
     mod.ts_duration_hrs = Param(
         mod.TIMESERIES,
         initialize=lambda mod, ts: (
@@ -260,15 +235,10 @@ def define_components(mod):
     mod.tp_ts = Param(mod.TIMEPOINTS, within=mod.TIMESERIES)
     mod.min_data_check('TIMEPOINTS', 'tp_ts')
     mod.tp_label = Param(mod.TIMEPOINTS, default=lambda mod, t: t)
-    mod.tp_disp_scen = Param(
-        mod.TIMEPOINTS,
-        within=mod.DISPATCH_SCENARIOS,
-        initialize=lambda mod, t: mod.ts_disp_scen[mod.tp_ts[t]])
     mod.tp_period = Param(
         mod.TIMEPOINTS,
         within=mod.INVEST_PERIODS,
-        initialize=lambda mod, t: (
-            mod.disp_scen_period[mod.tp_disp_scen[t]]))
+        initialize=lambda mod, t: mod.ts_period[mod.tp_ts[t]])
     mod.tp_weight = Param(
         mod.TIMEPOINTS,
         within=PositiveReals,
@@ -285,56 +255,44 @@ def define_components(mod):
     # "Helper" sets that are indexed for convenient look-up.
     # I can't use the filter option to construct these because
     # filter isn't currently implemented for indexed sets.
-    mod.DISP_SCEN_TS = Set(
-        mod.DISPATCH_SCENARIOS,
-        ordered=True,
-        within=mod.TIMESERIES,
-        initialize=lambda mod, ds: set(
-            ts for ts in mod.TIMESERIES if mod.ts_disp_scen[ts] == ds))
-    mod.DISP_SCEN_TPS = Set(
-        mod.DISPATCH_SCENARIOS,
-        ordered=True,
-        within=mod.TIMEPOINTS,
-        initialize=lambda mod, ds: set(
-            t for t in mod.TIMEPOINTS if mod.tp_disp_scen[t] == ds))
     mod.TS_TPS = Set(
         mod.TIMESERIES,
         ordered=True,
         within=mod.TIMEPOINTS,
-        initialize=lambda mod, ts: set(
-            t for t in mod.TIMEPOINTS if mod.tp_ts[t] == ts))
-    mod.PERIOD_DISP_SCENS = Set(
+        initialize=lambda m, ts: set(
+            t for t in m.TIMEPOINTS if m.tp_ts[t] == ts))
+    mod.PERIOD_TPS = Set(
         mod.INVEST_PERIODS,
-        within=mod.DISPATCH_SCENARIOS,
-        initialize=lambda mod, p: [
-            s for s in mod.DISPATCH_SCENARIOS if mod.disp_scen_period[s] == p])
+        within=mod.TIMEPOINTS,
+        initialize=lambda m, p: set(
+            t for t in m.TIMEPOINTS if m.tp_period[t] == p))
 
-    def validate_time_weights_rule(mod):
-        for ds in mod.DISPATCH_SCENARIOS:
-            p = mod.disp_scen_period[ds]
-            # If I use the indexed set DISP_SCEN_TPS for this sum, I get
-            # an error "ValueError: Error retrieving component
-            # DISP_SCEN_TPS[high_hydro_2020]: The component has not been
-            # constructed" hours_in_disp_scen = sum(mod.tp_weight[t] for
-            # t in mod.DISP_SCEN_TPS[s]) Filtering the set TIMEPOINTS
-            # like I do when I create DISP_SCEN_TPS avoids this problem.
-            # So does defining this rule after I have created an
-            # instance from a .dat file.
-            hours_in_disp_scen = \
-                sum(mod.tp_weight[t] for t in mod.TIMEPOINTS
-                    if mod.tp_disp_scen[t] == ds)
-            tol = 0.01
-            if(hours_in_disp_scen > (1 + tol) * mod.period_length_hours[p] or
-               hours_in_disp_scen < (1 - tol) * mod.period_length_hours[p]):
-                print "validate_time_weights_rule failed for dispatch " + \
-                      "scenario'{ds:s}'. The number of hours in the period " + \
-                      " is {period_h:0.2f}, but the number of hours in the " + \
-                      "dispatch scenario is {ds_h:0.2f}.\n"\
-                      .format(ds=ds, period_h=mod.period_length_hours[p],
-                              ds_h=hours_in_disp_scen)
-                return 0
+    def validate_time_weights_rule(mod, p):
+        # If I use the indexed set DISP_SCEN_TPS for this sum, I get
+        # an error "ValueError: Error retrieving component
+        # DISP_SCEN_TPS[high_hydro_2020]: The component has not been
+        # constructed" hours_in_disp_scen = sum(mod.tp_weight[t] for
+        # t in mod.DISP_SCEN_TPS[s]) Filtering the set TIMEPOINTS
+        # like I do when I create DISP_SCEN_TPS avoids this problem.
+        # So does defining this rule after I have created an
+        # instance from a .dat file.
+        # hours_in_period = sum(mod.tp_weight[t] for t in mod.PERIOD_TPS[p])
+        hours_in_period = \
+            sum(mod.tp_weight[t] for t in mod.TIMEPOINTS
+                if mod.tp_period[t] == p)
+        tol = 0.01
+        if(hours_in_period > (1 + tol) * mod.period_length_hours[p] or
+           hours_in_period < (1 - tol) * mod.period_length_hours[p]):
+            print "validate_time_weights_rule failed for period " + \
+                  "'{period:s}'. Expected {period_h:0.2f}, based on" + \
+                  "length in years, but the sum of timepoint weights " + \
+                  "is {ds_h:0.2f}.\n"\
+                  .format(period=p, period_h=mod.period_length_hours[p],
+                          ds_h=hours_in_period)
+            return 0
         return 1
     mod.validate_time_weights = BuildCheck(
+        mod.INVEST_PERIODS,
         rule=validate_time_weights_rule)
 
 
@@ -345,10 +303,8 @@ def load_data(mod, switch_data, inputs_directory):
 
     periods.tab
         INVESTMENT_PERIOD, period_start, period_end
-    dispatch_scenarios.tab
-        DISPATCH_SCENARIO, period, dbid
     timeseries.tab
-        TIMESERIES, disp_scen, ts_duration_of_tp, ts_num_tps,
+        TIMESERIES, period, ts_duration_of_tp, ts_num_tps,
         ts_scale_to_period
     timepoints.tab
         timepoint_id, timepoint_label, timeseries
@@ -375,7 +331,7 @@ def load_data(mod, switch_data, inputs_directory):
     >>> timescales.load_data(switch_mod, switch_data, 'test_dat')
     >>> switch_instance = switch_mod.create(switch_data)
     >>> switch_instance.tp_weight_in_year.pprint()
-    tp_weight_in_year : Size=13, Index=TIMEPOINTS, Domain=PositiveReals, Default=None, Mutable=False
+    tp_weight_in_year : Size=7, Index=TIMEPOINTS, Domain=PositiveReals, Default=None, Mutable=False
         Key : Value
           1 : 1095.744
           2 : 1095.744
@@ -383,13 +339,7 @@ def load_data(mod, switch_data, inputs_directory):
           4 : 1095.744
           5 :   2191.5
           6 :   2191.5
-          7 : 1095.744
-          8 : 1095.744
-          9 : 1095.744
-         10 : 1095.744
-         11 :   2191.5
-         12 :   2191.5
-         13 :   8766.0
+          7 :   8766.0
 
     """
     # Include select in each load() function so that it will check out column
@@ -401,16 +351,11 @@ def load_data(mod, switch_data, inputs_directory):
         index=mod.INVEST_PERIODS,
         param=(mod.period_start, mod.period_end))
     switch_data.load(
-        filename=os.path.join(inputs_directory, 'dispatch_scenarios.tab'),
-        select=('DISPATCH_SCENARIO', 'period', 'dbid'),
-        index=mod.DISPATCH_SCENARIOS,
-        param=(mod.disp_scen_period, mod.disp_scen_dbid))
-    switch_data.load(
         filename=os.path.join(inputs_directory, 'timeseries.tab'),
-        select=('TIMESERIES', 'ts_disp_scen', 'ts_duration_of_tp',
+        select=('TIMESERIES', 'ts_period', 'ts_duration_of_tp',
                 'ts_num_tps', 'ts_scale_to_period'),
         index=mod.TIMESERIES,
-        param=(mod.ts_disp_scen, mod.ts_duration_of_tp,
+        param=(mod.ts_period, mod.ts_duration_of_tp,
                mod.ts_num_tps, mod.ts_scale_to_period))
     switch_data.load(
         filename=os.path.join(inputs_directory, 'timepoints.tab'),
