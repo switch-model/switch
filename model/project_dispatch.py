@@ -32,14 +32,14 @@ def define_components(mod):
     projects. Unless otherwise stated, all power capacity is specified
     in units of MW and all sets and parameters are mandatory.
 
-    DISPATCH_TIMEPOINTS is a set of project builds and timepoints in
+    PROJ_DISPATCH_POINTS is a set of project builds and timepoints in
     which they can be dispatched. This set will not include timepoints
     that occur after a project build has reached the end of its life. A
     dispatch decisions is made for each member of this set: project,
     build_year and timepoint. Members of this set can be abbreviated as
     (proj, t) or (prj, t).
 
-    DispatchProj[(proj, t) in DISPATCH_TIMEPOINTS] is the set
+    DispatchProj[(proj, t) in PROJ_DISPATCH_POINTS] is the set
     of generation dispatch decisions: how much average power in MW to
     produce in each timepoint. This value can be multiplied by the
     duration of the timepoint in hours to determine the energy produced
@@ -55,10 +55,10 @@ def define_components(mod):
     were not scheduled to produce power, so their availability is only
     derated based on their forced outage rates.
 
-    FLEXIBLE_DISPATCH_TIMEPOINTS is a subset of DISPATCH_TIMEPOINTS that
+    FLEXIBLE_DISPATCH_POINTS is a subset of PROJ_DISPATCH_POINTS that
     is not baseload or variable generators.
 
-    Dispatch_Capacity_Limit[(proj, t) in FLEXIBLE_DISPATCH_TIMEPOINTS]
+    Dispatch_Capacity_Limit[(proj, t) in FLEXIBLE_DISPATCH_POINTS]
     constraints DispatchProj to stay under the installed capacity after
     derating for maintenance. This constraint does not apply to baseload
     or variable renewable projects because they have different and more
@@ -66,16 +66,16 @@ def define_components(mod):
 
         DispatchProj <= BuildProj * proj_availability
 
-    BASELOAD_DISPATCH_TIMEPOINTS is a subset of DISPATCH_TIMEPOINTS
+    BASELOAD_DISPATCH_POINTS is a subset of PROJ_DISPATCH_POINTS
     that is limited to baseload generators.
 
-    Dispatch_as_Baseload[(proj, t) in BASELOAD_DISPATCH_TIMEPOINTS]
+    Dispatch_as_Baseload[(proj, t) in BASELOAD_DISPATCH_POINTS]
     constraints DispatchProj for baseload plants to stay equal to the
     installed capacity after derating for maintenance.
 
         DispatchProj = BuildProj * proj_availability
 
-    VAR_DISPATCH_TIMEPOINTS is a subset of DISPATCH_TIMEPOINTS
+    VAR_DISPATCH_POINTS is a subset of PROJ_DISPATCH_POINTS
     that is limited to variable renewable generators.
 
     prj_capacity_factor[prj, t] is defined for variable renewable
@@ -91,7 +91,7 @@ def define_components(mod):
     freezing. Those heating loads can be significant during certain
     timepoints.
 
-    Variable_Gen_Limit[(prj, t) in VAR_DISPATCH_TIMEPOINTS] is
+    Variable_Gen_Limit[(prj, t) in VAR_DISPATCH_POINTS] is
     a set of constraints that enforces the maximum power available from
     a variable generator in a given timepoint.
 
@@ -100,12 +100,25 @@ def define_components(mod):
     proj_variable_om[proj] is the variable Operations and Maintenance
     costs (O&M) per MWh of dispatched capacity for a given project.
 
-    --- Delayed implementation ---
+    Proj_Var_Costs_Hourly[t in TIMEPOINTS] is the sum of all variable
+    costs associated with project dispatch for each timepoint expressed
+    in $base_year/hour in the future period (rather than Net Present
+    Value).
 
-    THERMAL_DISPATCH_TIMEPOINTS is a subset of DISPATCH_TIMEPOINTS
+    THERMAL_DISPATCH_POINTS is a subset of PROJ_DISPATCH_POINTS
     that is limited to thermal generators that could produce emissions.
 
-    EmissionsInTimepoint[(proj, t) in THERMAL_DISPATCH_TIMEPOINTS]
+    RFM_DISPATCH_POINTS[regional_fuel_market, period] is an indexed set
+    of THERMAL_DISPATCH_POINTS that contribute to a given regional
+    fuel market's activity in a given period.
+
+    Enforce_Fuel_Consumption is a constraint that ties the aggregate
+    fuel consumption from dispatch into FuelConsumptionInMarket variable
+    from the fuel module.
+
+    --- Delayed implementation ---
+
+    EmissionsInTimepoint[(proj, t) in THERMAL_DISPATCH_POINTS]
     is an expression that defines the emissions in each timepoint from
     dispatching a thermal generator.
         = DispatchProj * proj_emission_rate
@@ -135,18 +148,18 @@ def define_components(mod):
                     if(m.tp_period[t] == period):
                         dispatch_timepoints.add((proj, t))
         return dispatch_timepoints
-    mod.DISPATCH_TIMEPOINTS = Set(
+    mod.PROJ_DISPATCH_POINTS = Set(
         dimen=2,
         initialize=init_dispatch_timepoints)
 
     mod.DispatchProj = Var(
-        mod.DISPATCH_TIMEPOINTS,
+        mod.PROJ_DISPATCH_POINTS,
         within=NonNegativeReals)
     mod.LZ_NetDispatch = Expression(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         initialize=lambda m, lz, tp: sum(
             m.DispatchProj[p, tp] for p in m.LZ_PROJECTS[lz]
-            if (p, tp) in mod.DISPATCH_TIMEPOINTS))
+            if (p, tp) in mod.PROJ_DISPATCH_POINTS))
     # Register net dispatch as contributing to a load zone's energy
     mod.LZ_Energy_Balance_components.append('LZ_NetDispatch')
 
@@ -163,40 +176,40 @@ def define_components(mod):
         within=PositiveReals,
         initialize=init_proj_availability)
 
-    mod.BASELOAD_DISPATCH_TIMEPOINTS = Set(
+    mod.BASELOAD_DISPATCH_POINTS = Set(
         dimen=2,
-        initialize=mod.DISPATCH_TIMEPOINTS,
+        initialize=mod.PROJ_DISPATCH_POINTS,
         filter=lambda m, proj, t: (
             m.g_is_baseload[m.proj_gen_tech[proj]]))
-    mod.VAR_DISPATCH_TIMEPOINTS = Set(
+    mod.VAR_DISPATCH_POINTS = Set(
         dimen=2,
-        initialize=mod.DISPATCH_TIMEPOINTS,
+        initialize=mod.PROJ_DISPATCH_POINTS,
         filter=lambda m, proj, t: (
             m.g_is_variable[m.proj_gen_tech[proj]]))
-    mod.FLEXIBLE_DISPATCH_TIMEPOINTS = Set(
+    mod.FLEXIBLE_DISPATCH_POINTS = Set(
         dimen=2,
         initialize=lambda m: set(
-            m.DISPATCH_TIMEPOINTS - m.BASELOAD_DISPATCH_TIMEPOINTS -
-            m.VAR_DISPATCH_TIMEPOINTS))
+            m.PROJ_DISPATCH_POINTS - m.BASELOAD_DISPATCH_POINTS -
+            m.VAR_DISPATCH_POINTS))
     mod.Dispatch_Capacity_Limit = Constraint(
-        mod.FLEXIBLE_DISPATCH_TIMEPOINTS,
+        mod.FLEXIBLE_DISPATCH_POINTS,
         rule=lambda m, proj, t: (
             m.DispatchProj[proj, t] <=
             m.ProjCapacity[proj, m.tp_period[t]] *
             m.proj_availability[proj]))
     mod.Dispatch_as_Baseload = Constraint(
-        mod.BASELOAD_DISPATCH_TIMEPOINTS,
+        mod.BASELOAD_DISPATCH_POINTS,
         rule=lambda m, proj, t: (
             m.DispatchProj[proj, t] ==
             m.ProjCapacity[proj, m.tp_period[t]] *
             m.proj_availability[proj]))
     mod.prj_capacity_factor = Param(
-        mod.VAR_DISPATCH_TIMEPOINTS,
+        mod.VAR_DISPATCH_POINTS,
         within=Reals,
         validate=lambda m, val, proj, t: -1 < val < 2)
     mod.min_data_check('prj_capacity_factor')
     mod.Variable_Gen_Limit = Constraint(
-        mod.VAR_DISPATCH_TIMEPOINTS,
+        mod.VAR_DISPATCH_POINTS,
         rule=lambda m, proj, t: (
             m.DispatchProj[proj, t] <=
             m.ProjCapacity[proj, m.tp_period[t]] *
@@ -208,6 +221,45 @@ def define_components(mod):
         default=lambda m, proj, bld_yr: (
             m.g_variable_o_m[m.proj_gen_tech[proj], bld_yr] *
             m.lz_cost_multipliers[m.proj_load_zone[proj]]))
+
+    mod.THERMAL_DISPATCH_POINTS = Set(
+        initialize=mod.PROJ_DISPATCH_POINTS,
+        filter=lambda m, proj, t: proj in m.PROJECTS_THERMAL)
+
+    # An expression to summarize costs for the objective function. Units
+    # should be total future costs in $base_year real dollars. The
+    # objective function will convert these to base_year Net Present
+    # Value in $base_year real dollars.
+    mod.Proj_Var_Costs_Hourly = Expression(
+        mod.TIMEPOINTS,
+        initialize=lambda m, t: sum(
+            m.DispatchProj[proj, t] * m.proj_variable_om[proj]
+            for (proj, t) in mod.PROJ_DISPATCH_POINTS
+            if m.tp_period[t] in
+            m.PROJECT_BUILDS_OPERATIONAL_PERIODS[proj, bld_yr]))
+    mod.cost_components_tp.append('Proj_Var_Costs_Hourly')
+
+    # These next few components could get migrated to a fuel_markets
+    # module that gets called after project_dispatch and fuels have both
+    # been called.
+    mod.RFM_DISPATCH_POINTS = Set(
+        mod.REGIONAL_FUEL_MARKET, mod.INVEST_PERIODS,
+        within=mod.THERMAL_DISPATCH_POINTS,
+        initialize=lambda m, rfm, p: set(
+            (proj, t) for (proj, t) in m.THERMAL_DISPATCH_POINTS
+            if m.proj_fuel[proj] == m.rfm_fuel[rfm] and
+            m.proj_load_zone[proj] in m.RFM_LOAD_ZONES[rfm] and
+            m.tp_period[t] == p))
+
+    # Pass aggregate fuel consumption back to market framework
+    def Enforce_Fuel_Consumption_rule(m, rfm, p):
+        return m.FuelConsumptionInMarket[rfm, p] == sum(
+            m.DispatchProj[proj, t] *
+            m.tp_weight_in_year[t] * m.proj_heat_rate[proj]
+            for (proj, t) in m.RFM_DISPATCH_POINTS[rfm, p])
+    mod.Enforce_Fuel_Consumption = Constraint(
+        mod.REGIONAL_FUEL_MARKET, mod.INVEST_PERIODS,
+        rule=Enforce_Fuel_Consumption_rule)
 
 
 def load_data(mod, switch_data, inputs_dir):

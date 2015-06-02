@@ -164,7 +164,7 @@ def define_components(mod):
     (from a present to a future value), use an interest rate. If you are
     converting value of money back in time, use a discount rate.
 
-    These next parameters are derived from the above parameters and
+    These next two parameters are derived from the above parameters and
     timescale information.
 
     bring_annual_costs_to_base_year[p in INVEST_PERIODS] is a
@@ -195,6 +195,30 @@ def define_components(mod):
     calculated by multiplying hourly unit costs by this coefficient and
     the dispatch decision.
 
+    The next two elements are lists of costs components rather than
+    Pyomo components. Other modules may add elements to these lists. The
+    system_cost module will use these to construct an overall cost
+    expression for the objective function.
+
+    cost_components_tp is a list of components that contribute to
+    overall system costs in each timepoint. Each component in this list
+    needs to be indexed by timepoint and specified in non-discounted
+    real dollars per hour. The objective function will apply weights and
+    discounting to these terms. If this indexing is not convenient for
+    native model components, I advise writing an Expression object
+    indexed by [t] that contains logic to access or summarize native
+    model components.
+
+    cost_components_annual is a list of components that contribute to
+    overall system costs on an annual basis. Each component in this list
+    needs to be indexed by period and specified in non-discounted real
+    dollars over a typical year in the period. The objective function
+    will apply discounting to these terms. If this indexing is not
+    convenient for native model components, I advise writing an
+    Expression object indexed by [p] that contains logic to access or
+    summarize native model components.
+
+
     """
 
     # This will add a min_data_check() method to the model
@@ -220,6 +244,8 @@ def define_components(mod):
         initialize=lambda mod, t: (
             mod.bring_annual_costs_to_base_year[mod.tp_period[t]] *
             mod.tp_weight_in_year[t]))
+    mod.cost_components_tp = []
+    mod.cost_components_annual = []
 
 
 def load_data(mod, switch_data, inputs_directory):

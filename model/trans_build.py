@@ -185,24 +185,33 @@ def define_components(mod):
 
         LocalTDCapacity >= max_local_demand
 
-    local_td_lifetime_yrs is a parameter describing the physical and
-    financial lifetime of local transmission & distribution. This
-    parameter is optional and defaults to 20 years.
-
-    local_td_cost_per_mw[lz in LOAD_ZONES] describes the total annual
-    costs for each MW of local transmission & distributino. This value
-    should include the annualized capital costs as well as fixed
+    local_td_annual_cost_per_mw[lz in LOAD_ZONES] describes the total
+    annual costs for each MW of local transmission & distributino. This
+    value should include the annualized capital costs as well as fixed
     operations & maintenance costs. These costs will be applied to
     existing and new infrastructure. We assume that existing capacity
     will be replaced at the end of its life, so these costs will
     continue indefinitely.
 
+    PERIOD_RELEVANT_TRANS_BUILDS[p in INVEST_PERIODS] is an indexed set
+    that describes which transmission builds will be operational in a
+    given period. Currently, transmission lines are kept online
+    indefinitely, with parts being replaced as they wear out.
+    PERIOD_RELEVANT_TRANS_BUILDS[p] will return a subset of (tx, bld_yr)
+    in TRANS_BUILD_YEARS.
+
+    PERIOD_RELEVANT_LOCAL_TD_BUILDS[p in INVEST_PERIODS] is an indexed
+    set that describes which local transmission & distribution builds
+    will be operational in a given period. Same idea as
+    PERIOD_RELEVANT_TRANS_BUILDS, but with a different scope.
+
     --- Delayed implementation ---
 
-    # TRANS_BUILD_OPERATIONAL_PERIODS[(tx, bld_yr) in TRANS_BUILD_YEARS]
-    # is an indexed set that describes which periods a given transmission
-    # build will be operational. Currently, transmission lines are kept
-    # online indefinitely, with parts being replaced as they wear out.
+    # I implemented this in trans_params.dat, but wasn't using it
+    # so I commented it out.
+    # local_td_lifetime_yrs is a parameter describing the physical and
+    # financial lifetime of local transmission & distribution. This
+    # parameter is optional and defaults to 20 years.
 
     distributed PV don't incur distribution_losses..
 
@@ -248,7 +257,7 @@ def define_components(mod):
     to continue indefinitely. This basically assumed that local T&D would
     be replaced at the end of its financial lifetime.
 
-    SWITCH-Pyomo assumes all transmission and distribution (long-
+    SWITCH-Pyomo treats all transmission and distribution (long-
     distance or local) the same. Any capacity that is built will be kept
     online indefinitely. At the end of its financial lifetime, existing
     capacity will be retired and rebuilt, so the annual cost of a line
@@ -288,6 +297,12 @@ def define_components(mod):
     mod.TRANS_BUILD_YEARS = Set(
         dimen=2,
         initialize=lambda m: m.EXISTING_TRANS_BLD_YRS | m.NEW_TRANS_BLD_YRS)
+    mod.PERIOD_RELEVANT_TRANS_BUILDS = Set(
+        mod.INVEST_PERIODS,
+        within=mod.TRANS_BUILD_YEARS,
+        initialize=lambda m, p: set(
+            (tx, bld_yr) for (tx, bld_yr) in m.TRANS_BUILD_YEARS
+            if bld_yr <= p))
 
     def bounds_BuildTrans(model, tx, bld_yr):
         if((tx, bld_yr) in model.EXISTING_TRANS_BLD_YRS):
@@ -328,18 +343,27 @@ def define_components(mod):
     mod.trans_fixed_o_m_fraction = Param(
         within=PositiveReals,
         default=0.03)
-    # Total fixed costs per hour for building new transmission lines...
+    # Total annaul fixed costs for building new transmission lines...
     # Multiply capital costs by capital recover factor to get annual
     # payments. Add annual fixed O&M that are expressed as a fraction of
-    # overnight costs. Divide by the hours in a year to get the hourly
-    # fixed costs.
-    mod.trans_cost_hourly = Param(
+    # overnight costs.
+    mod.trans_cost_annual = Param(
         mod.TRANSMISSION_LINES,
         within=PositiveReals,
         initialize=lambda m, tx: (
             m.trans_capital_cost_per_mw_km * m.trans_terrain_multiplier[tx] *
             (crf(m.interest_rate, m.trans_lifetime_yrs) +
-                m.trans_fixed_o_m_fraction) / hours_per_year))
+                m.trans_fixed_o_m_fraction)))
+    # An expression to summarize annual costs for the objective
+    # function. Units should be total annual future costs in $base_year
+    # real dollars. The objective function will convert these to
+    # base_year Net Present Value in $base_year real dollars.
+    mod.Trans_Fixed_Costs_Annual = Expression(
+        mod.INVEST_PERIODS,
+        initialize=lambda m, p: sum(
+            m.BuildTrans[tx, bld_yr] * m.trans_cost_annual[tx]
+            for (tx, bld_yr) in m.PERIOD_RELEVANT_TRANS_BUILDS[p]))
+    mod.cost_components_annual.append('Trans_Fixed_Costs_Annual')
 
     def init_TRANS_DIRECTIONAL(model):
         tx_dir = set()
@@ -372,6 +396,12 @@ def define_components(mod):
         dimen=2,
         initialize=lambda m: set(
             (m.LOAD_ZONES * m.INVEST_PERIODS) | m.EXISTING_LOCAL_TD_BLD_YRS))
+    mod.PERIOD_RELEVANT_LOCAL_TD_BUILDS = Set(
+        mod.INVEST_PERIODS,
+        within=mod.LOCAL_TD_BUILD_YEARS,
+        initialize=lambda m, p: set(
+            (lz, bld_yr) for (lz, bld_yr) in m.LOCAL_TD_BUILD_YEARS
+            if bld_yr <= p))
 
     def bounds_BuildLocalTD(model, lz, bld_yr):
         if((lz, bld_yr) in model.EXISTING_LOCAL_TD_BLD_YRS):
@@ -388,17 +418,27 @@ def define_components(mod):
         initialize=lambda m, lz, period: sum(
             m.BuildLocalTD[lz, bld_yr]
             for (lz2, bld_yr) in m.LOCAL_TD_BUILD_YEARS
-            if lz2 == lz2 and (bld_yr == 'Legacy' or bld_yr <= period)))
+            if lz2 == lz and (bld_yr == 'Legacy' or bld_yr <= period)))
     mod.distribution_losses = Param(default=0.053)
     mod.Meet_Local_TD = Constraint(
         mod.LOAD_ZONES, mod.INVEST_PERIODS,
         rule=lambda m, lz, period: (
             m.LocalTDCapacity[lz, period] >= m.lz_peak_demand_mw[lz, period]))
-    mod.local_td_lifetime_yrs = Param(default=20)
-    mod.local_td_cost_per_mw = Param(
+    # mod.local_td_lifetime_yrs = Param(default=20)
+    mod.local_td_annual_cost_per_mw = Param(
         mod.LOAD_ZONES,
         within=PositiveReals)
-    mod.min_data_check('local_td_cost_per_mw')
+    mod.min_data_check('local_td_annual_cost_per_mw')
+    # An expression to summarize annual costs for the objective
+    # function. Units should be total annual future costs in $base_year
+    # real dollars. The objective function will convert these to
+    # base_year Net Present Value in $base_year real dollars.
+    mod.LocalTD_Fixed_Costs_Annual = Expression(
+        mod.INVEST_PERIODS,
+        initialize=lambda m, p: sum(
+            m.BuildLocalTD[lz, bld_yr] * m.local_td_annual_cost_per_mw[lz]
+            for (lz, bld_yr) in m.PERIOD_RELEVANT_LOCAL_TD_BUILDS[p]))
+    mod.cost_components_annual.append('LocalTD_Fixed_Costs_Annual')
 
 
 def load_data(mod, switch_data, inputs_dir):
@@ -412,7 +452,7 @@ def load_data(mod, switch_data, inputs_dir):
         trans_efficiency, existing_trans_cap
 
     local_td.tab
-        load_zone, existing_local_td, local_td_cost_per_mw
+        load_zone, existing_local_td, local_td_annual_cost_per_mw
 
     The next files are optional. If they are not included or if any rows
     are missing, those parameters will be set to default values as
@@ -428,8 +468,7 @@ def load_data(mod, switch_data, inputs_dir):
 
     trans_params.dat
         trans_capital_cost_per_mw_km, trans_lifetime_yrs,
-        trans_fixed_o_m_fraction, distribution_losses, local_td_lifetime_yrs,
-        local_td_cost_per_mw
+        trans_fixed_o_m_fraction, distribution_losses
 
 
     """
@@ -443,8 +482,9 @@ def load_data(mod, switch_data, inputs_dir):
                mod.trans_efficiency, mod.existing_trans_cap))
     switch_data.load(
         filename=os.path.join(inputs_dir, 'local_td_existing.tab'),
-        select=('load_zone', 'existing_local_td', 'local_td_cost_per_mw'),
-        param=(mod.existing_local_td, mod.local_td_cost_per_mw))
+        select=('load_zone', 'existing_local_td',
+                'local_td_annual_cost_per_mw'),
+        param=(mod.existing_local_td, mod.local_td_annual_cost_per_mw))
     trans_optional_params_path = os.path.join(
         inputs_dir, 'trans_optional_params.tab')
     if os.path.isfile(trans_optional_params_path):

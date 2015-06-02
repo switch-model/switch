@@ -5,7 +5,7 @@ the SWITCH-Pyomo model.
 SYNOPSIS
 >>> from pyomo.environ import *
 >>> import utilities
->>> switch_modules = ('timescales', 'load_zones', 'fuels')
+>>> switch_modules = ('timescales', 'load_zones', 'financials', 'fuels')
 >>> utilities.load_switch_modules(switch_modules)
 >>> switch_model = utilities.define_AbstractModel(switch_modules)
 >>> inputs_dir = 'test_dat'
@@ -111,7 +111,7 @@ def define_components(mod):
     if it proves cumbersome. An alternate implementation could specify
     each regional fuel market as a tuple pair of (region, fuel), but
     this might make indexing parameters in the code more verbose,
-    confusing and more error prone.
+    confusing and error prone.
 
     rfm_fuel[rfm] defines the fuel sold in a regional fuel market.
 
@@ -321,8 +321,8 @@ def define_components(mod):
     mod.FuelConsumptionByTier = Var(
         mod.RFM_SUPPLY_TIERS,
         domain=NonNegativeReals,
-        bounds=lambda m, r, p, st: (
-            0, m.rfm_supply_tier_limit[r, p, st]))
+        bounds=lambda m, rfm, p, st: (
+            0, m.rfm_supply_tier_limit[rfm, p, st]))
     mod.FuelConsumptionInMarket = Var(
         mod.REGIONAL_FUEL_MARKET, mod.INVEST_PERIODS,
         domain=NonNegativeReals)
@@ -346,6 +346,18 @@ def define_components(mod):
     mod.lz_fuel_cost_adder = Param(
         mod.LZ_FUELS, mod.INVEST_PERIODS,
         within=Reals, default=0, validate=lz_fuel_cost_adder_validate)
+
+    # Summarize annual fuel costs for the objective funciton
+    def rfm_period_costs(m, rfm, p):
+        return sum(
+            m.FuelConsumptionByTier[rfm_st] * m.rfm_supply_tier_cost[rfm_st]
+            for rfm_st in m.RFM_P_SUPPLY_TIERS[rfm, p])
+    mod.Fuel_Costs_Annual = Expression(
+        mod.INVEST_PERIODS,
+        initialize=lambda m, p: sum(
+            rfm_period_costs(m, rfm, p)
+            for rfm in m.REGIONAL_FUEL_MARKET))
+    mod.cost_components_annual.append('Fuel_Costs_Annual')
 
 
 def load_data(mod, switch_data, inputs_directory):

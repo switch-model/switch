@@ -160,26 +160,21 @@ def define_components(mod):
     "installed in the given period", I mean that it comes online at the
     beginning of the given period and construction starts before that.
 
-    proj_fixed_om[proj, build_year] is the fixed Operations and
+    proj_fixed_om[proj, build_year] is the annual fixed Operations and
     Maintenance costs (O&M) per MW of capacity for given project that
     was installed in the given period.
 
     -- Derived cost parameters --
 
-    proj_capital_cost_hourly[proj, build_year] is the annualized loan
-    payments for a project's capital and connection costs divided over
-    the hours in a year which has units of $/MW per hour of operation.
-    This is specified in real dollars in a future period, not real
-    dollars in net present value. Dividing annual payments into hourly
-    values simplifies the objective function and re-using these modeling
-    components for sub-annual dispatch problems.
+    proj_capital_cost_annual[proj, build_year] is the annualized loan
+    payments for a project's capital and connection costs in units of
+    $/MW per year. This is specified in non-discounted real dollars in a
+    future period, not real dollars in net present value.
 
-    proj_fixed_om_hourly[proj, build_year] is the fixed cost for a
-    project divided over the hours in a year in $/MW per hour of
-    operation. This is specified in real dollars in a future period, not
-    real dollars in net present value. This is divided into hourly
-    payments for the same reason as capital costs: to simplify
-    cost equations and increase reuse potential.
+    Proj_Fixed_Costs_Hourly[t in TIMEPOINTS] is the sum of all capital
+    and fixed costs associated with project builds for each timepoint
+    expressed in $base_year/hour in the future period (rather than Net
+    Present Value).
 
     --- DELAYED IMPLEMENATION ---
 
@@ -412,18 +407,26 @@ def define_components(mod):
         default=lambda m, proj, bld_yr: (
             m.g_fixed_o_m[m.proj_gen_tech[proj], bld_yr] *
             m.lz_cost_multipliers[m.proj_load_zone[proj]]))
-    # Derived hourly costs
-    mod.proj_capital_cost_hourly = Param(
+    # Derived annual costs
+    mod.proj_capital_cost_annual = Param(
         mod.PROJECT_BUILDYEARS,
         initialize=lambda m, proj, bld_yr: (
             (m.proj_overnight_cost[proj, bld_yr] +
                 m.proj_connect_cost_per_mw[proj]) *
-            crf(m.interest_rate, m.g_max_age[m.proj_gen_tech[proj]]) /
-            hours_per_year))
-    mod.proj_fixed_om_hourly = Param(
-        mod.PROJECT_BUILDYEARS,
-        initialize=lambda m, proj, bld_yr: (
-            m.proj_fixed_om[proj, bld_yr] / hours_per_year))
+            crf(m.interest_rate, m.g_max_age[m.proj_gen_tech[proj]])))
+    # An expression to summarize costs for the objective function. Units
+    # should be total future costs in $base_year real dollars. The
+    # objective function will convert these to base_year Net Present
+    # Value in $base_year real dollars.
+    mod.Proj_Fixed_Costs_Annual = Expression(
+        mod.INVEST_PERIODS,
+        initialize=lambda m, p: sum(
+            m.BuildProj[proj, bld_yr] *
+            (m.proj_capital_cost_annual[proj, bld_yr] +
+             m.proj_fixed_om[proj, bld_yr])
+            for (proj, bld_yr) in mod.PROJECT_BUILDYEARS
+            if p in m.PROJECT_BUILDS_OPERATIONAL_PERIODS[proj, bld_yr]))
+    mod.cost_components_annual.append('Proj_Fixed_Costs_Annual')
 
 
 def load_data(mod, switch_data, inputs_dir):

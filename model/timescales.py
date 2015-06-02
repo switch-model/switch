@@ -267,27 +267,16 @@ def define_components(mod):
         initialize=lambda m, p: set(
             t for t in m.TIMEPOINTS if m.tp_period[t] == p))
 
-    def validate_time_weights_rule(mod, p):
-        # If I use the indexed set DISP_SCEN_TPS for this sum, I get
-        # an error "ValueError: Error retrieving component
-        # DISP_SCEN_TPS[high_hydro_2020]: The component has not been
-        # constructed" hours_in_disp_scen = sum(mod.tp_weight[t] for
-        # t in mod.DISP_SCEN_TPS[s]) Filtering the set TIMEPOINTS
-        # like I do when I create DISP_SCEN_TPS avoids this problem.
-        # So does defining this rule after I have created an
-        # instance from a .dat file.
-        # hours_in_period = sum(mod.tp_weight[t] for t in mod.PERIOD_TPS[p])
-        hours_in_period = \
-            sum(mod.tp_weight[t] for t in mod.TIMEPOINTS
-                if mod.tp_period[t] == p)
+    def validate_time_weights_rule(m, p):
+        hours_in_period = sum(m.tp_weight[t] for t in m.PERIOD_TPS[p])
         tol = 0.01
-        if(hours_in_period > (1 + tol) * mod.period_length_hours[p] or
-           hours_in_period < (1 - tol) * mod.period_length_hours[p]):
+        if(hours_in_period > (1 + tol) * m.period_length_hours[p] or
+           hours_in_period < (1 - tol) * m.period_length_hours[p]):
             print "validate_time_weights_rule failed for period " + \
                   "'{period:s}'. Expected {period_h:0.2f}, based on" + \
                   "length in years, but the sum of timepoint weights " + \
                   "is {ds_h:0.2f}.\n"\
-                  .format(period=p, period_h=mod.period_length_hours[p],
+                  .format(period=p, period_h=m.period_length_hours[p],
                           ds_h=hours_in_period)
             return 0
         return 1

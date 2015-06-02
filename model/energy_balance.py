@@ -22,7 +22,6 @@ Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 """
 
 from pyomo.environ import *
-import utilities
 
 
 def define_components(mod):
@@ -50,9 +49,6 @@ def define_components(mod):
     references have been defined.
 
     """
-
-    # This will add a min_data_check() method to the model
-    utilities.add_min_data_check(mod)
 
     mod.Satisfy_Load = Constraint(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
