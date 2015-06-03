@@ -58,41 +58,6 @@ def define_components(mod):
     parameter wont be used if Carbon Capture and Sequestration
     technologies are not enabled in a simulation.
 
-    lz_balancing_area[z] describes which balancing area each load zone
-    belongs to.
-
-    BALANCING_AREAS describes the set of balancing areas in which
-    operational reserves must be met. These are the unique names
-    specified in the lz_balancing_area[z] parameter. You can override
-    the default operational reserve requirements (described below) by
-    including an additional file in the input directory. See
-    load_data() documentation for more details. Balancing areas
-    are abbreviated as b for the purposed of indexing.
-
-    quickstart_res_load_frac[b] describes the quickstart reserve
-    requirements as a fraction of total load in the balancing area in
-    each hour. This defaults to 0.03.
-
-    quickstart_res_wind_frac[b] describes the quickstart reserve
-    requirements as a fraction of wind energy produced in the balancing
-    area in each hour. This defaults to 0.05.
-
-    quickstart_res_solar_frac[b] describes the quickstart reserve
-    requirements as a fraction of solar energy produced in the balancing
-    area in each hour. This defaults to 0.05.
-
-    spinning_res_load_frac[b] describes the spinning reserve
-    requirements as a fraction of total load in the balancing area in
-    each hour. This defaults to 0.03.
-
-    spinning_res_wind_frac[b] describes the spinning reserve
-    requirements as a fraction of wind energy produced in the balancing
-    area in each hour. This defaults to 0.05.
-
-    spinning_res_solar_frac[b] describes the spinning reserve
-    requirements as a fraction of solar energy produced in the balancing
-    area in each hour. This defaults to 0.05.
-
     DumpPower[load_zone, timepoint] is a decision variable that allows
     overproduction of energy in every load zone and timepoint.
     This may be interpretted either as the aggregate curtailment needed,
@@ -125,38 +90,16 @@ def define_components(mod):
         mod.LOAD_ZONES, mod.INVEST_PERIODS, within=PositiveReals)
     mod.lz_cost_multipliers = Param(mod.LOAD_ZONES, within=PositiveReals)
     mod.lz_ccs_distance_km = Param(mod.LOAD_ZONES, within=NonNegativeReals)
-    mod.lz_balancing_area = Param(mod.LOAD_ZONES)
     mod.lz_dbid = Param(mod.LOAD_ZONES)
     # Verify that mandatory data exists before using it.
     mod.min_data_check(
         'LOAD_ZONES', 'lz_demand_mw', 'lz_dbid', 'lz_cost_multipliers',
-        'lz_ccs_distance_km', 'lz_balancing_area')
+        'lz_ccs_distance_km')
     mod.lz_total_demand_in_period_mwh = Param(
         mod.LOAD_ZONES, mod.INVEST_PERIODS, within=PositiveReals,
         initialize=lambda mod, z, p: (
             sum(mod.lz_demand_mw[z, t] * mod.tp_weight[t]
                 for t in mod.PERIOD_TPS[p])))
-
-    mod.BALANCING_AREAS = Set(initialize=lambda mod: set(
-        mod.lz_balancing_area[z] for z in mod.LOAD_ZONES))
-    mod.quickstart_res_load_frac = Param(
-        mod.BALANCING_AREAS, within=PositiveReals, default=0.03,
-        validate=lambda mod, val, b: val < 1)
-    mod.quickstart_res_wind_frac = Param(
-        mod.BALANCING_AREAS, within=PositiveReals, default=0.05,
-        validate=lambda mod, val, b: val < 1)
-    mod.quickstart_res_solar_frac = Param(
-        mod.BALANCING_AREAS, within=PositiveReals, default=0.05,
-        validate=lambda mod, val, b: val < 1)
-    mod.spinning_res_load_frac = Param(
-        mod.BALANCING_AREAS, within=PositiveReals, default=0.03,
-        validate=lambda mod, val, b: val < 1)
-    mod.spinning_res_wind_frac = Param(
-        mod.BALANCING_AREAS, within=PositiveReals, default=0.05,
-        validate=lambda mod, val, b: val < 1)
-    mod.spinning_res_solar_frac = Param(
-        mod.BALANCING_AREAS, within=PositiveReals, default=0.05,
-        validate=lambda mod, val, b: val < 1)
     mod.DumpPower = Var(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         within=NonPositiveReals)
@@ -170,23 +113,13 @@ def load_data(mod, switch_data, inputs_directory):
     directory:
 
     load_zones.tab should be a tab-separated file with the columns:
-        LOAD_ZONE, cost_multipliers, ccs_distance_km, balancing_area,
-        dbid
+        LOAD_ZONE, cost_multipliers, ccs_distance_km, dbid
 
     lz_peak_loads.tab should be a tab-separated file with the columns:
         LOAD_ZONE, PERIOD, peak_demand_mw
 
     loads.tab should be a tab-separated file with the columns:
         LOAD_ZONE, TIMEPOINT, demand_mw
-
-    balancing_areas.tab is optional and should be specified if you want
-    to override the default values for operational reserves. If
-    provided, it needs to be formatted as a tab-separated file with the
-    columns:
-        BALANCING_AREAS, quickstart_res_load_frac,
-        quickstart_res_wind_frac, quickstart_res_solar_frac,
-        spinning_res_load_frac, spinning_res_wind_frac,
-        spinning_res_solar_frac
 
     """
     # Include select in each load() function so that it will check out
@@ -195,10 +128,10 @@ def load_data(mod, switch_data, inputs_directory):
     switch_data.load(
         filename=os.path.join(inputs_directory, 'load_zones.tab'),
         select=('LOAD_ZONE', 'cost_multipliers', 'ccs_distance_km',
-                'balancing_area', 'dbid'),
+                'dbid'),
         index=mod.LOAD_ZONES,
         param=(mod.lz_cost_multipliers, mod.lz_ccs_distance_km,
-               mod.lz_balancing_area, mod.lz_dbid))
+               mod.lz_dbid))
     switch_data.load(
         filename=os.path.join(inputs_directory, 'lz_peak_loads.tab'),
         select=('LOAD_ZONE', 'PERIOD', 'peak_demand_mw'),
@@ -207,16 +140,3 @@ def load_data(mod, switch_data, inputs_directory):
         filename=os.path.join(inputs_directory, 'loads.tab'),
         select=('LOAD_ZONE', 'TIMEPOINT', 'demand_mw'),
         param=(mod.lz_demand_mw))
-    balancing_area_path = os.path.join(inputs_directory, 'balancing_areas.tab')
-    if os.path.isfile(balancing_area_path):
-        # Load balancing area data from a file if it exists.
-        switch_data.load(
-            filename=balancing_area_path,
-            select=(
-                'BALANCING_AREAS', 'quickstart_res_load_frac',
-                'quickstart_res_wind_frac', 'quickstart_res_solar_frac',
-                'spinning_res_load_frac', 'spinning_res_wind_frac',
-                'spinning_res_solar_frac'),
-            param=(mod.quickstart_res_load_frac, mod.quickstart_res_wind_frac,
-                   mod.quickstart_res_solar_frac, mod.spinning_res_load_frac,
-                   mod.spinning_res_wind_frac, mod.spinning_res_solar_frac))
