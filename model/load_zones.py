@@ -159,7 +159,7 @@ def define_components(mod):
         validate=lambda mod, val, b: val < 1)
     mod.DumpPower = Var(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
-        within=NonNegativeReals)
+        within=NonPositiveReals)
     mod.LZ_Energy_Balance_components = ['DumpPower']
 
 

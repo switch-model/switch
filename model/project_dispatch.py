@@ -157,9 +157,9 @@ def define_components(mod):
         within=NonNegativeReals)
     mod.LZ_NetDispatch = Expression(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
-        initialize=lambda m, lz, tp: sum(
-            m.DispatchProj[p, tp] for p in m.LZ_PROJECTS[lz]
-            if (p, tp) in mod.PROJ_DISPATCH_POINTS))
+        initialize=lambda m, lz, t: sum(
+            m.DispatchProj[p, t] for p in m.LZ_PROJECTS[lz]
+            if (p, t) in m.PROJ_DISPATCH_POINTS))
     # Register net dispatch as contributing to a load zone's energy
     mod.LZ_Energy_Balance_components.append('LZ_NetDispatch')
 
@@ -211,7 +211,7 @@ def define_components(mod):
     mod.Variable_Gen_Limit = Constraint(
         mod.VAR_DISPATCH_POINTS,
         rule=lambda m, proj, t: (
-            m.DispatchProj[proj, t] <=
+            m.DispatchProj[proj, t] ==
             m.ProjCapacity[proj, m.tp_period[t]] *
             m.proj_availability[proj] * m.prj_capacity_factor[proj, t]))
 

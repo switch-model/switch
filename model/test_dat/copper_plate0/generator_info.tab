@@ -1,0 +1,3 @@
+generation_technology	g_dbid	g_max_age	g_min_build_capacity	g_scheduled_outage_rate	g_forced_outage_rate	g_is_resource_limited	g_is_variable	g_is_baseload	g_is_flexible_baseload	g_is_dispatchable	g_is_cogen	g_competes_for_space	g_variable_o_m
+NG_CC	1	20	0	0.04	0.06	0	0	0	0	1	0	0	3.4131
+Central_PV	26	20	0	0	0.02	1	1	0	0	0	0	1	0
