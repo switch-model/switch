@@ -108,14 +108,6 @@ def define_components(mod):
     THERMAL_DISPATCH_POINTS is a subset of PROJ_DISPATCH_POINTS
     that is limited to thermal generators that could produce emissions.
 
-    RFM_DISPATCH_POINTS[regional_fuel_market, period] is an indexed set
-    of THERMAL_DISPATCH_POINTS that contribute to a given regional
-    fuel market's activity in a given period.
-
-    Enforce_Fuel_Consumption is a constraint that ties the aggregate
-    fuel consumption from dispatch into FuelConsumptionInMarket variable
-    from the fuel module.
-
     --- Delayed implementation ---
 
     EmissionsInTimepoint[(proj, t) in THERMAL_DISPATCH_POINTS]
@@ -238,28 +230,6 @@ def define_components(mod):
             if m.tp_period[t] in
             m.PROJECT_BUILDS_OPERATIONAL_PERIODS[proj, bld_yr]))
     mod.cost_components_tp.append('Proj_Var_Costs_Hourly')
-
-    # These next few components could get migrated to a fuel_markets
-    # module that gets called after project_dispatch and fuels have both
-    # been called.
-    mod.RFM_DISPATCH_POINTS = Set(
-        mod.REGIONAL_FUEL_MARKET, mod.INVEST_PERIODS,
-        within=mod.THERMAL_DISPATCH_POINTS,
-        initialize=lambda m, rfm, p: set(
-            (proj, t) for (proj, t) in m.THERMAL_DISPATCH_POINTS
-            if m.proj_fuel[proj] == m.rfm_fuel[rfm] and
-            m.proj_load_zone[proj] in m.RFM_LOAD_ZONES[rfm] and
-            m.tp_period[t] == p))
-
-    # Pass aggregate fuel consumption back to market framework
-    def Enforce_Fuel_Consumption_rule(m, rfm, p):
-        return m.FuelConsumptionInMarket[rfm, p] == sum(
-            m.DispatchProj[proj, t] *
-            m.tp_weight_in_year[t] * m.proj_heat_rate[proj]
-            for (proj, t) in m.RFM_DISPATCH_POINTS[rfm, p])
-    mod.Enforce_Fuel_Consumption = Constraint(
-        mod.REGIONAL_FUEL_MARKET, mod.INVEST_PERIODS,
-        rule=Enforce_Fuel_Consumption_rule)
 
 
 def load_data(mod, switch_data, inputs_dir):
