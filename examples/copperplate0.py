@@ -1,12 +1,18 @@
 #!/usr/local/bin/python
 
 """
-Demo aspects of SWITCH-Pyomo.
+
+Illustrate the use of switch to construct and run a very simple model
+with a single load zone, one investment period, and one timepoint.
+
 """
 
+import sys
 from pyomo.environ import *
 from pyomo.opt import SolverFactory
-import utilities
+
+sys.path.append('..')
+import switch_mod.utilities as utilities
 
 switch_modules = (
     'timescales', 'financials', 'load_zones', 'local_td', 'fuels',

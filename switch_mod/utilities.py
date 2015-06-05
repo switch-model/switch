@@ -184,7 +184,7 @@ def load_switch_modules(module_list):
     """
     import importlib
     for m in module_list:
-        _loaded_switch_modules[m] = importlib.import_module(m)
+        _loaded_switch_modules[m] = importlib.import_module('switch_mod.' + m)
 
 
 def define_AbstractModel(module_list):

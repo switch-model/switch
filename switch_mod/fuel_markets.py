@@ -14,6 +14,7 @@ SYNOPSIS
 >>> switch_instance = switch_model.create(switch_data)
 
 Note, this can be tested with `python -m doctest -v fuel_markets.py`
+within the source directory.
 
 Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 """
@@ -197,6 +198,12 @@ def define_components(mod):
     fuel consumption from dispatch into FuelConsumptionInMarket variable
     from the fuel module.
 
+    AverageFuelCosts[regional_fuel_market, period] is an expression that
+    calculates the average cost paid for fuel in each market and period.
+    This can be useful for post-optimization calculations of costs. Do
+    not use this term in the optimization or else the problem will
+    become non-linear.
+
     """
 
     # This will add a min_data_check() method to the model
@@ -300,6 +307,15 @@ def define_components(mod):
     mod.Enforce_Fuel_Consumption = Constraint(
         mod.REGIONAL_FUEL_MARKET, mod.INVEST_PERIODS,
         rule=Enforce_Fuel_Consumption_rule)
+
+    # Calculate average fuel costs to allow post-optimization inspection
+    # and cost allocation.
+    mod.AverageFuelCosts = Expression(
+        mod.REGIONAL_FUEL_MARKET, mod.INVEST_PERIODS,
+        initialize=lambda m, rfm, p: (
+            rfm_period_costs(m, rfm, p) /
+            sum(m.FuelConsumptionByTier[rfm_st]
+                for rfm_st in m.RFM_P_SUPPLY_TIERS[rfm, p])))
 
 
 def load_data(mod, switch_data, inputs_directory):

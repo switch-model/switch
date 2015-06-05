@@ -16,7 +16,8 @@ SYNOPSIS
 >>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
 >>> switch_instance = switch_model.create(switch_data)
 
-Note, this can be tested with `python -m doctest -v energy_balance.py`
+Note, this can be tested by running `python -m doctest -v energy_balance.py`
+within the source directory.
 
 Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 """
