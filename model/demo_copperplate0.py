@@ -9,9 +9,9 @@ from pyomo.opt import SolverFactory
 import utilities
 
 switch_modules = (
-    'timescales', 'financials', 'load_zones', 'fuels', 'gen_tech',
-    'project_build', 'project_dispatch', 'fuel_markets', 'energy_balance',
-    'sys_cost')
+    'timescales', 'financials', 'load_zones', 'local_td', 'fuels',
+    'gen_tech', 'project_build', 'project_dispatch', 'fuel_markets',
+    'energy_balance', 'sys_cost')
 utilities.load_switch_modules(switch_modules)
 switch_model = utilities.define_AbstractModel(switch_modules)
 inputs_dir = 'test_dat/copper_plate0'
