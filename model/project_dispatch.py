@@ -32,12 +32,10 @@ def define_components(mod):
     projects. Unless otherwise stated, all power capacity is specified
     in units of MW and all sets and parameters are mandatory.
 
-    PROJ_DISPATCH_POINTS is a set of project builds and timepoints in
-    which they can be dispatched. This set will not include timepoints
-    that occur after a project build has reached the end of its life. A
-    dispatch decisions is made for each member of this set: project,
-    build_year and timepoint. Members of this set can be abbreviated as
-    (proj, t) or (prj, t).
+    PROJ_DISPATCH_POINTS is a set of projects and timepoints in which
+    they can be dispatched. A dispatch decisions is made for each member
+    of this set. Members of this set can be abbreviated as (proj, t) or
+    (prj, t).
 
     DispatchProj[(proj, t) in PROJ_DISPATCH_POINTS] is the set
     of generation dispatch decisions: how much average power in MW to
@@ -64,7 +62,7 @@ def define_components(mod):
     or variable renewable projects because they have different and more
     restrictive constraints.
 
-        DispatchProj <= BuildProj * proj_availability
+        DispatchProj <= ProjCapacity * proj_availability
 
     BASELOAD_DISPATCH_POINTS is a subset of PROJ_DISPATCH_POINTS
     that is limited to baseload generators.
@@ -73,7 +71,7 @@ def define_components(mod):
     constraints DispatchProj for baseload plants to stay equal to the
     installed capacity after derating for maintenance.
 
-        DispatchProj = BuildProj * proj_availability
+        DispatchProj = ProjCapacity * proj_availability
 
     VAR_DISPATCH_POINTS is a subset of PROJ_DISPATCH_POINTS
     that is limited to variable renewable generators.
@@ -95,7 +93,7 @@ def define_components(mod):
     a set of constraints that enforces the maximum power available from
     a variable generator in a given timepoint.
 
-        DispatchProj <= prj_capacity_factor * BuildProj * proj_availability
+        DispatchProj <= prj_capacity_factor * ProjCapacity * proj_availability
 
     proj_variable_om[proj] is the variable Operations and Maintenance
     costs (O&M) per MWh of dispatched capacity for a given project.
