@@ -7,8 +7,8 @@ SWITCH-Pyomo model.
 SYNOPSIS
 >>> from pyomo.environ import *
 >>> import utilities
->>> switch_modules = ('timescales', 'financials', 'load_zones', 'fuels',\
-    'gen_tech', 'project_build', 'project_dispatch', 'trans_build',\
+>>> switch_modules = ('timescales', 'financials', 'load_zones', 'local_td',\
+    'fuels', 'gen_tech', 'project_build', 'project_dispatch', 'trans_build',\
     'trans_dispatch', 'energy_balance')
 >>> utilities.load_switch_modules(switch_modules)
 >>> switch_model = utilities.define_AbstractModel(switch_modules)
@@ -32,11 +32,12 @@ def define_components(mod):
     otherwise stated, all terms describing power are in units of MW and
     all terms describing energy are in units of MWh.
 
-    Satisfy_Load[load_zone, timepoint] is a constraint that mandates
+    Energy_Balance[load_zone, timepoint] is a constraint that mandates
     conservation of energy in every load zone and timepoint. This
     constraint sums the model components in the list
     LZ_Energy_Balance_components - each of which is indexed by (lz, t) -
-    and ensures they are equal to lz_demand_mw[lz, t].
+    and ensures they sum to 0. By convention, energy production has a
+    positive sign and energy consumption has a negative sign.
 
     # DEVELOPMENT NOTES
 
@@ -50,12 +51,12 @@ def define_components(mod):
 
     """
 
-    mod.Satisfy_Load = Constraint(
+    mod.Energy_Balance = Constraint(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         rule=lambda m, lz, t: sum(
             getattr(m, compoment)[lz, t]
             for compoment in m.LZ_Energy_Balance_components
-        ) == m.lz_demand_mw[lz, t])
+        ) == 0)
 
 
 def load_data(mod, switch_data, inputs_dir):

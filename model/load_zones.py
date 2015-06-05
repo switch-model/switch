@@ -36,7 +36,10 @@ def define_components(mod):
     parameter names and as z for indexes.
 
     lz_demand_mw[z,t] describes the average power demand in each load
-    zone z and timepoint t.
+    zone z and timepoint t. This is a non negative value.
+
+    lz_demand_mw_as_consumption[z,t] is the same as lz_demand_mw but
+    with a negative sign for the benefit of energy balancing equations.
 
     lz_peak_demand_mw[z,p] describes the peak demand in each load zone z
     and each investment period p.
@@ -100,10 +103,14 @@ def define_components(mod):
         initialize=lambda mod, z, p: (
             sum(mod.lz_demand_mw[z, t] * mod.tp_weight[t]
                 for t in mod.PERIOD_TPS[p])))
+    mod.lz_demand_mw_as_consumption = Param(
+        mod.LOAD_ZONES, mod.TIMEPOINTS,
+        initialize=lambda m, lz, t: -1 * m.lz_demand_mw[lz, t])
     mod.DumpPower = Var(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         within=NonPositiveReals)
-    mod.LZ_Energy_Balance_components = ['DumpPower']
+    mod.LZ_Energy_Balance_components = [
+        'lz_demand_mw_as_consumption', 'DumpPower']
 
 
 def load_data(mod, switch_data, inputs_directory):
