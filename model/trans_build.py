@@ -21,18 +21,17 @@ Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 import os
 from pyomo.environ import *
 import utilities
-from timescales import hours_per_year
 from financials import capital_recovery_factor as crf
 
 
 def define_components(mod):
     """
 
-    Adds components to a Pyomo abstract model object to describe
-    transmission and distribution portions of an electric grid. This
-    includes parameters, build decisions and constraints.
-    Unless otherwise stated, all power capacity is specified in units of
-    MW and all sets and parameters are mandatory.
+    Adds components to a Pyomo abstract model object to describe bulk
+    transmission of an electric grid. This includes parameters, build
+    decisions and constraints. Unless otherwise stated, all power
+    capacity is specified in units of MW and all sets and parameters are
+    mandatory.
 
     TRANSMISSION_LINES is the complete set of transmission pathways
     connecting load zones. Each member of this set is a one dimensional
@@ -141,58 +140,6 @@ def define_components(mod):
     trans_d_line[trans_d] is the transmission line associated with this
     directional path.
 
-    LOCAL_TD_BUILD_YEARS is the set of load zones with local
-    transmission and distribution and years in which construction has or
-    could occur. This set includes past and potential future builds. All
-    future builds must come online in the first year of an investment
-    period. This set is composed of two elements with members:
-    (load_zone, build_year). For existing capacity where the build year
-    is unknown or spread out over time, build_year is set to 'Legacy'.
-
-    EXISTING_LOCAL_TD_BLD_YRS is a subset of LOCAL_TD_BUILD_YEARS that
-    lists builds that happened before the first investment period. For
-    most datasets the build year is unknown, so is it always set to
-    'Legacy'.
-
-    existing_local_td[lz in LOAD_ZONES] is the amount of local
-    transmission and distribution capacity in MW that has already been
-    built.
-
-    BuildLocalTD[(lz, bld_yr) in LOCAL_TD_BUILD_YEARS] is a decision
-    variable describing how much local transmission and distribution to
-    build in a load zone. For existing builds, this variable is locked
-    to existing capacity. Without demand response, the optimal value of
-    this variable is trivially computed based on the load zone's peak
-    expected load. With demand response, this decision becomes less
-    obvious in high solar conditions where it may be desirable to shift
-    some demand from evening into afternoon to coincide with the solar
-    peak.
-
-    LocalTDCapacity[lz, period] is an expression that describes how much
-    local transmission and distribution has been built to date in each
-    load zone.
-
-    distribution_losses is the proportion of energy that is lost in the
-    local transmission & distribution system before delivery. This value
-    is relative to delivered energy, so the total energy needed is load
-    * (1 + distribution_losses). This optional value defaults to 0.053
-    based on ReEDS Solar Vision documentation:
-    http://www1.eere.energy.gov/solar/pdfs/svs_appendix_a_model_descriptions_data.pdf
-
-    Meet_Local_TD[lz, period] is a constraint that enforces minimal
-    local T&D requirements. Demand response may specify a more complex
-    constraint.
-
-        LocalTDCapacity >= max_local_demand
-
-    local_td_annual_cost_per_mw[lz in LOAD_ZONES] describes the total
-    annual costs for each MW of local transmission & distributino. This
-    value should include the annualized capital costs as well as fixed
-    operations & maintenance costs. These costs will be applied to
-    existing and new infrastructure. We assume that existing capacity
-    will be replaced at the end of its life, so these costs will
-    continue indefinitely.
-
     PERIOD_RELEVANT_TRANS_BUILDS[p in INVEST_PERIODS] is an indexed set
     that describes which transmission builds will be operational in a
     given period. Currently, transmission lines are kept online
@@ -200,40 +147,9 @@ def define_components(mod):
     PERIOD_RELEVANT_TRANS_BUILDS[p] will return a subset of (tx, bld_yr)
     in TRANS_BUILD_YEARS.
 
-    PERIOD_RELEVANT_LOCAL_TD_BUILDS[p in INVEST_PERIODS] is an indexed
-    set that describes which local transmission & distribution builds
-    will be operational in a given period. Same idea as
-    PERIOD_RELEVANT_TRANS_BUILDS, but with a different scope.
-
     --- Delayed implementation ---
 
-    # I implemented this in trans_params.dat, but wasn't using it
-    # so I commented it out.
-    # local_td_lifetime_yrs is a parameter describing the physical and
-    # financial lifetime of local transmission & distribution. This
-    # parameter is optional and defaults to 20 years.
-
-    distributed PV don't incur distribution_losses..
-
     is_dc_line ... Do I even need to implement this?
-
-    local_td_sunk_annual_payment[lz in LOAD_ZONES] .. this was in the
-    old model. It would be cleaner if I could copy the pattern for
-    project_build where existing projects have the same data structure
-    as new projects which includes both an installation date and
-    retirement date. For that to work, I would need to knew (or
-    estimate) the installation date of existing infrastructure so we
-    could know when it needed to be replaced. The old implementation
-    assumed a different annual cost of new and existing local T&D. The
-    existing infrastructure was expected to remain online indefinitely
-    at those costs. The new infrastructure was expected to be retired
-    after 20 years, after which new infrastructure would be installed
-    via the InstallLocalTD decision variable. The annual costs for
-    existing infrastructure were 22-99 percent higher that for new
-    infrastructure in the standard WECC datasets, but I don't know the
-    reason for the discrepancy.
-
-
 
     --- NOTES ---
 
@@ -385,61 +301,6 @@ def define_components(mod):
         within=mod.TRANSMISSION_LINES,
         initialize=init_trans_d_line)
 
-    ######################
-    # Local Transmission & Distribution stuff
-    mod.EXISTING_LOCAL_TD_BLD_YRS = Set(
-        dimen=2,
-        initialize=lambda m: set((lz, 'Legacy') for lz in m.LOAD_ZONES))
-    mod.existing_local_td = Param(mod.LOAD_ZONES, within=NonNegativeReals)
-    mod.min_data_check('existing_local_td')
-    mod.LOCAL_TD_BUILD_YEARS = Set(
-        dimen=2,
-        initialize=lambda m: set(
-            (m.LOAD_ZONES * m.INVEST_PERIODS) | m.EXISTING_LOCAL_TD_BLD_YRS))
-    mod.PERIOD_RELEVANT_LOCAL_TD_BUILDS = Set(
-        mod.INVEST_PERIODS,
-        within=mod.LOCAL_TD_BUILD_YEARS,
-        initialize=lambda m, p: set(
-            (lz, bld_yr) for (lz, bld_yr) in m.LOCAL_TD_BUILD_YEARS
-            if bld_yr <= p))
-
-    def bounds_BuildLocalTD(model, lz, bld_yr):
-        if((lz, bld_yr) in model.EXISTING_LOCAL_TD_BLD_YRS):
-            return (model.existing_local_td[lz],
-                    model.existing_local_td[lz])
-        else:
-            return (0, None)
-    mod.BuildLocalTD = Var(
-        mod.LOCAL_TD_BUILD_YEARS,
-        within=NonNegativeReals,
-        bounds=bounds_BuildLocalTD)
-    mod.LocalTDCapacity = Expression(
-        mod.LOAD_ZONES, mod.INVEST_PERIODS,
-        initialize=lambda m, lz, period: sum(
-            m.BuildLocalTD[lz, bld_yr]
-            for (lz2, bld_yr) in m.LOCAL_TD_BUILD_YEARS
-            if lz2 == lz and (bld_yr == 'Legacy' or bld_yr <= period)))
-    mod.distribution_losses = Param(default=0.053)
-    mod.Meet_Local_TD = Constraint(
-        mod.LOAD_ZONES, mod.INVEST_PERIODS,
-        rule=lambda m, lz, period: (
-            m.LocalTDCapacity[lz, period] >= m.lz_peak_demand_mw[lz, period]))
-    # mod.local_td_lifetime_yrs = Param(default=20)
-    mod.local_td_annual_cost_per_mw = Param(
-        mod.LOAD_ZONES,
-        within=PositiveReals)
-    mod.min_data_check('local_td_annual_cost_per_mw')
-    # An expression to summarize annual costs for the objective
-    # function. Units should be total annual future costs in $base_year
-    # real dollars. The objective function will convert these to
-    # base_year Net Present Value in $base_year real dollars.
-    mod.LocalTD_Fixed_Costs_Annual = Expression(
-        mod.INVEST_PERIODS,
-        initialize=lambda m, p: sum(
-            m.BuildLocalTD[lz, bld_yr] * m.local_td_annual_cost_per_mw[lz]
-            for (lz, bld_yr) in m.PERIOD_RELEVANT_LOCAL_TD_BUILDS[p]))
-    mod.cost_components_annual.append('LocalTD_Fixed_Costs_Annual')
-
 
 def load_data(mod, switch_data, inputs_dir):
     """
@@ -450,9 +311,6 @@ def load_data(mod, switch_data, inputs_dir):
     transmission_lines.tab
         TRANSMISSION_LINE, trans_lz1, trans_lz2, trans_length_km,
         trans_efficiency, existing_trans_cap
-
-    local_td.tab
-        load_zone, existing_local_td, local_td_annual_cost_per_mw
 
     The next files are optional. If they are not included or if any rows
     are missing, those parameters will be set to default values as
@@ -480,11 +338,6 @@ def load_data(mod, switch_data, inputs_dir):
         index=mod.TRANSMISSION_LINES,
         param=(mod.trans_lz1, mod.trans_lz2, mod.trans_length_km,
                mod.trans_efficiency, mod.existing_trans_cap))
-    switch_data.load(
-        filename=os.path.join(inputs_dir, 'local_td_existing.tab'),
-        select=('load_zone', 'existing_local_td',
-                'local_td_annual_cost_per_mw'),
-        param=(mod.existing_local_td, mod.local_td_annual_cost_per_mw))
     trans_optional_params_path = os.path.join(
         inputs_dir, 'trans_optional_params.tab')
     if os.path.isfile(trans_optional_params_path):
