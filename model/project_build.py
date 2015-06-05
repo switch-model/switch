@@ -22,7 +22,6 @@ Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 import os
 from pyomo.environ import *
 import utilities
-from timescales import hours_per_year
 from financials import capital_recovery_factor as crf
 
 
@@ -130,14 +129,21 @@ def define_components(mod):
     be operated. It can either indicate retirement or the end of the
     simulation. This is derived from g_max_age.
 
+    --- OPERATIONS ---
+
     PROJECT_BUILDS_OPERATIONAL_PERIODS[proj, build_year] is an indexed
-    set that describes which periods a given project/build will be
+    set that describes which periods a given project build will be
     operational.
 
     PROJECT_PERIOD_ONLINE_BUILD_YRS[proj, period] is a complementary
     indexed set that identify which build years will still be online
     for the given project in the given period. For some project-period
     combinations, this will be an empty set.
+
+    PROJECT_OPERATIONAL_PERIODS describes periods in which projects
+    could be operational. Unlike the related sets above, it is not
+    indexed. Instead it is specified as a set of (proj, period)
+    combinations useful for indexing other model components.
 
 
     --- COSTS ---
@@ -171,10 +177,16 @@ def define_components(mod):
     $/MW per year. This is specified in non-discounted real dollars in a
     future period, not real dollars in net present value.
 
-    Proj_Fixed_Costs_Hourly[t in TIMEPOINTS] is the sum of all capital
-    and fixed costs associated with project builds for each timepoint
-    expressed in $base_year/hour in the future period (rather than Net
-    Present Value).
+    Proj_Fixed_Costs_Annual[proj, period] is the total annual fixed
+    costs (capital as well as fixed operations & maintenance) incurred
+    by a project in a period. This reflects all of the builds are
+    operational in the given period. This is an expression that reflect
+    decision variables.
+
+    Total_Proj_Fixed_Costs_Annual[period] is the sum of
+    Proj_Fixed_Costs_Annual[proj, period] for all projects that could be
+    online in the target period. This aggregation is performed for the
+    benefit of the objective function.
 
     --- DELAYED IMPLEMENATION ---
 
@@ -414,19 +426,33 @@ def define_components(mod):
             (m.proj_overnight_cost[proj, bld_yr] +
                 m.proj_connect_cost_per_mw[proj]) *
             crf(m.interest_rate, m.g_max_age[m.proj_gen_tech[proj]])))
-    # An expression to summarize costs for the objective function. Units
-    # should be total future costs in $base_year real dollars. The
-    # objective function will convert these to base_year Net Present
-    # Value in $base_year real dollars.
+
+    mod.PROJECT_OPERATIONAL_PERIODS = Set(
+        dimen=2,
+        initialize=lambda m: set(
+            (proj, p)
+            for (proj, bld_yr) in m.PROJECT_BUILDYEARS
+            for p in m.PROJECT_BUILDS_OPERATIONAL_PERIODS[proj, bld_yr]))
     mod.Proj_Fixed_Costs_Annual = Expression(
-        mod.INVEST_PERIODS,
-        initialize=lambda m, p: sum(
+        mod.PROJECT_OPERATIONAL_PERIODS,
+        initialize=lambda m, proj, p: sum(
             m.BuildProj[proj, bld_yr] *
             (m.proj_capital_cost_annual[proj, bld_yr] +
              m.proj_fixed_om[proj, bld_yr])
-            for (proj, bld_yr) in mod.PROJECT_BUILDYEARS
-            if p in m.PROJECT_BUILDS_OPERATIONAL_PERIODS[proj, bld_yr]))
-    mod.cost_components_annual.append('Proj_Fixed_Costs_Annual')
+            for (prj, bld_yr) in m.PROJECT_BUILDYEARS
+            if (p in m.PROJECT_BUILDS_OPERATIONAL_PERIODS[prj, bld_yr] and
+                proj == prj)))
+    # Summarize costs for the objective function. Units should be total
+    # annual future costs in $base_year real dollars. The objective
+    # function will convert these to base_year Net Present Value in
+    # $base_year real dollars.
+    mod.Total_Proj_Fixed_Costs_Annual = Expression(
+        mod.INVEST_PERIODS,
+        initialize=lambda m, p: sum(
+            m.Proj_Fixed_Costs_Annual[proj, p]
+            for (proj, period) in m.PROJECT_OPERATIONAL_PERIODS
+            if p == period))
+    mod.cost_components_annual.append('Total_Proj_Fixed_Costs_Annual')
 
 
 def load_data(mod, switch_data, inputs_dir):
