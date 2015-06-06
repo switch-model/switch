@@ -326,7 +326,7 @@ def define_components(mod):
         mod.CCS_TECHNOLOGIES, within=PercentFraction)
 
     # New generation vintages need to be within the cross product of
-    # geeration technologies and investment periods.
+    # generation technologies and investment periods.
     mod.NEW_GENERATION_BUILDYEARS = Set(
         dimen=2,
         within=mod.GENERATION_TECHNOLOGIES * mod.INVEST_PERIODS)
@@ -367,18 +367,26 @@ def load_data(mod, switch_data, inputs_directory):
         g_is_flexible_baseload, g_is_dispatchable, g_is_cogen,
         g_competes_for_space, g_variable_o_m
 
+    ccs_info.tab
+        generation_technology, g_ccs_capture_efficiency, g_ccs_energy_load
+
+    generator_energy_sources.tab
+        generation_technology, energy_source
+
+    gen_vintage_costs is optional in a production cost simulation where
+    all projects were built before the start of the first period. In
+    that situation, all existing projects should have costs specified in
+    project_specific_costs.tab
+
     gen_vintage_costs.tab
         generation_technology, investment_period,
         g_overnight_cost, g_fixed_o_m
 
-    ccs_info.tab
-        generation_technology, g_ccs_capture_efficiency, g_ccs_energy_load
+    storage_info does not have to be specified if no storage
+    technologies are included in the optimization.
 
     storage_info.tab
         generation_technology, g_storage_efficiency, g_store_to_release_ratio
-
-    generator_energy_sources.tab
-        generation_technology, energy_source
 
     """
     # Include select in each load() function so that it will check out
@@ -401,12 +409,15 @@ def load_data(mod, switch_data, inputs_directory):
             mod.g_is_variable, mod.g_is_baseload,
             mod.g_is_flexible_baseload, mod.g_is_dispatchable,
             mod.g_is_cogen, mod.g_competes_for_space, mod.g_variable_o_m))
-    switch_data.load(
-        filename=os.path.join(inputs_directory, 'gen_vintage_costs.tab'),
-        select=('generation_technology', 'investment_period',
-                'g_overnight_cost', 'g_fixed_o_m'),
-        index=mod.NEW_GENERATION_BUILDYEARS,
-        param=(mod.g_overnight_cost, mod.g_fixed_o_m))
+    gen_vintage_cost_path = os.path.join(
+        inputs_directory, 'gen_vintage_costs.tab')
+    if os.path.isfile(gen_vintage_cost_path):
+        switch_data.load(
+            filename=gen_vintage_cost_path,
+            select=('generation_technology', 'investment_period',
+                    'g_overnight_cost', 'g_fixed_o_m'),
+            index=mod.NEW_GENERATION_BUILDYEARS,
+            param=(mod.g_overnight_cost, mod.g_fixed_o_m))
     # CCS info is optional because there may not be any CCS technologies
     ccs_info_path = os.path.join(
         inputs_directory, 'ccs_info.tab')

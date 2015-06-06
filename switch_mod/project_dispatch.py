@@ -236,13 +236,16 @@ def define_components(mod):
 def load_data(mod, switch_data, inputs_dir):
     """
 
-    Import project-specific data. The following files are expected in
-    the input directory:
+    Import project-specific data from an input directory. Both files are
+    optional.
+
+    variable_capacity_factors can be skipped if no variable
+    renewable projects are considered in the optimization.
 
     variable_capacity_factors.tab
         PROJECT, timepoint, prj_capacity_factor
 
-    The next file is optional and overrides generic costs for
+    proj_variable_costs optional and overrides generic costs for
     generators. Load-zone cost adjustments will not be applied to any
     costs specified in this file.
 
@@ -251,10 +254,13 @@ def load_data(mod, switch_data, inputs_dir):
 
     """
 
-    switch_data.load(
-        filename=os.path.join(inputs_dir, 'variable_capacity_factors.tab'),
-        select=('PROJECT', 'timepoint', 'prj_capacity_factor'),
-        param=(mod.prj_capacity_factor))
+    variable_capacity_factors_path = os.path.join(
+        inputs_dir, 'variable_capacity_factors.tab')
+    if os.path.isfile(variable_capacity_factors_path):
+        switch_data.load(
+            filename=variable_capacity_factors_path,
+            select=('PROJECT', 'timepoint', 'prj_capacity_factor'),
+            param=(mod.prj_capacity_factor))
     proj_variable_costs_path = os.path.join(
         inputs_dir, 'proj_variable_costs.tab')
     if os.path.isfile(proj_variable_costs_path):
