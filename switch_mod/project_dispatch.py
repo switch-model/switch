@@ -216,18 +216,21 @@ def define_components(mod):
         initialize=mod.PROJ_DISPATCH_POINTS,
         filter=lambda m, proj, t: proj in m.PROJECTS_THERMAL)
 
+    mod.Proj_Var_Costs_Hourly = Expression(
+        mod.PROJ_DISPATCH_POINTS,
+        initialize=lambda m, proj, t: (
+            m.DispatchProj[proj, t] * m.proj_variable_om[proj]))
     # An expression to summarize costs for the objective function. Units
     # should be total future costs in $base_year real dollars. The
     # objective function will convert these to base_year Net Present
     # Value in $base_year real dollars.
-    mod.Proj_Var_Costs_Hourly = Expression(
+    mod.Total_Proj_Var_Costs_Hourly = Expression(
         mod.TIMEPOINTS,
         initialize=lambda m, t: sum(
-            m.DispatchProj[proj, t] * m.proj_variable_om[proj]
-            for (proj, t) in mod.PROJ_DISPATCH_POINTS
-            if m.tp_period[t] in
-            m.PROJECT_BUILDS_OPERATIONAL_PERIODS[proj, bld_yr]))
-    mod.cost_components_tp.append('Proj_Var_Costs_Hourly')
+            m.Proj_Var_Costs_Hourly[proj, t]
+            for (proj, t2) in m.PROJ_DISPATCH_POINTS
+            if t == t2))
+    mod.cost_components_tp.append('Total_Proj_Var_Costs_Hourly')
 
 
 def load_data(mod, switch_data, inputs_dir):
