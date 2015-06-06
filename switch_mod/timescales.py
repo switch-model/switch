@@ -1,17 +1,23 @@
 """
 Defines timescales for investment and dispatch for the SWITCH-Pyomo model.
-This code can be tested with `python -m doctest -v timescales.py`
 
 SYNOPSIS
->>> from pyomo.environ import *
->>> import timescales
+>>> import switch_mod.utilities as utilities
+>>> switch_modules = ['timescales']
+>>> utilities.load_modules(switch_modules)
+>>> switch_model = utilities.define_AbstractModel(switch_modules)
+>>> inputs_dir = 'test_dat'
+>>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
+>>> switch_instance = switch_model.create(switch_data)
+
+This code can be tested with `python -m doctest timescales.py`
 
 Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 """
 
 import os
 from pyomo.environ import *
-import utilities
+import switch_mod.utilities as utilities
 
 hours_per_year = 8766
 
@@ -192,8 +198,7 @@ def define_components(mod):
     * tp_weight[t] = 203.3 hr/period
         = 1 hr/tp * 1 tp/ts * 203.3 ts/period
 
-    SYNOPSIS
-    >>> from pyomo.environ import *
+    EXAMPLE
     >>> import timescales
     >>> switch_mod = AbstractModel()
     >>> timescales.define_components(switch_mod)
@@ -312,7 +317,6 @@ def load_data(mod, switch_data, inputs_directory):
     checking into this import function.
 
     EXAMPLE:
-    >>> from pyomo.environ import *
     >>> import timescales
     >>> switch_mod = AbstractModel()
     >>> timescales.define_components(switch_mod)

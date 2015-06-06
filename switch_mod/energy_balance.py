@@ -5,18 +5,17 @@ SWITCH-Pyomo model.
 
 
 SYNOPSIS
->>> from pyomo.environ import *
->>> import utilities
+>>> import switch_mod.utilities as utilities
 >>> switch_modules = ('timescales', 'financials', 'load_zones', 'local_td',\
     'fuels', 'gen_tech', 'project_build', 'project_dispatch', 'trans_build',\
     'trans_dispatch', 'energy_balance')
->>> utilities.load_switch_modules(switch_modules)
+>>> utilities.load_modules(switch_modules)
 >>> switch_model = utilities.define_AbstractModel(switch_modules)
 >>> inputs_dir = 'test_dat'
 >>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
 >>> switch_instance = switch_model.create(switch_data)
 
-Note, this can be tested by running `python -m doctest -v energy_balance.py`
+Note, this can be tested by running `python -m doctest energy_balance.py`
 within the source directory.
 
 Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org

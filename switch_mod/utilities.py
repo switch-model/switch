@@ -1,31 +1,7 @@
 """
 Utility functions for SWITCH-pyomo.
 
-Currently, this implements functions to check that an instance of Pyomo
-abstract model has mandatory components defined. If a user attempts to
-create an instance without defining all of the necessary data, this will
-produce fatal errors with clear messages stating specifically what
-components have missing data.
-
-Without this check, I would get fatal errors if I forgot to specify data
-for a component that didn't have a default value, but the error message
-was obscure and gave me a line number with the first snippet of code
-that tried to reference the component with missing data. It took me a
-little bit of time to figure out what was causing that failure, and I'm
-a skilled programmer. I would like this model to be accessible to non-
-programmers as well, so I felt it was important to use the BuildCheck
-Pyomo function to validate data during construction of a model instance.
-
-I found that BuildCheck's message listed the name of the check that
-failed, but did not provide mechanisms for printing a specific error
-message. I tried printing to the screen, but that output tended to be
-obscured or hidden. I've settled on raising a ValueError for now with a
-clear and specific message. I could also use logging.error() or related
-logger methods, and rely on BuildCheck to throw an error, but I've
-already implemented this, and those other methods don't offer any clear
-advantages that I can see.
-
-This code can be tested with `python -m doctest -v utilities.py`
+This code can be tested with `python -m doctest utilities.py`
 
 Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 
@@ -34,12 +10,41 @@ Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 import types
 from pyomo.environ import *
 
-# A set of modules that will be dynamically loaded to define components of the
-# switch model.
+# This stores modules that are dynamically loaded to define a Switch
+# model.
 _loaded_switch_modules = {}
 
 
 def min_data_check(model, *mandatory_model_components):
+    """
+
+    This function checks that an instance of Pyomo abstract model has
+    mandatory components defined. If a user attempts to create an
+    instance without defining all of the necessary data, this will
+    produce fatal errors with clear messages stating specifically what
+    components have missing data. This function is attached to an
+    abstract model by the add_min_data_check() function. See
+    add_min_data_check() documentation for usage examples.
+
+    Without this check, I would get fatal errors if I forgot to specify data
+    for a component that didn't have a default value, but the error message
+    was obscure and gave me a line number with the first snippet of code
+    that tried to reference the component with missing data. It took me a
+    little bit of time to figure out what was causing that failure, and I'm
+    a skilled programmer. I would like this model to be accessible to non-
+    programmers as well, so I felt it was important to use the BuildCheck
+    Pyomo function to validate data during construction of a model instance.
+
+    I found that BuildCheck's message listed the name of the check that
+    failed, but did not provide mechanisms for printing a specific error
+    message. I tried printing to the screen, but that output tended to be
+    obscured or hidden. I've settled on raising a ValueError for now with a
+    clear and specific message. I could also use logging.error() or related
+    logger methods, and rely on BuildCheck to throw an error, but I've
+    already implemented this, and those other methods don't offer any clear
+    advantages that I can see.
+
+    """
     model.__num_min_data_checks += 1
     new_data_check_name = "min_data_check_" + str(model.__num_min_data_checks)
     setattr(model, new_data_check_name, BuildCheck(
@@ -54,8 +59,7 @@ def add_min_data_check(model):
     object if it has not already been added. Also add a counter to keep
     track of what to name the next check that is added.
 
-    >>> from pyomo.environ import *
-    >>> import utilities
+    >>> import switch_mod.utilities as utilities
     >>> mod = AbstractModel()
     >>> utilities.add_min_data_check(mod)
     >>> mod.set_A = Set(initialize=[1,2])
@@ -84,7 +88,11 @@ def add_min_data_check(model):
 def check_mandatory_components(model, *mandatory_model_components):
     """
     Checks whether mandatory elements of a Pyomo model are populated,
-    and reports an error message if they don't exist.
+    and returns a clear error message if they don't exist.
+
+    Typically, this method is not used directly. Instead, the
+    min_data_check() method will set up a BuildCheck that uses this
+    function.
 
     If an argument is a set, it must have non-zero length.
 
@@ -99,8 +107,7 @@ def check_mandatory_components(model, *mandatory_model_components):
     This does not work with indexed sets.
 
     EXAMPLE:
-    >>> from pyomo.environ import *
-    >>> import utilities
+    >>> import switch_mod.utilities as utilities
     >>> mod = ConcreteModel()
     >>> mod.set_A = Set(initialize=[1,2])
     >>> mod.paramA_full = Param(mod.set_A, initialize={1:'a',2:'b'})
@@ -166,20 +173,19 @@ def check_mandatory_components(model, *mandatory_model_components):
     return 1
 
 
-def load_switch_modules(module_list):
+def load_modules(module_list):
     """
 
     Load switch modules that define components of an abstract model.
 
     SYNOPSIS:
-    >>> from pyomo.environ import *
-    >>> import utilities
+    >>> import switch_mod.utilities as utilities
     >>> switch_modules = ('timescales', 'financials', 'load_zones')
-    >>> utilities.load_switch_modules(switch_modules)
-    >>> # That last line is equivalent to:
-    >>> import timescales
-    >>> import financials
-    >>> import load_zones
+    >>> utilities.load_modules(switch_modules)
+
+    That last line is similar to a series of import statements except
+    the modules are stored in a private list called
+    _loaded_switch_modules.
 
     """
     import importlib
@@ -190,23 +196,15 @@ def load_switch_modules(module_list):
 def define_AbstractModel(module_list):
     """
 
-    Construct an AbstractModel object using the modules in
-    the given list.
+    Construct an AbstractModel object using the modules in the given
+    list and return the model. This is implemented as calling
+    define_components() for each module.
 
     SYNOPSIS:
-    >>> from pyomo.environ import *
-    >>> import utilities
+    >>> import switch_mod.utilities as utilities
     >>> switch_modules = ('timescales', 'financials', 'load_zones')
-    >>> utilities.load_switch_modules(switch_modules)
+    >>> utilities.load_modules(switch_modules)
     >>> switch_model = utilities.define_AbstractModel(switch_modules)
-    >>> # That last line is equivalent to:
-    >>> switch_model = AbstractModel()
-    >>> import timescales
-    >>> import financials
-    >>> import load_zones
-    >>> timescales.define_components(switch_model)
-    >>> financials.define_components(switch_model)
-    >>> load_zones.define_components(switch_model)
 
     """
     model = AbstractModel()
@@ -218,25 +216,19 @@ def define_AbstractModel(module_list):
 def load_data(model, inputs_dir, module_list):
     """
 
-    Construct an AbstractModel object using the modules in
-    the given list.
+    Load data for an AbstractModel using the modules in the given list
+    and return a DataPortal object suitable for creating a model
+    instance. This is implemented as calling the load_data() function of
+    each module.
 
     SYNOPSIS:
-    >>> from pyomo.environ import *
-    >>> import utilities
+    >>> import switch_mod.utilities as utilities
     >>> switch_modules = ('timescales', 'financials', 'load_zones')
-    >>> utilities.load_switch_modules(switch_modules)
+    >>> utilities.load_modules(switch_modules)
     >>> switch_model = utilities.define_AbstractModel(switch_modules)
     >>> inputs_dir = 'test_dat'
     >>> data = utilities.load_data(switch_model, inputs_dir, switch_modules)
     >>> switch_instance = switch_model.create(data)
-    >>> # That last line is equivalent to:
-    >>> import timescales
-    >>> import financials
-    >>> import load_zones
-    >>> timescales.load_data(switch_model, data, inputs_dir)
-    >>> financials.load_data(switch_model, data, inputs_dir)
-    >>> load_zones.load_data(switch_model, data, inputs_dir)
 
     """
     data = DataPortal(model=model)

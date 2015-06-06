@@ -4,16 +4,15 @@ Defines model components to describe local transmission & distribution
 build-outs for the SWITCH-Pyomo model.
 
 SYNOPSIS
->>> from pyomo.environ import *
->>> import utilities
+>>> import switch_mod.utilities as utilities
 >>> switch_modules = ('timescales', 'financials', 'load_zones', 'local_td')
->>> utilities.load_switch_modules(switch_modules)
+>>> utilities.load_modules(switch_modules)
 >>> switch_model = utilities.define_AbstractModel(switch_modules)
 >>> inputs_dir = 'test_dat'
 >>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
 >>> switch_instance = switch_model.create(switch_data)
 
-Note, this can be tested with `python -m doctest -v local_td.py`
+Note, this can be tested with `python -m doctest local_td.py`
 within the source directory.
 
 Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
@@ -21,7 +20,7 @@ Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 
 import os
 from pyomo.environ import *
-import utilities
+import switch_mod.utilities as utilities
 
 
 def define_components(mod):

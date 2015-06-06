@@ -2,23 +2,22 @@
 Defines financial parameters for the SWITCH-Pyomo model.
 
 SYNOPSIS
->>> from pyomo.environ import *
->>> import utilities
+>>> import switch_mod.utilities as utilities
 >>> switch_modules = ('timescales', 'financials')
->>> utilities.load_switch_modules(switch_modules)
+>>> utilities.load_modules(switch_modules)
 >>> switch_model = utilities.define_AbstractModel(switch_modules)
 >>> inputs_dir = 'test_dat'
 >>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
 >>> switch_instance = switch_model.create(switch_data)
 
-Note, this can be tested with `python -m doctest -v financials.py`
+Note, this can be tested with `python -m doctest financials.py`
 within the source directory.
 
 Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 """
 from pyomo.environ import *
 import os
-import utilities
+import switch_mod.utilities as utilities
 
 
 def capital_recovery_factor(ir, t):
@@ -256,16 +255,15 @@ def load_data(mod, switch_data, inputs_directory):
     base_financial_year, interest_rate and optionally discount_rate.
 
     EXAMPLE:
-    >>> from pyomo.environ import *
-    >>> import utilities
+    >>> import switch_mod.utilities as utilities
     >>> switch_modules = ('timescales', 'financials')
-    >>> utilities.load_switch_modules(switch_modules)
+    >>> utilities.load_modules(switch_modules)
     >>> switch_model = utilities.define_AbstractModel(switch_modules)
     >>> inputs_dir = 'test_dat'
     >>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
     >>> switch_instance = switch_model.create(switch_data)
     >>> switch_instance.bring_timepoint_costs_to_base_year.pprint()
-    bring_timepoint_costs_to_base_year : Size=13, Index=TIMEPOINTS, Domain=PositiveReals, Default=None, Mutable=False
+    bring_timepoint_costs_to_base_year : Size=7, Index=TIMEPOINTS, Domain=PositiveReals, Default=None, Mutable=False
         Key : Value
           1 :   7674.416978
           2 :   7674.416978
@@ -273,12 +271,6 @@ def load_data(mod, switch_data, inputs_directory):
           4 :   7674.416978
           5 : 15348.9180021
           6 : 15348.9180021
-          7 :   7674.416978
-          8 :   7674.416978
-          9 :   7674.416978
-         10 :   7674.416978
-         11 : 15348.9180021
-         12 : 15348.9180021
-         13 :  37691.616756
+          7 :  37691.616756
     """
     switch_data.load(filename=os.path.join(inputs_directory, 'financials.dat'))
