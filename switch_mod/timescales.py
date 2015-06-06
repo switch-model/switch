@@ -277,12 +277,12 @@ def define_components(mod):
         tol = 0.01
         if(hours_in_period > (1 + tol) * m.period_length_hours[p] or
            hours_in_period < (1 - tol) * m.period_length_hours[p]):
-            print "validate_time_weights_rule failed for period " + \
-                  "'{period:s}'. Expected {period_h:0.2f}, based on" + \
-                  "length in years, but the sum of timepoint weights " + \
-                  "is {ds_h:0.2f}.\n"\
-                  .format(period=p, period_h=m.period_length_hours[p],
-                          ds_h=hours_in_period)
+            print ("validate_time_weights_rule failed for period " +
+                   "'{period:.0f}'. Expected {period_h:0.2f}, based on " +
+                   "length in years, but the sum of timepoint weights " +
+                   "is {ds_h:0.2f}.\n"
+                   ).format(period=p, period_h=m.period_length_hours[p],
+                            ds_h=hours_in_period)
             return 0
         return 1
     mod.validate_time_weights = BuildCheck(
