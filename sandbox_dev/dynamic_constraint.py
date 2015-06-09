@@ -8,7 +8,7 @@
 # dynamic list for an energy balance constraint by defining the list in
 # load_zones.define_components(), and load_zones is called before most
 # other modules. Other modules' define_components() methods will be
-# called and some, such as project_dispatch, will register their
+# called and some, such as project.dispatch, will register their
 # contributions to the bus by adding component names to the list. As a
 # final step, a new method define_components_final() will be called on each
 # module, and load_zones.define_components_final() will define a satisfy_load()

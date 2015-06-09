@@ -12,7 +12,7 @@ SYNOPSIS
 >>> switch_instance = switch_model.create(switch_data)
 
 Note, this can be tested with `python -m doctest gen_tech.py`
-within the source directory.
+within the switch_mod source directory.
 
 Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 """

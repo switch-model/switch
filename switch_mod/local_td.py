@@ -13,7 +13,7 @@ SYNOPSIS
 >>> switch_instance = switch_model.create(switch_data)
 
 Note, this can be tested with `python -m doctest local_td.py`
-within the source directory.
+within the switch_mod source directory.
 
 Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 """
@@ -109,7 +109,7 @@ def define_components(mod):
 
     local_td_sunk_annual_payment[lz in LOAD_ZONES] .. this was in the
     old model. It would be cleaner if I could copy the pattern for
-    project_build where existing projects have the same data structure
+    project.build where existing projects have the same data structure
     as new projects which includes both an installation date and
     retirement date. For that to work, I would need to knew (or
     estimate) the installation date of existing infrastructure so we

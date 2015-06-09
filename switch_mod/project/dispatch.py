@@ -6,15 +6,15 @@ the SWITCH-Pyomo model.
 SYNOPSIS
 >>> import switch_mod.utilities as utilities
 >>> switch_modules = ('timescales', 'financials', 'load_zones', 'fuels',\
-    'gen_tech', 'project_build', 'project_dispatch')
+    'gen_tech', 'project.build', 'project.dispatch')
 >>> utilities.load_modules(switch_modules)
 >>> switch_model = utilities.define_AbstractModel(switch_modules)
 >>> inputs_dir = 'test_dat'
 >>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
 >>> switch_instance = switch_model.create(switch_data)
 
-Note, this can be tested with `python -m doctest project_dispatch.py`
-within the source directory.
+Note, this can be tested with `python -m doctest project/dispatch.py`
+within the switch_mod source directory.
 
 Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 """
@@ -158,9 +158,9 @@ def define_components(mod):
         if(model.g_is_baseload[tech] or
            model.g_is_flexible_baseload[tech]):
             return (1 - model.g_forced_outage_rate[tech]) * (
-                1-model.g_scheduled_outage_rate[tech])
+                1 - model.g_scheduled_outage_rate[tech])
         else:
-            return (1-model.g_forced_outage_rate[tech])
+            return (1 - model.g_forced_outage_rate[tech])
     mod.proj_availability = Param(
         mod.PROJECTS,
         within=PositiveReals,
@@ -208,8 +208,8 @@ def define_components(mod):
     mod.proj_variable_om = Param(
         mod.PROJECTS,
         within=NonNegativeReals,
-        default=lambda m, proj, bld_yr: (
-            m.g_variable_o_m[m.proj_gen_tech[proj], bld_yr] *
+        default=lambda m, proj: (
+            m.g_variable_o_m[m.proj_gen_tech[proj]] *
             m.lz_cost_multipliers[m.proj_load_zone[proj]]))
 
     mod.THERMAL_DISPATCH_POINTS = Set(

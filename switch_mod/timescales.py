@@ -11,6 +11,7 @@ SYNOPSIS
 >>> switch_instance = switch_model.create(switch_data)
 
 This code can be tested with `python -m doctest timescales.py`
+within the switch_mod source directory.
 
 Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 """

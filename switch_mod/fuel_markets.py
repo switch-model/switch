@@ -5,7 +5,7 @@ model.
 SYNOPSIS
 >>> import switch_mod.utilities as utilities
 >>> switch_modules = ('timescales', 'load_zones', 'financials', 'fuels',\
-    'gen_tech', 'project_build', 'project_dispatch', 'fuel_markets')
+    'gen_tech', 'project.build', 'project.dispatch', 'fuel_markets')
 >>> utilities.load_modules(switch_modules)
 >>> switch_model = utilities.define_AbstractModel(switch_modules)
 >>> inputs_dir = 'test_dat'
@@ -13,7 +13,7 @@ SYNOPSIS
 >>> switch_instance = switch_model.create(switch_data)
 
 Note, this can be tested with `python -m doctest fuel_markets.py`
-within the source directory.
+within the switch_mod source directory.
 
 Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 """
