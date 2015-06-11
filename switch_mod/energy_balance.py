@@ -7,8 +7,8 @@ SWITCH-Pyomo model.
 SYNOPSIS
 >>> import switch_mod.utilities as utilities
 >>> switch_modules = ('timescales', 'financials', 'load_zones', 'local_td',\
-    'fuels', 'gen_tech', 'project.build', 'project.dispatch', 'trans_build',\
-    'trans_dispatch', 'energy_balance')
+    'fuels', 'gen_tech', 'project.build', 'project.dispatch',\
+    'trans_build', 'trans_dispatch', 'energy_balance')
 >>> utilities.load_modules(switch_modules)
 >>> switch_model = utilities.define_AbstractModel(switch_modules)
 >>> inputs_dir = 'test_dat'

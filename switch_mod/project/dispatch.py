@@ -1,7 +1,9 @@
 """
 
 Defines model components to describe generation projects build-outs for
-the SWITCH-Pyomo model.
+the SWITCH-Pyomo model. This module requires either project.commit or
+project.no_commit to constrain project dispath to either committed or
+installed capacity.
 
 SYNOPSIS
 >>> import switch_mod.utilities as utilities
@@ -45,7 +47,7 @@ def define_components(mod):
     energy_source to fully support generators that use multiple fuels.
 
     proj_availability[prj] describes the fraction of a time a project is
-    expected to be running. This is derived from the forced and
+    expected to be available. This is derived from the forced and
     scheduled outage rates of generation technologies. For baseload or
     flexible baseload, this is determined from both forced and scheduled
     outage rates. For all other types of generation technologies, we
@@ -53,30 +55,7 @@ def define_components(mod):
     were not scheduled to produce power, so their availability is only
     derated based on their forced outage rates.
 
-    FLEXIBLE_DISPATCH_POINTS is a subset of PROJ_DISPATCH_POINTS that
-    is not baseload or variable generators.
-
-    Dispatch_Capacity_Limit[(proj, t) in FLEXIBLE_DISPATCH_POINTS]
-    constraints DispatchProj to stay under the installed capacity after
-    derating for maintenance. This constraint does not apply to baseload
-    or variable renewable projects because they have different and more
-    restrictive constraints.
-
-        DispatchProj <= ProjCapacity * proj_availability
-
-    BASELOAD_DISPATCH_POINTS is a subset of PROJ_DISPATCH_POINTS
-    that is limited to baseload generators.
-
-    Dispatch_as_Baseload[(proj, t) in BASELOAD_DISPATCH_POINTS]
-    constraints DispatchProj for baseload plants to stay equal to the
-    installed capacity after derating for maintenance.
-
-        DispatchProj = ProjCapacity * proj_availability
-
-    VAR_DISPATCH_POINTS is a subset of PROJ_DISPATCH_POINTS
-    that is limited to variable renewable generators.
-
-    prj_capacity_factor[prj, t] is defined for variable renewable
+    prj_max_capacity_factor[prj, t] is defined for variable renewable
     projects and is the ratio of average power output to nameplate
     capacity in that timepoint. Most renewable capacity factors should
     be in the range of 0 to 1. Some solar capacity factors will be above
@@ -88,12 +67,6 @@ def define_components(mod):
     those plants need to be kept warm during winter nights to avoid
     freezing. Those heating loads can be significant during certain
     timepoints.
-
-    Variable_Gen_Limit[(prj, t) in VAR_DISPATCH_POINTS] is
-    a set of constraints that enforces the maximum power available from
-    a variable generator in a given timepoint.
-
-        DispatchProj <= prj_capacity_factor * ProjCapacity * proj_availability
 
     proj_variable_om[proj] is the variable Operations and Maintenance
     costs (O&M) per MWh of dispatched capacity for a given project.
@@ -116,6 +89,9 @@ def define_components(mod):
     Flexible baseload support for plants that can ramp slowly over the
     course of days. These kinds of generators can provide important
     seasonal support in high renewable and low emission futures.
+
+    Parasitic loads that make solar thermal plants consume energy from
+    the grid on cold nights to keep their fluids from getting too cold.
 
     Storage support.
 
@@ -166,44 +142,14 @@ def define_components(mod):
         within=PositiveReals,
         initialize=init_proj_availability)
 
-    mod.BASELOAD_DISPATCH_POINTS = Set(
-        dimen=2,
-        initialize=mod.PROJ_DISPATCH_POINTS,
-        filter=lambda m, proj, t: (
-            m.g_is_baseload[m.proj_gen_tech[proj]]))
     mod.VAR_DISPATCH_POINTS = Set(
-        dimen=2,
         initialize=mod.PROJ_DISPATCH_POINTS,
-        filter=lambda m, proj, t: (
-            m.g_is_variable[m.proj_gen_tech[proj]]))
-    mod.FLEXIBLE_DISPATCH_POINTS = Set(
-        dimen=2,
-        initialize=lambda m: set(
-            m.PROJ_DISPATCH_POINTS - m.BASELOAD_DISPATCH_POINTS -
-            m.VAR_DISPATCH_POINTS))
-    mod.Dispatch_Capacity_Limit = Constraint(
-        mod.FLEXIBLE_DISPATCH_POINTS,
-        rule=lambda m, proj, t: (
-            m.DispatchProj[proj, t] <=
-            m.ProjCapacity[proj, m.tp_period[t]] *
-            m.proj_availability[proj]))
-    mod.Dispatch_as_Baseload = Constraint(
-        mod.BASELOAD_DISPATCH_POINTS,
-        rule=lambda m, proj, t: (
-            m.DispatchProj[proj, t] ==
-            m.ProjCapacity[proj, m.tp_period[t]] *
-            m.proj_availability[proj]))
-    mod.prj_capacity_factor = Param(
+        filter=lambda m, proj, t: proj in m.VARIABLE_PROJECTS)
+    mod.prj_max_capacity_factor = Param(
         mod.VAR_DISPATCH_POINTS,
         within=Reals,
         validate=lambda m, val, proj, t: -1 < val < 2)
-    mod.min_data_check('prj_capacity_factor')
-    mod.Variable_Gen_Limit = Constraint(
-        mod.VAR_DISPATCH_POINTS,
-        rule=lambda m, proj, t: (
-            m.DispatchProj[proj, t] ==
-            m.ProjCapacity[proj, m.tp_period[t]] *
-            m.proj_availability[proj] * m.prj_capacity_factor[proj, t]))
+    mod.min_data_check('prj_max_capacity_factor')
 
     mod.proj_variable_om = Param(
         mod.PROJECTS,
@@ -260,7 +206,7 @@ def load_data(mod, switch_data, inputs_dir):
         switch_data.load(
             filename=variable_capacity_factors_path,
             select=('PROJECT', 'timepoint', 'prj_capacity_factor'),
-            param=(mod.prj_capacity_factor))
+            param=(mod.prj_max_capacity_factor))
     proj_variable_costs_path = os.path.join(
         inputs_dir, 'proj_variable_costs.tab')
     if os.path.isfile(proj_variable_costs_path):

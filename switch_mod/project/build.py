@@ -50,6 +50,13 @@ def define_components(mod):
 
     proj_load_zone[prj] is the load zone this project is built in.
 
+    VARIABLE_PROJECTS is a subset of PROJECTS that only includes
+    variable generators such as wind or solar that have exogenous
+    constraints on their energy production.
+
+    BASELOAD_PROJECTS is a subset of PROJECTS that only includes
+    baseload generators such as coal or geothermal.
+
     LZ_PROJECTS[lz in LOAD_ZONES] is an indexed set that lists all
     projects within each load zone.
 
@@ -270,6 +277,14 @@ def define_components(mod):
     mod.proj_gen_tech = Param(mod.PROJECTS, within=mod.GENERATION_TECHNOLOGIES)
     mod.proj_load_zone = Param(mod.PROJECTS, within=mod.LOAD_ZONES)
     mod.min_data_check('PROJECTS', 'proj_gen_tech', 'proj_load_zone')
+    mod.VARIABLE_PROJECTS = Set(
+        initialize=mod.PROJECTS,
+        filter=lambda m, proj: (
+            m.g_is_variable[m.proj_gen_tech[proj]]))
+    mod.BASELOAD_PROJECTS = Set(
+        initialize=mod.PROJECTS,
+        filter=lambda m, proj: (
+            m.g_is_baseload[m.proj_gen_tech[proj]]))
     mod.LZ_PROJECTS = Set(
         mod.LOAD_ZONES,
         initialize=lambda m, lz: set(
