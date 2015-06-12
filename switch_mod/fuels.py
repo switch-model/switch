@@ -125,10 +125,10 @@ def load_data(mod, switch_data, inputs_directory):
     """
 
     Import fuel data. To skip optional parameters such as
-    upstream_co2_intensity, you need to specify 'default' in the given column
-    rather than leaving them blank. Leaving a column blank will generate
-    an error message like "IndexError: list index out of range". The
-    following files are expected in the input directory:
+    upstream_co2_intensity, put a dot . in the relevant cell rather than
+    leaving them blank. Leaving a cell blank will generate an error
+    message like "IndexError: list index out of range". The following
+    files are expected in the input directory:
 
     non_fuel_energy_sources.tab
         energy_source
@@ -149,8 +149,3 @@ def load_data(mod, switch_data, inputs_directory):
         select=('fuel', 'co2_intensity', 'upstream_co2_intensity'),
         index=mod.FUELS,
         param=(mod.f_co2_intensity, mod.f_upstream_co2_intensity))
-    # Optional parameters with default values can have values of 'default' in
-    # the input file. Find and delete those entries to prevent type errors.
-    for f in switch_data.data(name='FUELS'):
-        if switch_data.data(name='f_upstream_co2_intensity')[f] == 'default':
-            del switch_data.data(name='f_upstream_co2_intensity')[f]

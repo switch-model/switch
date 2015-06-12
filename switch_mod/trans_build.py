@@ -314,9 +314,9 @@ def load_data(mod, switch_data, inputs_dir):
 
     The next files are optional. If they are not included or if any rows
     are missing, those parameters will be set to default values as
-    described in documentation. You may specify 'default' in any field
-    of trans_optional_params.tab if you only wish to override certain
-    default values for a particular row.
+    described in documentation. If you only want to override some
+    columns and not others in trans_optional_params, put a dot . in the
+    columns that you don't want to override.
 
     trans_optional_params.tab
         TRANSMISSION_LINE, trans_dbid, trans_derating_factor,
@@ -347,15 +347,6 @@ def load_data(mod, switch_data, inputs_dir):
                     'trans_terrain_multiplier', 'trans_new_build_allowed'),
             param=(mod.trans_dbid, mod.trans_derating_factor,
                    mod.trans_terrain_multiplier, mod.trans_new_build_allowed))
-    # Optional parameters with default values can have values of 'default' in
-    # the input file. Find and delete those entries to prevent type errors.
-    opt_param_list = ['trans_dbid', 'trans_derating_factor',
-                      'trans_terrain_multiplier', 'trans_new_build_allowed']
-    for tx in switch_data.data(name='TRANSMISSION_LINES'):
-        for opt_param in opt_param_list:
-            if(opt_param in switch_data.data() and
-               switch_data.data(name=opt_param)[tx] == 'default'):
-                del switch_data.data(name=opt_param)[tx]
     trans_params_path = os.path.join(inputs_dir, 'trans_params.dat')
     if os.path.isfile(trans_params_path):
         switch_data.load(filename=trans_params_path)
