@@ -190,7 +190,7 @@ def define_components(mod):
     costs.
 
     RFM_DISPATCH_POINTS[regional_fuel_market, period] is an indexed set
-    of THERMAL_DISPATCH_POINTS that contribute to a given regional
+    of PROJ_FUEL_DISPATCH_POINTS that contribute to a given regional
     fuel market's activity in a given period.
 
     Enforce_Fuel_Consumption is a constraint that ties the aggregate
@@ -291,17 +291,16 @@ def define_components(mod):
     # dispatch into market framework
     mod.RFM_DISPATCH_POINTS = Set(
         mod.REGIONAL_FUEL_MARKET, mod.INVEST_PERIODS,
-        within=mod.THERMAL_DISPATCH_POINTS,
+        within=mod.PROJ_FUEL_DISPATCH_POINTS,
         initialize=lambda m, rfm, p: set(
-            (proj, t) for (proj, t) in m.THERMAL_DISPATCH_POINTS
+            (proj, t) for (proj, t) in m.PROJ_FUEL_DISPATCH_POINTS
             if m.proj_fuel[proj] == m.rfm_fuel[rfm] and
             m.proj_load_zone[proj] in m.RFM_LOAD_ZONES[rfm] and
             m.tp_period[t] == p))
 
     def Enforce_Fuel_Consumption_rule(m, rfm, p):
         return m.FuelConsumptionInMarket[rfm, p] == sum(
-            m.DispatchProj[proj, t] *
-            m.tp_weight_in_year[t] * m.proj_heat_rate[proj]
+            m.ConsumeFuelProj[proj, t] * m.tp_weight_in_year[t]
             for (proj, t) in m.RFM_DISPATCH_POINTS[rfm, p])
     mod.Enforce_Fuel_Consumption = Constraint(
         mod.REGIONAL_FUEL_MARKET, mod.INVEST_PERIODS,

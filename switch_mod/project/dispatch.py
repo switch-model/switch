@@ -2,7 +2,7 @@
 
 Defines model components to describe generation projects build-outs for
 the SWITCH-Pyomo model. This module requires either project.commit or
-project.no_commit to constrain project dispath to either committed or
+project.no_commit to constrain project dispatch to either committed or
 installed capacity.
 
 SYNOPSIS
@@ -38,6 +38,10 @@ def define_components(mod):
     they can be dispatched. A dispatch decisions is made for each member
     of this set. Members of this set can be abbreviated as (proj, t) or
     (prj, t).
+
+    ProjCapacityTP[(proj, t) in PROJ_DISPATCH_POINTS] is the same as
+    ProjCapacity but indexed by timepoint rather than period to allow
+    more compact statements.
 
     DispatchProj[(proj, t) in PROJ_DISPATCH_POINTS] is the set
     of generation dispatch decisions: how much average power in MW to
@@ -76,12 +80,31 @@ def define_components(mod):
     in $base_year/hour in the future period (rather than Net Present
     Value).
 
-    THERMAL_DISPATCH_POINTS is a subset of PROJ_DISPATCH_POINTS
-    that is limited to thermal generators that could produce emissions.
+    PROJ_FUEL_DISPATCH_POINTS is a subset of PROJ_DISPATCH_POINTS
+    for projects that consume fuel and could produce emissions.
+
+    ConsumeFuelProj[(proj, t) in PROJ_FUEL_DISPATCH_POINTS] is a
+    variable that describes fuel consumption rate in MMBTU/h. This
+    should be constrained to the fuel consumed by a project in each
+    timepoint and can be calculated as Dispatch [MW] *
+    effective_heat_rate [MMBTU/MWh] -> [MMBTU/h]. The choice of how to
+    constrain it depends on the treatment of unit commitment. Currently
+    the project.no_commit module implements a simple treatment that
+    ignores unit commitment and assumes a full load heat rate, while the
+    project.commit module implements unit commitment decisions with
+    startup fuel requirements and a marginal heat rate.
+
+    DispatchEmissions[(proj, t) in PROJ_FUEL_DISPATCH_POINTS] is the
+    emissions produced by dispatching a fuel-based project in units of
+    metric tonnes CO2 per hour. This is derived from the fuel
+    consumption ConsumeFuelProj, the fuel's direct carbon intensity, the
+    fuel's upstream emissions, as well as Carbon Capture efficiency for
+    generators that implement Carbon Capture and Sequestration. This does
+    not yet support multi-fuel generators.
 
     --- Delayed implementation ---
 
-    EmissionsInTimepoint[(proj, t) in THERMAL_DISPATCH_POINTS]
+    EmissionsInTimepoint[(proj, t) in PROJ_FUEL_DISPATCH_POINTS]
     is an expression that defines the emissions in each timepoint from
     dispatching a thermal generator.
         = DispatchProj * proj_emission_rate
@@ -117,7 +140,9 @@ def define_components(mod):
     mod.PROJ_DISPATCH_POINTS = Set(
         dimen=2,
         initialize=init_dispatch_timepoints)
-
+    mod.ProjCapacityTP = Expression(
+        mod.PROJ_DISPATCH_POINTS,
+        initialize=lambda m, proj, t: m.ProjCapacity[proj, m.tp_period[t]])
     mod.DispatchProj = Var(
         mod.PROJ_DISPATCH_POINTS,
         within=NonNegativeReals)
@@ -158,9 +183,29 @@ def define_components(mod):
             m.g_variable_o_m[m.proj_gen_tech[proj]] *
             m.lz_cost_multipliers[m.proj_load_zone[proj]]))
 
-    mod.THERMAL_DISPATCH_POINTS = Set(
+    mod.PROJ_FUEL_DISPATCH_POINTS = Set(
         initialize=mod.PROJ_DISPATCH_POINTS,
-        filter=lambda m, proj, t: proj in m.PROJECTS_THERMAL)
+        filter=lambda m, proj, t: proj in m.FUEL_BASED_PROJECTS)
+    mod.ConsumeFuelProj = Var(
+        mod.PROJ_FUEL_DISPATCH_POINTS,
+        within=NonNegativeReals)
+
+    def DispatchEmissions_rule(m, proj, t):
+        g = m.proj_gen_tech[proj]
+        f = m.proj_fuel[proj]
+        if g not in m.CCS_TECHNOLOGIES:
+            return (
+                m.ConsumeFuelProj[proj, t] *
+                (m.f_co2_intensity[f] - m.f_upstream_co2_intensity[f]))
+        else:
+            ccs_emission_frac = 1 - m.g_ccs_capture_efficiency[g]
+            return (
+                m.ConsumeFuelProj[proj, t] *
+                (m.f_co2_intensity[f] * ccs_emission_frac -
+                 m.f_upstream_co2_intensity[f]))
+    mod.DispatchEmissions = Expression(
+        mod.PROJ_FUEL_DISPATCH_POINTS,
+        initialize=DispatchEmissions_rule)
 
     mod.Proj_Var_Costs_Hourly = Expression(
         mod.PROJ_DISPATCH_POINTS,

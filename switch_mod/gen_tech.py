@@ -229,9 +229,9 @@ def define_components(mod):
     or hybrid augmented projects that are multi-energy soure with
     storage and non-storage.
 
-    g_heat_rate[g] is the default heat rate of a generation technology
-    in units of MMBTU per MWh. Specific projects may override this heat
-    rate.
+    g_full_load_heat_rate[g] is the default full load heat rate of a
+    generation technology in units of MMBTU per MWh. Specific projects
+    may override this heat rate.
 
     g_construction_schedule[g,y] Describes which fraction of overnight
     cost of capital is spent in each year of construction from year 1

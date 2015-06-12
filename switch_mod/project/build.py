@@ -72,19 +72,13 @@ def define_components(mod):
     describes the maximum possible capacity of a project in units of
     megawatts.
 
-    proj_heat_rate[prj] is the heat rate in units of MMBTU/MWh that describes
-    the thermal efficiency of a project. In the future, this will be
-    optional and will override the generic heat rate of a generation
-    technology. We may also expand this to be indexed by fuel source as
-    well if we need to support a multi-fuel generator whose heat rate
-    depends on fuel source.
-
-    proj_emission_rate[prj] is the emissions rate derived from a project's
-    heat rate and the fuel's carbon intensity. In the future this could
-    be indexed by fuel to support multi-fuel genertors, but for now all
-    of our core generators that use multiple energy sources are
-    combining storage with non-storage components, rather than burning
-    multiple fuels, so we don't need to support that yet.
+    proj_full_load_heat_rate[prj] is the full load heat rate in units of
+    MMBTU/MWh that describes the thermal efficiency of a project when
+    runnign at full load. In the future, this will be optional and will
+    override the generic heat rate of a generation technology. We may
+    also expand this to be indexed by fuel source as well if we need to
+    support a multi-fuel generator whose heat rate depends on fuel
+    source.
 
     -- CONSTRUCTION --
 
@@ -299,11 +293,11 @@ def define_components(mod):
             not m.g_is_resource_limited[m.proj_gen_tech[proj]] or
             proj in m.proj_capacity_limit_mw))
     # Add PROJECTS_LOCATION_LIMITED & associated stuff later
-    mod.PROJECTS_THERMAL = Set(
+    mod.FUEL_BASED_PROJECTS = Set(
         initialize=lambda m: set(
             p for p in m.PROJECTS if m.g_uses_fuel[m.proj_gen_tech[p]]))
     mod.proj_fuel = Param(
-        mod.PROJECTS_THERMAL,
+        mod.FUEL_BASED_PROJECTS,
         within=mod.FUELS,
         initialize=lambda m, proj: set(
             set(m.G_ENERGY_SOURCES[m.proj_gen_tech[proj]]) &
@@ -312,32 +306,14 @@ def define_components(mod):
     # single fuel type. Throw an error if that is not the case, which
     # can prompt us to expand the model to support that.
     mod.thermal_generators_use_single_fuel = BuildCheck(
-        mod.PROJECTS_THERMAL,
+        mod.FUEL_BASED_PROJECTS,
         rule=lambda m, proj: len(set(
             set(m.G_ENERGY_SOURCES[m.proj_gen_tech[proj]]) &
             set(m.FUELS))) == 1)
-    mod.proj_heat_rate = Param(
-        mod.PROJECTS_THERMAL,
+    mod.proj_full_load_heat_rate = Param(
+        mod.FUEL_BASED_PROJECTS,
         within=PositiveReals)
-    mod.min_data_check('proj_capacity_limit_mw', 'proj_heat_rate')
-
-    def calc_emission_rate(m, proj):
-        g = m.proj_gen_tech[proj]
-        f = m.proj_fuel[proj]
-        if g not in m.CCS_TECHNOLOGIES:
-            return (
-                m.proj_heat_rate[proj] *
-                (m.f_co2_intensity[f] - m.f_upstream_co2_intensity[f]))
-        else:
-            ccs_emission_frac = 1 - m.g_ccs_capture_efficiency[g]
-            return (
-                m.proj_heat_rate[proj] *
-                (m.f_co2_intensity[f] * ccs_emission_frac -
-                 m.f_upstream_co2_intensity[f]))
-    mod.proj_emission_rate = Param(
-        mod.PROJECTS_THERMAL,
-        within=NonNegativeReals,
-        initialize=calc_emission_rate)
+    mod.min_data_check('proj_capacity_limit_mw', 'proj_full_load_heat_rate')
 
     def init_proj_buildyears(m):
         project_buildyears = set()
@@ -519,7 +495,7 @@ def load_data(mod, switch_data, inputs_dir):
     switch_data.load(
         filename=os.path.join(inputs_dir, 'thermal_projects.tab'),
         select=('PROJECT', 'proj_heat_rate'),
-        param=(mod.proj_heat_rate))
+        param=(mod.proj_full_load_heat_rate))
     project_specific_costs_path = os.path.join(
         inputs_dir, 'project_specific_costs.tab')
     if os.path.isfile(project_specific_costs_path):

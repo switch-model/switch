@@ -30,7 +30,14 @@ def define_components(mod):
     dispatch decisions subject to available capacity, renewable resource
     availability, and baseload restrictions. Unless otherwise stated,
     all power capacity is specified in units of MW and all sets and
-    parameters are mandatory.
+    parameters are mandatory. This module estimates project dispatch
+    limits and fuel consumption without consideration of unit
+    commitment. This can be a useful approximation if fuel startup
+    requirements are a small portion of overall fuel consumption, so
+    that the aggregate fuel consumption with respect to energy
+    production can be approximated as a line with a 0 intercept. This
+    estimation method has been known to result in excessive cycling of
+    Combined Cycle Gas Turbines in the SWITCH-WECC model.
 
     DispatchUpperLimit[(proj, t) in PROJ_DISPATCH_POINTS] is an
     expression that defines the upper bounds of dispatch subject to
@@ -48,15 +55,19 @@ def define_components(mod):
 
         DispatchLowerLimit <= DispatchProj <= DispatchUpperLimit
 
+    ConsumeFuelProj_Calculate[(proj, t) in PROJ_DISPATCH_POINTS]
+    calculates fuel consumption for the variable ConsumeFuelProj as
+    DispatchProj * proj_full_load_heat_rate.
+
+
     """
 
     def DispatchUpperLimit_expr(m, proj, t):
-        p = m.tp_period[t]
         if proj in m.VARIABLE_PROJECTS:
-            return (m.ProjCapacity[proj, p] * m.proj_availability[proj] *
+            return (m.ProjCapacityTP[proj, t] * m.proj_availability[proj] *
                     m.prj_max_capacity_factor[proj, t])
         else:
-            return m.ProjCapacity[proj, p] * m.proj_availability[proj]
+            return m.ProjCapacityTP[proj, t] * m.proj_availability[proj]
     mod.DispatchUpperLimit = Expression(
         mod.PROJ_DISPATCH_POINTS,
         initialize=DispatchUpperLimit_expr)
@@ -78,6 +89,12 @@ def define_components(mod):
         mod.PROJ_DISPATCH_POINTS,
         rule=lambda m, proj, t: (
             m.DispatchProj[proj, t] <= m.DispatchUpperLimit[proj, t]))
+
+    mod.ConsumeFuelProj_Calculate = Constraint(
+        mod.PROJ_FUEL_DISPATCH_POINTS,
+        rule=lambda m, proj, t: (
+            m.ConsumeFuelProj[proj, t] ==
+            m.DispatchProj[proj, t] * m.proj_full_load_heat_rate[proj]))
 
 
 def load_data(mod, switch_data, inputs_dir):
