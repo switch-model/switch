@@ -317,7 +317,7 @@ def define_components(mod):
                 for rfm_st in m.RFM_P_SUPPLY_TIERS[rfm, p])))
 
 
-def load_data(mod, switch_data, inputs_directory):
+def load_data(mod, switch_data, inputs_dir):
     """
 
     Import fuel market data. The following files are expected in the
@@ -355,39 +355,37 @@ def load_data(mod, switch_data, inputs_directory):
     # message if some columns are not found.
 
     switch_data.load(
-        filename=os.path.join(inputs_directory, 'regional_fuel_markets.tab'),
+        filename=os.path.join(inputs_dir, 'regional_fuel_markets.tab'),
         select=('regional_fuel_market', 'fuel'),
         index=mod.REGIONAL_FUEL_MARKET,
         param=(mod.rfm_fuel))
     switch_data.load(
-        filename=os.path.join(inputs_directory, 'fuel_supply_curves.tab'),
+        filename=os.path.join(inputs_dir, 'fuel_supply_curves.tab'),
         select=('regional_fuel_market', 'period', 'tier', 'unit_cost',
                 'max_avail_at_cost'),
         index=mod.RFM_SUPPLY_TIERS,
         param=(mod.rfm_supply_tier_cost, mod.rfm_supply_tier_limit))
     switch_data.load(
-        filename=os.path.join(
-            inputs_directory, 'lz_to_regional_fuel_market.tab'),
+        filename=os.path.join(inputs_dir, 'lz_to_regional_fuel_market.tab'),
         set=mod.LZ_RFM)
     # Load load zone fuel cost adder data if the file is available.
-    lz_fuel_cost_adder_path = os.path.join(
-        inputs_directory, 'lz_fuel_cost_diff.tab')
-    if os.path.isfile(lz_fuel_cost_adder_path):
+    path = os.path.join(inputs_dir, 'lz_fuel_cost_diff.tab')
+    if os.path.isfile(path):
         switch_data.load(
-            filename=lz_fuel_cost_adder_path,
+            filename=path,
             select=('load_zone', 'fuel', 'period', 'fuel_cost_adder'),
             param=(mod.lz_fuel_cost_adder))
 
     # Load a simple specifications of costs if the file exists. The
     # actual loading, error checking, and casting into a supply curve is
     # slightly complicated, so I moved that logic to a separate function.
-    simple_cost_path = os.path.join(inputs_directory, 'lz_simple_fuel_cost.tab')
-    if os.path.isfile(simple_cost_path):
-        _load_simple_cost_data(mod, switch_data, simple_cost_path)
+    path = os.path.join(inputs_dir, 'lz_simple_fuel_cost.tab')
+    if os.path.isfile(path):
+        _load_simple_cost_data(mod, switch_data, path)
 
 
-def _load_simple_cost_data(mod, switch_data, simple_cost_path):
-    with open(simple_cost_path, 'rb') as simple_cost_file:
+def _load_simple_cost_data(mod, switch_data, path):
+    with open(path, 'rb') as simple_cost_file:
         simple_cost_dat = list(csv.DictReader(simple_cost_file, delimiter='	'))
         # Scan once for error checking
         for row in simple_cost_dat:

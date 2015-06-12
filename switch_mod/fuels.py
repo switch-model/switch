@@ -121,7 +121,7 @@ def define_components(mod):
         initialize=mod.NON_FUEL_ENERGY_SOURCES | mod.FUELS)
 
 
-def load_data(mod, switch_data, inputs_directory):
+def load_data(mod, switch_data, inputs_dir):
     """
 
     Import fuel data. To skip optional parameters such as
@@ -142,10 +142,10 @@ def load_data(mod, switch_data, inputs_directory):
     # message if some columns are not found.
 
     switch_data.load(
-        filename=os.path.join(inputs_directory, 'non_fuel_energy_sources.tab'),
+        filename=os.path.join(inputs_dir, 'non_fuel_energy_sources.tab'),
         set=('NON_FUEL_ENERGY_SOURCES'))
     switch_data.load(
-        filename=os.path.join(inputs_directory, 'fuels.tab'),
+        filename=os.path.join(inputs_dir, 'fuels.tab'),
         select=('fuel', 'co2_intensity', 'upstream_co2_intensity'),
         index=mod.FUELS,
         param=(mod.f_co2_intensity, mod.f_upstream_co2_intensity))

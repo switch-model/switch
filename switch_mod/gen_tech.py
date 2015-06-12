@@ -354,7 +354,7 @@ def define_components(mod):
         rule=lambda m, g: len(m.G_ENERGY_SOURCES[g]) > 0)
 
 
-def load_data(mod, switch_data, inputs_directory):
+def load_data(mod, switch_data, inputs_dir):
     """
 
     Import generator data. The following files are expected in the input
@@ -393,7 +393,7 @@ def load_data(mod, switch_data, inputs_directory):
     # column names, be indifferent to column order, and throw an error
     # message if some columns are not found.
     switch_data.load(
-        filename=os.path.join(inputs_directory, 'generator_info.tab'),
+        filename=os.path.join(inputs_dir, 'generator_info.tab'),
         select=('generation_technology',
                 'g_dbid', 'g_max_age',
                 'g_min_build_capacity', 'g_scheduled_outage_rate',
@@ -409,31 +409,29 @@ def load_data(mod, switch_data, inputs_directory):
             mod.g_is_variable, mod.g_is_baseload,
             mod.g_is_flexible_baseload, mod.g_is_dispatchable,
             mod.g_is_cogen, mod.g_competes_for_space, mod.g_variable_o_m))
-    gen_vintage_cost_path = os.path.join(
-        inputs_directory, 'gen_vintage_costs.tab')
-    if os.path.isfile(gen_vintage_cost_path):
+    path = os.path.join(inputs_dir, 'gen_vintage_costs.tab')
+    if os.path.isfile(path):
         switch_data.load(
-            filename=gen_vintage_cost_path,
+            filename=path,
             select=('generation_technology', 'investment_period',
                     'g_overnight_cost', 'g_fixed_o_m'),
             index=mod.NEW_GENERATION_BUILDYEARS,
             param=(mod.g_overnight_cost, mod.g_fixed_o_m))
     # CCS info is optional because there may not be any CCS technologies
-    ccs_info_path = os.path.join(
-        inputs_directory, 'ccs_info.tab')
-    if os.path.isfile(ccs_info_path):
+    path = os.path.join(inputs_dir, 'ccs_info.tab')
+    if os.path.isfile(path):
         switch_data.load(
-            filename=ccs_info_path,
+            filename=path,
             select=(
                 'generation_technology',
                 'g_ccs_capture_efficiency', 'g_ccs_energy_load'),
             index=mod.CCS_TECHNOLOGIES,
             param=(mod.g_ccs_capture_efficiency, mod.g_ccs_energy_load))
     # Storage info is optional because there may be no storage technologies.
-    storage_info_path = os.path.join(inputs_directory, 'storage_info.tab')
-    if os.path.isfile(storage_info_path):
+    path = os.path.join(inputs_dir, 'storage_info.tab')
+    if os.path.isfile(path):
         switch_data.load(
-            filename=storage_info_path,
+            filename=path,
             select=('generation_technology',
                     'g_storage_efficiency', 'g_store_to_release_ratio'),
             index=mod.STORAGE_TECHNOLOGIES,
@@ -444,9 +442,8 @@ def load_data(mod, switch_data, inputs_directory):
     # of these pairs and used that to initialize G_ENERGY_SOURCES, but
     # that would have added a redundant model component that would need
     # documentation but does not contribute to the logical structure.
-    energy_source_path = os.path.join(
-        inputs_directory, 'generator_energy_sources.tab')
-    with open(energy_source_path, 'rb') as energy_source_file:
+    path = os.path.join(inputs_dir, 'generator_energy_sources.tab')
+    with open(path, 'rb') as energy_source_file:
         # Initialize the G_ENERGY_SOURCES entry in the DataPortal object
         # switch_data.data()['G_ENERGY_SOURCES'] = {None: {}}
         switch_data.data()['G_ENERGY_SOURCES'] = {}

@@ -248,9 +248,9 @@ def define_components(mod):
     mod.cost_components_annual = []
 
 
-def load_data(mod, switch_data, inputs_directory):
+def load_data(mod, switch_data, inputs_dir):
     """
-    Import base financial data from a .dat file. The inputs_directory should
+    Import base financial data from a .dat file. The inputs_dir should
     contain the file financials.dat that gives parameter values for
     base_financial_year, interest_rate and optionally discount_rate.
 
@@ -273,4 +273,4 @@ def load_data(mod, switch_data, inputs_directory):
           6 : 15348.9180021
           7 :  37691.616756
     """
-    switch_data.load(filename=os.path.join(inputs_directory, 'financials.dat'))
+    switch_data.load(filename=os.path.join(inputs_dir, 'financials.dat'))

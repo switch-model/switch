@@ -91,7 +91,7 @@ def define_components(mod):
         validate=lambda mod, val, b: val < 1)
 
 
-def load_data(mod, switch_data, inputs_directory):
+def load_data(mod, switch_data, inputs_dir):
     """
 
     Import balancing_area data. The following files are expected in the input
@@ -114,14 +114,14 @@ def load_data(mod, switch_data, inputs_directory):
     # column names, be indifferent to column order, and throw an error
     # message if some columns are not found.
     switch_data.load(
-        filename=os.path.join(inputs_directory, 'lz_balancing_areas.tab'),
+        filename=os.path.join(inputs_dir, 'lz_balancing_areas.tab'),
         select=('LOAD_ZONE', 'balancing_area'),
         param=(mod.lz_balancing_area))
-    balancing_area_path = os.path.join(inputs_directory, 'balancing_areas.tab')
-    if os.path.isfile(balancing_area_path):
+    path = os.path.join(inputs_dir, 'balancing_areas.tab')
+    if os.path.isfile(path):
         # Load balancing area data from a file if it exists.
         switch_data.load(
-            filename=balancing_area_path,
+            filename=path,
             select=(
                 'BALANCING_AREAS', 'quickstart_res_load_frac',
                 'quickstart_res_wind_frac', 'quickstart_res_solar_frac',

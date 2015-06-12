@@ -113,7 +113,7 @@ def define_components(mod):
         'lz_demand_mw_as_consumption', 'DumpPower']
 
 
-def load_data(mod, switch_data, inputs_directory):
+def load_data(mod, switch_data, inputs_dir):
     """
 
     Import load zone data. The following files are expected in the input
@@ -133,17 +133,17 @@ def load_data(mod, switch_data, inputs_directory):
     # column names, be indifferent to column order, and throw an error
     # message if some columns are not found.
     switch_data.load(
-        filename=os.path.join(inputs_directory, 'load_zones.tab'),
+        filename=os.path.join(inputs_dir, 'load_zones.tab'),
         select=('LOAD_ZONE', 'cost_multipliers', 'ccs_distance_km',
                 'dbid'),
         index=mod.LOAD_ZONES,
         param=(mod.lz_cost_multipliers, mod.lz_ccs_distance_km,
                mod.lz_dbid))
     switch_data.load(
-        filename=os.path.join(inputs_directory, 'lz_peak_loads.tab'),
+        filename=os.path.join(inputs_dir, 'lz_peak_loads.tab'),
         select=('LOAD_ZONE', 'PERIOD', 'peak_demand_mw'),
         param=(mod.lz_peak_demand_mw))
     switch_data.load(
-        filename=os.path.join(inputs_directory, 'loads.tab'),
+        filename=os.path.join(inputs_dir, 'loads.tab'),
         select=('LOAD_ZONE', 'TIMEPOINT', 'demand_mw'),
         param=(mod.lz_demand_mw))
