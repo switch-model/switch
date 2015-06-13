@@ -1,0 +1,5 @@
+regional_fuel_market	period	tier	unit_cost	max_avail_at_cost
+All_NG	2020	0	4.4647	1950514555
+All_NG	2020	1	5.0709	inf
+South_Bio	2020	0	1.7115	26427258
+South_Bio	2020	1	17.1714	486066
