@@ -74,7 +74,7 @@ def define_components(mod):
     that can be built. This is most relevant for existing civilian
     nuclear technologies that are not economically or technically
     feasible below a certain size. This is an optional parameter with a
-    default of infinity.
+    default of 0.
 
     g_scheduled_outage_rate[g] is the fraction of time that this type of
     generator is expected to be down for scheduled maintenance.
@@ -142,6 +142,24 @@ def define_components(mod):
     Projects that compete for space have additional parameters defined
     in the projects module. This is an optional parameter with a default
     of False.
+
+    GEN_TECH_WITH_UNIT_SIZES is a subset of GENERATION_TECHNOLOGIES for
+    which the size of individual units, or generators, is specified.
+
+    g_unit_size[g in GEN_TECH_WITH_UNIT_SIZES] specifies the unit size
+    of individual generators in MW of nameplate capacity. This parameter
+    is optional in general, but is required if you wish to enforce
+    discrete build or unit commitment decisions. This could have been
+    defined for all generation technologies with a default value of 0,
+    but I'm very uncomfortable stuffing generator attributes into data
+    values instead of separate explicit flags. If you wanted to use this
+    parameter to determine the number of units that are needed to build
+    a given amount of capacity, a zero-value would generate a divide-by-
+    zero error. You could elaborate the code to look for which
+    technologies have a value of 0 for this parameter and take
+    appropriate action in those cases. However, if there needs to be
+    custom logic to handle this, it's better to be clear and exlicit
+    rather than relying on implicit encoding.
 
     STORAGE_TECHNOLOGIES is a subset of GENERATION_TECHNOLOGIES that can
     store electricity for later discharge. STORAGE_TECHNOLOGIES consume
@@ -301,10 +319,16 @@ def define_components(mod):
         mod.GENERATION_TECHNOLOGIES, within=Boolean)
     mod.g_min_build_capacity = Param(
         mod.GENERATION_TECHNOLOGIES, within=NonNegativeReals,
-        default=float('infinity'))
+        default=0)
     mod.g_competes_for_space = Param(
         mod.GENERATION_TECHNOLOGIES, within=Boolean,
         default=0)
+
+    mod.GEN_TECH_WITH_UNIT_SIZES = Set(
+        within=mod.GENERATION_TECHNOLOGIES)
+    mod.g_unit_size = Param(
+        mod.GEN_TECH_WITH_UNIT_SIZES,
+        within=PositiveReals)
 
     mod.G_ENERGY_SOURCES = Set(
         mod.GENERATION_TECHNOLOGIES, within=mod.ENERGY_SOURCES)
@@ -360,6 +384,9 @@ def load_data(mod, switch_data, inputs_dir):
     Import generator data. The following files are expected in the input
     directory:
 
+    The unit size column in generator_info is optional and you can put a
+    dot for any row where you do not wish to specify a data value.
+
     generator_info.tab
         generation_technology, g_dbid, g_max_age, g_min_build_capacity,
         g_scheduled_outage_rate, g_forced_outage_rate,
@@ -387,6 +414,12 @@ def load_data(mod, switch_data, inputs_dir):
 
     storage_info.tab
         generation_technology, g_storage_efficiency, g_store_to_release_ratio
+
+    unit_sizes.tab is optional and should only contain entries for
+    technologies with valid, non-zero data for g_unit_size.
+
+    unit_sizes.tab
+        generation_technology, g_unit_size
 
     """
     # Include select in each load() function so that it will check out
@@ -436,6 +469,13 @@ def load_data(mod, switch_data, inputs_dir):
                     'g_storage_efficiency', 'g_store_to_release_ratio'),
             index=mod.STORAGE_TECHNOLOGIES,
             param=(mod.g_storage_efficiency, mod.g_store_to_release_ratio))
+    path = os.path.join(inputs_dir, 'unit_sizes.tab')
+    if os.path.isfile(path):
+        switch_data.load(
+            filename=path,
+            select=('generation_technology', 'g_unit_size'),
+            index=mod.GEN_TECH_WITH_UNIT_SIZES,
+            param=(mod.g_unit_size))
     # Pyomo's DataPortal doesn't work so well with indexed sets like
     # G_ENERGY_SOURCES, so I need to read those in and manually add them
     # to the DataPortal dictionary. I could have added a dummy tuple set
