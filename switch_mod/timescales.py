@@ -81,6 +81,11 @@ def define_components(mod):
       unique within a single period. Expected format is YYYYMMDDHH
     * tp_ts[t]: This timepoint's timeseries.
     * tp_period[t]: This timepoint's period.
+    * tp_previous[t]: The timepoint that is previous to t in its
+      timeseries. Timeseries are treated circularly, so previous of
+      the first timepoint will be the last timepoint in the series
+      instead of being None or invalid. In the degenerate case of a
+      timeseries with a single timepoint, tp_previous[t] will be t.
 
     Other indexed sets list timepoints within each timeseries or
     period. These include:
@@ -273,6 +278,17 @@ def define_components(mod):
         initialize=lambda m, p: set(
             t for t in m.TIMEPOINTS if m.tp_period[t] == p))
 
+    # This next parameter is responsible for making timeseries either
+    # linear or circular. It is necessary for tracking unit committment
+    # as well as energy in storage. The prevw(x) method of an ordered
+    # set returns the set element that comes before x in the set,
+    # wrapping back to the last element of the set if x is the first
+    # element.
+    mod.tp_previous = Param(
+        mod.TIMEPOINTS,
+        within=mod.TIMEPOINTS,
+        initialize=lambda m, t: m.TS_TPS[m.tp_ts[t]].prevw(t))
+
     def validate_time_weights_rule(m, p):
         hours_in_period = sum(m.tp_weight[t] for t in m.PERIOD_TPS[p])
         tol = 0.01
@@ -291,9 +307,9 @@ def define_components(mod):
         rule=validate_time_weights_rule)
 
 
-def load_data(mod, switch_data, inputs_directory):
+def load_data(mod, switch_data, inputs_dir):
     """
-    Import data for timescales from .tab files.  The inputs_directory
+    Import data for timescales from .tab files.  The inputs_dir
     should contain the following files with these columns:
 
     periods.tab
@@ -340,19 +356,19 @@ def load_data(mod, switch_data, inputs_directory):
     # names, be indifferent to column order, and throw an error message if
     # some columns are not found.
     switch_data.load(
-        filename=os.path.join(inputs_directory, 'periods.tab'),
+        filename=os.path.join(inputs_dir, 'periods.tab'),
         select=('INVESTMENT_PERIOD', 'period_start', 'period_end'),
         index=mod.INVEST_PERIODS,
         param=(mod.period_start, mod.period_end))
     switch_data.load(
-        filename=os.path.join(inputs_directory, 'timeseries.tab'),
+        filename=os.path.join(inputs_dir, 'timeseries.tab'),
         select=('TIMESERIES', 'ts_period', 'ts_duration_of_tp',
                 'ts_num_tps', 'ts_scale_to_period'),
         index=mod.TIMESERIES,
         param=(mod.ts_period, mod.ts_duration_of_tp,
                mod.ts_num_tps, mod.ts_scale_to_period))
     switch_data.load(
-        filename=os.path.join(inputs_directory, 'timepoints.tab'),
+        filename=os.path.join(inputs_dir, 'timepoints.tab'),
         select=('timepoint_id', 'timepoint_label', 'timeseries'),
         index=mod.TIMEPOINTS,
         param=(mod.tp_label, mod.tp_ts))

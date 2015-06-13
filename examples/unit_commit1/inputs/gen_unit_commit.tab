@@ -1,0 +1,4 @@
+generation_technology	g_min_load_fraction	g_startup_fuel	g_startup_om
+NG_CC	0.4	9.16	10.3
+NG_GT	0	0.22	0.86
+Central_PV	0	.	0

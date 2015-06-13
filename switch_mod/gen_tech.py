@@ -67,6 +67,9 @@ def define_components(mod):
     generator uses a fuel to produce electricity. Generators with this
     flag set are expected to have a heat rate.
 
+    FUEL_BASED_GEN is a subset of GENERATION_TECHNOLOGIES for which
+    g_uses_fuel is true.
+
     g_max_age[g] is how many years a plant can remain operational once
     construction is complete.
 
@@ -336,6 +339,9 @@ def define_components(mod):
         mod.GENERATION_TECHNOLOGIES,
         initialize=lambda m, g: len(
             set(m.G_ENERGY_SOURCES[g]) & set(m.FUELS)) > 0)
+    mod.FUEL_BASED_GEN = Set(
+        initialize=mod.GENERATION_TECHNOLOGIES,
+        filter=lambda m, g: m.g_uses_fuel[g])
 
     mod.STORAGE_TECHNOLOGIES = Set(within=mod.GENERATION_TECHNOLOGIES)
     mod.g_storage_efficiency = Param(
