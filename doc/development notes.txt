@@ -42,7 +42,7 @@ I learned that DataPortal.load() is sparsely documented and doesn't appear at al
 DataPortal seems to have suplanted the ModelData class. The load function in the DataPortal object has a bunch of TODO's in place of desscriptive text in its inline documentation. 
 I learned that if you want to select just one column from a text .tab file with load(), you need to wrap the column name in a tuple (not a list), or else the argument processing code in TableData.py will break it down character-by-character. So this works
     switch_data.load(
-        filename=os.path.join(inputs_directory, 'load_zones.tab'),
+        filename=os.path.join(inputs_dir, 'load_zones.tab'),
         select=['balancing_area'],
         param=mod.foo)
 But select='balancing_area' and select=('balancing_area') both generate an error:
@@ -140,3 +140,53 @@ length of an investment period. I think this bug also exists for new
 generation projects. At some point I should squash them both at the same
 time. The magnitude of this bug will decrease for shorter investment
 periods.
+
+6/11
+
+I started rewriting code to use max_capacity_factor for all projects,
+and updating documentation to explain the reasoning behind it. In the
+process it started bothering me some more.
+
+    prj_max_capacity_factor[prj, t] describes the maximum fraction of
+    project capacity that can be dispatched in an hour due to exogenous
+    factors wuch as weather. This is most meaningful for variable
+    renewable projects such as solar or wind and it is required for
+    those types of generators. It can also be used to describe upper
+    bounds on hydro dispatch, although absolute units of cubic meters of
+    water or MWh dispatch may be more useful for hydro. This is defined
+    for every generator type as a mathematical convenience.  For most
+    types of generators, this has no clear meaning and should not be
+    specified.
+
+The programming pattern of generalizing terms past their semantic bounds
+and relying on default data values to ensure mathematically correct
+behavior is troubling to me for two reasons. First, the equations lack
+clear interpretations in general because key terms are meaningless for
+most cases. Second, the mathematical behavior is depend on runtime data
+rather than code structure, which means that code reviews cannot ensure
+accurate behavior. This basically moves logic to handle particular cases
+from code into data. I won't be there at runtime to support most users,
+so I would prefer to make this sort of logic explicit in code where I
+can review and test it rather than leaving it for the runtime
+environment and userland.
+
+Thus, PowerSlackUp would change from this:
+
+def PowerSlackUp_expr(m, pr, t):
+	return m.Committed[pr, t] * m.project_max_cap_factor[pr, t] - m.ProjectPower[pr, h]
+model.PowerSlackUp = Expression(
+	model.PROJECTS, model.TIMEPOINTS, 
+	initialize=PowerSlackUp_expr)
+
+to this:
+
+def PowerSlackUp_expr(m, pr, t):
+	if (pr in m.VARIABLE_PROJECTS):
+		return m.Committed[pr, t] * m.project_max_cap_factor[pr, t] - m.ProjectPower[pr, h]
+	else
+		return m.Committed[pr, t] - m.ProjectPower[pr, h]
+model.PowerSlackUp = Expression(
+	model.PROJECTS, model.TIMEPOINTS, 
+	initialize=PowerSlackUp_expr)
+
+You still get clear centralized terms for keeping 
