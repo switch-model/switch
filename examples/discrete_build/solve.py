@@ -17,8 +17,7 @@ import switch_mod.utilities as utilities
 switch_modules = (
     'timescales', 'financials', 'load_zones', 'local_td', 'fuels',
     'gen_tech', 'project.build', 'project.discrete_build',
-    'project.dispatch', 'project.no_commit', 'fuel_markets',
-    'energy_balance', 'sys_cost')
+    'project.dispatch', 'project.no_commit', 'fuel_markets')
 utilities.load_modules(switch_modules)
 switch_model = utilities.define_AbstractModel(switch_modules)
 inputs_dir = 'inputs'

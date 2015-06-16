@@ -113,6 +113,31 @@ def define_components(mod):
         'lz_demand_mw_as_consumption', 'DumpPower']
 
 
+def define_dynamic_components(mod):
+    """
+
+    Adds components to a Pyomo abstract model object to enforce the
+    first law of thermodynamics at the level of load zone busses. Unless
+    otherwise stated, all terms describing power are in units of MW and
+    all terms describing energy are in units of MWh.
+
+    Energy_Balance[load_zone, timepoint] is a constraint that mandates
+    conservation of energy in every load zone and timepoint. This
+    constraint sums the model components in the list
+    LZ_Energy_Balance_components - each of which is indexed by (lz, t) -
+    and ensures they sum to 0. By convention, energy production has a
+    positive sign and energy consumption has a negative sign.
+
+    """
+
+    mod.Energy_Balance = Constraint(
+        mod.LOAD_ZONES, mod.TIMEPOINTS,
+        rule=lambda m, lz, t: sum(
+            getattr(m, compoment)[lz, t]
+            for compoment in m.LZ_Energy_Balance_components
+        ) == 0)
+
+
 def load_data(mod, switch_data, inputs_dir):
     """
 

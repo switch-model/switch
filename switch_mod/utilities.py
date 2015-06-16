@@ -183,14 +183,22 @@ def load_modules(module_list):
     >>> switch_modules = ('timescales', 'financials', 'load_zones')
     >>> utilities.load_modules(switch_modules)
 
-    That last line is similar to a series of import statements except
-    the modules are stored in a private list called
-    _loaded_switch_modules.
+    load_modules() is effectively the same as a series of import
+    statements except the module names are assumed to skip the
+    "switch_mod." prefix, and the loaded modules are stored in a private
+    list called _loaded_switch_modules.
 
     """
+    # Go through each entry in the list and load it as a module.
     import importlib
     for m in module_list:
-        _loaded_switch_modules[m] = importlib.import_module('switch_mod.' + m)
+        # Load module if we haven't already
+        if m not in _loaded_switch_modules:
+            if 'switch_mod' not in m:
+                full_name = 'switch_mod.' + m
+            else:
+                full_name = m
+            _loaded_switch_modules[m] = importlib.import_module(full_name)
 
 
 def define_AbstractModel(module_list):
@@ -198,7 +206,23 @@ def define_AbstractModel(module_list):
 
     Construct an AbstractModel object using the modules in the given
     list and return the model. This is implemented as calling
-    define_components() for each module.
+    define_components() for each module that has that function defined,
+    then calling define_dynamic_components() for each module that has
+    that function defined.
+
+    This division into two stages give some modules an opportunity to
+    have dynamic constraints or objective functions. For example,
+    financials.define_components() defines empty lists that will be used
+    to calculate overall system costs. Other modules such as
+    transmission.build and project.build that have components that
+    contribute to system costs insert the names of those components into
+    these lists. The total system costs equation is defined in
+    financials.define_dynamic_components() as the sum of elements in
+    those lists. This division into multiple stages allows a user of
+    Switch to include additional modules such as demand response or
+    storage without rewriting the core equations for system costs. The
+    two primary use cases for dynamic components so far are load-zone
+    level energy balancing and overall system costs.
 
     SYNOPSIS:
     >>> import switch_mod.utilities as utilities
@@ -209,7 +233,11 @@ def define_AbstractModel(module_list):
     """
     model = AbstractModel()
     for m in module_list:
-        _loaded_switch_modules[m].define_components(model)
+        if hasattr(_loaded_switch_modules[m], 'define_components'):
+            _loaded_switch_modules[m].define_components(model)
+    for m in module_list:
+        if hasattr(_loaded_switch_modules[m], 'define_dynamic_components'):
+            _loaded_switch_modules[m].define_dynamic_components(model)
     return model
 
 
@@ -219,7 +247,7 @@ def load_data(model, inputs_dir, module_list):
     Load data for an AbstractModel using the modules in the given list
     and return a DataPortal object suitable for creating a model
     instance. This is implemented as calling the load_data() function of
-    each module.
+    each module, if the module has that function.
 
     SYNOPSIS:
     >>> import switch_mod.utilities as utilities
@@ -233,5 +261,6 @@ def load_data(model, inputs_dir, module_list):
     """
     data = DataPortal(model=model)
     for m in module_list:
-        _loaded_switch_modules[m].load_data(model, data, inputs_dir)
+        if hasattr(_loaded_switch_modules[m], 'load_data'):
+            _loaded_switch_modules[m].load_data(model, data, inputs_dir)
     return data
