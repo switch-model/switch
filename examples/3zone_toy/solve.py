@@ -24,7 +24,7 @@ switch_modules = (
     'sys_cost')
 utilities.load_modules(switch_modules)
 switch_model = utilities.define_AbstractModel(switch_modules)
-inputs_dir = 'test_dat/3zone_toy'
+inputs_dir = 'inputs'
 switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
 switch_instance = switch_model.create(switch_data)
 
