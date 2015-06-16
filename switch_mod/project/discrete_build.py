@@ -55,12 +55,3 @@ def define_components(mod):
         rule=lambda m, proj, bld_yr: (
             m.BuildProj[proj, bld_yr] ==
             m.BuildUnits[proj, bld_yr] * m.g_unit_size[m.proj_gen_tech[proj]]))
-
-
-def load_data(mod, switch_data, inputs_dir):
-    """
-
-    This function is empty because this module does not require any
-    additional data.
-
-    """

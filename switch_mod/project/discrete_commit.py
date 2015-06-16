@@ -72,12 +72,3 @@ def define_components(mod):
             m.CommitProject[pr, t] ==
             m.CommitUnits[pr, t] * m.g_unit_size[m.proj_gen_tech[pr]] *
             m.proj_availability[pr]))
-
-
-def load_data(mod, switch_data, inputs_dir):
-    """
-
-    This function is empty because this module does not require any
-    additional data.
-
-    """

@@ -203,7 +203,7 @@ def load_data(mod, switch_data, inputs_dir):
     Import data related to transmission builds. The following files are
     expected in the input directory:
 
-    local_td.tab
+    local_td_existing.tab
         load_zone, existing_local_td, local_td_annual_cost_per_mw
 
     """

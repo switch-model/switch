@@ -99,14 +99,3 @@ def define_components(mod):
         initialize=LZ_TXNet_calculation)
     # Register net transmission as contributing to a load zone's energy
     mod.LZ_Energy_Balance_components.append('LZ_TXNet')
-
-
-def load_data(mod, switch_data, inputs_dir):
-    """
-
-    This empty function is included to provide a uniform interface. If
-    you needed any data for transmission dispatch, you would import it
-    here. If you want to include seasonal adjustments of transfer
-    capacity, this would be the place to import those parameters.
-
-    """

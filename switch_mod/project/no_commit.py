@@ -95,11 +95,3 @@ def define_components(mod):
         rule=lambda m, proj, t: (
             m.ConsumeFuelProj[proj, t] ==
             m.DispatchProj[proj, t] * m.proj_full_load_heat_rate[proj]))
-
-
-def load_data(mod, switch_data, inputs_dir):
-    """
-
-    Empty function. No new data needed for this module.
-
-    """

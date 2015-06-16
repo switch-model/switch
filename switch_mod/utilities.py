@@ -199,6 +199,8 @@ def load_modules(module_list):
             else:
                 full_name = m
             _loaded_switch_modules[m] = importlib.import_module(full_name)
+            if hasattr(_loaded_switch_modules[m], 'core_modules'):
+                load_modules(_loaded_switch_modules[m].core_modules)
 
 
 def define_AbstractModel(module_list):
@@ -232,13 +234,34 @@ def define_AbstractModel(module_list):
 
     """
     model = AbstractModel()
+    _define_components(module_list, model)
+    _define_dynamic_components(module_list, model)
+    return model
+
+
+def _define_components(module_list, model):
+    """
+    A private function to allow recurve calling of defining standard
+    components from modules or packages.
+    """
     for m in module_list:
         if hasattr(_loaded_switch_modules[m], 'define_components'):
             _loaded_switch_modules[m].define_components(model)
+        if hasattr(_loaded_switch_modules[m], 'core_modules'):
+            _define_components(_loaded_switch_modules[m].core_modules, model)
+
+
+def _define_dynamic_components(module_list, model):
+    """
+    A private function to allow recurve calling of defining dynamic
+    components from modules or packages.
+    """
     for m in module_list:
         if hasattr(_loaded_switch_modules[m], 'define_dynamic_components'):
             _loaded_switch_modules[m].define_dynamic_components(model)
-    return model
+        if hasattr(_loaded_switch_modules[m], 'core_modules'):
+            _define_dynamic_components(
+                _loaded_switch_modules[m].core_modules, model)
 
 
 def load_data(model, inputs_dir, module_list):
@@ -260,7 +283,18 @@ def load_data(model, inputs_dir, module_list):
 
     """
     data = DataPortal(model=model)
+    _load_data(model, inputs_dir, module_list, data)
+    return data
+
+
+def _load_data(model, inputs_dir, module_list, data):
+    """
+    A private function to allow recurve calling of loading data from
+    modules or packages.
+    """
     for m in module_list:
         if hasattr(_loaded_switch_modules[m], 'load_data'):
             _loaded_switch_modules[m].load_data(model, data, inputs_dir)
-    return data
+        if hasattr(_loaded_switch_modules[m], 'core_modules'):
+            _load_data(model, inputs_dir,
+                       _loaded_switch_modules[m].core_modules, data)
