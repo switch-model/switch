@@ -312,8 +312,9 @@ def define_components(mod):
             set(m.FUELS))) == 1)
     mod.proj_full_load_heat_rate = Param(
         mod.FUEL_BASED_PROJECTS,
-        within=PositiveReals)
-    mod.min_data_check('proj_capacity_limit_mw', 'proj_full_load_heat_rate')
+        within=PositiveReals,
+        default=lambda m, pr: m.g_full_load_heat_rate[m.proj_gen_tech[pr]])
+    mod.min_data_check('proj_capacity_limit_mw')
 
     def init_proj_buildyears(m):
         project_buildyears = set()
@@ -462,14 +463,14 @@ def load_data(mod, switch_data, inputs_dir):
     cap_limited_projects.tab
         PROJECT, proj_capacity_limit_mw
 
-    thermal_projects.tab
+    The following files are optional because they override generic
+    values given by descriptions of generation technologies.
+
+    proj_heat_rate.tab
         PROJECT, proj_heat_rate
 
-    The following file is optional.
-
-    project_specific_costs overrides generic costs for generators.
-    Load-zone cost adjustments will not be applied to any costs
-    specified in this file.
+    Note: Load-zone cost adjustments will not be applied to any costs
+    specified in project_specific_costs.
 
     project_specific_costs.tab
         PROJECT, build_year, proj_overnight_cost, proj_fixed_om
@@ -492,15 +493,16 @@ def load_data(mod, switch_data, inputs_dir):
         select=('PROJECT', 'proj_capacity_limit_mw'),
         index=mod.PROJECTS_CAP_LIMITED,
         param=(mod.proj_capacity_limit_mw))
-    switch_data.load(
-        filename=os.path.join(inputs_dir, 'thermal_projects.tab'),
-        select=('PROJECT', 'proj_heat_rate'),
-        param=(mod.proj_full_load_heat_rate))
-    project_specific_costs_path = os.path.join(
-        inputs_dir, 'project_specific_costs.tab')
-    if os.path.isfile(project_specific_costs_path):
+    path = os.path.join(inputs_dir, 'proj_heat_rate.tab')
+    if os.path.isfile(path):
         switch_data.load(
-            filename=project_specific_costs_path,
+            filename=path,
+            select=('PROJECT', 'full_load_heat_rate'),
+            param=(mod.proj_full_load_heat_rate))
+    path = os.path.join(inputs_dir, 'project_specific_costs.tab')
+    if os.path.isfile(path):
+        switch_data.load(
+            filename=path,
             select=('PROJECT', 'build_year',
                     'proj_overnight_cost', 'proj_fixed_om'),
             param=(mod.proj_overnight_cost, mod.proj_fixed_om))

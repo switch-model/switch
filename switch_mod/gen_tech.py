@@ -234,6 +234,11 @@ def define_components(mod):
     (O&M) per MWh of dispatched capacity for given generation technology.
     This is assumed to remain constant over time.
 
+    g_full_load_heat_rate[g in FUEL_BASED_GEN] is the default full load
+    heat rate of a generation technology in units of MMBTU per MWh.
+    Specific projects may override this heat rate. This is mandatory for
+    all fuel-based generators.
+
     --- DELAYED IMPLEMENATION ---
 
     The following parameters are not implemented at this time.
@@ -249,10 +254,6 @@ def define_components(mod):
     that link storage and non-storage components that are each a project
     or hybrid augmented projects that are multi-energy soure with
     storage and non-storage.
-
-    g_full_load_heat_rate[g] is the default full load heat rate of a
-    generation technology in units of MMBTU per MWh. Specific projects
-    may override this heat rate.
 
     g_construction_schedule[g,y] Describes which fraction of overnight
     cost of capital is spent in each year of construction from year 1
@@ -370,13 +371,17 @@ def define_components(mod):
         mod.GENERATION_TECHNOLOGIES,
         within=NonNegativeReals)
 
+    mod.g_full_load_heat_rate = Param(
+        mod.FUEL_BASED_GEN,
+        within=PositiveReals)
+
     mod.min_data_check(
         'GENERATION_TECHNOLOGIES', 'g_dbid',
         'g_max_age', 'g_min_build_capacity',
         'g_scheduled_outage_rate', 'g_forced_outage_rate',
         'g_is_resource_limited', 'g_is_variable', 'g_is_baseload',
         'g_is_flexible_baseload', 'g_is_dispatchable', 'g_is_cogen',
-        'g_competes_for_space', 'G_ENERGY_SOURCES')
+        'g_competes_for_space', 'G_ENERGY_SOURCES', 'g_full_load_heat_rate')
 
     # Make sure no generator has an empty list of energy sources
     mod.mandatory_energy_source = BuildCheck(
@@ -426,6 +431,9 @@ def load_data(mod, switch_data, inputs_dir):
 
     unit_sizes.tab
         generation_technology, g_unit_size
+
+    gen_heat_rates.tab
+        generation_technology, full_load_heat_rate
 
     """
     # Include select in each load() function so that it will check out
@@ -482,6 +490,11 @@ def load_data(mod, switch_data, inputs_dir):
             select=('generation_technology', 'g_unit_size'),
             index=mod.GEN_TECH_WITH_UNIT_SIZES,
             param=(mod.g_unit_size))
+
+    switch_data.load(
+        filename=os.path.join(inputs_dir, 'gen_heat_rates.tab'),
+        select=('generation_technology', 'full_load_heat_rate'),
+        param=(mod.g_full_load_heat_rate))
     # Pyomo's DataPortal doesn't work so well with indexed sets like
     # G_ENERGY_SOURCES, so I need to read those in and manually add them
     # to the DataPortal dictionary. I could have added a dummy tuple set
@@ -491,7 +504,6 @@ def load_data(mod, switch_data, inputs_dir):
     path = os.path.join(inputs_dir, 'generator_energy_sources.tab')
     with open(path, 'rb') as energy_source_file:
         # Initialize the G_ENERGY_SOURCES entry in the DataPortal object
-        # switch_data.data()['G_ENERGY_SOURCES'] = {None: {}}
         switch_data.data()['G_ENERGY_SOURCES'] = {}
         G_ENERGY_SOURCES = switch_data.data(name='G_ENERGY_SOURCES')
         # Create an array entry for each generation technology

@@ -1,7 +1,7 @@
 """
 
 Defines model components to describe generation projects build-outs for
-the SWITCH-Pyomo model. This module requires either project.commit or
+the SWITCH-Pyomo model. This module requires either project.unitcommit or
 project.no_commit to constrain project dispatch to either committed or
 installed capacity.
 
@@ -91,7 +91,7 @@ def define_components(mod):
     constrain it depends on the treatment of unit commitment. Currently
     the project.no_commit module implements a simple treatment that
     ignores unit commitment and assumes a full load heat rate, while the
-    project.commit module implements unit commitment decisions with
+    project.unitcommit module implements unit commitment decisions with
     startup fuel requirements and a marginal heat rate.
 
     DispatchEmissions[(proj, t) in PROJ_FUEL_DISPATCH_POINTS] is the

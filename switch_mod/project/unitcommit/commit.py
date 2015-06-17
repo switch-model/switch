@@ -3,19 +3,21 @@
 Defines model components to describe unit commitment of projects for the
 SWITCH-Pyomo model. This module is mutually exclusive with the
 project.no_commit module which specifies simplified dispatch
-constraints.
+constraints. If you want to use this module directly in a list of switch
+modules (instead of including the package project.unitcommit), you will also
+need to include the module project.unitcommit.fuel_use.
 
 SYNOPSIS
 >>> import switch_mod.utilities as utilities
 >>> switch_modules = ('timescales', 'financials', 'load_zones', 'fuels',\
-    'gen_tech', 'project.build', 'project.dispatch', 'project.commit')
+    'gen_tech', 'project.build', 'project.dispatch', 'project.unitcommit')
 >>> utilities.load_modules(switch_modules)
 >>> switch_model = utilities.define_AbstractModel(switch_modules)
 >>> inputs_dir = 'test_dat'
 >>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
 >>> switch_instance = switch_model.create(switch_data)
 
-Note, this can be tested with `python -m doctest project/commit.py`
+Note, this can be tested with `python -m doctest project/unitcommit/commit.py`
 within the switch_mod source directory.
 
 Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
@@ -291,6 +293,15 @@ def define_components(mod):
     # Placeholder fuel consumption for testing. Assume y-intercept
     # is 30% of full load heat rate, and marginal heat rate is 70%
     # of full load heat rate.
+
+    # ...Um, this seems buggy. ConsumeFuelProj should be in units of
+    # MMBTU per hr and gets multiplied by the weight of the timepoint
+    # to get the total fuel amount - that happens in fuel_markets in the
+    # Enforce_Fuel_Consumption constraint. The problem is that startup
+    # fuel consumption is in units of MMBTU, not MMBTU / hr. This may
+    # account for the behavior I saw in the example where the system
+    # tried very hard to avoid any cycling for the Natural gas combined
+    # cycle plant.
     mod.ConsumeFuelProj_Calculate = Constraint(
         mod.PROJ_FUEL_DISPATCH_POINTS,
         rule=lambda m, proj, t: (
