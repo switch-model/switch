@@ -300,7 +300,7 @@ def define_components(mod):
 
     def Enforce_Fuel_Consumption_rule(m, rfm, p):
         return m.FuelConsumptionInMarket[rfm, p] == sum(
-            m.ConsumeFuelProj[proj, t] * m.tp_weight_in_year[t]
+            m.ProjFuelUseRate[proj, t] * m.tp_weight_in_year[t]
             for (proj, t) in m.RFM_DISPATCH_POINTS[rfm, p])
     mod.Enforce_Fuel_Consumption = Constraint(
         mod.REGIONAL_FUEL_MARKET, mod.INVEST_PERIODS,

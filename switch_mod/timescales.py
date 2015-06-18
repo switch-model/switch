@@ -81,6 +81,8 @@ def define_components(mod):
       unique within a single period. Expected format is YYYYMMDDHH
     * tp_ts[t]: This timepoint's timeseries.
     * tp_period[t]: This timepoint's period.
+    * tp_duration_hrs[t]: The duration of this timepoint in hours,
+      taken directly from the timeseries specification ts_duration_of_tp.
     * tp_previous[t]: The timepoint that is previous to t in its
       timeseries. Timeseries are treated circularly, so previous of
       the first timepoint will be the last timepoint in the series
@@ -261,6 +263,9 @@ def define_components(mod):
         within=PositiveReals,
         initialize=lambda mod, t: (
             mod.tp_weight[t] / mod.period_length_years[mod.tp_period[t]]))
+    mod.tp_duration_hrs = Param(
+        mod.TIMEPOINTS,
+        initialize=lambda mod, t: mod.ts_duration_of_tp[mod.tp_ts[t]])
 
     ############################################################
     # "Helper" sets that are indexed for convenient look-up.

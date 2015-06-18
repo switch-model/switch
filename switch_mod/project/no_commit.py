@@ -55,9 +55,10 @@ def define_components(mod):
 
         DispatchLowerLimit <= DispatchProj <= DispatchUpperLimit
 
-    ConsumeFuelProj_Calculate[(proj, t) in PROJ_DISPATCH_POINTS]
-    calculates fuel consumption for the variable ConsumeFuelProj as
-    DispatchProj * proj_full_load_heat_rate.
+    ProjFuelUseRate_Calculate[(proj, t) in PROJ_DISPATCH_POINTS]
+    calculates fuel consumption for the variable ProjFuelUseRate as
+    DispatchProj * proj_full_load_heat_rate. The units become:
+    MW * (MMBtu / MWh) = MMBTU / h
 
 
     """
@@ -90,8 +91,8 @@ def define_components(mod):
         rule=lambda m, proj, t: (
             m.DispatchProj[proj, t] <= m.DispatchUpperLimit[proj, t]))
 
-    mod.ConsumeFuelProj_Calculate = Constraint(
+    mod.ProjFuelUseRate_Calculate = Constraint(
         mod.PROJ_FUEL_DISPATCH_POINTS,
         rule=lambda m, proj, t: (
-            m.ConsumeFuelProj[proj, t] ==
+            m.ProjFuelUseRate[proj, t] ==
             m.DispatchProj[proj, t] * m.proj_full_load_heat_rate[proj]))

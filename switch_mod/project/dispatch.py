@@ -83,7 +83,7 @@ def define_components(mod):
     PROJ_FUEL_DISPATCH_POINTS is a subset of PROJ_DISPATCH_POINTS
     for projects that consume fuel and could produce emissions.
 
-    ConsumeFuelProj[(proj, t) in PROJ_FUEL_DISPATCH_POINTS] is a
+    ProjFuelUseRate[(proj, t) in PROJ_FUEL_DISPATCH_POINTS] is a
     variable that describes fuel consumption rate in MMBTU/h. This
     should be constrained to the fuel consumed by a project in each
     timepoint and can be calculated as Dispatch [MW] *
@@ -97,7 +97,7 @@ def define_components(mod):
     DispatchEmissions[(proj, t) in PROJ_FUEL_DISPATCH_POINTS] is the
     emissions produced by dispatching a fuel-based project in units of
     metric tonnes CO2 per hour. This is derived from the fuel
-    consumption ConsumeFuelProj, the fuel's direct carbon intensity, the
+    consumption ProjFuelUseRate, the fuel's direct carbon intensity, the
     fuel's upstream emissions, as well as Carbon Capture efficiency for
     generators that implement Carbon Capture and Sequestration. This does
     not yet support multi-fuel generators.
@@ -186,7 +186,7 @@ def define_components(mod):
     mod.PROJ_FUEL_DISPATCH_POINTS = Set(
         initialize=mod.PROJ_DISPATCH_POINTS,
         filter=lambda m, proj, t: proj in m.FUEL_BASED_PROJECTS)
-    mod.ConsumeFuelProj = Var(
+    mod.ProjFuelUseRate = Var(
         mod.PROJ_FUEL_DISPATCH_POINTS,
         within=NonNegativeReals)
 
@@ -195,12 +195,12 @@ def define_components(mod):
         f = m.proj_fuel[proj]
         if g not in m.CCS_TECHNOLOGIES:
             return (
-                m.ConsumeFuelProj[proj, t] *
+                m.ProjFuelUseRate[proj, t] *
                 (m.f_co2_intensity[f] - m.f_upstream_co2_intensity[f]))
         else:
             ccs_emission_frac = 1 - m.g_ccs_capture_efficiency[g]
             return (
-                m.ConsumeFuelProj[proj, t] *
+                m.ProjFuelUseRate[proj, t] *
                 (m.f_co2_intensity[f] * ccs_emission_frac -
                  m.f_upstream_co2_intensity[f]))
     mod.DispatchEmissions = Expression(

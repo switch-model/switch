@@ -293,22 +293,16 @@ def define_components(mod):
     # Placeholder fuel consumption for testing. Assume y-intercept
     # is 30% of full load heat rate, and marginal heat rate is 70%
     # of full load heat rate.
-
-    # ...Um, this seems buggy. ConsumeFuelProj should be in units of
-    # MMBTU per hr and gets multiplied by the weight of the timepoint
-    # to get the total fuel amount - that happens in fuel_markets in the
-    # Enforce_Fuel_Consumption constraint. The problem is that startup
-    # fuel consumption is in units of MMBTU, not MMBTU / hr. This may
-    # account for the behavior I saw in the example where the system
-    # tried very hard to avoid any cycling for the Natural gas combined
-    # cycle plant.
-    mod.ConsumeFuelProj_Calculate = Constraint(
+    # Startup fuel use needs to be divided over the duration of the
+    # timepoint because it is a one-time fuel expenditure in MMBTU
+    # but ProjFuelUseRate requires a fuel consumption rate in MMBTU / hr.
+    mod.ProjFuelUseRate_Calculate = Constraint(
         mod.PROJ_FUEL_DISPATCH_POINTS,
-        rule=lambda m, proj, t: (
-            m.ConsumeFuelProj[proj, t] ==
-            m.Startup[proj, t] * m.proj_startup_fuel[proj] +
-            m.CommitProject[proj, t] * 0.3 * m.proj_full_load_heat_rate[proj] +
-            m.DispatchProj[proj, t] * 0.7 * m.proj_full_load_heat_rate[proj]))
+        rule=lambda m, pr, t: (
+            m.ProjFuelUseRate[pr, t] ==
+            m.Startup[pr, t] * m.proj_startup_fuel[pr] / m.tp_duration_hrs[t] +
+            m.CommitProject[pr, t] * 0.3 * m.proj_full_load_heat_rate[pr] +
+            m.DispatchProj[pr, t] * 0.7 * m.proj_full_load_heat_rate[pr]))
 
 
 def load_data(mod, switch_data, inputs_dir):
