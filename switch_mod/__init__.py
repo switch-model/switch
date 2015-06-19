@@ -5,9 +5,9 @@ This package defines the Switch model for Pyomo.
 The core modules in this package are timescales, financials, load_zones,
 fuels, gen_tech, and project.
 
-For the moment fuel_markets is also required, although I hope to write a
-simple replacement for it that just uses simple flat costs instead of a
-tiered supply curve.
+An additional module is required to describe fuel costs - either
+fuel_cost which specifies a simple flat fuel cost that can vary by load
+zone and period, or fuel_markets which specifies a tiered supply curve.
 
 Also, an additional module is required to constrain project dispatch -
 either project.no_commit or project.unitcommit.
