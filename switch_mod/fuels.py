@@ -108,9 +108,7 @@ def define_components(mod):
     mod.f_co2_intensity = Param(mod.FUELS, within=NonNegativeReals)
     mod.f_upstream_co2_intensity = Param(
         mod.FUELS, within=Reals, default=0)
-    mod.min_data_check(
-        'FUELS', 'NON_FUEL_ENERGY_SOURCES', 'f_co2_intensity',
-        'f_upstream_co2_intensity')
+    mod.min_data_check('f_co2_intensity')
     # Ensure that fuel and non-fuel sets have no overlap.
     mod.e_source_is_fuel_or_not_check = BuildCheck(
         rule=lambda m: len(m.FUELS & m.NON_FUEL_ENERGY_SOURCES) == 0)
@@ -119,6 +117,7 @@ def define_components(mod):
     # the union operator for Pyomo sets.
     mod.ENERGY_SOURCES = Set(
         initialize=mod.NON_FUEL_ENERGY_SOURCES | mod.FUELS)
+    mod.min_data_check('ENERGY_SOURCES')
 
 
 def load_data(mod, switch_data, inputs_dir):
@@ -128,7 +127,16 @@ def load_data(mod, switch_data, inputs_dir):
     upstream_co2_intensity, put a dot . in the relevant cell rather than
     leaving them blank. Leaving a cell blank will generate an error
     message like "IndexError: list index out of range". The following
-    files are expected in the input directory:
+    files are expected in the input directory. Each is optional because
+    you could have either an all-renewable or all-fuel-based system, but
+    the model will generate an error if no energy sources are available.
+
+    Note: non_fuel_energy_sources serves to check for data entry errors.
+    This could be theoretically derived from any energy sources in the
+    generator_energy_sources file that are not listed in the fuels
+    table, but that would mean any mispelled fuel or fuel that was
+    unlisted in fuels.tab would be automatically classified as a free
+    renewable source.
 
     non_fuel_energy_sources.tab
         energy_source
@@ -141,10 +149,12 @@ def load_data(mod, switch_data, inputs_dir):
     # column names, be indifferent to column order, and throw an error
     # message if some columns are not found.
 
-    switch_data.load(
+    switch_data.load_aug(
+        optional=True,
         filename=os.path.join(inputs_dir, 'non_fuel_energy_sources.tab'),
         set=('NON_FUEL_ENERGY_SOURCES'))
-    switch_data.load(
+    switch_data.load_aug(
+        optional=True,
         filename=os.path.join(inputs_dir, 'fuels.tab'),
         select=('fuel', 'co2_intensity', 'upstream_co2_intensity'),
         index=mod.FUELS,

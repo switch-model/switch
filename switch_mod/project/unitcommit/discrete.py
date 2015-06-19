@@ -7,7 +7,7 @@ SYNOPSIS
 >>> import switch_mod.utilities as utilities
 >>> switch_modules = ('timescales', 'financials', 'load_zones', 'fuels',\
     'gen_tech', 'project.build', 'project.discrete_build', 'project.dispatch',\
-    'project.commit', 'project.discrete_commit')
+    'project.unitcommit', 'project.discrete_commit')
 >>> utilities.load_modules(switch_modules)
 >>> switch_model = utilities.define_AbstractModel(switch_modules)
 >>> inputs_dir = 'test_dat'

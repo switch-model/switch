@@ -7,6 +7,7 @@ Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 
 """
 
+import os
 import types
 from pyomo.environ import *
 
@@ -283,6 +284,8 @@ def load_data(model, inputs_dir, module_list):
 
     """
     data = DataPortal(model=model)
+    # Attach an augmented load data function to the data portal object
+    data.load_aug = types.MethodType(load_aug, data)
     _load_data(model, inputs_dir, module_list, data)
     return data
 
@@ -298,3 +301,17 @@ def _load_data(model, inputs_dir, module_list, data):
         if hasattr(_loaded_switch_modules[m], 'core_modules'):
             _load_data(model, inputs_dir,
                        _loaded_switch_modules[m].core_modules, data)
+
+
+def load_aug(switch_data, optional=False, **kwds):
+    """
+
+    This is a wrapper for the DataPortal object that accepts additional
+    keywords. This currently supports a flag for the file being optional.
+    In the future, this could also support a list of optional columns.
+    The name is not great and may be changed as well.
+
+    """
+    if(optional and not os.path.isfile(kwds['filename'])):
+        return
+    switch_data.load(**kwds)

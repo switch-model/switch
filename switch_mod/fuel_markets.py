@@ -345,7 +345,7 @@ def load_data(mod, switch_data, inputs_dir):
     this  file is accomplished through the internal
     _load_simple_cost_data function.
 
-    lz_simple_fuel_cost.tab
+    fuel_cost.tab
         load_zone, fuel, period, fuel_cost
 
     """
@@ -378,7 +378,7 @@ def load_data(mod, switch_data, inputs_dir):
     # Load a simple specifications of costs if the file exists. The
     # actual loading, error checking, and casting into a supply curve is
     # slightly complicated, so I moved that logic to a separate function.
-    path = os.path.join(inputs_dir, 'lz_simple_fuel_cost.tab')
+    path = os.path.join(inputs_dir, 'fuel_cost.tab')
     if os.path.isfile(path):
         _load_simple_cost_data(mod, switch_data, path)
 

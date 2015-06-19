@@ -45,7 +45,7 @@ def define_components(mod):
     and each investment period p.
 
     lz_dbid[z] stores an external database id for each load zone. This
-    is optional and defaults to None. It (or the default value) will be
+    is optional and defaults to the name of the load zone. It will be
     printed out when results are exported.
 
     lz_cost_multipliers[z] is an zone-specific economic multiplier that
@@ -58,8 +58,8 @@ def define_components(mod):
     lz_ccs_distance_km[z] describes the length of a pipeline in
     kilometers that would need to be built to transport CO2 from a load
     zones central bus to the nearest viable CCS reservoir. This
-    parameter wont be used if Carbon Capture and Sequestration
-    technologies are not enabled in a simulation.
+    parameter is optional unless Carbon Capture and Sequestration
+    technologies is enabled.
 
     DumpPower[load_zone, timepoint] is a decision variable that allows
     overproduction of energy in every load zone and timepoint.
@@ -88,16 +88,23 @@ def define_components(mod):
 
     mod.LOAD_ZONES = Set()
     mod.lz_demand_mw = Param(
-        mod.LOAD_ZONES, mod.TIMEPOINTS, within=NonNegativeReals)
+        mod.LOAD_ZONES, mod.TIMEPOINTS,
+        within=NonNegativeReals)
     mod.lz_peak_demand_mw = Param(
-        mod.LOAD_ZONES, mod.INVEST_PERIODS, within=PositiveReals)
-    mod.lz_cost_multipliers = Param(mod.LOAD_ZONES, within=PositiveReals)
-    mod.lz_ccs_distance_km = Param(mod.LOAD_ZONES, within=NonNegativeReals)
-    mod.lz_dbid = Param(mod.LOAD_ZONES)
+        mod.LOAD_ZONES, mod.INVEST_PERIODS,
+        within=PositiveReals)
+    mod.lz_cost_multipliers = Param(
+        mod.LOAD_ZONES,
+        within=PositiveReals,
+        default=1.0)
+    mod.lz_ccs_distance_km = Param(
+        mod.LOAD_ZONES,
+        within=NonNegativeReals)
+    mod.lz_dbid = Param(
+        mod.LOAD_ZONES,
+        default=lambda m, lz: lz)
     # Verify that mandatory data exists before using it.
-    mod.min_data_check(
-        'LOAD_ZONES', 'lz_demand_mw', 'lz_dbid', 'lz_cost_multipliers',
-        'lz_ccs_distance_km')
+    mod.min_data_check('LOAD_ZONES', 'lz_demand_mw')
     mod.lz_total_demand_in_period_mwh = Param(
         mod.LOAD_ZONES, mod.INVEST_PERIODS, within=PositiveReals,
         initialize=lambda mod, z, p: (
@@ -142,7 +149,8 @@ def load_data(mod, switch_data, inputs_dir):
     """
 
     Import load zone data. The following files are expected in the input
-    directory:
+    directory. If you don't want to specify data for any optional
+    parameter, use a dot . for its value.
 
     load_zones.tab should be a tab-separated file with the columns:
         LOAD_ZONE, cost_multipliers, ccs_distance_km, dbid
@@ -157,18 +165,18 @@ def load_data(mod, switch_data, inputs_dir):
     # Include select in each load() function so that it will check out
     # column names, be indifferent to column order, and throw an error
     # message if some columns are not found.
-    switch_data.load(
+    switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'load_zones.tab'),
         select=('LOAD_ZONE', 'cost_multipliers', 'ccs_distance_km',
                 'dbid'),
         index=mod.LOAD_ZONES,
         param=(mod.lz_cost_multipliers, mod.lz_ccs_distance_km,
                mod.lz_dbid))
-    switch_data.load(
+    switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'lz_peak_loads.tab'),
         select=('LOAD_ZONE', 'PERIOD', 'peak_demand_mw'),
         param=(mod.lz_peak_demand_mw))
-    switch_data.load(
+    switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'loads.tab'),
         select=('LOAD_ZONE', 'TIMEPOINT', 'demand_mw'),
         param=(mod.lz_demand_mw))

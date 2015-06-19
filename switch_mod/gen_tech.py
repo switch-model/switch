@@ -100,14 +100,6 @@ def define_components(mod):
     analysis for detailed operations or trueing up an overall investment
     portfolio.
 
-    g_is_resource_limited[g] is a binary flag indicating whether projects of
-    this technology tend to have upper bounds on installable capacity at
-    a given site. Wind, solar, hydro, geothermal tend to have upper
-    bounds dictated by available land, stream flow, or geologic
-    formations. Many traditional technologies such as coal, natural gas,
-    or nuclear plants are not size-limited by local resource
-    constraints.
-
     NOTE: The generator designations of variable, baseload, flexible
     baseload and dispatchable are all mutually exclusive. A generator
     can only belong to one of these categories because they imply
@@ -311,8 +303,6 @@ def define_components(mod):
         mod.GENERATION_TECHNOLOGIES, within=PercentFraction)
     mod.g_is_variable = Param(
         mod.GENERATION_TECHNOLOGIES, within=Boolean)
-    mod.g_is_resource_limited = Param(
-        mod.GENERATION_TECHNOLOGIES, within=Boolean)
     mod.g_is_baseload = Param(
         mod.GENERATION_TECHNOLOGIES, within=Boolean)
     mod.g_is_flexible_baseload = Param(
@@ -379,7 +369,7 @@ def define_components(mod):
         'GENERATION_TECHNOLOGIES', 'g_dbid',
         'g_max_age', 'g_min_build_capacity',
         'g_scheduled_outage_rate', 'g_forced_outage_rate',
-        'g_is_resource_limited', 'g_is_variable', 'g_is_baseload',
+        'g_is_variable', 'g_is_baseload',
         'g_is_flexible_baseload', 'g_is_dispatchable', 'g_is_cogen',
         'g_competes_for_space', 'G_ENERGY_SOURCES', 'g_full_load_heat_rate')
 
@@ -401,7 +391,7 @@ def load_data(mod, switch_data, inputs_dir):
     generator_info.tab
         generation_technology, g_dbid, g_max_age, g_min_build_capacity,
         g_scheduled_outage_rate, g_forced_outage_rate,
-        g_is_resource_limited, g_is_variable, g_is_baseload,
+        g_is_variable, g_is_baseload,
         g_is_flexible_baseload, g_is_dispatchable, g_is_cogen,
         g_competes_for_space, g_variable_o_m
 
@@ -411,12 +401,12 @@ def load_data(mod, switch_data, inputs_dir):
     generator_energy_sources.tab
         generation_technology, energy_source
 
-    gen_vintage_costs is optional in a production cost simulation where
+    gen_new_build_costs is optional in a production cost simulation where
     all projects were built before the start of the first period. In
-    that situation, all existing projects should have costs specified in
+    that situation, all existing projects could have costs specified in
     project_specific_costs.tab
 
-    gen_vintage_costs.tab
+    gen_new_build_costs.tab
         generation_technology, investment_period,
         g_overnight_cost, g_fixed_o_m
 
@@ -439,12 +429,11 @@ def load_data(mod, switch_data, inputs_dir):
     # Include select in each load() function so that it will check out
     # column names, be indifferent to column order, and throw an error
     # message if some columns are not found.
-    switch_data.load(
+    switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'generator_info.tab'),
         select=('generation_technology',
-                'g_dbid', 'g_max_age',
-                'g_min_build_capacity', 'g_scheduled_outage_rate',
-                'g_forced_outage_rate', 'g_is_resource_limited',
+                'g_dbid', 'g_max_age', 'g_min_build_capacity',
+                'g_scheduled_outage_rate', 'g_forced_outage_rate',
                 'g_is_variable', 'g_is_baseload',
                 'g_is_flexible_baseload', 'g_is_dispatchable',
                 'g_is_cogen', 'g_competes_for_space', 'g_variable_o_m'),
@@ -452,46 +441,41 @@ def load_data(mod, switch_data, inputs_dir):
         param=(
             mod.g_dbid, mod.g_max_age,
             mod.g_min_build_capacity, mod.g_scheduled_outage_rate,
-            mod.g_forced_outage_rate, mod.g_is_resource_limited,
+            mod.g_forced_outage_rate,
             mod.g_is_variable, mod.g_is_baseload,
             mod.g_is_flexible_baseload, mod.g_is_dispatchable,
             mod.g_is_cogen, mod.g_competes_for_space, mod.g_variable_o_m))
-    path = os.path.join(inputs_dir, 'gen_vintage_costs.tab')
-    if os.path.isfile(path):
-        switch_data.load(
-            filename=path,
-            select=('generation_technology', 'investment_period',
-                    'g_overnight_cost', 'g_fixed_o_m'),
-            index=mod.NEW_GENERATION_BUILDYEARS,
-            param=(mod.g_overnight_cost, mod.g_fixed_o_m))
+    switch_data.load_aug(
+        optional=True,
+        filename=os.path.join(inputs_dir, 'gen_new_build_costs.tab'),
+        select=('generation_technology', 'investment_period',
+                'g_overnight_cost', 'g_fixed_o_m'),
+        index=mod.NEW_GENERATION_BUILDYEARS,
+        param=(mod.g_overnight_cost, mod.g_fixed_o_m))
     # CCS info is optional because there may not be any CCS technologies
-    path = os.path.join(inputs_dir, 'ccs_info.tab')
-    if os.path.isfile(path):
-        switch_data.load(
-            filename=path,
-            select=(
-                'generation_technology',
-                'g_ccs_capture_efficiency', 'g_ccs_energy_load'),
-            index=mod.CCS_TECHNOLOGIES,
-            param=(mod.g_ccs_capture_efficiency, mod.g_ccs_energy_load))
-    # Storage info is optional because there may be no storage technologies.
-    path = os.path.join(inputs_dir, 'storage_info.tab')
-    if os.path.isfile(path):
-        switch_data.load(
-            filename=path,
-            select=('generation_technology',
-                    'g_storage_efficiency', 'g_store_to_release_ratio'),
-            index=mod.STORAGE_TECHNOLOGIES,
-            param=(mod.g_storage_efficiency, mod.g_store_to_release_ratio))
-    path = os.path.join(inputs_dir, 'unit_sizes.tab')
-    if os.path.isfile(path):
-        switch_data.load(
-            filename=path,
-            select=('generation_technology', 'g_unit_size'),
-            index=mod.GEN_TECH_WITH_UNIT_SIZES,
-            param=(mod.g_unit_size))
+    switch_data.load_aug(
+        optional=True,
+        filename=os.path.join(inputs_dir, 'ccs_info.tab'),
+        select=(
+            'generation_technology',
+            'g_ccs_capture_efficiency', 'g_ccs_energy_load'),
+        index=mod.CCS_TECHNOLOGIES,
+        param=(mod.g_ccs_capture_efficiency, mod.g_ccs_energy_load))
+    switch_data.load_aug(
+        optional=True,
+        filename=os.path.join(inputs_dir, 'storage_info.tab'),
+        select=('generation_technology',
+                'g_storage_efficiency', 'g_store_to_release_ratio'),
+        index=mod.STORAGE_TECHNOLOGIES,
+        param=(mod.g_storage_efficiency, mod.g_store_to_release_ratio))
+    switch_data.load_aug(
+        optional=True,
+        filename=os.path.join(inputs_dir, 'unit_sizes.tab'),
+        select=('generation_technology', 'g_unit_size'),
+        index=mod.GEN_TECH_WITH_UNIT_SIZES,
+        param=(mod.g_unit_size))
 
-    switch_data.load(
+    switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'gen_heat_rates.tab'),
         select=('generation_technology', 'full_load_heat_rate'),
         param=(mod.g_full_load_heat_rate))

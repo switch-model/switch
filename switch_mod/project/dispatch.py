@@ -245,17 +245,13 @@ def load_data(mod, switch_data, inputs_dir):
 
     """
 
-    variable_capacity_factors_path = os.path.join(
-        inputs_dir, 'variable_capacity_factors.tab')
-    if os.path.isfile(variable_capacity_factors_path):
-        switch_data.load(
-            filename=variable_capacity_factors_path,
-            select=('PROJECT', 'timepoint', 'prj_capacity_factor'),
-            param=(mod.prj_max_capacity_factor))
-    proj_variable_costs_path = os.path.join(
-        inputs_dir, 'proj_variable_costs.tab')
-    if os.path.isfile(proj_variable_costs_path):
-        switch_data.load(
-            filename=proj_variable_costs_path,
-            select=('PROJECT', 'proj_variable_om'),
-            param=(mod.proj_variable_om))
+    switch_data.load_aug(
+        optional=True,
+        filename=os.path.join(inputs_dir, 'variable_capacity_factors.tab'),
+        select=('PROJECT', 'timepoint', 'prj_capacity_factor'),
+        param=(mod.prj_max_capacity_factor))
+    switch_data.load_aug(
+        optional=True,
+        filename=os.path.join(inputs_dir, 'proj_variable_costs.tab'),
+        select=('PROJECT', 'proj_variable_om'),
+        param=(mod.proj_variable_om))

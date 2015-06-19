@@ -287,11 +287,6 @@ def define_components(mod):
     mod.proj_capacity_limit_mw = Param(
         mod.PROJECTS_CAP_LIMITED,
         within=PositiveReals)
-    mod.max_cap_set_resource_limited_technologies = BuildCheck(
-        mod.PROJECTS,
-        rule=lambda m, proj: (
-            not m.g_is_resource_limited[m.proj_gen_tech[proj]] or
-            proj in m.proj_capacity_limit_mw))
     # Add PROJECTS_LOCATION_LIMITED & associated stuff later
     mod.FUEL_BASED_PROJECTS = Set(
         initialize=lambda m: set(
@@ -451,7 +446,7 @@ def load_data(mod, switch_data, inputs_dir):
     """
 
     Import project-specific data. The following files are expected in
-    the input directory:
+    the input directory.
 
     all_projects.tab
         PROJECT, proj_dbid, proj_gen_tech, proj_load_zone,
@@ -459,6 +454,9 @@ def load_data(mod, switch_data, inputs_dir):
 
     existing_projects.tab
         PROJECT, build_year, proj_existing_cap
+
+    cap_limited_projects is optional because some systems will not have
+    capacity limited projects.
 
     cap_limited_projects.tab
         PROJECT, proj_capacity_limit_mw
@@ -476,33 +474,32 @@ def load_data(mod, switch_data, inputs_dir):
         PROJECT, build_year, proj_overnight_cost, proj_fixed_om
 
     """
-    switch_data.load(
+    switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'all_projects.tab'),
         select=('PROJECT', 'proj_dbid', 'proj_gen_tech',
                 'proj_load_zone', 'proj_connect_cost_per_mw'),
         index=mod.PROJECTS,
         param=(mod.proj_dbid, mod.proj_gen_tech,
                mod.proj_load_zone, mod.proj_connect_cost_per_mw))
-    switch_data.load(
+    switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'existing_projects.tab'),
         select=('PROJECT', 'build_year', 'proj_existing_cap'),
         index=mod.EXISTING_PROJ_BUILDYEARS,
         param=(mod.proj_existing_cap))
-    switch_data.load(
+    switch_data.load_aug(
+        optional=True,
         filename=os.path.join(inputs_dir, 'cap_limited_projects.tab'),
         select=('PROJECT', 'proj_capacity_limit_mw'),
         index=mod.PROJECTS_CAP_LIMITED,
         param=(mod.proj_capacity_limit_mw))
-    path = os.path.join(inputs_dir, 'proj_heat_rate.tab')
-    if os.path.isfile(path):
-        switch_data.load(
-            filename=path,
-            select=('PROJECT', 'full_load_heat_rate'),
-            param=(mod.proj_full_load_heat_rate))
-    path = os.path.join(inputs_dir, 'project_specific_costs.tab')
-    if os.path.isfile(path):
-        switch_data.load(
-            filename=path,
-            select=('PROJECT', 'build_year',
-                    'proj_overnight_cost', 'proj_fixed_om'),
-            param=(mod.proj_overnight_cost, mod.proj_fixed_om))
+    switch_data.load_aug(
+        optional=True,
+        filename=os.path.join(inputs_dir, 'proj_heat_rate.tab'),
+        select=('PROJECT', 'full_load_heat_rate'),
+        param=(mod.proj_full_load_heat_rate))
+    switch_data.load_aug(
+        optional=True,
+        filename=os.path.join(inputs_dir, 'project_specific_costs.tab'),
+        select=('PROJECT', 'build_year',
+                'proj_overnight_cost', 'proj_fixed_om'),
+        param=(mod.proj_overnight_cost, mod.proj_fixed_om))

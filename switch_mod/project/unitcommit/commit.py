@@ -243,10 +243,13 @@ def define_components(mod):
     mod.proj_startup_om = Param(
         mod.PROJECTS,
         default=lambda m, pr: m.g_startup_om[m.proj_gen_tech[pr]])
+    # Startup costs need to be divided over the duration of the
+    # timepoint because it is a one-time expenditure in units of $
+    # but cost_components_tp requires an hourly cost rate in $ / hr.
     mod.Total_Startup_OM_Costs = Expression(
         mod.TIMEPOINTS,
         initialize=lambda m, t: sum(
-            m.proj_startup_om[proj] * m.Startup[proj, t]
+            m.proj_startup_om[proj] * m.Startup[proj, t] / m.tp_duration_hrs[t]
             for (proj, t2) in m.PROJ_DISPATCH_POINTS
             if t == t2))
     mod.cost_components_tp.append('Total_Startup_OM_Costs')
@@ -327,19 +330,17 @@ def load_data(mod, switch_data, inputs_dir):
 
 
     """
-    path = os.path.join(inputs_dir, 'gen_unit_commit.tab')
-    if os.path.isfile(path):
-        switch_data.load(
-            filename=path,
-            select=('generation_technology', 'g_min_load_fraction',
-                    'g_startup_fuel', 'g_startup_om'),
-            param=(mod.g_min_load_fraction, mod.g_startup_fuel,
-                   mod.g_startup_om))
-    path = os.path.join(inputs_dir, 'proj_commit_bounds_timeseries.tab')
-    if os.path.isfile(path):
-        switch_data.load(
-            filename=path,
-            select=('PROJECT', 'TIMEPOINT', 'proj_min_commit_fraction',
-                    'proj_max_commit_fraction', 'proj_min_load_fraction'),
-            param=(mod.proj_min_commit_fraction, mod.proj_max_commit_fraction,
-                   mod.proj_min_load_fraction))
+    switch_data.load_aug(
+        optional=True,
+        filename=os.path.join(inputs_dir, 'gen_unit_commit.tab'),
+        select=('generation_technology', 'g_min_load_fraction',
+                'g_startup_fuel', 'g_startup_om'),
+        param=(mod.g_min_load_fraction, mod.g_startup_fuel,
+               mod.g_startup_om))
+    switch_data.load_aug(
+        optional=True,
+        filename=os.path.join(inputs_dir, 'proj_commit_bounds_timeseries.tab'),
+        select=('PROJECT', 'TIMEPOINT', 'proj_min_commit_fraction',
+                'proj_max_commit_fraction', 'proj_min_load_fraction'),
+        param=(mod.proj_min_commit_fraction, mod.proj_max_commit_fraction,
+               mod.proj_min_load_fraction))
