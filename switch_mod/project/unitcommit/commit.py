@@ -41,8 +41,8 @@ def define_components(mod):
     CommitProject[(proj, t) in PROJ_DISPATCH_POINTS] is a decision
     variable of how much capacity (MW) from each project to commit in
     each timepoint. By default, this operates in continuous mode.
-    Include the discrete_commit module to force this to operate with
-    discrete unit commitment.
+    Include the project.unitcommit.discrete module to force this to
+    operate with discrete unit commitment.
 
     proj_max_commit_fraction[(proj, t) in PROJ_DISPATCH_POINTS]
     describes the maximum commit level as a fraction of available

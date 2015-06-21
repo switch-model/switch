@@ -7,14 +7,15 @@ SYNOPSIS
 >>> import switch_mod.utilities as utilities
 >>> switch_modules = ('timescales', 'financials', 'load_zones', 'fuels',\
     'gen_tech', 'project.build', 'project.discrete_build', 'project.dispatch',\
-    'project.unitcommit', 'project.discrete_commit')
+    'project.unitcommit', 'project.unitcommit.discrete')
 >>> utilities.load_modules(switch_modules)
 >>> switch_model = utilities.define_AbstractModel(switch_modules)
 >>> inputs_dir = 'test_dat'
 >>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
 >>> switch_instance = switch_model.create(switch_data)
 
-Note, this can be tested with `python -m doctest project/discrete_commit.py`
+Note, this can be tested with
+`python -m doctest project/unitcommit/discrete.py`
 within the switch_mod source directory.
 
 Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
