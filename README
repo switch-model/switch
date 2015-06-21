@@ -10,3 +10,7 @@ home directory. For example, "~/src/switch_py" will not work, but
 "/home/username/src/switch_py" will work.
 
 export PYTHONPATH="${PYTHONPATH}:/absolute/path/to/switch_py"
+
+To run the tests, do:
+
+./run_tests.sh
