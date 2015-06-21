@@ -312,6 +312,15 @@ def load_aug(switch_data, optional=False, **kwds):
     The name is not great and may be changed as well.
 
     """
-    if(optional and not os.path.isfile(kwds['filename'])):
-        return
+    path = kwds['filename']
+    if optional:
+        # Skip if the file is missing
+        if not os.path.isfile(path):
+            return
+        # Skip if the file is empty or has no data in the first data row.
+        with open(path) as infile:
+            headers = infile.readline().strip().split('\t')
+            dat1 = infile.readline().strip().split('\t')
+        if headers == [''] or dat1 == ['']:
+            return
     switch_data.load(**kwds)
