@@ -49,6 +49,11 @@ def define_components(mod):
     transmission and distribution capacity in MW that has already been
     built.
 
+    lz_peak_demand_mw[z,p] describes the peak demand in each load zone z
+    and each investment period p. This optional parameter defaults to
+    the highest load in the lz_demand_mw timeseries for the given load
+    zone & period.
+
     BuildLocalTD[(lz, bld_yr) in LOCAL_TD_BUILD_YEARS] is a decision
     variable describing how much local transmission and distribution to
     build in a load zone. For existing builds, this variable is locked
@@ -70,10 +75,10 @@ def define_components(mod):
     based on ReEDS Solar Vision documentation:
     http://www1.eere.energy.gov/solar/pdfs/svs_appendix_a_model_descriptions_data.pdf
 
-    distribution_losses[lz, t] is an parameter describing the energy
-    that is lost in the distribution network in each timepoint while
-    delivering energy to load. For the moment, this equals load[lz, t]
-    multiplied by distribution_loss_rate.
+    distribution_losses[lz, t] is a derived parameter describing the
+    energy that is lost in the distribution network in each timepoint
+    while delivering energy to load. For the moment, this equals
+    load[lz, t] multiplied by distribution_loss_rate.
 
     Meet_Local_TD[lz, period] is a constraint that enforces minimal
     local T&D requirements. Demand response may specify a more complex
@@ -142,6 +147,11 @@ def define_components(mod):
         dimen=2,
         initialize=lambda m: set((lz, 'Legacy') for lz in m.LOAD_ZONES))
     mod.existing_local_td = Param(mod.LOAD_ZONES, within=NonNegativeReals)
+    mod.lz_peak_demand_mw = Param(
+        mod.LOAD_ZONES, mod.INVEST_PERIODS,
+        within=NonNegativeReals,
+        default=lambda m, lz, p: max(
+            m.lz_demand_mw[lz, t] for t in m.PERIOD_TPS[p]))
     mod.min_data_check('existing_local_td')
     mod.LOCAL_TD_BUILD_YEARS = Set(
         dimen=2,
@@ -200,16 +210,24 @@ def define_components(mod):
 def load_data(mod, switch_data, inputs_dir):
     """
 
-    Import data related to transmission builds. The following files are
-    expected in the input directory:
+    Import local transmission & distribution data. The following files
+    are expected in the input directory:
 
     local_td_existing.tab
         load_zone, existing_local_td, local_td_annual_cost_per_mw
 
+    lz_peak_loads.tab is optional.
+        LOAD_ZONE, PERIOD, peak_demand_mw
+
     """
 
-    switch_data.load(
+    switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'local_td_existing.tab'),
         select=('load_zone', 'existing_local_td',
                 'local_td_annual_cost_per_mw'),
         param=(mod.existing_local_td, mod.local_td_annual_cost_per_mw))
+    switch_data.load_aug(
+        optional=True,
+        filename=os.path.join(inputs_dir, 'lz_peak_loads.tab'),
+        select=('LOAD_ZONE', 'PERIOD', 'peak_demand_mw'),
+        param=(mod.lz_peak_demand_mw))

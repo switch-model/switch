@@ -41,9 +41,6 @@ def define_components(mod):
     lz_demand_mw_as_consumption[z,t] is the same as lz_demand_mw but
     with a negative sign for the benefit of energy balancing equations.
 
-    lz_peak_demand_mw[z,p] describes the peak demand in each load zone z
-    and each investment period p.
-
     lz_dbid[z] stores an external database id for each load zone. This
     is optional and defaults to the name of the load zone. It will be
     printed out when results are exported.
@@ -89,9 +86,6 @@ def define_components(mod):
     mod.LOAD_ZONES = Set()
     mod.lz_demand_mw = Param(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
-        within=NonNegativeReals)
-    mod.lz_peak_demand_mw = Param(
-        mod.LOAD_ZONES, mod.INVEST_PERIODS,
         within=NonNegativeReals)
     mod.lz_cost_multipliers = Param(
         mod.LOAD_ZONES,
@@ -148,17 +142,16 @@ def define_dynamic_components(mod):
 def load_data(mod, switch_data, inputs_dir):
     """
 
-    Import load zone data. The following files are expected in the input
-    directory. If you don't want to specify data for any optional
-    parameter, use a dot . for its value.
+    Import load zone data. The following tab-separated files are
+    expected in the input directory. Their columns can be in any order,
+    and any extra columns will be ignored during import. If you don't
+    want to specify data for any optional parameter, use a dot . for its
+    value.
 
-    load_zones.tab should be a tab-separated file with the columns:
+    load_zones.tab
         LOAD_ZONE, cost_multipliers, ccs_distance_km, dbid
 
-    lz_peak_loads.tab should be a tab-separated file with the columns:
-        LOAD_ZONE, PERIOD, peak_demand_mw
-
-    loads.tab should be a tab-separated file with the columns:
+    loads.tab
         LOAD_ZONE, TIMEPOINT, demand_mw
 
     """
@@ -172,10 +165,6 @@ def load_data(mod, switch_data, inputs_dir):
         index=mod.LOAD_ZONES,
         param=(mod.lz_cost_multipliers, mod.lz_ccs_distance_km,
                mod.lz_dbid))
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'lz_peak_loads.tab'),
-        select=('LOAD_ZONE', 'PERIOD', 'peak_demand_mw'),
-        param=(mod.lz_peak_demand_mw))
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'loads.tab'),
         select=('LOAD_ZONE', 'TIMEPOINT', 'demand_mw'),
