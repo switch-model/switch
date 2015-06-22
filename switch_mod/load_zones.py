@@ -92,7 +92,7 @@ def define_components(mod):
         within=NonNegativeReals)
     mod.lz_peak_demand_mw = Param(
         mod.LOAD_ZONES, mod.INVEST_PERIODS,
-        within=PositiveReals)
+        within=NonNegativeReals)
     mod.lz_cost_multipliers = Param(
         mod.LOAD_ZONES,
         within=PositiveReals,

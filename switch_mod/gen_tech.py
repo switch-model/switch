@@ -296,7 +296,7 @@ def define_components(mod):
     mod.GENERATION_TECHNOLOGIES = Set()
     mod.g_dbid = Param(mod.GENERATION_TECHNOLOGIES)
     mod.g_max_age = Param(
-        mod.GENERATION_TECHNOLOGIES, within=PositiveIntegers)
+        mod.GENERATION_TECHNOLOGIES, within=PositiveReals)
     mod.g_scheduled_outage_rate = Param(
         mod.GENERATION_TECHNOLOGIES, within=PercentFraction)
     mod.g_forced_outage_rate = Param(

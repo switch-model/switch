@@ -244,7 +244,7 @@ def define_components(mod):
         initialize=lambda mod, ts: (
             mod.ts_num_tps[ts] * mod.ts_duration_of_tp[ts]))
 
-    mod.TIMEPOINTS = Set()
+    mod.TIMEPOINTS = Set(ordered=True)
     mod.tp_ts = Param(mod.TIMEPOINTS, within=mod.TIMESERIES)
     mod.min_data_check('TIMEPOINTS', 'tp_ts')
     mod.tp_label = Param(mod.TIMEPOINTS, default=lambda mod, t: t)

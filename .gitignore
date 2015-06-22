@@ -1,4 +1,5 @@
 *pyc
 **parse_table_datacmds.py
 .idea
-
+.DS_Store
+gurobi.log
