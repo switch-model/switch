@@ -1,0 +1,43 @@
+the specialized sets (e.g., just the available dispatch times for various projects) and renamed columns (e.g., timepoint_label on the way in becomes tp_label in the model) are confusing for new users and make it hard to write ad hoc output code. You have to dig into the model to figure out what exact object has what you need.
+
+could we add a time_of_day[TIMEPOINTS] parameter (possibly optional)? 
+
+I changed TIMEPOINTS to an ordered set, so that other ordered sets can be derived from it. Note: From previous experiments, I know that pyomo can create one ordered set from another using initialize=other_set and filter= clause, but I don't know if the method currently used for TS_TPS is so robust (probably is).
+
+Allow constraining DumpPower to zero, for places where we are concerned about down reserves and non-curtailable renewables. In fact, it should probably usually be constrained to zero, since we now dispatch each RE project individually.
+
+don't require heat rates for every gen technologies, only require that something is eventually assigned for every project (e.g., if the user creates a custom technology for a project and supplies a project-specific heat rate that shoudl be enough)
+
+in gen_tech.py, set g_max_age domain to PositiveReals, not PositiveIntegers (in case people don't want to round)
+
+in load_zones.py change domain for lz_peak_demand_mw to NonNegativeReals (to allow zero value if not used)
+
+in project.unitcommit.commit, change default for mod.g_startup_fuel from 0.0 to 
+lambda m, tech: list(m.G_ENERGY_SOURCES[tech])[0] if len(m.G_ENERGY_SOURCES[tech]) == 1 else None
+
+remove references to project.unitcommit.fuel_use in project/unitcommit/__init__.py and project/unitcommit/commit.py, since it seems to have been eliminated.
+
+second half of bounds_BuildProj in project/build.py seems redundant (no need to limit annual additions to the total capacity limit).
+
+merge project_specific_costs with existing_projects? doesn't really make sense because project_specific_costs could have past and future years, and existing_projects only has past years.
+
+rename proj_fixed/variable_om to proj_fixed/variable_o_m to be consistent with g_fixed/variable_o_m
+
+rename cost_multipliers[z] to cost_multiplier[z]?
+
+rename g_* to just * in generator_info.tab. This would be consistent with other tables where a natural name is used in the topic-specific table, and then this gets prefixed with a topic identifier when it is read into switch.
+
+move ccs_distance_km from load_zone to some CCS module.
+move cost_multipliers from load_zone to financials module
+(or move variable_o_m from dispatch to a general project module to save a table)
+
+I don't like having to create a table of all projects, with no other data in it, and having to add all existing plant definitions to the technology table. Couldn't we get the data for new and existing projects (IDs and technology definitions) from their respective tables and then union them to make the full PROJECTS set? It might also be more natural to have the proj_connect_cost_per_mw for new projects but lump it in with an all-inclusive capital cost for existing projects (since that will be project-specific anyway). (well, maybe it's OK, since the default is to inherit from the generic table, but you can specify the info per project. Can you also specify it per buildyear?) It's actually pretty unnatural to have to specify a technology for existing plants -- each one will be different, and that will clutter the technology table. Maybe it's better to go the other way -- use generic technologies in the database, but output specific definitions for every single project (existing or future)?
+
+switch_data.load() could have an "optional=True" argument, to tell it to check whether the file exists and only load it if it does. A similar option would be helpful for individual columns (e.g., if g_min_build_capacity is optional, look for it in generator_info.tab, but don't worry if it's not there). Alternatively, "optional" could be assumed for all tables and columns. Then pyomo will use default values where available and otherwise throw an error (just like ampl). This error could be accompanied by a list of tables and columns that were loaded and ones that could not be found, which would help the user diagnose the problem.
+
+
+I would suggest changing "existing_projects.tab" to "existing_projects_buildyears.tab", since it contains build years rather than general project data.
+
+proj_variable_om seems to be missing.
+
+

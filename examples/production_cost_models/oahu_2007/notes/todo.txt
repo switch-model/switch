@@ -1,0 +1,50 @@
+TODO:
+
+data:
+x tabulate heat rates for heco plants (fuel_use.tab created from Switch-Hawaii/data/Plant Heat Rates HECO/Appendix A Production Cost Database for Baseline system 2.xlsx)
+
+extract existing plant details in suitable format for new switch - (edit "Switch-Hawaii/pyomo/data/get_scenario_data.py")
+
+get QLPU ratings for existing plants
+
+get minimum loads for new and existing plants
+
+get heat rate curves for new plants
+
+add code to create heat rate curve files for new and existing plants (when part load heat rates are in switch)
+
+adapt switch to allow fuel costs by project and date
+adapt switch to allow plants to use a power sales price (by hour) instead of a fuel cost.
+
+- forced outage rates (use Paritosh's data for now, later compare to Table 3 of http://puc.hawaii.gov/wp-content/uploads/2015/04/Adequacy-of-Supply-HECO-2015.pdf (2010-14))
+
+find minimum commit (baseload status and maintenance schedules) for heco plants in past
+http://puc.hawaii.gov/reports/energy-reports/adequacy-of-supply/
+also mentioned in GE RPS roadmap study 2015
+
+- find heco retirements and capacity additions (look through IRP and adequacy reports) (already in Paritosh's data from EIA)
+http://puc.hawaii.gov/reports/energy-reports/adequacy-of-supply/
+http://www.hawaiianelectric.com/heco/Clean-Energy/Integrated-Resource-Planning/Hawaiian-Electric-Company-IRP-Reports-and-PUC-Documents
+
+get data on hourly power from as-available IPPs (????)
+
+x find fuel cost data (ask Michael Roberts?)
+
+- calculate capacity factors for existing wind farms (see "kahuku historical wind data sources.txt" and e-mails to Karl and Michael about historical RE data; put in as baseload 10 MW for now)
+
+- find interruptible load data used for reserve planning in past (treat as zero for now)
+
+code:
+finance / discounting / weights / objective (or switch to Josiah's)
+(above may be ignorable for historical HECO model)
+
+create a launcher function that imports all the relevant modules (i.e., don't import the launcher)
+   (or switch to Josiah's)
+
+to switch to Josiah's code base:
+- agree on indexing and expressions for project_build and project_dispatch
+- add load zones
+- maybe add balancing areas
+- merge project_commitment
+- merge project_fuel
+- add commitment and dispatch slack variables to support reserves

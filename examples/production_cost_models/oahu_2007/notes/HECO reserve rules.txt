@@ -1,0 +1,44 @@
+###### EXISTING RESERVE REQUIREMENTS ############
+In all their capacity planning docs, HECO says their Rule 1 maintains enough reserves to meet peak load plus largest contingency (AES plant, 180 MW) minus interruptible load. 
+See e.g.,
+http://puc.hawaii.gov/reports/energy-reports/adequacy-of-supply/
+http://puc.hawaii.gov/wp-content/uploads/2015/04/Adequacy-of-Supply-HECO-2015.pdf
+http://www.hawaiianelectric.com/vcmcontent/IntegratedResource/IRP/PDF/HECO_IRP4_Plan2009_2028_Final_Report.pdf
+https://www.hawaiianelectric.com/vcmcontent/IntegratedResource/IRP/PDF/IRP-2013-Report-Chapter-8.pdf
+
+Rule 1 appears also to be used to plan maintenance outages. See section 4.1 of IRP4 Appendix P and IRP-2013 Appendix L below.
+
+As of 2008, HECO had 3 capacity planning rules (according to their consultant, who may have gotten it wrong). The second was an operational rule and doesn't appear in later capacity planning documents. However, it may be how they currently set spinning reserve requirements:
+"There must be enough generation running in economic dispatch so that the sum of the three second quick load pickup power available from all running units, not including the most heavily loaded unit, plus the net loads of all other running units must equal or exceed 95 percent of the hourly system net load (which excludes power plant auxiliary loads but includes T&D losses). This is based on a minimum allowable system frequency of 58.5 Hz and assumes a 2 percent reduction in load for each 1 percent reduction in frequency." (so losing 1.5 Hz reduces load by 5%. really?) i.e., QLPU >= largest plant minus 5% of load.
+http://www.hawaiianelectric.com/vcmcontent/IntegratedResource/IRP/PDF/AppendixP_HECO_IRP4_Final_Cap_Plng_Criteria.pdf
+https://www.hawaiianelectric.com/vcmcontent/IntegratedResource/IRP/PDF/IRP-2013-App-L-Capacity-Planning-Criteria-062813-Filed.pdf (Same report from Shaw was Appendix P in IRP4 and Appendix L in 2013.)
+
+** GE report sec. 5.5 (http://www.hnei.hawaii.edu/sites/www.hnei.hawaii.edu/files/120401%20Hawaii%20Solar%20Integration%20Study%20for%20Oahu.pdf) says HECO maintains 40 MW of down reserves at all times.
+
+They appear to have no separate regulating/operating reserve requirement. It is not mentioned in the Shaw report (IRP4 app P, IRP-2013 app L). IRP-2013 Chapter 8 says that 
+"180 MW, which represents the largest generating unit on Hawaiian Electric’s 
+system, is used to model spinning reserve requirements. As large amounts of 
+variable, as-available generation are
+added to the system, additional upward regulating reserve, beyond the
+spinning reserve, might be required to cover for the sub-hourly variability of
+the as-available generation to quickly offset the changes in the variable
+generator’s output (for example, wind farms). This additional regulating
+generation can be ramped either up or down to cover the potential variation in
+wind farm output. The greater the capacity of wind farms that are online, the
+larger the potential variation in wind farm output and the larger the required
+amount of regulating reserves." 
+(They have more formal regulating reserve requirements for MECO and HELCO in IRP-2013 Ch 8.)
+
+
+###### GE MAPS RESERVE REQUIREMENTS ############
+
+HSIS 2012 sec. 5.4 suggests these reserve requirements. I think these were used for HSIS, and maybe for later RPS studies.
+http://www.hnei.hawaii.edu/sites/www.hnei.hawaii.edu/files/120401%20Hawaii%20Solar%20Integration%20Study%20for%20Oahu.pdf
+
+contingency: largest plant -- cited as 185 MW for some reason, they also recommend considering adding more for 40 MW of PV without ridethrough.
+
+operating (=regulating): enough to cover 99.99% largest renewable energy ramp on all time scales, 1 min to 1 hour. Can be made up of spinning and non-spinning, depending on startup time of non-spinning plants. They use a slow start or fast start strategy for the non-spinning plants (main assumption is slow-start). They effectively have reserve targets and products for every duration. They show curves for non-spinning reserves availability (with rapid start or sequenced start) and envelopes around largest ramp on various time scales (fig 5-18 and 5-19 and sec 5.2.3.2) for systems with 100 MW of RE (3A, night), 400 MW of RE (3A day), etc. I could convert the output levels into capacity factors and see if the envelopes are similar across scenarios. It looks like 10-min reserves is roughly 80% of RE output up to about 40% of RE capacity at 50% cap factor, then leveled off.
+
+I should think about how the regulation strategy compares to IGOR. 1 hour ahead, IGOR schedules spinning reserves equal to 20 minute ramp (assuming there are enough fast-start reserves to cover the ramp between 60-minutes ahead and 20-minutes ahead). Then at 20 minutes before real time, it starts enough fast-start reserves to get back to the 20 minute ramp level, compensating for any drop (usually small, rare) in the prior 40 minutes.
+
+

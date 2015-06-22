@@ -1,0 +1,26 @@
+kahuku wind farm coordinates (by inspection on google maps):
+http://hawaiianelectric.com/heco/_hidden_Hidden/Renewable-Energy/Existing-Wind-Farms?cpsextcurrchannel=1
+https://www.google.com/maps/place/Kahuku+Wind+Farm/@21.6845142,-157.9763972,3131m
+
+lat:
+21.673
+21.689
+
+lon:
+-157.967
+-157.986
+
+Best weather product to cover this area and time seems to be "Weather Research and Forecasting (WRF) Regional Atmospheric Model: Oahu". This uses a 0.015 degree grid (approx. 1.5 km resolution). This includes daily forecasts for the following 3.5 days (maybe only 60 hours?). http://oos.soest.hawaii.edu/thredds/catalog/hioos/model/atm/wrf_oa/catalog.html?dataset=wrf_oa/WRF_Oahu_Regional_Atmospheric_Model_fmrc.ncd
+
+bounding box on 0.015 degree grid used for :
+21.660
+21.690
+
+-157.965
+-157.995
+
+Dataset on pacioos/erddap (simple data server), using "best time series" (I think this means pick the forecast for each hour from the most recent forecast:
+http://oos.soest.hawaii.edu/erddap/griddap/WRF_OA_Best.html
+
+URL to retrieve full wind dataset for kuhuku region (2010-2015):
+http://oos.soest.hawaii.edu/erddap/griddap/WRF_OA_Best.csvp?Tair[(2010-06-22T12:00:00Z):1:(2015-02-15T12:00:00Z)][(21.66):1:(21.69)][(-157.995):1:(-157.965)],Uwind[(2010-06-22T12:00:00Z):1:(2015-02-15T12:00:00Z)][(21.66):1:(21.69)][(-157.995):1:(-157.965)],Vwind[(2010-06-22T12:00:00Z):1:(2015-02-15T12:00:00Z)][(21.66):1:(21.69)][(-157.995):1:(-157.965)],Pair[(2010-06-22T12:00:00Z):1:(2015-02-15T12:00:00Z)][(21.66):1:(21.69)][(-157.995):1:(-157.965)]
