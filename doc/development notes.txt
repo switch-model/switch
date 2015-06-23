@@ -181,3 +181,101 @@ To get clear centralized terms for keeping track of bounds, we can do something 
         initialize=DispatchUpperLimit_expr)
 
 ...I don't know. I went ahead and specified minimum capacity factor as g_min_load_fraction[g] and proj_min_load_fraction[proj, t] in commit.py to get things running. Somehow that doesn't bother me as much as expanding prj_max_capacity_factor[proj, t] to every project. I guess over several years I've gotten used to capacity_factor[project, timepoint] as always meaning the fraction of renewable power a plant can produce in a given timepoint, so stuffing other stuff into there seems to dilute its underlying meaning.
+
+6/18/2015
+I was trying to write plenty of documentation for unitcommit.fuel_use, but it's getting overwhelming so I'm going to cut my draft out of there and paste it into here. This allows me to avoid half-written explanations in the module's documentation, but I won't have to start from scratch if I want to revisit that later.
+
+The simplest model of fuel consumption is:
+    Fuel = Energy * full_load_heat_rate
+This effectively defines an input-output curve that goes from the orgin
+(0 energy, 0 fuel) to the maximum power output and fuel consumption rate.
+This is often written in units of rates to simplify modeling:
+    FuelRate = Power * full_load_heat_rate
+
+If you graph input/output data for actual generators, their lines
+typically have a non-zero intercept with the y-axis (FuelRate). The line
+touches the original
+
+Also, they can't operate
+below some minimum loading level, which makes their input output curve
+into a line segment.
+
+have a minimum load restriction that restricts operation on the lower
+end of the line. 
+
+Their  new line would starts above 0 on the y-axis and
+and touch the first line on the right side at full-load/full fuel
+consumption. The slope of the actual line is the incremental heat rate,
+which will be less than the full-load heat rate. If you plot both of
+these lines on the same graph, you would see that the simple model
+underestimates fuel use in all cases except when the plant is running at
+full capacity. So an improved model of fuel use will use the equation:
+Fuel = Energy * incremental_heat_rate + min_fuel_use. In practice, most
+generators have minimum loading levels and can't effectively operate at
+very low levels of energy output, but that doesn't change the equation
+for fuel use.
+
+For all generator data that I've inspected, the incremental heat rate
+tends to increase slightly as energy output is increased. For most
+generators this is a small third-order effect that can be neglected for
+estimations purposes, but if you want to be completely accurate, you
+would draw a series of line segments with increasing slopes. With this
+model, you can't use a single linear equation to calculate fuel
+requirements because each line segment has a different equations. You
+could pick the appropriate equation for each given level of energy
+output, but that sort of if-then logic does not translate directly into
+linear programming. In linear programming, this situation is dubbed
+piecewise linear and there are two basic approaches to handle it.
+
+The first approach is to divide the energy production variable into
+several sub- variables (one for each segment), and put an upper bound on
+each sub- variable so that it can't exceed the width of the segment. The
+total energy production is the sum of the sub-variables, and the total
+fuel consumption is: Fuel = min_fuel_use + E0*incremental_heat_rate0 +
+E1*incremental_heat_rate1 + ... As long as each incremental_heat_rate is
+larger than the one before it, then the optimization will ensure that E1
+remains at 0 until E0 is at its upper limit, which ensures consistent
+results. This tiered decision method is used in the fuel_markets module.
+
+The second approach is to make Fuel use a second decision variable that
+must be above all of the lines. As long as fuel has a cost associated
+with it, a cost minimizing optimization will force fuel down to the line
+segments. This method also requires that incremental heat rates increase
+with energy production so that the lines collectively form a convex
+boundary for fuel use.
+
+This module models fuel use as a piecewise linear function where Fuel
+becomes a decision variable. The equations are similar to those
+described above, except they tend to be in units of FuelUseRate (BTU/h)
+and Power (W) rather than Fuel (BTU) and Energy (Wh) because keeping the
+duration of power output and fuel use separated makes many parts of
+the model easier to express.
+
+In the future, we may write a separate module that models fuel use with
+a single line using average incremental heat rate rather than this more
+complex piecewise linear formulation. The key equation would be
+FuelUseRate = Power * incremental_heat_rate + min_fuel_use. That simpler
+model should achieve essentially identical results with less complexity
+in most situations, which could provide computational advantages and be
+easier to describe. We jumped ahead to the complex version of the model
+now because some stakeholders we are working with strongly prefer the
+more complicated piecewise linear form, and its easier for us to
+implement this than to explain why the simpler form is good enough to
+capture over 95 percent of system behaviors.
+
+For more background on incremental vs average heat rates, including an
+explanation of how read values from standard tables that are poorly
+formatted and misleading, read
+http://www.energy.ca.gov/papers/98-04-07_HEATRATE.PDF
+
+6/22/2015 
+
+When implementing support for incremental heat rates, I wanted to
+specify individual lines of fuel use rates with an indexed set, where
+each member of the set would be a tuple of (intercept, slope). Unfortunately,
+Pyomo does not provide the option of a default function to populate indexed
+sets.
+
+Over the weekend I thought I would have to rewrite it to a bunch of
+parameters instead, but just before I started rewriting it today, I
+checked the documentation and found that BuildAction() will work.

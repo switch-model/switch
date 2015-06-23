@@ -320,8 +320,7 @@ def define_components(mod):
     mod.proj_full_load_heat_rate = Param(
         mod.FUEL_BASED_PROJECTS,
         within=PositiveReals,
-        default=proj_full_load_heat_rate_default_rule,
-        mutable=True)
+        default=proj_full_load_heat_rate_default_rule)
 
     def init_proj_buildyears(m):
         project_buildyears = set()

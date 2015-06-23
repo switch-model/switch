@@ -257,36 +257,10 @@ def define_components(mod):
     reflect these costs, which is consistent with the assumption that
     all expenses are incurred in the last construction year.
 
-    The following parameters describe partial loading for unit
-    commitment and reserve considerations. These are part of a
-    linearized form of unit commitment that can provide adequate
-    approximation of aggregate behavior and performance in large
-    portfolios with many generation units. These parameters need
-    to be refactored into a linearized_spinning_reserves module.
-
     g_max_spinning_reserve_fraction[g] is the maximum fraction of a
     generator's capacity that can be dedicated to spinning reserves. In
     general, the amount of capacity that can be provided for spinning
-    reserves is the generator's 10-minute ramp rate
-
-    g_partial_load_heat_rate_penalty[g] is a fraction used to calculate
-    extra fuel needed when a generator is not operating at its most
-    efficient output at full load. If X MW of generation units are
-    committed and are dispatching at Y MW, then the additional fuel
-    consumption in MMBTU is calculated as [ (X-Y) * full_load_heat_rate
-    * g_partial_load_heat_rate_penalty ]. This parameter merges two
-    parameters from the SWITCH-WECC model: deep_cycling_penalty and
-    heat_rate_spinning_reserve which provided identical information to
-    two contexts.
-
-    g_min_loading[g] is a fraction describing the minimum loading level
-    for flexible baseload or dispatchable generators.
-
-    g_startup_mmbtu_per_mw[g] is the fuel needed to bring an additional
-    MW of generation capacity online.
-
-    g_startup_cost_dollars_per_mw[g] is the O&M cost of turning on a MW
-    of generation units.
+    reserves is the generator's 10-minute ramp rate.
 
 
     """

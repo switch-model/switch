@@ -324,3 +324,7 @@ def load_aug(switch_data, optional=False, **kwds):
         if headers == [''] or dat1 == ['']:
             return
     switch_data.load(**kwds)
+
+
+def approx_equal(a, b, tolerance=0.01):
+    return abs(a-b) <= (abs(a) + abs(b)) / 2.0 * tolerance
