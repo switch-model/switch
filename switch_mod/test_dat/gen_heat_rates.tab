@@ -1,7 +1,6 @@
 generation_technology	full_load_heat_rate
 Coal_IGCC	7.95
 Coal_IGCC_CCS	10.38
-Coal_ST	9
 NG_CC	6.705
 NG_CC_CCS	10.08
 NG_GT	10.39

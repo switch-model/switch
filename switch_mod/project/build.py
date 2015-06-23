@@ -67,18 +67,17 @@ def define_components(mod):
     bounds on increasing capacity or replacing capacity as it is retired
     based on permits or local air quality regulations.
 
-    proj_capacity_limit_mw[prj] is defined for generation technologies that
-    are resource limited and do not compete for land area. This
+    proj_capacity_limit_mw[proj] is defined for generation technologies
+    that are resource limited and do not compete for land area. This
     describes the maximum possible capacity of a project in units of
     megawatts.
 
-    proj_full_load_heat_rate[prj] is the full load heat rate in units of
-    MMBTU/MWh that describes the thermal efficiency of a project when
-    runnign at full load. In the future, this will be optional and will
-    override the generic heat rate of a generation technology. We may
-    also expand this to be indexed by fuel source as well if we need to
-    support a multi-fuel generator whose heat rate depends on fuel
-    source.
+    proj_full_load_heat_rate[proj] is the full load heat rate in units
+    of MMBTU/MWh that describes the thermal efficiency of a project when
+    runnign at full load. This optional parameter overrides the generic
+    heat rate of a generation technology. In the future, we may expand
+    this to be indexed by fuel source as well if we need to support a
+    multi-fuel generator whose heat rate depends on fuel source.
 
     -- CONSTRUCTION --
 
@@ -305,11 +304,24 @@ def define_components(mod):
         rule=lambda m, proj: len(set(
             set(m.G_ENERGY_SOURCES[m.proj_gen_tech[proj]]) &
             set(m.FUELS))) == 1)
+
+    # proj_full_load_heat_rate defaults to g_full_load_heat_rate if it
+    # is available. Throw an error if no data was given for
+    # proj_full_load_heat_rate or g_full_load_heat_rate.
+    def proj_full_load_heat_rate_default_rule(m, pr):
+        g = m.proj_gen_tech[pr]
+        if g in m.g_full_load_heat_rate:
+            return m.g_full_load_heat_rate[g]
+        else:
+            raise ValueError(
+                ("Project {} uses a fuel, but there is no heat rate " +
+                 "specified for this project or its generation technology " +
+                 "{}.").format(pr, m.proj_gen_tech[pr]))
     mod.proj_full_load_heat_rate = Param(
         mod.FUEL_BASED_PROJECTS,
         within=PositiveReals,
-        default=lambda m, pr: m.g_full_load_heat_rate[m.proj_gen_tech[pr]])
-    mod.min_data_check('proj_capacity_limit_mw')
+        default=proj_full_load_heat_rate_default_rule,
+        mutable=True)
 
     def init_proj_buildyears(m):
         project_buildyears = set()

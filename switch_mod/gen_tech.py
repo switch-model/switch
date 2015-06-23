@@ -226,10 +226,11 @@ def define_components(mod):
     (O&M) per MWh of dispatched capacity for given generation technology.
     This is assumed to remain constant over time.
 
-    g_full_load_heat_rate[g in FUEL_BASED_GEN] is the default full load
-    heat rate of a generation technology in units of MMBTU per MWh.
-    Specific projects may override this heat rate. This is mandatory for
-    all fuel-based generators.
+    g_full_load_heat_rate[g in FUEL_BASED_GEN] provides the default full
+    load heat rate of a generation technology in units of MMBTU per MWh.
+    Specific projects may override this heat rate. This is optional, but
+    if you don't supply a value, then you must specify a heat for each
+    project of this type.
 
     --- DELAYED IMPLEMENATION ---
 
@@ -371,7 +372,7 @@ def define_components(mod):
         'g_scheduled_outage_rate', 'g_forced_outage_rate',
         'g_is_variable', 'g_is_baseload',
         'g_is_flexible_baseload', 'g_is_dispatchable', 'g_is_cogen',
-        'g_competes_for_space', 'G_ENERGY_SOURCES', 'g_full_load_heat_rate')
+        'g_competes_for_space', 'G_ENERGY_SOURCES')
 
     # Make sure no generator has an empty list of energy sources
     mod.mandatory_energy_source = BuildCheck(
@@ -474,8 +475,8 @@ def load_data(mod, switch_data, inputs_dir):
         select=('generation_technology', 'g_unit_size'),
         index=mod.GEN_TECH_WITH_UNIT_SIZES,
         param=(mod.g_unit_size))
-
     switch_data.load_aug(
+        optional=True,
         filename=os.path.join(inputs_dir, 'gen_heat_rates.tab'),
         select=('generation_technology', 'full_load_heat_rate'),
         param=(mod.g_full_load_heat_rate))
