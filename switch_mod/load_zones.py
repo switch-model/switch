@@ -140,8 +140,8 @@ def define_dynamic_components(mod):
     mod.Energy_Balance = Constraint(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         rule=lambda m, lz, t: sum(
-            getattr(m, compoment)[lz, t]
-            for compoment in m.LZ_Energy_Balance_components
+            getattr(m, component)[lz, t]
+            for component in m.LZ_Energy_Balance_components
         ) == 0)
 
 
