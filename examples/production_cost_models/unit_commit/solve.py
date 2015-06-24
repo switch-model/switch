@@ -18,6 +18,12 @@ optimization will avoid that range. Copy data from either of those files
 into gen_inc_heat_rates.tab if you want to play around with the model
 behavior.
 
+In both versions of incremental heat rate tables, I gave natural gas
+combustion turbines a very minor heat rate penalty to discourage
+committing more capacity than is needed. I changed the incremental heat
+rate to 99 percent of the full load heat rate, with 1 percent of the
+fuel use incurred at 0 electricity output.
+
 For this to work, you need to ensure that the switch_mod package
 directory is in your python search path. See the README for more info.
 
@@ -41,7 +47,7 @@ results = opt.solve(switch_instance, keepfiles=False, tee=False)
 utilities.save_results(switch_model, results, switch_instance,
                        "outputs", switch_modules)
 
-# Code to manually inspect results
+# Dump all results
 # switch_instance.load(results)
 # results.write()
-# switch_instance.pprint()
+switch_instance.pprint()
