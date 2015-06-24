@@ -94,11 +94,11 @@ def define_components(mod):
     will be replaced at the end of its life, so these costs will
     continue indefinitely.
 
-    PERIOD_RELEVANT_LOCAL_TD_BUILDS[p in INVEST_PERIODS] is an indexed
-    set that describes which local transmission & distribution builds
-    will be operational in a given period. Currently, local T & D lines
-    are kept online indefinitely, with parts being replaced as they wear
-    out. PERIOD_RELEVANT_LOCAL_TD_BUILDS[p] will return a subset of (lz,
+    PERIOD_RELEVANT_LOCAL_TD_BUILDS[p in PERIODS] is an indexed set that
+    describes which local transmission & distribution builds will be
+    operational in a given period. Currently, local T & D lines are kept
+    online indefinitely, with parts being replaced as they wear out.
+    PERIOD_RELEVANT_LOCAL_TD_BUILDS[p] will return a subset of (lz,
     bld_yr) in LOCAL_TD_BUILD_YEARS. Same idea as
     PERIOD_RELEVANT_TRANS_BUILDS, but with a different scope.
 
@@ -148,7 +148,7 @@ def define_components(mod):
         initialize=lambda m: set((lz, 'Legacy') for lz in m.LOAD_ZONES))
     mod.existing_local_td = Param(mod.LOAD_ZONES, within=NonNegativeReals)
     mod.lz_peak_demand_mw = Param(
-        mod.LOAD_ZONES, mod.INVEST_PERIODS,
+        mod.LOAD_ZONES, mod.PERIODS,
         within=NonNegativeReals,
         default=lambda m, lz, p: max(
             m.lz_demand_mw[lz, t] for t in m.PERIOD_TPS[p]))
@@ -156,9 +156,9 @@ def define_components(mod):
     mod.LOCAL_TD_BUILD_YEARS = Set(
         dimen=2,
         initialize=lambda m: set(
-            (m.LOAD_ZONES * m.INVEST_PERIODS) | m.EXISTING_LOCAL_TD_BLD_YRS))
+            (m.LOAD_ZONES * m.PERIODS) | m.EXISTING_LOCAL_TD_BLD_YRS))
     mod.PERIOD_RELEVANT_LOCAL_TD_BUILDS = Set(
-        mod.INVEST_PERIODS,
+        mod.PERIODS,
         within=mod.LOCAL_TD_BUILD_YEARS,
         initialize=lambda m, p: set(
             (lz, bld_yr) for (lz, bld_yr) in m.LOCAL_TD_BUILD_YEARS
@@ -175,7 +175,7 @@ def define_components(mod):
         within=NonNegativeReals,
         bounds=bounds_BuildLocalTD)
     mod.LocalTDCapacity = Expression(
-        mod.LOAD_ZONES, mod.INVEST_PERIODS,
+        mod.LOAD_ZONES, mod.PERIODS,
         initialize=lambda m, lz, period: sum(
             m.BuildLocalTD[lz, bld_yr]
             for (lz2, bld_yr) in m.LOCAL_TD_BUILD_YEARS
@@ -187,7 +187,7 @@ def define_components(mod):
             -1 * m.lz_demand_mw[lz, t] * m.distribution_loss_rate))
     mod.LZ_Energy_Balance_components.append('distribution_losses')
     mod.Meet_Local_TD = Constraint(
-        mod.LOAD_ZONES, mod.INVEST_PERIODS,
+        mod.LOAD_ZONES, mod.PERIODS,
         rule=lambda m, lz, period: (
             m.LocalTDCapacity[lz, period] >= m.lz_peak_demand_mw[lz, period]))
     # mod.local_td_lifetime_yrs = Param(default=20)
@@ -200,7 +200,7 @@ def define_components(mod):
     # real dollars. The objective function will convert these to
     # base_year Net Present Value in $base_year real dollars.
     mod.LocalTD_Fixed_Costs_Annual = Expression(
-        mod.INVEST_PERIODS,
+        mod.PERIODS,
         initialize=lambda m, p: sum(
             m.BuildLocalTD[lz, bld_yr] * m.local_td_annual_cost_per_mw[lz]
             for (lz, bld_yr) in m.PERIOD_RELEVANT_LOCAL_TD_BUILDS[p]))
