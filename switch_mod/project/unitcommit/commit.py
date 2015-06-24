@@ -239,7 +239,7 @@ def define_components(mod):
     mod.g_startup_om = Param(mod.GENERATION_TECHNOLOGIES, default=0.0)
     mod.proj_startup_fuel = Param(
         mod.FUEL_BASED_PROJECTS,
-        default=lambda m, pr: m.g_startup_om[m.proj_gen_tech[pr]])
+        default=lambda m, pr: m.g_startup_fuel[m.proj_gen_tech[pr]])
     mod.proj_startup_om = Param(
         mod.PROJECTS,
         default=lambda m, pr: m.g_startup_om[m.proj_gen_tech[pr]])
