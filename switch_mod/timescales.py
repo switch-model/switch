@@ -28,35 +28,46 @@ def define_components(mod):
     Augments a Pyomo abstract model object with sets and parameters that
     describe timescales of investment and dispatch decisions.
 
-    INVEST_PERIODS is the set of multi-year periods describing the
-    timescale of investment decisions.
+    PERIODS is the set of multi-year periods describing the timescale of
+    investment decisions. The following parameters describe attributes
+    of a period.
 
-    Related parameters that are indexed by period p include:
-    * period_start[p]: The starting year of an investment period.
-    * period_end[p]: The last year of an investment period.
-    * period_length_years[p]: The number of years in an investment
-      period; derived from period_start and period_end.
-    * period_length_hours[p]: The number of hours in an investment
-      period; derived from period_length_years with an average of
-      8766 hours per year.
+    period_start[p]: The starting year of an investment period.
+
+    period_end[p]: The last year of an investment period.
+
+    period_length_years[p]: The number of years in an investment
+    period; derived from period_start and period_end.
+
+    period_length_hours[p]: The number of hours in an investment
+    period; derived from period_length_years with an average of   8766
+    hours per year.
 
     TIMESERIES denote blocks of consecutive timepoints within a period.
     An individual time series could represent a single day, a week, a
     month or an entire year. This replaces the DATE construct in the old
-    SWITCH code and is meant to be more versatile. TIMESERIES ids need
-    to be unique across different periods.
+    SWITCH code and is meant to be more versatile. The following parameters
+    describe attributes of a timeseries.
 
-    Related parameters indexed by ts in TIMESERIES include:
-    * ts_period[ts]: The period a timeseries falls in.
-    * ts_num_tps[ts]: The number of timepoints in a timeseries.
-    * ts_duration_of_tp[ts]: The duration in hours of each timepoint
-      within a timeseries. This is used for calculations that ensure a
-      storage project has a sufficient energy charge when it is
-      dedicated to providing reserves.
-    * ts_duration_hrs[ts]: The total duration of a timeseries in hours.
+    ts_period[ts]: The period a timeseries falls in.
+
+    ts_num_tps[ts]: The number of timepoints in a timeseries.
+
+    ts_duration_of_tp[ts]: The duration in hours of each timepoint
+    within a timeseries. This is used for calculations that ensure a
+    storage project has a sufficient energy charge when it is
+    dedicated to providing reserves.
+
+    ts_duration_hrs[ts]: The total duration of a timeseries in hours.
         = ts_duration_of_tp[ts] * ts_num_tps[ts]
-    * ts_scale_to_period[ts]: Scaling factor to adjust the weight from
-      ts_duration_hrs up to a period. See examples below.
+
+    ts_scale_to_period[ts]: The number of times this representative
+    timeseries is expected to occur in a period. Used as a scaling
+    factor   to adjust the weight from ts_duration_hrs up to a period.
+    See examples below.
+
+    ts_scale_to_year[ts]: The number of times this representative
+    timeseries is expected to occur in a year.
 
     TIMEPOINTS describe unique timepoints within a time series and
     typically index exogenous variables such as electricity demand and
@@ -64,35 +75,43 @@ def define_components(mod):
     typically on the order of one or more hours, so costs associated
     with timepoints are specified in hourly units, and the weights of
     timepoints are specified in units of hours. TIMEPOINTS replaces the
-    HOURS construct in some of the old versions of SWITCH. Timepoints
-    need ids that are unique across periods. Timepoint ids should also
-    indicate their relative ordering within a timeseries. Each timepoint
-    within a series needs to have the same duration to simplify
-    calculations.
+    HOURS construct in some of the old versions of SWITCH. The order of
+    timepoints is provided by their ordering in their input file
+    according to the standard Pyomo/AMPL conventions. To maintain
+    sanity, we recommend sorting your input file by timestamp. Each
+    timepoint within a series has the same duration to simplify
+    statistical calculations. The following parameters describe
+    attributes of timepoints.
 
-    Related parameters indexed by t in TIMEPOINTS include:
-    * tp_weight[t]: The weight of a timepoint within an investment
-      period in units of hours per period.
-         = ts_duration_of_tp[ts] * ts_scale_to_period[ts]
-    * tp_weight_in_year[t]: The weight of a timepoint within a year
-      in units of hours per year.
+    tp_weight[t]: The weight of a timepoint within an investment
+    period in units of hours per period.
+        = ts_duration_of_tp[ts] * ts_scale_to_period[ts]
+
+    tp_weight_in_year[t]: The weight of a timepoint within a year
+    in units of hours per year.
          = tp_weight[t] / period_length_years[p]
-    * tp_label[t]: These human-readable timestamp labels should be
-      unique within a single period. Expected format is YYYYMMDDHH
-    * tp_ts[t]: This timepoint's timeseries.
-    * tp_period[t]: This timepoint's period.
-    * tp_duration_hrs[t]: The duration of this timepoint in hours,
-      taken directly from the timeseries specification ts_duration_of_tp.
-    * tp_previous[t]: The timepoint that is previous to t in its
-      timeseries. Timeseries are treated circularly, so previous of
-      the first timepoint will be the last timepoint in the series
-      instead of being None or invalid. In the degenerate case of a
-      timeseries with a single timepoint, tp_previous[t] will be t.
 
-    Other indexed sets list timepoints within each timeseries or
-    period. These include:
-    * PERIOD_TPS[period]: The set of timepoints in a period.
-    * TS_TPS[timeseries]: The ordered set of timepoints in a timeseries.
+    tp_timestamp[t]: The timestamp of the future time represented by
+    this timepoint. This is only used as a label and can follow any
+    format you wish. Although we highly advise populating this
+    parameter, it is optional and will default to t.
+
+    tp_ts[t]: This timepoint's timeseries.
+
+    tp_period[t]: This timepoint's period.
+
+    tp_duration_hrs[t]: The duration of this timepoint in hours,
+    taken directly from the timeseries specification ts_duration_of_tp.
+
+    tp_previous[t]: The timepoint that is previous to t in its
+    timeseries. Timeseries are treated circularly, so previous of the
+    first timepoint will be the last timepoint in the series instead of
+    being None or invalid. In the degenerate case of a timeseries with a
+    single timepoint, tp_previous[t] will be t.
+
+    PERIOD_TPS[period]: The set of timepoints in a period.
+
+    TS_TPS[timeseries]: The ordered set of timepoints in a timeseries.
 
     Data validity check:
     Currently, the sum of tp_weight for all timepoints in a period
@@ -221,67 +240,72 @@ def define_components(mod):
     # This will add a min_data_check() method to the model
     utilities.add_min_data_check(mod)
 
-    mod.INVEST_PERIODS = Set(ordered=True)
-    mod.period_start = Param(mod.INVEST_PERIODS, within=PositiveReals)
-    mod.period_end = Param(mod.INVEST_PERIODS, within=PositiveReals)
-    mod.min_data_check('INVEST_PERIODS', 'period_start', 'period_end')
+    mod.PERIODS = Set(ordered=True)
+    mod.period_start = Param(mod.PERIODS, within=PositiveReals)
+    mod.period_end = Param(mod.PERIODS, within=PositiveReals)
+    mod.min_data_check('PERIODS', 'period_start', 'period_end')
     mod.period_length_years = Param(
-        mod.INVEST_PERIODS,
-        initialize=lambda mod, p: mod.period_end[p] - mod.period_start[p] + 1)
+        mod.PERIODS,
+        initialize=lambda m, p: m.period_end[p] - m.period_start[p] + 1)
     mod.period_length_hours = Param(
-        mod.INVEST_PERIODS,
-        initialize=lambda mod, p: mod.period_length_years[p] * hours_per_year)
+        mod.PERIODS,
+        initialize=lambda m, p: m.period_length_years[p] * hours_per_year)
 
     mod.TIMESERIES = Set()
-    mod.ts_period = Param(mod.TIMESERIES, within=mod.INVEST_PERIODS)
+    mod.ts_period = Param(mod.TIMESERIES, within=mod.PERIODS)
     mod.ts_duration_of_tp = Param(mod.TIMESERIES, within=PositiveReals)
     mod.ts_num_tps = Param(mod.TIMESERIES, within=PositiveIntegers)
     mod.ts_scale_to_period = Param(mod.TIMESERIES, within=PositiveReals)
     mod.min_data_check(
-        'TIMESERIES', 'ts_period', 'ts_duration_of_tp', 'ts_num_tps')
+        'TIMESERIES', 'ts_period', 'ts_duration_of_tp', 'ts_num_tps',
+        'ts_scale_to_period')
+    mod.ts_scale_to_year = Param(
+        mod.TIMESERIES,
+        initialize=lambda m, ts: (
+            m.ts_scale_to_period[ts] / m.period_length_years[m.ts_period[ts]]))
     mod.ts_duration_hrs = Param(
         mod.TIMESERIES,
-        initialize=lambda mod, ts: (
-            mod.ts_num_tps[ts] * mod.ts_duration_of_tp[ts]))
+        initialize=lambda m, ts: (
+            m.ts_num_tps[ts] * m.ts_duration_of_tp[ts]))
 
     mod.TIMEPOINTS = Set(ordered=True)
     mod.tp_ts = Param(mod.TIMEPOINTS, within=mod.TIMESERIES)
     mod.min_data_check('TIMEPOINTS', 'tp_ts')
-    mod.tp_label = Param(mod.TIMEPOINTS, default=lambda mod, t: t)
+    mod.tp_timestamp = Param(mod.TIMEPOINTS, default=lambda m, t: t)
     mod.tp_period = Param(
         mod.TIMEPOINTS,
-        within=mod.INVEST_PERIODS,
-        initialize=lambda mod, t: mod.ts_period[mod.tp_ts[t]])
+        within=mod.PERIODS,
+        initialize=lambda m, t: m.ts_period[m.tp_ts[t]])
     mod.tp_weight = Param(
         mod.TIMEPOINTS,
         within=PositiveReals,
-        initialize=lambda mod, t: (
-            mod.ts_duration_of_tp[mod.tp_ts[t]] *
-            mod.ts_scale_to_period[mod.tp_ts[t]]))
+        initialize=lambda m, t: (
+            m.ts_duration_of_tp[m.tp_ts[t]] *
+            m.ts_scale_to_period[m.tp_ts[t]]))
     mod.tp_weight_in_year = Param(
         mod.TIMEPOINTS,
         within=PositiveReals,
-        initialize=lambda mod, t: (
-            mod.tp_weight[t] / mod.period_length_years[mod.tp_period[t]]))
+        initialize=lambda m, t: (
+            m.tp_weight[t] / m.period_length_years[m.tp_period[t]]))
     mod.tp_duration_hrs = Param(
         mod.TIMEPOINTS,
-        initialize=lambda mod, t: mod.ts_duration_of_tp[mod.tp_ts[t]])
+        initialize=lambda m, t: m.ts_duration_of_tp[m.tp_ts[t]])
 
     ############################################################
-    # "Helper" sets that are indexed for convenient look-up.
-    # I can't use the filter option to construct these because
-    # filter isn't currently implemented for indexed sets.
+    # Helper sets indexed for convenient look-up.
+    # I didn't use filter because it isn't implemented for indexed sets.
     mod.TS_TPS = Set(
         mod.TIMESERIES,
         ordered=True,
         within=mod.TIMEPOINTS,
-        initialize=lambda m, ts: set(
-            t for t in m.TIMEPOINTS if m.tp_ts[t] == ts))
+        initialize=lambda m, ts: [
+            t for t in m.TIMEPOINTS if m.tp_ts[t] == ts])
     mod.PERIOD_TPS = Set(
-        mod.INVEST_PERIODS,
+        mod.PERIODS,
+        ordered=True,
         within=mod.TIMEPOINTS,
-        initialize=lambda m, p: set(
-            t for t in m.TIMEPOINTS if m.tp_period[t] == p))
+        initialize=lambda m, p: [
+            t for t in m.TIMEPOINTS if m.tp_period[t] == p])
 
     # This next parameter is responsible for making timeseries either
     # linear or circular. It is necessary for tracking unit committment
@@ -308,43 +332,40 @@ def define_components(mod):
             return 0
         return 1
     mod.validate_time_weights = BuildCheck(
-        mod.INVEST_PERIODS,
+        mod.PERIODS,
         rule=validate_time_weights_rule)
 
 
 def load_data(mod, switch_data, inputs_dir):
     """
     Import data for timescales from .tab files.  The inputs_dir
-    should contain the following files with these columns:
+    should contain the following files with these columns. The
+    columns may be in any order and extra columns will be ignored.
 
     periods.tab
         INVESTMENT_PERIOD, period_start, period_end
+
     timeseries.tab
         TIMESERIES, period, ts_duration_of_tp, ts_num_tps,
         ts_scale_to_period
+
+    The order of rows in timepoints.tab indicates the order of the
+    timepoints per Pyomo and AMPL convention. To maintain your sanity,
+    we highly recommend that you sort your input file chronologically by
+    timestamp. Note: timestamp is solely used as a label and be in any
+    format.
+
     timepoints.tab
-        timepoint_id, timepoint_label, timeseries
-
-    This function does not yet perform detailed error checking on the
-    incoming files for things like column names, column counts, etc. If
-    you make a mistake with column format, you may get an unhelpful
-    error message pointing you to some line in this function. If that
-    happens, look at the relevant line to see which file is being read
-    in, and you'll probably find that you have some kind of error in
-    that file.
-
-    Unfortunately, not all errors will be caught while these files are
-    read in, and some may only appear during the model.create(data)
-    stage. In the future, it would be good to write some basic error
-    checking into this import function.
+        timepoint_id, timestamp, timeseries
 
     EXAMPLE:
-    >>> import timescales
-    >>> switch_mod = AbstractModel()
-    >>> timescales.define_components(switch_mod)
-    >>> switch_data = DataPortal(model=switch_mod)
-    >>> timescales.load_data(switch_mod, switch_data, 'test_dat')
-    >>> switch_instance = switch_mod.create(switch_data)
+    >>> import switch_mod.utilities as utilities
+    >>> modules = ['timescales']
+    >>> utilities.load_modules(modules)
+    >>> switch_model = utilities.define_AbstractModel(modules)
+    >>> inputs_dir = 'test_dat'
+    >>> switch_data = utilities.load_data(switch_model, inputs_dir, modules)
+    >>> switch_instance = switch_model.create(switch_data)
     >>> switch_instance.tp_weight_in_year.pprint()
     tp_weight_in_year : Size=7, Index=TIMEPOINTS, Domain=PositiveReals, Default=None, Mutable=False
         Key : Value
@@ -360,20 +381,20 @@ def load_data(mod, switch_data, inputs_dir):
     # Include select in each load() function so that it will check out column
     # names, be indifferent to column order, and throw an error message if
     # some columns are not found.
-    switch_data.load(
+    switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'periods.tab'),
         select=('INVESTMENT_PERIOD', 'period_start', 'period_end'),
-        index=mod.INVEST_PERIODS,
+        index=mod.PERIODS,
         param=(mod.period_start, mod.period_end))
-    switch_data.load(
+    switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'timeseries.tab'),
         select=('TIMESERIES', 'ts_period', 'ts_duration_of_tp',
                 'ts_num_tps', 'ts_scale_to_period'),
         index=mod.TIMESERIES,
         param=(mod.ts_period, mod.ts_duration_of_tp,
                mod.ts_num_tps, mod.ts_scale_to_period))
-    switch_data.load(
+    switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'timepoints.tab'),
-        select=('timepoint_id', 'timepoint_label', 'timeseries'),
+        select=('timepoint_id', 'timestamp', 'timeseries'),
         index=mod.TIMEPOINTS,
-        param=(mod.tp_label, mod.tp_ts))
+        param=(mod.tp_timestamp, mod.tp_ts))

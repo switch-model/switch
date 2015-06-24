@@ -1,0 +1,13 @@
+set FUEL_BASED_GEN := NG-CCGT NG-CT ;
+
+param g_full_load_heat_rate := 
+	NG-CCGT	 6.705
+	NG-CT    10.39
+;
+
+set FUEL_BASED_PROJECTS := 'S-NG-CCGT' 'S-NG-CT' ;
+param proj_gen_tech :=
+	S-NG-CCGT NG-CCGT
+	S-NG-CT NG-CT;
+param p_full_load_heat_rate :=
+	S-NG-CCGT 7;

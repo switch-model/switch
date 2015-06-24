@@ -1,7 +1,7 @@
 # This file duplicates information from the four .tab timescale files. 
 # It allows the define_timescales() function in timescales.py to be tested independently of the import_timescales() function. 
 
-set INVEST_PERIODS := 2020 2030 ;
+set PERIODS := 2020 2030 ;
 param period_start :=
   2020 2017
   2030 2027;
@@ -37,7 +37,7 @@ param ts_scale_to_period :=
 
 set TIMEPOINTS := 1 2 3 4 5 6 7;
 
-param tp_label :=
+param tp_timestamp :=
   1 2025011500
   2 2025011512
   3 2025011600

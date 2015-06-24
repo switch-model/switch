@@ -69,26 +69,26 @@ def define_components(mod):
 
     mod.lz_balancing_area = Param(mod.LOAD_ZONES)
     mod.min_data_check('lz_balancing_area')
-    mod.BALANCING_AREAS = Set(initialize=lambda mod: set(
-        mod.lz_balancing_area[z] for z in mod.LOAD_ZONES))
+    mod.BALANCING_AREAS = Set(initialize=lambda m: set(
+        m.lz_balancing_area[z] for z in m.LOAD_ZONES))
     mod.quickstart_res_load_frac = Param(
         mod.BALANCING_AREAS, within=PositiveReals, default=0.03,
-        validate=lambda mod, val, b: val < 1)
+        validate=lambda m, val, b: val < 1)
     mod.quickstart_res_wind_frac = Param(
         mod.BALANCING_AREAS, within=PositiveReals, default=0.05,
-        validate=lambda mod, val, b: val < 1)
+        validate=lambda m, val, b: val < 1)
     mod.quickstart_res_solar_frac = Param(
         mod.BALANCING_AREAS, within=PositiveReals, default=0.05,
-        validate=lambda mod, val, b: val < 1)
+        validate=lambda m, val, b: val < 1)
     mod.spinning_res_load_frac = Param(
         mod.BALANCING_AREAS, within=PositiveReals, default=0.03,
-        validate=lambda mod, val, b: val < 1)
+        validate=lambda m, val, b: val < 1)
     mod.spinning_res_wind_frac = Param(
         mod.BALANCING_AREAS, within=PositiveReals, default=0.05,
-        validate=lambda mod, val, b: val < 1)
+        validate=lambda m, val, b: val < 1)
     mod.spinning_res_solar_frac = Param(
         mod.BALANCING_AREAS, within=PositiveReals, default=0.05,
-        validate=lambda mod, val, b: val < 1)
+        validate=lambda m, val, b: val < 1)
 
 
 def load_data(mod, switch_data, inputs_dir):

@@ -3,7 +3,7 @@
 """
 
 Illustrate the use of switch to construct and run a toy model
-with a three load zonez and two investment period where the first
+with three load zones and two investment period where the first
 investment period has more temporal resolution than the second.
 
 Note, the results from this have not been fully evaluated.
@@ -29,7 +29,8 @@ switch_instance = switch_model.create(switch_data)
 opt = SolverFactory("cplex")
 
 results = opt.solve(switch_instance, keepfiles=False, tee=False)
-switch_instance.load(results)
+utilities.save_results(switch_model, results, switch_instance,
+                       "outputs", switch_modules)
 
-results.write()
-switch_instance.pprint()
+# results.write()
+# switch_instance.pprint()

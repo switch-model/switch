@@ -24,5 +24,4 @@ because they are redundant.
 
 """
 
-core_modules = ['project.unitcommit.commit']
-# ['project.unitcommit.commit', 'project.unitcommit.fuel_use']
+core_modules = ['project.unitcommit.commit', 'project.unitcommit.fuel_use']

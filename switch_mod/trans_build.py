@@ -140,10 +140,10 @@ def define_components(mod):
     trans_d_line[trans_d] is the transmission line associated with this
     directional path.
 
-    PERIOD_RELEVANT_TRANS_BUILDS[p in INVEST_PERIODS] is an indexed set
-    that describes which transmission builds will be operational in a
-    given period. Currently, transmission lines are kept online
-    indefinitely, with parts being replaced as they wear out.
+    PERIOD_RELEVANT_TRANS_BUILDS[p in PERIODS] is an indexed set that
+    describes which transmission builds will be operational in a given
+    period. Currently, transmission lines are kept online indefinitely,
+    with parts being replaced as they wear out.
     PERIOD_RELEVANT_TRANS_BUILDS[p] will return a subset of (tx, bld_yr)
     in TRANS_BUILD_YEARS.
 
@@ -208,13 +208,13 @@ def define_components(mod):
         mod.TRANSMISSION_LINES, within=Boolean, default=True)
     mod.NEW_TRANS_BLD_YRS = Set(
         dimen=2,
-        initialize=lambda m: m.TRANSMISSION_LINES * m.INVEST_PERIODS,
+        initialize=lambda m: m.TRANSMISSION_LINES * m.PERIODS,
         filter=lambda m, tx, p: m.trans_new_build_allowed[tx])
     mod.TRANS_BUILD_YEARS = Set(
         dimen=2,
         initialize=lambda m: m.EXISTING_TRANS_BLD_YRS | m.NEW_TRANS_BLD_YRS)
     mod.PERIOD_RELEVANT_TRANS_BUILDS = Set(
-        mod.INVEST_PERIODS,
+        mod.PERIODS,
         within=mod.TRANS_BUILD_YEARS,
         initialize=lambda m, p: set(
             (tx, bld_yr) for (tx, bld_yr) in m.TRANS_BUILD_YEARS
@@ -231,7 +231,7 @@ def define_components(mod):
         within=NonNegativeReals,
         bounds=bounds_BuildTrans)
     mod.TransCapacity = Expression(
-        mod.TRANSMISSION_LINES, mod.INVEST_PERIODS,
+        mod.TRANSMISSION_LINES, mod.PERIODS,
         initialize=lambda m, tx, period: sum(
             m.BuildTrans[tx, bld_yr]
             for (tx2, bld_yr) in m.TRANS_BUILD_YEARS
@@ -242,7 +242,7 @@ def define_components(mod):
         default=0,
         validate=lambda m, val, tx: val <= 1)
     mod.TransCapacityAvailable = Expression(
-        mod.TRANSMISSION_LINES, mod.INVEST_PERIODS,
+        mod.TRANSMISSION_LINES, mod.PERIODS,
         initialize=lambda m, tx, period: (
             m.TransCapacity[tx, period] * m.trans_derating_factor[tx]))
     mod.trans_terrain_multiplier = Param(
@@ -275,7 +275,7 @@ def define_components(mod):
     # real dollars. The objective function will convert these to
     # base_year Net Present Value in $base_year real dollars.
     mod.Trans_Fixed_Costs_Annual = Expression(
-        mod.INVEST_PERIODS,
+        mod.PERIODS,
         initialize=lambda m, p: sum(
             m.BuildTrans[tx, bld_yr] * m.trans_cost_annual[tx]
             for (tx, bld_yr) in m.PERIOD_RELEVANT_TRANS_BUILDS[p]))

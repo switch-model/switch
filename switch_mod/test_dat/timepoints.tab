@@ -1,4 +1,4 @@
-timepoint_id	timepoint_label	timeseries
+timepoint_id	timestamp	timeseries
 1	2025011500	2020_01winter
 2	2025011512	2020_01winter
 3	2025011600	2020_01winter

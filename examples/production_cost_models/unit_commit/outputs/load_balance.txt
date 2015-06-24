@@ -1,0 +1,5 @@
+timestamp	lz_demand_mw_as_consumption	DumpPower	LZ_NetDispatch	distribution_losses
+2010011500	-3	0.0	3.159	-0.159
+2010011506	-8	0.0	8.424	-0.424
+2010011512	-10	0.0	10.530000000000001	-0.53
+2010011518	-7	0.0	7.371	-0.371

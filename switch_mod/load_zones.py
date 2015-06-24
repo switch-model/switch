@@ -100,10 +100,11 @@ def define_components(mod):
     # Verify that mandatory data exists before using it.
     mod.min_data_check('LOAD_ZONES', 'lz_demand_mw')
     mod.lz_total_demand_in_period_mwh = Param(
-        mod.LOAD_ZONES, mod.INVEST_PERIODS, within=PositiveReals,
-        initialize=lambda mod, z, p: (
-            sum(mod.lz_demand_mw[z, t] * mod.tp_weight[t]
-                for t in mod.PERIOD_TPS[p])))
+        mod.LOAD_ZONES, mod.PERIODS,
+        within=PositiveReals,
+        initialize=lambda m, z, p: (
+            sum(m.lz_demand_mw[z, t] * m.tp_weight[t]
+                for t in m.PERIOD_TPS[p])))
     mod.lz_demand_mw_as_consumption = Param(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         initialize=lambda m, lz, t: -1 * m.lz_demand_mw[lz, t])
@@ -169,3 +170,24 @@ def load_data(mod, switch_data, inputs_dir):
         filename=os.path.join(inputs_dir, 'loads.tab'),
         select=('LOAD_ZONE', 'TIMEPOINT', 'demand_mw'),
         param=(mod.lz_demand_mw))
+
+
+def save_results(model, instance, outdir):
+    """
+    Export results to standard files.
+
+    This initial placeholder version is integrating snippets of
+    some of Matthias's code into the main codebase.
+
+    """
+    import switch_mod.export as export
+    export.write_table(
+        instance, instance.TIMEPOINTS,
+        output_file=os.path.join("outputs", "load_balance.txt"),
+        headings=("timestamp",) + tuple(
+            instance.LZ_Energy_Balance_components),
+        values=lambda m, t: (m.tp_timestamp[t],) + tuple(
+            sum(getattr(m, component)[lz, t] for lz in m.LOAD_ZONES)
+            for component in m.LZ_Energy_Balance_components
+        )
+    )

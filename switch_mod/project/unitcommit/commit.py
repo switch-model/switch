@@ -293,20 +293,6 @@ def define_components(mod):
         initialize=lambda m, proj, t: (
             m.DispatchProj[proj, t] - m.DispatchLowerLimit[proj, t]))
 
-    # Placeholder fuel consumption for testing. Assume y-intercept
-    # is 30% of full load heat rate, and marginal heat rate is 70%
-    # of full load heat rate.
-    # Startup fuel use needs to be divided over the duration of the
-    # timepoint because it is a one-time fuel expenditure in MMBTU
-    # but ProjFuelUseRate requires a fuel consumption rate in MMBTU / hr.
-    mod.ProjFuelUseRate_Calculate = Constraint(
-        mod.PROJ_FUEL_DISPATCH_POINTS,
-        rule=lambda m, pr, t: (
-            m.ProjFuelUseRate[pr, t] ==
-            m.Startup[pr, t] * m.proj_startup_fuel[pr] / m.tp_duration_hrs[t] +
-            m.CommitProject[pr, t] * 0.3 * m.proj_full_load_heat_rate[pr] +
-            m.DispatchProj[pr, t] * 0.7 * m.proj_full_load_heat_rate[pr]))
-
 
 def load_data(mod, switch_data, inputs_dir):
     """
