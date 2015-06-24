@@ -233,7 +233,7 @@ def define_components(mod):
     # RFM_SUPPLY_TIERS = [(regional_fuel_market, period, supply_tier_index)...]
     mod.RFM_SUPPLY_TIERS = Set(
         dimen=3, validate=lambda m, r, p, st: (
-            r in m.REGIONAL_FUEL_MARKET and p in m.INVEST_PERIODS))
+            r in m.REGIONAL_FUEL_MARKET and p in m.PERIODS))
     mod.rfm_supply_tier_cost = Param(
         mod.RFM_SUPPLY_TIERS, within=Reals)
     mod.rfm_supply_tier_limit = Param(
@@ -241,7 +241,7 @@ def define_components(mod):
     mod.min_data_check(
         'RFM_SUPPLY_TIERS', 'rfm_supply_tier_cost', 'rfm_supply_tier_limit')
     mod.RFM_P_SUPPLY_TIERS = Set(
-        mod.REGIONAL_FUEL_MARKET, mod.INVEST_PERIODS, dimen=3,
+        mod.REGIONAL_FUEL_MARKET, mod.PERIODS, dimen=3,
         initialize=lambda m, rfm, ip: set(
             (r, p, st) for (r, p, st) in m.RFM_SUPPLY_TIERS
             if r == rfm and p == ip))
@@ -252,10 +252,10 @@ def define_components(mod):
         bounds=lambda m, rfm, p, st: (
             0, m.rfm_supply_tier_limit[rfm, p, st]))
     mod.FuelConsumptionInMarket = Var(
-        mod.REGIONAL_FUEL_MARKET, mod.INVEST_PERIODS,
+        mod.REGIONAL_FUEL_MARKET, mod.PERIODS,
         domain=NonNegativeReals)
     mod.Enforce_Fuel_Consumption_By_Tier = Constraint(
-        mod.REGIONAL_FUEL_MARKET, mod.INVEST_PERIODS,
+        mod.REGIONAL_FUEL_MARKET, mod.PERIODS,
         rule=lambda m, rfm, p: (
             m.FuelConsumptionInMarket[rfm, p] == sum(
                 m.FuelConsumptionByTier[rfm_supply_tier]
@@ -272,7 +272,7 @@ def define_components(mod):
                 return False
         return True
     mod.lz_fuel_cost_adder = Param(
-        mod.LZ_FUELS, mod.INVEST_PERIODS,
+        mod.LZ_FUELS, mod.PERIODS,
         within=Reals, default=0, validate=lz_fuel_cost_adder_validate)
 
     # Summarize annual fuel costs for the objective funciton
@@ -281,7 +281,7 @@ def define_components(mod):
             m.FuelConsumptionByTier[rfm_st] * m.rfm_supply_tier_cost[rfm_st]
             for rfm_st in m.RFM_P_SUPPLY_TIERS[rfm, p])
     mod.Fuel_Costs_Annual = Expression(
-        mod.INVEST_PERIODS,
+        mod.PERIODS,
         initialize=lambda m, p: sum(
             rfm_period_costs(m, rfm, p)
             for rfm in m.REGIONAL_FUEL_MARKET))
@@ -290,7 +290,7 @@ def define_components(mod):
     # Components to link aggregate fuel consumption from project
     # dispatch into market framework
     mod.RFM_DISPATCH_POINTS = Set(
-        mod.REGIONAL_FUEL_MARKET, mod.INVEST_PERIODS,
+        mod.REGIONAL_FUEL_MARKET, mod.PERIODS,
         within=mod.PROJ_FUEL_DISPATCH_POINTS,
         initialize=lambda m, rfm, p: set(
             (proj, t) for (proj, t) in m.PROJ_FUEL_DISPATCH_POINTS
@@ -303,13 +303,13 @@ def define_components(mod):
             m.ProjFuelUseRate[proj, t] * m.tp_weight_in_year[t]
             for (proj, t) in m.RFM_DISPATCH_POINTS[rfm, p])
     mod.Enforce_Fuel_Consumption = Constraint(
-        mod.REGIONAL_FUEL_MARKET, mod.INVEST_PERIODS,
+        mod.REGIONAL_FUEL_MARKET, mod.PERIODS,
         rule=Enforce_Fuel_Consumption_rule)
 
     # Calculate average fuel costs to allow post-optimization inspection
     # and cost allocation.
     mod.AverageFuelCosts = Expression(
-        mod.REGIONAL_FUEL_MARKET, mod.INVEST_PERIODS,
+        mod.REGIONAL_FUEL_MARKET, mod.PERIODS,
         initialize=lambda m, rfm, p: (
             rfm_period_costs(m, rfm, p) /
             sum(m.FuelConsumptionByTier[rfm_st]
@@ -401,7 +401,7 @@ def _load_simple_cost_data(mod, switch_data, path):
                 raise ValueError(
                     "Fuel " + f + " in lz_simple_fuel_cost.tab is not " +
                     "a known fuel from fuels.tab.")
-            if p not in switch_data.data(name='INVEST_PERIODS'):
+            if p not in switch_data.data(name='PERIODS'):
                 raise ValueError(
                     "Period " + p + " in lz_simple_fuel_cost.tab is not " +
                     "a known investment period.")

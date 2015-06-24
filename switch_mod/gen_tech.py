@@ -325,12 +325,12 @@ def define_components(mod):
     # generation technologies and investment periods.
     mod.NEW_GENERATION_BUILDYEARS = Set(
         dimen=2,
-        within=mod.GENERATION_TECHNOLOGIES * mod.INVEST_PERIODS)
+        within=mod.GENERATION_TECHNOLOGIES * mod.PERIODS)
     mod.g_overnight_cost = Param(
-        mod.GENERATION_TECHNOLOGIES, mod.INVEST_PERIODS,
+        mod.GENERATION_TECHNOLOGIES, mod.PERIODS,
         within=NonNegativeReals)
     mod.g_fixed_o_m = Param(
-        mod.GENERATION_TECHNOLOGIES, mod.INVEST_PERIODS,
+        mod.GENERATION_TECHNOLOGIES, mod.PERIODS,
         within=NonNegativeReals)
     mod.g_variable_o_m = Param(
         mod.GENERATION_TECHNOLOGIES,

@@ -31,10 +31,10 @@ I tried using .dat file load commands to load .tab files because I thought this 
 See https://software.sandia.gov/downloads/pub/pyomo/PyomoOnlineDocs.html#_data_command_files
 I could only get it to work when the .tab files were in the current working directory. Specifying a path such as test_dat/dispatch_scenarios.tab instead of dispatch_scenarios.tab generated an error, complaining that / is an illegal character. Wrapping the path in quotes generated an even more obscure error message during model instantiation. The documentation didn't help at all with this. I read the code that parses these commands (pyomo/core/data/parse_datacmds.py, ampl.py, proess_data.py), but couldn't find a way of specifying a directory name.
 Anyway, the following commands work when the .tab files are in the working directory. 
-	load periods.tab : INVEST_PERIODS = [INVESTMENT_PERIOD] period_start period_end;
+	load periods.tab : PERIODS = [PERIOD] period_start period_end;
 	load dispatch_scenarios.tab : DISPATCH_SCENARIOS = [DISPATCH_SCENARIO] disp_scen_period=period disp_scen_dbid=dbid;
 	load timeseries.tab : TIMESERIES=[TIMESERIES] ts_disp_scen ts_duration_of_tp ts_num_tps ts_scale_to_period;
-	load timepoints.tab : TIMEPOINTS=[timepoint_id] tp_label=timepoint_label tp_ts=timeseries;
+	load timepoints.tab : TIMEPOINTS=[timepoint_id] tp_timestamp=timepoint_label tp_ts=timeseries;
 
 3/6
 Today I pushed my boundaries of using DataPortal: loading parameters with multi-dimensional indexing. I encountered numerous problems that ultimately were rooted in the data file that I thought I was using really being in a different directory. Sublime doesn't update itself like BBEdit if an open file is moved to a new directory in the background. 

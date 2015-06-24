@@ -348,10 +348,10 @@ def define_components(mod):
     def init_proj_end_year(m, proj, build_year):
         g = m.proj_gen_tech[proj]
         max_age = m.g_max_age[g]
-        earliest_study_year = m.period_start[m.INVEST_PERIODS.first()]
+        earliest_study_year = m.period_start[m.PERIODS.first()]
         if build_year + max_age < earliest_study_year:
             return build_year + max_age
-        for p in m.INVEST_PERIODS:
+        for p in m.PERIODS:
             if build_year + max_age < m.period_end[p]:
                 break
         return p
@@ -362,15 +362,15 @@ def define_components(mod):
 
     mod.PROJECT_BUILDS_OPERATIONAL_PERIODS = Set(
         mod.PROJECT_BUILDYEARS,
-        within=mod.INVEST_PERIODS,
+        within=mod.PERIODS,
         ordered=True,
         initialize=lambda m, proj, bld_yr: set(
-            p for p in m.INVEST_PERIODS
+            p for p in m.PERIODS
             if bld_yr <= p <= m.proj_end_year[proj, bld_yr]))
     # The set of build years that could be online in the given period
     # for the given project.
     mod.PROJECT_PERIOD_ONLINE_BUILD_YRS = Set(
-        mod.PROJECTS, mod.INVEST_PERIODS,
+        mod.PROJECTS, mod.PERIODS,
         initialize=lambda m, proj, p: set(
             bld_yr for (prj, bld_yr) in m.PROJECT_BUILDYEARS
             if prj == proj and bld_yr <= p <= m.proj_end_year[proj, bld_yr]))
@@ -392,13 +392,13 @@ def define_components(mod):
 
     # To Do: Subtract retirements after I write support for that.
     mod.ProjCapacity = Expression(
-        mod.PROJECTS, mod.INVEST_PERIODS,
+        mod.PROJECTS, mod.PERIODS,
         initialize=lambda m, proj, period: sum(
             m.BuildProj[proj, bld_yr]
             for bld_yr in m.PROJECT_PERIOD_ONLINE_BUILD_YRS[proj, period]))
 
     mod.Max_Build_Potential = Constraint(
-        mod.PROJECTS_CAP_LIMITED, mod.INVEST_PERIODS,
+        mod.PROJECTS_CAP_LIMITED, mod.PERIODS,
         rule=lambda m, proj, p: (
             m.proj_capacity_limit_mw[proj] >= m.ProjCapacity[proj, p]))
 
@@ -445,7 +445,7 @@ def define_components(mod):
     # function will convert these to base_year Net Present Value in
     # $base_year real dollars.
     mod.Total_Proj_Fixed_Costs_Annual = Expression(
-        mod.INVEST_PERIODS,
+        mod.PERIODS,
         initialize=lambda m, p: sum(
             m.Proj_Fixed_Costs_Annual[proj, p]
             for (proj, period) in m.PROJECT_OPERATIONAL_PERIODS

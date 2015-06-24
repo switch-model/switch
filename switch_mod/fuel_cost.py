@@ -61,7 +61,7 @@ def define_components(mod):
         validate=lambda m, lz, f, p: (
             lz in m.LOAD_ZONES and
             f in m.FUELS and
-            p in m.INVEST_PERIODS))
+            p in m.PERIODS))
     mod.fuel_cost = Param(
         mod.FUEL_AVAILABILITY,
         within=PositiveReals)

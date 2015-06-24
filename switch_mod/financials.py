@@ -167,18 +167,17 @@ def define_components(mod):
     These next two parameters are derived from the above parameters and
     timescale information.
 
-    bring_annual_costs_to_base_year[p in INVEST_PERIODS] is a
-    coefficient that converts uniform costs made in each year of an
-    investment period to NPV in the base financial year. This
-    coefficient can be decomposed into two components. The first
-    component converts a uniform stream of annual costs in the period to
-    a lump sum at the beginning of the period using the function
-    uniform_series_to_present_value() with the discount rate and the
-    number of years per period. The second component converts a value at
-    the start of a period to net present value in the base financial
-    year using the function future_to_present_value() with the discount
-    rate and number of years between the base financial year and the
-    start of the period.
+    bring_annual_costs_to_base_year[p in PERIODS] is a coefficient that
+    converts uniform costs made in each year of an investment period to
+    NPV in the base financial year. This coefficient can be decomposed
+    into two components. The first component converts a uniform stream
+    of annual costs in the period to a lump sum at the beginning of the
+    period using the function uniform_series_to_present_value() with the
+    discount rate and the number of years per period. The second
+    component converts a value at the start of a period to net present
+    value in the base financial year using the function
+    future_to_present_value() with the discount rate and number of years
+    between the base financial year and the start of the period.
 
     bring_timepoint_costs_to_base_year[t in TIMEPOINTS] is a coefficient
     that converts a cost incurred in a timepoint to a net present value
@@ -230,20 +229,20 @@ def define_components(mod):
         within=PositiveReals, default=mod.interest_rate)
     mod.min_data_check('base_financial_year', 'interest_rate')
     mod.bring_annual_costs_to_base_year = Param(
-        mod.INVEST_PERIODS,
+        mod.PERIODS,
         within=PositiveReals,
-        initialize=lambda mod, p: (
+        initialize=lambda m, p: (
             uniform_series_to_present_value(
-                mod.discount_rate, mod.period_length_years[p]) *
+                m.discount_rate, m.period_length_years[p]) *
             future_to_present_value(
-                mod.discount_rate,
-                mod.period_start[p] - mod.base_financial_year)))
+                m.discount_rate,
+                m.period_start[p] - m.base_financial_year)))
     mod.bring_timepoint_costs_to_base_year = Param(
         mod.TIMEPOINTS,
         within=PositiveReals,
-        initialize=lambda mod, t: (
-            mod.bring_annual_costs_to_base_year[mod.tp_period[t]] *
-            mod.tp_weight_in_year[t]))
+        initialize=lambda m, t: (
+            m.bring_annual_costs_to_base_year[m.tp_period[t]] *
+            m.tp_weight_in_year[t]))
     mod.cost_components_tp = []
     mod.cost_components_annual = []
 
@@ -264,7 +263,7 @@ def define_dynamic_components(mod):
     base_year and are converted to net present value in the base year
     within this module.
 
-    SystemCostPerPeriod[p in INVEST_PERIODS] is an expression that sums
+    SystemCostPerPeriod[p in PERIODS] is an expression that sums
     total system costs in each period based on the two lists
     cost_components_tp and cost_components_annual. Components in the
     first list are indexed by timepoint and components in the second are
@@ -305,10 +304,10 @@ def define_dynamic_components(mod):
         )
 
     mod.SystemCostPerPeriod = Expression(
-        mod.INVEST_PERIODS,
+        mod.PERIODS,
         initialize=calc_sys_costs_per_period)
     mod.Minimize_System_Cost = Objective(
-        rule=lambda m: sum(m.SystemCostPerPeriod[p] for p in m.INVEST_PERIODS),
+        rule=lambda m: sum(m.SystemCostPerPeriod[p] for p in m.PERIODS),
         sense=minimize)
 
 
