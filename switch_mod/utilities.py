@@ -303,6 +303,21 @@ def _load_data(model, inputs_dir, module_list, data):
                        _loaded_switch_modules[m].core_modules, data)
 
 
+class InputError(Exception):
+    """Exception raised for errors in the input.
+
+    Attributes:
+        expression -- input expression in which the error occurred
+        message -- explanation of the error
+    """
+
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return repr(self.value)
+
+
 def load_aug(switch_data, optional=False, **kwds):
     """
 
@@ -313,16 +328,23 @@ def load_aug(switch_data, optional=False, **kwds):
 
     """
     path = kwds['filename']
-    if optional:
-        # Skip if the file is missing
-        if not os.path.isfile(path):
-            return
-        # Skip if the file is empty or has no data in the first data row.
-        with open(path) as infile:
-            headers = infile.readline().strip().split('\t')
-            dat1 = infile.readline().strip().split('\t')
-        if headers == [''] or dat1 == ['']:
-            return
+    # Skip if the file is missing
+    if optional and not os.path.isfile(path):
+        return
+    # Parse header and first row
+    with open(path) as infile:
+        headers = infile.readline().strip().split('\t')
+        dat1 = infile.readline().strip().split('\t')
+    # Skip if the file is empty or has no data in the first row.
+    if optional and (headers == [''] or dat1 == ['']):
+        return
+    # Check to see if expected column names are in the file.
+    if 'select' in kwds:
+        for col in kwds['select']:
+            if col not in headers:
+                raise InputError(
+                    'Column {} not found in file {}.'
+                    .format(col, path))
     switch_data.load(**kwds)
 
 
