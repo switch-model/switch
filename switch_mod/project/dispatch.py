@@ -255,3 +255,24 @@ def load_data(mod, switch_data, inputs_dir):
         filename=os.path.join(inputs_dir, 'proj_variable_costs.tab'),
         select=('PROJECT', 'proj_variable_om'),
         param=(mod.proj_variable_om))
+
+
+def save_results(model, instance, outdir):
+    """
+    Export results to standard files.
+
+    This initial placeholder version is integrating snippets of
+    some of Matthias's code into the main codebase.
+
+    """
+    import switch_mod.export as export
+    export.write_table(
+        instance, instance.TIMEPOINTS,
+        output_file=os.path.join("outputs", "dispatch.txt"),
+        headings=("timestamp",)+tuple(instance.PROJECTS),
+        values=lambda m, t: (m.tp_timestamp[t],) + tuple(
+            m.DispatchProj[p, t] if (p, t) in m.PROJ_DISPATCH_POINTS
+            else 0.0
+            for p in m.PROJECTS
+        )
+    )

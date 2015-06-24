@@ -38,7 +38,10 @@ switch_instance = switch_model.create(switch_data)
 opt = SolverFactory("cplex")
 
 results = opt.solve(switch_instance, keepfiles=False, tee=False)
-switch_instance.load(results)
+utilities.save_results(switch_model, results, switch_instance,
+                       "outputs", switch_modules)
 
-results.write()
-switch_instance.pprint()
+# Code to manually inspect results
+# switch_instance.load(results)
+# results.write()
+# switch_instance.pprint()

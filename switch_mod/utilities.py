@@ -9,11 +9,17 @@ Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 
 import os
 import types
+import __main__ as main
 from pyomo.environ import *
 
 # This stores modules that are dynamically loaded to define a Switch
 # model.
 _loaded_switch_modules = {}
+
+# Check whether this is an interactive session (determined by whether
+# __main__ has a __file__ attribute). Scripts can check this value to
+# determine what level of output to display.
+interactive_session = not hasattr(main, '__file__')
 
 
 def min_data_check(model, *mandatory_model_components):
@@ -49,8 +55,8 @@ def min_data_check(model, *mandatory_model_components):
     model.__num_min_data_checks += 1
     new_data_check_name = "min_data_check_" + str(model.__num_min_data_checks)
     setattr(model, new_data_check_name, BuildCheck(
-        rule=lambda mod: check_mandatory_components(
-            mod, *mandatory_model_components)))
+        rule=lambda m: check_mandatory_components(
+            m, *mandatory_model_components)))
 
 
 def add_min_data_check(model):
@@ -301,6 +307,44 @@ def _load_data(model, inputs_dir, module_list, data):
         if hasattr(_loaded_switch_modules[m], 'core_modules'):
             _load_data(model, inputs_dir,
                        _loaded_switch_modules[m].core_modules, data)
+
+
+def save_results(model, results, instance, outdir, module_list):
+    """
+
+    Export results in a modular fashion.
+
+    """
+    # Ensure the output directory exists. Don't worry about race
+    # conditions.
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+    # Try to load the results and export.
+    if instance.load(results):
+        if interactive_session:
+            print "Model solved successfully."
+        _save_results(model, instance, outdir, module_list)
+        return True
+    else:
+        if interactive_session:
+            print ("ERROR: unable to load solver results. " +
+                   "Problem may be infeasible.")
+        return False
+    _save_results(model, instance, outdir, module_list)
+
+
+def _save_results(model, instance, outdir, module_list):
+    """
+    A private function to allow recurve calling of saving results from
+    modules or packages.
+    """
+    for m in module_list:
+        if hasattr(_loaded_switch_modules[m], 'save_results'):
+            _loaded_switch_modules[m].save_results(
+                model, instance, outdir)
+        if hasattr(_loaded_switch_modules[m], 'core_modules'):
+            _save_results(model, instance, outdir,
+                          _loaded_switch_modules[m].core_modules)
 
 
 class InputError(Exception):

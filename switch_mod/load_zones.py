@@ -170,3 +170,24 @@ def load_data(mod, switch_data, inputs_dir):
         filename=os.path.join(inputs_dir, 'loads.tab'),
         select=('LOAD_ZONE', 'TIMEPOINT', 'demand_mw'),
         param=(mod.lz_demand_mw))
+
+
+def save_results(model, instance, outdir):
+    """
+    Export results to standard files.
+
+    This initial placeholder version is integrating snippets of
+    some of Matthias's code into the main codebase.
+
+    """
+    import switch_mod.export as export
+    export.write_table(
+        instance, instance.TIMEPOINTS,
+        output_file=os.path.join("outputs", "load_balance.txt"),
+        headings=("timestamp",) + tuple(
+            instance.LZ_Energy_Balance_components),
+        values=lambda m, t: (m.tp_timestamp[t],) + tuple(
+            sum(getattr(m, component)[lz, t] for lz in m.LOAD_ZONES)
+            for component in m.LZ_Energy_Balance_components
+        )
+    )
