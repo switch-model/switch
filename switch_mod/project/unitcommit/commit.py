@@ -202,11 +202,11 @@ def define_components(mod):
     mod.CommitLowerLimit = Expression(
         mod.PROJ_DISPATCH_POINTS,
         initialize=lambda m, proj, t: (
-            m.ProjCapacityTP[proj, t] * m.proj_min_commit_fraction[proj, t]))
+            m.ProjCapacityTP[proj, t] * m.proj_availability[proj] * m.proj_min_commit_fraction[proj, t]))
     mod.CommitUpperLimit = Expression(
         mod.PROJ_DISPATCH_POINTS,
         initialize=lambda m, proj, t: (
-            m.ProjCapacityTP[proj, t] * m.proj_max_commit_fraction[proj, t]))
+            m.ProjCapacityTP[proj, t] * m.proj_availability[proj] * m.proj_max_commit_fraction[proj, t]))
     mod.Enforce_Commit_Lower_Limit = Constraint(
         mod.PROJ_DISPATCH_POINTS,
         rule=lambda m, proj, t: (
