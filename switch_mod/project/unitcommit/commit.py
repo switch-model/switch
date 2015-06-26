@@ -46,11 +46,13 @@ def define_components(mod):
 
     proj_max_commit_fraction[(proj, t) in PROJ_DISPATCH_POINTS]
     describes the maximum commit level as a fraction of available
-    capacity. This has limited use cases, but could be used to simulate
+    capacity (capacity that is built and expected to be available for 
+    commitment; derated by annual expected outage rate). This has limited 
+    use cases, but could be used to simulate
     outages (scheduled or non-scheduled) in a production-cost
     simulation. This optional parameter has a default value of
-    proj_availability which is calculated from the annual expected
-    outage rate. If you wish to have discrete unit commitment, I advise
+    1.0, indicating that all available capacity can be commited. 
+    If you wish to have discrete unit commitment, I advise
     overriding the default behavior and specifying a more discrete
     treatment of outages.
 
@@ -191,7 +193,7 @@ def define_components(mod):
     mod.proj_max_commit_fraction = Param(
         mod.PROJ_DISPATCH_POINTS,
         within=PercentFraction,
-        default=lambda m, proj, t: m.proj_availability[proj])
+        default=lambda m, proj, t: 1.0)
     mod.proj_min_commit_fraction = Param(
         mod.PROJ_DISPATCH_POINTS,
         within=PercentFraction,
