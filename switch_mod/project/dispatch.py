@@ -6,14 +6,11 @@ project.no_commit to constrain project dispatch to either committed or
 installed capacity.
 
 SYNOPSIS
->>> import switch_mod.utilities as utilities
->>> switch_modules = ('timescales', 'financials', 'load_zones', 'fuels',\
-    'gen_tech', 'project.build', 'project.dispatch')
->>> utilities.load_modules(switch_modules)
->>> switch_model = utilities.define_AbstractModel(switch_modules)
->>> inputs_dir = 'test_dat'
->>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
->>> switch_instance = switch_model.create(switch_data)
+>>> from switch_mod.utilities import define_AbstractModel
+>>> model = define_AbstractModel(
+...     'timescales', 'financials', 'load_zones', 'fuels',
+...     'gen_tech', 'project.build', 'project.dispatch')
+>>> instance = model.load_inputs(inputs_dir='test_dat')
 
 Note, this can be tested with `python -m doctest project/dispatch.py`
 within the switch_mod source directory.
@@ -23,7 +20,6 @@ Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 
 import os
 from pyomo.environ import *
-import switch_mod.utilities as utilities
 
 
 def define_components(mod):
@@ -102,12 +98,7 @@ def define_components(mod):
     generators that implement Carbon Capture and Sequestration. This does
     not yet support multi-fuel generators.
 
-    --- Delayed implementation ---
-
-    EmissionsInTimepoint[(proj, t) in PROJ_FUEL_DISPATCH_POINTS]
-    is an expression that defines the emissions in each timepoint from
-    dispatching a thermal generator.
-        = DispatchProj * proj_emission_rate
+    --- Delayed implementation, possibly relegated to other modules. ---
 
     Flexible baseload support for plants that can ramp slowly over the
     course of days. These kinds of generators can provide important
@@ -122,9 +113,6 @@ def define_components(mod):
     implemented in separate modules.
 
     """
-
-    # This will add a min_data_check() method to the model
-    utilities.add_min_data_check(mod)
 
     # I might be able to simplify this, but the current formulation
     # should exclude any timepoints in periods in which a project will
@@ -224,7 +212,7 @@ def define_components(mod):
     mod.cost_components_tp.append('Total_Proj_Var_Costs_Hourly')
 
 
-def load_data(mod, switch_data, inputs_dir):
+def load_inputs(mod, switch_data, inputs_dir):
     """
 
     Import project-specific data from an input directory. Both files are

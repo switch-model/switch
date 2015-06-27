@@ -4,14 +4,11 @@ Defines model components to describe transmission dispatch for the
 SWITCH-Pyomo model.
 
 SYNOPSIS
->>> import switch_mod.utilities as utilities
->>> switch_modules = ('timescales', 'financials', 'load_zones',\
-    'trans_build', 'trans_dispatch')
->>> utilities.load_modules(switch_modules)
->>> switch_model = utilities.define_AbstractModel(switch_modules)
->>> inputs_dir = 'test_dat'
->>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
->>> switch_instance = switch_model.create(switch_data)
+>>> from switch_mod.utilities import define_AbstractModel
+>>> model = define_AbstractModel(
+...     'timescales', 'financials', 'load_zones',
+...     'trans_build', 'trans_dispatch')
+>>> instance = model.load_inputs(inputs_dir='test_dat')
 
 Note, this can be tested with `python -m doctest trans_dispatch.py`
 within the switch_mod source directory.
@@ -59,9 +56,6 @@ def define_components(mod):
     the load zone minus the sum of TxPowerSent by the load zone.
 
     """
-
-    # This will add a min_data_check() method to the model
-    utilities.add_min_data_check(mod)
 
     mod.TRANS_TIMEPOINTS = Set(
         dimen=3,

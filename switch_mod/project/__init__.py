@@ -25,4 +25,6 @@ because they are redundant.
 
 """
 
-core_modules = ['project.build', 'project.dispatch']
+core_modules = [
+    'switch_mod.project.build',
+    'switch_mod.project.dispatch']

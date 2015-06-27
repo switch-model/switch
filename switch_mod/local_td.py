@@ -4,13 +4,10 @@ Defines model components to describe local transmission & distribution
 build-outs for the SWITCH-Pyomo model.
 
 SYNOPSIS
->>> import switch_mod.utilities as utilities
->>> switch_modules = ('timescales', 'financials', 'load_zones', 'local_td')
->>> utilities.load_modules(switch_modules)
->>> switch_model = utilities.define_AbstractModel(switch_modules)
->>> inputs_dir = 'test_dat'
->>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
->>> switch_instance = switch_model.create(switch_data)
+>>> from switch_mod.utilities import define_AbstractModel
+>>> model = define_AbstractModel(
+...     'timescales', 'financials', 'load_zones', 'local_td')
+>>> instance = model.load_inputs(inputs_dir='test_dat')
 
 Note, this can be tested with `python -m doctest local_td.py`
 within the switch_mod source directory.
@@ -20,7 +17,6 @@ Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 
 import os
 from pyomo.environ import *
-import switch_mod.utilities as utilities
 
 
 def define_components(mod):
@@ -140,9 +136,6 @@ def define_components(mod):
 
     """
 
-    # This will add a min_data_check() method to the model
-    utilities.add_min_data_check(mod)
-
     mod.EXISTING_LOCAL_TD_BLD_YRS = Set(
         dimen=2,
         initialize=lambda m: set((lz, 'Legacy') for lz in m.LOAD_ZONES))
@@ -207,7 +200,7 @@ def define_components(mod):
     mod.cost_components_annual.append('LocalTD_Fixed_Costs_Annual')
 
 
-def load_data(mod, switch_data, inputs_dir):
+def load_inputs(mod, switch_data, inputs_dir):
     """
 
     Import local transmission & distribution data. The following files

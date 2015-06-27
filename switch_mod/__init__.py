@@ -33,4 +33,9 @@ because they are redundant.
 """
 
 core_modules = [
-    'timescales', 'financials', 'load_zones', 'fuels', 'gen_tech', 'project']
+    'switch_mod.timescales',
+    'switch_mod.financials',
+    'switch_mod.load_zones',
+    'switch_mod.fuels',
+    'switch_mod.gen_tech',
+    'switch_mod.project']

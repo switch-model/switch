@@ -13,18 +13,13 @@ directory is in your python search path. See the README for more info.
 
 from pyomo.environ import *
 from pyomo.opt import SolverFactory
-import switch_mod.utilities as utilities
+from switch_mod.utilities import define_AbstractModel
 
-switch_modules = (
+switch_model = define_AbstractModel(
     'switch_mod', 'local_td', 'project.no_commit', 'fuel_cost')
-utilities.load_modules(switch_modules)
-switch_model = utilities.define_AbstractModel(switch_modules)
-inputs_dir = 'inputs'
-switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
-switch_instance = switch_model.create(switch_data)
+switch_instance = switch_model.load_inputs(inputs_dir="inputs")
 
 opt = SolverFactory("cplex")
-
 results = opt.solve(switch_instance, keepfiles=False, tee=False)
 switch_instance.load(results)
 

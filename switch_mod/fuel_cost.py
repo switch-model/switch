@@ -5,14 +5,11 @@ serves as an alternative to the more complex fuel_markets with tiered
 supply curves. This is mutually exclusive with the fuel_markets module.
 
 SYNOPSIS
->>> import switch_mod.utilities as utilities
->>> switch_modules = ('timescales', 'load_zones', 'financials', 'fuels',\
-    'gen_tech', 'project.build', 'project.dispatch', 'fuel_cost')
->>> utilities.load_modules(switch_modules)
->>> switch_model = utilities.define_AbstractModel(switch_modules)
->>> inputs_dir = 'test_dat'
->>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
->>> switch_instance = switch_model.create(switch_data)
+>>> from switch_mod.utilities import define_AbstractModel
+>>> model = define_AbstractModel(
+...     'timescales', 'load_zones', 'financials', 'fuels', 'gen_tech',
+...     'project.build', 'project.dispatch', 'fuel_cost')
+>>> instance = model.load_inputs(inputs_dir='test_dat')
 
 Note, this can be tested with `python -m doctest fuel_cost.py`
 within the switch_mod source directory.
@@ -22,7 +19,6 @@ Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 
 import os
 from pyomo.environ import *
-import switch_mod.utilities as utilities
 
 
 def define_components(mod):
@@ -52,9 +48,6 @@ def define_components(mod):
     costs for the objective function.
 
     """
-
-    # This will add a min_data_check() method to the model
-    utilities.add_min_data_check(mod)
 
     mod.FUEL_AVAILABILITY = Set(
         dimen=3,
@@ -89,7 +82,7 @@ def define_components(mod):
     mod.cost_components_tp.append('Fuel_Costs_TP')
 
 
-def load_data(mod, switch_data, inputs_dir):
+def load_inputs(mod, switch_data, inputs_dir):
     """
 
     Import simple fuel cost data. The following files are expected in

@@ -2,13 +2,10 @@
 Defines balacing area components for the SWITCH-Pyomo model.
 
 SYNOPSIS
->>> import switch_mod.utilities as utilities
->>> switch_modules = ('timescales', 'load_zones', 'balancing_areas')
->>> utilities.load_modules(switch_modules)
->>> switch_model = utilities.define_AbstractModel(switch_modules)
->>> inputs_dir = 'test_dat'
->>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
->>> switch_instance = switch_model.create(switch_data)
+>>> from switch_mod.utilities import define_AbstractModel
+>>> model = define_AbstractModel(
+...     'timescales', 'load_zones', 'balancing_areas')
+>>> instance = model.load_inputs(inputs_dir='test_dat')
 
 Note, this can be tested with `python -m doctest balancing_areas.py`
 within the switch_mod source directory.
@@ -17,7 +14,6 @@ Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 """
 import os
 from pyomo.environ import *
-import switch_mod.utilities as utilities
 
 
 def define_components(mod):
@@ -35,7 +31,7 @@ def define_components(mod):
     specified in the lz_balancing_area[z] parameter. You can override
     the default operational reserve requirements (described below) by
     including an additional file in the input directory. See
-    load_data() documentation for more details. Balancing areas
+    load_inputs() documentation for more details. Balancing areas
     are abbreviated as b for the purposed of indexing.
 
     quickstart_res_load_frac[b] describes the quickstart reserve
@@ -64,9 +60,6 @@ def define_components(mod):
 
     """
 
-    # This will add a min_data_check() method to the model
-    utilities.add_min_data_check(mod)
-
     mod.lz_balancing_area = Param(mod.LOAD_ZONES)
     mod.min_data_check('lz_balancing_area')
     mod.BALANCING_AREAS = Set(initialize=lambda m: set(
@@ -91,7 +84,7 @@ def define_components(mod):
         validate=lambda m, val, b: val < 1)
 
 
-def load_data(mod, switch_data, inputs_dir):
+def load_inputs(mod, switch_data, inputs_dir):
     """
 
     Import balancing_area data. The following files are expected in the input

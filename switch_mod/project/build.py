@@ -4,14 +4,11 @@ Defines model components to describe generation projects build-outs for
 the SWITCH-Pyomo model.
 
 SYNOPSIS
->>> import switch_mod.utilities as utilities
->>> switch_modules = ('timescales', 'financials', 'load_zones', 'fuels',\
-    'gen_tech', 'project.build')
->>> utilities.load_modules(switch_modules)
->>> switch_model = utilities.define_AbstractModel(switch_modules)
->>> inputs_dir = 'test_dat'
->>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
->>> switch_instance = switch_model.create(switch_data)
+>>> from switch_mod.utilities import define_AbstractModel
+>>> model = define_AbstractModel(
+...     'timescales', 'financials', 'load_zones', 'fuels',
+...     'gen_tech', 'project.build')
+>>> instance = model.load_inputs(inputs_dir='test_dat')
 
 Note, this can be tested with `python -m doctest project/build.py`
 within the switch_mod source directory.
@@ -21,7 +18,6 @@ Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 
 import os
 from pyomo.environ import *
-import switch_mod.utilities as utilities
 from switch_mod.financials import capital_recovery_factor as crf
 
 
@@ -262,9 +258,6 @@ def define_components(mod):
 
     """
 
-    # This will add a min_data_check() method to the model
-    utilities.add_min_data_check(mod)
-
     mod.PROJECTS = Set()
     mod.proj_dbid = Param(mod.PROJECTS, default=lambda m, proj: proj)
     mod.proj_gen_tech = Param(mod.PROJECTS, within=mod.GENERATION_TECHNOLOGIES)
@@ -453,7 +446,7 @@ def define_components(mod):
     mod.cost_components_annual.append('Total_Proj_Fixed_Costs_Annual')
 
 
-def load_data(mod, switch_data, inputs_dir):
+def load_inputs(mod, switch_data, inputs_dir):
     """
 
     Import project-specific data. The following files are expected in

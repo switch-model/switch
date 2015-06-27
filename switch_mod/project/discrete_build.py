@@ -4,14 +4,11 @@ Defines model components to force discrete builds for generation technologies
 that have g_unit_size specified.
 
 SYNOPSIS
->>> import switch_mod.utilities as utilities
->>> switch_modules = ('timescales', 'financials', 'load_zones', 'fuels',\
-    'gen_tech', 'project.build', 'project.discrete_build')
->>> utilities.load_modules(switch_modules)
->>> switch_model = utilities.define_AbstractModel(switch_modules)
->>> inputs_dir = 'test_dat'
->>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
->>> switch_instance = switch_model.create(switch_data)
+>>> from switch_mod.utilities import define_AbstractModel
+>>> model = define_AbstractModel(
+...     'timescales', 'financials', 'load_zones', 'fuels',
+...     'gen_tech', 'project.build', 'project.discrete_build')
+>>> instance = model.load_inputs(inputs_dir='test_dat')
 
 Note, this can be tested with `python -m doctest project/discrete_build.py`
 within the switch_mod source directory.

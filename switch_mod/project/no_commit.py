@@ -5,14 +5,11 @@ commitment. This module is mutually exclusive with the project.commit
 module which constrains dispatch to unit committment decisions.
 
 SYNOPSIS
->>> import switch_mod.utilities as utilities
->>> switch_modules = ('timescales', 'financials', 'load_zones', 'fuels',\
-    'gen_tech', 'project.build', 'project.dispatch', 'project.no_commit')
->>> utilities.load_modules(switch_modules)
->>> switch_model = utilities.define_AbstractModel(switch_modules)
->>> inputs_dir = 'test_dat'
->>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
->>> switch_instance = switch_model.create(switch_data)
+>>> from switch_mod.utilities import define_AbstractModel
+>>> model = define_AbstractModel(
+...     'timescales', 'financials', 'load_zones', 'fuels',
+...     'gen_tech', 'project.build', 'project.dispatch', 'project.no_commit')
+>>> instance = model.load_inputs(inputs_dir='test_dat')
 
 Note, this can be tested with `python -m doctest project/no_commit.py`
 within the switch_mod source directory.

@@ -3,13 +3,10 @@ Defines model components to describe generation technologies for the
 SWITCH-Pyomo model.
 
 SYNOPSIS
->>> import switch_mod.utilities as utilities
->>> switch_modules = ('timescales', 'load_zones', 'fuels', 'gen_tech')
->>> utilities.load_modules(switch_modules)
->>> switch_model = utilities.define_AbstractModel(switch_modules)
->>> inputs_dir = 'test_dat'
->>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
->>> switch_instance = switch_model.create(switch_data)
+>>> from switch_mod.utilities import define_AbstractModel
+>>> model = define_AbstractModel(
+...     'timescales', 'financials', 'load_zones', 'fuels', 'gen_tech')
+>>> instance = model.load_inputs(inputs_dir='test_dat')
 
 Note, this can be tested with `python -m doctest gen_tech.py`
 within the switch_mod source directory.
@@ -20,7 +17,6 @@ Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 import os
 import csv
 from pyomo.environ import *
-import switch_mod.utilities as utilities
 
 
 def define_components(mod):
@@ -265,9 +261,6 @@ def define_components(mod):
 
     """
 
-    # This will add a min_data_check() method to the model
-    utilities.add_min_data_check(mod)
-
     mod.GENERATION_TECHNOLOGIES = Set()
     mod.g_dbid = Param(mod.GENERATION_TECHNOLOGIES)
     mod.g_max_age = Param(
@@ -354,7 +347,7 @@ def define_components(mod):
         rule=lambda m, g: len(m.G_ENERGY_SOURCES[g]) > 0)
 
 
-def load_data(mod, switch_data, inputs_dir):
+def load_inputs(mod, switch_data, inputs_dir):
     """
 
     Import generator data. The following files are expected in the input

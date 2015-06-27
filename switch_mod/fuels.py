@@ -3,13 +3,10 @@ Defines model components to describe fuels and other energy sources for
 the SWITCH-Pyomo model.
 
 SYNOPSIS
->>> import switch_mod.utilities as utilities
->>> switch_modules = ('timescales', 'load_zones', 'financials', 'fuels')
->>> utilities.load_modules(switch_modules)
->>> switch_model = utilities.define_AbstractModel(switch_modules)
->>> inputs_dir = 'test_dat'
->>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
->>> switch_instance = switch_model.create(switch_data)
+>>> from switch_mod.utilities import define_AbstractModel
+>>> model = define_AbstractModel(
+...     'timescales', 'financials', 'load_zones', 'fuels')
+>>> instance = model.load_inputs(inputs_dir='test_dat')
 
 Note, this can be tested with `python -m doctest fuels.py`
 within the switch_mod source directory.
@@ -100,9 +97,6 @@ def define_components(mod):
 
     """
 
-    # This will add a min_data_check() method to the model
-    utilities.add_min_data_check(mod)
-
     mod.NON_FUEL_ENERGY_SOURCES = Set()
     mod.FUELS = Set()
     mod.f_co2_intensity = Param(mod.FUELS, within=NonNegativeReals)
@@ -120,7 +114,7 @@ def define_components(mod):
     mod.min_data_check('ENERGY_SOURCES')
 
 
-def load_data(mod, switch_data, inputs_dir):
+def load_inputs(mod, switch_data, inputs_dir):
     """
 
     Import fuel data. To skip optional parameters such as

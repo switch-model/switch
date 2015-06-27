@@ -2,13 +2,9 @@
 Defines timescales for investment and dispatch for the SWITCH-Pyomo model.
 
 SYNOPSIS
->>> import switch_mod.utilities as utilities
->>> switch_modules = ['timescales']
->>> utilities.load_modules(switch_modules)
->>> switch_model = utilities.define_AbstractModel(switch_modules)
->>> inputs_dir = 'test_dat'
->>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
->>> switch_instance = switch_model.create(switch_data)
+>>> from switch_mod.utilities import define_AbstractModel
+>>> model = define_AbstractModel('timescales')
+>>> instance = model.load_inputs(inputs_dir='test_dat')
 
 This code can be tested with `python -m doctest timescales.py`
 within the switch_mod source directory.
@@ -18,7 +14,6 @@ Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 
 import os
 from pyomo.environ import *
-import switch_mod.utilities as utilities
 
 hours_per_year = 8766
 
@@ -226,19 +221,15 @@ def define_components(mod):
         = 1 hr/tp * 1 tp/ts * 203.3 ts/period
 
     EXAMPLE
-    >>> import timescales
-    >>> switch_mod = AbstractModel()
-    >>> timescales.define_components(switch_mod)
-    >>> switch_inst = switch_mod.create('test_dat/timescales.dat')
-    >>> switch_inst = switch_mod.create('test_dat/timescales_bad_weights.dat')
+    >>> from switch_mod.utilities import define_AbstractModel
+    >>> model = define_AbstractModel('timescales')
+    >>> instance = model.create('test_dat/timescales.dat')
+    >>> instance = model.create('test_dat/timescales_bad_weights.dat')
     Traceback (most recent call last):
         ...
     ValueError: BuildCheck 'validate_time_weights' identified error with index '2020'
 
     """
-
-    # This will add a min_data_check() method to the model
-    utilities.add_min_data_check(mod)
 
     mod.PERIODS = Set(ordered=True)
     mod.period_start = Param(mod.PERIODS, within=PositiveReals)
@@ -336,7 +327,7 @@ def define_components(mod):
         rule=validate_time_weights_rule)
 
 
-def load_data(mod, switch_data, inputs_dir):
+def load_inputs(mod, switch_data, inputs_dir):
     """
     Import data for timescales from .tab files.  The inputs_dir
     should contain the following files with these columns. The
@@ -359,14 +350,10 @@ def load_data(mod, switch_data, inputs_dir):
         timepoint_id, timestamp, timeseries
 
     EXAMPLE:
-    >>> import switch_mod.utilities as utilities
-    >>> modules = ['timescales']
-    >>> utilities.load_modules(modules)
-    >>> switch_model = utilities.define_AbstractModel(modules)
-    >>> inputs_dir = 'test_dat'
-    >>> switch_data = utilities.load_data(switch_model, inputs_dir, modules)
-    >>> switch_instance = switch_model.create(switch_data)
-    >>> switch_instance.tp_weight_in_year.pprint()
+    >>> from switch_mod.utilities import define_AbstractModel
+    >>> model = define_AbstractModel('timescales')
+    >>> instance = model.load_inputs(inputs_dir='test_dat')
+    >>> instance.tp_weight_in_year.pprint()
     tp_weight_in_year : Size=7, Index=TIMEPOINTS, Domain=PositiveReals, Default=None, Mutable=False
         Key : Value
           1 : 1095.744

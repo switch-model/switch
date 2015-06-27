@@ -3,14 +3,11 @@ Defines model components to describe fuel markets for the SWITCH-Pyomo
 model.
 
 SYNOPSIS
->>> import switch_mod.utilities as utilities
->>> switch_modules = ('timescales', 'load_zones', 'financials', 'fuels',\
-    'gen_tech', 'project.build', 'project.dispatch', 'fuel_markets')
->>> utilities.load_modules(switch_modules)
->>> switch_model = utilities.define_AbstractModel(switch_modules)
->>> inputs_dir = 'test_dat'
->>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
->>> switch_instance = switch_model.create(switch_data)
+>>> from switch_mod.utilities import define_AbstractModel
+>>> model = define_AbstractModel(
+...     'timescales', 'load_zones', 'financials', 'fuels', 'gen_tech',
+...     'project.build', 'project.dispatch', 'fuel_markets')
+>>> instance = model.load_inputs(inputs_dir='test_dat')
 
 Note, this can be tested with `python -m doctest fuel_markets.py`
 within the switch_mod source directory.
@@ -21,7 +18,6 @@ Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 import os
 import csv
 from pyomo.environ import *
-import switch_mod.utilities as utilities
 
 
 def define_components(mod):
@@ -124,7 +120,7 @@ def define_components(mod):
     flat cost for a load zones, fuel and period combination. The import
     code will expand this into a regional fuel market containing a
     single load zone with a single supply tier that has no upper bound.
-    See load_data function documentation below for more details.
+    See load_inputs() function documentation below for more details.
 
     In SWITCH-WECC, biomass regional fuel markets are defined for each
     load area due to relatively high transportation costs, while natural
@@ -204,9 +200,6 @@ def define_components(mod):
     become non-linear.
 
     """
-
-    # This will add a min_data_check() method to the model
-    utilities.add_min_data_check(mod)
 
     mod.REGIONAL_FUEL_MARKET = Set()
     mod.rfm_fuel = Param(mod.REGIONAL_FUEL_MARKET, within=mod.FUELS)
@@ -316,7 +309,7 @@ def define_components(mod):
                 for rfm_st in m.RFM_P_SUPPLY_TIERS[rfm, p])))
 
 
-def load_data(mod, switch_data, inputs_dir):
+def load_inputs(mod, switch_data, inputs_dir):
     """
 
     Import fuel market data. The following files are expected in the

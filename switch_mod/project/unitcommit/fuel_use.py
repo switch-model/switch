@@ -57,14 +57,11 @@ energy production so that the lines collectively form a convex boundary
 for fuel use.
 
 SYNOPSIS
->>> import switch_mod.utilities as utilities
->>> switch_modules = ('timescales', 'financials', 'load_zones', 'fuels',\
-    'gen_tech', 'project.build', 'project.dispatch', 'project.unitcommit')
->>> utilities.load_modules(switch_modules)
->>> switch_model = utilities.define_AbstractModel(switch_modules)
->>> inputs_dir = 'test_dat'
->>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
->>> switch_instance = switch_model.create(switch_data)
+>>> from switch_mod.utilities import define_AbstractModel
+>>> model = define_AbstractModel(
+...     'timescales', 'financials', 'load_zones', 'fuels', 'gen_tech',
+...     'project.build', 'project.dispatch', 'project.unitcommit')
+>>> instance = model.load_inputs(inputs_dir='test_dat')
 
 Note, this can be tested by executing
     `python -m doctest project/unitcommit/fuel_use.py`
@@ -114,9 +111,6 @@ def define_components(mod):
 
     """
 
-    # This will add a min_data_check() method to the model
-    utilities.add_min_data_check(mod)
-
     # Pyomo doesn't allow default for sets, so I need to specify default
     # data in the data load function.
     mod.GEN_FUEL_USE_SEGMENTS = Set(
@@ -155,7 +149,7 @@ def define_components(mod):
             incremental_heat_rate * m.DispatchProj[pr, t]))
 
 
-def load_data(mod, switch_data, inputs_dir):
+def load_inputs(mod, switch_data, inputs_dir):
     """
 
     Import data to support modeling fuel use under partial loading

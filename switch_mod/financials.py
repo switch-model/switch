@@ -2,13 +2,9 @@
 Defines financial parameters for the SWITCH-Pyomo model.
 
 SYNOPSIS
->>> import switch_mod.utilities as utilities
->>> switch_modules = ('timescales', 'financials')
->>> utilities.load_modules(switch_modules)
->>> switch_model = utilities.define_AbstractModel(switch_modules)
->>> inputs_dir = 'test_dat'
->>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
->>> switch_instance = switch_model.create(switch_data)
+>>> from switch_mod.utilities import define_AbstractModel
+>>> model = define_AbstractModel('timescales', 'financials')
+>>> instance = model.load_inputs(inputs_dir='test_dat')
 
 Note, this can be tested with `python -m doctest financials.py`
 within the switch_mod source directory.
@@ -17,7 +13,6 @@ Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 """
 from pyomo.environ import *
 import os
-import switch_mod.utilities as utilities
 
 
 def capital_recovery_factor(ir, t):
@@ -220,9 +215,6 @@ def define_components(mod):
 
     """
 
-    # This will add a min_data_check() method to the model
-    utilities.add_min_data_check(mod)
-
     mod.base_financial_year = Param(within=PositiveIntegers)
     mod.interest_rate = Param(within=PositiveReals)
     mod.discount_rate = Param(
@@ -311,21 +303,17 @@ def define_dynamic_components(mod):
         sense=minimize)
 
 
-def load_data(mod, switch_data, inputs_dir):
+def load_inputs(mod, switch_data, inputs_dir):
     """
     Import base financial data from a .dat file. The inputs_dir should
     contain the file financials.dat that gives parameter values for
     base_financial_year, interest_rate and optionally discount_rate.
 
     EXAMPLE:
-    >>> import switch_mod.utilities as utilities
-    >>> switch_modules = ('timescales', 'financials')
-    >>> utilities.load_modules(switch_modules)
-    >>> switch_model = utilities.define_AbstractModel(switch_modules)
-    >>> inputs_dir = 'test_dat'
-    >>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
-    >>> switch_instance = switch_model.create(switch_data)
-    >>> switch_instance.bring_timepoint_costs_to_base_year.pprint()
+    >>> from switch_mod.utilities import define_AbstractModel
+    >>> model = define_AbstractModel('timescales', 'financials')
+    >>> instance = model.load_inputs(inputs_dir='test_dat')
+    >>> instance.bring_timepoint_costs_to_base_year.pprint()
     bring_timepoint_costs_to_base_year : Size=7, Index=TIMEPOINTS, Domain=PositiveReals, Default=None, Mutable=False
         Key : Value
           1 :   7674.416978

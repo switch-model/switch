@@ -8,14 +8,11 @@ modules (instead of including the package project.unitcommit), you will also
 need to include the module project.unitcommit.fuel_use.
 
 SYNOPSIS
->>> import switch_mod.utilities as utilities
->>> switch_modules = ('timescales', 'financials', 'load_zones', 'fuels',\
-    'gen_tech', 'project.build', 'project.dispatch', 'project.unitcommit')
->>> utilities.load_modules(switch_modules)
->>> switch_model = utilities.define_AbstractModel(switch_modules)
->>> inputs_dir = 'test_dat'
->>> switch_data = utilities.load_data(switch_model, inputs_dir, switch_modules)
->>> switch_instance = switch_model.create(switch_data)
+>>> from switch_mod.utilities import define_AbstractModel
+>>> model = define_AbstractModel(
+...     'timescales', 'financials', 'load_zones', 'fuels',
+...     'gen_tech', 'project.build', 'project.dispatch', 'project.unitcommit')
+>>> instance = model.load_inputs(inputs_dir='test_dat')
 
 Note, this can be tested with `python -m doctest project/unitcommit/commit.py`
 within the switch_mod source directory.
@@ -25,7 +22,6 @@ Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 
 import os
 from pyomo.environ import *
-import switch_mod.utilities as utilities
 
 
 def define_components(mod):
@@ -46,15 +42,14 @@ def define_components(mod):
 
     proj_max_commit_fraction[(proj, t) in PROJ_DISPATCH_POINTS]
     describes the maximum commit level as a fraction of available
-    capacity (capacity that is built and expected to be available for 
-    commitment; derated by annual expected outage rate). This has limited 
-    use cases, but could be used to simulate
-    outages (scheduled or non-scheduled) in a production-cost
-    simulation. This optional parameter has a default value of
-    1.0, indicating that all available capacity can be commited. 
-    If you wish to have discrete unit commitment, I advise
-    overriding the default behavior and specifying a more discrete
-    treatment of outages.
+    capacity (capacity that is built and expected to be available for
+    commitment; derated by annual expected outage rate). This has
+    limited  use cases, but could be used to simulate outages (scheduled
+    or non-scheduled) in a production-cost simulation. This optional
+    parameter has a default value of 1.0, indicating that all available
+    capacity can be commited.  If you wish to have discrete unit
+    commitment, I advise overriding the default behavior and specifying
+    a more discrete treatment of outages.
 
     proj_min_commit_fraction[(proj, t) in PROJ_DISPATCH_POINTS]
     describes the minimum commit level as a fraction of available
@@ -183,9 +178,6 @@ def define_components(mod):
 
     """
 
-    # This will add a min_data_check() method to the model
-    utilities.add_min_data_check(mod)
-
     # Commitment decision, bounds and associated slack variables
     mod.CommitProject = Var(
         mod.PROJ_DISPATCH_POINTS,
@@ -204,11 +196,13 @@ def define_components(mod):
     mod.CommitLowerLimit = Expression(
         mod.PROJ_DISPATCH_POINTS,
         initialize=lambda m, proj, t: (
-            m.ProjCapacityTP[proj, t] * m.proj_availability[proj] * m.proj_min_commit_fraction[proj, t]))
+            m.ProjCapacityTP[proj, t] * m.proj_availability[proj] *
+            m.proj_min_commit_fraction[proj, t]))
     mod.CommitUpperLimit = Expression(
         mod.PROJ_DISPATCH_POINTS,
         initialize=lambda m, proj, t: (
-            m.ProjCapacityTP[proj, t] * m.proj_availability[proj] * m.proj_max_commit_fraction[proj, t]))
+            m.ProjCapacityTP[proj, t] * m.proj_availability[proj] *
+            m.proj_max_commit_fraction[proj, t]))
     mod.Enforce_Commit_Lower_Limit = Constraint(
         mod.PROJ_DISPATCH_POINTS,
         rule=lambda m, proj, t: (
@@ -296,7 +290,7 @@ def define_components(mod):
             m.DispatchProj[proj, t] - m.DispatchLowerLimit[proj, t]))
 
 
-def load_data(mod, switch_data, inputs_dir):
+def load_inputs(mod, switch_data, inputs_dir):
     """
 
     Import data to support unit commitment. The following files are

@@ -9,17 +9,147 @@ Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 
 import os
 import types
+import importlib
+import sys
 import __main__ as main
 from pyomo.environ import *
 
-# This stores modules that are dynamically loaded to define a Switch
-# model.
-_loaded_switch_modules = {}
+# This stores full names of modules that are dynamically loaded to
+# define a Switch model.
+_full_module_names = {}
 
 # Check whether this is an interactive session (determined by whether
 # __main__ has a __file__ attribute). Scripts can check this value to
 # determine what level of output to display.
 interactive_session = not hasattr(main, '__file__')
+
+
+def define_AbstractModel(*module_list):
+    """
+
+    Construct a Pyomo AbstractModel using the Switch modules or packages
+    in the given list and return the model. The following utility methods
+    are attached to the model as class methods to simplify their use:
+    min_data_check(), load_inputs(), save_results().
+
+    This is implemented as calling define_components() for each module
+    that has that function defined, then calling
+    define_dynamic_components() for each module that has that function
+    defined. This division into two stages give some modules an
+    opportunity to have dynamic constraints or objective functions. For
+    example, financials.define_components() defines empty lists that
+    will be used to calculate overall system costs. Other modules such
+    as transmission.build and project.build that have components that
+    contribute to system costs insert the names of those components into
+    these lists. The total system costs equation is defined in
+    financials.define_dynamic_components() as the sum of elements in
+    those lists. This division into multiple stages allows a user of
+    Switch to include additional modules such as demand response or
+    storage without rewriting the core equations for system costs. The
+    two primary use cases for dynamic components so far are load-zone
+    level energy balancing and overall system costs.
+
+    SYNOPSIS:
+    >>> from switch_mod.utilities import define_AbstractModel
+    >>> model = define_AbstractModel(
+    ...     'switch_mod', 'project.no_commit', 'fuel_cost')
+
+    """
+    # Load modules
+    module_list_full_names = _load_modules(*module_list)
+    model = AbstractModel()
+    # Add the list of modules to the model
+    model.module_list = module_list_full_names
+    # Bind some utility functions to the model as class objects
+    _add_min_data_check(model)
+    model.load_inputs = types.MethodType(load_inputs, model)
+    model.save_results = types.MethodType(save_results, model)
+    # Define the model components
+    _define_components(model, model.module_list)
+    _define_dynamic_components(model, model.module_list)
+    return model
+
+
+def load_inputs(model, inputs_dir="inputs"):
+    """
+
+    Load input data for an AbstractModel using the modules in the given
+    list and return a DataPortal object suitable for creating a model
+    instance. This is implemented as calling the load_inputs() function
+    of each module, if the module has that function.
+
+    SYNOPSIS:
+    >>> from switch_mod.utilities import define_AbstractModel
+    >>> model = define_AbstractModel(
+    ...     'switch_mod', 'project.no_commit', 'fuel_cost')
+    >>> instance = model.load_inputs(inputs_dir='test_dat')
+
+    """
+    data = DataPortal(model=model)
+    # Attach an augmented load data function to the data portal object
+    data.load_aug = types.MethodType(load_aug, data)
+    _load_inputs(model, inputs_dir, model.module_list, data)
+    instance = model.create(data)
+    return instance
+
+
+def save_results(model, results, instance, outdir):
+    """
+
+    Export results in a modular fashion.
+
+    """
+    # Ensure the output directory exists. Don't worry about race
+    # conditions.
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+    # Try to load the results and export.
+    if instance.load(results):
+        if interactive_session:
+            print "Model solved successfully."
+        _save_results(model, instance, outdir, model.module_list)
+        return True
+    else:
+        if interactive_session:
+            print ("ERROR: unable to load solver results. " +
+                   "Problem may be infeasible.")
+        return False
+
+
+def load_aug(switch_data, optional=False, **kwds):
+    """
+    This is a wrapper for DataPortal.load() that allows more robust
+    processing and error reporting of input files.
+
+    If the argument "optional" is set to True, this will not attempt
+    to load an input file that is missing or empty.
+
+    In the future, this will also support individual columns being
+    optional as well.
+
+    The name of this function is bad and will likely be changed when
+    I think of something better.
+
+    """
+    path = kwds['filename']
+    # Skip if the file is missing
+    if optional and not os.path.isfile(path):
+        return
+    # Parse header and first row
+    with open(path) as infile:
+        headers = infile.readline().strip().split('\t')
+        dat1 = infile.readline().strip().split('\t')
+    # Skip if the file is empty or has no data in the first row.
+    if optional and (headers == [''] or dat1 == ['']):
+        return
+    # Check to see if expected column names are in the file.
+    if 'select' in kwds:
+        for col in kwds['select']:
+            if col not in headers:
+                raise InputError(
+                    'Column {} not found in file {}.'
+                    .format(col, path))
+    switch_data.load(**kwds)
 
 
 def min_data_check(model, *mandatory_model_components):
@@ -30,8 +160,8 @@ def min_data_check(model, *mandatory_model_components):
     instance without defining all of the necessary data, this will
     produce fatal errors with clear messages stating specifically what
     components have missing data. This function is attached to an
-    abstract model by the add_min_data_check() function. See
-    add_min_data_check() documentation for usage examples.
+    abstract model by the _add_min_data_check() function. See
+    _add_min_data_check() documentation for usage examples.
 
     Without this check, I would get fatal errors if I forgot to specify data
     for a component that didn't have a default value, but the error message
@@ -59,16 +189,16 @@ def min_data_check(model, *mandatory_model_components):
             m, *mandatory_model_components)))
 
 
-def add_min_data_check(model):
+def _add_min_data_check(model):
     """
 
     Bind the min_data_check() method to an instance of a Pyomo AbstractModel
     object if it has not already been added. Also add a counter to keep
     track of what to name the next check that is added.
 
-    >>> import switch_mod.utilities as utilities
+    >>> from switch_mod.utilities import _add_min_data_check
     >>> mod = AbstractModel()
-    >>> utilities.add_min_data_check(mod)
+    >>> _add_min_data_check(mod)
     >>> mod.set_A = Set(initialize=[1,2])
     >>> mod.paramA_full = Param(mod.set_A, initialize={1:'a',2:'b'})
     >>> mod.paramA_empty = Param(mod.set_A)
@@ -114,7 +244,7 @@ def check_mandatory_components(model, *mandatory_model_components):
     This does not work with indexed sets.
 
     EXAMPLE:
-    >>> import switch_mod.utilities as utilities
+    >>> from switch_mod.utilities import define_AbstractModel
     >>> mod = ConcreteModel()
     >>> mod.set_A = Set(initialize=[1,2])
     >>> mod.paramA_full = Param(mod.set_A, initialize={1:'a',2:'b'})
@@ -180,157 +310,89 @@ def check_mandatory_components(model, *mandatory_model_components):
     return 1
 
 
-def load_modules(module_list):
+def _load_modules(*module_list):
     """
 
-    Load switch modules that define components of an abstract model.
+    An internal function to recursively load switch modules that define
+    components of an abstract model.
 
     SYNOPSIS:
-    >>> import switch_mod.utilities as utilities
-    >>> switch_modules = ('timescales', 'financials', 'load_zones')
-    >>> utilities.load_modules(switch_modules)
+    >>> from switch_mod.utilities import _load_modules
+    >>> full_module_names = _load_modules(
+    ...     'switch_mod', 'project.no_commit', 'fuel_cost')
 
-    load_modules() is effectively the same as a series of import
-    statements except the module names are assumed to skip the
-    "switch_mod." prefix, and the loaded modules are stored in a private
-    list called _loaded_switch_modules.
+    This will first attempt to load each listed modules from the
+    switch_mod package, and will look for them in the broader system
+    path if the first attempt fails. If any listed module is a package
+    that includes a list named core_modules in __init__.py that contains
+    full formed module names, those modules will be loaded recursively
+    by this function.
+
+    This function returns the full names of each loaded modules,
+    including the "switch_mod." package prefix. After this function
+    is called, each loaded module will be accessible via sys.modules
 
     """
-    # Go through each entry in the list and load it as a module.
-    import importlib
+    # Traverse the list of switch modules and load each one.
+    full_names = []
     for m in module_list:
-        # Load module if we haven't already
-        if m not in _loaded_switch_modules:
-            if 'switch_mod' not in m:
-                full_name = 'switch_mod.' + m
-            else:
-                full_name = m
-            _loaded_switch_modules[m] = importlib.import_module(full_name)
-            if hasattr(_loaded_switch_modules[m], 'core_modules'):
-                load_modules(_loaded_switch_modules[m].core_modules)
+        # Skip loading if it was already loaded
+        if m in _full_module_names:
+            full_names.append(_full_module_names[m])
+            continue
+        # First try to load this module from the switch package
+        try:
+            module = importlib.import_module('.' + m, package='switch_mod')
+            full_names.append(module.__name__)
+        # If that doesn't work, try from the general python path
+        except ImportError:
+            module = importlib.import_module(m)
+            full_names.append(module.__name__)
+        # If this has a list of core_modules, load them.
+        if hasattr(module, 'core_modules'):
+            _load_modules(*module.core_modules)
+        # Add this to the list of known loaded modules
+        _full_module_names[m] = module.__name__
+    return full_names
 
 
-def define_AbstractModel(module_list):
-    """
-
-    Construct an AbstractModel object using the modules in the given
-    list and return the model. This is implemented as calling
-    define_components() for each module that has that function defined,
-    then calling define_dynamic_components() for each module that has
-    that function defined.
-
-    This division into two stages give some modules an opportunity to
-    have dynamic constraints or objective functions. For example,
-    financials.define_components() defines empty lists that will be used
-    to calculate overall system costs. Other modules such as
-    transmission.build and project.build that have components that
-    contribute to system costs insert the names of those components into
-    these lists. The total system costs equation is defined in
-    financials.define_dynamic_components() as the sum of elements in
-    those lists. This division into multiple stages allows a user of
-    Switch to include additional modules such as demand response or
-    storage without rewriting the core equations for system costs. The
-    two primary use cases for dynamic components so far are load-zone
-    level energy balancing and overall system costs.
-
-    SYNOPSIS:
-    >>> import switch_mod.utilities as utilities
-    >>> switch_modules = ('timescales', 'financials', 'load_zones')
-    >>> utilities.load_modules(switch_modules)
-    >>> switch_model = utilities.define_AbstractModel(switch_modules)
-
-    """
-    model = AbstractModel()
-    _define_components(module_list, model)
-    _define_dynamic_components(module_list, model)
-    return model
-
-
-def _define_components(module_list, model):
+def _define_components(model, module_list):
     """
     A private function to allow recurve calling of defining standard
     components from modules or packages.
     """
     for m in module_list:
-        if hasattr(_loaded_switch_modules[m], 'define_components'):
-            _loaded_switch_modules[m].define_components(model)
-        if hasattr(_loaded_switch_modules[m], 'core_modules'):
-            _define_components(_loaded_switch_modules[m].core_modules, model)
+        module = sys.modules[m]
+        if hasattr(module, 'define_components'):
+            module.define_components(model)
+        if hasattr(module, 'core_modules'):
+            _define_components(model, module.core_modules)
 
 
-def _define_dynamic_components(module_list, model):
+def _define_dynamic_components(model, module_list):
     """
     A private function to allow recurve calling of defining dynamic
     components from modules or packages.
     """
     for m in module_list:
-        if hasattr(_loaded_switch_modules[m], 'define_dynamic_components'):
-            _loaded_switch_modules[m].define_dynamic_components(model)
-        if hasattr(_loaded_switch_modules[m], 'core_modules'):
-            _define_dynamic_components(
-                _loaded_switch_modules[m].core_modules, model)
+        module = sys.modules[m]
+        if hasattr(module, 'define_dynamic_components'):
+            module.define_dynamic_components(model)
+        if hasattr(module, 'core_modules'):
+            _define_dynamic_components(model, module.core_modules)
 
 
-def load_data(model, inputs_dir, module_list):
-    """
-
-    Load data for an AbstractModel using the modules in the given list
-    and return a DataPortal object suitable for creating a model
-    instance. This is implemented as calling the load_data() function of
-    each module, if the module has that function.
-
-    SYNOPSIS:
-    >>> import switch_mod.utilities as utilities
-    >>> switch_modules = ('timescales', 'financials', 'load_zones')
-    >>> utilities.load_modules(switch_modules)
-    >>> switch_model = utilities.define_AbstractModel(switch_modules)
-    >>> inputs_dir = 'test_dat'
-    >>> data = utilities.load_data(switch_model, inputs_dir, switch_modules)
-    >>> switch_instance = switch_model.create(data)
-
-    """
-    data = DataPortal(model=model)
-    # Attach an augmented load data function to the data portal object
-    data.load_aug = types.MethodType(load_aug, data)
-    _load_data(model, inputs_dir, module_list, data)
-    return data
-
-
-def _load_data(model, inputs_dir, module_list, data):
+def _load_inputs(model, inputs_dir, module_list, data):
     """
     A private function to allow recurve calling of loading data from
     modules or packages.
     """
     for m in module_list:
-        if hasattr(_loaded_switch_modules[m], 'load_data'):
-            _loaded_switch_modules[m].load_data(model, data, inputs_dir)
-        if hasattr(_loaded_switch_modules[m], 'core_modules'):
-            _load_data(model, inputs_dir,
-                       _loaded_switch_modules[m].core_modules, data)
-
-
-def save_results(model, results, instance, outdir, module_list):
-    """
-
-    Export results in a modular fashion.
-
-    """
-    # Ensure the output directory exists. Don't worry about race
-    # conditions.
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
-    # Try to load the results and export.
-    if instance.load(results):
-        if interactive_session:
-            print "Model solved successfully."
-        _save_results(model, instance, outdir, module_list)
-        return True
-    else:
-        if interactive_session:
-            print ("ERROR: unable to load solver results. " +
-                   "Problem may be infeasible.")
-        return False
-    _save_results(model, instance, outdir, module_list)
+        module = sys.modules[m]
+        if hasattr(module, 'load_inputs'):
+            module.load_inputs(model, data, inputs_dir)
+        if hasattr(module, 'core_modules'):
+            _load_inputs(model, inputs_dir, module.core_modules, data)
 
 
 def _save_results(model, instance, outdir, module_list):
@@ -339,12 +401,11 @@ def _save_results(model, instance, outdir, module_list):
     modules or packages.
     """
     for m in module_list:
-        if hasattr(_loaded_switch_modules[m], 'save_results'):
-            _loaded_switch_modules[m].save_results(
-                model, instance, outdir)
-        if hasattr(_loaded_switch_modules[m], 'core_modules'):
-            _save_results(model, instance, outdir,
-                          _loaded_switch_modules[m].core_modules)
+        module = sys.modules[m]
+        if hasattr(module, 'save_results'):
+            module.save_results(model, instance, outdir)
+        if hasattr(module, 'core_modules'):
+            _save_results(model, instance, outdir, module.core_modules)
 
 
 class InputError(Exception):
@@ -360,36 +421,6 @@ class InputError(Exception):
 
     def __str__(self):
         return repr(self.value)
-
-
-def load_aug(switch_data, optional=False, **kwds):
-    """
-
-    This is a wrapper for the DataPortal object that accepts additional
-    keywords. This currently supports a flag for the file being optional.
-    In the future, this could also support a list of optional columns.
-    The name is not great and may be changed as well.
-
-    """
-    path = kwds['filename']
-    # Skip if the file is missing
-    if optional and not os.path.isfile(path):
-        return
-    # Parse header and first row
-    with open(path) as infile:
-        headers = infile.readline().strip().split('\t')
-        dat1 = infile.readline().strip().split('\t')
-    # Skip if the file is empty or has no data in the first row.
-    if optional and (headers == [''] or dat1 == ['']):
-        return
-    # Check to see if expected column names are in the file.
-    if 'select' in kwds:
-        for col in kwds['select']:
-            if col not in headers:
-                raise InputError(
-                    'Column {} not found in file {}.'
-                    .format(col, path))
-    switch_data.load(**kwds)
 
 
 def approx_equal(a, b, tolerance=0.01):
