@@ -242,7 +242,7 @@ def define_components(mod):
         mod.PERIODS,
         initialize=lambda m, p: m.period_length_years[p] * hours_per_year)
 
-    mod.TIMESERIES = Set()
+    mod.TIMESERIES = Set(ordered=True)
     mod.ts_period = Param(mod.TIMESERIES, within=mod.PERIODS)
     mod.ts_duration_of_tp = Param(mod.TIMESERIES, within=PositiveReals)
     mod.ts_num_tps = Param(mod.TIMESERIES, within=PositiveIntegers)
