@@ -1,0 +1,3 @@
+This example builds off of copperplate0 to add a custom module that
+specifies additional fixed system costs that need to be included to
+accurately calculate the levelized cost of electricity.
