@@ -13,4 +13,4 @@ export PYTHONPATH="${PYTHONPATH}:/absolute/path/to/switch_py"
 
 To run the tests, do:
 
-./run_tests.sh
+./run_tests.py
