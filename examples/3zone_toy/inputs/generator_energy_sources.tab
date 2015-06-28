@@ -3,7 +3,6 @@ Geothermal	Geothermal
 Coal_IGCC	Coal
 Coal_IGCC_CCS	Coal
 Coal_ST	Coal
-FuelOil_GT	DistillateFuelOil
 FuelOil_GT	ResidualFuelOil
 NG_CC	NaturalGas
 NG_CC_CCS	NaturalGas

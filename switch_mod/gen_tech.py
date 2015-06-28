@@ -345,6 +345,10 @@ def define_components(mod):
     mod.mandatory_energy_source = BuildCheck(
         mod.GENERATION_TECHNOLOGIES,
         rule=lambda m, g: len(m.G_ENERGY_SOURCES[g]) > 0)
+    # Quick hack to mandate each technology has a single energy source
+    mod.single_energy_source = BuildCheck(
+        mod.GENERATION_TECHNOLOGIES,
+        rule=lambda m, g: len(m.G_ENERGY_SOURCES[g]) == 1)
 
 
 def load_inputs(mod, switch_data, inputs_dir):

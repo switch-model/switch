@@ -75,6 +75,12 @@ def define_components(mod):
     this to be indexed by fuel source as well if we need to support a
     multi-fuel generator whose heat rate depends on fuel source.
 
+    proj_energy_source[proj] is the primary energy source for a project.
+    This is derived from the generation technology description and
+    assumes one energy source per generation technology. This parameter
+    may be altered in the future to support generators that use multiple
+    energy sources.
+
     -- CONSTRUCTION --
 
     PROJECT_BUILDYEARS is a two-dimensional set of projects and the
@@ -298,6 +304,11 @@ def define_components(mod):
         initialize=lambda m, proj: set(
             set(m.G_ENERGY_SOURCES[m.proj_gen_tech[proj]]) &
             set(m.NON_FUEL_ENERGY_SOURCES)).pop())
+    mod.proj_energy_source = Param(
+        mod.PROJECTS,
+        within=mod.ENERGY_SOURCES,
+        initialize=lambda m, proj: set(
+            m.G_ENERGY_SOURCES[m.proj_gen_tech[proj]]).pop())
     # For now, I've only implemented support for each project having a
     # single fuel type. Throw an error if that is not the case, which
     # can prompt us to expand the model to support that.
