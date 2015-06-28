@@ -244,7 +244,7 @@ def check_mandatory_components(model, *mandatory_model_components):
     This does not work with indexed sets.
 
     EXAMPLE:
-    >>> from switch_mod.utilities import define_AbstractModel
+    >>> import switch_mod.utilities as utilities
     >>> mod = ConcreteModel()
     >>> mod.set_A = Set(initialize=[1,2])
     >>> mod.paramA_full = Param(mod.set_A, initialize={1:'a',2:'b'})
