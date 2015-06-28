@@ -289,6 +289,15 @@ def define_components(mod):
         initialize=lambda m, proj: set(
             set(m.G_ENERGY_SOURCES[m.proj_gen_tech[proj]]) &
             set(m.FUELS)).pop())
+    mod.NON_FUEL_BASED_PROJECTS = Set(
+        initialize=lambda m: set(
+            p for p in m.PROJECTS if not m.g_uses_fuel[m.proj_gen_tech[p]]))
+    mod.proj_non_fuel_energy_source = Param(
+        mod.NON_FUEL_BASED_PROJECTS,
+        within=mod.NON_FUEL_ENERGY_SOURCES,
+        initialize=lambda m, proj: set(
+            set(m.G_ENERGY_SOURCES[m.proj_gen_tech[proj]]) &
+            set(m.NON_FUEL_ENERGY_SOURCES)).pop())
     # For now, I've only implemented support for each project having a
     # single fuel type. Throw an error if that is not the case, which
     # can prompt us to expand the model to support that.
