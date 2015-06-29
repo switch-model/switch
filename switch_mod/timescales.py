@@ -1,3 +1,6 @@
+# Copyright 2015 The Switch Authors. All rights reserved.
+# Licensed under the Apache License, Version 2, which is in the LICENSE file.
+
 """
 Defines timescales for investment and dispatch for the SWITCH-Pyomo model.
 
@@ -6,10 +9,6 @@ SYNOPSIS
 >>> model = define_AbstractModel('timescales')
 >>> instance = model.load_inputs(inputs_dir='test_dat')
 
-This code can be tested with `python -m doctest timescales.py`
-within the switch_mod source directory.
-
-Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 """
 
 import os

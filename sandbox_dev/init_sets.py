@@ -1,7 +1,11 @@
 #!/usr/local/bin/python
+# Copyright 2015 The Switch Authors. All rights reserved.
+# Licensed under the Apache License, Version 2, which is in the LICENSE file.
 
-# Simple examples of initializing indexed sets.
-# To run interactively, use execfile('init_sets.py') on the python command line.
+"""
+Simple examples of initializing indexed sets.
+To run interactively, use execfile('init_sets.py') on the python command line.
+"""
 
 from coopr.pyomo import *
 

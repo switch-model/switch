@@ -1,3 +1,18 @@
+#!/usr/local/bin/python
+# Copyright 2015 The Switch Authors. All rights reserved.
+# Licensed under the Apache License, Version 2, which is in the LICENSE file.
+
+
+"""
+Test the behavior of Pyomo Expression objects. Can they directly replace
+a derived variable in the model, or are they evaluated to a numeric value
+during compilation?
+
+Answer: Yes, their algebraic formulation is preserved through compilation
+and they can replace derived variables.
+
+"""
+
 from pyomo.environ import *
 from pyomo.opt import SolverFactory
 

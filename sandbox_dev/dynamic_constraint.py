@@ -1,20 +1,25 @@
-# Try to make a constraint that will sum over a list of model compoents.
-# This can allow different modules to independently add compoenents to
-# this list. My use case is making energy balance constraints more
-# modular so that aspects like transmission, storage or demand response
-# can optionally be included.
+#!/usr/local/bin/python
+# Copyright 2015 The Switch Authors. All rights reserved.
+# Licensed under the Apache License, Version 2, which is in the LICENSE file.
 
-# The results of this investigation indicate that I could implement a
-# dynamic list for an energy balance constraint by defining the list in
-# load_zones.define_components(), and load_zones is called before most
-# other modules. Other modules' define_components() methods will be
-# called and some, such as project.dispatch, will register their
-# contributions to the bus by adding component names to the list. As a
-# final step, a new method define_components_final() will be called on each
-# module, and load_zones.define_components_final() will define a satisfy_load()
-# constraint that uses the list for the summation.
+"""
+Try to make a constraint that will sum over a list of model compoents.
+This can allow different modules to independently add compoenents to
+this list. My use case is making energy balance constraints more
+modular so that aspects like transmission, storage or demand response
+can optionally be included.
 
+The results of this investigation indicate that I could implement a
+dynamic list for an energy balance constraint by defining the list in
+load_zones.define_components(), and load_zones is called before most
+other modules. Other modules' define_components() methods will be
+called and some, such as project.dispatch, will register their
+contributions to the bus by adding component names to the list. As a
+final step, a new method define_components_final() will be called on each
+module, and load_zones.define_components_final() will define a satisfy_load()
+constraint that uses the list for the summation.
 
+"""
 from pyomo.environ import *
 from pyomo.opt import SolverFactory
 

@@ -1,10 +1,8 @@
+# Copyright 2015 The Switch Authors. All rights reserved.
+# Licensed under the Apache License, Version 2, which is in the LICENSE file.
+
 """
 Utility functions for SWITCH-pyomo.
-
-This code can be tested with `python -m doctest utilities.py`
-
-Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
-
 """
 
 import os
@@ -244,6 +242,7 @@ def check_mandatory_components(model, *mandatory_model_components):
     This does not work with indexed sets.
 
     EXAMPLE:
+    >>> from pyomo.environ import *
     >>> import switch_mod.utilities as utilities
     >>> mod = ConcreteModel()
     >>> mod.set_A = Set(initialize=[1,2])
@@ -254,11 +253,11 @@ def check_mandatory_components(model, *mandatory_model_components):
     >>> mod.paramC = Param(initialize=1)
     >>> mod.paramD = Param()
     >>> utilities.check_mandatory_components(mod, 'set_A', 'paramA_full')
-    1
+    True
     >>> utilities.check_mandatory_components(mod, 'paramB_empty')
-    1
+    True
     >>> utilities.check_mandatory_components(mod, 'paramC')
-    1
+    True
     >>> utilities.check_mandatory_components(\
         mod, 'set_A', 'paramA_empty') # doctest: +NORMALIZE_WHITESPACE
     Traceback (most recent call last):
@@ -307,7 +306,7 @@ def check_mandatory_components(model, *mandatory_model_components):
             raise ValueError(
                 "Error! Object type {} not recognized for model element '{}'.".
                 format(o_class, component_name))
-    return 1
+    return True
 
 
 def _load_modules(*module_list):

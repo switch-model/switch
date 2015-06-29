@@ -1,5 +1,11 @@
-# I'm extending the dynamic_constraint.py test to include an expression
-# in the objective function. It seems to work here..
+#!/usr/local/bin/python
+# Copyright 2015 The Switch Authors. All rights reserved.
+# Licensed under the Apache License, Version 2, which is in the LICENSE file.
+
+"""
+I'm extending the dynamic_constraint.py test to include an expression
+in the objective function. It seems to work here..
+"""
 
 from pyomo.environ import *
 from pyomo.opt import SolverFactory

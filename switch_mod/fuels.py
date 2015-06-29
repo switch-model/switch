@@ -1,3 +1,6 @@
+# Copyright 2015 The Switch Authors. All rights reserved.
+# Licensed under the Apache License, Version 2, which is in the LICENSE file.
+
 """
 Defines model components to describe fuels and other energy sources for
 the SWITCH-Pyomo model.
@@ -8,15 +11,10 @@ SYNOPSIS
 ...     'timescales', 'financials', 'load_zones', 'fuels')
 >>> instance = model.load_inputs(inputs_dir='test_dat')
 
-Note, this can be tested with `python -m doctest fuels.py`
-within the switch_mod source directory.
-
-Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 """
 
 import os
 from pyomo.environ import *
-import switch_mod.utilities as utilities
 
 
 def define_components(mod):

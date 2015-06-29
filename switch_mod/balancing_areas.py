@@ -1,3 +1,6 @@
+# Copyright 2015 The Switch Authors. All rights reserved.
+# Licensed under the Apache License, Version 2, which is in the LICENSE file.
+
 """
 Defines balacing area components for the SWITCH-Pyomo model.
 
@@ -7,10 +10,6 @@ SYNOPSIS
 ...     'timescales', 'load_zones', 'balancing_areas')
 >>> instance = model.load_inputs(inputs_dir='test_dat')
 
-Note, this can be tested with `python -m doctest balancing_areas.py`
-within the switch_mod source directory.
-
-Switch-pyomo is licensed under Apache License 2.0 More info at switch-model.org
 """
 import os
 from pyomo.environ import *

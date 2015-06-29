@@ -1,9 +1,13 @@
 #!/usr/local/bin/python
+# Copyright 2015 The Switch Authors. All rights reserved.
+# Licensed under the Apache License, Version 2, which is in the LICENSE file.
 
-# Does specifying a . in an input file result in the parameter retaining
-# its default value, mimicking the behavior of AMPL?
+"""
+Does specifying a . in an input file result in the parameter retaining
+its default value, mimicking the behavior of AMPL?
 
-# The answer is yes, it does.
+The answer is yes, it does.
+"""
 
 import os
 from pyomo.environ import *

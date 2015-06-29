@@ -1,4 +1,4 @@
-The SWITCH Pyomo project is licensed under Apache License v2.0 which can be obtained at http://www.apache.org/licenses/LICENSE-2.0
+The Pyomo implementation of the SWITCH model for planning least-cost low-emission electricity grids is licensed under Apache License v2.0 which can be obtained at http://www.apache.org/licenses/LICENSE-2.0
 
 
                                  Apache License
@@ -189,7 +189,7 @@ The SWITCH Pyomo project is licensed under Apache License v2.0 which can be obta
       same "printed page" as the copyright notice for easier
       identification within third-party archives.
 
-   Copyright 2015 Josiah Johnston
+   Copyright 2015 The Switch authors
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
