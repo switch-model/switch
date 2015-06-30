@@ -1,0 +1,270 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html><head><title>Python: module switch_mod.financials</title>
+<meta charset="utf-8">
+</head><body bgcolor="#f0f0f8">
+
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="heading">
+<tr bgcolor="#7799ee">
+<td valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial">&nbsp;<br><big><big><strong><a href="switch_mod.html"><font color="#ffffff">switch_mod</font></a>.financials</strong></big></big></font></td
+><td align=right valign=bottom
+><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="file:/Users/josiah/src/switch/switch_mod/financials.py">/Users/josiah/src/switch/switch_mod/financials.py</a></font></td></tr></table>
+    <p><tt>Defines&nbsp;financial&nbsp;parameters&nbsp;for&nbsp;the&nbsp;SWITCH-Pyomo&nbsp;model.<br>
+&nbsp;<br>
+SYNOPSIS<br>
+&gt;&gt;&gt;&nbsp;from&nbsp;switch_mod.utilities&nbsp;import&nbsp;define_AbstractModel<br>
+&gt;&gt;&gt;&nbsp;model&nbsp;=&nbsp;define_AbstractModel('timescales',&nbsp;'financials')<br>
+&gt;&gt;&gt;&nbsp;instance&nbsp;=&nbsp;model.<a href="#-load_inputs">load_inputs</a>(inputs_dir='test_dat')</tt></p>
+<p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#aa55cc">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Modules</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#aa55cc"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><table width="100%" summary="list"><tr><td width="25%" valign=top><a href="pyomo.core.base.html">pyomo.core.base</a><br>
+<a href="pyomo.core.data.html">pyomo.core.data</a><br>
+</td><td width="25%" valign=top><a href="os.html">os</a><br>
+<a href="pyomo.core.preprocess.html">pyomo.core.preprocess</a><br>
+</td><td width="25%" valign=top><a href="pyomo.html">pyomo</a><br>
+</td><td width="25%" valign=top></td></tr></table></td></tr></table><p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#eeaa77">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Functions</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#eeaa77"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><dl><dt><a name="-capital_recovery_factor"><strong>capital_recovery_factor</strong></a>(ir, t)</dt><dd><tt>The&nbsp;capital&nbsp;recovery&nbsp;factor&nbsp;is&nbsp;a&nbsp;coefficient&nbsp;applied&nbsp;to&nbsp;a&nbsp;loan&nbsp;to<br>
+determine&nbsp;annual&nbsp;payments.&nbsp;This&nbsp;function&nbsp;needs&nbsp;an&nbsp;interest&nbsp;rate&nbsp;ir<br>
+and&nbsp;the&nbsp;number&nbsp;of&nbsp;compounding&nbsp;periods&nbsp;that&nbsp;payments&nbsp;are&nbsp;split<br>
+across.<br>
+&nbsp;<br>
+Example:&nbsp;Calculate&nbsp;annual&nbsp;loan&nbsp;payments&nbsp;for&nbsp;a&nbsp;20-year&nbsp;loan&nbsp;with&nbsp;a&nbsp;7<br>
+percent&nbsp;interest&nbsp;rate&nbsp;on&nbsp;$100.<br>
+&nbsp;<br>
+&gt;&gt;&gt;&nbsp;crf&nbsp;=&nbsp;<a href="#-capital_recovery_factor">capital_recovery_factor</a>(.07,20)<br>
+&gt;&gt;&gt;&nbsp;print&nbsp;("Capital&nbsp;recovery&nbsp;factor&nbsp;for&nbsp;a&nbsp;loan&nbsp;with&nbsp;a&nbsp;7&nbsp;percent&nbsp;annual&nbsp;"&nbsp;+<br>
+...&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"interest&nbsp;rate,&nbsp;paid&nbsp;over&nbsp;20&nbsp;years&nbsp;is&nbsp;{crf:0.5f}.&nbsp;If&nbsp;the&nbsp;"&nbsp;+<br>
+...&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"principal&nbsp;was&nbsp;$100,&nbsp;loan&nbsp;payments&nbsp;would&nbsp;be&nbsp;${lp:0.2f}").&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;format(crf=crf,&nbsp;lp=100&nbsp;*&nbsp;crf)&nbsp;#&nbsp;doctest:&nbsp;+NORMALIZE_WHITESPACE<br>
+Capital&nbsp;recovery&nbsp;factor&nbsp;for&nbsp;a&nbsp;loan&nbsp;with&nbsp;a&nbsp;7&nbsp;percent&nbsp;annual&nbsp;interest&nbsp;&nbsp;&nbsp;&nbsp;rate,&nbsp;paid&nbsp;over&nbsp;20&nbsp;years&nbsp;is&nbsp;0.09439.&nbsp;If&nbsp;the&nbsp;principal&nbsp;was&nbsp;$100,&nbsp;loan&nbsp;&nbsp;&nbsp;&nbsp;payments&nbsp;would&nbsp;be&nbsp;$9.44</tt></dd></dl>
+ <dl><dt><a name="-define_components"><strong>define_components</strong></a>(mod)</dt><dd><tt>Augments&nbsp;a&nbsp;Pyomo&nbsp;abstract&nbsp;model&nbsp;object&nbsp;with&nbsp;sets&nbsp;and&nbsp;parameters&nbsp;that<br>
+describe&nbsp;financial&nbsp;conversion&nbsp;factors&nbsp;such&nbsp;as&nbsp;interest&nbsp;rates,<br>
+discount&nbsp;rates,&nbsp;as&nbsp;well&nbsp;as&nbsp;constructing&nbsp;more&nbsp;useful&nbsp;coefficients<br>
+from&nbsp;those&nbsp;terms.<br>
+&nbsp;<br>
+base_financial_year&nbsp;is&nbsp;used&nbsp;for&nbsp;net&nbsp;present&nbsp;value&nbsp;calculations.&nbsp;All<br>
+dollar&nbsp;amounts&nbsp;reported&nbsp;by&nbsp;SWITCH&nbsp;are&nbsp;in&nbsp;real&nbsp;dollars&nbsp;of&nbsp;this&nbsp;base<br>
+year.&nbsp;Future&nbsp;dollars&nbsp;are&nbsp;brought&nbsp;back&nbsp;to&nbsp;this&nbsp;dollar-year&nbsp;via&nbsp;the<br>
+discount_rate.<br>
+&nbsp;<br>
+interest_rate&nbsp;is&nbsp;real&nbsp;interest&nbsp;rate&nbsp;paid&nbsp;on&nbsp;a&nbsp;loan&nbsp;from&nbsp;a&nbsp;bank.&nbsp;In<br>
+economic&nbsp;equilibrium&nbsp;conditions,&nbsp;this&nbsp;will&nbsp;be&nbsp;equal&nbsp;to&nbsp;the&nbsp;discount<br>
+rate.&nbsp;We&nbsp;have&nbsp;specified&nbsp;it&nbsp;separately&nbsp;from&nbsp;discount&nbsp;rate&nbsp;so&nbsp;people<br>
+can&nbsp;independently&nbsp;explore&nbsp;the&nbsp;impacts&nbsp;of&nbsp;different&nbsp;choices&nbsp;of<br>
+discount&nbsp;rates&nbsp;without&nbsp;making&nbsp;assumptions&nbsp;about&nbsp;loan&nbsp;conditions.<br>
+&nbsp;<br>
+discount_rate&nbsp;is&nbsp;the&nbsp;annual&nbsp;real&nbsp;discount&nbsp;rate&nbsp;used&nbsp;to&nbsp;convert<br>
+future&nbsp;dollars&nbsp;into&nbsp;net&nbsp;present&nbsp;value&nbsp;for&nbsp;purposes&nbsp;of&nbsp;comparison.&nbsp;It<br>
+is&nbsp;mathematically&nbsp;similar&nbsp;to&nbsp;interest&nbsp;rate,&nbsp;but&nbsp;has&nbsp;very&nbsp;different<br>
+meanings.<br>
+&nbsp;<br>
+From&nbsp;an&nbsp;investor&nbsp;perspective,&nbsp;discount&nbsp;rate&nbsp;can&nbsp;represent&nbsp;the<br>
+opportunity&nbsp;cost&nbsp;of&nbsp;capital&nbsp;and&nbsp;should&nbsp;subsequently&nbsp;be&nbsp;set&nbsp;to&nbsp;the<br>
+average&nbsp;return&nbsp;on&nbsp;economy-wide&nbsp;private&nbsp;investment.&nbsp;An&nbsp;investor&nbsp;could<br>
+either&nbsp;spend&nbsp;money&nbsp;on&nbsp;a&nbsp;given&nbsp;project&nbsp;that&nbsp;will&nbsp;yield&nbsp;future<br>
+returns,&nbsp;or&nbsp;invest&nbsp;money&nbsp;in&nbsp;a&nbsp;broad&nbsp;portfolio&nbsp;with&nbsp;an&nbsp;expected&nbsp;rate<br>
+of&nbsp;return.&nbsp;Applying&nbsp;that&nbsp;expected&nbsp;rate&nbsp;of&nbsp;return&nbsp;to&nbsp;discount&nbsp;the<br>
+future&nbsp;earnings&nbsp;from&nbsp;the&nbsp;project&nbsp;is&nbsp;a&nbsp;mathematical&nbsp;convenience&nbsp;for<br>
+comparing&nbsp;those&nbsp;two&nbsp;options.&nbsp;This&nbsp;method&nbsp;implicitly&nbsp;assumes&nbsp;that<br>
+rate&nbsp;of&nbsp;return&nbsp;will&nbsp;be&nbsp;constant&nbsp;during&nbsp;the&nbsp;relevant&nbsp;period&nbsp;of&nbsp;time,<br>
+and&nbsp;that&nbsp;all&nbsp;earnings&nbsp;can&nbsp;be&nbsp;re-invested.&nbsp;These&nbsp;assumptions&nbsp;that<br>
+capital&nbsp;can&nbsp;continue&nbsp;exponential&nbsp;growth&nbsp;are&nbsp;not&nbsp;always&nbsp;justifiable.<br>
+&nbsp;<br>
+From&nbsp;a&nbsp;consumption&nbsp;welfare&nbsp;perspective,&nbsp;discount&nbsp;rate&nbsp;is&nbsp;meant&nbsp;to<br>
+represent&nbsp;three&nbsp;things:&nbsp;individuals'&nbsp;time&nbsp;preference&nbsp;of&nbsp;money,<br>
+increase&nbsp;in&nbsp;expected&nbsp;future&nbsp;earnings,&nbsp;and&nbsp;elasticity&nbsp;of&nbsp;marginal<br>
+social&nbsp;utility&nbsp;(how&nbsp;much&nbsp;happier&nbsp;you&nbsp;expect&nbsp;to&nbsp;be&nbsp;from&nbsp;increased<br>
+future&nbsp;earnings).&nbsp;According&nbsp;to&nbsp;economic&nbsp;theory,&nbsp;in&nbsp;equilibrium<br>
+conditions,&nbsp;the&nbsp;consumption&nbsp;welfare&nbsp;discount&nbsp;rate&nbsp;will&nbsp;be&nbsp;equal&nbsp;to<br>
+the&nbsp;opportunity&nbsp;cost&nbsp;of&nbsp;capital&nbsp;discount&nbsp;rate.&nbsp;In&nbsp;practice,&nbsp;the<br>
+opportunity&nbsp;cost&nbsp;of&nbsp;capital&nbsp;discount&nbsp;rate&nbsp;tends&nbsp;to&nbsp;be&nbsp;much&nbsp;larger<br>
+than&nbsp;consumption&nbsp;welfare&nbsp;discount&nbsp;rate,&nbsp;likely&nbsp;because&nbsp;the&nbsp;financial<br>
+returns&nbsp;to&nbsp;capital&nbsp;are&nbsp;not&nbsp;spread&nbsp;equally&nbsp;across&nbsp;society.&nbsp;In&nbsp;my&nbsp;34<br>
+lifetime&nbsp;in&nbsp;the&nbsp;USA,&nbsp;the&nbsp;economy&nbsp;has&nbsp;grown&nbsp;tremendously&nbsp;while&nbsp;median<br>
+income&nbsp;have&nbsp;not&nbsp;changed.<br>
+&nbsp;<br>
+For&nbsp;more&nbsp;background&nbsp;on&nbsp;the&nbsp;meaning&nbsp;of&nbsp;discount&nbsp;rates,&nbsp;see<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<a href="http://ageconsearch.umn.edu/bitstream/59156/2/Scarborough,%20Helen.pdf">http://ageconsearch.umn.edu/bitstream/59156/2/Scarborough,%20Helen.pdf</a><br>
+&nbsp;<br>
+When&nbsp;using&nbsp;a&nbsp;discount&nbsp;rate&nbsp;for&nbsp;long-term&nbsp;economic&nbsp;planning&nbsp;of&nbsp;a<br>
+commodity&nbsp;such&nbsp;as&nbsp;electricity&nbsp;for&nbsp;a&nbsp;broad&nbsp;society,&nbsp;it&nbsp;is&nbsp;worth<br>
+considering&nbsp;that&nbsp;if&nbsp;you&nbsp;use&nbsp;a&nbsp;high&nbsp;discount&nbsp;rate,&nbsp;you&nbsp;are&nbsp;implicitly<br>
+assuming&nbsp;that&nbsp;society&nbsp;will&nbsp;have&nbsp;increased&nbsp;ability&nbsp;to&nbsp;pay&nbsp;in&nbsp;the<br>
+future.&nbsp;A&nbsp;discount&nbsp;rate&nbsp;of&nbsp;7&nbsp;percent&nbsp;roughly&nbsp;doubles&nbsp;value&nbsp;every<br>
+decade,&nbsp;and&nbsp;means&nbsp;that&nbsp;a&nbsp;bill&nbsp;of&nbsp;$200&nbsp;one&nbsp;decade&nbsp;from&nbsp;now&nbsp;is<br>
+equivalent&nbsp;to&nbsp;a&nbsp;bill&nbsp;of&nbsp;$100&nbsp;today.<br>
+&nbsp;<br>
+While&nbsp;quite&nbsp;alarming&nbsp;in&nbsp;theory,&nbsp;in&nbsp;practice&nbsp;the&nbsp;choice&nbsp;of&nbsp;discount<br>
+rate&nbsp;had&nbsp;virtually&nbsp;no&nbsp;impact&nbsp;on&nbsp;the&nbsp;future&nbsp;costs&nbsp;that&nbsp;SWITCH-WECC<br>
+reports&nbsp;when&nbsp;I&nbsp;performed&nbsp;sensitivity&nbsp;runs&nbsp;in&nbsp;the&nbsp;range&nbsp;of&nbsp;0-10<br>
+percent&nbsp;discount&nbsp;rates.&nbsp;This&nbsp;is&nbsp;likely&nbsp;due&nbsp;to&nbsp;steadily&nbsp;increasing<br>
+load&nbsp;and&nbsp;decreasing&nbsp;emission&nbsp;targets&nbsp;in&nbsp;our&nbsp;scenarios&nbsp;providing&nbsp;few<br>
+opportunities&nbsp;of&nbsp;any&nbsp;benefit&nbsp;from&nbsp;delaying&nbsp;investments.<br>
+&nbsp;<br>
+In&nbsp;general,&nbsp;if&nbsp;you&nbsp;are&nbsp;converting&nbsp;value&nbsp;of&nbsp;money&nbsp;forward&nbsp;in&nbsp;time<br>
+(from&nbsp;a&nbsp;present&nbsp;to&nbsp;a&nbsp;future&nbsp;value),&nbsp;use&nbsp;an&nbsp;interest&nbsp;rate.&nbsp;If&nbsp;you&nbsp;are<br>
+converting&nbsp;value&nbsp;of&nbsp;money&nbsp;back&nbsp;in&nbsp;time,&nbsp;use&nbsp;a&nbsp;discount&nbsp;rate.<br>
+&nbsp;<br>
+These&nbsp;next&nbsp;two&nbsp;parameters&nbsp;are&nbsp;derived&nbsp;from&nbsp;the&nbsp;above&nbsp;parameters&nbsp;and<br>
+timescale&nbsp;information.<br>
+&nbsp;<br>
+bring_annual_costs_to_base_year[p&nbsp;in&nbsp;PERIODS]&nbsp;is&nbsp;a&nbsp;coefficient&nbsp;that<br>
+converts&nbsp;uniform&nbsp;costs&nbsp;made&nbsp;in&nbsp;each&nbsp;year&nbsp;of&nbsp;an&nbsp;investment&nbsp;period&nbsp;to<br>
+NPV&nbsp;in&nbsp;the&nbsp;base&nbsp;financial&nbsp;year.&nbsp;This&nbsp;coefficient&nbsp;can&nbsp;be&nbsp;decomposed<br>
+into&nbsp;two&nbsp;components.&nbsp;The&nbsp;first&nbsp;component&nbsp;converts&nbsp;a&nbsp;uniform&nbsp;stream<br>
+of&nbsp;annual&nbsp;costs&nbsp;in&nbsp;the&nbsp;period&nbsp;to&nbsp;a&nbsp;lump&nbsp;sum&nbsp;at&nbsp;the&nbsp;beginning&nbsp;of&nbsp;the<br>
+period&nbsp;using&nbsp;the&nbsp;function&nbsp;<a href="#-uniform_series_to_present_value">uniform_series_to_present_value</a>()&nbsp;with&nbsp;the<br>
+discount&nbsp;rate&nbsp;and&nbsp;the&nbsp;number&nbsp;of&nbsp;years&nbsp;per&nbsp;period.&nbsp;The&nbsp;second<br>
+component&nbsp;converts&nbsp;a&nbsp;value&nbsp;at&nbsp;the&nbsp;start&nbsp;of&nbsp;a&nbsp;period&nbsp;to&nbsp;net&nbsp;present<br>
+value&nbsp;in&nbsp;the&nbsp;base&nbsp;financial&nbsp;year&nbsp;using&nbsp;the&nbsp;function<br>
+<a href="#-future_to_present_value">future_to_present_value</a>()&nbsp;with&nbsp;the&nbsp;discount&nbsp;rate&nbsp;and&nbsp;number&nbsp;of&nbsp;years<br>
+between&nbsp;the&nbsp;base&nbsp;financial&nbsp;year&nbsp;and&nbsp;the&nbsp;start&nbsp;of&nbsp;the&nbsp;period.<br>
+&nbsp;<br>
+bring_timepoint_costs_to_base_year[t&nbsp;in&nbsp;TIMEPOINTS]&nbsp;is&nbsp;a&nbsp;coefficient<br>
+that&nbsp;converts&nbsp;a&nbsp;cost&nbsp;incurred&nbsp;in&nbsp;a&nbsp;timepoint&nbsp;to&nbsp;a&nbsp;net&nbsp;present&nbsp;value<br>
+in&nbsp;the&nbsp;base&nbsp;year.&nbsp;In&nbsp;the&nbsp;context&nbsp;of&nbsp;Switch,&nbsp;a&nbsp;single&nbsp;timepoint&nbsp;is<br>
+expected&nbsp;to&nbsp;represent&nbsp;a&nbsp;condition&nbsp;that&nbsp;repeats&nbsp;in&nbsp;multiple&nbsp;years&nbsp;in<br>
+an&nbsp;investment&nbsp;period,&nbsp;and&nbsp;costs&nbsp;associated&nbsp;with&nbsp;the&nbsp;timepoint&nbsp;are<br>
+treated&nbsp;as&nbsp;uniform&nbsp;annual&nbsp;costs&nbsp;during&nbsp;that&nbsp;period.&nbsp;The&nbsp;coefficient<br>
+bring_timepoint_costs_to_base_year&nbsp;is&nbsp;determined&nbsp;by&nbsp;two&nbsp;components.<br>
+The&nbsp;first&nbsp;is&nbsp;bring_annual_costs_to_base_year[p],&nbsp;which&nbsp;is&nbsp;described<br>
+above.&nbsp;The&nbsp;second&nbsp;is&nbsp;the&nbsp;number&nbsp;of&nbsp;hours&nbsp;that&nbsp;a&nbsp;timepoint&nbsp;represents<br>
+within&nbsp;a&nbsp;year.&nbsp;Timepoints&nbsp;typically&nbsp;represent&nbsp;something&nbsp;that&nbsp;occurs<br>
+on&nbsp;the&nbsp;order&nbsp;of&nbsp;hours,&nbsp;so&nbsp;most&nbsp;costs&nbsp;are&nbsp;specified&nbsp;in&nbsp;terms&nbsp;of<br>
+hours.&nbsp;Consequently,&nbsp;the&nbsp;NPV&nbsp;of&nbsp;most&nbsp;variable&nbsp;costs&nbsp;can&nbsp;be<br>
+calculated&nbsp;by&nbsp;multiplying&nbsp;hourly&nbsp;unit&nbsp;costs&nbsp;by&nbsp;this&nbsp;coefficient&nbsp;and<br>
+the&nbsp;dispatch&nbsp;decision.<br>
+&nbsp;<br>
+The&nbsp;next&nbsp;two&nbsp;elements&nbsp;are&nbsp;lists&nbsp;of&nbsp;costs&nbsp;components&nbsp;rather&nbsp;than<br>
+Pyomo&nbsp;components.&nbsp;Other&nbsp;modules&nbsp;may&nbsp;add&nbsp;elements&nbsp;to&nbsp;these&nbsp;lists.&nbsp;The<br>
+system_cost&nbsp;module&nbsp;will&nbsp;use&nbsp;these&nbsp;to&nbsp;construct&nbsp;an&nbsp;overall&nbsp;cost<br>
+expression&nbsp;for&nbsp;the&nbsp;objective&nbsp;function.<br>
+&nbsp;<br>
+cost_components_tp&nbsp;is&nbsp;a&nbsp;list&nbsp;of&nbsp;components&nbsp;that&nbsp;contribute&nbsp;to<br>
+overall&nbsp;system&nbsp;costs&nbsp;in&nbsp;each&nbsp;timepoint.&nbsp;Each&nbsp;component&nbsp;in&nbsp;this&nbsp;list<br>
+needs&nbsp;to&nbsp;be&nbsp;indexed&nbsp;by&nbsp;timepoint&nbsp;and&nbsp;specified&nbsp;in&nbsp;non-discounted<br>
+real&nbsp;dollars&nbsp;per&nbsp;hour.&nbsp;The&nbsp;objective&nbsp;function&nbsp;will&nbsp;apply&nbsp;weights&nbsp;and<br>
+discounting&nbsp;to&nbsp;these&nbsp;terms.&nbsp;If&nbsp;this&nbsp;indexing&nbsp;is&nbsp;not&nbsp;convenient&nbsp;for<br>
+native&nbsp;model&nbsp;components,&nbsp;I&nbsp;advise&nbsp;writing&nbsp;an&nbsp;Expression&nbsp;object<br>
+indexed&nbsp;by&nbsp;[t]&nbsp;that&nbsp;contains&nbsp;logic&nbsp;to&nbsp;access&nbsp;or&nbsp;summarize&nbsp;native<br>
+model&nbsp;components.<br>
+&nbsp;<br>
+cost_components_annual&nbsp;is&nbsp;a&nbsp;list&nbsp;of&nbsp;components&nbsp;that&nbsp;contribute&nbsp;to<br>
+overall&nbsp;system&nbsp;costs&nbsp;on&nbsp;an&nbsp;annual&nbsp;basis.&nbsp;Each&nbsp;component&nbsp;in&nbsp;this&nbsp;list<br>
+needs&nbsp;to&nbsp;be&nbsp;indexed&nbsp;by&nbsp;period&nbsp;and&nbsp;specified&nbsp;in&nbsp;non-discounted&nbsp;real<br>
+dollars&nbsp;over&nbsp;a&nbsp;typical&nbsp;year&nbsp;in&nbsp;the&nbsp;period.&nbsp;The&nbsp;objective&nbsp;function<br>
+will&nbsp;apply&nbsp;discounting&nbsp;to&nbsp;these&nbsp;terms.&nbsp;If&nbsp;this&nbsp;indexing&nbsp;is&nbsp;not<br>
+convenient&nbsp;for&nbsp;native&nbsp;model&nbsp;components,&nbsp;I&nbsp;advise&nbsp;writing&nbsp;an<br>
+Expression&nbsp;object&nbsp;indexed&nbsp;by&nbsp;[p]&nbsp;that&nbsp;contains&nbsp;logic&nbsp;to&nbsp;access&nbsp;or<br>
+summarize&nbsp;native&nbsp;model&nbsp;components.</tt></dd></dl>
+ <dl><dt><a name="-define_dynamic_components"><strong>define_dynamic_components</strong></a>(mod)</dt><dd><tt>Adds&nbsp;components&nbsp;to&nbsp;a&nbsp;Pyomo&nbsp;abstract&nbsp;model&nbsp;object&nbsp;to&nbsp;summarize&nbsp;net<br>
+present&nbsp;value&nbsp;of&nbsp;all&nbsp;system&nbsp;costs.&nbsp;Other&nbsp;modules&nbsp;will&nbsp;register&nbsp;cost<br>
+components&nbsp;into&nbsp;dynamic&nbsp;lists&nbsp;that&nbsp;are&nbsp;used&nbsp;here&nbsp;to&nbsp;calculate&nbsp;total<br>
+system&nbsp;costs.&nbsp;This&nbsp;function&nbsp;is&nbsp;called&nbsp;after&nbsp;<a href="#-define_components">define_components</a>()&nbsp;so<br>
+that&nbsp;other&nbsp;modules&nbsp;have&nbsp;a&nbsp;chance&nbsp;to&nbsp;add&nbsp;entries&nbsp;to&nbsp;the&nbsp;dynamic<br>
+lists.<br>
+&nbsp;<br>
+Unless&nbsp;otherwise&nbsp;stated,&nbsp;all&nbsp;terms&nbsp;describing&nbsp;power&nbsp;are&nbsp;in&nbsp;units&nbsp;of<br>
+MW&nbsp;and&nbsp;all&nbsp;terms&nbsp;describing&nbsp;energy&nbsp;are&nbsp;in&nbsp;units&nbsp;of&nbsp;MWh.&nbsp;Future&nbsp;costs<br>
+(both&nbsp;hourly&nbsp;and&nbsp;annual)&nbsp;are&nbsp;in&nbsp;real&nbsp;dollars&nbsp;relative&nbsp;to&nbsp;the<br>
+base_year&nbsp;and&nbsp;are&nbsp;converted&nbsp;to&nbsp;net&nbsp;present&nbsp;value&nbsp;in&nbsp;the&nbsp;base&nbsp;year<br>
+within&nbsp;this&nbsp;module.<br>
+&nbsp;<br>
+SystemCostPerPeriod[p&nbsp;in&nbsp;PERIODS]&nbsp;is&nbsp;an&nbsp;expression&nbsp;that&nbsp;sums<br>
+total&nbsp;system&nbsp;costs&nbsp;in&nbsp;each&nbsp;period&nbsp;based&nbsp;on&nbsp;the&nbsp;two&nbsp;lists<br>
+cost_components_tp&nbsp;and&nbsp;cost_components_annual.&nbsp;Components&nbsp;in&nbsp;the<br>
+first&nbsp;list&nbsp;are&nbsp;indexed&nbsp;by&nbsp;timepoint&nbsp;and&nbsp;components&nbsp;in&nbsp;the&nbsp;second&nbsp;are<br>
+indexed&nbsp;by&nbsp;period.<br>
+&nbsp;<br>
+Minimize_System_Cost&nbsp;is&nbsp;the&nbsp;objective&nbsp;function&nbsp;that&nbsp;seeks&nbsp;to&nbsp;minimize<br>
+TotalSystemCost.</tt></dd></dl>
+ <dl><dt><a name="-future_to_present_value"><strong>future_to_present_value</strong></a>(dr, t)</dt><dd><tt>Returns&nbsp;a&nbsp;coefficient&nbsp;to&nbsp;convert&nbsp;money&nbsp;from&nbsp;some&nbsp;future&nbsp;value&nbsp;to<br>
+t-years&nbsp;previously,&nbsp;with&nbsp;an&nbsp;annual&nbsp;discount&nbsp;rate&nbsp;of&nbsp;dr.<br>
+Example:<br>
+&gt;&gt;&gt;&nbsp;round(<a href="#-future_to_present_value">future_to_present_value</a>(.07,10),7)<br>
+0.5083493</tt></dd></dl>
+ <dl><dt><a name="-load_inputs"><strong>load_inputs</strong></a>(mod, switch_data, inputs_dir)</dt><dd><tt>Import&nbsp;base&nbsp;financial&nbsp;data&nbsp;from&nbsp;a&nbsp;.dat&nbsp;file.&nbsp;The&nbsp;inputs_dir&nbsp;should<br>
+contain&nbsp;the&nbsp;file&nbsp;financials.dat&nbsp;that&nbsp;gives&nbsp;parameter&nbsp;values&nbsp;for<br>
+base_financial_year,&nbsp;interest_rate&nbsp;and&nbsp;optionally&nbsp;discount_rate.<br>
+&nbsp;<br>
+EXAMPLE:<br>
+&gt;&gt;&gt;&nbsp;from&nbsp;switch_mod.utilities&nbsp;import&nbsp;define_AbstractModel<br>
+&gt;&gt;&gt;&nbsp;model&nbsp;=&nbsp;define_AbstractModel('timescales',&nbsp;'financials')<br>
+&gt;&gt;&gt;&nbsp;instance&nbsp;=&nbsp;model.<a href="#-load_inputs">load_inputs</a>(inputs_dir='test_dat')<br>
+&gt;&gt;&gt;&nbsp;instance.bring_timepoint_costs_to_base_year.pprint()<br>
+bring_timepoint_costs_to_base_year&nbsp;:&nbsp;Size=7,&nbsp;Index=TIMEPOINTS,&nbsp;Domain=PositiveReals,&nbsp;Default=None,&nbsp;Mutable=False<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Key&nbsp;:&nbsp;Value<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1&nbsp;:&nbsp;&nbsp;&nbsp;7674.416978<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2&nbsp;:&nbsp;&nbsp;&nbsp;7674.416978<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3&nbsp;:&nbsp;&nbsp;&nbsp;7674.416978<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4&nbsp;:&nbsp;&nbsp;&nbsp;7674.416978<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5&nbsp;:&nbsp;15348.9180021<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6&nbsp;:&nbsp;15348.9180021<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;7&nbsp;:&nbsp;&nbsp;37691.616756</tt></dd></dl>
+ <dl><dt><a name="-present_to_future_value"><strong>present_to_future_value</strong></a>(ir, t)</dt><dd><tt>Returns&nbsp;a&nbsp;coefficient&nbsp;to&nbsp;convert&nbsp;money&nbsp;from&nbsp;one&nbsp;point&nbsp;in&nbsp;time&nbsp;to<br>
+t&nbsp;years&nbsp;in&nbsp;the&nbsp;future,&nbsp;with&nbsp;an&nbsp;annual&nbsp;interest&nbsp;rate&nbsp;of&nbsp;ir.&nbsp;This&nbsp;is<br>
+the&nbsp;inverse&nbsp;of&nbsp;future_to_present_value&nbsp;if&nbsp;calculated&nbsp;with&nbsp;the&nbsp;same<br>
+rate&nbsp;and&nbsp;number&nbsp;of&nbsp;years.<br>
+Example:<br>
+&gt;&gt;&gt;&nbsp;round(<a href="#-present_to_future_value">present_to_future_value</a>(.07,10),7)<br>
+1.9671514<br>
+&gt;&gt;&gt;&nbsp;round(<a href="#-present_to_future_value">present_to_future_value</a>(.07,10)*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#-future_to_present_value">future_to_present_value</a>(.07,10),7)&nbsp;==&nbsp;1<br>
+True</tt></dd></dl>
+ <dl><dt><a name="-uniform_series_to_present_value"><strong>uniform_series_to_present_value</strong></a>(dr, t)</dt><dd><tt>Returns&nbsp;a&nbsp;coefficient&nbsp;to&nbsp;convert&nbsp;a&nbsp;uniform&nbsp;series&nbsp;of&nbsp;payments&nbsp;over&nbsp;t<br>
+periods&nbsp;to&nbsp;a&nbsp;present&nbsp;value&nbsp;in&nbsp;the&nbsp;first&nbsp;period&nbsp;using&nbsp;a&nbsp;discount&nbsp;rate<br>
+of&nbsp;dr.&nbsp;This&nbsp;is&nbsp;mathematically&nbsp;equivalent&nbsp;to&nbsp;&nbsp;the&nbsp;inverse&nbsp;of&nbsp;the<br>
+capital&nbsp;recovery&nbsp;factor,&nbsp;assuming&nbsp;the&nbsp;same&nbsp;rate&nbsp;and&nbsp;number&nbsp;of<br>
+periods&nbsp;is&nbsp;used&nbsp;for&nbsp;both&nbsp;calculations.&nbsp;In&nbsp;practice,&nbsp;you&nbsp;typically<br>
+use&nbsp;an&nbsp;interest&nbsp;rate&nbsp;for&nbsp;a&nbsp;capital&nbsp;recovery&nbsp;factor&nbsp;and&nbsp;a&nbsp;discount<br>
+rate&nbsp;for&nbsp;this.<br>
+Example&nbsp;usage:<br>
+&gt;&gt;&gt;&nbsp;print&nbsp;("Net&nbsp;present&nbsp;value&nbsp;of&nbsp;a&nbsp;$10&nbsp;/&nbsp;yr&nbsp;annuity&nbsp;paid&nbsp;for&nbsp;20&nbsp;years,&nbsp;"&nbsp;+<br>
+...&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"assuming&nbsp;a&nbsp;5&nbsp;percent&nbsp;discount&nbsp;rate&nbsp;is&nbsp;${npv:0.2f}").&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;format(npv=10&nbsp;*&nbsp;<a href="#-uniform_series_to_present_value">uniform_series_to_present_value</a>(.05,20))<br>
+Net&nbsp;present&nbsp;value&nbsp;of&nbsp;a&nbsp;$10&nbsp;/&nbsp;yr&nbsp;annuity&nbsp;paid&nbsp;for&nbsp;20&nbsp;years,&nbsp;assuming&nbsp;a&nbsp;5&nbsp;percent&nbsp;discount&nbsp;rate&nbsp;is&nbsp;$124.62<br>
+&nbsp;<br>
+Test&nbsp;for&nbsp;calculation&nbsp;validity&nbsp;compared&nbsp;to&nbsp;CRF&nbsp;using&nbsp;7&nbsp;decimal&nbsp;points<br>
+&gt;&gt;&gt;&nbsp;round(<a href="#-uniform_series_to_present_value">uniform_series_to_present_value</a>(.07,20),7)&nbsp;==&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;round(1/<a href="#-capital_recovery_factor">capital_recovery_factor</a>(.07,20),7)<br>
+True</tt></dd></dl>
+</td></tr></table><p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#55aa55">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Data</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#55aa55"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><strong>Any</strong> = &lt;Plugin _AnySet 'Any'&gt;<br>
+<strong>AnyWithNone</strong> = &lt;Plugin _AnySetWithNone 'AnyWithNone'&gt;<br>
+<strong>Binary</strong> = &lt;Plugin BooleanSet 'Binary'&gt;<br>
+<strong>Boolean</strong> = &lt;Plugin BooleanSet 'Boolean'&gt;<br>
+<strong>DataManagerFactory</strong> = &lt;pyutilib.misc.method.new object&gt;<br>
+<strong>Integers</strong> = &lt;Plugin IntegerSet 'Integers'&gt;<br>
+<strong>ModelComponentFactory</strong> = &lt;pyutilib.component.core.core.PluginFactoryFunctor object&gt;<br>
+<strong>NegativeIntegers</strong> = &lt;Plugin IntegerSet 'NegativeIntegers'&gt;<br>
+<strong>NegativeReals</strong> = &lt;Plugin RealSet 'NegativeReals'&gt;<br>
+<strong>NonNegativeIntegers</strong> = &lt;Plugin IntegerSet 'NonNegativeIntegers'&gt;<br>
+<strong>NonNegativeReals</strong> = &lt;Plugin RealSet 'NonNegativeReals'&gt;<br>
+<strong>NonPositiveIntegers</strong> = &lt;Plugin IntegerSet 'NonPositiveIntegers'&gt;<br>
+<strong>NonPositiveReals</strong> = &lt;Plugin RealSet 'NonPositiveReals'&gt;<br>
+<strong>ParamRepresentationFactory</strong> = &lt;pyutilib.component.core.core.PluginFactoryFunctor object&gt;<br>
+<strong>PercentFraction</strong> = &lt;Plugin RealSet 'PercentFraction'&gt;<br>
+<strong>PositiveIntegers</strong> = &lt;Plugin IntegerSet 'PositiveIntegers'&gt;<br>
+<strong>PositiveReals</strong> = &lt;Plugin RealSet 'PositiveReals'&gt;<br>
+<strong>Reals</strong> = &lt;Plugin RealSet 'Reals'&gt;<br>
+<strong>SolverFactory</strong> = &lt;pyutilib.misc.method.new object&gt;<br>
+<strong>SolverManagerFactory</strong> = &lt;pyutilib.component.core.core.PluginFactoryFunctor object&gt;<br>
+<strong>TransformationFactory</strong> = &lt;pyutilib.component.core.core.PluginFactoryFunctor object&gt;<br>
+<strong>UnitInterval</strong> = &lt;Plugin RealSet 'PercentFraction'&gt;<br>
+<strong>maximize</strong> = -1<br>
+<strong>minimize</strong> = 1</td></tr></table>
+</body></html>

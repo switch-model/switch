@@ -1,0 +1,276 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html><head><title>Python: module switch_mod.fuel_markets</title>
+<meta charset="utf-8">
+</head><body bgcolor="#f0f0f8">
+
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="heading">
+<tr bgcolor="#7799ee">
+<td valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial">&nbsp;<br><big><big><strong><a href="switch_mod.html"><font color="#ffffff">switch_mod</font></a>.fuel_markets</strong></big></big></font></td
+><td align=right valign=bottom
+><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="file:/Users/josiah/src/switch/switch_mod/fuel_markets.py">/Users/josiah/src/switch/switch_mod/fuel_markets.py</a></font></td></tr></table>
+    <p><tt>Defines&nbsp;model&nbsp;components&nbsp;to&nbsp;describe&nbsp;fuel&nbsp;markets&nbsp;for&nbsp;the&nbsp;SWITCH-Pyomo<br>
+model.<br>
+&nbsp;<br>
+SYNOPSIS<br>
+&gt;&gt;&gt;&nbsp;from&nbsp;switch_mod.utilities&nbsp;import&nbsp;define_AbstractModel<br>
+&gt;&gt;&gt;&nbsp;model&nbsp;=&nbsp;define_AbstractModel(<br>
+...&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'timescales',&nbsp;'load_zones',&nbsp;'financials',&nbsp;'fuels',&nbsp;'gen_tech',<br>
+...&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'project.build',&nbsp;'project.dispatch',&nbsp;'fuel_markets')<br>
+&gt;&gt;&gt;&nbsp;instance&nbsp;=&nbsp;model.<a href="#-load_inputs">load_inputs</a>(inputs_dir='test_dat')</tt></p>
+<p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#aa55cc">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Modules</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#aa55cc"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><table width="100%" summary="list"><tr><td width="25%" valign=top><a href="pyomo.core.base.html">pyomo.core.base</a><br>
+<a href="csv.html">csv</a><br>
+</td><td width="25%" valign=top><a href="pyomo.core.data.html">pyomo.core.data</a><br>
+<a href="os.html">os</a><br>
+</td><td width="25%" valign=top><a href="pyomo.core.preprocess.html">pyomo.core.preprocess</a><br>
+<a href="pyomo.html">pyomo</a><br>
+</td><td width="25%" valign=top></td></tr></table></td></tr></table><p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#eeaa77">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Functions</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#eeaa77"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><dl><dt><a name="-define_components"><strong>define_components</strong></a>(mod)</dt><dd><tt>Augments&nbsp;a&nbsp;Pyomo&nbsp;abstract&nbsp;model&nbsp;object&nbsp;with&nbsp;sets&nbsp;and&nbsp;parameters&nbsp;to<br>
+describe&nbsp;fuel&nbsp;markets.&nbsp;Unless&nbsp;otherwise&nbsp;stated,&nbsp;each&nbsp;set<br>
+and&nbsp;parameter&nbsp;is&nbsp;mandatory.&nbsp;Unless&nbsp;otherwise&nbsp;specified,&nbsp;all&nbsp;dollar<br>
+values&nbsp;are&nbsp;real&nbsp;dollars&nbsp;in&nbsp;BASE_YEAR.<br>
+&nbsp;<br>
+REGIONAL_FUEL_MARKET&nbsp;is&nbsp;the&nbsp;set&nbsp;of&nbsp;all&nbsp;regional&nbsp;fuel&nbsp;markets.&nbsp;This<br>
+may&nbsp;be&nbsp;may&nbsp;be&nbsp;abbreviated&nbsp;as&nbsp;rfm&nbsp;in&nbsp;parameter&nbsp;names&nbsp;and&nbsp;indexes,&nbsp;and<br>
+may&nbsp;occasionally&nbsp;be&nbsp;referred&nbsp;to&nbsp;as&nbsp;a&nbsp;fuel&nbsp;region.&nbsp;In&nbsp;the&nbsp;current<br>
+implementation,&nbsp;the&nbsp;names&nbsp;of&nbsp;each&nbsp;regional&nbsp;fuel&nbsp;market&nbsp;need&nbsp;to&nbsp;be<br>
+distinct&nbsp;for&nbsp;each&nbsp;fuel&nbsp;type.&nbsp;That&nbsp;is,&nbsp;you&nbsp;cannot&nbsp;use&nbsp;"SouthWest"&nbsp;as<br>
+a&nbsp;name&nbsp;for&nbsp;both&nbsp;natural&nbsp;gas&nbsp;and&nbsp;coal&nbsp;fuels.&nbsp;This&nbsp;is&nbsp;because&nbsp;market<br>
+boundaries&nbsp;may&nbsp;be&nbsp;different&nbsp;for&nbsp;different&nbsp;fuel&nbsp;types&nbsp;due&nbsp;to&nbsp;physical<br>
+infrastructure.&nbsp;This&nbsp;implementation&nbsp;detail&nbsp;could&nbsp;be&nbsp;revisited&nbsp;later<br>
+if&nbsp;it&nbsp;proves&nbsp;cumbersome.&nbsp;An&nbsp;alternate&nbsp;implementation&nbsp;could&nbsp;specify<br>
+each&nbsp;regional&nbsp;fuel&nbsp;market&nbsp;as&nbsp;a&nbsp;tuple&nbsp;pair&nbsp;of&nbsp;(region,&nbsp;fuel),&nbsp;but<br>
+this&nbsp;might&nbsp;make&nbsp;indexing&nbsp;parameters&nbsp;in&nbsp;the&nbsp;code&nbsp;more&nbsp;verbose,<br>
+confusing&nbsp;and&nbsp;error&nbsp;prone.<br>
+&nbsp;<br>
+rfm_fuel[rfm]&nbsp;defines&nbsp;the&nbsp;fuel&nbsp;sold&nbsp;in&nbsp;a&nbsp;regional&nbsp;fuel&nbsp;market.<br>
+&nbsp;<br>
+LZ_FUELS&nbsp;is&nbsp;the&nbsp;set&nbsp;of&nbsp;fuels&nbsp;available&nbsp;in&nbsp;load&nbsp;zones.&nbsp;It&nbsp;is&nbsp;specified<br>
+as&nbsp;set&nbsp;of&nbsp;2-member&nbsp;tuples&nbsp;of&nbsp;(load_zone,&nbsp;fuel).<br>
+&nbsp;<br>
+lz_rfm[z,&nbsp;f]&nbsp;is&nbsp;the&nbsp;regional&nbsp;fuel&nbsp;market&nbsp;that&nbsp;supplies&nbsp;a&nbsp;a&nbsp;given&nbsp;load<br>
+zone.&nbsp;Regional&nbsp;fuel&nbsp;markets&nbsp;may&nbsp;be&nbsp;referred&nbsp;to&nbsp;as&nbsp;fuel&nbsp;regions&nbsp;for<br>
+brevity.&nbsp;A&nbsp;regional&nbsp;fuel&nbsp;market&nbsp;could&nbsp;be&nbsp;as&nbsp;small&nbsp;as&nbsp;a&nbsp;single&nbsp;load<br>
+zone&nbsp;or&nbsp;as&nbsp;large&nbsp;as&nbsp;the&nbsp;entire&nbsp;study&nbsp;region.&nbsp;In&nbsp;general,&nbsp;each&nbsp;fuel<br>
+type&nbsp;needs&nbsp;to&nbsp;separately&nbsp;specify&nbsp;its&nbsp;regional&nbsp;fuel&nbsp;market&nbsp;because<br>
+most&nbsp;fuels&nbsp;have&nbsp;distinct&nbsp;transportation&nbsp;infrastructure,&nbsp;and<br>
+bottlenecks&nbsp;in&nbsp;this&nbsp;infrastructure&nbsp;can&nbsp;form&nbsp;the&nbsp;physical&nbsp;divisions<br>
+that&nbsp;define&nbsp;different&nbsp;regional&nbsp;markets.<br>
+&nbsp;<br>
+LZ_RFM&nbsp;is&nbsp;the&nbsp;set&nbsp;of&nbsp;all&nbsp;load-zone&nbsp;regional&nbsp;fuel&nbsp;market&nbsp;combinations.<br>
+It&nbsp;is&nbsp;the&nbsp;input&nbsp;data&nbsp;from&nbsp;which&nbsp;lz_rfm[z,f]&nbsp;is&nbsp;derived.<br>
+&nbsp;<br>
+RFM_LOAD_ZONES[rfm]&nbsp;is&nbsp;an&nbsp;indexed&nbsp;set&nbsp;that&nbsp;lists&nbsp;the&nbsp;load&nbsp;zones<br>
+within&nbsp;each&nbsp;regional&nbsp;fuel&nbsp;market.<br>
+&nbsp;<br>
+RFM_SUPPLY_TIERS&nbsp;is&nbsp;a&nbsp;set&nbsp;of&nbsp;3-part&nbsp;tuples&nbsp;that&nbsp;stores:<br>
+regional_fuel_market,&nbsp;period,&nbsp;supply_tier<br>
+&nbsp;<br>
+RFM_P_SUPPLY_TIERS[rfm,&nbsp;period]&nbsp;is&nbsp;an&nbsp;indexed&nbsp;set&nbsp;of&nbsp;supply&nbsp;tiers<br>
+for&nbsp;a&nbsp;given&nbsp;regional&nbsp;fuel&nbsp;market&nbsp;and&nbsp;period.&nbsp;Supply&nbsp;tiers&nbsp;are&nbsp;an<br>
+ordered&nbsp;set&nbsp;typically&nbsp;labeled&nbsp;1&nbsp;to&nbsp;n.&nbsp;Each&nbsp;tier&nbsp;of&nbsp;a&nbsp;supply&nbsp;curve<br>
+have&nbsp;a&nbsp;cost&nbsp;and&nbsp;limit.<br>
+&nbsp;<br>
+rfm_supply_tier_cost[rfm,&nbsp;period,&nbsp;tier]&nbsp;is&nbsp;the&nbsp;cost&nbsp;of&nbsp;a&nbsp;fuel&nbsp;in&nbsp;a<br>
+particular&nbsp;tier&nbsp;of&nbsp;a&nbsp;supply&nbsp;curve&nbsp;of&nbsp;a&nbsp;particular&nbsp;regional&nbsp;fuel<br>
+market&nbsp;and&nbsp;investment&nbsp;period.&nbsp;The&nbsp;units&nbsp;are&nbsp;$&nbsp;/&nbsp;MMBTU.<br>
+&nbsp;<br>
+rfm_supply_tier_limit[rfm,&nbsp;period,&nbsp;tier]&nbsp;is&nbsp;the&nbsp;annual&nbsp;limit&nbsp;of&nbsp;a<br>
+fuel&nbsp;available&nbsp;at&nbsp;a&nbsp;particular&nbsp;cost&nbsp;in&nbsp;a&nbsp;supply&nbsp;curve&nbsp;of&nbsp;a<br>
+particular&nbsp;regional&nbsp;fuel&nbsp;market&nbsp;and&nbsp;period.&nbsp;The&nbsp;default&nbsp;value&nbsp;of<br>
+this&nbsp;parameter&nbsp;is&nbsp;infinity,&nbsp;indicating&nbsp;no&nbsp;limit.&nbsp;The&nbsp;units&nbsp;are&nbsp;MMBTU.<br>
+&nbsp;<br>
+FuelConsumptionByTier[rfm,&nbsp;period,&nbsp;tier]&nbsp;is&nbsp;a&nbsp;decision&nbsp;variable&nbsp;that<br>
+denotes&nbsp;the&nbsp;amount&nbsp;of&nbsp;fuel&nbsp;consumed&nbsp;in&nbsp;each&nbsp;tier&nbsp;of&nbsp;a&nbsp;supply&nbsp;curve<br>
+in&nbsp;a&nbsp;particular&nbsp;regional&nbsp;fuel&nbsp;market&nbsp;and&nbsp;period.&nbsp;It&nbsp;has&nbsp;an&nbsp;upper&nbsp;bound<br>
+of&nbsp;rfm_supply_tier_limit.<br>
+&nbsp;<br>
+FuelConsumptionInMarket[rfm,&nbsp;period]&nbsp;is&nbsp;a&nbsp;derived&nbsp;decision&nbsp;variable<br>
+specifying&nbsp;the&nbsp;total&nbsp;amount&nbsp;of&nbsp;fuel&nbsp;consumed&nbsp;in&nbsp;a&nbsp;regional&nbsp;fuel<br>
+market&nbsp;in&nbsp;a&nbsp;given&nbsp;period.&nbsp;In&nbsp;a&nbsp;dispatch&nbsp;module,&nbsp;a&nbsp;constraint&nbsp;should<br>
+set&nbsp;this&nbsp;equal&nbsp;to&nbsp;the&nbsp;sum&nbsp;of&nbsp;all&nbsp;fuel&nbsp;consumed&nbsp;in&nbsp;that&nbsp;region.&nbsp;At<br>
+some&nbsp;point&nbsp;in&nbsp;the&nbsp;future,&nbsp;I&nbsp;may&nbsp;convert&nbsp;this&nbsp;from&nbsp;a&nbsp;decision<br>
+variable&nbsp;to&nbsp;an&nbsp;expression.<br>
+&nbsp;<br>
+Enforce_Fuel_Consumption_By_Tier[rfm,&nbsp;period]&nbsp;is&nbsp;a&nbsp;constraint&nbsp;that<br>
+forces&nbsp;the&nbsp;total&nbsp;fuel&nbsp;consumption&nbsp;FuelConsumptionInMarket&nbsp;to&nbsp;be<br>
+divided&nbsp;into&nbsp;distinct&nbsp;supply&nbsp;tiers.<br>
+&nbsp;&nbsp;&nbsp;&nbsp;FuelConsumptionInMarket&nbsp;=&nbsp;sum(FuelConsumptionByTier)<br>
+&nbsp;<br>
+lz_fuel_cost_adder[z,&nbsp;f,&nbsp;p]&nbsp;is&nbsp;an&nbsp;optional&nbsp;parameter&nbsp;that&nbsp;describes<br>
+a&nbsp;localized&nbsp;flat&nbsp;cost&nbsp;adder&nbsp;for&nbsp;fuels.&nbsp;This&nbsp;could&nbsp;reflect&nbsp;local<br>
+markup&nbsp;from&nbsp;a&nbsp;longer&nbsp;supply&nbsp;chain&nbsp;or&nbsp;more&nbsp;costly&nbsp;distribution<br>
+infrastructure.&nbsp;The&nbsp;units&nbsp;are&nbsp;$&nbsp;/&nbsp;MMBTU&nbsp;and&nbsp;the&nbsp;default&nbsp;value&nbsp;is&nbsp;0.<br>
+&nbsp;<br>
+The&nbsp;total&nbsp;cost&nbsp;of&nbsp;of&nbsp;a&nbsp;given&nbsp;type&nbsp;of&nbsp;fuel&nbsp;is&nbsp;calculated&nbsp;as:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;sum(FuelConsumptionByTier&nbsp;*&nbsp;rfm_supply_tier_cost)&nbsp;+<br>
+&nbsp;&nbsp;&nbsp;&nbsp;sum(fuel_consumption_in_load_zone&nbsp;*&nbsp;lz_fuel_cost_adder)<br>
+&nbsp;<br>
+Each&nbsp;regional&nbsp;fuel&nbsp;market&nbsp;has&nbsp;a&nbsp;supply&nbsp;curve&nbsp;with&nbsp;discrete&nbsp;tiers<br>
+of&nbsp;escalating&nbsp;costs.&nbsp;Tiered&nbsp;supply&nbsp;curves&nbsp;are&nbsp;flexible&nbsp;format&nbsp;that<br>
+allows&nbsp;anything&nbsp;from&nbsp;a&nbsp;flat&nbsp;cost&nbsp;in&nbsp;every&nbsp;load&nbsp;zone&nbsp;with&nbsp;no&nbsp;limits<br>
+on&nbsp;consumption,&nbsp;to&nbsp;a&nbsp;detailed&nbsp;supply&nbsp;curve&nbsp;of&nbsp;biomass&nbsp;for&nbsp;each&nbsp;load<br>
+zone.&nbsp;To&nbsp;specify&nbsp;a&nbsp;simple&nbsp;flat&nbsp;cost,&nbsp;you&nbsp;would&nbsp;lump&nbsp;every&nbsp;load&nbsp;zone<br>
+into&nbsp;a&nbsp;single&nbsp;regional&nbsp;fuel&nbsp;markets&nbsp;and&nbsp;specify&nbsp;a&nbsp;single-tier&nbsp;supply<br>
+curve&nbsp;with&nbsp;no&nbsp;upper&nbsp;limit.&nbsp;To&nbsp;specify&nbsp;a&nbsp;detailed&nbsp;biomass&nbsp;supply<br>
+curve,&nbsp;you&nbsp;would&nbsp;assign&nbsp;each&nbsp;load&nbsp;zone&nbsp;to&nbsp;a&nbsp;distinct&nbsp;biomass<br>
+regional&nbsp;fuel&nbsp;market&nbsp;and&nbsp;specify&nbsp;multiple&nbsp;tiers&nbsp;in&nbsp;each&nbsp;market,<br>
+where&nbsp;each&nbsp;tier&nbsp;has&nbsp;an&nbsp;upper&nbsp;bound.<br>
+&nbsp;<br>
+There&nbsp;is&nbsp;a&nbsp;simple&nbsp;data&nbsp;input&nbsp;format&nbsp;for&nbsp;situations&nbsp;where&nbsp;regional<br>
+supply&nbsp;curves&nbsp;are&nbsp;unnecessary&nbsp;or&nbsp;undesired.&nbsp;This&nbsp;format&nbsp;specifies&nbsp;a<br>
+flat&nbsp;cost&nbsp;for&nbsp;a&nbsp;load&nbsp;zones,&nbsp;fuel&nbsp;and&nbsp;period&nbsp;combination.&nbsp;The&nbsp;import<br>
+code&nbsp;will&nbsp;expand&nbsp;this&nbsp;into&nbsp;a&nbsp;regional&nbsp;fuel&nbsp;market&nbsp;containing&nbsp;a<br>
+single&nbsp;load&nbsp;zone&nbsp;with&nbsp;a&nbsp;single&nbsp;supply&nbsp;tier&nbsp;that&nbsp;has&nbsp;no&nbsp;upper&nbsp;bound.<br>
+See&nbsp;<a href="#-load_inputs">load_inputs</a>()&nbsp;function&nbsp;documentation&nbsp;below&nbsp;for&nbsp;more&nbsp;details.<br>
+&nbsp;<br>
+In&nbsp;SWITCH-WECC,&nbsp;biomass&nbsp;regional&nbsp;fuel&nbsp;markets&nbsp;are&nbsp;defined&nbsp;for&nbsp;each<br>
+load&nbsp;area&nbsp;due&nbsp;to&nbsp;relatively&nbsp;high&nbsp;transportation&nbsp;costs,&nbsp;while&nbsp;natural<br>
+gas&nbsp;regional&nbsp;fuel&nbsp;markets&nbsp;span&nbsp;the&nbsp;entire&nbsp;WECC&nbsp;region&nbsp;reflecting&nbsp;the<br>
+interconnectedness&nbsp;of&nbsp;the&nbsp;pipelines.&nbsp;Prices&nbsp;can&nbsp;differ&nbsp;between&nbsp;load<br>
+zones&nbsp;within&nbsp;the&nbsp;region&nbsp;based&nbsp;on&nbsp;different&nbsp;costs&nbsp;of&nbsp;infrastructure<br>
+or&nbsp;number&nbsp;of&nbsp;middlemen&nbsp;in&nbsp;the&nbsp;supply&nbsp;chain,&nbsp;but&nbsp;all&nbsp;costs&nbsp;are&nbsp;based<br>
+on&nbsp;an&nbsp;underlying&nbsp;commodity&nbsp;supply&nbsp;curve.&nbsp;Load-zone&nbsp;level&nbsp;price<br>
+adjustments&nbsp;are&nbsp;specified&nbsp;with&nbsp;the&nbsp;lz_fuel_cost_adder&nbsp;parameter,<br>
+based&nbsp;on&nbsp;fuel&nbsp;regions&nbsp;used&nbsp;by&nbsp;the&nbsp;National&nbsp;Energy&nbsp;Modeling&nbsp;System.<br>
+&nbsp;<br>
+For&nbsp;tiers&nbsp;of&nbsp;a&nbsp;supply&nbsp;curve&nbsp;with&nbsp;upper&nbsp;limits,&nbsp;the&nbsp;total&nbsp;volume&nbsp;on<br>
+the&nbsp;supply&nbsp;curve&nbsp;is&nbsp;determined&nbsp;by&nbsp;aggregating&nbsp;annual&nbsp;consumption<br>
+over&nbsp;all&nbsp;load&nbsp;zones&nbsp;in&nbsp;the&nbsp;regional&nbsp;fuel&nbsp;market.&nbsp;The&nbsp;model&nbsp;could&nbsp;be<br>
+adjusted&nbsp;to&nbsp;aggregate&nbsp;consumption&nbsp;over&nbsp;other&nbsp;time&nbsp;scales,&nbsp;but<br>
+currently&nbsp;only&nbsp;annual&nbsp;aggregation&nbsp;is&nbsp;implemented&nbsp;for&nbsp;supply&nbsp;curves.<br>
+This&nbsp;version&nbsp;of&nbsp;SWITCH&nbsp;does&nbsp;not&nbsp;distinguish&nbsp;costs&nbsp;incurred&nbsp;by<br>
+different&nbsp;fuel&nbsp;consumers&nbsp;within&nbsp;a&nbsp;regional&nbsp;fuel&nbsp;market.<br>
+&nbsp;<br>
+This&nbsp;version&nbsp;of&nbsp;SWITCH&nbsp;does&nbsp;not&nbsp;include&nbsp;producer&nbsp;surplus,&nbsp;so&nbsp;the<br>
+aggregate&nbsp;cost&nbsp;paid&nbsp;for&nbsp;a&nbsp;given&nbsp;level&nbsp;of&nbsp;consumption&nbsp;does&nbsp;not<br>
+reflect&nbsp;a&nbsp;market&nbsp;clearing&nbsp;price.&nbsp;SWITCH&nbsp;looks&nbsp;for&nbsp;societally&nbsp;and<br>
+technically&nbsp;optimal&nbsp;solutions&nbsp;on&nbsp;the&nbsp;efficiency&nbsp;frontier&nbsp;that<br>
+minimizes&nbsp;total&nbsp;costs,&nbsp;while&nbsp;trying&nbsp;to&nbsp;avoid&nbsp;embedding&nbsp;assumptions<br>
+about&nbsp;market&nbsp;structure&nbsp;and&nbsp;dynamics.&nbsp;There&nbsp;are&nbsp;two&nbsp;primary<br>
+motivations&nbsp;for&nbsp;this&nbsp;approach.&nbsp;First,&nbsp;many&nbsp;applications&nbsp;of&nbsp;SWITCH<br>
+are&nbsp;for&nbsp;non-markets&nbsp;contexts&nbsp;of&nbsp;regulated&nbsp;utilities&nbsp;or&nbsp;state-owned<br>
+utilities.&nbsp;Second,&nbsp;we&nbsp;don't&nbsp;currently&nbsp;know&nbsp;how&nbsp;electricity&nbsp;markets<br>
+should&nbsp;be&nbsp;structured&nbsp;in&nbsp;high-renewable&nbsp;futures&nbsp;to&nbsp;incentivize<br>
+investments&nbsp;that&nbsp;meet&nbsp;long-term&nbsp;societal&nbsp;goals&nbsp;and&nbsp;ensure&nbsp;cost-<br>
+effective&nbsp;and&nbsp;reliable&nbsp;electricity.&nbsp;In&nbsp;the&nbsp;future&nbsp;it&nbsp;is&nbsp;quite<br>
+possible&nbsp;that&nbsp;a&nbsp;large&nbsp;volume&nbsp;of&nbsp;energy&nbsp;consumption&nbsp;will&nbsp;be&nbsp;procured<br>
+with&nbsp;favorable&nbsp;long-term&nbsp;contracts&nbsp;near&nbsp;cost&nbsp;rather&nbsp;than&nbsp;on&nbsp;a&nbsp;spot<br>
+market&nbsp;that&nbsp;sets&nbsp;a&nbsp;clearing&nbsp;price&nbsp;equal&nbsp;to&nbsp;the&nbsp;largest&nbsp;accepted&nbsp;bid,<br>
+which&nbsp;can&nbsp;awarding&nbsp;significant&nbsp;producer&nbsp;surplus.&nbsp;Alternatively,&nbsp;if<br>
+consumers&nbsp;choose&nbsp;what&nbsp;infrastructure&nbsp;they&nbsp;want&nbsp;access&nbsp;to,&nbsp;they&nbsp;may<br>
+seek&nbsp;long-term&nbsp;capacity&nbsp;contracts&nbsp;that&nbsp;incentivize&nbsp;investment&nbsp;and<br>
+guarantee&nbsp;receipts&nbsp;for&nbsp;capital&nbsp;repayments&nbsp;and&nbsp;fixed&nbsp;costs.&nbsp;I&nbsp;don't<br>
+know&nbsp;what&nbsp;the&nbsp;future&nbsp;of&nbsp;energy&nbsp;institutions&nbsp;or&nbsp;markets&nbsp;will&nbsp;hold,<br>
+and&nbsp;I&nbsp;don't&nbsp;want&nbsp;to&nbsp;limit&nbsp;the&nbsp;technical&nbsp;possibilities&nbsp;with&nbsp;market<br>
+structures&nbsp;from&nbsp;the&nbsp;past.&nbsp;One&nbsp;of&nbsp;our&nbsp;hopes&nbsp;is&nbsp;results&nbsp;from<br>
+optimization&nbsp;models&nbsp;such&nbsp;as&nbsp;&nbsp;SWITCH&nbsp;can&nbsp;inform&nbsp;future&nbsp;market&nbsp;and<br>
+institutional&nbsp;restructuring&nbsp;to&nbsp;ensure&nbsp;that&nbsp;our&nbsp;societal&nbsp;goals&nbsp;are<br>
+achieved&nbsp;cost-effectively.<br>
+&nbsp;<br>
+That&nbsp;being&nbsp;said,&nbsp;if&nbsp;a&nbsp;future&nbsp;researcher&nbsp;wished&nbsp;to&nbsp;include&nbsp;producer<br>
+surplus&nbsp;to&nbsp;model&nbsp;a&nbsp;different&nbsp;perspective,&nbsp;that&nbsp;would&nbsp;be&nbsp;relatively<br>
+straightforward&nbsp;to&nbsp;accomplish.&nbsp;The&nbsp;basic&nbsp;method&nbsp;is&nbsp;to&nbsp;order&nbsp;each<br>
+segment&nbsp;of&nbsp;the&nbsp;supply&nbsp;curve&nbsp;by&nbsp;price,&nbsp;then&nbsp;going&nbsp;from&nbsp;low&nbsp;to&nbsp;high,<br>
+increase&nbsp;the&nbsp;cost&nbsp;of&nbsp;each&nbsp;tier&nbsp;to&nbsp;reflect&nbsp;the&nbsp;producer&nbsp;surplus<br>
+incurred&nbsp;from&nbsp;moving&nbsp;up&nbsp;from&nbsp;the&nbsp;next&nbsp;cheapest&nbsp;tier.<br>
+&nbsp;<br>
+Currently&nbsp;the&nbsp;model&nbsp;only&nbsp;supports&nbsp;supply&nbsp;curves&nbsp;with&nbsp;monotonically<br>
+increasing&nbsp;costs.&nbsp;In&nbsp;theory&nbsp;it&nbsp;would&nbsp;be&nbsp;possible&nbsp;to&nbsp;support&nbsp;supply<br>
+curves&nbsp;showing&nbsp;economies&nbsp;of&nbsp;scale&nbsp;with&nbsp;costs&nbsp;falling&nbsp;with&nbsp;higher<br>
+volumes,&nbsp;but&nbsp;this&nbsp;is&nbsp;not&nbsp;currently&nbsp;supported.&nbsp;Implementing&nbsp;arbitrary<br>
+supply&nbsp;curves&nbsp;would&nbsp;require&nbsp;introducing&nbsp;integer&nbsp;variables&nbsp;and<br>
+potentially&nbsp;exposing&nbsp;non-linearities.&nbsp;Also,&nbsp;most&nbsp;scenarios&nbsp;generally<br>
+show&nbsp;fuel&nbsp;consumption&nbsp;declining&nbsp;over&nbsp;time&nbsp;as&nbsp;the&nbsp;power&nbsp;sector&nbsp;is<br>
+decarbonized,&nbsp;while&nbsp;the&nbsp;optimization&nbsp;becomes&nbsp;insensitive&nbsp;to&nbsp;the<br>
+direct&nbsp;cost&nbsp;of&nbsp;carbon-based&nbsp;fuel&nbsp;because&nbsp;the&nbsp;emissions&nbsp;associated<br>
+with&nbsp;the&nbsp;fuel&nbsp;are&nbsp;a&nbsp;much&nbsp;larger&nbsp;driver&nbsp;of&nbsp;consumption&nbsp;than&nbsp;the&nbsp;fuel<br>
+costs.<br>
+&nbsp;<br>
+RFM_DISPATCH_POINTS[regional_fuel_market,&nbsp;period]&nbsp;is&nbsp;an&nbsp;indexed&nbsp;set<br>
+of&nbsp;PROJ_FUEL_DISPATCH_POINTS&nbsp;that&nbsp;contribute&nbsp;to&nbsp;a&nbsp;given&nbsp;regional<br>
+fuel&nbsp;market's&nbsp;activity&nbsp;in&nbsp;a&nbsp;given&nbsp;period.<br>
+&nbsp;<br>
+Enforce_Fuel_Consumption&nbsp;is&nbsp;a&nbsp;constraint&nbsp;that&nbsp;ties&nbsp;the&nbsp;aggregate<br>
+fuel&nbsp;consumption&nbsp;from&nbsp;dispatch&nbsp;into&nbsp;FuelConsumptionInMarket&nbsp;variable<br>
+from&nbsp;the&nbsp;fuel&nbsp;module.<br>
+&nbsp;<br>
+AverageFuelCosts[regional_fuel_market,&nbsp;period]&nbsp;is&nbsp;an&nbsp;expression&nbsp;that<br>
+calculates&nbsp;the&nbsp;average&nbsp;cost&nbsp;paid&nbsp;for&nbsp;fuel&nbsp;in&nbsp;each&nbsp;market&nbsp;and&nbsp;period.<br>
+This&nbsp;can&nbsp;be&nbsp;useful&nbsp;for&nbsp;post-optimization&nbsp;calculations&nbsp;of&nbsp;costs.&nbsp;Do<br>
+not&nbsp;use&nbsp;this&nbsp;term&nbsp;in&nbsp;the&nbsp;optimization&nbsp;or&nbsp;else&nbsp;the&nbsp;problem&nbsp;will<br>
+become&nbsp;non-linear.</tt></dd></dl>
+ <dl><dt><a name="-load_inputs"><strong>load_inputs</strong></a>(mod, switch_data, inputs_dir)</dt><dd><tt>Import&nbsp;fuel&nbsp;market&nbsp;data.&nbsp;The&nbsp;following&nbsp;files&nbsp;are&nbsp;expected&nbsp;in&nbsp;the<br>
+input&nbsp;directory:<br>
+&nbsp;<br>
+regional_fuel_markets.tab:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;regional_fuel_market,&nbsp;fuel<br>
+&nbsp;<br>
+fuel_supply_curves.tab<br>
+&nbsp;&nbsp;&nbsp;&nbsp;regional_fuel_market,&nbsp;period,&nbsp;tier,&nbsp;unit_cost,&nbsp;max_avail_at_cost<br>
+&nbsp;<br>
+lz_to_regional_fuel_market.tab<br>
+&nbsp;&nbsp;&nbsp;&nbsp;load_zone,&nbsp;regional_fuel_market<br>
+&nbsp;<br>
+The&nbsp;next&nbsp;file&nbsp;is&nbsp;optional.&nbsp;If&nbsp;unspecified,&nbsp;lz_fuel_cost_adder&nbsp;will<br>
+default&nbsp;to&nbsp;0&nbsp;for&nbsp;all&nbsp;load&nbsp;zones&nbsp;and&nbsp;periods.<br>
+&nbsp;<br>
+lz_fuel_cost_diff.tab<br>
+&nbsp;&nbsp;&nbsp;&nbsp;load_zone,&nbsp;fuel,&nbsp;period,&nbsp;fuel_cost_adder<br>
+&nbsp;<br>
+The&nbsp;next&nbsp;file&nbsp;is&nbsp;also&nbsp;optional.&nbsp;This&nbsp;file&nbsp;allows&nbsp;simple<br>
+specification&nbsp;of&nbsp;one&nbsp;cost&nbsp;per&nbsp;load&nbsp;zone&nbsp;per&nbsp;period.&nbsp;The&nbsp;extra&nbsp;layer<br>
+of&nbsp;regional&nbsp;fuel&nbsp;markets&nbsp;could&nbsp;be&nbsp;cumbersome&nbsp;for&nbsp;folks&nbsp;working&nbsp;on<br>
+simple&nbsp;models.&nbsp;Internally,&nbsp;the&nbsp;import&nbsp;process&nbsp;converts&nbsp;the&nbsp;simple<br>
+cost&nbsp;specifications&nbsp;to&nbsp;a&nbsp;regional&nbsp;fuel&nbsp;market&nbsp;structure.&nbsp;Import&nbsp;of<br>
+this&nbsp;&nbsp;file&nbsp;is&nbsp;accomplished&nbsp;through&nbsp;the&nbsp;internal<br>
+_load_simple_cost_data&nbsp;function.<br>
+&nbsp;<br>
+fuel_cost.tab<br>
+&nbsp;&nbsp;&nbsp;&nbsp;load_zone,&nbsp;fuel,&nbsp;period,&nbsp;fuel_cost</tt></dd></dl>
+</td></tr></table><p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#55aa55">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Data</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#55aa55"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><strong>Any</strong> = &lt;Plugin _AnySet 'Any'&gt;<br>
+<strong>AnyWithNone</strong> = &lt;Plugin _AnySetWithNone 'AnyWithNone'&gt;<br>
+<strong>Binary</strong> = &lt;Plugin BooleanSet 'Binary'&gt;<br>
+<strong>Boolean</strong> = &lt;Plugin BooleanSet 'Boolean'&gt;<br>
+<strong>DataManagerFactory</strong> = &lt;pyutilib.misc.method.new object&gt;<br>
+<strong>Integers</strong> = &lt;Plugin IntegerSet 'Integers'&gt;<br>
+<strong>ModelComponentFactory</strong> = &lt;pyutilib.component.core.core.PluginFactoryFunctor object&gt;<br>
+<strong>NegativeIntegers</strong> = &lt;Plugin IntegerSet 'NegativeIntegers'&gt;<br>
+<strong>NegativeReals</strong> = &lt;Plugin RealSet 'NegativeReals'&gt;<br>
+<strong>NonNegativeIntegers</strong> = &lt;Plugin IntegerSet 'NonNegativeIntegers'&gt;<br>
+<strong>NonNegativeReals</strong> = &lt;Plugin RealSet 'NonNegativeReals'&gt;<br>
+<strong>NonPositiveIntegers</strong> = &lt;Plugin IntegerSet 'NonPositiveIntegers'&gt;<br>
+<strong>NonPositiveReals</strong> = &lt;Plugin RealSet 'NonPositiveReals'&gt;<br>
+<strong>ParamRepresentationFactory</strong> = &lt;pyutilib.component.core.core.PluginFactoryFunctor object&gt;<br>
+<strong>PercentFraction</strong> = &lt;Plugin RealSet 'PercentFraction'&gt;<br>
+<strong>PositiveIntegers</strong> = &lt;Plugin IntegerSet 'PositiveIntegers'&gt;<br>
+<strong>PositiveReals</strong> = &lt;Plugin RealSet 'PositiveReals'&gt;<br>
+<strong>Reals</strong> = &lt;Plugin RealSet 'Reals'&gt;<br>
+<strong>SolverFactory</strong> = &lt;pyutilib.misc.method.new object&gt;<br>
+<strong>SolverManagerFactory</strong> = &lt;pyutilib.component.core.core.PluginFactoryFunctor object&gt;<br>
+<strong>TransformationFactory</strong> = &lt;pyutilib.component.core.core.PluginFactoryFunctor object&gt;<br>
+<strong>UnitInterval</strong> = &lt;Plugin RealSet 'PercentFraction'&gt;<br>
+<strong>maximize</strong> = -1<br>
+<strong>minimize</strong> = 1</td></tr></table>
+</body></html>

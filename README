@@ -1,16 +1,20 @@
-This contains the SWITCH electricity planning model written in Pyomo. 
+This contains the Switch electricity planning model written in Pyomo.
+This optimization model is modular and can be used with varying levels
+of complexity. Look in the examples directory for demonstrations of
+using Switch for investment planning or production cost simulation. The
+examples enable varying levels of model complexity by choosing which
+modules to include.
 
-To use it, either install this to a standard location or set the
-environment variable PYTHONPATH to include this directory. The latter
-option is probably more useful for developers. On mac or linux systems,
-you can do this by adding the following line to your loging script
-~/.profile and updating it to the actual path to your switch_py
-directory. This won't work if you use a relative path to specify your
-home directory. For example, "~/src/switch_py" will not work, but
-"/home/username/src/switch_py" will work.
+See INSTALL for installation instructions.
 
-export PYTHONPATH="${PYTHONPATH}:/absolute/path/to/switch_py"
+The doc folder contains auto-generated documentation from the python doc
+strings. This should include descriptions of each module, their
+intentions, model compoents they define, and what input files they
+expect. To refresh the documentation, go to the folder and run
+./make_doc.sh This documentation is not well-formatted or pretty, but it
+will do until we migrate to Sphinx and invest more effort into writing
+higher-level documentation and tutorials.
 
-To run the tests, do:
+To test the entire codebase, run this command from the root directory:
 
 ./run_tests.py

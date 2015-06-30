@@ -1,0 +1,196 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html><head><title>Python: module switch_mod.project.unitcommit.fuel_use</title>
+<meta charset="utf-8">
+</head><body bgcolor="#f0f0f8">
+
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="heading">
+<tr bgcolor="#7799ee">
+<td valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial">&nbsp;<br><big><big><strong><a href="switch_mod.html"><font color="#ffffff">switch_mod</font></a>.<a href="switch_mod.project.html"><font color="#ffffff">project</font></a>.<a href="switch_mod.project.unitcommit.html"><font color="#ffffff">unitcommit</font></a>.fuel_use</strong></big></big></font></td
+><td align=right valign=bottom
+><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="file:/Users/josiah/src/switch/switch_mod/project/unitcommit/fuel_use.py">/Users/josiah/src/switch/switch_mod/project/unitcommit/fuel_use.py</a></font></td></tr></table>
+    <p><tt>This&nbsp;module&nbsp;describes&nbsp;fuel&nbsp;use&nbsp;with&nbsp;considerations&nbsp;of&nbsp;unit&nbsp;commitment<br>
+and&nbsp;incremental&nbsp;heat&nbsp;rates&nbsp;using&nbsp;piecewise&nbsp;linear&nbsp;expressions.&nbsp;If&nbsp;you<br>
+want&nbsp;to&nbsp;use&nbsp;this&nbsp;module&nbsp;directly&nbsp;in&nbsp;a&nbsp;list&nbsp;of&nbsp;switch&nbsp;modules&nbsp;(instead&nbsp;of<br>
+including&nbsp;the&nbsp;package&nbsp;project.unitcommit),&nbsp;you&nbsp;will&nbsp;also&nbsp;need&nbsp;to&nbsp;include<br>
+the&nbsp;module&nbsp;project.unitcommit.commit<br>
+&nbsp;<br>
+If&nbsp;you&nbsp;haven't&nbsp;worked&nbsp;with&nbsp;incremental&nbsp;heat&nbsp;rates&nbsp;before,&nbsp;you&nbsp;may&nbsp;want<br>
+to&nbsp;start&nbsp;by&nbsp;reading&nbsp;a&nbsp;background&nbsp;document&nbsp;on&nbsp;incremental&nbsp;heat&nbsp;rates&nbsp;such<br>
+as:&nbsp;<a href="http://www.energy.ca.gov/papers/98-04-07_HEATRATE.PDF">http://www.energy.ca.gov/papers/98-04-07_HEATRATE.PDF</a><br>
+&nbsp;<br>
+Incremental&nbsp;heat&nbsp;rates&nbsp;are&nbsp;a&nbsp;way&nbsp;of&nbsp;approximating&nbsp;an&nbsp;"input-output<br>
+curve"&nbsp;(heat&nbsp;input&nbsp;vs&nbsp;electricity&nbsp;output)&nbsp;with&nbsp;a&nbsp;series&nbsp;of&nbsp;line<br>
+segments.&nbsp;These&nbsp;curves&nbsp;are&nbsp;typically&nbsp;drawn&nbsp;with&nbsp;electricity&nbsp;output&nbsp;on<br>
+the&nbsp;x-axis&nbsp;(Power,&nbsp;MW)&nbsp;and&nbsp;fuel&nbsp;use&nbsp;rates&nbsp;on&nbsp;the&nbsp;y-axis&nbsp;(MMBTU/h).&nbsp;These<br>
+curves&nbsp;are&nbsp;drawn&nbsp;from&nbsp;the&nbsp;minimum&nbsp;to&nbsp;maximum&nbsp;power&nbsp;output&nbsp;levels&nbsp;for&nbsp;a<br>
+given&nbsp;generator,&nbsp;and&nbsp;most&nbsp;generators&nbsp;cannot&nbsp;run&nbsp;at&nbsp;0&nbsp;output.&nbsp;The&nbsp;slope<br>
+of&nbsp;each&nbsp;line&nbsp;segment&nbsp;is&nbsp;the&nbsp;incremental&nbsp;heat&nbsp;rate&nbsp;at&nbsp;that&nbsp;point&nbsp;in&nbsp;units<br>
+of&nbsp;MMBTU/MWh.<br>
+&nbsp;<br>
+Data&nbsp;for&nbsp;incremental&nbsp;heat&nbsp;rates&nbsp;is&nbsp;typically&nbsp;formatted&nbsp;in&nbsp;a&nbsp;heterogenous<br>
+manner.&nbsp;The&nbsp;first&nbsp;data&nbsp;point&nbsp;is&nbsp;the&nbsp;first&nbsp;point&nbsp;on&nbsp;the&nbsp;curve&nbsp;-&nbsp;the<br>
+minimum&nbsp;loading&nbsp;level&nbsp;(MW)&nbsp;and&nbsp;its&nbsp;corresponding&nbsp;fuel&nbsp;use&nbsp;rate<br>
+(MMBTU/h).&nbsp;Subsequent&nbsp;data&nbsp;points&nbsp;provide&nbsp;subseqent&nbsp;loading&nbsp;levels&nbsp;in&nbsp;MW<br>
+and&nbsp;slopes,&nbsp;or&nbsp;incremental&nbsp;heat&nbsp;rates&nbsp;in&nbsp;MMBTU/MWh.&nbsp;This&nbsp;format&nbsp;was<br>
+designed&nbsp;to&nbsp;make&nbsp;certain&nbsp;economic&nbsp;calculations&nbsp;easy,&nbsp;not&nbsp;to&nbsp;draw&nbsp;input-<br>
+output&nbsp;curves,&nbsp;but&nbsp;you&nbsp;can&nbsp;calculate&nbsp;subsequent&nbsp;points&nbsp;on&nbsp;the&nbsp;curve&nbsp;from<br>
+this&nbsp;information.<br>
+&nbsp;<br>
+Fuel&nbsp;requirements&nbsp;for&nbsp;most&nbsp;generators&nbsp;can&nbsp;be&nbsp;approximated&nbsp;very&nbsp;well&nbsp;with<br>
+simple&nbsp;models&nbsp;of&nbsp;a&nbsp;single&nbsp;line&nbsp;segment,&nbsp;but&nbsp;the&nbsp;gold&nbsp;standard&nbsp;is&nbsp;to&nbsp;use<br>
+several&nbsp;line&nbsp;segments&nbsp;that&nbsp;have&nbsp;increasing&nbsp;slopes.&nbsp;In&nbsp;the&nbsp;future,&nbsp;we&nbsp;may<br>
+include&nbsp;a&nbsp;simpler&nbsp;model&nbsp;that&nbsp;uses&nbsp;a&nbsp;single&nbsp;line&nbsp;segment,&nbsp;but&nbsp;we&nbsp;are&nbsp;just<br>
+implementing&nbsp;the&nbsp;complex&nbsp;piecewise&nbsp;linear&nbsp;form&nbsp;initially&nbsp;to&nbsp;satisfy&nbsp;key<br>
+stakeholders.<br>
+&nbsp;<br>
+There&nbsp;are&nbsp;two&nbsp;basic&nbsp;ways&nbsp;to&nbsp;model&nbsp;a&nbsp;piecewise&nbsp;linear&nbsp;relationship&nbsp;like<br>
+this&nbsp;in&nbsp;linear&nbsp;programming.&nbsp;The&nbsp;first&nbsp;approach&nbsp;(which&nbsp;we&nbsp;don't&nbsp;use&nbsp;in<br>
+this&nbsp;module)&nbsp;is&nbsp;to&nbsp;divide&nbsp;the&nbsp;energy&nbsp;production&nbsp;variable&nbsp;into&nbsp;several<br>
+subvariables&nbsp;(one&nbsp;for&nbsp;each&nbsp;line&nbsp;segment),&nbsp;and&nbsp;put&nbsp;an&nbsp;upper&nbsp;bound&nbsp;on&nbsp;each<br>
+subvariable&nbsp;so&nbsp;that&nbsp;it&nbsp;can't&nbsp;exceed&nbsp;the&nbsp;width&nbsp;of&nbsp;the&nbsp;segment.&nbsp;The&nbsp;total<br>
+energy&nbsp;production&nbsp;is&nbsp;the&nbsp;sum&nbsp;of&nbsp;the&nbsp;sub-variables,&nbsp;and&nbsp;the&nbsp;total&nbsp;fuel<br>
+consumption&nbsp;is:&nbsp;Fuel&nbsp;=&nbsp;line0_intercept&nbsp;+&nbsp;E0*incremental_heat_rate0&nbsp;+<br>
+E1*incremental_heat_rate1&nbsp;+&nbsp;...&nbsp;As&nbsp;long&nbsp;as&nbsp;each&nbsp;incremental_heat_rate&nbsp;is<br>
+larger&nbsp;than&nbsp;the&nbsp;one&nbsp;before&nbsp;it,&nbsp;then&nbsp;the&nbsp;optimization&nbsp;will&nbsp;ensure&nbsp;that&nbsp;E1<br>
+remains&nbsp;at&nbsp;0&nbsp;until&nbsp;E0&nbsp;is&nbsp;at&nbsp;its&nbsp;upper&nbsp;limit,&nbsp;which&nbsp;ensures&nbsp;consistent<br>
+results.&nbsp;This&nbsp;tiered&nbsp;decision&nbsp;method&nbsp;is&nbsp;used&nbsp;in&nbsp;the&nbsp;fuel_markets&nbsp;module,<br>
+but&nbsp;is&nbsp;not&nbsp;used&nbsp;here.<br>
+&nbsp;<br>
+This&nbsp;module&nbsp;uses&nbsp;the&nbsp;second&nbsp;approach&nbsp;which&nbsp;is&nbsp;to&nbsp;make&nbsp;FuelUse&nbsp;into&nbsp;a<br>
+decision&nbsp;variable&nbsp;that&nbsp;must&nbsp;be&nbsp;greater&nbsp;than&nbsp;or&nbsp;equal&nbsp;to&nbsp;each&nbsp;of&nbsp;the<br>
+lines.&nbsp;As&nbsp;long&nbsp;as&nbsp;fuel&nbsp;has&nbsp;a&nbsp;cost&nbsp;associated&nbsp;with&nbsp;it,&nbsp;a&nbsp;cost&nbsp;minimizing<br>
+optimization&nbsp;will&nbsp;push&nbsp;the&nbsp;fuel&nbsp;use&nbsp;down&nbsp;till&nbsp;it&nbsp;touchs&nbsp;a&nbsp;line&nbsp;segments.<br>
+This&nbsp;method&nbsp;also&nbsp;requires&nbsp;that&nbsp;incremental&nbsp;heat&nbsp;rates&nbsp;increase&nbsp;with<br>
+energy&nbsp;production&nbsp;so&nbsp;that&nbsp;the&nbsp;lines&nbsp;collectively&nbsp;form&nbsp;a&nbsp;convex&nbsp;boundary<br>
+for&nbsp;fuel&nbsp;use.<br>
+&nbsp;<br>
+SYNOPSIS<br>
+&gt;&gt;&gt;&nbsp;from&nbsp;switch_mod.utilities&nbsp;import&nbsp;define_AbstractModel<br>
+&gt;&gt;&gt;&nbsp;model&nbsp;=&nbsp;define_AbstractModel(<br>
+...&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'timescales',&nbsp;'financials',&nbsp;'load_zones',&nbsp;'fuels',&nbsp;'gen_tech',<br>
+...&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'project.build',&nbsp;'project.dispatch',&nbsp;'project.unitcommit')<br>
+&gt;&gt;&gt;&nbsp;instance&nbsp;=&nbsp;model.<a href="#-load_inputs">load_inputs</a>(inputs_dir='test_dat')</tt></p>
+<p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#aa55cc">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Modules</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#aa55cc"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><table width="100%" summary="list"><tr><td width="25%" valign=top><a href="pyomo.core.base.html">pyomo.core.base</a><br>
+<a href="csv.html">csv</a><br>
+</td><td width="25%" valign=top><a href="pyomo.core.data.html">pyomo.core.data</a><br>
+<a href="os.html">os</a><br>
+</td><td width="25%" valign=top><a href="pyomo.core.preprocess.html">pyomo.core.preprocess</a><br>
+<a href="pyomo.html">pyomo</a><br>
+</td><td width="25%" valign=top></td></tr></table></td></tr></table><p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#eeaa77">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Functions</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#eeaa77"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><dl><dt><a name="-define_components"><strong>define_components</strong></a>(mod)</dt><dd><tt>This&nbsp;function&nbsp;adds&nbsp;components&nbsp;to&nbsp;a&nbsp;Pyomo&nbsp;abstract&nbsp;model&nbsp;object&nbsp;to<br>
+describe&nbsp;fuel&nbsp;consumption&nbsp;in&nbsp;the&nbsp;context&nbsp;of&nbsp;unit&nbsp;commitment.&nbsp;Unless<br>
+otherwise&nbsp;stated,&nbsp;all&nbsp;power&nbsp;capacity&nbsp;is&nbsp;specified&nbsp;in&nbsp;units&nbsp;of&nbsp;MW&nbsp;and<br>
+all&nbsp;sets&nbsp;and&nbsp;parameters&nbsp;are&nbsp;mandatory.<br>
+&nbsp;<br>
+Typically&nbsp;incremental&nbsp;heat&nbsp;rates&nbsp;tables&nbsp;specify&nbsp;"blocks"&nbsp;where&nbsp;each<br>
+block&nbsp;includes&nbsp;power&nbsp;output&nbsp;in&nbsp;MW&nbsp;and&nbsp;heat&nbsp;requirements&nbsp;in&nbsp;MMBTU/hr<br>
+to&nbsp;move&nbsp;from&nbsp;the&nbsp;prior&nbsp;block&nbsp;to&nbsp;the&nbsp;current&nbsp;block.&nbsp;If&nbsp;you&nbsp;plot&nbsp;these<br>
+points&nbsp;and&nbsp;connect&nbsp;the&nbsp;dots,&nbsp;you&nbsp;have&nbsp;a&nbsp;piecewise&nbsp;linear&nbsp;function<br>
+that&nbsp;goes&nbsp;from&nbsp;at&nbsp;least&nbsp;minimum&nbsp;loading&nbsp;level&nbsp;to&nbsp;maximum&nbsp;loading<br>
+level.&nbsp;Data&nbsp;is&nbsp;read&nbsp;in&nbsp;in&nbsp;that&nbsp;format,&nbsp;then&nbsp;processed&nbsp;to&nbsp;describe<br>
+the&nbsp;individual&nbsp;line&nbsp;segments.<br>
+&nbsp;<br>
+GEN_FUEL_USE_SEGMENTS[g&nbsp;in&nbsp;FUEL_BASED_GEN]&nbsp;is&nbsp;a&nbsp;set&nbsp;of&nbsp;line&nbsp;segments<br>
+that&nbsp;collectively&nbsp;describe&nbsp;fuel&nbsp;requirements&nbsp;for&nbsp;a&nbsp;given&nbsp;generation<br>
+technology.&nbsp;Each&nbsp;element&nbsp;of&nbsp;this&nbsp;set&nbsp;is&nbsp;a&nbsp;tuple&nbsp;of&nbsp;(y-intercept,<br>
+slope)&nbsp;where&nbsp;the&nbsp;y-intercept&nbsp;is&nbsp;in&nbsp;units&nbsp;of&nbsp;MMBTU/(hr&nbsp;*&nbsp;MW-capacity)<br>
+and&nbsp;slope&nbsp;is&nbsp;incremental&nbsp;heat&nbsp;rate&nbsp;in&nbsp;units&nbsp;of&nbsp;MMBTU&nbsp;/&nbsp;MWh-energy.<br>
+We&nbsp;normalize&nbsp;the&nbsp;y-intercept&nbsp;by&nbsp;capacity&nbsp;so&nbsp;that&nbsp;we&nbsp;can&nbsp;scale&nbsp;it&nbsp;to<br>
+arbitrary&nbsp;sizes&nbsp;of&nbsp;generation,&nbsp;or&nbsp;stacks&nbsp;of&nbsp;individual&nbsp;generation<br>
+units.&nbsp;This&nbsp;code&nbsp;can&nbsp;be&nbsp;used&nbsp;in&nbsp;conjunction&nbsp;with&nbsp;discrete&nbsp;unit&nbsp;sizes<br>
+but&nbsp;it&nbsp;not&nbsp;dependent&nbsp;on&nbsp;that.&nbsp;This&nbsp;set&nbsp;is&nbsp;optional.<br>
+&nbsp;<br>
+PROJ_FUEL_USE_SEGMENTS[proj&nbsp;in&nbsp;FUEL_BASED_PROJECTS]&nbsp;is&nbsp;the&nbsp;same&nbsp;as<br>
+GEN_FUEL_USE_SEGMENTS&nbsp;but&nbsp;scoped&nbsp;to&nbsp;projects.&nbsp;This&nbsp;set&nbsp;is&nbsp;optional<br>
+and&nbsp;will&nbsp;default&nbsp;to&nbsp;GEN_FUEL_USE_SEGMENTS&nbsp;if&nbsp;that&nbsp;is&nbsp;available;<br>
+otherwise&nbsp;it&nbsp;will&nbsp;default&nbsp;to&nbsp;an&nbsp;intercept&nbsp;of&nbsp;0&nbsp;and&nbsp;a&nbsp;slope&nbsp;of&nbsp;its<br>
+full&nbsp;load&nbsp;heat&nbsp;rate.</tt></dd></dl>
+ <dl><dt><a name="-load_inputs"><strong>load_inputs</strong></a>(mod, switch_data, inputs_dir)</dt><dd><tt>Import&nbsp;data&nbsp;to&nbsp;support&nbsp;modeling&nbsp;fuel&nbsp;use&nbsp;under&nbsp;partial&nbsp;loading<br>
+conditions&nbsp;with&nbsp;piecewise&nbsp;linear&nbsp;incremental&nbsp;heat&nbsp;rates.<br>
+&nbsp;<br>
+These&nbsp;files&nbsp;are&nbsp;formatted&nbsp;differently&nbsp;than&nbsp;most&nbsp;to&nbsp;match&nbsp;the<br>
+standard&nbsp;format&nbsp;of&nbsp;incremental&nbsp;heat&nbsp;rates.&nbsp;This&nbsp;format&nbsp;is&nbsp;peculiar<br>
+because&nbsp;it&nbsp;formats&nbsp;data&nbsp;records&nbsp;that&nbsp;describes&nbsp;a&nbsp;fuel&nbsp;use&nbsp;curve&nbsp;in<br>
+two&nbsp;disticnt&nbsp;ways.&nbsp;The&nbsp;first&nbsp;record&nbsp;is&nbsp;the&nbsp;first&nbsp;point&nbsp;on&nbsp;the&nbsp;curve,<br>
+but&nbsp;all&nbsp;subsequent&nbsp;records&nbsp;are&nbsp;slopes&nbsp;and&nbsp;x-domain&nbsp;for&nbsp;each&nbsp;line<br>
+segment.&nbsp;For&nbsp;a&nbsp;given&nbsp;generation&nbsp;technology&nbsp;or&nbsp;project,&nbsp;the&nbsp;relevant<br>
+data&nbsp;should&nbsp;be&nbsp;formatted&nbsp;like&nbsp;so:<br>
+&nbsp;<br>
+power_start_mw&nbsp;&nbsp;power_end_mw&nbsp;&nbsp;&nbsp;ihr&nbsp;&nbsp;&nbsp;fuel_use_rate<br>
+min_load&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;value<br>
+min_load&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mid_load1&nbsp;&nbsp;&nbsp;value&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.<br>
+mid_load1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;max_load&nbsp;&nbsp;&nbsp;&nbsp;value&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.<br>
+&nbsp;<br>
+The&nbsp;first&nbsp;row&nbsp;provides&nbsp;the&nbsp;first&nbsp;point&nbsp;on&nbsp;the&nbsp;input/output&nbsp;curve.<br>
+Literal&nbsp;dots&nbsp;should&nbsp;be&nbsp;included&nbsp;to&nbsp;indicate&nbsp;blanks.<br>
+The&nbsp;column&nbsp;fuel_use_rate&nbsp;is&nbsp;in&nbsp;units&nbsp;of&nbsp;MMBTU/h.<br>
+Subsequent&nbsp;rows&nbsp;provide&nbsp;the&nbsp;domain&nbsp;and&nbsp;slope&nbsp;of&nbsp;each&nbsp;line&nbsp;segement.<br>
+The&nbsp;column&nbsp;ihr&nbsp;indicates&nbsp;incremental&nbsp;heat&nbsp;rate&nbsp;in&nbsp;MMBTU/MWh.<br>
+Any&nbsp;number&nbsp;of&nbsp;line&nbsp;segments&nbsp;will&nbsp;be&nbsp;accepted.<br>
+All&nbsp;text&nbsp;should&nbsp;be&nbsp;replaced&nbsp;with&nbsp;actual&nbsp;numerical&nbsp;values.<br>
+&nbsp;<br>
+I&nbsp;chose&nbsp;this&nbsp;format&nbsp;to&nbsp;a)&nbsp;be&nbsp;relatively&nbsp;consistent&nbsp;with&nbsp;standard<br>
+data&nbsp;that&nbsp;is&nbsp;easiest&nbsp;to&nbsp;find,&nbsp;b)&nbsp;make&nbsp;it&nbsp;difficult&nbsp;to&nbsp;misinterpret<br>
+the&nbsp;meaning&nbsp;of&nbsp;the&nbsp;data,&nbsp;and&nbsp;c)&nbsp;allow&nbsp;all&nbsp;of&nbsp;the&nbsp;standard&nbsp;data&nbsp;to&nbsp;be<br>
+included&nbsp;in&nbsp;a&nbsp;single&nbsp;file.<br>
+&nbsp;<br>
+The&nbsp;following&nbsp;files&nbsp;are&nbsp;optional.&nbsp;If&nbsp;no&nbsp;representative&nbsp;data&nbsp;is<br>
+provided&nbsp;for&nbsp;a&nbsp;generation&nbsp;technology,&nbsp;it&nbsp;will&nbsp;default&nbsp;to&nbsp;a&nbsp;single<br>
+line&nbsp;segment&nbsp;with&nbsp;an&nbsp;intercept&nbsp;of&nbsp;0&nbsp;and&nbsp;a&nbsp;slope&nbsp;equal&nbsp;to&nbsp;the&nbsp;full<br>
+load&nbsp;heat&nbsp;rate.&nbsp;If&nbsp;no&nbsp;specific&nbsp;data&nbsp;is&nbsp;provided&nbsp;for&nbsp;a&nbsp;project,&nbsp;it<br>
+will&nbsp;default&nbsp;to&nbsp;its&nbsp;generation&nbsp;technology.<br>
+&nbsp;<br>
+gen_inc_heat_rates.tab<br>
+&nbsp;&nbsp;&nbsp;&nbsp;generation_technology,&nbsp;power_start_mw,&nbsp;power_end_mw,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;incremental_heat_rate_mbtu_per_mwhr,&nbsp;fuel_use_rate_mmbtu_per_h<br>
+&nbsp;<br>
+proj_inc_heat_rates.tab<br>
+&nbsp;&nbsp;&nbsp;&nbsp;project,&nbsp;power_start_mw,&nbsp;power_end_mw,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;incremental_heat_rate_mbtu_per_mwhr,&nbsp;fuel_use_rate_mmbtu_per_h</tt></dd></dl>
+</td></tr></table><p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#55aa55">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Data</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#55aa55"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><strong>Any</strong> = &lt;Plugin _AnySet 'Any'&gt;<br>
+<strong>AnyWithNone</strong> = &lt;Plugin _AnySetWithNone 'AnyWithNone'&gt;<br>
+<strong>Binary</strong> = &lt;Plugin BooleanSet 'Binary'&gt;<br>
+<strong>Boolean</strong> = &lt;Plugin BooleanSet 'Boolean'&gt;<br>
+<strong>DataManagerFactory</strong> = &lt;pyutilib.misc.method.new object&gt;<br>
+<strong>Integers</strong> = &lt;Plugin IntegerSet 'Integers'&gt;<br>
+<strong>ModelComponentFactory</strong> = &lt;pyutilib.component.core.core.PluginFactoryFunctor object&gt;<br>
+<strong>NegativeIntegers</strong> = &lt;Plugin IntegerSet 'NegativeIntegers'&gt;<br>
+<strong>NegativeReals</strong> = &lt;Plugin RealSet 'NegativeReals'&gt;<br>
+<strong>NonNegativeIntegers</strong> = &lt;Plugin IntegerSet 'NonNegativeIntegers'&gt;<br>
+<strong>NonNegativeReals</strong> = &lt;Plugin RealSet 'NonNegativeReals'&gt;<br>
+<strong>NonPositiveIntegers</strong> = &lt;Plugin IntegerSet 'NonPositiveIntegers'&gt;<br>
+<strong>NonPositiveReals</strong> = &lt;Plugin RealSet 'NonPositiveReals'&gt;<br>
+<strong>ParamRepresentationFactory</strong> = &lt;pyutilib.component.core.core.PluginFactoryFunctor object&gt;<br>
+<strong>PercentFraction</strong> = &lt;Plugin RealSet 'PercentFraction'&gt;<br>
+<strong>PositiveIntegers</strong> = &lt;Plugin IntegerSet 'PositiveIntegers'&gt;<br>
+<strong>PositiveReals</strong> = &lt;Plugin RealSet 'PositiveReals'&gt;<br>
+<strong>Reals</strong> = &lt;Plugin RealSet 'Reals'&gt;<br>
+<strong>SolverFactory</strong> = &lt;pyutilib.misc.method.new object&gt;<br>
+<strong>SolverManagerFactory</strong> = &lt;pyutilib.component.core.core.PluginFactoryFunctor object&gt;<br>
+<strong>TransformationFactory</strong> = &lt;pyutilib.component.core.core.PluginFactoryFunctor object&gt;<br>
+<strong>UnitInterval</strong> = &lt;Plugin RealSet 'PercentFraction'&gt;<br>
+<strong>maximize</strong> = -1<br>
+<strong>minimize</strong> = 1</td></tr></table>
+</body></html>

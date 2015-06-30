@@ -1,0 +1,22 @@
+Software prerequisites for this project are:
+
+Python v2.7 
+    We have not tested this on version 3, and do not have immediate plans
+    to do so.
+Pyomo v4.0.9682
+    We have developed on what is the latest release of Pyomo.
+    Earlier versions of Pyomo may be buggy, but later versions may work fine.
+A solver such as Cbc https://projects.coin-or.org/Cbc or cplex.
+    We have not yet been able to get GLPK to work, but have andecdotal
+    reports that Cbc tends to be a significantly faster solver.
+
+To use this model, either install this to a standard python library
+location or set the environment variable PYTHONPATH to include this
+directory. The latter option is probably more useful for developers. On
+mac or linux systems, you can do this by adding the following line to
+your loging script ~/.profile and updating it to the actual path to your
+switch_py directory. This won't work if you use a relative path to
+specify your home directory. For example, "~/src/switch_py" will not
+work, but "/home/username/src/switch_py" will work.
+
+export PYTHONPATH="${PYTHONPATH}:/absolute/path/to/switch_py"

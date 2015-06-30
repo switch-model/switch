@@ -1,0 +1,149 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html><head><title>Python: module switch_mod.load_zones</title>
+<meta charset="utf-8">
+</head><body bgcolor="#f0f0f8">
+
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="heading">
+<tr bgcolor="#7799ee">
+<td valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial">&nbsp;<br><big><big><strong><a href="switch_mod.html"><font color="#ffffff">switch_mod</font></a>.load_zones</strong></big></big></font></td
+><td align=right valign=bottom
+><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="file:/Users/josiah/src/switch/switch_mod/load_zones.py">/Users/josiah/src/switch/switch_mod/load_zones.py</a></font></td></tr></table>
+    <p><tt>Defines&nbsp;load&nbsp;zone&nbsp;parameters&nbsp;for&nbsp;the&nbsp;SWITCH-Pyomo&nbsp;model.<br>
+&nbsp;<br>
+SYNOPSIS<br>
+&gt;&gt;&gt;&nbsp;from&nbsp;switch_mod.utilities&nbsp;import&nbsp;define_AbstractModel<br>
+&gt;&gt;&gt;&nbsp;model&nbsp;=&nbsp;define_AbstractModel('timescales',&nbsp;'load_zones')<br>
+&gt;&gt;&gt;&nbsp;instance&nbsp;=&nbsp;model.<a href="#-load_inputs">load_inputs</a>(inputs_dir='test_dat')</tt></p>
+<p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#aa55cc">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Modules</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#aa55cc"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><table width="100%" summary="list"><tr><td width="25%" valign=top><a href="pyomo.core.base.html">pyomo.core.base</a><br>
+<a href="pyomo.core.data.html">pyomo.core.data</a><br>
+</td><td width="25%" valign=top><a href="os.html">os</a><br>
+<a href="pyomo.core.preprocess.html">pyomo.core.preprocess</a><br>
+</td><td width="25%" valign=top><a href="pyomo.html">pyomo</a><br>
+</td><td width="25%" valign=top></td></tr></table></td></tr></table><p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#eeaa77">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Functions</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#eeaa77"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><dl><dt><a name="-define_components"><strong>define_components</strong></a>(mod)</dt><dd><tt>Augments&nbsp;a&nbsp;Pyomo&nbsp;abstract&nbsp;model&nbsp;object&nbsp;with&nbsp;sets&nbsp;and&nbsp;parameters&nbsp;that<br>
+describe&nbsp;load&nbsp;zones&nbsp;and&nbsp;some&nbsp;related&nbsp;geographic&nbsp;areas.&nbsp;Unless<br>
+otherwise&nbsp;stated,&nbsp;each&nbsp;set&nbsp;and&nbsp;parameter&nbsp;is&nbsp;mandatory.<br>
+&nbsp;<br>
+LOAD_ZONES&nbsp;is&nbsp;the&nbsp;set&nbsp;of&nbsp;load&nbsp;zones.&nbsp;mod&nbsp;uses&nbsp;a&nbsp;zonal<br>
+transport&nbsp;model&nbsp;to&nbsp;describe&nbsp;the&nbsp;power&nbsp;grid.&nbsp;Each&nbsp;zone&nbsp;is&nbsp;effectively<br>
+modeled&nbsp;as&nbsp;a&nbsp;single&nbsp;bus&nbsp;connected&nbsp;to&nbsp;the&nbsp;inter-zonal&nbsp;transmission<br>
+network,&nbsp;and&nbsp;connected&nbsp;to&nbsp;loads&nbsp;via&nbsp;local&nbsp;transmission&nbsp;and<br>
+distribution&nbsp;that&nbsp;incurs&nbsp;efficiency&nbsp;losses&nbsp;and&nbsp;must&nbsp;be&nbsp;upgraded&nbsp;over<br>
+time&nbsp;to&nbsp;always&nbsp;meet&nbsp;peak&nbsp;demand.&nbsp;Load&nbsp;zones&nbsp;are&nbsp;abbreviated&nbsp;as&nbsp;lz&nbsp;in<br>
+parameter&nbsp;names&nbsp;and&nbsp;as&nbsp;z&nbsp;for&nbsp;indexes.<br>
+&nbsp;<br>
+lz_demand_mw[z,t]&nbsp;describes&nbsp;the&nbsp;average&nbsp;power&nbsp;demand&nbsp;in&nbsp;each&nbsp;load<br>
+zone&nbsp;z&nbsp;and&nbsp;timepoint&nbsp;t.&nbsp;This&nbsp;is&nbsp;a&nbsp;non&nbsp;negative&nbsp;value.<br>
+&nbsp;<br>
+lz_demand_mw_as_consumption[z,t]&nbsp;is&nbsp;the&nbsp;same&nbsp;as&nbsp;lz_demand_mw&nbsp;but<br>
+with&nbsp;a&nbsp;negative&nbsp;sign&nbsp;for&nbsp;the&nbsp;benefit&nbsp;of&nbsp;energy&nbsp;balancing&nbsp;equations.<br>
+&nbsp;<br>
+lz_dbid[z]&nbsp;stores&nbsp;an&nbsp;external&nbsp;database&nbsp;id&nbsp;for&nbsp;each&nbsp;load&nbsp;zone.&nbsp;This<br>
+is&nbsp;optional&nbsp;and&nbsp;defaults&nbsp;to&nbsp;the&nbsp;name&nbsp;of&nbsp;the&nbsp;load&nbsp;zone.&nbsp;It&nbsp;will&nbsp;be<br>
+printed&nbsp;out&nbsp;when&nbsp;results&nbsp;are&nbsp;exported.<br>
+&nbsp;<br>
+lz_cost_multipliers[z]&nbsp;is&nbsp;an&nbsp;zone-specific&nbsp;economic&nbsp;multiplier&nbsp;that<br>
+modifies&nbsp;all&nbsp;costs&nbsp;incurred&nbsp;in&nbsp;each&nbsp;load&nbsp;zone.&nbsp;This&nbsp;could&nbsp;reflect<br>
+differential&nbsp;costs&nbsp;of&nbsp;labor,&nbsp;regional&nbsp;inflation,&nbsp;etc.&nbsp;This&nbsp;is&nbsp;an<br>
+optional&nbsp;parameter&nbsp;with&nbsp;a&nbsp;default&nbsp;of&nbsp;1.&nbsp;mod-WECC&nbsp;uses&nbsp;values<br>
+from&nbsp;the&nbsp;Army&nbsp;Corps&nbsp;of&nbsp;Engineers&nbsp;Civil&nbsp;Works&nbsp;Construction&nbsp;Cost&nbsp;Index<br>
+System&nbsp;with&nbsp;values&nbsp;ranging&nbsp;from&nbsp;0.92&nbsp;to&nbsp;1.20.<br>
+&nbsp;<br>
+lz_ccs_distance_km[z]&nbsp;describes&nbsp;the&nbsp;length&nbsp;of&nbsp;a&nbsp;pipeline&nbsp;in<br>
+kilometers&nbsp;that&nbsp;would&nbsp;need&nbsp;to&nbsp;be&nbsp;built&nbsp;to&nbsp;transport&nbsp;CO2&nbsp;from&nbsp;a&nbsp;load<br>
+zones&nbsp;central&nbsp;bus&nbsp;to&nbsp;the&nbsp;nearest&nbsp;viable&nbsp;CCS&nbsp;reservoir.&nbsp;This<br>
+parameter&nbsp;is&nbsp;optional&nbsp;unless&nbsp;Carbon&nbsp;Capture&nbsp;and&nbsp;Sequestration<br>
+technologies&nbsp;is&nbsp;enabled.<br>
+&nbsp;<br>
+DumpPower[load_zone,&nbsp;timepoint]&nbsp;is&nbsp;a&nbsp;decision&nbsp;variable&nbsp;that&nbsp;allows<br>
+overproduction&nbsp;of&nbsp;energy&nbsp;in&nbsp;every&nbsp;load&nbsp;zone&nbsp;and&nbsp;timepoint.<br>
+This&nbsp;may&nbsp;be&nbsp;interpretted&nbsp;either&nbsp;as&nbsp;the&nbsp;aggregate&nbsp;curtailment&nbsp;needed,<br>
+or&nbsp;as&nbsp;a&nbsp;literal&nbsp;dump&nbsp;load.&nbsp;In&nbsp;the&nbsp;language&nbsp;of&nbsp;linear&nbsp;programming,<br>
+this&nbsp;is&nbsp;a&nbsp;"slack&nbsp;variable"&nbsp;for&nbsp;an&nbsp;energy&nbsp;balancing&nbsp;constraint.<br>
+&nbsp;<br>
+LZ_Energy_Balance_components&nbsp;is&nbsp;a&nbsp;list&nbsp;of&nbsp;components&nbsp;that&nbsp;contribute<br>
+to&nbsp;load-zone&nbsp;level&nbsp;energy&nbsp;balance&nbsp;equations.&nbsp;Other&nbsp;modules&nbsp;may&nbsp;add<br>
+elements&nbsp;to&nbsp;this&nbsp;list.&nbsp;The&nbsp;energy_balance&nbsp;module&nbsp;will&nbsp;construct&nbsp;a<br>
+Satisfy_Load&nbsp;constraint&nbsp;using&nbsp;this&nbsp;list.&nbsp;Each&nbsp;component&nbsp;in&nbsp;this&nbsp;list<br>
+needs&nbsp;to&nbsp;be&nbsp;indexed&nbsp;by&nbsp;[load_zone,&nbsp;timepoint].&nbsp;If&nbsp;this&nbsp;indexing&nbsp;is<br>
+not&nbsp;convenient&nbsp;for&nbsp;native&nbsp;model&nbsp;components,&nbsp;I&nbsp;advise&nbsp;writing&nbsp;an<br>
+Expression&nbsp;object&nbsp;indexed&nbsp;by&nbsp;[lz,t]&nbsp;that&nbsp;contains&nbsp;logic&nbsp;to&nbsp;access&nbsp;or<br>
+summarize&nbsp;native&nbsp;model&nbsp;components.<br>
+&nbsp;<br>
+Derived&nbsp;parameters:<br>
+&nbsp;<br>
+lz_total_demand_in_period_mwh[z,p]&nbsp;describes&nbsp;the&nbsp;total&nbsp;energy&nbsp;demand<br>
+of&nbsp;each&nbsp;load&nbsp;zone&nbsp;in&nbsp;each&nbsp;period&nbsp;in&nbsp;Megawatt&nbsp;hours.</tt></dd></dl>
+ <dl><dt><a name="-define_dynamic_components"><strong>define_dynamic_components</strong></a>(mod)</dt><dd><tt>Adds&nbsp;components&nbsp;to&nbsp;a&nbsp;Pyomo&nbsp;abstract&nbsp;model&nbsp;object&nbsp;to&nbsp;enforce&nbsp;the<br>
+first&nbsp;law&nbsp;of&nbsp;thermodynamics&nbsp;at&nbsp;the&nbsp;level&nbsp;of&nbsp;load&nbsp;zone&nbsp;busses.&nbsp;Unless<br>
+otherwise&nbsp;stated,&nbsp;all&nbsp;terms&nbsp;describing&nbsp;power&nbsp;are&nbsp;in&nbsp;units&nbsp;of&nbsp;MW&nbsp;and<br>
+all&nbsp;terms&nbsp;describing&nbsp;energy&nbsp;are&nbsp;in&nbsp;units&nbsp;of&nbsp;MWh.<br>
+&nbsp;<br>
+Energy_Balance[load_zone,&nbsp;timepoint]&nbsp;is&nbsp;a&nbsp;constraint&nbsp;that&nbsp;mandates<br>
+conservation&nbsp;of&nbsp;energy&nbsp;in&nbsp;every&nbsp;load&nbsp;zone&nbsp;and&nbsp;timepoint.&nbsp;This<br>
+constraint&nbsp;sums&nbsp;the&nbsp;model&nbsp;components&nbsp;in&nbsp;the&nbsp;list<br>
+LZ_Energy_Balance_components&nbsp;-&nbsp;each&nbsp;of&nbsp;which&nbsp;is&nbsp;indexed&nbsp;by&nbsp;(lz,&nbsp;t)&nbsp;-<br>
+and&nbsp;ensures&nbsp;they&nbsp;sum&nbsp;to&nbsp;0.&nbsp;By&nbsp;convention,&nbsp;energy&nbsp;production&nbsp;has&nbsp;a<br>
+positive&nbsp;sign&nbsp;and&nbsp;energy&nbsp;consumption&nbsp;has&nbsp;a&nbsp;negative&nbsp;sign.</tt></dd></dl>
+ <dl><dt><a name="-load_inputs"><strong>load_inputs</strong></a>(mod, switch_data, inputs_dir)</dt><dd><tt>Import&nbsp;load&nbsp;zone&nbsp;data.&nbsp;The&nbsp;following&nbsp;tab-separated&nbsp;files&nbsp;are<br>
+expected&nbsp;in&nbsp;the&nbsp;input&nbsp;directory.&nbsp;Their&nbsp;columns&nbsp;can&nbsp;be&nbsp;in&nbsp;any&nbsp;order,<br>
+and&nbsp;any&nbsp;extra&nbsp;columns&nbsp;will&nbsp;be&nbsp;ignored&nbsp;during&nbsp;import.&nbsp;If&nbsp;you&nbsp;don't<br>
+want&nbsp;to&nbsp;specify&nbsp;data&nbsp;for&nbsp;any&nbsp;optional&nbsp;parameter,&nbsp;use&nbsp;a&nbsp;dot&nbsp;.&nbsp;for&nbsp;its<br>
+value.<br>
+&nbsp;<br>
+load_zones.tab<br>
+&nbsp;&nbsp;&nbsp;&nbsp;LOAD_ZONE,&nbsp;cost_multipliers,&nbsp;ccs_distance_km,&nbsp;dbid<br>
+&nbsp;<br>
+loads.tab<br>
+&nbsp;&nbsp;&nbsp;&nbsp;LOAD_ZONE,&nbsp;TIMEPOINT,&nbsp;demand_mw</tt></dd></dl>
+ <dl><dt><a name="-save_results"><strong>save_results</strong></a>(model, instance, outdir)</dt><dd><tt>Export&nbsp;results&nbsp;to&nbsp;standard&nbsp;files.<br>
+&nbsp;<br>
+This&nbsp;initial&nbsp;placeholder&nbsp;version&nbsp;is&nbsp;integrating&nbsp;snippets&nbsp;of<br>
+some&nbsp;of&nbsp;Matthias's&nbsp;code&nbsp;into&nbsp;the&nbsp;main&nbsp;codebase.</tt></dd></dl>
+</td></tr></table><p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#55aa55">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Data</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#55aa55"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><strong>Any</strong> = &lt;Plugin _AnySet 'Any'&gt;<br>
+<strong>AnyWithNone</strong> = &lt;Plugin _AnySetWithNone 'AnyWithNone'&gt;<br>
+<strong>Binary</strong> = &lt;Plugin BooleanSet 'Binary'&gt;<br>
+<strong>Boolean</strong> = &lt;Plugin BooleanSet 'Boolean'&gt;<br>
+<strong>DataManagerFactory</strong> = &lt;pyutilib.misc.method.new object&gt;<br>
+<strong>Integers</strong> = &lt;Plugin IntegerSet 'Integers'&gt;<br>
+<strong>ModelComponentFactory</strong> = &lt;pyutilib.component.core.core.PluginFactoryFunctor object&gt;<br>
+<strong>NegativeIntegers</strong> = &lt;Plugin IntegerSet 'NegativeIntegers'&gt;<br>
+<strong>NegativeReals</strong> = &lt;Plugin RealSet 'NegativeReals'&gt;<br>
+<strong>NonNegativeIntegers</strong> = &lt;Plugin IntegerSet 'NonNegativeIntegers'&gt;<br>
+<strong>NonNegativeReals</strong> = &lt;Plugin RealSet 'NonNegativeReals'&gt;<br>
+<strong>NonPositiveIntegers</strong> = &lt;Plugin IntegerSet 'NonPositiveIntegers'&gt;<br>
+<strong>NonPositiveReals</strong> = &lt;Plugin RealSet 'NonPositiveReals'&gt;<br>
+<strong>ParamRepresentationFactory</strong> = &lt;pyutilib.component.core.core.PluginFactoryFunctor object&gt;<br>
+<strong>PercentFraction</strong> = &lt;Plugin RealSet 'PercentFraction'&gt;<br>
+<strong>PositiveIntegers</strong> = &lt;Plugin IntegerSet 'PositiveIntegers'&gt;<br>
+<strong>PositiveReals</strong> = &lt;Plugin RealSet 'PositiveReals'&gt;<br>
+<strong>Reals</strong> = &lt;Plugin RealSet 'Reals'&gt;<br>
+<strong>SolverFactory</strong> = &lt;pyutilib.misc.method.new object&gt;<br>
+<strong>SolverManagerFactory</strong> = &lt;pyutilib.component.core.core.PluginFactoryFunctor object&gt;<br>
+<strong>TransformationFactory</strong> = &lt;pyutilib.component.core.core.PluginFactoryFunctor object&gt;<br>
+<strong>UnitInterval</strong> = &lt;Plugin RealSet 'PercentFraction'&gt;<br>
+<strong>maximize</strong> = -1<br>
+<strong>minimize</strong> = 1</td></tr></table>
+</body></html>

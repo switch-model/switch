@@ -1,0 +1,102 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html><head><title>Python: module switch_mod.project.unitcommit.discrete</title>
+<meta charset="utf-8">
+</head><body bgcolor="#f0f0f8">
+
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="heading">
+<tr bgcolor="#7799ee">
+<td valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial">&nbsp;<br><big><big><strong><a href="switch_mod.html"><font color="#ffffff">switch_mod</font></a>.<a href="switch_mod.project.html"><font color="#ffffff">project</font></a>.<a href="switch_mod.project.unitcommit.html"><font color="#ffffff">unitcommit</font></a>.discrete</strong></big></big></font></td
+><td align=right valign=bottom
+><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="file:/Users/josiah/src/switch/switch_mod/project/unitcommit/discrete.py">/Users/josiah/src/switch/switch_mod/project/unitcommit/discrete.py</a></font></td></tr></table>
+    <p><tt>Defines&nbsp;model&nbsp;components&nbsp;to&nbsp;force&nbsp;discrete&nbsp;unit&nbsp;commitment&nbsp;for<br>
+generation&nbsp;technologies&nbsp;that&nbsp;have&nbsp;g_unit_size&nbsp;specified.<br>
+&nbsp;<br>
+SYNOPSIS<br>
+&gt;&gt;&gt;&nbsp;from&nbsp;switch_mod.utilities&nbsp;import&nbsp;define_AbstractModel<br>
+&gt;&gt;&gt;&nbsp;model&nbsp;=&nbsp;define_AbstractModel(<br>
+...&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'timescales',&nbsp;'financials',&nbsp;'load_zones',&nbsp;'fuels',&nbsp;'gen_tech',<br>
+...&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'project.build',&nbsp;'project.discrete_build',&nbsp;'project.dispatch',<br>
+...&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'project.unitcommit',&nbsp;'project.unitcommit.discrete')<br>
+&gt;&gt;&gt;&nbsp;instance&nbsp;=&nbsp;model.load_inputs(inputs_dir='test_dat')</tt></p>
+<p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#aa55cc">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Modules</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#aa55cc"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><table width="100%" summary="list"><tr><td width="25%" valign=top><a href="pyomo.core.base.html">pyomo.core.base</a><br>
+</td><td width="25%" valign=top><a href="pyomo.core.data.html">pyomo.core.data</a><br>
+</td><td width="25%" valign=top><a href="pyomo.core.preprocess.html">pyomo.core.preprocess</a><br>
+</td><td width="25%" valign=top><a href="pyomo.html">pyomo</a><br>
+</td></tr></table></td></tr></table><p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#eeaa77">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Functions</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#eeaa77"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><dl><dt><a name="-define_components"><strong>define_components</strong></a>(mod)</dt><dd><tt>Adds&nbsp;components&nbsp;to&nbsp;a&nbsp;Pyomo&nbsp;abstract&nbsp;model&nbsp;object&nbsp;to&nbsp;force&nbsp;discrete<br>
+builds&nbsp;for&nbsp;generation&nbsp;technologies&nbsp;that&nbsp;have&nbsp;g_unit_size&nbsp;specified.<br>
+Unless&nbsp;otherwise&nbsp;stated,&nbsp;all&nbsp;power&nbsp;capacity&nbsp;is&nbsp;specified&nbsp;in&nbsp;units&nbsp;of<br>
+MW&nbsp;and&nbsp;all&nbsp;sets&nbsp;and&nbsp;parameters&nbsp;are&nbsp;mandatory.<br>
+&nbsp;<br>
+PROJ_DISPATCH_POINTS_DISCRETE&nbsp;is&nbsp;a&nbsp;subset&nbsp;of&nbsp;PROJ_DISPATCH_POINTS<br>
+that&nbsp;only&nbsp;includes&nbsp;projects&nbsp;that&nbsp;have&nbsp;g_unit_size&nbsp;defined&nbsp;for&nbsp;their<br>
+technology.<br>
+&nbsp;<br>
+CommitUnits[(proj,&nbsp;bld_yr)&nbsp;in&nbsp;PROJECT_BUILDYEARS_DISCRETE]&nbsp;is&nbsp;an<br>
+integer&nbsp;decision&nbsp;variable&nbsp;of&nbsp;how&nbsp;many&nbsp;units&nbsp;to&nbsp;commit.<br>
+&nbsp;<br>
+Commit_Units_Consistency[(proj,&nbsp;bld_yr)&nbsp;in<br>
+PROJECT_BUILDYEARS_DISCRETE]&nbsp;is&nbsp;a&nbsp;constraint&nbsp;that&nbsp;forces&nbsp;the<br>
+continous&nbsp;decision&nbsp;variable&nbsp;CommitProject&nbsp;to&nbsp;be&nbsp;equal&nbsp;to&nbsp;CommitUnits<br>
+*&nbsp;g_unit_size&nbsp;*&nbsp;proj_availability.&nbsp;The&nbsp;use&nbsp;of&nbsp;proj_availability&nbsp;here<br>
+is&nbsp;a&nbsp;rough&nbsp;estimation&nbsp;to&nbsp;approximate&nbsp;forced&nbsp;or&nbsp;scheduled&nbsp;outages&nbsp;as<br>
+a&nbsp;linear&nbsp;derating&nbsp;factor.<br>
+&nbsp;<br>
+Josiah's&nbsp;note:&nbsp;I&nbsp;have&nbsp;trouble&nbsp;wrapping&nbsp;my&nbsp;head&nbsp;around&nbsp;this<br>
+estimation&nbsp;method&nbsp;of&nbsp;dealing&nbsp;with&nbsp;outages.&nbsp;It&nbsp;seems&nbsp;reasonable&nbsp;if<br>
+you&nbsp;are&nbsp;describing&nbsp;average&nbsp;annual&nbsp;energy&nbsp;production&nbsp;from&nbsp;a&nbsp;project,<br>
+but&nbsp;if&nbsp;you&nbsp;are&nbsp;modeling&nbsp;discrete&nbsp;unit&nbsp;commitment,&nbsp;it&nbsp;seems&nbsp;like&nbsp;you<br>
+need&nbsp;discrete&nbsp;outage&nbsp;events&nbsp;instead&nbsp;of&nbsp;derating&nbsp;unit&nbsp;size&nbsp;based&nbsp;on<br>
+avearge&nbsp;annual&nbsp;outage&nbsp;rates.&nbsp;In&nbsp;my&nbsp;mind,&nbsp;you&nbsp;would&nbsp;want&nbsp;to&nbsp;include<br>
+discrete&nbsp;unit&nbsp;commitment&nbsp;to&nbsp;significantly&nbsp;increase&nbsp;operational<br>
+detail&nbsp;and&nbsp;realism,&nbsp;a&nbsp;goal&nbsp;which&nbsp;also&nbsp;requires&nbsp;discrete&nbsp;modeling&nbsp;of<br>
+outages.&nbsp;In&nbsp;my&nbsp;mind,&nbsp;mixing&nbsp;a&nbsp;continuous&nbsp;outage&nbsp;derating&nbsp;with&nbsp;a<br>
+discrete&nbsp;unit&nbsp;commitment&nbsp;does&nbsp;not&nbsp;significantly&nbsp;add&nbsp;resolution&nbsp;to&nbsp;an<br>
+operational&nbsp;model.&nbsp;But&nbsp;maybe&nbsp;that's&nbsp;just&nbsp;me.</tt></dd></dl>
+</td></tr></table><p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#55aa55">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Data</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#55aa55"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><strong>Any</strong> = &lt;Plugin _AnySet 'Any'&gt;<br>
+<strong>AnyWithNone</strong> = &lt;Plugin _AnySetWithNone 'AnyWithNone'&gt;<br>
+<strong>Binary</strong> = &lt;Plugin BooleanSet 'Binary'&gt;<br>
+<strong>Boolean</strong> = &lt;Plugin BooleanSet 'Boolean'&gt;<br>
+<strong>DataManagerFactory</strong> = &lt;pyutilib.misc.method.new object&gt;<br>
+<strong>Integers</strong> = &lt;Plugin IntegerSet 'Integers'&gt;<br>
+<strong>ModelComponentFactory</strong> = &lt;pyutilib.component.core.core.PluginFactoryFunctor object&gt;<br>
+<strong>NegativeIntegers</strong> = &lt;Plugin IntegerSet 'NegativeIntegers'&gt;<br>
+<strong>NegativeReals</strong> = &lt;Plugin RealSet 'NegativeReals'&gt;<br>
+<strong>NonNegativeIntegers</strong> = &lt;Plugin IntegerSet 'NonNegativeIntegers'&gt;<br>
+<strong>NonNegativeReals</strong> = &lt;Plugin RealSet 'NonNegativeReals'&gt;<br>
+<strong>NonPositiveIntegers</strong> = &lt;Plugin IntegerSet 'NonPositiveIntegers'&gt;<br>
+<strong>NonPositiveReals</strong> = &lt;Plugin RealSet 'NonPositiveReals'&gt;<br>
+<strong>ParamRepresentationFactory</strong> = &lt;pyutilib.component.core.core.PluginFactoryFunctor object&gt;<br>
+<strong>PercentFraction</strong> = &lt;Plugin RealSet 'PercentFraction'&gt;<br>
+<strong>PositiveIntegers</strong> = &lt;Plugin IntegerSet 'PositiveIntegers'&gt;<br>
+<strong>PositiveReals</strong> = &lt;Plugin RealSet 'PositiveReals'&gt;<br>
+<strong>Reals</strong> = &lt;Plugin RealSet 'Reals'&gt;<br>
+<strong>SolverFactory</strong> = &lt;pyutilib.misc.method.new object&gt;<br>
+<strong>SolverManagerFactory</strong> = &lt;pyutilib.component.core.core.PluginFactoryFunctor object&gt;<br>
+<strong>TransformationFactory</strong> = &lt;pyutilib.component.core.core.PluginFactoryFunctor object&gt;<br>
+<strong>UnitInterval</strong> = &lt;Plugin RealSet 'PercentFraction'&gt;<br>
+<strong>maximize</strong> = -1<br>
+<strong>minimize</strong> = 1</td></tr></table>
+</body></html>
