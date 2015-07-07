@@ -14,7 +14,7 @@ To use this model, either install this to a standard python library
 location or set the environment variable PYTHONPATH to include this
 directory. The latter option is probably more useful for developers. On
 mac or linux systems, you can do this by adding the following line to
-your loging script ~/.profile and updating it to the actual path to your
+your login script ~/.profile and updating it to the actual path to your
 switch_py directory. This won't work if you use a relative path to
 specify your home directory. For example, "~/src/switch_py" will not
 work, but "/home/username/src/switch_py" will work.
