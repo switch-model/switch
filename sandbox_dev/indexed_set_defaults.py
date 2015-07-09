@@ -18,12 +18,12 @@ from pyomo.environ import *
 
 mod = AbstractModel()
 
-mod.FUEL_BASED_GEN = Set()
+mod.GEN_TECH_WITH_FUEL = Set()
 mod.g_full_load_heat_rate = Param(
-    mod.FUEL_BASED_GEN)
+    mod.GEN_TECH_WITH_FUEL)
 
 mod.GEN_FUEL_USE_SEGMENTS = Set(
-    mod.FUEL_BASED_GEN,
+    mod.GEN_TECH_WITH_FUEL,
     dimen=2)
 
 data_portal = DataPortal(model=mod)
@@ -48,7 +48,7 @@ def GEN_FUEL_USE_SEGMENTS_default_rule(m, g):
     if g not in m.GEN_FUEL_USE_SEGMENTS:
         m.GEN_FUEL_USE_SEGMENTS[g] = [(0, m.g_full_load_heat_rate[g])]
 mod.GEN_FUEL_USE_SEGMENTS_default = BuildAction(
-    mod.FUEL_BASED_GEN,
+    mod.GEN_TECH_WITH_FUEL,
     rule=GEN_FUEL_USE_SEGMENTS_default_rule)
 
 instance = mod.create(data_portal)

@@ -90,7 +90,7 @@ def define_components(mod):
     level. Data is read in in that format, then processed to describe
     the individual line segments.
 
-    GEN_FUEL_USE_SEGMENTS[g in FUEL_BASED_GEN] is a set of line segments
+    GEN_FUEL_USE_SEGMENTS[g in GEN_TECH_WITH_FUEL] is a set of line segments
     that collectively describe fuel requirements for a given generation
     technology. Each element of this set is a tuple of (y-intercept,
     slope) where the y-intercept is in units of MMBTU/(hr * MW-capacity)
@@ -111,7 +111,7 @@ def define_components(mod):
     # Pyomo doesn't allow default for sets, so I need to specify default
     # data in the data load function.
     mod.GEN_FUEL_USE_SEGMENTS = Set(
-        mod.FUEL_BASED_GEN,
+        mod.GEN_TECH_WITH_FUEL,
         dimen=2)
     mod.PROJ_FUEL_USE_SEGMENTS = Set(
         mod.FUEL_BASED_PROJECTS,

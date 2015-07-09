@@ -147,7 +147,7 @@ I started rewriting code to use max_capacity_factor for all projects,
 and updating documentation to explain the reasoning behind it. In the
 process it started bothering me some more.
 
-    prj_max_capacity_factor[prj, t] describes the maximum fraction of
+    proj_max_capacity_factor[prj, t] describes the maximum fraction of
     project capacity that can be dispatched in an hour due to exogenous
     factors wuch as weather. This is most meaningful for variable
     renewable projects such as solar or wind and it is required for
@@ -173,14 +173,14 @@ environment and userland.
 To get clear centralized terms for keeping track of bounds, we can do something like this:
     def DispatchUpperLimit_expr(m, pr, t):
         if pr in m.VARIABLE_PROJECTS:
-            return m.CommitProject[pr, t] * m.prj_max_capacity_factor[pr, t]
+            return m.CommitProject[pr, t] * m.proj_max_capacity_factor[pr, t]
         else:
             return m.CommitProject[pr, t]
     mod.DispatchUpperLimit = Expression(
         mod.PROJ_DISPATCH_POINTS,
         initialize=DispatchUpperLimit_expr)
 
-...I don't know. I went ahead and specified minimum capacity factor as g_min_load_fraction[g] and proj_min_load_fraction[proj, t] in commit.py to get things running. Somehow that doesn't bother me as much as expanding prj_max_capacity_factor[proj, t] to every project. I guess over several years I've gotten used to capacity_factor[project, timepoint] as always meaning the fraction of renewable power a plant can produce in a given timepoint, so stuffing other stuff into there seems to dilute its underlying meaning.
+...I don't know. I went ahead and specified minimum capacity factor as g_min_load_fraction[g] and proj_min_load_fraction[proj, t] in commit.py to get things running. Somehow that doesn't bother me as much as expanding proj_max_capacity_factor[proj, t] to every project. I guess over several years I've gotten used to capacity_factor[project, timepoint] as always meaning the fraction of renewable power a plant can produce in a given timepoint, so stuffing other stuff into there seems to dilute its underlying meaning.
 
 6/18/2015
 I was trying to write plenty of documentation for unitcommit.fuel_use, but it's getting overwhelming so I'm going to cut my draft out of there and paste it into here. This allows me to avoid half-written explanations in the module's documentation, but I won't have to start from scratch if I want to revisit that later.

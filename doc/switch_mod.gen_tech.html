@@ -17,7 +17,9 @@ SYNOPSIS<br>
 &gt;&gt;&gt;&nbsp;from&nbsp;switch_mod.utilities&nbsp;import&nbsp;define_AbstractModel<br>
 &gt;&gt;&gt;&nbsp;model&nbsp;=&nbsp;define_AbstractModel(<br>
 ...&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'timescales',&nbsp;'financials',&nbsp;'load_zones',&nbsp;'fuels',&nbsp;'gen_tech')<br>
-&gt;&gt;&gt;&nbsp;instance&nbsp;=&nbsp;model.<a href="#-load_inputs">load_inputs</a>(inputs_dir='test_dat')</tt></p>
+&gt;&gt;&gt;&nbsp;instance&nbsp;=&nbsp;model.<a href="#-load_inputs">load_inputs</a>(inputs_dir='test_dat')<br>
+&nbsp;<br>
+#&gt;&gt;&gt;&nbsp;instance.pprint()</tt></p>
 <p>
 <table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
 <tr bgcolor="#aa55cc">
@@ -26,11 +28,10 @@ SYNOPSIS<br>
     
 <tr><td bgcolor="#aa55cc"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
 <td width="100%"><table width="100%" summary="list"><tr><td width="25%" valign=top><a href="pyomo.core.base.html">pyomo.core.base</a><br>
-<a href="csv.html">csv</a><br>
-</td><td width="25%" valign=top><a href="pyomo.core.data.html">pyomo.core.data</a><br>
-<a href="os.html">os</a><br>
-</td><td width="25%" valign=top><a href="pyomo.core.preprocess.html">pyomo.core.preprocess</a><br>
-<a href="pyomo.html">pyomo</a><br>
+<a href="pyomo.core.data.html">pyomo.core.data</a><br>
+</td><td width="25%" valign=top><a href="os.html">os</a><br>
+<a href="pyomo.core.preprocess.html">pyomo.core.preprocess</a><br>
+</td><td width="25%" valign=top><a href="pyomo.html">pyomo</a><br>
 </td><td width="25%" valign=top></td></tr></table></td></tr></table><p>
 <table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
 <tr bgcolor="#eeaa77">
@@ -40,46 +41,44 @@ SYNOPSIS<br>
 <tr><td bgcolor="#eeaa77"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
 <td width="100%"><dl><dt><a name="-define_components"><strong>define_components</strong></a>(mod)</dt><dd><tt>Adds&nbsp;components&nbsp;to&nbsp;a&nbsp;Pyomo&nbsp;abstract&nbsp;model&nbsp;object&nbsp;to&nbsp;describe<br>
 generators&nbsp;and&nbsp;storage&nbsp;technologies.&nbsp;Unless&nbsp;otherwise&nbsp;stated,&nbsp;each<br>
-set&nbsp;and&nbsp;parameter&nbsp;is&nbsp;mandatory.<br>
+set&nbsp;and&nbsp;parameter&nbsp;is&nbsp;mandatory.&nbsp;Many&nbsp;attributes&nbsp;describing&nbsp;a<br>
+generation&nbsp;technology&nbsp;are&nbsp;optional&nbsp;and&nbsp;provide&nbsp;default&nbsp;values&nbsp;that<br>
+individual&nbsp;projects&nbsp;may&nbsp;override.<br>
 &nbsp;<br>
 GENERATION_TECHNOLOGIES&nbsp;is&nbsp;a&nbsp;set&nbsp;of&nbsp;all&nbsp;generation&nbsp;and&nbsp;storage<br>
-technologies.&nbsp;It&nbsp;is&nbsp;abbreviated&nbsp;as&nbsp;gen&nbsp;for&nbsp;parameter&nbsp;names&nbsp;and&nbsp;g&nbsp;for<br>
-indexes.&nbsp;By&nbsp;default,&nbsp;certain&nbsp;attributes&nbsp;of&nbsp;a&nbsp;generation&nbsp;technology<br>
-such&nbsp;as&nbsp;heat&nbsp;rates&nbsp;and&nbsp;maximum&nbsp;lifetime&nbsp;remain&nbsp;constant&nbsp;over&nbsp;time,<br>
-while&nbsp;cost&nbsp;attributes&nbsp;may&nbsp;change&nbsp;over&nbsp;time.&nbsp;If&nbsp;you&nbsp;expect&nbsp;those<br>
-constant&nbsp;attributes&nbsp;of&nbsp;generation&nbsp;technologies&nbsp;to&nbsp;actually&nbsp;change&nbsp;in<br>
-the&nbsp;future&nbsp;(such&nbsp;as&nbsp;improved&nbsp;heat&nbsp;rates&nbsp;or&nbsp;reduced&nbsp;outage&nbsp;rates),<br>
-you&nbsp;could&nbsp;model&nbsp;those&nbsp;improvements&nbsp;as&nbsp;additional&nbsp;technologies,&nbsp;or<br>
-you&nbsp;could&nbsp;edit&nbsp;the&nbsp;model&nbsp;to&nbsp;index&nbsp;those&nbsp;attribute&nbsp;by&nbsp;year.&nbsp;Members<br>
-of&nbsp;this&nbsp;set&nbsp;are&nbsp;abbreviated&nbsp;as&nbsp;g&nbsp;or&nbsp;gt&nbsp;in&nbsp;parameter&nbsp;names&nbsp;and<br>
-indexes.<br>
+technologies.&nbsp;By&nbsp;default,&nbsp;certain&nbsp;attributes&nbsp;of&nbsp;a&nbsp;generation<br>
+technology&nbsp;such&nbsp;as&nbsp;heat&nbsp;rates&nbsp;and&nbsp;maximum&nbsp;lifetime&nbsp;remain&nbsp;constant<br>
+over&nbsp;time,&nbsp;while&nbsp;cost&nbsp;attributes&nbsp;may&nbsp;change&nbsp;over&nbsp;time.&nbsp;If&nbsp;you&nbsp;expect<br>
+those&nbsp;constant&nbsp;attributes&nbsp;of&nbsp;generation&nbsp;technologies&nbsp;to&nbsp;actually<br>
+change&nbsp;in&nbsp;the&nbsp;future&nbsp;(such&nbsp;as&nbsp;improved&nbsp;heat&nbsp;rates&nbsp;or&nbsp;reduced&nbsp;outage<br>
+rates),&nbsp;you&nbsp;could&nbsp;model&nbsp;those&nbsp;improvements&nbsp;as&nbsp;additional<br>
+technologies,&nbsp;or&nbsp;you&nbsp;could&nbsp;edit&nbsp;the&nbsp;model&nbsp;to&nbsp;index&nbsp;those&nbsp;attribute<br>
+by&nbsp;year.&nbsp;Members&nbsp;of&nbsp;this&nbsp;set&nbsp;are&nbsp;abbreviated&nbsp;as&nbsp;gen&nbsp;and&nbsp;g&nbsp;in<br>
+parameter&nbsp;names&nbsp;and&nbsp;indexes.<br>
 &nbsp;<br>
 g_dbid[g]&nbsp;is&nbsp;an&nbsp;optional&nbsp;parameter&nbsp;that&nbsp;stores&nbsp;an&nbsp;external<br>
-database&nbsp;id&nbsp;for&nbsp;each&nbsp;generation&nbsp;technology.<br>
+database&nbsp;id&nbsp;for&nbsp;each&nbsp;generation&nbsp;technology.&nbsp;This&nbsp;is&nbsp;used&nbsp;for<br>
+reporting&nbsp;results&nbsp;and&nbsp;defaults&nbsp;to&nbsp;g.<br>
 &nbsp;<br>
-G_ENERGY_SOURCES[g]&nbsp;is&nbsp;an&nbsp;indexed&nbsp;set&nbsp;of&nbsp;the&nbsp;energy&nbsp;sources&nbsp;a<br>
-generator&nbsp;or&nbsp;storage&nbsp;plant&nbsp;can&nbsp;consume.&nbsp;Most&nbsp;traditional&nbsp;generators<br>
-can&nbsp;be&nbsp;modeled&nbsp;as&nbsp;consuming&nbsp;a&nbsp;single&nbsp;primary&nbsp;energy&nbsp;source&nbsp;such&nbsp;as<br>
-Natural&nbsp;Gas&nbsp;or&nbsp;Coal,&nbsp;even&nbsp;if&nbsp;they&nbsp;consume&nbsp;significant&nbsp;amounts&nbsp;of<br>
-electricity&nbsp;from&nbsp;the&nbsp;grid&nbsp;for&nbsp;their&nbsp;internal&nbsp;loads.&nbsp;Other&nbsp;generators<br>
-need&nbsp;to&nbsp;explicitly&nbsp;be&nbsp;modeled&nbsp;as&nbsp;consuming&nbsp;multiple&nbsp;energy&nbsp;sources.<br>
-Pumped&nbsp;Hydro&nbsp;has&nbsp;two&nbsp;primary&nbsp;energy&nbsp;sources:&nbsp;water&nbsp;from&nbsp;the&nbsp;upstream<br>
-river&nbsp;and&nbsp;electricity&nbsp;from&nbsp;the&nbsp;grid.&nbsp;Similarly,&nbsp;Compressed&nbsp;Air<br>
-Energy&nbsp;Storage&nbsp;with&nbsp;natural&nbsp;gas&nbsp;combustion&nbsp;turbines&nbsp;consume&nbsp;natural<br>
-gas&nbsp;and&nbsp;electricity.&nbsp;Pure&nbsp;storage&nbsp;projects&nbsp;consume&nbsp;electricity,&nbsp;but<br>
-under&nbsp;a&nbsp;Renewable&nbsp;Portfolio&nbsp;Standards,&nbsp;the&nbsp;electricity&nbsp;may&nbsp;be<br>
-classified&nbsp;further&nbsp;as&nbsp;Renewable&nbsp;or&nbsp;NonRenewable.&nbsp;Many&nbsp;oil&nbsp;generators<br>
-require&nbsp;distillate&nbsp;fuel&nbsp;oil&nbsp;for&nbsp;starting&nbsp;up,&nbsp;but&nbsp;can&nbsp;transition&nbsp;to<br>
-cheaper&nbsp;residual&nbsp;fuel&nbsp;oil&nbsp;or&nbsp;potentially&nbsp;more&nbsp;renewable&nbsp;crude&nbsp;plant<br>
-oils&nbsp;after&nbsp;they&nbsp;are&nbsp;warmed&nbsp;up.&nbsp;Some&nbsp;coal&nbsp;plants&nbsp;are&nbsp;cofired&nbsp;with<br>
-biomass...&nbsp;To&nbsp;support&nbsp;all&nbsp;of&nbsp;these&nbsp;situations,&nbsp;any&nbsp;generator&nbsp;may<br>
-have&nbsp;multiple&nbsp;energy&nbsp;sources.<br>
+g_energy_source[g]&nbsp;is&nbsp;a&nbsp;mandatory&nbsp;parameter&nbsp;that&nbsp;defines&nbsp;the&nbsp;primary<br>
+energy&nbsp;source&nbsp;used&nbsp;by&nbsp;each&nbsp;generator.&nbsp;For&nbsp;now,&nbsp;elements&nbsp;of&nbsp;this&nbsp;set<br>
+must&nbsp;be&nbsp;a&nbsp;member&nbsp;of&nbsp;the&nbsp;set&nbsp;ENERGY_SOURCES,&nbsp;and&nbsp;each&nbsp;generation<br>
+technology&nbsp;can&nbsp;only&nbsp;have&nbsp;one&nbsp;primary&nbsp;energy&nbsp;source.&nbsp;In&nbsp;the&nbsp;future,<br>
+we&nbsp;plan&nbsp;to&nbsp;support&nbsp;generators&nbsp;that&nbsp;use&nbsp;multiple&nbsp;energy&nbsp;sources:&nbsp;like<br>
+pumped&nbsp;hydro&nbsp;that&nbsp;consumes&nbsp;either&nbsp;upstream&nbsp;water&nbsp;or&nbsp;electricity&nbsp;for<br>
+storage,&nbsp;or&nbsp;compressed&nbsp;air&nbsp;energy&nbsp;storage&nbsp;that&nbsp;consumes&nbsp;electricity<br>
+for&nbsp;storage&nbsp;and&nbsp;natural&nbsp;gas,&nbsp;or&nbsp;oil&nbsp;generators&nbsp;that&nbsp;need&nbsp;to&nbsp;start<br>
+with&nbsp;high-quality&nbsp;distilled&nbsp;oil&nbsp;but&nbsp;can&nbsp;subsequently&nbsp;shift&nbsp;to&nbsp;low-<br>
+quality&nbsp;residual&nbsp;fuel&nbsp;oil.&nbsp;When&nbsp;we&nbsp;implement&nbsp;support&nbsp;for&nbsp;multiple<br>
+energy&nbsp;sources,&nbsp;we&nbsp;may&nbsp;allow&nbsp;g_energy_source&nbsp;to&nbsp;be&nbsp;set&nbsp;to<br>
+"multiple",&nbsp;then&nbsp;have&nbsp;another&nbsp;module&nbsp;deal&nbsp;with&nbsp;the&nbsp;multiple&nbsp;energy<br>
+sources.<br>
 &nbsp;<br>
 g_uses_fuel[g]&nbsp;is&nbsp;a&nbsp;derived&nbsp;binary&nbsp;parameter&nbsp;that&nbsp;is&nbsp;True&nbsp;if&nbsp;a<br>
 generator&nbsp;uses&nbsp;a&nbsp;fuel&nbsp;to&nbsp;produce&nbsp;electricity.&nbsp;Generators&nbsp;with&nbsp;this<br>
 flag&nbsp;set&nbsp;are&nbsp;expected&nbsp;to&nbsp;have&nbsp;a&nbsp;heat&nbsp;rate.<br>
 &nbsp;<br>
-FUEL_BASED_GEN&nbsp;is&nbsp;a&nbsp;subset&nbsp;of&nbsp;GENERATION_TECHNOLOGIES&nbsp;for&nbsp;which<br>
+GEN_TECH_WITH_FUEL&nbsp;is&nbsp;a&nbsp;subset&nbsp;of&nbsp;GENERATION_TECHNOLOGIES&nbsp;for&nbsp;which<br>
 g_uses_fuel&nbsp;is&nbsp;true.<br>
 &nbsp;<br>
 g_max_age[g]&nbsp;is&nbsp;how&nbsp;many&nbsp;years&nbsp;a&nbsp;plant&nbsp;can&nbsp;remain&nbsp;operational&nbsp;once<br>
@@ -92,30 +91,32 @@ feasible&nbsp;below&nbsp;a&nbsp;certain&nbsp;size.&nbsp;This&nbsp;is&nbsp;an&nbs
 default&nbsp;of&nbsp;0.<br>
 &nbsp;<br>
 g_scheduled_outage_rate[g]&nbsp;is&nbsp;the&nbsp;fraction&nbsp;of&nbsp;time&nbsp;that&nbsp;this&nbsp;type&nbsp;of<br>
-generator&nbsp;is&nbsp;expected&nbsp;to&nbsp;be&nbsp;down&nbsp;for&nbsp;scheduled&nbsp;maintenance.<br>
-Load-zone&nbsp;wide&nbsp;capacity&nbsp;available&nbsp;for&nbsp;dispatch&nbsp;is&nbsp;derated&nbsp;by&nbsp;this<br>
-factor&nbsp;to&nbsp;reflect&nbsp;the&nbsp;fraction&nbsp;of&nbsp;generation&nbsp;that&nbsp;will&nbsp;be&nbsp;down&nbsp;at<br>
-any&nbsp;given&nbsp;time.&nbsp;The&nbsp;model&nbsp;could&nbsp;alternatively&nbsp;be&nbsp;written&nbsp;to&nbsp;include<br>
-more&nbsp;specific&nbsp;scheduled&nbsp;maintenance&nbsp;requirements&nbsp;and&nbsp;attempt&nbsp;to<br>
-coordinate&nbsp;scheduled&nbsp;maintenance&nbsp;with&nbsp;load&nbsp;and&nbsp;other&nbsp;generators.<br>
-This&nbsp;factor&nbsp;is&nbsp;not&nbsp;used&nbsp;for&nbsp;capacity&nbsp;reserve&nbsp;margins&nbsp;because&nbsp;we<br>
-assume&nbsp;that&nbsp;scheduled&nbsp;maintenance&nbsp;can&nbsp;be&nbsp;scheduled&nbsp;at&nbsp;a&nbsp;time&nbsp;other<br>
-than&nbsp;peak&nbsp;load.<br>
+generator&nbsp;is&nbsp;expected&nbsp;to&nbsp;be&nbsp;down&nbsp;for&nbsp;scheduled&nbsp;maintenance.&nbsp;This<br>
+optional&nbsp;parameter&nbsp;supplies&nbsp;default&nbsp;values&nbsp;for&nbsp;all&nbsp;projects&nbsp;of&nbsp;this<br>
+technology.&nbsp;Load-zone&nbsp;wide&nbsp;capacity&nbsp;available&nbsp;for&nbsp;dispatch&nbsp;is<br>
+derated&nbsp;by&nbsp;this&nbsp;factor&nbsp;to&nbsp;reflect&nbsp;the&nbsp;fraction&nbsp;of&nbsp;generation&nbsp;that<br>
+will&nbsp;be&nbsp;down&nbsp;at&nbsp;any&nbsp;given&nbsp;time.&nbsp;The&nbsp;model&nbsp;could&nbsp;alternatively&nbsp;be<br>
+written&nbsp;to&nbsp;include&nbsp;more&nbsp;specific&nbsp;scheduled&nbsp;maintenance&nbsp;requirements<br>
+and&nbsp;attempt&nbsp;to&nbsp;coordinate&nbsp;scheduled&nbsp;maintenance&nbsp;with&nbsp;load&nbsp;and&nbsp;other<br>
+generators.&nbsp;This&nbsp;factor&nbsp;is&nbsp;not&nbsp;used&nbsp;for&nbsp;capacity&nbsp;reserve&nbsp;margins<br>
+because&nbsp;we&nbsp;assume&nbsp;that&nbsp;scheduled&nbsp;maintenance&nbsp;can&nbsp;be&nbsp;scheduled&nbsp;at&nbsp;a<br>
+time&nbsp;other&nbsp;than&nbsp;peak&nbsp;load.<br>
 &nbsp;<br>
 g_forced_outage_rate[g]&nbsp;is&nbsp;the&nbsp;fraction&nbsp;of&nbsp;time&nbsp;that&nbsp;this&nbsp;type&nbsp;of<br>
-generator&nbsp;is&nbsp;expected&nbsp;to&nbsp;be&nbsp;down&nbsp;for&nbsp;unscheduled&nbsp;maintenance.&nbsp;The<br>
-installed&nbsp;capacity&nbsp;available&nbsp;for&nbsp;dispatch&nbsp;in&nbsp;a&nbsp;load&nbsp;zone&nbsp;is&nbsp;derated<br>
-by&nbsp;this&nbsp;factor,&nbsp;as&nbsp;is&nbsp;the&nbsp;contribution&nbsp;to&nbsp;capacity&nbsp;reserve&nbsp;margins<br>
-because&nbsp;these&nbsp;outages&nbsp;cannot&nbsp;be&nbsp;scheduled.&nbsp;We&nbsp;think&nbsp;this&nbsp;methodology<br>
-of&nbsp;using&nbsp;expected&nbsp;forced&nbsp;outage&nbsp;rates&nbsp;is&nbsp;reasonable&nbsp;for&nbsp;long-term<br>
-planning,&nbsp;but&nbsp;may&nbsp;need&nbsp;to&nbsp;be&nbsp;replaced&nbsp;with&nbsp;a&nbsp;more&nbsp;rigorous&nbsp;security<br>
-analysis&nbsp;for&nbsp;detailed&nbsp;operations&nbsp;or&nbsp;trueing&nbsp;up&nbsp;an&nbsp;overall&nbsp;investment<br>
-portfolio.<br>
+generator&nbsp;is&nbsp;expected&nbsp;to&nbsp;be&nbsp;down&nbsp;for&nbsp;unscheduled&nbsp;maintenance.&nbsp;This<br>
+optional&nbsp;parameter&nbsp;supplies&nbsp;default&nbsp;values&nbsp;for&nbsp;all&nbsp;projects&nbsp;of&nbsp;this<br>
+technology.&nbsp;The&nbsp;installed&nbsp;capacity&nbsp;available&nbsp;for&nbsp;dispatch&nbsp;in&nbsp;a&nbsp;load<br>
+zone&nbsp;is&nbsp;derated&nbsp;by&nbsp;this&nbsp;factor,&nbsp;as&nbsp;is&nbsp;the&nbsp;contribution&nbsp;to&nbsp;capacity<br>
+reserve&nbsp;margins&nbsp;because&nbsp;these&nbsp;outages&nbsp;cannot&nbsp;be&nbsp;scheduled.&nbsp;We&nbsp;think<br>
+this&nbsp;methodology&nbsp;of&nbsp;using&nbsp;expected&nbsp;forced&nbsp;outage&nbsp;rates&nbsp;is&nbsp;reasonable<br>
+for&nbsp;long-term&nbsp;planning,&nbsp;but&nbsp;may&nbsp;need&nbsp;to&nbsp;be&nbsp;replaced&nbsp;with&nbsp;a&nbsp;more<br>
+rigorous&nbsp;security&nbsp;analysis&nbsp;for&nbsp;detailed&nbsp;operations&nbsp;or&nbsp;trueing&nbsp;up&nbsp;an<br>
+overall&nbsp;investment&nbsp;portfolio.<br>
 &nbsp;<br>
-NOTE:&nbsp;The&nbsp;generator&nbsp;designations&nbsp;of&nbsp;variable,&nbsp;baseload,&nbsp;flexible<br>
-baseload&nbsp;and&nbsp;dispatchable&nbsp;are&nbsp;all&nbsp;mutually&nbsp;exclusive.&nbsp;A&nbsp;generator<br>
-can&nbsp;only&nbsp;belong&nbsp;to&nbsp;one&nbsp;of&nbsp;these&nbsp;categories&nbsp;because&nbsp;they&nbsp;imply<br>
-different&nbsp;operational&nbsp;regimes.<br>
+NOTE:&nbsp;The&nbsp;generator&nbsp;designations&nbsp;of&nbsp;variable,&nbsp;baseload,&nbsp;and&nbsp;flexible<br>
+baseload&nbsp;are&nbsp;all&nbsp;mutually&nbsp;exclusive.&nbsp;A&nbsp;generator&nbsp;may&nbsp;only&nbsp;belong&nbsp;to<br>
+one&nbsp;of&nbsp;these&nbsp;categories&nbsp;because&nbsp;they&nbsp;imply&nbsp;different&nbsp;operational<br>
+regimes.<br>
 &nbsp;<br>
 g_is_variable[g]&nbsp;is&nbsp;a&nbsp;binary&nbsp;flag&nbsp;indicating&nbsp;whether&nbsp;a&nbsp;generator&nbsp;is&nbsp;a<br>
 variable&nbsp;renewable&nbsp;resource&nbsp;that&nbsp;provides&nbsp;generation&nbsp;on&nbsp;a&nbsp;"use-it-<br>
@@ -132,10 +133,6 @@ g_is_flexible_baseload[g]&nbsp;is&nbsp;a&nbsp;binary&nbsp;flag&nbsp;indicating&n
 generation&nbsp;technology&nbsp;needs&nbsp;to&nbsp;to&nbsp;be&nbsp;operated&nbsp;with&nbsp;constant&nbsp;output<br>
 from&nbsp;hour&nbsp;to&nbsp;hour,&nbsp;but&nbsp;its&nbsp;output&nbsp;can&nbsp;be&nbsp;varied&nbsp;from&nbsp;day&nbsp;to&nbsp;day.<br>
 Some&nbsp;coal&nbsp;plants&nbsp;fall&nbsp;into&nbsp;this&nbsp;category.<br>
-&nbsp;<br>
-g_is_dispatchable[g]&nbsp;is&nbsp;a&nbsp;binary&nbsp;flag&nbsp;indicating&nbsp;whether&nbsp;a&nbsp;generation<br>
-technology&nbsp;can&nbsp;be&nbsp;ramped&nbsp;up&nbsp;or&nbsp;down&nbsp;to&nbsp;a&nbsp;large&nbsp;degree&nbsp;from&nbsp;hour&nbsp;to<br>
-hour.<br>
 &nbsp;<br>
 g_is_cogen[g]&nbsp;is&nbsp;a&nbsp;binary&nbsp;flag&nbsp;indicating&nbsp;whether&nbsp;a&nbsp;generation<br>
 technology&nbsp;is&nbsp;a&nbsp;combined&nbsp;heat&nbsp;and&nbsp;power&nbsp;plant&nbsp;that&nbsp;cogenerates&nbsp;heat<br>
@@ -168,8 +165,8 @@ appropriate&nbsp;action&nbsp;in&nbsp;those&nbsp;cases.&nbsp;However,&nbsp;if&nbs
 custom&nbsp;logic&nbsp;to&nbsp;handle&nbsp;this,&nbsp;it's&nbsp;better&nbsp;to&nbsp;be&nbsp;clear&nbsp;and&nbsp;exlicit<br>
 rather&nbsp;than&nbsp;relying&nbsp;on&nbsp;implicit&nbsp;encoding.<br>
 &nbsp;<br>
-STORAGE_TECHNOLOGIES&nbsp;is&nbsp;a&nbsp;subset&nbsp;of&nbsp;GENERATION_TECHNOLOGIES&nbsp;that&nbsp;can<br>
-store&nbsp;electricity&nbsp;for&nbsp;later&nbsp;discharge.&nbsp;STORAGE_TECHNOLOGIES&nbsp;consume<br>
+GEN_TECH_STORAGE&nbsp;is&nbsp;a&nbsp;subset&nbsp;of&nbsp;GENERATION_TECHNOLOGIES&nbsp;that&nbsp;can<br>
+store&nbsp;electricity&nbsp;for&nbsp;later&nbsp;discharge.&nbsp;GEN_TECH_STORAGE&nbsp;consume<br>
 electricity&nbsp;and&nbsp;possibly&nbsp;additional&nbsp;energy&nbsp;sources&nbsp;such&nbsp;as&nbsp;upstream<br>
 water&nbsp;in&nbsp;the&nbsp;case&nbsp;of&nbsp;pumped&nbsp;hydro.&nbsp;If&nbsp;a&nbsp;technology&nbsp;is&nbsp;storage,&nbsp;then<br>
 SWITCH&nbsp;preprocessing&nbsp;will&nbsp;augment&nbsp;the&nbsp;ENERGY_SOURCES[g]&nbsp;list&nbsp;to<br>
@@ -195,7 +192,7 @@ can&nbsp;be&nbsp;stored,&nbsp;expressed&nbsp;as&nbsp;a&nbsp;ratio&nbsp;of&nbsp;d
 a&nbsp;storage&nbsp;project&nbsp;has&nbsp;1&nbsp;MW&nbsp;of&nbsp;dischage&nbsp;capacity&nbsp;and&nbsp;a&nbsp;max_store_rate<br>
 of&nbsp;1.2,&nbsp;then&nbsp;it&nbsp;can&nbsp;consume&nbsp;up&nbsp;to&nbsp;1.2&nbsp;MW&nbsp;of&nbsp;power&nbsp;while&nbsp;charging.<br>
 &nbsp;<br>
-CCS_TECHNOLOGIES&nbsp;is&nbsp;a&nbsp;subset&nbsp;of&nbsp;generation&nbsp;technologies&nbsp;that<br>
+GEN_TECH_CCS&nbsp;is&nbsp;a&nbsp;subset&nbsp;of&nbsp;generation&nbsp;technologies&nbsp;that<br>
 use&nbsp;Carbon&nbsp;Capture&nbsp;and&nbsp;Sequestration&nbsp;(CCS).&nbsp;The&nbsp;model&nbsp;assumes<br>
 that&nbsp;all&nbsp;CCS&nbsp;technologies&nbsp;combust&nbsp;fuels&nbsp;such&nbsp;as&nbsp;coal,&nbsp;natural&nbsp;gas&nbsp;or<br>
 biomass.&nbsp;The&nbsp;following&nbsp;two&nbsp;parameters&nbsp;are&nbsp;only&nbsp;defined&nbsp;for&nbsp;CCS<br>
@@ -238,7 +235,7 @@ g_variable_o_m[g]&nbsp;is&nbsp;the&nbsp;variable&nbsp;Operations&nbsp;and&nbsp;M
 (O&amp;M)&nbsp;per&nbsp;MWh&nbsp;of&nbsp;dispatched&nbsp;capacity&nbsp;for&nbsp;given&nbsp;generation&nbsp;technology.<br>
 This&nbsp;is&nbsp;assumed&nbsp;to&nbsp;remain&nbsp;constant&nbsp;over&nbsp;time.<br>
 &nbsp;<br>
-g_full_load_heat_rate[g&nbsp;in&nbsp;FUEL_BASED_GEN]&nbsp;provides&nbsp;the&nbsp;default&nbsp;full<br>
+g_full_load_heat_rate[g&nbsp;in&nbsp;GEN_TECH_WITH_FUEL]&nbsp;provides&nbsp;the&nbsp;default&nbsp;full<br>
 load&nbsp;heat&nbsp;rate&nbsp;of&nbsp;a&nbsp;generation&nbsp;technology&nbsp;in&nbsp;units&nbsp;of&nbsp;MMBTU&nbsp;per&nbsp;MWh.<br>
 Specific&nbsp;projects&nbsp;may&nbsp;override&nbsp;this&nbsp;heat&nbsp;rate.&nbsp;This&nbsp;is&nbsp;optional,&nbsp;but<br>
 if&nbsp;you&nbsp;don't&nbsp;supply&nbsp;a&nbsp;value,&nbsp;then&nbsp;you&nbsp;must&nbsp;specify&nbsp;a&nbsp;heat&nbsp;for&nbsp;each<br>
@@ -274,47 +271,35 @@ generator's&nbsp;capacity&nbsp;that&nbsp;can&nbsp;be&nbsp;dedicated&nbsp;to&nbsp
 general,&nbsp;the&nbsp;amount&nbsp;of&nbsp;capacity&nbsp;that&nbsp;can&nbsp;be&nbsp;provided&nbsp;for&nbsp;spinning<br>
 reserves&nbsp;is&nbsp;the&nbsp;generator's&nbsp;10-minute&nbsp;ramp&nbsp;rate.</tt></dd></dl>
  <dl><dt><a name="-load_inputs"><strong>load_inputs</strong></a>(mod, switch_data, inputs_dir)</dt><dd><tt>Import&nbsp;generator&nbsp;data.&nbsp;The&nbsp;following&nbsp;files&nbsp;are&nbsp;expected&nbsp;in&nbsp;the&nbsp;input<br>
-directory:<br>
+directory.&nbsp;You&nbsp;may&nbsp;drop&nbsp;optional&nbsp;columns,&nbsp;or&nbsp;put&nbsp;a&nbsp;dot&nbsp;.&nbsp;in&nbsp;rows<br>
+for&nbsp;which&nbsp;you&nbsp;do&nbsp;not&nbsp;wish&nbsp;to&nbsp;specify&nbsp;data.&nbsp;Some&nbsp;other&nbsp;modules&nbsp;may&nbsp;look<br>
+for&nbsp;additional&nbsp;columns&nbsp;in&nbsp;generator_info.tab.<br>
 &nbsp;<br>
-The&nbsp;unit&nbsp;size&nbsp;column&nbsp;in&nbsp;generator_info&nbsp;is&nbsp;optional&nbsp;and&nbsp;you&nbsp;can&nbsp;put&nbsp;a<br>
-dot&nbsp;for&nbsp;any&nbsp;row&nbsp;where&nbsp;you&nbsp;do&nbsp;not&nbsp;wish&nbsp;to&nbsp;specify&nbsp;a&nbsp;data&nbsp;value.<br>
-&nbsp;<br>
-generator_info.tab<br>
-&nbsp;&nbsp;&nbsp;&nbsp;generation_technology,&nbsp;g_dbid,&nbsp;g_max_age,&nbsp;g_min_build_capacity,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;g_scheduled_outage_rate,&nbsp;g_forced_outage_rate,<br>
+generator_info.tab&nbsp;has&nbsp;a&nbsp;mix&nbsp;of&nbsp;mandatory&nbsp;and&nbsp;optional&nbsp;columns.&nbsp;The<br>
+mandatory&nbsp;columns&nbsp;are:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;generation_technology,&nbsp;g_max_age,<br>
 &nbsp;&nbsp;&nbsp;&nbsp;g_is_variable,&nbsp;g_is_baseload,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;g_is_flexible_baseload,&nbsp;g_is_dispatchable,&nbsp;g_is_cogen,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;g_competes_for_space,&nbsp;g_variable_o_m<br>
+&nbsp;&nbsp;&nbsp;&nbsp;g_is_flexible_baseload,&nbsp;g_is_cogen,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;g_competes_for_space,&nbsp;g_variable_o_m,&nbsp;g_energy_source<br>
 &nbsp;<br>
-ccs_info.tab<br>
-&nbsp;&nbsp;&nbsp;&nbsp;generation_technology,&nbsp;g_ccs_capture_efficiency,&nbsp;g_ccs_energy_load<br>
+The&nbsp;optional&nbsp;columns&nbsp;are:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;g_dbid,&nbsp;g_scheduled_outage_rate,&nbsp;g_forced_outage_rate,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;g_min_build_capacity,&nbsp;g_full_load_heat_rate,&nbsp;g_unit_size,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;g_ccs_capture_efficiency,&nbsp;g_ccs_energy_load,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;g_storage_efficiency,&nbsp;g_store_to_release_ratio<br>
 &nbsp;<br>
-generator_energy_sources.tab<br>
-&nbsp;&nbsp;&nbsp;&nbsp;generation_technology,&nbsp;energy_source<br>
+Note:&nbsp;The&nbsp;model&nbsp;does&nbsp;not&nbsp;yet&nbsp;support&nbsp;CCS&nbsp;or&nbsp;storage.&nbsp;Those&nbsp;columns<br>
+exist&nbsp;primarily&nbsp;as&nbsp;place-holders&nbsp;for&nbsp;now.&nbsp;CCS&nbsp;is&nbsp;mostly&nbsp;written,&nbsp;but<br>
+untested.&nbsp;Storage&nbsp;is&nbsp;not&nbsp;written.<br>
 &nbsp;<br>
-gen_new_build_costs&nbsp;is&nbsp;optional&nbsp;in&nbsp;a&nbsp;production&nbsp;cost&nbsp;simulation&nbsp;where<br>
-all&nbsp;projects&nbsp;were&nbsp;built&nbsp;before&nbsp;the&nbsp;start&nbsp;of&nbsp;the&nbsp;first&nbsp;period.&nbsp;In<br>
-that&nbsp;situation,&nbsp;all&nbsp;existing&nbsp;projects&nbsp;could&nbsp;have&nbsp;costs&nbsp;specified&nbsp;in<br>
-project_specific_costs.tab<br>
+gen_new_build_costs&nbsp;is&nbsp;optional&nbsp;to&nbsp;support&nbsp;production&nbsp;cost<br>
+simulations&nbsp;where&nbsp;all&nbsp;projects&nbsp;were&nbsp;built&nbsp;before&nbsp;the&nbsp;start&nbsp;of&nbsp;the<br>
+first&nbsp;period.&nbsp;In&nbsp;that&nbsp;context,&nbsp;all&nbsp;existing&nbsp;projects&nbsp;could<br>
+reasonably&nbsp;have&nbsp;costs&nbsp;specified&nbsp;in&nbsp;project_specific_costs.tab<br>
 &nbsp;<br>
 gen_new_build_costs.tab<br>
 &nbsp;&nbsp;&nbsp;&nbsp;generation_technology,&nbsp;investment_period,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;g_overnight_cost,&nbsp;g_fixed_o_m<br>
-&nbsp;<br>
-storage_info&nbsp;does&nbsp;not&nbsp;have&nbsp;to&nbsp;be&nbsp;specified&nbsp;if&nbsp;no&nbsp;storage<br>
-technologies&nbsp;are&nbsp;included&nbsp;in&nbsp;the&nbsp;optimization.<br>
-&nbsp;<br>
-storage_info.tab<br>
-&nbsp;&nbsp;&nbsp;&nbsp;generation_technology,&nbsp;g_storage_efficiency,&nbsp;g_store_to_release_ratio<br>
-&nbsp;<br>
-unit_sizes.tab&nbsp;is&nbsp;optional&nbsp;and&nbsp;should&nbsp;only&nbsp;contain&nbsp;entries&nbsp;for<br>
-technologies&nbsp;with&nbsp;valid,&nbsp;non-zero&nbsp;data&nbsp;for&nbsp;g_unit_size.<br>
-&nbsp;<br>
-unit_sizes.tab<br>
-&nbsp;&nbsp;&nbsp;&nbsp;generation_technology,&nbsp;g_unit_size<br>
-&nbsp;<br>
-gen_heat_rates.tab<br>
-&nbsp;&nbsp;&nbsp;&nbsp;generation_technology,&nbsp;full_load_heat_rate</tt></dd></dl>
+&nbsp;&nbsp;&nbsp;&nbsp;g_overnight_cost,&nbsp;g_fixed_o_m</tt></dd></dl>
 </td></tr></table><p>
 <table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
 <tr bgcolor="#55aa55">

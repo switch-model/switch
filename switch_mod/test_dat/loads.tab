@@ -1,4 +1,4 @@
-LOAD_ZONE	TIMEPOINT	demand_mw
+LOAD_ZONE	TIMEPOINT	lz_demand_mw
 North	1	5
 North	2	4
 North	3	4.5

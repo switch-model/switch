@@ -176,8 +176,8 @@ def define_components(mod):
     mod.distribution_losses = Param(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         initialize=lambda m, lz, t: (
-            -1 * m.lz_demand_mw[lz, t] * m.distribution_loss_rate))
-    mod.LZ_Energy_Balance_components.append('distribution_losses')
+            m.lz_demand_mw[lz, t] * m.distribution_loss_rate))
+    mod.LZ_Energy_Components_Consume.append('distribution_losses')
     mod.Meet_Local_TD = Constraint(
         mod.LOAD_ZONES, mod.PERIODS,
         rule=lambda m, lz, period: (
@@ -203,9 +203,10 @@ def load_inputs(mod, switch_data, inputs_dir):
     """
 
     Import local transmission & distribution data. The following files
-    are expected in the input directory:
+    are expected in the input directory. load_zones.tab will likely
+    contain additional columns that are used by the load_zones module.
 
-    local_td_existing.tab
+    load_zones.tab
         load_zone, existing_local_td, local_td_annual_cost_per_mw
 
     lz_peak_loads.tab is optional.
@@ -214,9 +215,8 @@ def load_inputs(mod, switch_data, inputs_dir):
     """
 
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'local_td_existing.tab'),
-        select=('load_zone', 'existing_local_td',
-                'local_td_annual_cost_per_mw'),
+        filename=os.path.join(inputs_dir, 'load_zones.tab'),
+        auto_select=True,
         param=(mod.existing_local_td, mod.local_td_annual_cost_per_mw))
     switch_data.load_aug(
         optional=True,

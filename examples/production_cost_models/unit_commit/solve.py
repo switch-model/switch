@@ -46,5 +46,5 @@ switch_model.save_results(results, switch_instance, "outputs")
 
 # Dump all results
 # switch_instance.load(results)
-# results.write()
+results.write()
 switch_instance.pprint()

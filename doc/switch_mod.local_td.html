@@ -149,9 +149,10 @@ upgrade&nbsp;will&nbsp;remain&nbsp;constant&nbsp;in&nbsp;every&nbsp;future&nbsp;
 trans_build&nbsp;module&nbsp;for&nbsp;more&nbsp;a&nbsp;more&nbsp;detailed&nbsp;comparison&nbsp;to&nbsp;the&nbsp;old<br>
 SWITCH-WECC&nbsp;model.</tt></dd></dl>
  <dl><dt><a name="-load_inputs"><strong>load_inputs</strong></a>(mod, switch_data, inputs_dir)</dt><dd><tt>Import&nbsp;local&nbsp;transmission&nbsp;&amp;&nbsp;distribution&nbsp;data.&nbsp;The&nbsp;following&nbsp;files<br>
-are&nbsp;expected&nbsp;in&nbsp;the&nbsp;input&nbsp;directory:<br>
+are&nbsp;expected&nbsp;in&nbsp;the&nbsp;input&nbsp;directory.&nbsp;load_zones.tab&nbsp;will&nbsp;likely<br>
+contain&nbsp;additional&nbsp;columns&nbsp;that&nbsp;are&nbsp;used&nbsp;by&nbsp;the&nbsp;load_zones&nbsp;module.<br>
 &nbsp;<br>
-local_td_existing.tab<br>
+load_zones.tab<br>
 &nbsp;&nbsp;&nbsp;&nbsp;load_zone,&nbsp;existing_local_td,&nbsp;local_td_annual_cost_per_mw<br>
 &nbsp;<br>
 lz_peak_loads.tab&nbsp;is&nbsp;optional.<br>

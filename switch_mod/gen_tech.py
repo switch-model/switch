@@ -11,10 +11,11 @@ SYNOPSIS
 ...     'timescales', 'financials', 'load_zones', 'fuels', 'gen_tech')
 >>> instance = model.load_inputs(inputs_dir='test_dat')
 
+#>>> instance.pprint()
+
 """
 
 import os
-import csv
 from pyomo.environ import *
 
 
@@ -23,46 +24,44 @@ def define_components(mod):
 
     Adds components to a Pyomo abstract model object to describe
     generators and storage technologies. Unless otherwise stated, each
-    set and parameter is mandatory.
+    set and parameter is mandatory. Many attributes describing a
+    generation technology are optional and provide default values that
+    individual projects may override.
 
     GENERATION_TECHNOLOGIES is a set of all generation and storage
-    technologies. It is abbreviated as gen for parameter names and g for
-    indexes. By default, certain attributes of a generation technology
-    such as heat rates and maximum lifetime remain constant over time,
-    while cost attributes may change over time. If you expect those
-    constant attributes of generation technologies to actually change in
-    the future (such as improved heat rates or reduced outage rates),
-    you could model those improvements as additional technologies, or
-    you could edit the model to index those attribute by year. Members
-    of this set are abbreviated as g or gt in parameter names and
-    indexes.
+    technologies. By default, certain attributes of a generation
+    technology such as heat rates and maximum lifetime remain constant
+    over time, while cost attributes may change over time. If you expect
+    those constant attributes of generation technologies to actually
+    change in the future (such as improved heat rates or reduced outage
+    rates), you could model those improvements as additional
+    technologies, or you could edit the model to index those attribute
+    by year. Members of this set are abbreviated as gen and g in
+    parameter names and indexes.
 
     g_dbid[g] is an optional parameter that stores an external
-    database id for each generation technology.
+    database id for each generation technology. This is used for
+    reporting results and defaults to g.
 
-    G_ENERGY_SOURCES[g] is an indexed set of the energy sources a
-    generator or storage plant can consume. Most traditional generators
-    can be modeled as consuming a single primary energy source such as
-    Natural Gas or Coal, even if they consume significant amounts of
-    electricity from the grid for their internal loads. Other generators
-    need to explicitly be modeled as consuming multiple energy sources.
-    Pumped Hydro has two primary energy sources: water from the upstream
-    river and electricity from the grid. Similarly, Compressed Air
-    Energy Storage with natural gas combustion turbines consume natural
-    gas and electricity. Pure storage projects consume electricity, but
-    under a Renewable Portfolio Standards, the electricity may be
-    classified further as Renewable or NonRenewable. Many oil generators
-    require distillate fuel oil for starting up, but can transition to
-    cheaper residual fuel oil or potentially more renewable crude plant
-    oils after they are warmed up. Some coal plants are cofired with
-    biomass... To support all of these situations, any generator may
-    have multiple energy sources.
+    g_energy_source[g] is a mandatory parameter that defines the primary
+    energy source used by each generator. For now, elements of this set
+    must be a member of the set ENERGY_SOURCES, and each generation
+    technology can only have one primary energy source. In the future,
+    we plan to support generators that use multiple energy sources: like
+    pumped hydro that consumes either upstream water or electricity for
+    storage, or compressed air energy storage that consumes electricity
+    for storage and natural gas, or oil generators that need to start
+    with high-quality distilled oil but can subsequently shift to low-
+    quality residual fuel oil. When we implement support for multiple
+    energy sources, we may allow g_energy_source to be set to
+    "multiple", then have another module deal with the multiple energy
+    sources.
 
     g_uses_fuel[g] is a derived binary parameter that is True if a
     generator uses a fuel to produce electricity. Generators with this
     flag set are expected to have a heat rate.
 
-    FUEL_BASED_GEN is a subset of GENERATION_TECHNOLOGIES for which
+    GEN_TECH_WITH_FUEL is a subset of GENERATION_TECHNOLOGIES for which
     g_uses_fuel is true.
 
     g_max_age[g] is how many years a plant can remain operational once
@@ -75,30 +74,32 @@ def define_components(mod):
     default of 0.
 
     g_scheduled_outage_rate[g] is the fraction of time that this type of
-    generator is expected to be down for scheduled maintenance.
-    Load-zone wide capacity available for dispatch is derated by this
-    factor to reflect the fraction of generation that will be down at
-    any given time. The model could alternatively be written to include
-    more specific scheduled maintenance requirements and attempt to
-    coordinate scheduled maintenance with load and other generators.
-    This factor is not used for capacity reserve margins because we
-    assume that scheduled maintenance can be scheduled at a time other
-    than peak load.
+    generator is expected to be down for scheduled maintenance. This
+    optional parameter supplies default values for all projects of this
+    technology. Load-zone wide capacity available for dispatch is
+    derated by this factor to reflect the fraction of generation that
+    will be down at any given time. The model could alternatively be
+    written to include more specific scheduled maintenance requirements
+    and attempt to coordinate scheduled maintenance with load and other
+    generators. This factor is not used for capacity reserve margins
+    because we assume that scheduled maintenance can be scheduled at a
+    time other than peak load.
 
     g_forced_outage_rate[g] is the fraction of time that this type of
-    generator is expected to be down for unscheduled maintenance. The
-    installed capacity available for dispatch in a load zone is derated
-    by this factor, as is the contribution to capacity reserve margins
-    because these outages cannot be scheduled. We think this methodology
-    of using expected forced outage rates is reasonable for long-term
-    planning, but may need to be replaced with a more rigorous security
-    analysis for detailed operations or trueing up an overall investment
-    portfolio.
+    generator is expected to be down for unscheduled maintenance. This
+    optional parameter supplies default values for all projects of this
+    technology. The installed capacity available for dispatch in a load
+    zone is derated by this factor, as is the contribution to capacity
+    reserve margins because these outages cannot be scheduled. We think
+    this methodology of using expected forced outage rates is reasonable
+    for long-term planning, but may need to be replaced with a more
+    rigorous security analysis for detailed operations or trueing up an
+    overall investment portfolio.
 
-    NOTE: The generator designations of variable, baseload, flexible
-    baseload and dispatchable are all mutually exclusive. A generator
-    can only belong to one of these categories because they imply
-    different operational regimes.
+    NOTE: The generator designations of variable, baseload, and flexible
+    baseload are all mutually exclusive. A generator may only belong to
+    one of these categories because they imply different operational
+    regimes.
 
     g_is_variable[g] is a binary flag indicating whether a generator is a
     variable renewable resource that provides generation on a "use-it-
@@ -115,10 +116,6 @@ def define_components(mod):
     generation technology needs to to be operated with constant output
     from hour to hour, but its output can be varied from day to day.
     Some coal plants fall into this category.
-
-    g_is_dispatchable[g] is a binary flag indicating whether a generation
-    technology can be ramped up or down to a large degree from hour to
-    hour.
 
     g_is_cogen[g] is a binary flag indicating whether a generation
     technology is a combined heat and power plant that cogenerates heat
@@ -151,8 +148,8 @@ def define_components(mod):
     custom logic to handle this, it's better to be clear and exlicit
     rather than relying on implicit encoding.
 
-    STORAGE_TECHNOLOGIES is a subset of GENERATION_TECHNOLOGIES that can
-    store electricity for later discharge. STORAGE_TECHNOLOGIES consume
+    GEN_TECH_STORAGE is a subset of GENERATION_TECHNOLOGIES that can
+    store electricity for later discharge. GEN_TECH_STORAGE consume
     electricity and possibly additional energy sources such as upstream
     water in the case of pumped hydro. If a technology is storage, then
     SWITCH preprocessing will augment the ENERGY_SOURCES[g] list to
@@ -178,7 +175,7 @@ def define_components(mod):
     a storage project has 1 MW of dischage capacity and a max_store_rate
     of 1.2, then it can consume up to 1.2 MW of power while charging.
 
-    CCS_TECHNOLOGIES is a subset of generation technologies that
+    GEN_TECH_CCS is a subset of generation technologies that
     use Carbon Capture and Sequestration (CCS). The model assumes
     that all CCS technologies combust fuels such as coal, natural gas or
     biomass. The following two parameters are only defined for CCS
@@ -221,7 +218,7 @@ def define_components(mod):
     (O&M) per MWh of dispatched capacity for given generation technology.
     This is assumed to remain constant over time.
 
-    g_full_load_heat_rate[g in FUEL_BASED_GEN] provides the default full
+    g_full_load_heat_rate[g in GEN_TECH_WITH_FUEL] provides the default full
     load heat rate of a generation technology in units of MMBTU per MWh.
     Specific projects may override this heat rate. This is optional, but
     if you don't supply a value, then you must specify a heat for each
@@ -261,7 +258,9 @@ def define_components(mod):
     """
 
     mod.GENERATION_TECHNOLOGIES = Set()
-    mod.g_dbid = Param(mod.GENERATION_TECHNOLOGIES)
+    mod.g_dbid = Param(
+        mod.GENERATION_TECHNOLOGIES,
+        default=lambda m, g: g)
     mod.g_max_age = Param(
         mod.GENERATION_TECHNOLOGIES, within=PositiveReals)
     mod.g_scheduled_outage_rate = Param(
@@ -273,8 +272,6 @@ def define_components(mod):
     mod.g_is_baseload = Param(
         mod.GENERATION_TECHNOLOGIES, within=Boolean)
     mod.g_is_flexible_baseload = Param(
-        mod.GENERATION_TECHNOLOGIES, within=Boolean)
-    mod.g_is_dispatchable = Param(
         mod.GENERATION_TECHNOLOGIES, within=Boolean)
     mod.g_is_cogen = Param(
         mod.GENERATION_TECHNOLOGIES, within=Boolean)
@@ -291,27 +288,27 @@ def define_components(mod):
         mod.GEN_TECH_WITH_UNIT_SIZES,
         within=PositiveReals)
 
-    mod.G_ENERGY_SOURCES = Set(
-        mod.GENERATION_TECHNOLOGIES, within=mod.ENERGY_SOURCES)
+    mod.g_energy_source = Param(
+        mod.GENERATION_TECHNOLOGIES,
+        within=mod.ENERGY_SOURCES)
     mod.g_uses_fuel = Param(
         mod.GENERATION_TECHNOLOGIES,
-        initialize=lambda m, g: len(
-            set(m.G_ENERGY_SOURCES[g]) & set(m.FUELS)) > 0)
-    mod.FUEL_BASED_GEN = Set(
+        initialize=lambda m, g: m.g_energy_source[g] in m.FUELS)
+    mod.GEN_TECH_WITH_FUEL = Set(
         initialize=mod.GENERATION_TECHNOLOGIES,
         filter=lambda m, g: m.g_uses_fuel[g])
 
-    mod.STORAGE_TECHNOLOGIES = Set(within=mod.GENERATION_TECHNOLOGIES)
+    mod.GEN_TECH_STORAGE = Set(within=mod.GENERATION_TECHNOLOGIES)
     mod.g_storage_efficiency = Param(
-        mod.STORAGE_TECHNOLOGIES, within=PercentFraction)
+        mod.GEN_TECH_STORAGE, within=PercentFraction)
     mod.g_store_to_release_ratio = Param(
-        mod.STORAGE_TECHNOLOGIES, within=PositiveReals)
+        mod.GEN_TECH_STORAGE, within=PositiveReals)
 
-    mod.CCS_TECHNOLOGIES = Set(within=mod.GENERATION_TECHNOLOGIES)
+    mod.GEN_TECH_CCS = Set(within=mod.GENERATION_TECHNOLOGIES)
     mod.g_ccs_capture_efficiency = Param(
-        mod.CCS_TECHNOLOGIES, within=PercentFraction)
+        mod.GEN_TECH_CCS, within=PercentFraction)
     mod.g_ccs_energy_load = Param(
-        mod.CCS_TECHNOLOGIES, within=PercentFraction)
+        mod.GEN_TECH_CCS, within=PercentFraction)
 
     # New generation vintages need to be within the cross product of
     # generation technologies and investment periods.
@@ -329,72 +326,50 @@ def define_components(mod):
         within=NonNegativeReals)
 
     mod.g_full_load_heat_rate = Param(
-        mod.FUEL_BASED_GEN,
+        mod.GEN_TECH_WITH_FUEL,
         within=PositiveReals)
 
     mod.min_data_check(
-        'GENERATION_TECHNOLOGIES', 'g_dbid',
-        'g_max_age', 'g_min_build_capacity',
-        'g_scheduled_outage_rate', 'g_forced_outage_rate',
+        'GENERATION_TECHNOLOGIES',
+        'g_max_age',
         'g_is_variable', 'g_is_baseload',
-        'g_is_flexible_baseload', 'g_is_dispatchable', 'g_is_cogen',
-        'g_competes_for_space', 'G_ENERGY_SOURCES')
-
-    # Make sure no generator has an empty list of energy sources
-    mod.mandatory_energy_source = BuildCheck(
-        mod.GENERATION_TECHNOLOGIES,
-        rule=lambda m, g: len(m.G_ENERGY_SOURCES[g]) > 0)
-    # Quick hack to mandate each technology has a single energy source
-    mod.single_energy_source = BuildCheck(
-        mod.GENERATION_TECHNOLOGIES,
-        rule=lambda m, g: len(m.G_ENERGY_SOURCES[g]) == 1)
+        'g_is_flexible_baseload', 'g_is_cogen',
+        'g_energy_source')
 
 
 def load_inputs(mod, switch_data, inputs_dir):
     """
 
     Import generator data. The following files are expected in the input
-    directory:
+    directory. You may drop optional columns, or put a dot . in rows
+    for which you do not wish to specify data. Some other modules may look
+    for additional columns in generator_info.tab.
 
-    The unit size column in generator_info is optional and you can put a
-    dot for any row where you do not wish to specify a data value.
-
-    generator_info.tab
-        generation_technology, g_dbid, g_max_age, g_min_build_capacity,
-        g_scheduled_outage_rate, g_forced_outage_rate,
+    generator_info.tab has a mix of mandatory and optional columns. The
+    mandatory columns are:
+        generation_technology, g_max_age,
         g_is_variable, g_is_baseload,
-        g_is_flexible_baseload, g_is_dispatchable, g_is_cogen,
-        g_competes_for_space, g_variable_o_m
+        g_is_flexible_baseload, g_is_cogen,
+        g_competes_for_space, g_variable_o_m, g_energy_source
 
-    ccs_info.tab
-        generation_technology, g_ccs_capture_efficiency, g_ccs_energy_load
+    The optional columns are:
+        g_dbid, g_scheduled_outage_rate, g_forced_outage_rate,
+        g_min_build_capacity, g_full_load_heat_rate, g_unit_size,
+        g_ccs_capture_efficiency, g_ccs_energy_load,
+        g_storage_efficiency, g_store_to_release_ratio
 
-    generator_energy_sources.tab
-        generation_technology, energy_source
+    Note: The model does not yet support CCS or storage. Those columns
+    exist primarily as place-holders for now. CCS is mostly written, but
+    untested. Storage is not written.
 
-    gen_new_build_costs is optional in a production cost simulation where
-    all projects were built before the start of the first period. In
-    that situation, all existing projects could have costs specified in
-    project_specific_costs.tab
+    gen_new_build_costs is optional to support production cost
+    simulations where all projects were built before the start of the
+    first period. In that context, all existing projects could
+    reasonably have costs specified in project_specific_costs.tab
 
     gen_new_build_costs.tab
         generation_technology, investment_period,
         g_overnight_cost, g_fixed_o_m
-
-    storage_info does not have to be specified if no storage
-    technologies are included in the optimization.
-
-    storage_info.tab
-        generation_technology, g_storage_efficiency, g_store_to_release_ratio
-
-    unit_sizes.tab is optional and should only contain entries for
-    technologies with valid, non-zero data for g_unit_size.
-
-    unit_sizes.tab
-        generation_technology, g_unit_size
-
-    gen_heat_rates.tab
-        generation_technology, full_load_heat_rate
 
     """
     # Include select in each load() function so that it will check out
@@ -402,76 +377,39 @@ def load_inputs(mod, switch_data, inputs_dir):
     # message if some columns are not found.
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'generator_info.tab'),
-        select=('generation_technology',
-                'g_dbid', 'g_max_age', 'g_min_build_capacity',
-                'g_scheduled_outage_rate', 'g_forced_outage_rate',
-                'g_is_variable', 'g_is_baseload',
-                'g_is_flexible_baseload', 'g_is_dispatchable',
-                'g_is_cogen', 'g_competes_for_space', 'g_variable_o_m'),
+        auto_select=True,
+        optional_params=[
+            'g_unit_size', 'g_scheduled_outage_rate', 'g_forced_outage_rate',
+            'g_ccs_capture_efficiency', 'g_ccs_energy_load',
+            'g_storage_efficiency', 'g_store_to_release_ratio'],
         index=mod.GENERATION_TECHNOLOGIES,
         param=(
-            mod.g_dbid, mod.g_max_age,
-            mod.g_min_build_capacity, mod.g_scheduled_outage_rate,
-            mod.g_forced_outage_rate,
+            mod.g_dbid, mod.g_max_age, mod.g_min_build_capacity,
+            mod.g_scheduled_outage_rate, mod.g_forced_outage_rate,
             mod.g_is_variable, mod.g_is_baseload,
-            mod.g_is_flexible_baseload, mod.g_is_dispatchable,
-            mod.g_is_cogen, mod.g_competes_for_space, mod.g_variable_o_m))
+            mod.g_is_flexible_baseload, mod.g_is_cogen,
+            mod.g_competes_for_space, mod.g_variable_o_m,
+            mod.g_energy_source, mod.g_full_load_heat_rate,
+            mod.g_unit_size, mod.g_ccs_capture_efficiency,
+            mod.g_ccs_energy_load, mod.g_storage_efficiency,
+            mod.g_store_to_release_ratio))
+    # Construct sets of storage and CCS technologies as well as
+    # technologies with discrete unit sizes.
+    if 'g_unit_size' in switch_data.data():
+        switch_data.data()['GEN_TECH_WITH_UNIT_SIZES'] = {
+            None: switch_data.data(name='g_unit_size').keys()
+        }
+    if 'g_ccs_capture_efficiency' in switch_data.data():
+        switch_data.data()['GEN_TECH_CCS'] = {
+            None: switch_data.data(name='g_ccs_capture_efficiency').keys()
+        }
+    if 'g_storage_efficiency' in switch_data.data():
+        switch_data.data()['GEN_TECH_STORAGE'] = {
+            None: switch_data.data(name='g_storage_efficiency').keys()
+        }
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, 'gen_new_build_costs.tab'),
-        select=('generation_technology', 'investment_period',
-                'g_overnight_cost', 'g_fixed_o_m'),
+        auto_select=True,
         index=mod.NEW_GENERATION_BUILDYEARS,
-        param=(mod.g_overnight_cost, mod.g_fixed_o_m))
-    # CCS info is optional because there may not be any CCS technologies
-    switch_data.load_aug(
-        optional=True,
-        filename=os.path.join(inputs_dir, 'ccs_info.tab'),
-        select=(
-            'generation_technology',
-            'g_ccs_capture_efficiency', 'g_ccs_energy_load'),
-        index=mod.CCS_TECHNOLOGIES,
-        param=(mod.g_ccs_capture_efficiency, mod.g_ccs_energy_load))
-    switch_data.load_aug(
-        optional=True,
-        filename=os.path.join(inputs_dir, 'storage_info.tab'),
-        select=('generation_technology',
-                'g_storage_efficiency', 'g_store_to_release_ratio'),
-        index=mod.STORAGE_TECHNOLOGIES,
-        param=(mod.g_storage_efficiency, mod.g_store_to_release_ratio))
-    switch_data.load_aug(
-        optional=True,
-        filename=os.path.join(inputs_dir, 'unit_sizes.tab'),
-        select=('generation_technology', 'g_unit_size'),
-        index=mod.GEN_TECH_WITH_UNIT_SIZES,
-        param=(mod.g_unit_size))
-    switch_data.load_aug(
-        optional=True,
-        filename=os.path.join(inputs_dir, 'gen_heat_rates.tab'),
-        select=('generation_technology', 'full_load_heat_rate'),
-        param=(mod.g_full_load_heat_rate))
-    # Pyomo's DataPortal doesn't work so well with indexed sets like
-    # G_ENERGY_SOURCES, so I need to read those in and manually add them
-    # to the DataPortal dictionary. I could have added a dummy tuple set
-    # of these pairs and used that to initialize G_ENERGY_SOURCES, but
-    # that would have added a redundant model component that would need
-    # documentation but does not contribute to the logical structure.
-    path = os.path.join(inputs_dir, 'generator_energy_sources.tab')
-    with open(path, 'rb') as energy_source_file:
-        # Initialize the G_ENERGY_SOURCES entry in the DataPortal object
-        switch_data.data()['G_ENERGY_SOURCES'] = {}
-        G_ENERGY_SOURCES = switch_data.data(name='G_ENERGY_SOURCES')
-        # Create an array entry for each generation technology
-        for g in switch_data.data(name='GENERATION_TECHNOLOGIES'):
-            G_ENERGY_SOURCES[g] = []
-        # Read in a 2-variable tuple of generator, energy source
-        energy_source_dat = list(
-            csv.reader(energy_source_file, delimiter='\t'))
-        # Discard the header row
-        energy_source_dat.pop(0)
-        # import logging
-        # logging.warning("energy_source_dat is...")
-        # logging.warning(energy_source_dat)
-        # Add energy sources to each generator
-        for (g, e) in energy_source_dat:
-            G_ENERGY_SOURCES[g].append(e)
+        param=[mod.g_overnight_cost, mod.g_fixed_o_m])

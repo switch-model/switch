@@ -28,5 +28,5 @@ opt = SolverFactory("cplex")
 results = opt.solve(switch_instance, keepfiles=False, tee=False)
 switch_model.save_results(results, switch_instance, "outputs")
 
-# results.write()
+results.write()
 switch_instance.pprint()

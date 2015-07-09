@@ -67,13 +67,6 @@ def define_components(mod):
     describes the maximum possible capacity of a project in units of
     megawatts.
 
-    proj_full_load_heat_rate[proj] is the full load heat rate in units
-    of MMBTU/MWh that describes the thermal efficiency of a project when
-    runnign at full load. This optional parameter overrides the generic
-    heat rate of a generation technology. In the future, we may expand
-    this to be indexed by fuel source as well if we need to support a
-    multi-fuel generator whose heat rate depends on fuel source.
-
     proj_energy_source[proj] is the primary energy source for a project.
     This is derived from the generation technology description and
     assumes one energy source per generation technology. This parameter
@@ -285,54 +278,24 @@ def define_components(mod):
         mod.PROJECTS_CAP_LIMITED,
         within=PositiveReals)
     # Add PROJECTS_LOCATION_LIMITED & associated stuff later
-    mod.FUEL_BASED_PROJECTS = Set(
-        initialize=lambda m: set(
-            p for p in m.PROJECTS if m.g_uses_fuel[m.proj_gen_tech[p]]))
-    mod.proj_fuel = Param(
-        mod.FUEL_BASED_PROJECTS,
-        within=mod.FUELS,
-        initialize=lambda m, proj: set(
-            set(m.G_ENERGY_SOURCES[m.proj_gen_tech[proj]]) &
-            set(m.FUELS)).pop())
-    mod.NON_FUEL_BASED_PROJECTS = Set(
-        initialize=lambda m: set(
-            p for p in m.PROJECTS if not m.g_uses_fuel[m.proj_gen_tech[p]]))
-    mod.proj_non_fuel_energy_source = Param(
-        mod.NON_FUEL_BASED_PROJECTS,
-        within=mod.NON_FUEL_ENERGY_SOURCES,
-        initialize=lambda m, proj: set(
-            set(m.G_ENERGY_SOURCES[m.proj_gen_tech[proj]]) &
-            set(m.NON_FUEL_ENERGY_SOURCES)).pop())
     mod.proj_energy_source = Param(
         mod.PROJECTS,
         within=mod.ENERGY_SOURCES,
-        initialize=lambda m, proj: set(
-            m.G_ENERGY_SOURCES[m.proj_gen_tech[proj]]).pop())
-    # For now, I've only implemented support for each project having a
-    # single fuel type. Throw an error if that is not the case, which
-    # can prompt us to expand the model to support that.
-    mod.thermal_generators_use_single_fuel = BuildCheck(
+        initialize=lambda m, pr: m.g_energy_source[m.proj_gen_tech[pr]])
+    mod.FUEL_BASED_PROJECTS = Set(
+        initialize=mod.PROJECTS,
+        filter=lambda m, pr: m.proj_energy_source[pr] in m.FUELS)
+    mod.proj_fuel = Param(
         mod.FUEL_BASED_PROJECTS,
-        rule=lambda m, proj: len(set(
-            set(m.G_ENERGY_SOURCES[m.proj_gen_tech[proj]]) &
-            set(m.FUELS))) == 1)
-
-    # proj_full_load_heat_rate defaults to g_full_load_heat_rate if it
-    # is available. Throw an error if no data was given for
-    # proj_full_load_heat_rate or g_full_load_heat_rate.
-    def proj_full_load_heat_rate_default_rule(m, pr):
-        g = m.proj_gen_tech[pr]
-        if g in m.g_full_load_heat_rate:
-            return m.g_full_load_heat_rate[g]
-        else:
-            raise ValueError(
-                ("Project {} uses a fuel, but there is no heat rate " +
-                 "specified for this project or its generation technology " +
-                 "{}.").format(pr, m.proj_gen_tech[pr]))
-    mod.proj_full_load_heat_rate = Param(
-        mod.FUEL_BASED_PROJECTS,
-        within=PositiveReals,
-        default=proj_full_load_heat_rate_default_rule)
+        within=mod.FUELS,
+        initialize=lambda m, pr: m.proj_energy_source[pr])
+    mod.NON_FUEL_BASED_PROJECTS = Set(
+        initialize=mod.PROJECTS,
+        filter=lambda m, pr: m.proj_energy_source[pr] not in m.FUELS)
+    mod.proj_non_fuel_energy_source = Param(
+        mod.NON_FUEL_BASED_PROJECTS,
+        within=mod.NON_FUEL_ENERGY_SOURCES,
+        initialize=lambda m, pr: m.proj_energy_source[pr])
 
     def init_proj_buildyears(m):
         project_buildyears = set()
@@ -417,18 +380,37 @@ def define_components(mod):
     # Costs
     mod.proj_connect_cost_per_mw = Param(mod.PROJECTS, within=NonNegativeReals)
     mod.min_data_check('proj_connect_cost_per_mw')
+
+    # The next few parameters need values, but those can come from
+    # their parent technology or this specific project. If neither
+    # data source was provided, throw an error.
+    def proj_overnight_cost_default_rule(m, proj, bld_yr):
+        g = m.proj_gen_tech[proj]
+        if (g, bld_yr) in m.g_overnight_cost:
+            return(m.g_overnight_cost[g, bld_yr] *
+                   m.lz_cost_multipliers[m.proj_load_zone[proj]])
+        else:
+            raise ValueError(
+                ("No overnight costs were provided for project {} " +
+                 "or its generation technology {}.").format(pr, g))
     mod.proj_overnight_cost = Param(
         mod.PROJECT_BUILDYEARS,
         within=NonNegativeReals,
-        default=lambda m, proj, bld_yr: (
-            m.g_overnight_cost[m.proj_gen_tech[proj], bld_yr] *
-            m.lz_cost_multipliers[m.proj_load_zone[proj]]))
+        default=proj_overnight_cost_default_rule)
+
+    def proj_fixed_om_default_rule(m, proj, bld_yr):
+        g = m.proj_gen_tech[proj]
+        if (g, bld_yr) in m.g_fixed_o_m:
+            return(m.g_fixed_o_m[g, bld_yr] *
+                   m.lz_cost_multipliers[m.proj_load_zone[proj]])
+        else:
+            raise ValueError(
+                ("No fixed O & M costs were provided for project {} " +
+                 "or its generation technology {}.").format(pr, g))
     mod.proj_fixed_om = Param(
         mod.PROJECT_BUILDYEARS,
         within=NonNegativeReals,
-        default=lambda m, proj, bld_yr: (
-            m.g_fixed_o_m[m.proj_gen_tech[proj], bld_yr] *
-            m.lz_cost_multipliers[m.proj_load_zone[proj]]))
+        default=proj_fixed_om_default_rule)
     # Derived annual costs
     mod.proj_capital_cost_annual = Param(
         mod.PROJECT_BUILDYEARS,
@@ -468,12 +450,17 @@ def define_components(mod):
 def load_inputs(mod, switch_data, inputs_dir):
     """
 
-    Import project-specific data. The following files are expected in
-    the input directory.
+    Import data describing project builds. The following files are
+    expected in the input directory.
 
-    all_projects.tab
-        PROJECT, proj_dbid, proj_gen_tech, proj_load_zone,
-        proj_connect_cost_per_mw
+    project_info.tab has mandatory and optional columns. The
+    project.dispatch module will also look for additional columns in
+    this file. You may drop optional columns entirely or mark blank
+    values with a dot '.' for select rows for which the column does not
+    apply. Mandatory columns are:
+        PROJECT, proj_gen_tech, proj_load_zone, proj_connect_cost_per_mw
+    Optional columns are:
+        proj_dbid, proj_capacity_limit_mw
 
     existing_projects.tab
         PROJECT, build_year, proj_existing_cap
@@ -481,48 +468,36 @@ def load_inputs(mod, switch_data, inputs_dir):
     cap_limited_projects is optional because some systems will not have
     capacity limited projects.
 
-    cap_limited_projects.tab
-        PROJECT, proj_capacity_limit_mw
-
-    The following files are optional because they override generic
-    values given by descriptions of generation technologies.
-
-    proj_heat_rate.tab
-        PROJECT, proj_heat_rate
-
-    Note: Load-zone cost adjustments will not be applied to any costs
-    specified in project_specific_costs.
+    The following file is optional because it override generic values
+    given by descriptions of generation technologies. Note: Load-zone
+    cost adjustments will not be applied to any costs specified in
+    project_specific_costs.
 
     project_specific_costs.tab
         PROJECT, build_year, proj_overnight_cost, proj_fixed_om
 
     """
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'all_projects.tab'),
-        select=('PROJECT', 'proj_dbid', 'proj_gen_tech',
-                'proj_load_zone', 'proj_connect_cost_per_mw'),
+        filename=os.path.join(inputs_dir, 'project_info.tab'),
+        auto_select=True,
+        optional_params=['proj_capacity_limit_mw'],
         index=mod.PROJECTS,
         param=(mod.proj_dbid, mod.proj_gen_tech,
-               mod.proj_load_zone, mod.proj_connect_cost_per_mw))
+               mod.proj_load_zone, mod.proj_connect_cost_per_mw,
+               mod.proj_capacity_limit_mw))
+    # Make a list of projects that have capacity limits specified.
+    if 'proj_capacity_limit_mw' in switch_data.data():
+        switch_data.data()['PROJECTS_CAP_LIMITED'] = {
+            None: switch_data.data(name='proj_capacity_limit_mw').keys()
+        }
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'existing_projects.tab'),
+        filename=os.path.join(inputs_dir, 'proj_existing_builds.tab'),
         select=('PROJECT', 'build_year', 'proj_existing_cap'),
         index=mod.EXISTING_PROJ_BUILDYEARS,
         param=(mod.proj_existing_cap))
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'cap_limited_projects.tab'),
-        select=('PROJECT', 'proj_capacity_limit_mw'),
-        index=mod.PROJECTS_CAP_LIMITED,
-        param=(mod.proj_capacity_limit_mw))
-    switch_data.load_aug(
-        optional=True,
-        filename=os.path.join(inputs_dir, 'proj_heat_rate.tab'),
-        select=('PROJECT', 'full_load_heat_rate'),
-        param=(mod.proj_full_load_heat_rate))
-    switch_data.load_aug(
-        optional=True,
-        filename=os.path.join(inputs_dir, 'project_specific_costs.tab'),
+        filename=os.path.join(inputs_dir, 'proj_build_costs.tab'),
         select=('PROJECT', 'build_year',
                 'proj_overnight_cost', 'proj_fixed_om'),
         param=(mod.proj_overnight_cost, mod.proj_fixed_om))

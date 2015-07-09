@@ -114,42 +114,6 @@ def save_results(model, results, instance, outdir):
         return False
 
 
-def load_aug(switch_data, optional=False, **kwds):
-    """
-    This is a wrapper for DataPortal.load() that allows more robust
-    processing and error reporting of input files.
-
-    If the argument "optional" is set to True, this will not attempt
-    to load an input file that is missing or empty.
-
-    In the future, this will also support individual columns being
-    optional as well.
-
-    The name of this function is bad and will likely be changed when
-    I think of something better.
-
-    """
-    path = kwds['filename']
-    # Skip if the file is missing
-    if optional and not os.path.isfile(path):
-        return
-    # Parse header and first row
-    with open(path) as infile:
-        headers = infile.readline().strip().split('\t')
-        dat1 = infile.readline().strip().split('\t')
-    # Skip if the file is empty or has no data in the first row.
-    if optional and (headers == [''] or dat1 == ['']):
-        return
-    # Check to see if expected column names are in the file.
-    if 'select' in kwds:
-        for col in kwds['select']:
-            if col not in headers:
-                raise InputError(
-                    'Column {} not found in file {}.'
-                    .format(col, path))
-    switch_data.load(**kwds)
-
-
 def min_data_check(model, *mandatory_model_components):
     """
 
@@ -420,6 +384,100 @@ class InputError(Exception):
 
     def __str__(self):
         return repr(self.value)
+
+
+def load_aug(switch_data, optional=False, auto_select=False,
+             optional_params=[], **kwds):
+    """
+
+    This is a wrapper for the DataPortal object that accepts additional
+    keywords. This currently supports a flag for the file being optional.
+    In the future, this could also support a list of optional columns.
+    The name is not great and may be changed as well.
+
+    """
+    path = kwds['filename']
+    # Skip if the file is missing
+    if optional and not os.path.isfile(path):
+        return
+    # Parse header and first row
+    with open(path) as infile:
+        headers = infile.readline().strip().split('\t')
+        dat1 = infile.readline().strip().split('\t')
+    # Skip if the file is empty or has no data in the first row.
+    if optional and (headers == [''] or dat1 == ['']):
+        return
+    # Try to get a list of parameters. If param was given as a
+    # singleton or a tuple, make it into a list that can be edited.
+    params = []
+    if 'param' in kwds:
+        # Tuple -> list
+        if isinstance(kwds['param'], tuple):
+            kwds['param'] = list(kwds['param'])
+        # Singleton -> list
+        elif not isinstance(kwds['param'], list):
+            kwds['param'] = [kwds['param']]
+        params = kwds['param']
+    # optional_params may include Param objects instead of names. In
+    # those cases, convert objects to names.
+    for (i, p) in enumerate(optional_params):
+        if not isinstance(p, basestring):
+            optional_params[i] = p.name
+    # Expand the list optional parameters to include any parameter that
+    # has default() defined. I need to allow an explicit list of default
+    # parameters to support optional parameters like g_unit_size which
+    # don't have default value because it is undefined for generators
+    # for which it does not apply.
+    for p in params:
+        if p.default() is not None:
+            optional_params.append(p.name)
+    # How many index columns do we expect?
+    # Grab the dimensionality of the index param if it was provided.
+    if 'index' in kwds:
+        num_indexes = kwds['index'].dimen
+    # Next try the first parameter's index.
+    elif len(params) > 0:
+        try:
+            num_indexes = params[0].index_set().dimen
+        except ValueError:
+            num_indexes = 0
+    # Default to 0 if both methods failed.
+    else:
+        num_indexes = 0
+    # Make a select list if requested. Assume the left-most columns are
+    # indexes and that other columns are named after their parameters.
+    if auto_select:
+        if 'select' in kwds:
+            raise InputError('You may not specify a select parameter if ' +
+                             'auto_select is set to True.')
+        kwds['select'] = headers[0:num_indexes]
+        kwds['select'].extend([p.name for p in params])
+    # Check to see if expected column names are in the file. If a column
+    # name is missing and its parameter is optional, then drop it from
+    # the select & param lists.
+    if 'select' in kwds:
+        if isinstance(kwds['select'], tuple):
+            kwds['select'] = list(kwds['select'])
+        del_items = []
+        for (i, col) in enumerate(kwds['select']):
+            p_i = i - num_indexes
+            if col not in headers:
+                if(len(params) > p_i >= 0 and
+                   params[p_i].name in optional_params):
+                    del_items.append((i, p_i))
+                else:
+                    raise InputError(
+                        'Column {} not found in file {}.'
+                        .format(col, path))
+        # When deleting entries from select & param lists, go from last
+        # to first so that the indexes won't get messed up as we go.
+        del_items.sort(reverse=True)
+        for (i, p_i) in del_items:
+            del kwds['select'][i]
+            del kwds['param'][p_i]
+    # All done with cleaning optional bits. Pass the updated arguments
+    # into the DataPortal.load() function.
+    switch_data.load(**kwds)
 
 
 def approx_equal(a, b, tolerance=0.01):

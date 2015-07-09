@@ -26,9 +26,9 @@ def define_components(mod):
     investment decisions. The following parameters describe attributes
     of a period.
 
-    period_start[p]: The starting year of an investment period.
+    period_start[p]: The first complete year of an investment period.
 
-    period_end[p]: The last year of an investment period.
+    period_end[p]: The last complete year of an investment period.
 
     period_length_years[p]: The number of years in an investment
     period; derived from period_start and period_end.

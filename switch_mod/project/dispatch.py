@@ -42,19 +42,27 @@ def define_components(mod):
     of generation dispatch decisions: how much average power in MW to
     produce in each timepoint. This value can be multiplied by the
     duration of the timepoint in hours to determine the energy produced
-    by a project in a timepoint. This will need to have another index of
-    energy_source to fully support generators that use multiple fuels.
+    by a project in a timepoint.
+
+    proj_forced_outage_rate[prj] and proj_scheduled_outage_rate[prj]
+    describe the forces and scheduled outage rates for each project.
+    These parameters can be specified for individual projects via an
+    input file (see load_inputs() documentation), or generically for all
+    projects of a given generation technology via
+    g_scheduled_outage_rate and g_forced_outage_rate. You will get an
+    error if any project is missing values for either of these
+    parameters.
 
     proj_availability[prj] describes the fraction of a time a project is
     expected to be available. This is derived from the forced and
-    scheduled outage rates of generation technologies. For baseload or
-    flexible baseload, this is determined from both forced and scheduled
-    outage rates. For all other types of generation technologies, we
-    assume the scheduled outages can be performed when the generators
-    were not scheduled to produce power, so their availability is only
-    derated based on their forced outage rates.
+    scheduled outage rates of the project. For baseload or flexible
+    baseload, this is determined from both forced and scheduled outage
+    rates. For all other types of generation technologies, we assume the
+    scheduled outages can be performed when the generators were not
+    scheduled to produce power, so their availability is only derated
+    based on their forced outage rates.
 
-    prj_max_capacity_factor[prj, t] is defined for variable renewable
+    proj_max_capacity_factor[prj, t] is defined for variable renewable
     projects and is the ratio of average power output to nameplate
     capacity in that timepoint. Most renewable capacity factors should
     be in the range of 0 to 1. Some solar capacity factors will be above
@@ -69,6 +77,13 @@ def define_components(mod):
 
     proj_variable_om[proj] is the variable Operations and Maintenance
     costs (O&M) per MWh of dispatched capacity for a given project.
+
+    proj_full_load_heat_rate[proj] is the full load heat rate in units
+    of MMBTU/MWh that describes the thermal efficiency of a project when
+    runnign at full load. This optional parameter overrides the generic
+    heat rate of a generation technology. In the future, we may expand
+    this to be indexed by fuel source as well if we need to support a
+    multi-fuel generator whose heat rate depends on fuel source.
 
     Proj_Var_Costs_Hourly[t in TIMEPOINTS] is the sum of all variable
     costs associated with project dispatch for each timepoint expressed
@@ -139,16 +154,65 @@ def define_components(mod):
             m.DispatchProj[p, t] for p in m.LZ_PROJECTS[lz]
             if (p, t) in m.PROJ_DISPATCH_POINTS))
     # Register net dispatch as contributing to a load zone's energy
-    mod.LZ_Energy_Balance_components.append('LZ_NetDispatch')
+    mod.LZ_Energy_Components_Produce.append('LZ_NetDispatch')
 
-    def init_proj_availability(model, project):
-        tech = model.proj_gen_tech[project]
+    # The next few parameters can be set to project-specific values if
+    # they were given and otherwise will default to generic technology-
+    # specific values if those were given. Throw an error if no data
+    # source was provided.
+    def proj_full_load_heat_rate_default_rule(m, pr):
+        g = m.proj_gen_tech[pr]
+        if g in m.g_full_load_heat_rate:
+            return m.g_full_load_heat_rate[g]
+        else:
+            raise ValueError(
+                ("Project {} uses a fuel, but there is no heat rate " +
+                 "specified for this project or its generation technology " +
+                 "{}.").format(pr, m.proj_gen_tech[pr]))
+    mod.proj_full_load_heat_rate = Param(
+        mod.FUEL_BASED_PROJECTS,
+        within=PositiveReals,
+        default=proj_full_load_heat_rate_default_rule)
+
+    def proj_forced_outage_rate_default_rule(m, pr):
+        g = m.proj_gen_tech[pr]
+        if g in m.g_forced_outage_rate:
+            return m.g_forced_outage_rate[g]
+        else:
+            raise ValueError(
+                ("No data found for proj_forced_outage_rate for project {}" +
+                 "; neither project-specific data nor technology-specific " +
+                 "data was provided (tech={})."
+                 ).format(pr, m.proj_gen_tech[pr]))
+    mod.proj_forced_outage_rate = Param(
+        mod.PROJECTS,
+        within=PercentFraction,
+        default=proj_forced_outage_rate_default_rule)
+
+    def proj_scheduled_outage_rate_default_rule(m, pr):
+        g = m.proj_gen_tech[pr]
+        if g in m.g_scheduled_outage_rate:
+            return m.g_scheduled_outage_rate[g]
+        else:
+            raise ValueError(
+                ("No data found for proj_scheduled_outage_rate for project " +
+                 "{}; neither project-specific data nor technology-specific " +
+                 "data was provided (tech={})."
+                 ).format(pr, m.proj_gen_tech[pr]))
+    mod.proj_scheduled_outage_rate = Param(
+        mod.PROJECTS,
+        within=PercentFraction,
+        default=proj_scheduled_outage_rate_default_rule)
+
+    def init_proj_availability(model, proj):
+        tech = model.proj_gen_tech[proj]
         if(model.g_is_baseload[tech] or
            model.g_is_flexible_baseload[tech]):
-            return (1 - model.g_forced_outage_rate[tech]) * (
-                1 - model.g_scheduled_outage_rate[tech])
+            return (
+                (1 - model.proj_forced_outage_rate[proj]) *
+                (1 - model.proj_scheduled_outage_rate[proj]))
         else:
-            return (1 - model.g_forced_outage_rate[tech])
+            return (1 - model.proj_forced_outage_rate[proj])
     mod.proj_availability = Param(
         mod.PROJECTS,
         within=PositiveReals,
@@ -157,11 +221,11 @@ def define_components(mod):
     mod.VAR_DISPATCH_POINTS = Set(
         initialize=mod.PROJ_DISPATCH_POINTS,
         filter=lambda m, proj, t: proj in m.VARIABLE_PROJECTS)
-    mod.prj_max_capacity_factor = Param(
+    mod.proj_max_capacity_factor = Param(
         mod.VAR_DISPATCH_POINTS,
         within=Reals,
         validate=lambda m, val, proj, t: -1 < val < 2)
-    mod.min_data_check('prj_max_capacity_factor')
+    mod.min_data_check('proj_max_capacity_factor')
 
     mod.proj_variable_om = Param(
         mod.PROJECTS,
@@ -180,7 +244,7 @@ def define_components(mod):
     def DispatchEmissions_rule(m, proj, t):
         g = m.proj_gen_tech[proj]
         f = m.proj_fuel[proj]
-        if g not in m.CCS_TECHNOLOGIES:
+        if g not in m.GEN_TECH_CCS:
             return (
                 m.ProjFuelUseRate[proj, t] *
                 (m.f_co2_intensity[f] - m.f_upstream_co2_intensity[f]))
@@ -214,34 +278,40 @@ def define_components(mod):
 def load_inputs(mod, switch_data, inputs_dir):
     """
 
-    Import project-specific data from an input directory. Both files are
-    optional.
+    Import project-specific data from an input directory.
 
     variable_capacity_factors can be skipped if no variable
     renewable projects are considered in the optimization.
 
     variable_capacity_factors.tab
-        PROJECT, timepoint, prj_capacity_factor
+        PROJECT, timepoint, proj_max_capacity_factor
 
-    proj_variable_costs optional and overrides generic costs for
-    generators. Load-zone cost adjustments will not be applied to any
-    costs specified in this file.
+    project_info.tab is used by project.build and project.dispatch. The
+    columns listed here are optional because they override values given
+    by descriptions of generation technologies. Every project needs to
+    have this data provided, but you get to decide what to specify by
+    technology and what to specify by project. You may either drop data
+    columns or put a dot . to mark "no data" for certain rows. Note:
+    Load-zone cost adjustments will not be applied to any project-
+    specific costs.
 
-    proj_variable_costs.tab
-        PROJECT, proj_variable_om
+    project_info.tab
+        PROJECT, proj_variable_om, proj_full_load_heat_rate,
+        proj_forced_outage_rate, proj_scheduled_outage_rate
 
     """
 
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, 'variable_capacity_factors.tab'),
-        select=('PROJECT', 'timepoint', 'prj_capacity_factor'),
-        param=(mod.prj_max_capacity_factor))
+        select=('PROJECT', 'timepoint', 'proj_max_capacity_factor'),
+        param=(mod.proj_max_capacity_factor))
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'proj_variable_costs.tab'),
-        select=('PROJECT', 'proj_variable_om'),
-        param=(mod.proj_variable_om))
+        filename=os.path.join(inputs_dir, 'project_info.tab'),
+        auto_select=True,
+        param=(mod.proj_variable_om, mod.proj_full_load_heat_rate,
+               mod.proj_forced_outage_rate, mod.proj_scheduled_outage_rate))
 
 
 def save_results(model, instance, outdir):

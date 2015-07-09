@@ -192,17 +192,10 @@ SYNOPSIS:<br>
 &gt;&gt;&gt;&nbsp;from&nbsp;switch_mod.utilities&nbsp;import&nbsp;define_AbstractModel<br>
 &gt;&gt;&gt;&nbsp;model&nbsp;=&nbsp;<a href="#-define_AbstractModel">define_AbstractModel</a>(<br>
 ...&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'switch_mod',&nbsp;'project.no_commit',&nbsp;'fuel_cost')</tt></dd></dl>
- <dl><dt><a name="-load_aug"><strong>load_aug</strong></a>(switch_data, optional<font color="#909090">=False</font>, **kwds)</dt><dd><tt>This&nbsp;is&nbsp;a&nbsp;wrapper&nbsp;for&nbsp;DataPortal.load()&nbsp;that&nbsp;allows&nbsp;more&nbsp;robust<br>
-processing&nbsp;and&nbsp;error&nbsp;reporting&nbsp;of&nbsp;input&nbsp;files.<br>
-&nbsp;<br>
-If&nbsp;the&nbsp;argument&nbsp;"optional"&nbsp;is&nbsp;set&nbsp;to&nbsp;True,&nbsp;this&nbsp;will&nbsp;not&nbsp;attempt<br>
-to&nbsp;load&nbsp;an&nbsp;input&nbsp;file&nbsp;that&nbsp;is&nbsp;missing&nbsp;or&nbsp;empty.<br>
-&nbsp;<br>
-In&nbsp;the&nbsp;future,&nbsp;this&nbsp;will&nbsp;also&nbsp;support&nbsp;individual&nbsp;columns&nbsp;being<br>
-optional&nbsp;as&nbsp;well.<br>
-&nbsp;<br>
-The&nbsp;name&nbsp;of&nbsp;this&nbsp;function&nbsp;is&nbsp;bad&nbsp;and&nbsp;will&nbsp;likely&nbsp;be&nbsp;changed&nbsp;when<br>
-I&nbsp;think&nbsp;of&nbsp;something&nbsp;better.</tt></dd></dl>
+ <dl><dt><a name="-load_aug"><strong>load_aug</strong></a>(switch_data, optional<font color="#909090">=False</font>, auto_select<font color="#909090">=False</font>, optional_params<font color="#909090">=[]</font>, **kwds)</dt><dd><tt>This&nbsp;is&nbsp;a&nbsp;wrapper&nbsp;for&nbsp;the&nbsp;DataPortal&nbsp;object&nbsp;that&nbsp;accepts&nbsp;additional<br>
+keywords.&nbsp;This&nbsp;currently&nbsp;supports&nbsp;a&nbsp;flag&nbsp;for&nbsp;the&nbsp;file&nbsp;being&nbsp;optional.<br>
+In&nbsp;the&nbsp;future,&nbsp;this&nbsp;could&nbsp;also&nbsp;support&nbsp;a&nbsp;list&nbsp;of&nbsp;optional&nbsp;columns.<br>
+The&nbsp;name&nbsp;is&nbsp;not&nbsp;great&nbsp;and&nbsp;may&nbsp;be&nbsp;changed&nbsp;as&nbsp;well.</tt></dd></dl>
  <dl><dt><a name="-load_inputs"><strong>load_inputs</strong></a>(model, inputs_dir<font color="#909090">='inputs'</font>)</dt><dd><tt>Load&nbsp;input&nbsp;data&nbsp;for&nbsp;an&nbsp;AbstractModel&nbsp;using&nbsp;the&nbsp;modules&nbsp;in&nbsp;the&nbsp;given<br>
 list&nbsp;and&nbsp;return&nbsp;a&nbsp;DataPortal&nbsp;object&nbsp;suitable&nbsp;for&nbsp;creating&nbsp;a&nbsp;model<br>
 instance.&nbsp;This&nbsp;is&nbsp;implemented&nbsp;as&nbsp;calling&nbsp;the&nbsp;<a href="#-load_inputs">load_inputs</a>()&nbsp;function<br>

@@ -20,7 +20,7 @@ from switch_mod.utilities import define_AbstractModel
 switch_model = define_AbstractModel(
     'switch_mod', 'local_td', 'project.unitcommit',
     'project.unitcommit.discrete', 'fuel_cost')
-switch_instance = switch_model.load_data(inputs_dir="inputs")
+switch_instance = switch_model.load_inputs(inputs_dir="inputs")
 
 opt = SolverFactory("cplex")
 results = opt.solve(switch_instance, keepfiles=False, tee=False)

@@ -44,11 +44,7 @@
 <td colspan=3 valign=bottom>&nbsp;<br>
 <font color="#000000" face="helvetica, arial"><a name="TestLoader">class <strong>TestLoader</strong></a>(<a href="unittest.loader.html#TestLoader">unittest.loader.TestLoader</a>)</font></td></tr>
     
-<tr bgcolor="#ffc8d8"><td rowspan=2><tt>&nbsp;&nbsp;&nbsp;</tt></td>
-<td colspan=2><tt>#&nbsp;The&nbsp;unittest&nbsp;module&nbsp;does&nbsp;not&nbsp;have&nbsp;built-in&nbsp;support&nbsp;for&nbsp;finding<br>
-#&nbsp;doctests.&nbsp;&nbsp;In&nbsp;order&nbsp;to&nbsp;run&nbsp;the&nbsp;doctests,&nbsp;we&nbsp;need&nbsp;a&nbsp;custom&nbsp;<a href="#TestLoader">TestLoader</a><br>
-#&nbsp;that&nbsp;overrides&nbsp;<a href="#TestLoader-loadTestsFromModule">loadTestsFromModule</a>().<br>&nbsp;</tt></td></tr>
-<tr><td>&nbsp;</td>
+<tr><td bgcolor="#ffc8d8"><tt>&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
 <td width="100%"><dl><dt>Method resolution order:</dt>
 <dd><a href="run_tests.html#TestLoader">TestLoader</a></dd>
 <dd><a href="unittest.loader.html#TestLoader">unittest.loader.TestLoader</a></dd>
@@ -56,30 +52,21 @@
 </dl>
 <hr>
 Methods defined here:<br>
-<dl><dt><a name="TestLoader-loadTestsFromModule"><strong>loadTestsFromModule</strong></a>(self, module)</dt></dl>
+<dl><dt><a name="TestLoader-discover"><strong>discover</strong></a>(self, start_dir, pattern, top_level_dir)</dt><dd><tt>#&nbsp;unittest.main&nbsp;does&nbsp;not&nbsp;allow&nbsp;multiple&nbsp;"--start-directory"<br>
+#&nbsp;options,&nbsp;but&nbsp;we&nbsp;can&nbsp;make&nbsp;it&nbsp;scan&nbsp;multiple&nbsp;separate&nbsp;directories<br>
+#&nbsp;by&nbsp;overriding&nbsp;<a href="#TestLoader-discover">discover</a>().&nbsp;&nbsp;This&nbsp;allows&nbsp;us&nbsp;to&nbsp;have&nbsp;a&nbsp;"tests"<br>
+#&nbsp;directory&nbsp;that's&nbsp;separate&nbsp;from&nbsp;"switch_mod".<br>
+#<br>
+#&nbsp;We&nbsp;don't&nbsp;want&nbsp;to&nbsp;scan&nbsp;for&nbsp;*.py&nbsp;files&nbsp;in&nbsp;the&nbsp;parent&nbsp;directory&nbsp;in<br>
+#&nbsp;case&nbsp;any&nbsp;of&nbsp;those&nbsp;are&nbsp;throwaway&nbsp;scripts&nbsp;that&nbsp;have&nbsp;unexpected<br>
+#&nbsp;effects&nbsp;when&nbsp;imported.</tt></dd></dl>
+
+<dl><dt><a name="TestLoader-loadTestsFromModule"><strong>loadTestsFromModule</strong></a>(self, module)</dt><dd><tt>#&nbsp;The&nbsp;unittest&nbsp;module&nbsp;does&nbsp;not&nbsp;have&nbsp;built-in&nbsp;support&nbsp;for&nbsp;finding<br>
+#&nbsp;doctests.&nbsp;&nbsp;In&nbsp;order&nbsp;to&nbsp;run&nbsp;the&nbsp;doctests,&nbsp;we&nbsp;need&nbsp;a&nbsp;custom<br>
+#&nbsp;<a href="#TestLoader">TestLoader</a>&nbsp;that&nbsp;overrides&nbsp;<a href="#TestLoader-loadTestsFromModule">loadTestsFromModule</a>().</tt></dd></dl>
 
 <hr>
 Methods inherited from <a href="unittest.loader.html#TestLoader">unittest.loader.TestLoader</a>:<br>
-<dl><dt><a name="TestLoader-discover"><strong>discover</strong></a>(self, start_dir, pattern<font color="#909090">='test*.py'</font>, top_level_dir<font color="#909090">=None</font>)</dt><dd><tt>Find&nbsp;and&nbsp;return&nbsp;all&nbsp;test&nbsp;modules&nbsp;from&nbsp;the&nbsp;specified&nbsp;start<br>
-directory,&nbsp;recursing&nbsp;into&nbsp;subdirectories&nbsp;to&nbsp;find&nbsp;them.&nbsp;Only&nbsp;test&nbsp;files<br>
-that&nbsp;match&nbsp;the&nbsp;pattern&nbsp;will&nbsp;be&nbsp;loaded.&nbsp;(Using&nbsp;shell&nbsp;style&nbsp;pattern<br>
-matching.)<br>
-&nbsp;<br>
-All&nbsp;test&nbsp;modules&nbsp;must&nbsp;be&nbsp;importable&nbsp;from&nbsp;the&nbsp;top&nbsp;level&nbsp;of&nbsp;the&nbsp;project.<br>
-If&nbsp;the&nbsp;start&nbsp;directory&nbsp;is&nbsp;not&nbsp;the&nbsp;top&nbsp;level&nbsp;directory&nbsp;then&nbsp;the&nbsp;top<br>
-level&nbsp;directory&nbsp;must&nbsp;be&nbsp;specified&nbsp;separately.<br>
-&nbsp;<br>
-If&nbsp;a&nbsp;test&nbsp;package&nbsp;name&nbsp;(directory&nbsp;with&nbsp;'__init__.py')&nbsp;matches&nbsp;the<br>
-pattern&nbsp;then&nbsp;the&nbsp;package&nbsp;will&nbsp;be&nbsp;checked&nbsp;for&nbsp;a&nbsp;'load_tests'&nbsp;function.&nbsp;If<br>
-this&nbsp;exists&nbsp;then&nbsp;it&nbsp;will&nbsp;be&nbsp;called&nbsp;with&nbsp;loader,&nbsp;tests,&nbsp;pattern.<br>
-&nbsp;<br>
-If&nbsp;load_tests&nbsp;exists&nbsp;then&nbsp;discovery&nbsp;does&nbsp;&nbsp;*not*&nbsp;recurse&nbsp;into&nbsp;the&nbsp;package,<br>
-load_tests&nbsp;is&nbsp;responsible&nbsp;for&nbsp;loading&nbsp;all&nbsp;tests&nbsp;in&nbsp;the&nbsp;package.<br>
-&nbsp;<br>
-The&nbsp;pattern&nbsp;is&nbsp;deliberately&nbsp;not&nbsp;stored&nbsp;as&nbsp;a&nbsp;loader&nbsp;attribute&nbsp;so&nbsp;that<br>
-packages&nbsp;can&nbsp;continue&nbsp;discovery&nbsp;themselves.&nbsp;top_level_dir&nbsp;is&nbsp;stored&nbsp;so<br>
-load_tests&nbsp;does&nbsp;not&nbsp;need&nbsp;to&nbsp;pass&nbsp;this&nbsp;argument&nbsp;in&nbsp;to&nbsp;loader.<a href="#TestLoader-discover">discover</a>().</tt></dd></dl>
-
 <dl><dt><a name="TestLoader-getTestCaseNames"><strong>getTestCaseNames</strong></a>(self, testCaseClass)</dt><dd><tt>Return&nbsp;a&nbsp;sorted&nbsp;sequence&nbsp;of&nbsp;method&nbsp;names&nbsp;found&nbsp;within&nbsp;testCaseClass</tt></dd></dl>
 
 <dl><dt><a name="TestLoader-loadTestsFromName"><strong>loadTestsFromName</strong></a>(self, name, module<font color="#909090">=None</font>)</dt><dd><tt>Return&nbsp;a&nbsp;suite&nbsp;of&nbsp;all&nbsp;tests&nbsp;cases&nbsp;given&nbsp;a&nbsp;string&nbsp;specifier.<br>

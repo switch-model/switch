@@ -1,4 +1,4 @@
-PROJECT	timepoint	prj_capacity_factor
+PROJECT	timepoint	proj_max_capacity_factor
 N-Residential_PV	1	0.00
 N-Residential_PV	2	0.55
 N-Residential_PV	3	0.00

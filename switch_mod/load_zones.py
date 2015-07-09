@@ -32,9 +32,6 @@ def define_components(mod):
     lz_demand_mw[z,t] describes the average power demand in each load
     zone z and timepoint t. This is a non negative value.
 
-    lz_demand_mw_as_consumption[z,t] is the same as lz_demand_mw but
-    with a negative sign for the benefit of energy balancing equations.
-
     lz_dbid[z] stores an external database id for each load zone. This
     is optional and defaults to the name of the load zone. It will be
     printed out when results are exported.
@@ -49,8 +46,7 @@ def define_components(mod):
     lz_ccs_distance_km[z] describes the length of a pipeline in
     kilometers that would need to be built to transport CO2 from a load
     zones central bus to the nearest viable CCS reservoir. This
-    parameter is optional unless Carbon Capture and Sequestration
-    technologies is enabled.
+    parameter is optional and defaults to 0.
 
     DumpPower[load_zone, timepoint] is a decision variable that allows
     overproduction of energy in every load zone and timepoint.
@@ -58,14 +54,14 @@ def define_components(mod):
     or as a literal dump load. In the language of linear programming,
     this is a "slack variable" for an energy balancing constraint.
 
-    LZ_Energy_Balance_components is a list of components that contribute
-    to load-zone level energy balance equations. Other modules may add
-    elements to this list. The energy_balance module will construct a
-    Satisfy_Load constraint using this list. Each component in this list
-    needs to be indexed by [load_zone, timepoint]. If this indexing is
-    not convenient for native model components, I advise writing an
-    Expression object indexed by [lz,t] that contains logic to access or
-    summarize native model components.
+    LZ_Energy_Components_Produce and LZ_Energy_Components_Consume are
+    lists of components that contribute to load-zone level energy
+    balance equations. Other modules may add elements to either list.
+    The energy_balance module will construct a Satisfy_Load constraint
+    using these lists. Each component needs to be indexed by [load_zone,
+    timepoint]. If this indexing is not convenient for native model
+    components, I advise writing an Expression object indexed by [lz,t]
+    that contains logic to access or summarize native model components.
 
     Derived parameters:
 
@@ -84,7 +80,8 @@ def define_components(mod):
         default=1.0)
     mod.lz_ccs_distance_km = Param(
         mod.LOAD_ZONES,
-        within=NonNegativeReals)
+        within=NonNegativeReals,
+        default=0.0)
     mod.lz_dbid = Param(
         mod.LOAD_ZONES,
         default=lambda m, lz: lz)
@@ -96,14 +93,12 @@ def define_components(mod):
         initialize=lambda m, z, p: (
             sum(m.lz_demand_mw[z, t] * m.tp_weight[t]
                 for t in m.PERIOD_TPS[p])))
-    mod.lz_demand_mw_as_consumption = Param(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
-        initialize=lambda m, lz, t: -1 * m.lz_demand_mw[lz, t])
     mod.DumpPower = Var(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
-        within=NonPositiveReals)
-    mod.LZ_Energy_Balance_components = [
-        'lz_demand_mw_as_consumption', 'DumpPower']
+        within=NonNegativeReals)
+    mod.LZ_Energy_Components_Produce = []
+    mod.LZ_Energy_Components_Consume = [
+        'lz_demand_mw', 'DumpPower']
 
 
 def define_dynamic_components(mod):
@@ -116,35 +111,41 @@ def define_dynamic_components(mod):
 
     Energy_Balance[load_zone, timepoint] is a constraint that mandates
     conservation of energy in every load zone and timepoint. This
-    constraint sums the model components in the list
-    LZ_Energy_Balance_components - each of which is indexed by (lz, t) -
-    and ensures they sum to 0. By convention, energy production has a
-    positive sign and energy consumption has a negative sign.
+    constraint sums the model components in the lists
+    LZ_Energy_Components_Produce and LZ_Energy_Components_Consume - each
+    of which is indexed by (lz, t) - and ensures they are equal.
 
     """
 
     mod.Energy_Balance = Constraint(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
-        rule=lambda m, lz, t: sum(
-            getattr(m, component)[lz, t]
-            for component in m.LZ_Energy_Balance_components
-        ) == 0)
+        mod.LOAD_ZONES,
+        mod.TIMEPOINTS,
+        rule=lambda m, lz, t: (
+            sum(
+                getattr(m, component)[lz, t]
+                for component in m.LZ_Energy_Components_Produce
+            ) == sum(
+                getattr(m, component)[lz, t]
+                for component in m.LZ_Energy_Components_Consume)))
 
 
 def load_inputs(mod, switch_data, inputs_dir):
     """
 
     Import load zone data. The following tab-separated files are
-    expected in the input directory. Their columns can be in any order,
-    and any extra columns will be ignored during import. If you don't
-    want to specify data for any optional parameter, use a dot . for its
-    value.
+    expected in the input directory. Their index columns need to be on
+    the left, but the data columns can be in any order. Extra columns
+    will be ignored during import, and optional columns can be dropped.
+    Other modules (such as local_td) may look for additional columns in
+    some of these files. If you don't want to specify data for any
+    optional parameter, use a dot . for its value. All columns in
+    load_zones.tab except for the name of the load zone are optional.
 
     load_zones.tab
-        LOAD_ZONE, cost_multipliers, ccs_distance_km, dbid
+        LOAD_ZONE, lz_cost_multipliers, lz_ccs_distance_km, lz_dbid
 
     loads.tab
-        LOAD_ZONE, TIMEPOINT, demand_mw
+        LOAD_ZONE, TIMEPOINT, lz_demand_mw
 
     """
     # Include select in each load() function so that it will check out
@@ -152,14 +153,13 @@ def load_inputs(mod, switch_data, inputs_dir):
     # message if some columns are not found.
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'load_zones.tab'),
-        select=('LOAD_ZONE', 'cost_multipliers', 'ccs_distance_km',
-                'dbid'),
+        auto_select=True,
         index=mod.LOAD_ZONES,
         param=(mod.lz_cost_multipliers, mod.lz_ccs_distance_km,
                mod.lz_dbid))
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'loads.tab'),
-        select=('LOAD_ZONE', 'TIMEPOINT', 'demand_mw'),
+        auto_select=True,
         param=(mod.lz_demand_mw))
 
 
@@ -173,12 +173,13 @@ def save_results(model, instance, outdir):
     """
     import switch_mod.export as export
     export.write_table(
-        instance, instance.TIMEPOINTS,
+        instance, instance.LOAD_ZONES, instance.TIMEPOINTS,
         output_file=os.path.join("outputs", "load_balance.txt"),
-        headings=("timestamp",) + tuple(
-            instance.LZ_Energy_Balance_components),
-        values=lambda m, t: (m.tp_timestamp[t],) + tuple(
-            sum(getattr(m, component)[lz, t] for lz in m.LOAD_ZONES)
-            for component in m.LZ_Energy_Balance_components
-        )
-    )
+        headings=("load_zone", "timestamp",) + tuple(
+            instance.LZ_Energy_Components_Produce +
+            instance.LZ_Energy_Components_Consume),
+        values=lambda m, lz, t: (lz, m.tp_timestamp[t],) + tuple(
+            getattr(m, component)[lz, t]
+            for component in (
+                m.LZ_Energy_Components_Produce +
+                m.LZ_Energy_Components_Consume)))

@@ -1,4 +1,4 @@
-set FUEL_BASED_GEN := NG-CCGT NG-CT ;
+set GEN_TECH_WITH_FUEL := NG-CCGT NG-CT ;
 
 param g_full_load_heat_rate := 
 	NG-CCGT	 6.705

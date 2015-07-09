@@ -107,7 +107,7 @@ def define_components(mod):
     between commitment decision from one hour to the next with startup
     and shutdown.
 
-    g_startup_fuel[g in FUEL_BASED_GEN] describes fuel
+    g_startup_fuel[g in GEN_TECH_WITH_FUEL] describes fuel
     requirements of starting up additional generation capacity expressed
     in units of MMBTU / MW. This optional parameter has a default value
     of 0.
@@ -230,7 +230,7 @@ def define_components(mod):
         rule=lambda m, pr, t: (
             m.CommitProject[pr, m.tp_previous[t]] +
             m.Startup[pr, t] - m.Shutdown[pr, t] == m.CommitProject[pr, t]))
-    mod.g_startup_fuel = Param(mod.FUEL_BASED_GEN, default=0.0)
+    mod.g_startup_fuel = Param(mod.GEN_TECH_WITH_FUEL, default=0.0)
     mod.g_startup_om = Param(mod.GENERATION_TECHNOLOGIES, default=0.0)
     mod.proj_startup_fuel = Param(
         mod.FUEL_BASED_PROJECTS,
@@ -264,7 +264,7 @@ def define_components(mod):
 
     def DispatchUpperLimit_expr(m, pr, t):
         if pr in m.VARIABLE_PROJECTS:
-            return m.CommitProject[pr, t] * m.prj_max_capacity_factor[pr, t]
+            return m.CommitProject[pr, t] * m.proj_max_capacity_factor[pr, t]
         else:
             return m.CommitProject[pr, t]
     mod.DispatchUpperLimit = Expression(
@@ -297,7 +297,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     If you only want to override default values for certain columns in a
     row, insert a dot . into the other columns.
 
-    gen_unit_commit.tab
+    generator_info.tab
         generation_technology, g_min_load_fraction, g_startup_fuel,
         g_startup_om
 
@@ -309,19 +309,16 @@ def load_inputs(mod, switch_data, inputs_dir):
         PROJECT, TIMEPOINT, proj_min_commit_fraction, proj_max_commit_fraction,
         proj_min_load_fraction
 
-
     """
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'gen_unit_commit.tab'),
-        select=('generation_technology', 'g_min_load_fraction',
-                'g_startup_fuel', 'g_startup_om'),
+        filename=os.path.join(inputs_dir, 'generator_info.tab'),
+        auto_select=True,
         param=(mod.g_min_load_fraction, mod.g_startup_fuel,
                mod.g_startup_om))
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, 'proj_commit_bounds_timeseries.tab'),
-        select=('PROJECT', 'TIMEPOINT', 'proj_min_commit_fraction',
-                'proj_max_commit_fraction', 'proj_min_load_fraction'),
+        auto_select=True,
         param=(mod.proj_min_commit_fraction, mod.proj_max_commit_fraction,
                mod.proj_min_load_fraction))

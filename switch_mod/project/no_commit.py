@@ -62,7 +62,7 @@ def define_components(mod):
     def DispatchUpperLimit_expr(m, proj, t):
         if proj in m.VARIABLE_PROJECTS:
             return (m.ProjCapacityTP[proj, t] * m.proj_availability[proj] *
-                    m.prj_max_capacity_factor[proj, t])
+                    m.proj_max_capacity_factor[proj, t])
         else:
             return m.ProjCapacityTP[proj, t] * m.proj_availability[proj]
     mod.DispatchUpperLimit = Expression(
