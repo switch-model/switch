@@ -242,7 +242,18 @@ def define_components(mod):
         mod.RFM_SUPPLY_TIERS,
         domain=NonNegativeReals,
         bounds=lambda m, rfm, p, st: (
-            0, m.rfm_supply_tier_limit[rfm, p, st]))
+            0, (m.rfm_supply_tier_limit[rfm, p, st]
+                if value(m.rfm_supply_tier_limit[rfm, p, st]) != float('inf')
+                else None)))
+    # The if statement in the upper bound of FuelConsumptionByTier is a
+    # work-around for a Pyomo bug in writing a cpxlp problem file for
+    # glpk. Lines 771-774 of pyomo/repn/plugins/cpxlp.py prints '<= inf'
+    # instead of '<= +inf' when the upper bound is infinity, but glpk
+    # reqires all inf symbols to be preceeded by a + or - sign. The
+    # cpxlp writer replaces None with +inf, so I'll rely on that
+    # behavior for now. The simple bounds that works with some other
+    # solvers is: 0, m.rfm_supply_tier_limit[rfm, p, st]))
+
     mod.FuelConsumptionInMarket = Var(
         mod.REGIONAL_FUEL_MARKET, mod.PERIODS,
         domain=NonNegativeReals)
