@@ -368,7 +368,7 @@ def define_components(mod):
     # To Do: Subtract retirements after I write support for that.
     mod.ProjCapacity = Expression(
         mod.PROJECTS, mod.PERIODS,
-        initialize=lambda m, proj, period: sum(
+        rule=lambda m, proj, period: sum(
             m.BuildProj[proj, bld_yr]
             for bld_yr in m.PROJECT_PERIOD_ONLINE_BUILD_YRS[proj, period]))
 
@@ -427,7 +427,7 @@ def define_components(mod):
             for p in m.PROJECT_BUILDS_OPERATIONAL_PERIODS[proj, bld_yr]))
     mod.Proj_Fixed_Costs_Annual = Expression(
         mod.PROJECT_OPERATIONAL_PERIODS,
-        initialize=lambda m, proj, p: sum(
+        rule=lambda m, proj, p: sum(
             m.BuildProj[proj, bld_yr] *
             (m.proj_capital_cost_annual[proj, bld_yr] +
              m.proj_fixed_om[proj, bld_yr])
@@ -440,7 +440,7 @@ def define_components(mod):
     # $base_year real dollars.
     mod.Total_Proj_Fixed_Costs_Annual = Expression(
         mod.PERIODS,
-        initialize=lambda m, p: sum(
+        rule=lambda m, p: sum(
             m.Proj_Fixed_Costs_Annual[proj, p]
             for (proj, period) in m.PROJECT_OPERATIONAL_PERIODS
             if p == period))

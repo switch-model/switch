@@ -144,13 +144,13 @@ def define_components(mod):
         initialize=init_dispatch_timepoints)
     mod.ProjCapacityTP = Expression(
         mod.PROJ_DISPATCH_POINTS,
-        initialize=lambda m, proj, t: m.ProjCapacity[proj, m.tp_period[t]])
+        rule=lambda m, proj, t: m.ProjCapacity[proj, m.tp_period[t]])
     mod.DispatchProj = Var(
         mod.PROJ_DISPATCH_POINTS,
         within=NonNegativeReals)
     mod.LZ_NetDispatch = Expression(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
-        initialize=lambda m, lz, t: sum(
+        rule=lambda m, lz, t: sum(
             m.DispatchProj[p, t] for p in m.LZ_PROJECTS[lz]
             if (p, t) in m.PROJ_DISPATCH_POINTS))
     # Register net dispatch as contributing to a load zone's energy
@@ -256,11 +256,11 @@ def define_components(mod):
                  m.f_upstream_co2_intensity[f]))
     mod.DispatchEmissions = Expression(
         mod.PROJ_FUEL_DISPATCH_POINTS,
-        initialize=DispatchEmissions_rule)
+        rule=DispatchEmissions_rule)
 
     mod.Proj_Var_Costs_Hourly = Expression(
         mod.PROJ_DISPATCH_POINTS,
-        initialize=lambda m, proj, t: (
+        rule=lambda m, proj, t: (
             m.DispatchProj[proj, t] * m.proj_variable_om[proj]))
     # An expression to summarize costs for the objective function. Units
     # should be total future costs in $base_year real dollars. The
@@ -268,7 +268,7 @@ def define_components(mod):
     # Value in $base_year real dollars.
     mod.Total_Proj_Var_Costs_Hourly = Expression(
         mod.TIMEPOINTS,
-        initialize=lambda m, t: sum(
+        rule=lambda m, t: sum(
             m.Proj_Var_Costs_Hourly[proj, t]
             for (proj, t2) in m.PROJ_DISPATCH_POINTS
             if t == t2))

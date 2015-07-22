@@ -296,7 +296,7 @@ def define_dynamic_components(mod):
 
     mod.SystemCostPerPeriod = Expression(
         mod.PERIODS,
-        initialize=calc_sys_costs_per_period)
+        rule=calc_sys_costs_per_period)
     mod.Minimize_System_Cost = Objective(
         rule=lambda m: sum(m.SystemCostPerPeriod[p] for p in m.PERIODS),
         sense=minimize)

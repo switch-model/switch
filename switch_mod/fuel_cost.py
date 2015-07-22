@@ -71,7 +71,7 @@ def define_components(mod):
     # Summarize total fuel costs in each timepoint for the objective function
     mod.Fuel_Costs_TP = Expression(
         mod.TIMEPOINTS,
-        initialize=lambda m, t: sum(
+        rule=lambda m, t: sum(
             m.ProjFuelUseRate[proj, t] * m.fuel_cost[(
                 m.proj_load_zone[proj], m.proj_fuel[proj], m.tp_period[t])]
             for (proj, t2) in m.PROJ_FUEL_DISPATCH_POINTS

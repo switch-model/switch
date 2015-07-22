@@ -67,7 +67,7 @@ def define_components(mod):
             return m.ProjCapacityTP[proj, t] * m.proj_availability[proj]
     mod.DispatchUpperLimit = Expression(
         mod.PROJ_DISPATCH_POINTS,
-        initialize=DispatchUpperLimit_expr)
+        rule=DispatchUpperLimit_expr)
 
     def DispatchLowerLimit_expr(m, proj, t):
         if proj in m.BASELOAD_PROJECTS:
@@ -76,7 +76,7 @@ def define_components(mod):
             return 0
     mod.DispatchLowerLimit = Expression(
         mod.PROJ_DISPATCH_POINTS,
-        initialize=DispatchLowerLimit_expr)
+        rule=DispatchLowerLimit_expr)
 
     mod.Enforce_Dispatch_Lower_Limit = Constraint(
         mod.PROJ_DISPATCH_POINTS,
