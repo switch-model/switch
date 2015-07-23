@@ -87,7 +87,7 @@ def load_inputs(model, inputs_dir="inputs"):
     # Attach an augmented load data function to the data portal object
     data.load_aug = types.MethodType(load_aug, data)
     _load_inputs(model, inputs_dir, model.module_list, data)
-    instance = model.create(data)
+    instance = model.create_instance(data)
     return instance
 
 
