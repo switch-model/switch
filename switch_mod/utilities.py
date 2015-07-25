@@ -87,7 +87,13 @@ def load_inputs(model, inputs_dir="inputs"):
     # Attach an augmented load data function to the data portal object
     data.load_aug = types.MethodType(load_aug, data)
     _load_inputs(model, inputs_dir, model.module_list, data)
-    instance = model.create_instance(data)
+    # at some point, pyomo deprecated 'create' in favor of 'create_instance', 
+    # but 'create_instance' did not exist prior to that point, so we use the 
+    # best available, to avoid breaking the model for users who haven't upgraded pyomo yet.
+    if 'create_instance' in dir(model):
+        instance = model.create_instance(data)
+    else:
+        instance = model.create(data)
     return instance
 
 
