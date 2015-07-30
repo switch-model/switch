@@ -301,9 +301,7 @@ def define_components(mod):
         project_buildyears = set()
         for proj in m.PROJECTS:
             g = m.proj_gen_tech[proj]
-            build_years = [
-                b for (gen, b) in m.NEW_GENERATION_BUILDYEARS if gen == g]
-            for b in build_years:
+            for b in m.G_NEW_BUILD_YEARS[g]:
                 project_buildyears.add((proj, b))
         return project_buildyears
     mod.NEW_PROJ_BUILDYEARS = Set(

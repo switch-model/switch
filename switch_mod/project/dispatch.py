@@ -131,13 +131,22 @@ def define_components(mod):
     # I might be able to simplify this, but the current formulation
     # should exclude any timepoints in periods in which a project will
     # definitely be retired.
+    def init_projects_active_in_timepoints(m,t):
+        active_projects = set()
+        for proj in m.PROJECTS:
+            if len(m.PROJECT_PERIOD_ONLINE_BUILD_YRS[proj, m.tp_period[t]]) > 0:
+                active_projects.add(proj)
+        return active_projects
+    mod.PROJECTS_ACTIVE_IN_TIMEPOINT = Set(
+        mod.TIMEPOINTS,
+        within=mod.PROJECTS,
+        initialize=init_projects_active_in_timepoints)
     def init_dispatch_timepoints(m):
         dispatch_timepoints = set()
         for (proj, bld_yr) in m.PROJECT_BUILDYEARS:
             for period in m.PROJECT_BUILDS_OPERATIONAL_PERIODS[proj, bld_yr]:
-                for t in m.TIMEPOINTS:
-                    if(m.tp_period[t] == period):
-                        dispatch_timepoints.add((proj, t))
+                for t in m.PERIOD_TPS[period]:
+                    dispatch_timepoints.add((proj, t))
         return dispatch_timepoints
     mod.PROJ_DISPATCH_POINTS = Set(
         dimen=2,
@@ -270,8 +279,7 @@ def define_components(mod):
         mod.TIMEPOINTS,
         rule=lambda m, t: sum(
             m.Proj_Var_Costs_Hourly[proj, t]
-            for (proj, t2) in m.PROJ_DISPATCH_POINTS
-            if t == t2))
+            for proj in m.PROJECTS_ACTIVE_IN_TIMEPOINT[t]))
     mod.cost_components_tp.append('Total_Proj_Var_Costs_Hourly')
 
 

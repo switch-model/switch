@@ -203,6 +203,10 @@ def define_components(mod):
     generic costs may be overridden by individual projects, and are
     often overridden for existing plants that were built before the
     first investment period.
+    
+    G_NEW_BUILD_YEARS[g] describes the periods in which new builds are allowed
+    for each generation type. This is the same information as 
+    NEW_GENERATION_BUILDYEARS, but indexed by generation for convenience.
 
     g_overnight_cost[g, p] is the overnight capital cost per MW of
     capacity for building the given generation technology installed in
@@ -315,6 +319,10 @@ def define_components(mod):
     mod.NEW_GENERATION_BUILDYEARS = Set(
         dimen=2,
         within=mod.GENERATION_TECHNOLOGIES * mod.PERIODS)
+    mod.G_NEW_BUILD_YEARS = Set(
+        mod.GENERATION_TECHNOLOGIES,
+        initialize=lambda m, g: set(
+            b for (gen, b) in m.NEW_GENERATION_BUILDYEARS if gen == g))
     mod.g_overnight_cost = Param(
         mod.GENERATION_TECHNOLOGIES, mod.PERIODS,
         within=NonNegativeReals)
