@@ -11,6 +11,7 @@ import importlib
 import sys
 import __main__ as main
 from pyomo.environ import *
+import pyomo.opt
 
 # This stores full names of modules that are dynamically loaded to
 # define a Switch model.
@@ -488,3 +489,7 @@ def load_aug(switch_data, optional=False, auto_select=False,
 
 def approx_equal(a, b, tolerance=0.01):
     return abs(a-b) <= (abs(a) + abs(b)) / 2.0 * tolerance
+
+
+def default_solver():
+    return pyomo.opt.SolverFactory('glpk')
