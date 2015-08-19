@@ -224,7 +224,7 @@ def define_components(mod):
         bounds=bounds_BuildTrans)
     mod.TransCapacity = Expression(
         mod.TRANSMISSION_LINES, mod.PERIODS,
-        initialize=lambda m, tx, period: sum(
+        rule=lambda m, tx, period: sum(
             m.BuildTrans[tx, bld_yr]
             for (tx2, bld_yr) in m.TRANS_BUILD_YEARS
             if tx2 == tx and (bld_yr == 'Legacy' or bld_yr <= period)))
@@ -235,7 +235,7 @@ def define_components(mod):
         validate=lambda m, val, tx: val <= 1)
     mod.TransCapacityAvailable = Expression(
         mod.TRANSMISSION_LINES, mod.PERIODS,
-        initialize=lambda m, tx, period: (
+        rule=lambda m, tx, period: (
             m.TransCapacity[tx, period] * m.trans_derating_factor[tx]))
     mod.trans_terrain_multiplier = Param(
         mod.TRANSMISSION_LINES,
@@ -268,7 +268,7 @@ def define_components(mod):
     # base_year Net Present Value in $base_year real dollars.
     mod.Trans_Fixed_Costs_Annual = Expression(
         mod.PERIODS,
-        initialize=lambda m, p: sum(
+        rule=lambda m, p: sum(
             m.BuildTrans[tx, bld_yr] * m.trans_cost_annual[tx]
             for (tx, bld_yr) in m.PERIOD_RELEVANT_TRANS_BUILDS[p]))
     mod.cost_components_annual.append('Trans_Fixed_Costs_Annual')

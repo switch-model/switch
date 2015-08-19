@@ -88,10 +88,10 @@ def load_inputs(model, inputs_dir="inputs"):
     # Attach an augmented load data function to the data portal object
     data.load_aug = types.MethodType(load_aug, data)
     _load_inputs(model, inputs_dir, model.module_list, data)
-    # at some point, pyomo deprecated 'create' in favor of 'create_instance', 
-    # but 'create_instance' did not exist prior to that point, so we use the 
-    # best available, to avoid breaking the model for users who haven't upgraded pyomo yet.
-    if 'create_instance' in dir(model):
+    # At some point, pyomo deprecated 'create' in favor of
+    # 'create_instance'. Determine which option is available
+    # and use that.
+    if hasattr(model, 'create_instance'):
         instance = model.create_instance(data)
     else:
         instance = model.create(data)
@@ -172,10 +172,16 @@ def _add_min_data_check(model):
     >>> mod.paramA_full = Param(mod.set_A, initialize={1:'a',2:'b'})
     >>> mod.paramA_empty = Param(mod.set_A)
     >>> mod.min_data_check('set_A', 'paramA_full')
-    >>> instance_pass = mod.create()
+    >>> if hasattr(mod, 'create_instance'):
+    ...     instance_pass = mod.create_instance()
+    ... else:
+    ...     instance_pass = mod.create()
     >>> mod.min_data_check('set_A', 'paramA_empty')
     >>> try:
-    ...     instance_fail = mod.create()
+    ...     if hasattr(mod, 'create_instance'):
+    ...         instance_fail = mod.create_instance()
+    ...     else:
+    ...         instance_fail = mod.create()
     ... except ValueError as e:
     ...     print e  # doctest: +NORMALIZE_WHITESPACE
     ERROR: Constructing component 'min_data_check_2' from data=None failed:

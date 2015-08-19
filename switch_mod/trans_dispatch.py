@@ -70,11 +70,11 @@ def define_components(mod):
 
     mod.TxPowerSent = Expression(
         mod.TRANS_TIMEPOINTS,
-        initialize=lambda m, lz_from, lz_to, tp: (
+        rule=lambda m, lz_from, lz_to, tp: (
             m.DispatchTrans[lz_from, lz_to, tp]))
     mod.TxPowerReceived = Expression(
         mod.TRANS_TIMEPOINTS,
-        initialize=lambda m, lz_from, lz_to, tp: (
+        rule=lambda m, lz_from, lz_to, tp: (
             m.DispatchTrans[lz_from, lz_to, tp] *
             m.trans_efficiency[m.trans_d_line[lz_from, lz_to]]))
 
@@ -88,6 +88,6 @@ def define_components(mod):
                 if lz_from == lz))
     mod.LZ_TXNet = Expression(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
-        initialize=LZ_TXNet_calculation)
+        rule=LZ_TXNet_calculation)
     # Register net transmission as contributing to a load zone's energy
     mod.LZ_Energy_Components_Produce.append('LZ_TXNet')

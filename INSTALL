@@ -1,14 +1,21 @@
 Software prerequisites for this project are:
 
-Python v2.7 
+Python v2.7
     We have not tested this on version 3, and do not have immediate plans
-    to do so.
-Pyomo v4.0.9682
-    We have developed on what is the latest release of Pyomo.
-    Earlier versions of Pyomo may be buggy, but later versions may work fine.
-A solver such as Cbc https://projects.coin-or.org/Cbc or cplex.
-    We have not yet been able to get GLPK to work, but have andecdotal
-    reports that Cbc tends to be a significantly faster solver.
+    to do so. We have verified our code works with v2.7.9 and 2.7.10. We
+    had some difficulties with our testing framework on v2.7.3.
+Pyomo v4.0.9682 or v4.1.*
+    We have tested most extensively on 4.0.9682, but have also ran it on
+    early releases of 4.1. Pyomo changed their API between v4.0.* and 4.1.*
+    without fully describing their changes, so we cannot guarantee that
+    untested versions will work.
+A solver such as GLPK, Cbc https://projects.coin-or.org/Cbc or cplex.
+    GLPK is an established open source solver that is easy to install 
+    on most platforms. We have andecdotal reports that Cbc tends to
+    be significantly faster, but have had difficulties installing it
+    on some platforms. Cplex tends to be fast, but is proprietary and
+    expensive for non-academics. It is free for registered academics who
+    use it for teaching or research.
 
 To use this model, either install this to a standard python library
 location or set the environment variable PYTHONPATH to include this
@@ -20,3 +27,23 @@ specify your home directory. For example, "~/src/switch_py" will not
 work, but "/home/username/src/switch_py" will work.
 
 export PYTHONPATH="${PYTHONPATH}:/absolute/path/to/switch_py"
+
+---------------------------------
+Instructions on CentOS on version 7.1.1503
+
+# Check python version is higher than 2.7.3. Update python version if
+# needed. 
+python --version
+
+# Install pip.
+sudo yum install -y python-pip
+
+# Install Pyomo
+# See complete instructions for installing Pyomo & its prerequisites at:
+# https://software.sandia.gov/downloads/pub/pyomo/PyomoInstallGuide.html#_installing_pyomo
+sudo pip install Pyomo
+pyomo --version # Should be 4.1 or higher
+
+# Install glpk & glpsol
+sudo yum install -y glpk glpk-utils
+

@@ -285,7 +285,7 @@ def define_components(mod):
             for rfm_st in m.RFM_P_SUPPLY_TIERS[rfm, p])
     mod.Fuel_Costs_Annual = Expression(
         mod.PERIODS,
-        initialize=lambda m, p: sum(
+        rule=lambda m, p: sum(
             rfm_period_costs(m, rfm, p)
             for rfm in m.REGIONAL_FUEL_MARKET))
     mod.cost_components_annual.append('Fuel_Costs_Annual')
@@ -313,7 +313,7 @@ def define_components(mod):
     # and cost allocation.
     mod.AverageFuelCosts = Expression(
         mod.REGIONAL_FUEL_MARKET, mod.PERIODS,
-        initialize=lambda m, rfm, p: (
+        rule=lambda m, rfm, p: (
             rfm_period_costs(m, rfm, p) /
             sum(m.FuelConsumptionByTier[rfm_st]
                 for rfm_st in m.RFM_P_SUPPLY_TIERS[rfm, p])))

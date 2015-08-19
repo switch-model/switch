@@ -194,12 +194,12 @@ def define_components(mod):
             else 0.0))
     mod.CommitLowerLimit = Expression(
         mod.PROJ_DISPATCH_POINTS,
-        initialize=lambda m, proj, t: (
+        rule=lambda m, proj, t: (
             m.ProjCapacityTP[proj, t] * m.proj_availability[proj] *
             m.proj_min_commit_fraction[proj, t]))
     mod.CommitUpperLimit = Expression(
         mod.PROJ_DISPATCH_POINTS,
-        initialize=lambda m, proj, t: (
+        rule=lambda m, proj, t: (
             m.ProjCapacityTP[proj, t] * m.proj_availability[proj] *
             m.proj_max_commit_fraction[proj, t]))
     mod.Enforce_Commit_Lower_Limit = Constraint(
@@ -212,11 +212,11 @@ def define_components(mod):
             m.CommitProject[proj, t] <= m.CommitUpperLimit[proj, t]))
     mod.CommitSlackUp = Expression(
         mod.PROJ_DISPATCH_POINTS,
-        initialize=lambda m, proj, t: (
+        rule=lambda m, proj, t: (
             m.CommitUpperLimit[proj, t] - m.CommitProject[proj, t]))
     mod.CommitSlackDown = Expression(
         mod.PROJ_DISPATCH_POINTS,
-        initialize=lambda m, proj, t: (
+        rule=lambda m, proj, t: (
             m.CommitProject[proj, t] - m.CommitLowerLimit[proj, t]))
     # Startup & Shutdown
     mod.Startup = Var(
@@ -243,7 +243,7 @@ def define_components(mod):
     # but cost_components_tp requires an hourly cost rate in $ / hr.
     mod.Total_Startup_OM_Costs = Expression(
         mod.TIMEPOINTS,
-        initialize=lambda m, t: sum(
+        rule=lambda m, t: sum(
             m.proj_startup_om[proj] * m.Startup[proj, t] / m.tp_duration_hrs[t]
             for (proj, t2) in m.PROJ_DISPATCH_POINTS
             if t == t2))
@@ -259,7 +259,7 @@ def define_components(mod):
         default=lambda m, pr, t: m.g_min_load_fraction[m.proj_gen_tech[pr]])
     mod.DispatchLowerLimit = Expression(
         mod.PROJ_DISPATCH_POINTS,
-        initialize=lambda m, pr, t: (
+        rule=lambda m, pr, t: (
             m.CommitProject[pr, t] * m.proj_min_load_fraction[pr, t]))
 
     def DispatchUpperLimit_expr(m, pr, t):
@@ -269,7 +269,7 @@ def define_components(mod):
             return m.CommitProject[pr, t]
     mod.DispatchUpperLimit = Expression(
         mod.PROJ_DISPATCH_POINTS,
-        initialize=DispatchUpperLimit_expr)
+        rule=DispatchUpperLimit_expr)
 
     mod.Enforce_Dispatch_Lower_Limit = Constraint(
         mod.PROJ_DISPATCH_POINTS,
@@ -281,11 +281,11 @@ def define_components(mod):
             m.DispatchProj[proj, t] <= m.DispatchUpperLimit[proj, t]))
     mod.DispatchSlackUp = Expression(
         mod.PROJ_DISPATCH_POINTS,
-        initialize=lambda m, proj, t: (
+        rule=lambda m, proj, t: (
             m.DispatchUpperLimit[proj, t] - m.DispatchProj[proj, t]))
     mod.DispatchSlackDown = Expression(
         mod.PROJ_DISPATCH_POINTS,
-        initialize=lambda m, proj, t: (
+        rule=lambda m, proj, t: (
             m.DispatchProj[proj, t] - m.DispatchLowerLimit[proj, t]))
 
 

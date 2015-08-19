@@ -222,8 +222,14 @@ def define_components(mod):
     EXAMPLE
     >>> from switch_mod.utilities import define_AbstractModel
     >>> model = define_AbstractModel('timescales')
-    >>> instance = model.create('test_dat/timescales.dat')
-    >>> instance = model.create('test_dat/timescales_bad_weights.dat')
+    >>> if hasattr(model, 'create_instance'):
+    ...     instance = model.create_instance('test_dat/timescales.dat')
+    ... else:
+    ...     instance = model.create('test_dat/timescales.dat')
+    >>> if hasattr(model, 'create_instance'):
+    ...     instance = model.create_instance('test_dat/timescales_bad_weights.dat')
+    ... else:
+    ...     instance = model.create('test_dat/timescales_bad_weights.dat')
     Traceback (most recent call last):
         ...
     ValueError: BuildCheck 'validate_time_weights' identified error with index '2020'

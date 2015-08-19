@@ -168,7 +168,7 @@ def define_components(mod):
         bounds=bounds_BuildLocalTD)
     mod.LocalTDCapacity = Expression(
         mod.LOAD_ZONES, mod.PERIODS,
-        initialize=lambda m, lz, period: sum(
+        rule=lambda m, lz, period: sum(
             m.BuildLocalTD[lz, bld_yr]
             for (lz2, bld_yr) in m.LOCAL_TD_BUILD_YEARS
             if lz2 == lz and (bld_yr == 'Legacy' or bld_yr <= period)))
@@ -193,7 +193,7 @@ def define_components(mod):
     # base_year Net Present Value in $base_year real dollars.
     mod.LocalTD_Fixed_Costs_Annual = Expression(
         mod.PERIODS,
-        initialize=lambda m, p: sum(
+        rule=lambda m, p: sum(
             m.BuildLocalTD[lz, bld_yr] * m.local_td_annual_cost_per_mw[lz]
             for (lz, bld_yr) in m.PERIOD_RELEVANT_LOCAL_TD_BUILDS[p]))
     mod.cost_components_annual.append('LocalTD_Fixed_Costs_Annual')
