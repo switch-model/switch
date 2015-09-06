@@ -67,12 +67,6 @@ def define_components(mod):
     describes the maximum possible capacity of a project in units of
     megawatts.
 
-    proj_energy_source[proj] is the primary energy source for a project.
-    This is derived from the generation technology description and
-    assumes one energy source per generation technology. This parameter
-    may be altered in the future to support generators that use multiple
-    energy sources.
-
     -- CONSTRUCTION --
 
     PROJECT_BUILDYEARS is a two-dimensional set of projects and the
@@ -278,24 +272,21 @@ def define_components(mod):
         mod.PROJECTS_CAP_LIMITED,
         within=PositiveReals)
     # Add PROJECTS_LOCATION_LIMITED & associated stuff later
-    mod.proj_energy_source = Param(
-        mod.PROJECTS,
-        within=mod.ENERGY_SOURCES,
-        initialize=lambda m, pr: m.g_energy_source[m.proj_gen_tech[pr]])
+
     mod.FUEL_BASED_PROJECTS = Set(
         initialize=mod.PROJECTS,
-        filter=lambda m, pr: m.proj_energy_source[pr] in m.FUELS)
+        filter=lambda m, pr: m.g_uses_fuel[m.proj_gen_tech[pr]])
     mod.proj_fuel = Param(
         mod.FUEL_BASED_PROJECTS,
         within=mod.FUELS,
-        initialize=lambda m, pr: m.proj_energy_source[pr])
+        initialize=lambda m, pr: m.g_energy_source[m.proj_gen_tech[pr]])
     mod.NON_FUEL_BASED_PROJECTS = Set(
         initialize=mod.PROJECTS,
-        filter=lambda m, pr: m.proj_energy_source[pr] not in m.FUELS)
+        filter=lambda m, pr: not m.g_uses_fuel[m.proj_gen_tech[pr]])
     mod.proj_non_fuel_energy_source = Param(
         mod.NON_FUEL_BASED_PROJECTS,
         within=mod.NON_FUEL_ENERGY_SOURCES,
-        initialize=lambda m, pr: m.proj_energy_source[pr])
+        initialize=lambda m, pr: m.g_energy_source[m.proj_gen_tech[pr]])
 
     def init_proj_buildyears(m):
         project_buildyears = set()
