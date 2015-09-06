@@ -44,18 +44,17 @@ def define_components(mod):
     reporting results and defaults to g.
 
     g_energy_source[g] is a mandatory parameter that defines the primary
-    energy source used by each generator. For now, elements of this set
-    must be a member of the set ENERGY_SOURCES, and each generation
-    technology can only have one primary energy source. In the future,
-    we plan to support generators that use multiple energy sources: like
+    energy source used by each generator. For generation technologies
+    with one primary energy source, g_energy_source specifies that energy 
+    source, and should be a member of the set ENERGY_SOURCES. If a generator 
+    uses multiple energy sources, then g_energy_source should be set to 
+    "multiple", and the energy sources should be specified in 
+    generator_multi_fuel.tab. This can be used to support generators like
     pumped hydro that consumes either upstream water or electricity for
     storage, or compressed air energy storage that consumes electricity
     for storage and natural gas, or oil generators that need to start
     with high-quality distilled oil but can subsequently shift to low-
-    quality residual fuel oil. When we implement support for multiple
-    energy sources, we may allow g_energy_source to be set to
-    "multiple", then have another module deal with the multiple energy
-    sources.
+    quality residual fuel oil, or plants that can run on either oil or LNG. 
 
     g_uses_fuel[g] is a derived binary parameter that is True if a
     generator uses a fuel to produce electricity. Generators with this
@@ -63,6 +62,12 @@ def define_components(mod):
 
     GEN_TECH_WITH_FUEL is a subset of GENERATION_TECHNOLOGIES for which
     g_uses_fuel is true.
+    
+    GEN_TECH_WITH_MULTI_FUEL is a subset of GENERATION_TECHNOLOGIES for 
+    which multiple allowed fuels have been specified.
+    
+    G_FUELS is a list of all allowed combinations of generator technology
+    and fuel. It includes all single-fuel and multi-fuel technologies.
 
     g_max_age[g] is how many years a plant can remain operational once
     construction is complete.
@@ -228,6 +233,10 @@ def define_components(mod):
     if you don't supply a value, then you must specify a heat for each
     project of this type.
 
+    G_MULTI_FUELS is an indexed set showing all the fuels that can be used by
+    each multi-fuel generation technology. If a list is specified here, then
+    g_energy_source should be set to "multiple".
+
     --- DELAYED IMPLEMENATION ---
 
     The following parameters are not implemented at this time.
@@ -297,10 +306,17 @@ def define_components(mod):
         within=mod.ENERGY_SOURCES)
     mod.g_uses_fuel = Param(
         mod.GENERATION_TECHNOLOGIES,
-        initialize=lambda m, g: m.g_energy_source[g] in m.FUELS)
+        initialize=lambda m, g: 
+            m.g_energy_source[g] in m.FUELS or m.g_energy_source[g] == "multiple")
     mod.GEN_TECH_WITH_FUEL = Set(
         initialize=mod.GENERATION_TECHNOLOGIES,
         filter=lambda m, g: m.g_uses_fuel[g])
+    mod.GEN_TECH_WITH_MULTI_FUEL = Set(
+        initialize=mod.GENERATION_TECHNOLOGIES,
+        filter=lambda m, g: m.g_energy_source[g] == "multiple")
+    mod.G_MULTI_FUELS = Set(mod.GEN_TECH_WITH_MULTI_FUEL, within=mod.FUELS)
+    mod.G_FUELS = Set(mod.GEN_TECH_WITH_FUEL, initialize=lambda m, g:
+        m.G_MULTI_FUELS[g] if m.g_energy_source[g] == "multiple" else [m.g_energy_source[g]])
 
     mod.GEN_TECH_STORAGE = Set(within=mod.GENERATION_TECHNOLOGIES)
     mod.g_storage_efficiency = Param(

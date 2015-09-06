@@ -295,15 +295,16 @@ def define_components(mod):
     mod.RFM_DISPATCH_POINTS = Set(
         mod.REGIONAL_FUEL_MARKET, mod.PERIODS,
         within=mod.PROJ_FUEL_DISPATCH_POINTS,
-        initialize=lambda m, rfm, p: set(
-            (proj, t) for (proj, t) in m.PROJ_FUEL_DISPATCH_POINTS
-            if m.proj_fuel[proj] == m.rfm_fuel[rfm] and
+        initialize=lambda m, rfm, p: 
+            (proj, t) for (proj, t, f) in m.PROJ_FUEL_DISPATCH_POINTS
+            if f == m.rfm_fuel[rfm] and
             m.proj_load_zone[proj] in m.RFM_LOAD_ZONES[rfm] and
-            m.tp_period[t] == p))
+            m.tp_period[t] == p)
 
+    # could FuelConsumptionInMarket be an Expression instead of a constrained var?
     def Enforce_Fuel_Consumption_rule(m, rfm, p):
         return m.FuelConsumptionInMarket[rfm, p] == sum(
-            m.ProjFuelUseRate[proj, t] * m.tp_weight_in_year[t]
+            m.ProjFuelUseRate[proj, t, rfm_fuel[f]] * m.tp_weight_in_year[t]
             for (proj, t) in m.RFM_DISPATCH_POINTS[rfm, p])
     mod.Enforce_Fuel_Consumption = Constraint(
         mod.REGIONAL_FUEL_MARKET, mod.PERIODS,

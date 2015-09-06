@@ -276,17 +276,9 @@ def define_components(mod):
     mod.FUEL_BASED_PROJECTS = Set(
         initialize=mod.PROJECTS,
         filter=lambda m, pr: m.g_uses_fuel[m.proj_gen_tech[pr]])
-    mod.proj_fuel = Param(
-        mod.FUEL_BASED_PROJECTS,
-        within=mod.FUELS,
-        initialize=lambda m, pr: m.g_energy_source[m.proj_gen_tech[pr]])
     mod.NON_FUEL_BASED_PROJECTS = Set(
         initialize=mod.PROJECTS,
         filter=lambda m, pr: not m.g_uses_fuel[m.proj_gen_tech[pr]])
-    mod.proj_non_fuel_energy_source = Param(
-        mod.NON_FUEL_BASED_PROJECTS,
-        within=mod.NON_FUEL_ENERGY_SOURCES,
-        initialize=lambda m, pr: m.g_energy_source[m.proj_gen_tech[pr]])
 
     def init_proj_buildyears(m):
         project_buildyears = set()

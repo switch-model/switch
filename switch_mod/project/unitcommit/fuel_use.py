@@ -134,12 +134,12 @@ def define_components(mod):
         dimen=4,
         initialize=lambda m: set(
             (proj, t, intercept, slope)
-            for (proj, t) in m.PROJ_FUEL_DISPATCH_POINTS
+            for (proj, t) in m.PROJ_WITH_FUEL_DISPATCH_POINTS
             for (intercept, slope) in m.PROJ_FUEL_USE_SEGMENTS[proj]))
     mod.ProjFuelUseRate_Calculate = Constraint(
         mod.PROJ_DISP_FUEL_PIECEWISE_CONS_SET,
         rule=lambda m, pr, t, intercept, incremental_heat_rate: (
-            m.ProjFuelUseRate[pr, t] >=
+            sum(m.ProjFuelUseRate[pr, t, f] for f in m.G_FUELS[m.proj_gen_tech[pr]]) >=
             # Do the startup
             m.Startup[pr, t] * m.proj_startup_fuel[pr] / m.tp_duration_hrs[t] +
             intercept * m.CommitProject[pr, t] +

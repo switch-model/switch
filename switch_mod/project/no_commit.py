@@ -88,7 +88,8 @@ def define_components(mod):
             m.DispatchProj[proj, t] <= m.DispatchUpperLimit[proj, t]))
 
     mod.ProjFuelUseRate_Calculate = Constraint(
-        mod.PROJ_FUEL_DISPATCH_POINTS,
+        mod.PROJ_WITH_FUEL_DISPATCH_POINTS,
         rule=lambda m, proj, t: (
-            m.ProjFuelUseRate[proj, t] ==
+            sum(m.ProjFuelUseRate[proj, t, f] for f in m.G_FUELS[m.proj_gen_tech[proj]])
+            ==
             m.DispatchProj[proj, t] * m.proj_full_load_heat_rate[proj]))
