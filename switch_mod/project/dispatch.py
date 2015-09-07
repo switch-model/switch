@@ -148,11 +148,14 @@ def define_components(mod):
         within=mod.PROJECTS,
         initialize=init_projects_active_in_timepoints)
     def init_dispatch_timepoints(m):
-        dispatch_timepoints = set()
+        dispatch_timepoints = set() # could technically be a list
+        proj_op_periods = set()     # used to avoid duplicating effort
         for (proj, bld_yr) in m.PROJECT_BUILDYEARS:
             for period in m.PROJECT_BUILDS_OPERATIONAL_PERIODS[proj, bld_yr]:
-                for t in m.PERIOD_TPS[period]:
-                    dispatch_timepoints.add((proj, t))
+                if (proj, period) not in proj_op_periods:
+                    proj_op_periods.add((proj, period))
+                    for t in m.PERIOD_TPS[period]:
+                        dispatch_timepoints.add((proj, t))
         return dispatch_timepoints
     mod.PROJ_DISPATCH_POINTS = Set(
         dimen=2,
@@ -248,19 +251,15 @@ def define_components(mod):
         default=lambda m, proj: (
             m.g_variable_o_m[m.proj_gen_tech[proj]] *
             m.lz_cost_multipliers[m.proj_load_zone[proj]]))
-    # When loops and filters are nested in a list comprehension (like below) 
-    # the first "for" is treated as an outer loop and later ones are inner loops. 
-    # "if"s are evaluated based on the variables defined earlier, and restrict later loops.
-    # This is like nested for loops and if statements in regular code.
-    # NOTE: here we create an iterator rather than explicitly creating the index set
-    # (which pyomo will read once and throw away); this saves a little memory.
-    # NOTE: this would be faster if there were a dispatch variable for every project for 
-    # every timepoint or if we had a list of valid timepoints for each project (then this
-    # would only need to find projects that use fuels, and then index over their timepoints,
-    # rather than filtering through every member of PROJ_DISPATCH_POINTS)
     mod.PROJ_WITH_FUEL_DISPATCH_POINTS = Set(
-        initialize=mod.PROJ_DISPATCH_POINTS, 
-        filter=lambda m, p, t: m.g_uses_fuel[m.proj_gen_tech[p]])
+        dimen=2,
+        initialize=lambda m: 
+            ((p, t) for p in m.FUEL_BASED_PROJECTS for t in m.TIMEPOINTS 
+                if (p, t) in m.PROJ_DISPATCH_POINTS))
+    # NOTE: below is another way to build PROJ_WITH_FUEL_DISPATCH_POINTS:
+    # mod.PROJ_WITH_FUEL_DISPATCH_POINTS = Set(
+    #     initialize=mod.PROJ_DISPATCH_POINTS,
+    #     filter=lambda m, p, t: m.g_uses_fuel[m.proj_gen_tech[p]])
     mod.PROJ_FUEL_DISPATCH_POINTS = Set(
         dimen=3,
         initialize=lambda m: (

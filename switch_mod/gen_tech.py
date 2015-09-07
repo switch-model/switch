@@ -303,7 +303,7 @@ def define_components(mod):
 
     mod.g_energy_source = Param(
         mod.GENERATION_TECHNOLOGIES,
-        within=mod.ENERGY_SOURCES)
+        validate=lambda m, val, g: val in m.ENERGY_SOURCES or val == "multiple")
     mod.g_uses_fuel = Param(
         mod.GENERATION_TECHNOLOGIES,
         initialize=lambda m, g: 
@@ -437,3 +437,8 @@ def load_inputs(mod, switch_data, inputs_dir):
         auto_select=True,
         index=mod.NEW_GENERATION_BUILDYEARS,
         param=[mod.g_overnight_cost, mod.g_fixed_o_m])
+
+    # read G_MULTI_FUELS from gen_multiple_fuels.dat if available
+    multi_fuels_path = os.path.join(inputs_dir, 'gen_multiple_fuels.dat')
+    if os.path.isfile(multi_fuels_path):
+        switch_data.load(filename=multi_fuels_path)
