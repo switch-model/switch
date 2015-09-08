@@ -413,6 +413,8 @@ def load_aug(switch_data, optional=False, auto_select=False,
     # Skip if the file is missing
     if optional and not os.path.isfile(path):
         return
+    # copy the optional_params to avoid side-effects when the list is altered below
+    optional_params=list(optional_params)
     # Parse header and first row
     with open(path) as infile:
         headers = infile.readline().strip().split('\t')
