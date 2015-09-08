@@ -420,6 +420,8 @@ def load_aug(switch_data, optional=False, auto_select=False,
     # Skip if the file is empty or has no data in the first row.
     if optional and (headers == [''] or dat1 == ['']):
         return
+    # copy the optional_params to avoid side-effects when the list is altered below
+    optional_params=list(optional_params)
     # Try to get a list of parameters. If param was given as a
     # singleton or a tuple, make it into a list that can be edited.
     params = []
