@@ -461,6 +461,11 @@ def load_aug(switch_data, optional=False, auto_select=False,
         num_indexes = 0
     # Make a select list if requested. Assume the left-most columns are
     # indexes and that other columns are named after their parameters.
+    # Maybe this could be extended to use a standard prefix for each data file?
+    # e.g., things related to regional fuel market supply tiers (indexed by RFM_SUPPLY_TIER)
+    # could all get the prefix "rfm_supply_tier_". Then they could get shorter names
+    # within the file (e.g., "cost" and "limit"). We could also require the data file
+    # to be called "rfm_supply_tier.tab" for greater consistency/predictability.
     if auto_select:
         if 'select' in kwds:
             raise InputError('You may not specify a select parameter if ' +
