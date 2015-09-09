@@ -62,6 +62,21 @@ def define_components(mod):
 
     """
 
+    # NOTE: BaseloadOperatingLevelForPeriod should eventually be replaced by 
+    # an "ActiveCapacityDuringPeriod" decision variable that applies to all
+    # projects. This should be constrained
+    # based on the amount of installed capacity each period, and then 
+    # DispatchUpperLimit and DispatchLowerLimit should be calculated
+    # relative to ActiveCapacityDuringPeriod. Fixed O&M (but not capital 
+    # costs) should be calculated based on ActiveCapacityDuringPeriod.
+    # This would allow mothballing (and possibly restarting) projects.
+
+    # Choose flat operating level for baseload plants during each period
+    # (not necessarily running all available capacity)
+    # Note: this is unconstrained, because other constraints limit project 
+    # dispatch during each timepoint and therefore the level of this variable.
+    mod.BaseloadOperatingLevelForPeriod = Var(mod.BASELOAD_PROJECTS, mod.PERIODS)
+    
     def DispatchUpperLimit_expr(m, proj, t):
         if proj in m.VARIABLE_PROJECTS:
             return (m.ProjCapacityTP[proj, t] * m.proj_availability[proj] *
@@ -72,19 +87,14 @@ def define_components(mod):
         mod.PROJ_DISPATCH_POINTS,
         rule=DispatchUpperLimit_expr)
 
-    def DispatchLowerLimit_expr(m, proj, t):
-        if proj in m.BASELOAD_PROJECTS:
-            return DispatchUpperLimit_expr(m, proj, t)
-        else:
-            return 0
-    mod.DispatchLowerLimit = Expression(
-        mod.PROJ_DISPATCH_POINTS,
-        rule=DispatchLowerLimit_expr)
-
-    mod.Enforce_Dispatch_Lower_Limit = Constraint(
+    mod.Enforce_Dispatch_Baseload_Flat = Constraint(
         mod.PROJ_DISPATCH_POINTS,
         rule=lambda m, proj, t: (
-            m.DispatchLowerLimit[proj, t] <= m.DispatchProj[proj, t]))
+            (m.DispatchProj[proj, t] == BaseloadOperatingLevelForPeriod[proj, tp_period[t]])
+                if proj in m.BASELOAD_PROJECTS
+            else Constraint.Skip
+    )
+
     mod.Enforce_Dispatch_Upper_Limit = Constraint(
         mod.PROJ_DISPATCH_POINTS,
         rule=lambda m, proj, t: (
