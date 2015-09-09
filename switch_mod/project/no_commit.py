@@ -89,8 +89,8 @@ def define_components(mod):
 
     mod.Enforce_Dispatch_Baseload_Flat = Constraint(
         mod.PROJ_DISPATCH_POINTS,
-        rule=lambda m, proj, t: (
-            (m.DispatchProj[proj, t] == BaseloadOperatingLevelForPeriod[proj, tp_period[t]])
+        rule=lambda m, proj, t: 
+            (m.DispatchProj[proj, t] == m.BaseloadOperatingLevelForPeriod[proj, m.tp_period[t]])
                 if proj in m.BASELOAD_PROJECTS
             else Constraint.Skip
     )
