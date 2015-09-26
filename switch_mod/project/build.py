@@ -381,7 +381,7 @@ def define_components(mod):
         else:
             raise ValueError(
                 ("No overnight costs were provided for project {} " +
-                 "or its generation technology {}.").format(pr, g))
+                 "or its generation technology {}.").format(proj, g))
     mod.proj_overnight_cost = Param(
         mod.PROJECT_BUILDYEARS,
         within=NonNegativeReals,
