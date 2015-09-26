@@ -9,7 +9,7 @@ See INSTALL for installation instructions.
 
 The doc folder contains auto-generated documentation from the python doc
 strings. This should include descriptions of each module, their
-intentions, model compoents they define, and what input files they
+intentions, model components they define, and what input files they
 expect. To refresh the documentation, go to the folder and run
 ./make_doc.sh This documentation is not well-formatted or pretty, but it
 will do until we migrate to Sphinx and invest more effort into writing
