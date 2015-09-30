@@ -66,8 +66,9 @@ def define_components(mod):
     GEN_TECH_WITH_MULTI_FUEL is a subset of GENERATION_TECHNOLOGIES for 
     which multiple allowed fuels have been specified.
     
-    G_FUELS is a list of all allowed combinations of generator technology
-    and fuel. It includes all single-fuel and multi-fuel technologies.
+    G_FUELS is a list of all allowed fuels for each fuel-consuming 
+    generator technology. It may contain one or more fuels for each
+    technology.
 
     g_max_age[g] is how many years a plant can remain operational once
     construction is complete.
