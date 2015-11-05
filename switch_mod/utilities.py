@@ -108,18 +108,31 @@ def save_results(model, results, instance, outdir):
     # conditions.
     if not os.path.exists(outdir):
         os.makedirs(outdir)
+    
     # Try to load the results and export.
-    if instance.load(results):
+    success = True
+    
+    if results.solver.termination_condition == pyomo.opt.TerminationCondition.infeasible:
+        success = False
+        if interactive_session:
+            print ("ERROR: Problem is infeasible.") # this could be turned into an exception
+    
+    if hasattr(instance, 'solutions'):
+        instance.solutions.load_from(results)
+    else:
+        # support for old versions of Pyomo (with undocumented True/False behavior)
+        # (we should drop this and require everyone to use a suitably up-to-date pyomo)
+        if not instance.load(results):
+            success = False
+            if interactive_session:
+                print ("ERROR: unable to load solver results (may be caused by infeasibililty).")
+
+    if success:
         if interactive_session:
             print "Model solved successfully."
         _save_results(model, instance, outdir, model.module_list)
-        return True
-    else:
-        if interactive_session:
-            print ("ERROR: unable to load solver results. " +
-                   "Problem may be infeasible.")
-        return False
 
+    return success
 
 def min_data_check(model, *mandatory_model_components):
     """
