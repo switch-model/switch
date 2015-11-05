@@ -34,7 +34,7 @@ def capital_recovery_factor(ir, t):
     rate, paid over 20 years is 0.09439. If the principal was $100, loan\
     payments would be $9.44
     """
-    return ir/(1-(1+ir)**-t)
+    return 1/t if ir == 0 else ir/(1-(1+ir)**-t)
 
 
 def uniform_series_to_present_value(dr, t):
@@ -57,7 +57,7 @@ def uniform_series_to_present_value(dr, t):
         round(1/capital_recovery_factor(.07,20),7)
     True
     """
-    return (1-(1+dr)**-t)/dr
+    return t if dr == 0 else (1-(1+dr)**-t)/dr
 
 
 def future_to_present_value(dr, t):
@@ -215,9 +215,9 @@ def define_components(mod):
     """
 
     mod.base_financial_year = Param(within=PositiveIntegers)
-    mod.interest_rate = Param(within=PositiveReals)
+    mod.interest_rate = Param(within=NonNegativeReals)
     mod.discount_rate = Param(
-        within=PositiveReals, default=mod.interest_rate)
+        within=NonNegativeReals, default=mod.interest_rate)
     mod.min_data_check('base_financial_year', 'interest_rate')
     mod.bring_annual_costs_to_base_year = Param(
         mod.PERIODS,

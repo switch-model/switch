@@ -89,7 +89,7 @@ def define_components(mod):
     mod.min_data_check('LOAD_ZONES', 'lz_demand_mw')
     mod.lz_total_demand_in_period_mwh = Param(
         mod.LOAD_ZONES, mod.PERIODS,
-        within=PositiveReals,
+        within=NonNegativeReals,
         initialize=lambda m, z, p: (
             sum(m.lz_demand_mw[z, t] * m.tp_weight[t]
                 for t in m.PERIOD_TPS[p])))
