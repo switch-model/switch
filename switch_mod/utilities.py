@@ -69,13 +69,12 @@ def define_AbstractModel(*module_list):
     return model
 
 
-def load_inputs(model, inputs_dir="inputs"):
+def load_inputs(model, inputs_dir="inputs", attachDataPortal=False):
     """
 
     Load input data for an AbstractModel using the modules in the given
-    list and return a DataPortal object suitable for creating a model
-    instance. This is implemented as calling the load_inputs() function
-    of each module, if the module has that function.
+    list and return a model instance. This is implemented as calling the
+    load_inputs() function of each module, if the module has that function.
 
     SYNOPSIS:
     >>> from switch_mod.utilities import define_AbstractModel
@@ -95,7 +94,65 @@ def load_inputs(model, inputs_dir="inputs"):
         instance = model.create_instance(data)
     else:
         instance = model.create(data)
+    if attachDataPortal:
+	    instance.DataPortal = data
     return instance
+
+
+def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat"):
+    """
+
+    Save input data to a .dat file for use with PySP or other command line
+    tools that have not be fully integrated with DataPortal.
+
+    I should write a test to check that a model instance created from the
+    resultant dat file is identical to the initial model instance.
+
+    SYNOPSIS:
+    >>> from switch_mod.utilities import define_AbstractModel
+    >>> model = define_AbstractModel(
+    ...     'switch_mod', 'project.no_commit', 'fuel_cost')
+    >>> instance = model.load_inputs(inputs_dir='test_dat',
+    ...     attachDataPortal=True)
+    >>> save_inputs_as_dat(model, instance, "inputs/complete_inputs.dat")
+    
+
+    """
+    with open(save_path, "w") as f:
+        for component_name in instance.DataPortal.data():
+            component = getattr(model, component_name)
+            comp_class = type(component).__name__
+            component_data = instance.DataPortal.data(name=component_name)
+            if comp_class == 'SimpleSet' or comp_class == 'OrderedSimpleSet':
+                f.write("set " + component_name + " := ")
+                f.write(' '.join(map(str, component_data))) # space-separated list
+                f.write(";\n")
+            elif comp_class == 'IndexedParam':
+                f.write("param " + component_name + " := ")
+                if component.index_set().dimen == 1:
+                    f.write(' '.join(str(key) + " " + str(value)
+                            for key,value in component_data.iteritems()))
+                else:
+                    f.write("\n")
+                    for key,value in component_data.iteritems():
+                        f.write(" " + 
+                                ' '.join(map(str, key)) + " " +
+                                str(value) + "\n")
+                f.write(";\n")
+            elif comp_class == 'SimpleParam':
+                f.write("param " + component_name + " := " + str(component_data) + ";\n")
+            elif comp_class == 'IndexedSet':
+                raise Error(
+                    "Error with IndexedSet {}. Support for .dat export is not tested.".
+                    format(component_name))         
+                # for key in component_data:
+                #   f.write("set " + component_name + "[" + key + "] := ")
+                #   f.write(' '.join(map(str, component_data[key]))) # space-separated list
+                #   f.write(";\n")
+            else:
+                raise ValueError(
+                    "Error! Component type {} not recognized for model element '{}'.".
+                    format(comp_class, component_name))
 
 
 def save_results(model, results, instance, outdir):
