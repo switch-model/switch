@@ -69,7 +69,7 @@ def define_AbstractModel(*module_list):
     return model
 
 
-def load_inputs(model, inputs_dir="inputs", attachDataPortal=False):
+def load_inputs(model, inputs_dir="inputs", attachDataPortal=True):
     """
 
     Load input data for an AbstractModel using the modules in the given
@@ -95,7 +95,7 @@ def load_inputs(model, inputs_dir="inputs", attachDataPortal=False):
     else:
         instance = model.create(data)
     if attachDataPortal:
-	    instance.DataPortal = data
+        instance.DataPortal = data
     return instance
 
 
@@ -105,16 +105,16 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat"):
     Save input data to a .dat file for use with PySP or other command line
     tools that have not be fully integrated with DataPortal.
 
-    I should write a test to check that a model instance created from the
-    resultant dat file is identical to the initial model instance.
+    I wrote a test for this in tests.utilites_test.test_save_inputs_as_dat()
+    that calls this function, imports the dat file, and verifies it matches
+    the original data.
 
     SYNOPSIS:
     >>> from switch_mod.utilities import define_AbstractModel
     >>> model = define_AbstractModel(
     ...     'switch_mod', 'project.no_commit', 'fuel_cost')
-    >>> instance = model.load_inputs(inputs_dir='test_dat',
-    ...     attachDataPortal=True)
-    >>> save_inputs_as_dat(model, instance, "inputs/complete_inputs.dat")
+    >>> instance = model.load_inputs(inputs_dir='test_dat')
+    >>> save_inputs_as_dat(model, instance, save_path="test_dat/complete_inputs.dat")
     
 
     """

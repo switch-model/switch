@@ -17,6 +17,18 @@ import switch_mod.utilities
 
 
 def main(argv):
+    args = parse_args(argv)
+    (switch_model, switch_instance) = load(args.inputs_dir)
+    opt = pyomo.opt.SolverFactory(args.solver)
+    results = opt.solve(switch_instance, keepfiles=False, tee=False)
+    switch_instance.load(results)
+
+    results.write()
+    switch_instance.pprint()
+    switch_model.save_results(results, switch_instance, args.outputs_dir)
+
+
+def parse_args(argv):
     parser = argparse.ArgumentParser(
         prog='python -m switch_mod.solve',
         description='Runs the Switch power grid model solver.')
@@ -30,23 +42,17 @@ def main(argv):
         '--solver', type=str, default='glpk',
         help='Linear program solver to use (default is "glpk")')
     args = parser.parse_args(argv)
+    return args
 
-    opt = pyomo.opt.SolverFactory(args.solver)
 
+def load(inputs_dir):
     module_list = [
         line.rstrip('\n')
-        for line in open(os.path.join(args.inputs_dir, 'modules'), 'r')]
-
+        for line in open(os.path.join(inputs_dir, 'modules'), 'r')]
     switch_model = switch_mod.utilities.define_AbstractModel(
         'switch_mod', *module_list)
-    switch_instance = switch_model.load_inputs(inputs_dir=args.inputs_dir)
-
-    results = opt.solve(switch_instance, keepfiles=False, tee=False)
-    switch_instance.load(results)
-
-    results.write()
-    switch_instance.pprint()
-    switch_model.save_results(results, switch_instance, args.outputs_dir)
+    switch_instance = switch_model.load_inputs(inputs_dir=inputs_dir)
+    return (switch_model, switch_instance)
 
 
 if __name__ == '__main__':
