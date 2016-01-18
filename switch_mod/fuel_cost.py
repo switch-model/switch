@@ -39,7 +39,7 @@ def define_components(mod):
     available.
 
     Enforce_Fuel_Availability[(proj, t) in
-    PROJ_FUEL_DISPATCH_POINTS_UNAVAILABLE] is a constrain that restricts
+    PROJ_FUEL_DISPATCH_POINTS_UNAVAILABLE] is a constraint that restricts
     ProjFuelUseRate to 0 for in load zones and periods where the
     projects' fuel is unavailable.
 
@@ -61,22 +61,22 @@ def define_components(mod):
 
     mod.PROJ_FUEL_DISPATCH_POINTS_UNAVAILABLE = Set(
         initialize=mod.PROJ_FUEL_DISPATCH_POINTS,
-        filter=lambda m, pr, t: (
-            (m.proj_load_zone[pr], m.proj_fuel[pr], m.tp_period[t])
+        filter=lambda m, pr, t, f: (
+            (m.proj_load_zone[pr], f, m.tp_period[t])
             not in m.FUEL_AVAILABILITY))
     mod.Enforce_Fuel_Availability = Constraint(
         mod.PROJ_FUEL_DISPATCH_POINTS_UNAVAILABLE,
-        rule=lambda m, pr, t: m.ProjFuelUseRate[pr, t] == 0)
+        rule=lambda m, pr, t, f: m.ProjFuelUseRate[pr, t, f] == 0)
 
     # Summarize total fuel costs in each timepoint for the objective function
     mod.Fuel_Costs_TP = Expression(
         mod.TIMEPOINTS,
         rule=lambda m, t: sum(
-            m.ProjFuelUseRate[proj, t] * m.fuel_cost[(
-                m.proj_load_zone[proj], m.proj_fuel[proj], m.tp_period[t])]
-            for (proj, t2) in m.PROJ_FUEL_DISPATCH_POINTS
+            m.ProjFuelUseRate[proj, t, f] 
+                * m.fuel_cost[(m.proj_load_zone[proj], f, m.tp_period[t])]
+            for (proj, t2, f) in m.PROJ_FUEL_DISPATCH_POINTS
             if((t2 == t) and (
-                (m.proj_load_zone[proj], m.proj_fuel[proj], m.tp_period[t]) in
+                (m.proj_load_zone[proj], f, m.tp_period[t]) in
                 m.FUEL_AVAILABILITY))))
     mod.cost_components_tp.append('Fuel_Costs_TP')
 

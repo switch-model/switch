@@ -56,9 +56,27 @@ def define_components(mod):
     DispatchProj * proj_full_load_heat_rate. The units become:
     MW * (MMBtu / MWh) = MMBTU / h
 
+    DispatchProjByFuel[(proj, t, f) in PROJ_FUEL_DISPATCH_POINTS]
+    calculates power production by each project from each fuel during
+    each timepoint.
 
     """
 
+    # NOTE: BaseloadOperatingLevelForPeriod should eventually be replaced by 
+    # an "ActiveCapacityDuringPeriod" decision variable that applies to all
+    # projects. This should be constrained
+    # based on the amount of installed capacity each period, and then 
+    # DispatchUpperLimit and DispatchLowerLimit should be calculated
+    # relative to ActiveCapacityDuringPeriod. Fixed O&M (but not capital 
+    # costs) should be calculated based on ActiveCapacityDuringPeriod.
+    # This would allow mothballing (and possibly restarting) projects.
+
+    # Choose flat operating level for baseload plants during each period
+    # (not necessarily running all available capacity)
+    # Note: this is unconstrained, because other constraints limit project 
+    # dispatch during each timepoint and therefore the level of this variable.
+    mod.BaseloadOperatingLevelForPeriod = Var(mod.BASELOAD_PROJECTS, mod.PERIODS)
+    
     def DispatchUpperLimit_expr(m, proj, t):
         if proj in m.VARIABLE_PROJECTS:
             return (m.ProjCapacityTP[proj, t] * m.proj_availability[proj] *
@@ -69,26 +87,32 @@ def define_components(mod):
         mod.PROJ_DISPATCH_POINTS,
         rule=DispatchUpperLimit_expr)
 
-    def DispatchLowerLimit_expr(m, proj, t):
-        if proj in m.BASELOAD_PROJECTS:
-            return DispatchUpperLimit_expr(m, proj, t)
-        else:
-            return 0
-    mod.DispatchLowerLimit = Expression(
+    mod.Enforce_Dispatch_Baseload_Flat = Constraint(
         mod.PROJ_DISPATCH_POINTS,
-        rule=DispatchLowerLimit_expr)
+        rule=lambda m, proj, t: 
+            (m.DispatchProj[proj, t] == m.BaseloadOperatingLevelForPeriod[proj, m.tp_period[t]])
+                if proj in m.BASELOAD_PROJECTS
+            else Constraint.Skip
+    )
 
-    mod.Enforce_Dispatch_Lower_Limit = Constraint(
-        mod.PROJ_DISPATCH_POINTS,
-        rule=lambda m, proj, t: (
-            m.DispatchLowerLimit[proj, t] <= m.DispatchProj[proj, t]))
     mod.Enforce_Dispatch_Upper_Limit = Constraint(
         mod.PROJ_DISPATCH_POINTS,
         rule=lambda m, proj, t: (
             m.DispatchProj[proj, t] <= m.DispatchUpperLimit[proj, t]))
 
     mod.ProjFuelUseRate_Calculate = Constraint(
-        mod.PROJ_FUEL_DISPATCH_POINTS,
+        mod.PROJ_WITH_FUEL_DISPATCH_POINTS,
         rule=lambda m, proj, t: (
-            m.ProjFuelUseRate[proj, t] ==
+            sum(m.ProjFuelUseRate[proj, t, f] for f in m.G_FUELS[m.proj_gen_tech[proj]])
+            ==
             m.DispatchProj[proj, t] * m.proj_full_load_heat_rate[proj]))
+
+    # allocate the power produced during each timepoint among the fuels
+    # Here, we just calculate it from fuel usage and the full load heat rate,
+    # but it could be more complicated if we model the plant in more detail.
+    # note: this must be linear, because it may be used in RPS calculations
+    mod.DispatchProjByFuel = Expression(
+        mod.PROJ_FUEL_DISPATCH_POINTS,
+        rule=lambda m, proj, t, f:
+            m.ProjFuelUseRate[proj, t, f] / m.proj_full_load_heat_rate[proj]
+    )

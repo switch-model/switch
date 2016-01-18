@@ -90,10 +90,16 @@ def define_components(mod):
     in $base_year/hour in the future period (rather than Net Present
     Value).
 
-    PROJ_FUEL_DISPATCH_POINTS is a subset of PROJ_DISPATCH_POINTS
-    for projects that consume fuel and could produce emissions.
+    PROJ_WITH_FUEL_DISPATCH_POINTS is a subset of PROJ_DISPATCH_POINTS
+    showing all times when fuel-consuming projects could be dispatched 
+    (used to identify timepoints when fuel use must match power production).
 
-    ProjFuelUseRate[(proj, t) in PROJ_FUEL_DISPATCH_POINTS] is a
+    PROJ_FUEL_DISPATCH_POINTS is a subset of PROJ_DISPATCH_POINTS * FUELS,
+    showing all the valid combinations of project, timepoint and fuel,
+    i.e., all the times when each project could consume a fuel that is 
+    limited, costly or produces emissions.
+
+    ProjFuelUseRate[(proj, t, f) in PROJ_FUEL_DISPATCH_POINTS] is a
     variable that describes fuel consumption rate in MMBTU/h. This
     should be constrained to the fuel consumed by a project in each
     timepoint and can be calculated as Dispatch [MW] *
@@ -104,7 +110,7 @@ def define_components(mod):
     project.unitcommit module implements unit commitment decisions with
     startup fuel requirements and a marginal heat rate.
 
-    DispatchEmissions[(proj, t) in PROJ_FUEL_DISPATCH_POINTS] is the
+    DispatchEmissions[(proj, t, f) in PROJ_FUEL_DISPATCH_POINTS] is the
     emissions produced by dispatching a fuel-based project in units of
     metric tonnes CO2 per hour. This is derived from the fuel
     consumption ProjFuelUseRate, the fuel's direct carbon intensity, the
@@ -142,11 +148,14 @@ def define_components(mod):
         within=mod.PROJECTS,
         initialize=init_projects_active_in_timepoints)
     def init_dispatch_timepoints(m):
-        dispatch_timepoints = set()
+        dispatch_timepoints = set() # could technically be a list
+        proj_op_periods = set()     # used to avoid duplicating effort
         for (proj, bld_yr) in m.PROJECT_BUILDYEARS:
             for period in m.PROJECT_BUILDS_OPERATIONAL_PERIODS[proj, bld_yr]:
-                for t in m.PERIOD_TPS[period]:
-                    dispatch_timepoints.add((proj, t))
+                if (proj, period) not in proj_op_periods:
+                    proj_op_periods.add((proj, period))
+                    for t in m.PERIOD_TPS[period]:
+                        dispatch_timepoints.add((proj, t))
         return dispatch_timepoints
     mod.PROJ_DISPATCH_POINTS = Set(
         dimen=2,
@@ -242,25 +251,34 @@ def define_components(mod):
         default=lambda m, proj: (
             m.g_variable_o_m[m.proj_gen_tech[proj]] *
             m.lz_cost_multipliers[m.proj_load_zone[proj]]))
-
+    mod.PROJ_WITH_FUEL_DISPATCH_POINTS = Set(
+        dimen=2,
+        initialize=lambda m: 
+            ((p, t) for p in m.FUEL_BASED_PROJECTS for t in m.TIMEPOINTS 
+                if (p, t) in m.PROJ_DISPATCH_POINTS))
+    # NOTE: below is another way to build PROJ_WITH_FUEL_DISPATCH_POINTS:
+    # mod.PROJ_WITH_FUEL_DISPATCH_POINTS = Set(
+    #     initialize=mod.PROJ_DISPATCH_POINTS,
+    #     filter=lambda m, p, t: m.g_uses_fuel[m.proj_gen_tech[p]])
     mod.PROJ_FUEL_DISPATCH_POINTS = Set(
-        initialize=mod.PROJ_DISPATCH_POINTS,
-        filter=lambda m, proj, t: proj in m.FUEL_BASED_PROJECTS)
+        dimen=3,
+        initialize=lambda m: (
+            (p, t, f) for (p, t) in m.PROJ_WITH_FUEL_DISPATCH_POINTS 
+                    for f in m.G_FUELS[m.proj_gen_tech[p]]))
     mod.ProjFuelUseRate = Var(
         mod.PROJ_FUEL_DISPATCH_POINTS,
         within=NonNegativeReals)
 
-    def DispatchEmissions_rule(m, proj, t):
+    def DispatchEmissions_rule(m, proj, t, f):
         g = m.proj_gen_tech[proj]
-        f = m.proj_fuel[proj]
         if g not in m.GEN_TECH_CCS:
             return (
-                m.ProjFuelUseRate[proj, t] *
+                m.ProjFuelUseRate[proj, t, f] *
                 (m.f_co2_intensity[f] - m.f_upstream_co2_intensity[f]))
         else:
             ccs_emission_frac = 1 - m.g_ccs_capture_efficiency[g]
             return (
-                m.ProjFuelUseRate[proj, t] *
+                m.ProjFuelUseRate[proj, t, f] *
                 (m.f_co2_intensity[f] * ccs_emission_frac -
                  m.f_upstream_co2_intensity[f]))
     mod.DispatchEmissions = Expression(

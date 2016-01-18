@@ -295,16 +295,17 @@ def define_components(mod):
     mod.RFM_DISPATCH_POINTS = Set(
         mod.REGIONAL_FUEL_MARKET, mod.PERIODS,
         within=mod.PROJ_FUEL_DISPATCH_POINTS,
-        initialize=lambda m, rfm, p: set(
-            (proj, t) for (proj, t) in m.PROJ_FUEL_DISPATCH_POINTS
-            if m.proj_fuel[proj] == m.rfm_fuel[rfm] and
+        initialize=lambda m, rfm, p: [
+            (proj, t, f) for (proj, t, f) in m.PROJ_FUEL_DISPATCH_POINTS
+            if f == m.rfm_fuel[rfm] and
             m.proj_load_zone[proj] in m.RFM_LOAD_ZONES[rfm] and
-            m.tp_period[t] == p))
+            m.tp_period[t] == p])
 
+    # could FuelConsumptionInMarket be an Expression instead of a constrained var?
     def Enforce_Fuel_Consumption_rule(m, rfm, p):
         return m.FuelConsumptionInMarket[rfm, p] == sum(
-            m.ProjFuelUseRate[proj, t] * m.tp_weight_in_year[t]
-            for (proj, t) in m.RFM_DISPATCH_POINTS[rfm, p])
+            m.ProjFuelUseRate[proj, t, f] * m.tp_weight_in_year[t]
+            for (proj, t, f) in m.RFM_DISPATCH_POINTS[rfm, p])
     mod.Enforce_Fuel_Consumption = Constraint(
         mod.REGIONAL_FUEL_MARKET, mod.PERIODS,
         rule=Enforce_Fuel_Consumption_rule)
@@ -356,18 +357,18 @@ def load_inputs(mod, switch_data, inputs_dir):
     # column names, be indifferent to column order, and throw an error
     # message if some columns are not found.
 
-    switch_data.load(
+    switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'regional_fuel_markets.tab'),
         select=('regional_fuel_market', 'fuel'),
         index=mod.REGIONAL_FUEL_MARKET,
         param=(mod.rfm_fuel))
-    switch_data.load(
+    switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'fuel_supply_curves.tab'),
         select=('regional_fuel_market', 'period', 'tier', 'unit_cost',
                 'max_avail_at_cost'),
         index=mod.RFM_SUPPLY_TIERS,
         param=(mod.rfm_supply_tier_cost, mod.rfm_supply_tier_limit))
-    switch_data.load(
+    switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'lz_to_regional_fuel_market.tab'),
         set=mod.LZ_RFM)
     # Load load zone fuel cost adder data if the file is available.
