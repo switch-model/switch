@@ -41,9 +41,12 @@ def main(argv):
 
 
 def load(inputs_dir):
-    module_list = [
-        line.rstrip('\n')
-        for line in open(os.path.join(inputs_dir, 'modules'), 'r')]
+    try:
+        module_fh = open(os.path.join(inputs_dir, 'modules'), 'r')
+    except IOError, exc:
+        sys.exit('Failed to open input file: {}'.format(exc))
+    module_list = [line.rstrip('\n') for line in module_fh]
+
     switch_model = switch_mod.utilities.define_AbstractModel(
         'switch_mod', *module_list)
     switch_instance = switch_model.load_inputs(inputs_dir=inputs_dir)
