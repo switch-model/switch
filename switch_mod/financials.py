@@ -234,6 +234,9 @@ def define_components(mod):
         initialize=lambda m, t: (
             m.bring_annual_costs_to_base_year[m.tp_period[t]] *
             m.tp_weight_in_year[t]))
+    # TODO: rename cost_components_tp to cost_components_hourly to reflect the fact that it 
+    # should show hourly costs (not costs per timepoint); this would also be more similar 
+    # to cost_components_annual
     mod.cost_components_tp = []
     mod.cost_components_annual = []
 
