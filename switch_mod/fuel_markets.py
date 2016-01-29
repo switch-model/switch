@@ -278,15 +278,15 @@ def define_components(mod):
         mod.LZ_FUELS, mod.PERIODS,
         within=Reals, default=0, validate=lz_fuel_cost_adder_validate)
 
-    # Summarize annual fuel costs for the objective funciton
-    def rfm_period_costs(m, rfm, p):
+    # Summarize annual fuel costs for the objective function
+    def rfm_annual_costs(m, rfm, p):
         return sum(
             m.FuelConsumptionByTier[rfm_st] * m.rfm_supply_tier_cost[rfm_st]
             for rfm_st in m.RFM_P_SUPPLY_TIERS[rfm, p])
     mod.Fuel_Costs_Annual = Expression(
         mod.PERIODS,
         rule=lambda m, p: sum(
-            rfm_period_costs(m, rfm, p)
+            rfm_annual_costs(m, rfm, p)
             for rfm in m.REGIONAL_FUEL_MARKET))
     mod.cost_components_annual.append('Fuel_Costs_Annual')
 
@@ -315,7 +315,7 @@ def define_components(mod):
     mod.AverageFuelCosts = Expression(
         mod.REGIONAL_FUEL_MARKET, mod.PERIODS,
         rule=lambda m, rfm, p: (
-            rfm_period_costs(m, rfm, p) /
+            rfm_annual_costs(m, rfm, p) /
             sum(m.FuelConsumptionByTier[rfm_st]
                 for rfm_st in m.RFM_P_SUPPLY_TIERS[rfm, p])))
 
