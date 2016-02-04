@@ -99,11 +99,10 @@ def load_inputs(model, inputs_dir="inputs", attachDataPortal=True):
     return instance
 
 
-def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat"):
+def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat", exclude=[]):
     """
-
     Save input data to a .dat file for use with PySP or other command line
-    tools that have not be fully integrated with DataPortal.
+    tools that have not been fully integrated with DataPortal.
 
     I wrote a test for this in tests.utilites_test.test_save_inputs_as_dat()
     that calls this function, imports the dat file, and verifies it matches
@@ -118,8 +117,15 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat"):
     
 
     """
+    # helper function to convert values to strings,
+    # putting quotes around values that start as strings
+    quote_str = lambda v: '"{}"'.format(v) if isinstance(v, basestring) else '{}'.format(str(v))
+    
     with open(save_path, "w") as f:
         for component_name in instance.DataPortal.data():
+            if component_name in exclude:
+                continue    # don't write data for components in exclude list 
+                            # (they're in scenario-specific files)
             component = getattr(model, component_name)
             comp_class = type(component).__name__
             component_data = instance.DataPortal.data(name=component_name)
@@ -128,27 +134,30 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat"):
                 f.write(' '.join(map(str, component_data))) # space-separated list
                 f.write(";\n")
             elif comp_class == 'IndexedParam':
-                f.write("param " + component_name + " := ")
-                if component.index_set().dimen == 1:
-                    f.write(' '.join(str(key) + " " + str(value)
-                            for key,value in component_data.iteritems()))
-                else:
-                    f.write("\n")
-                    for key,value in component_data.iteritems():
-                        f.write(" " + 
-                                ' '.join(map(str, key)) + " " +
-                                str(value) + "\n")
-                f.write(";\n")
+                if len(component_data) > 0:  # omit components for which no data were provided
+                    f.write("param " + component_name + " := ")
+                    if component.index_set().dimen == 1:
+                        f.write(' '.join(str(key) + " " + quote_str(value)
+                                for key,value in component_data.iteritems()))
+                    else:
+                        f.write("\n")
+                        for key,value in component_data.iteritems():
+                            f.write(" " + 
+                                    ' '.join(map(str, key)) + " " +
+                                    quote_str(value) + "\n")
+                    f.write(";\n")
             elif comp_class == 'SimpleParam':
                 f.write("param " + component_name + " := " + str(component_data) + ";\n")
             elif comp_class == 'IndexedSet':
-                raise Error(
-                    "Error with IndexedSet {}. Support for .dat export is not tested.".
-                    format(component_name))         
-                # for key in component_data:
-                #   f.write("set " + component_name + "[" + key + "] := ")
-                #   f.write(' '.join(map(str, component_data[key]))) # space-separated list
-                #   f.write(";\n")
+                # raise RuntimeError(
+                #     "Error with IndexedSet {}. Support for .dat export is not tested.".
+                #     format(component_name))
+                # print "Warning: exporting IndexedSet {}, but code has not been tested.".format(
+                #     component_name)
+                for key in component_data:  # note: key is always a tuple
+                    f.write("set " + component_name + "[" + ",".join(map(str, key)) + "] := ")
+                    f.write(' '.join(map(str, component_data[key]))) # space-separated list
+                    f.write(";\n")
             else:
                 raise ValueError(
                     "Error! Component type {} not recognized for model element '{}'.".
@@ -578,3 +587,16 @@ def approx_equal(a, b, tolerance=0.01):
 
 def default_solver():
     return pyomo.opt.SolverFactory('glpk')
+
+def make_iterable(item):
+    """Return an iterable for the one or more items passed."""
+    if isinstance(item, basestring):
+        i = iter([item])
+    else:
+        try:
+            # check if it's iterable
+            i = iter(item)
+        except TypeError:
+            i = iter([item])
+    return i
+    
