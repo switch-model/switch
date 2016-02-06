@@ -345,6 +345,20 @@ def define_components(mod):
         mod.PROJECT_BUILDYEARS,
         within=NonNegativeReals,
         bounds=bounds_BuildProj)
+    # Some projects are retired before the first study period, so they
+    # don't appear in the objective function or any constraints. 
+    # In this case, pyomo may leave the variable value undefined even 
+    # after a solve, instead of assigning a value within the allowed
+    # range. This causes errors in the Progressive Hedging code, which
+    # expects every variable to have a value after the solve. So as a 
+    # starting point we assign an appropriate value to all the existing 
+    # projects here.
+    def BuildProj_assign_default_value(m, proj, bld_yr):
+        m.BuildProj[proj, bld_yr] = m.proj_existing_cap[proj, bld_yr]
+    mod.BuildProj_assign_default_value = BuildAction(
+        mod.EXISTING_PROJ_BUILDYEARS,
+        rule=BuildProj_assign_default_value
+    )
 
     # To Do: Subtract retirements after I write support for that.
     mod.ProjCapacity = Expression(
