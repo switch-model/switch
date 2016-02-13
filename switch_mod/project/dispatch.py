@@ -351,7 +351,7 @@ def save_results(model, instance, outdir):
     import switch_mod.export as export
     export.write_table(
         instance, instance.TIMEPOINTS,
-        output_file=os.path.join("outputs", "dispatch.txt"),
+        output_file=os.path.join(outdir, "dispatch.txt"),
         headings=("timestamp",)+tuple(instance.PROJECTS),
         values=lambda m, t: (m.tp_timestamp[t],) + tuple(
             m.DispatchProj[p, t] if (p, t) in m.PROJ_DISPATCH_POINTS

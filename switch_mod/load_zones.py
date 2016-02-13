@@ -174,7 +174,7 @@ def save_results(model, instance, outdir):
     import switch_mod.export as export
     export.write_table(
         instance, instance.LOAD_ZONES, instance.TIMEPOINTS,
-        output_file=os.path.join("outputs", "load_balance.txt"),
+        output_file=os.path.join(outdir, "load_balance.txt"),
         headings=("load_zone", "timestamp",) + tuple(
             instance.LZ_Energy_Components_Produce +
             instance.LZ_Energy_Components_Consume),
