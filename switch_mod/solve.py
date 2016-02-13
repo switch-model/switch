@@ -29,15 +29,20 @@ def main(argv):
     parser.add_argument(
         '--solver', type=str, default='glpk',
         help='Linear program solver to use (default is "glpk")')
+    parser.add_argument(
+        '--verbose', '-v', default=False, action='store_true',
+        help='Dump data about internal workings to stdout')
     args = parser.parse_args(argv)
 
     (switch_model, switch_instance) = load(args.inputs_dir)
     opt = pyomo.opt.SolverFactory(args.solver)
     results = opt.solve(switch_instance, keepfiles=False, tee=False)
     switch_model.save_results(results, switch_instance, args.outputs_dir)
-    # Print a dump of the results and model instance to standard output.
-    results.write()
-    switch_instance.pprint()
+
+    if args.verbose:
+        # Print a dump of the results and model instance to standard output.
+        results.write()
+        switch_instance.pprint()
 
 
 def load(inputs_dir):
