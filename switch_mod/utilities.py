@@ -5,6 +5,7 @@
 Utility functions for SWITCH-pyomo.
 """
 
+import csv
 import os
 import types
 import importlib
@@ -12,6 +13,7 @@ import sys
 import __main__ as main
 from pyomo.environ import *
 import pyomo.opt
+import switch_mod.export # For ampl-tab dialect
 
 # This stores full names of modules that are dynamically loaded to
 # define a Switch model.
@@ -197,6 +199,7 @@ def save_results(model, results, instance, outdir):
         if interactive_session:
             print "Model solved successfully."
         _save_results(model, instance, outdir, model.module_list)
+        _save_generic_results(instance, outdir)
 
     return success
 
@@ -463,6 +466,23 @@ def _save_results(model, instance, outdir, module_list):
             _save_results(model, instance, outdir, module.core_modules)
 
 
+def _save_generic_results(instance, outdir):
+    for var in instance.component_objects():
+        if not isinstance(var, Var):
+            continue
+
+        index_name = var.index_set().name
+        output_file = os.path.join(outdir, '%s.tab' % var.name)
+        with open(output_file, 'wb') as fh:
+            writer = csv.writer(fh, dialect='ampl-tab')
+            # Write column headings
+            writer.writerow(['%s_%d' % (index_name, i + 1)
+                             for i in xrange(var.index_set().dimen)] +
+                            [var.name])
+            for key, v in var.iteritems():
+                writer.writerow(key + (v.value,))
+
+
 class InputError(Exception):
     """Exception raised for errors in the input.
 
@@ -599,4 +619,3 @@ def make_iterable(item):
         except TypeError:
             i = iter([item])
     return i
-    
