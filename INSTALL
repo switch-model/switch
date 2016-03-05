@@ -4,11 +4,19 @@ Python v2.7
     We have not tested this on version 3, and do not have immediate plans
     to do so. We have verified our code works with v2.7.9 and 2.7.10. We
     had some difficulties with our testing framework on v2.7.3.
-Pyomo v4.0.9682 or v4.1.*
-    We have tested most extensively on 4.0.9682, but have also ran it on
-    early releases of 4.1. Pyomo changed their API between v4.0.* and 4.1.*
-    without fully describing their changes, so we cannot guarantee that
-    untested versions will work.
+
+Pyomo
+    To install Pyomo, you can run this command:
+
+        pip install --user -r pip_requirements.txt
+
+    The pip_requirements.txt file records the versions of Pyomo and other
+    Python libraries that Switch is tested against.
+
+    Alternatively, you can see Pyomo's instructions for installing Pyomo
+    and its dependencies at:
+    https://software.sandia.gov/downloads/pub/pyomo/PyomoInstallGuide.html#_installing_pyomo
+
 A solver such as GLPK, Cbc https://projects.coin-or.org/Cbc or cplex.
     GLPK is an established open source solver that is easy to install 
     on most platforms. We have andecdotal reports that Cbc tends to
@@ -39,10 +47,7 @@ python --version
 sudo yum install -y python-pip
 
 # Install Pyomo
-# See complete instructions for installing Pyomo & its prerequisites at:
-# https://software.sandia.gov/downloads/pub/pyomo/PyomoInstallGuide.html#_installing_pyomo
-sudo pip install Pyomo
-pyomo --version # Should be 4.1 or higher
+pip install --user -r pip_requirements.txt
 
 # Install glpk & glpsol
 sudo yum install -y glpk glpk-utils
