@@ -3,3 +3,4 @@ Pyomo==4.2.10784
 nose==1.3.7
 ply==3.8
 six==1.10.0
+testfixtures==4.8.0
