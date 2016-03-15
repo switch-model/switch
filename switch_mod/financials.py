@@ -300,8 +300,13 @@ def define_dynamic_components(mod):
     mod.SystemCostPerPeriod = Expression(
         mod.PERIODS,
         rule=calc_sys_costs_per_period)
+    # starting with Pyomo 4.2, it is impossible to call Objective.reconstruct() 
+    # or calculate terms like Objective / <some other model component>,
+    # so it's best to define a separate expression and use that for these purposes.
+    mod.SystemCost = Expression(
+        rule=lambda m: sum(m.SystemCostPerPeriod[p] for p in m.PERIODS))
     mod.Minimize_System_Cost = Objective(
-        rule=lambda m: sum(m.SystemCostPerPeriod[p] for p in m.PERIODS),
+        rule=lambda m: m.SystemCost,
         sense=minimize)
 
 
