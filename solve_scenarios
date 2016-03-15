@@ -1,0 +1,3 @@
+#!/bin/bash
+python -m switch_mod.solve_scenarios "$@"
+

@@ -1,0 +1,12 @@
+switch_mod 
+fuel_markets
+switch_hawaii.fuel_markets_expansion
+project.no_commit
+switch_hawaii.switch_patch
+switch_hawaii.rps
+switch_hawaii.emission_rules
+switch_hawaii.pumped_hydro
+switch_hawaii.hydrogen
+switch_hawaii.batteries
+switch_hawaii.demand_response
+switch_hawaii.r_demand_system
