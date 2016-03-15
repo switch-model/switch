@@ -416,8 +416,8 @@ def _load_simple_cost_data(mod, switch_data, path):
                    switch_data.data(name='rfm_fuel')[rfm] == f):
                     raise ValueError(
                         "The supply for fuel '" + f + "' for load_zone '" + lz +
-                        "' was already registered with the regional fuel" +
-                        "market '" + mod.lz_rfm[lz, f] + "', so you cannot " +
+                        "' was already registered with the regional fuel " +
+                        "market '" + rfm + "', so you cannot " +
                         "specify a simple fuel cost for it in " +
                         "lz_simple_fuel_cost.tab. You either need to delete " +
                         "that entry from lz_to_regional_fuel_market.tab, or " +
