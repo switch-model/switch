@@ -10,6 +10,7 @@ import os
 import types
 import importlib
 import sys
+import argparse
 import __main__ as main
 from pyomo.environ import *
 import pyomo.opt
@@ -24,8 +25,12 @@ _full_module_names = {}
 # determine what level of output to display.
 interactive_session = not hasattr(main, '__file__')
 
+def define_AbstractModel(*module_list, **kwargs):
+    # stub to provide old functionality as we move to a simpler calling convention
+    args = kwargs.get("args", sys.argv[1:])
+    return create_model(module_list, args)
 
-def define_AbstractModel(*module_list):
+def create_model(module_list, args=sys.argv[1:]):
     """
 
     Construct a Pyomo AbstractModel using the Switch modules or packages
@@ -57,21 +62,32 @@ def define_AbstractModel(*module_list):
 
     """
     # Load modules
-    module_list_full_names = _load_modules(*module_list)
+    module_list_full_names = _load_modules(module_list)
     model = AbstractModel()
     # Add the list of modules to the model
     model.module_list = module_list_full_names
+
+    # Define and parse model configuration options
+    argparser = _ArgumentParser(allow_abbrev=False)
+    _define_arguments(model, argparser)
+    model.options = argparser.parse_args(args)
+    
     # Bind some utility functions to the model as class objects
     _add_min_data_check(model)
     model.load_inputs = types.MethodType(load_inputs, model)
+    model.post_solve = types.MethodType(post_solve, model)
+    # note: the next function is redundant with solve and post_solve
+    # it is here (temporarily) for backward compatibility
     model.save_results = types.MethodType(save_results, model)
+
     # Define the model components
     _define_components(model, model.module_list)
     _define_dynamic_components(model, model.module_list)
+
     return model
 
 
-def load_inputs(model, inputs_dir="inputs", attachDataPortal=True):
+def load_inputs(model, inputs_dir=None, attachDataPortal=True):
     """
 
     Load input data for an AbstractModel using the modules in the given
@@ -85,10 +101,13 @@ def load_inputs(model, inputs_dir="inputs", attachDataPortal=True):
     >>> instance = model.load_inputs(inputs_dir='test_dat')
 
     """
+    if inputs_dir is None:
+        inputs_dir = getattr(model.options, "inputs_dir", "inputs")
     data = DataPortal(model=model)
     # Attach an augmented load data function to the data portal object
     data.load_aug = types.MethodType(load_aug, data)
     _load_inputs(model, inputs_dir, model.module_list, data)
+
     # At some point, pyomo deprecated 'create' in favor of
     # 'create_instance'. Determine which option is available
     # and use that.
@@ -96,6 +115,7 @@ def load_inputs(model, inputs_dir="inputs", attachDataPortal=True):
         instance = model.create_instance(data)
     else:
         instance = model.create(data)
+
     if attachDataPortal:
         instance.DataPortal = data
     return instance
@@ -164,6 +184,20 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat", 
                 raise ValueError(
                     "Error! Component type {} not recognized for model element '{}'.".
                     format(comp_class, component_name))
+
+def post_solve(model, outputs_dir=None):
+    """
+    Call post-solve function (if present) in all modules used to compose this model.
+    This function can be used to report or save results from the solved model.
+    """
+    if outputs_dir is None:
+        outputs_dir = getattr(model.options, "outputs_dir", "outputs")
+    if not os.path.exists(outputs_dir):
+        os.makedirs(outputs_dir)
+    for module in get_module_list(model):
+        if hasattr(module, 'post_solve'):
+            module.post_solve(model, outputs_dir)
+    _save_generic_results(model, outputs_dir)
 
 
 def save_results(model, results, instance, outdir):
@@ -368,7 +402,7 @@ def check_mandatory_components(model, *mandatory_model_components):
     return True
 
 
-def _load_modules(*module_list):
+def _load_modules(module_list):
     """
 
     An internal function to recursively load switch modules that define
@@ -376,10 +410,10 @@ def _load_modules(*module_list):
 
     SYNOPSIS:
     >>> from switch_mod.utilities import _load_modules
-    >>> full_module_names = _load_modules(
-    ...     'switch_mod', 'project.no_commit', 'fuel_cost')
+    >>> full_module_names = _load_modules([
+    ...     'switch_mod', 'project.no_commit', 'fuel_cost'])
 
-    This will first attempt to load each listed modules from the
+    This will first attempt to load each listed module from the
     switch_mod package, and will look for them in the broader system
     path if the first attempt fails. If any listed module is a package
     that includes a list named core_modules in __init__.py that contains
@@ -398,20 +432,55 @@ def _load_modules(*module_list):
         if m in _full_module_names:
             full_names.append(_full_module_names[m])
             continue
-        # First try to load this module from the switch package
-        try:
-            module = importlib.import_module('.' + m, package='switch_mod')
-            full_names.append(module.__name__)
-        # If that doesn't work, try from the general python path
-        except ImportError:
-            module = importlib.import_module(m)
-            full_names.append(module.__name__)
+        if m in sys.modules:
+            # If the module is already loaded, use that.
+            # (this is helpful if the model is created by a custom module
+            # named "solve" which wants to register its own callbacks or 
+            # reporting [and not be replaced by switch_mod.solve])
+            module = sys.modules[m]
+        else:
+            try:
+                # First try to load this module from the switch package
+                module = importlib.import_module('.' + m, package='switch_mod')
+            except ImportError:
+                # If that doesn't work, try from the general python path
+                module = importlib.import_module(m)
+        full_names.append(module.__name__)
         # If this has a list of core_modules, load them.
         if hasattr(module, 'core_modules'):
-            _load_modules(*module.core_modules)
+            _load_modules(module.core_modules)
         # Add this to the list of known loaded modules
         _full_module_names[m] = module.__name__
     return full_names
+
+
+def get_module_list(model, module_list=None):
+    """
+    Generator function to yield every module in the module_list (or model.module_list),
+    also recursing through the core_modules attribute specified within any of these.
+    """
+    # TODO: modify _load_modules to return a flattened list (like this does),
+    # possibly of modules instead of module names.
+    # Then just iterate directly through that in all the later functions.
+    if module_list is None:
+        module_list = model.module_list
+    for module_name in module_list:
+        module = sys.modules[module_name]
+        yield module
+        if hasattr(module, 'core_modules'):
+            for cm in get_module_list(model, module.core_modules):
+                yield cm
+
+def _define_arguments(model, argparser):
+    """
+    Call define_arguments() (if present) in all modules that make up the model.
+    These functions usually call argparser.add_argument() to define a 
+    command-line option used to configure that module. The value of that argument
+    will be placed in model.options.xxxx before define_components() is called
+    """
+    for module in get_module_list(model):
+        if hasattr(module, 'define_arguments'):
+            module.define_arguments(argparser)
 
 
 def _define_components(model, module_list):
@@ -599,6 +668,41 @@ def load_aug(switch_data, optional=False, auto_select=False,
     # All done with cleaning optional bits. Pass the updated arguments
     # into the DataPortal.load() function.
     switch_data.load(**kwds)
+
+
+# Define an argument parser that accepts the allow_abbrev flag to 
+# prevent partial matches, even on versions of Python before 3.5.
+# See https://bugs.python.org/issue14910
+# This is needed because the parser may sometimes be called with only a subset 
+# of the eventual argument list (e.g., to parse module-related arguments before
+# loading the modules and adding their arguments to the list), and without this
+# flag, the parser could match arguments that are meant to be used later
+# (It's not likely, but for example if the user specifies a flag "--exclude",
+# which will be consumed by one of their modules, the default parser would
+# match that to "--exclude_modules" during the early, partial parse.)
+if sys.version_info >= (3, 5):
+    _ArgumentParser = argparse.ArgumentParser
+else:
+    # patch ArgumentParser to accept the allow_abbrev flag 
+    # (works on Python 2.7 and maybe others)
+    class _ArgumentParser(argparse.ArgumentParser):
+        def __init__(self, *args, **kwargs):
+            if not kwargs.get("allow_abbrev", True):
+                if hasattr(self, "_get_option_tuples"):
+                    # force self._get_option_tuples to return an empty list (of partial matches)
+                    # see https://bugs.python.org/issue14910#msg204678
+                    def new_get_option_tuples(self, option_string):
+                        return []
+                    self._get_option_tuples = types.MethodType(new_get_option_tuples, self)
+                else:
+                    raise RuntimeError(
+                        "Incompatible argparse module detected. This software requires "
+                        "Python 3.5 or later, or an earlier version of argparse that defines "
+                        "ArgumentParser._get_option_tuples()"
+                    )
+            # consume the allow_abbrev argument if present
+            kwargs.pop("allow_abbrev", None)
+            return argparse.ArgumentParser.__init__(self, *args, **kwargs)
 
 
 def approx_equal(a, b, tolerance=0.01):
