@@ -1,0 +1,5 @@
+param battery_min_discharge_time := 6;
+param battery_n_cycles := 4500;
+param battery_max_discharge := 0.85;
+param battery_efficiency := 0.75;
+param battery_capital_cost_per_mwh_capacity := 603417.713542;

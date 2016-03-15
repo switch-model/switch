@@ -1,0 +1,8 @@
+load_zone	regional_fuel_market
+Oahu	Hawaii_LSFO-Diesel-Blend
+Oahu	Hawaii_Coal
+Oahu	Hawaii_LNG
+Oahu	Hawaii_LSFO
+Oahu	Hawaii_Diesel
+Oahu	Hawaii_Biodiesel
+Oahu	Hawaii_Pellet-Biomass

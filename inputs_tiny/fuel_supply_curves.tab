@@ -1,0 +1,17 @@
+regional_fuel_market	fuel	period	tier	unit_cost	max_avail_at_cost	fixed_cost
+Hawaii_Biodiesel	Biodiesel	2020	base	29.4146868562	43446735.1	0.0
+Hawaii_Biodiesel	Biodiesel	2030	base	34.5102181062	43446735.1	0.0
+Hawaii_Coal	Coal	2020	base	2.806219375	43446735.1	0.0
+Hawaii_Coal	Coal	2030	base	3.110900625	43446735.1	0.0
+Hawaii_Diesel	Diesel	2020	base	17.7549934115	43446735.1	0.0
+Hawaii_Diesel	Diesel	2030	base	22.8505246615	43446735.1	0.0
+Hawaii_LNG	LNG	2020	bulk	11.1230332862	43446735.1	1.75
+Hawaii_LNG	LNG	2020	container	24.1433625	43446735.1	0.0
+Hawaii_LNG	LNG	2030	bulk	11.9950520362	43446735.1	1.75
+Hawaii_LNG	LNG	2030	container	25.01538125	43446735.1	0.0
+Hawaii_LSFO	LSFO	2020	base	14.0039498924	43446735.1	0.0
+Hawaii_LSFO	LSFO	2030	base	18.1329061424	43446735.1	0.0
+Hawaii_LSFO-Diesel-Blend	LSFO-Diesel-Blend	2020	base	15.5043673	43446735.1	0.0
+Hawaii_LSFO-Diesel-Blend	LSFO-Diesel-Blend	2030	base	20.01995355	43446735.1	0.0
+Hawaii_Pellet-Biomass	Pellet-Biomass	2020	base	13.658125	43446735.1	0.0
+Hawaii_Pellet-Biomass	Pellet-Biomass	2030	base	13.658125	43446735.1	0.0
