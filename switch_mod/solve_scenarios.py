@@ -21,18 +21,7 @@ import sys, os, time
 import argparse, shlex, socket, io, glob
 from collections import OrderedDict
 
-def add_relative_path(*parts):
-    """ Adds a new path to sys.path.
-    The path should be specified relative to the current module, 
-    and specified as a list of directories to traverse to reach the
-    final destination."""
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), *parts)))
-    
-add_relative_path('switch')   # standard switch model
-import switch_mod.utilities
-
-add_relative_path('.')   # same folder as this file
-
+from utilities import _ArgumentParser
 
 # load the main model-solver module
 import solve
@@ -43,7 +32,7 @@ cmd_line_args = sys.argv[1:]
 
 # Parse scenario-manager-related command-line arguments.
 # Other command-line arguments will be passed through to solve.py via scenario_cmd_line_args
-parser = switch_mod.utilities._ArgumentParser(
+parser = _ArgumentParser(
     allow_abbrev=False, description='Solve one or more SWITCH scenarios.'
 )
 parser.add_argument('--scenario', '--scenarios', nargs='+', dest='scenarios', default=[])
@@ -186,7 +175,7 @@ def scenarios_to_run():
 
 def parse_arg(arg, args=sys.argv[1:], **parse_kw):
     """Parse one argument from the argument list, using options as specified for argparse"""
-    parser = switch_mod.utilities._ArgumentParser(allow_abbrev=False)
+    parser = _ArgumentParser(allow_abbrev=False)
     # Set output destination to 'option', so we can retrieve the value predictably.
     # This is done by updating parse_kw, so it can't be overridden by callers.
     # (They have no reason to set the destination anyway.)
