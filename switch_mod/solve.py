@@ -5,17 +5,7 @@ import sys, os, time, traceback, shlex, re
 from pyomo.environ import *
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
 
-def add_relative_path(*parts):
-    """ Adds a new path to sys.path.
-    The path should be specified relative to the current module,
-    and specified as a list of directories to traverse to reach the
-    final destination."""
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), *parts)))
-
-add_relative_path('switch')   # standard switch model
-from switch_mod.utilities import create_model, _ArgumentParser
-
-add_relative_path('.') # components for this particular study
+from utilities import create_model, _ArgumentParser
 
 def main(args=sys.argv[1:]):
         
@@ -23,22 +13,6 @@ def main(args=sys.argv[1:]):
     # and add the current module (to register define_arguments callback)
     modules = get_module_list(args)
     
-    # NOTE: we have (at least) two options for parsing model configuration arguments 
-    # (these may come from option files or the command line):
-    # 1. try to do all the parsing in solve.py and leave utilities.py ignorant of the argument framework
-    # 2. make command-line arguments a core part of the modeling framework in utilities.py
-    # I opted for option 1 because
-    # - each module may need to define its own arguments (e.g., EV scheduling rule or result storage request)
-    # - this means we need to call each module to define arguments and then parse the arguments
-    #   after creating the AbstractModel and before calling define_components. That can only be
-    #   done in utilities.py
-    # - parsing command line arguments in utilities.py allows us to define standard options
-    #   for the solver (and create a standard solve function in utilities.py) and for 
-    #   input/output directories (eliminating the need to pass variables around for these).
-    # - defining an options object (based on the arguments) in the utilities.py allows us to guarantee
-    #   that these elements will be available no matter what solution technique is used (standard
-    #   solve.py or runph or parallel solver)
-
     # Define the model
     model = create_model(modules, args=args)
 
@@ -83,11 +57,11 @@ def iterate(m, iterate_modules, depth=0):
     and each row contains a list of modules to test for iteration at that level
     (these can be separated with commas, spaces or tabs).
     The model will run through the levels like nested loops, running the lowest level 
-    till it converges, then iterating the next higher level by one step, then running the
-    lowest level to convergence again, repeating until all levels are converged.
+    till it converges, then advancing the next higher level by one step, then running the
+    lowest level to convergence/completion again, repeating until all levels are complete.
     During each iteration, the pre_iterate() and post_iterate() functions of each specified
     module (if they exist) will be called before and after solving. When a module is 
-    converged, its post_iterate() function should return True. 
+    converged or completed, its post_iterate() function should return True. 
     All modules specified in the iterate_list should also be loaded via the module_list
     or include_module(s) arguments.
     """
@@ -138,7 +112,7 @@ def iterate(m, iterate_modules, depth=0):
 
             j += 1
         if converged:
-            print "Iteration of {ms} converged after {j} rounds.".format(ms=iterate_modules[depth], j=j)
+            print "Iteration of {ms} was completed after {j} rounds.".format(ms=iterate_modules[depth], j=j)
         else:
             print "Iteration of {ms} was stopped after {j} iterations without convergence.".format(ms=iterate_modules[depth], j=j)
     return
