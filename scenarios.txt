@@ -1,0 +1,24 @@
+ --scenario_name 2007_flat_scen1 --dr_elasticity_scenario 1 --dr_flat_pricing --inputs inputs_2007_15 --exclude_modules switch_hawaii.fuel_markets_expansion switch_hawaii.rps --include_modules switch_mod.fuel_cost
+ --scenario_name 2045_fossil_flat_scen1 --dr_elasticity_scenario 1 --dr_flat_pricing --inputs inputs_2045_15 --include_module switch_hawaii.no_renewables --exclude_module switch_hawaii.rps
+ --scenario_name 2045_rps_flat_scen1 --dr_elasticity_scenario 1 --dr_flat_pricing --inputs inputs_2045_15
+ --scenario_name 2045_rps_ev_flat_scen1 --dr_elasticity_scenario 1 --dr_flat_pricing --inputs inputs_2045_15 --include_module switch_hawaii.ev --ev_flat
+ --scenario_name 2007_flat_scen2 --dr_elasticity_scenario 2 --dr_flat_pricing --inputs inputs_2007_15 --exclude_modules switch_hawaii.fuel_markets_expansion switch_hawaii.rps --include_modules switch_mod.fuel_cost
+ --scenario_name 2045_fossil_flat_scen2 --dr_elasticity_scenario 2 --dr_flat_pricing --inputs inputs_2045_15 --include_module switch_hawaii.no_renewables --exclude_module switch_hawaii.rps
+ --scenario_name 2045_rps_flat_scen2 --dr_elasticity_scenario 2 --dr_flat_pricing --inputs inputs_2045_15
+ --scenario_name 2045_rps_ev_flat_scen2 --dr_elasticity_scenario 2 --dr_flat_pricing --inputs inputs_2045_15 --include_module switch_hawaii.ev --ev_flat
+ --scenario_name 2007_flat_scen3 --dr_elasticity_scenario 3 --dr_flat_pricing --inputs inputs_2007_15 --exclude_modules switch_hawaii.fuel_markets_expansion switch_hawaii.rps --include_modules switch_mod.fuel_cost
+ --scenario_name 2045_fossil_flat_scen3 --dr_elasticity_scenario 3 --dr_flat_pricing --inputs inputs_2045_15 --include_module switch_hawaii.no_renewables --exclude_module switch_hawaii.rps
+ --scenario_name 2045_rps_flat_scen3 --dr_elasticity_scenario 3 --dr_flat_pricing --inputs inputs_2045_15
+ --scenario_name 2045_rps_ev_flat_scen3 --dr_elasticity_scenario 3 --dr_flat_pricing --inputs inputs_2045_15 --include_module switch_hawaii.ev --ev_flat
+ --scenario_name 2007_dynamic_scen1 --dr_elasticity_scenario 1 --inputs inputs_2007_15 --exclude_modules switch_hawaii.fuel_markets_expansion switch_hawaii.rps --include_modules switch_mod.fuel_cost
+ --scenario_name 2045_fossil_dynamic_scen1 --dr_elasticity_scenario 1 --inputs inputs_2045_15 --include_module switch_hawaii.no_renewables --exclude_module switch_hawaii.rps
+ --scenario_name 2045_rps_dynamic_scen1 --dr_elasticity_scenario 1 --inputs inputs_2045_15
+ --scenario_name 2045_rps_ev_dynamic_scen1 --dr_elasticity_scenario 1 --inputs inputs_2045_15 --include_module switch_hawaii.ev
+ --scenario_name 2007_dynamic_scen2 --dr_elasticity_scenario 2 --inputs inputs_2007_15 --exclude_modules switch_hawaii.fuel_markets_expansion switch_hawaii.rps --include_modules switch_mod.fuel_cost
+ --scenario_name 2045_fossil_dynamic_scen2 --dr_elasticity_scenario 2 --inputs inputs_2045_15 --include_module switch_hawaii.no_renewables --exclude_module switch_hawaii.rps
+ --scenario_name 2045_rps_dynamic_scen2 --dr_elasticity_scenario 2 --inputs inputs_2045_15
+ --scenario_name 2045_rps_ev_dynamic_scen2 --dr_elasticity_scenario 2 --inputs inputs_2045_15 --include_module switch_hawaii.ev
+ --scenario_name 2007_dynamic_scen3 --dr_elasticity_scenario 3 --inputs inputs_2007_15 --exclude_modules switch_hawaii.fuel_markets_expansion switch_hawaii.rps --include_modules switch_mod.fuel_cost
+ --scenario_name 2045_fossil_dynamic_scen3 --dr_elasticity_scenario 3 --inputs inputs_2045_15 --include_module switch_hawaii.no_renewables --exclude_module switch_hawaii.rps
+ --scenario_name 2045_rps_dynamic_scen3 --dr_elasticity_scenario 3 --inputs inputs_2045_15
+ --scenario_name 2045_rps_ev_dynamic_scen3 --dr_elasticity_scenario 3 --inputs inputs_2045_15 --include_module switch_hawaii.ev
