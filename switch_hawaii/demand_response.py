@@ -21,13 +21,13 @@ import util
 from util import get
 
 def define_arguments(argparser):
-    argparser.add_argument("--dr_flat_pricing", action='store_true', default=False,
+    argparser.add_argument("--dr-flat-pricing", action='store_true', default=False,
         help="Charge a constant (average) price for electricity, rather than varying hour by hour")
-    argparser.add_argument("--dr_total_cost_pricing", action='store_true', default=False,
+    argparser.add_argument("--dr-total-cost-pricing", action='store_true', default=False,
         help="Include both marginal and non-marginal(fixed) costs when setting prices")
-    argparser.add_argument("--dr_elasticity_scenario", type=int, default=3,
+    argparser.add_argument("--dr-elasticity-scenario", type=int, default=3,
         help="Choose a scenario of customer elasticity (1-3), defined in the demand_module")
-    argparser.add_argument("--dr_demand_module", default=None,
+    argparser.add_argument("--dr-demand-module", default=None,
         help="Name of module to use for demand-response bids. This should also be "
         "specified in the modules list, and should provide calibrate() and bid() functions. "
         "Pre-written options include constant_elasticity_demand_system or r_demand_system. "
@@ -45,16 +45,16 @@ def define_components(m):
     if m.options.dr_demand_module is None:
         raise RuntimeError(
             "No demand module was specified for the demand_response system; unable to continue. "
-            "Please use --dr_demand_module <module_name> in options.txt, scenarios.txt or on "
+            "Please use --dr-demand-module <module_name> in options.txt, scenarios.txt or on "
             "the command line. "
             "You should also add this module to the list of modules to load "
-            " via modules.txt or --include_module <module_name>."
+            " via modules.txt or --include-module <module_name>."
         )
     if m.options.dr_demand_module not in sys.modules:
         raise RuntimeError(
             "Demand module {mod} cannot be used because it has not been loaded. "
             "Please add this module to the the modules list (usually modules.txt) "
-            "or specify --include_module {mod} in options.txt or on the command line."
+            "or specify --include-module {mod} in options.txt or on the command line."
             "".format(mod=m.options.dr_demand_module)
         )
     demand_module = sys.modules[m.options.dr_demand_module]

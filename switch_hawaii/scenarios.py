@@ -51,11 +51,11 @@ class AddListAction(argparse.Action):
 # standard scenarios.
 parser = argparse.ArgumentParser(description='Solve one or more Switch-Hawaii scenarios.')
 parser.add_argument('--inputs', dest='inputs_dir')
-parser.add_argument('--inputs_subdir')
+parser.add_argument('--inputs-subdir')
 parser.add_argument('--outputs', dest='outputs_dir')
 parser.add_argument('--scenario', action=AddListAction, dest='scenario_to_run')
 parser.add_argument('--scenarios', action=AddListAction, nargs='+', dest='scenario_to_run')
-parser.add_argument('--scenario_name')
+parser.add_argument('--scenario-name')
 parser.add_argument('--exclude', action=AddModuleAction, dest='exclude_module', nargs='+')
 parser.add_argument('-n', action=RemoveModuleAction, dest='exclude_module')
 parser.add_argument('--include', action=AddModuleAction, dest='include_module', nargs='+')
@@ -74,7 +74,7 @@ def cmd_line_args():
 
 def get_required_scenario_names():
     """Return list of names of scenario(s) that were requested or defined from the command line 
-    via --scenario[s] or --scenario_name.
+    via --scenario[s] or --scenario-name.
     Return an empty list if none were requested/defined."""
     a = cmd_line_args()
     if "scenario_to_run" in a:

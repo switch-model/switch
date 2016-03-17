@@ -5,7 +5,7 @@ import switch_mod.utilities as utilities
 from util import get
 
 def define_arguments(argparser):
-    argparser.add_argument('--biofuel_limit', type=float, default=0.05, 
+    argparser.add_argument('--biofuel-limit', type=float, default=0.05, 
         help="Maximum fraction of power that can be obtained from biofuel in any period (default=0.05)")
     
 def define_components(m):

@@ -2,6 +2,11 @@ import os
 from pyomo.environ import *
 from switch_mod import timescales
 
+def define_arguments(argparser):
+    argparser.add_argument("--ev-flat", action='store_true', default=False,
+        help="Schedule electric vehicle charging flat around the clock. (By default EVs are charged at the best times each day.)")
+    
+
 def define_components(m):
     
     m.ev_gwh_annual = Param(m.LOAD_ZONES, m.PERIODS, default=0.0)
@@ -62,6 +67,15 @@ def define_components(m):
         == m.ev_mwh_ts[z, ts]
     )
 
+    # charge EVs flat around the clock if requested
+    if m.options.ev_flat:
+        print "Charging EVs as baseload."
+        m.ChargeEVs_flat = Constraint(
+            m.LOAD_ZONES, m.TIMEPOINTS, 
+            rule=lambda m, z, tp:
+                m.ChargeEVs[z, tp] * m.ts_duration_hrs[m.tp_ts[tp]] == m.ev_mwh_ts[z, m.tp_ts[tp]]
+        )
+    
     # add the EV load to the model's energy balance
     m.LZ_Energy_Components_Consume.append('ChargeEVs')
     
