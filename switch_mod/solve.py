@@ -125,18 +125,18 @@ def define_arguments(argparser):
 
     # iteration options
     argparser.add_argument(
-        "--iterate_list", default=None,
+        "--iterate-list", default=None,
         help="Text file with a list of modules to iterate until converged (default is iterate.txt); "
              "each row is one level of iteration, and there can be multiple modules on each row"
     )
     argparser.add_argument(
-        "--max_iter", type=int, default=None,
+        "--max-iter", type=int, default=None,
         help="Maximum number of iterations to complete at each level for iterated models"
     )
 
     # scenario information
     argparser.add_argument(
-        "--scenario_name", default="", help="Name of research scenario represented by this model"
+        "--scenario-name", default="", help="Name of research scenario represented by this model"
     )
 
     # note: pyomo has a --solver-suffix option but it is not clear
@@ -147,9 +147,6 @@ def define_arguments(argparser):
 
     # Define solver-related arguments
     # These are a subset of the arguments offered by "pyomo solve --solver=cplex --help"
-    # Note: these use hyphens, even though we generally use underscores 
-    # for other SWITCH arguments. parse_args() will automatically convert the hyphens to 
-    # underscores when creating the attributes of the args object.
     argparser.add_argument("--solver", default="glpk", 
         help='Name of Pyomo solver to use for the model (default is "glpk")')
     argparser.add_argument("--solver-io", default=None, help="Method for Pyomo to use to communicate with solver")
@@ -167,14 +164,17 @@ def define_arguments(argparser):
         "--symbolic-solver-labels", action='store_true', default=None, 
         help='Use symbol names derived from the model when interfacing with the solver. '
             'See "pyomo solve --solver=x --help" for more details.')
+    argparser.add_argument("--tempdir", default=None,
+        help='The name of a directory to hold temporary files produced by the solver. '
+             'This is usually paired with --keepfiles and --symbolic-solver-labels.')
 
     # NOTE: the following could potentially be made into standard arguments for all models,
     # e.g. by defining them in a define_standard_arguments() function in switch.utilities.py
 
     # Define input/output options
-    argparser.add_argument("--inputs", dest="inputs_dir", default="inputs", 
+    argparser.add_argument("--inputs-dir", default="inputs", 
         help='Directory containing input files (default is "inputs")')
-    argparser.add_argument("--outputs", dest="outputs_dir", default="outputs",
+    argparser.add_argument("--outputs-dir", default="outputs",
         help='Directory to write output files (default is "outputs")')
 
     # General purpose arguments
@@ -185,16 +185,16 @@ def define_arguments(argparser):
 
 def add_module_args(parser):
     parser.add_argument(
-        "--module_list", default=None, 
+        "--module-list", default=None, 
         help='Text file with a list of modules to include in the model (default is "modules.txt")'
     )
     parser.add_argument(
-        "--include_modules", "--include_module", dest="include_modules", nargs='+', default=[],
-        help="Module(s) to add to the model in addition to any specified with --module_list"
+        "--include-modules", "--include-module", dest="include_modules", nargs='+', default=[],
+        help="Module(s) to add to the model in addition to any specified with --module-list"
     )
     parser.add_argument(
-        "--exclude_modules", "--exclude_module", dest="exclude_modules", nargs='+', default=[],
-        help="Module(s) to remove from the model after processing --module_list and --include_modules"
+        "--exclude-modules", "--exclude-module", dest="exclude_modules", nargs='+', default=[],
+        help="Module(s) to remove from the model after processing --module-list and --include-modules"
     )
 
 def get_module_list(args):
@@ -316,6 +316,11 @@ def solve(model):
         print "solving model..."
     start = time.time()
     
+    if model.options.tempdir is not None:
+        # from https://software.sandia.gov/downloads/pub/pyomo/PyomoOnlineDocs.html#_changing_the_temporary_directory
+        from pyutilib.services import TempFileManager
+        TempfileManager.tempdir = model.options.tempdir
+
     results = model.solver.solve(model, **solver_args)
 
     if model.options.verbose:

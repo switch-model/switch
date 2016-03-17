@@ -29,9 +29,9 @@ rpy2.robjects.numpy2ri.activate()
 r = robjects.r
 
 def define_arguments(argparser):
-    argparser.add_argument("--dr_r_script", default=None,
+    argparser.add_argument("--dr-r-script", default=None,
         help="Name of R script to use for preparing demand response bids. "
-        "Only takes effect when using --dr_demand_module=r_demand_system. "
+        "Only takes effect when using --dr-demand-module=r_demand_system. "
         "This script should provide calibrate() and bid() functions. "
         )
 
@@ -40,7 +40,7 @@ def define_components(m):
     if m.options.dr_r_script is None:
         raise RuntimeError(
             "No R script specified for use with the r_demand_system; unable to continue. "
-            "Please use --dr_r_script <scriptname.R> in options.txt, scenarios.txt or on "
+            "Please use --dr-r-script <scriptname.R> in options.txt, scenarios.txt or on "
             "the command line."
         )
     r.source(m.options.dr_r_script)

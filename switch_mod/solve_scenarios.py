@@ -37,9 +37,9 @@ parser = _ArgumentParser(
 )
 parser.add_argument('--scenario', '--scenarios', nargs='+', dest='scenarios', default=[])
 #parser.add_argument('--scenarios', nargs='+', default=[])
-parser.add_argument("--scenario_list", default="scenarios.txt")
-parser.add_argument("--scenario_queue", default="scenario_queue")
-parser.add_argument("--job_id", default=None)
+parser.add_argument("--scenario-list", default="scenarios.txt")
+parser.add_argument("--scenario-queue", default="scenario_queue")
+parser.add_argument("--job-id", default=None)
 
 #import pdb; pdb.set_trace()
 scenario_manager_args = parser.parse_known_args(args=option_file_args + cmd_line_args)[0]
@@ -58,10 +58,10 @@ job_id = scenario_manager_args.job_id
 #     parse_arg("--scenario", nargs='+', default=[])
 #     + parse_arg("--scenarios", nargs='+', default=[])
 # )
-# scenario_list_file = parse_arg("--scenario_list", default="scenarios.txt")
-# scenario_queue_dir = parse_arg("--scenario_queue", default="scenario_queue")
+# scenario_list_file = parse_arg("--scenario-list", default="scenarios.txt")
+# scenario_queue_dir = parse_arg("--scenario-queue", default="scenario_queue")
 #
-# job_id = parse_arg("--job_id", default=None)
+# job_id = parse_arg("--job-id", default=None)
 # scenario_cmd_line_args = sys.argv[1:] # note: this includes scenario-related args, which is bad
 
 # note: we make a best effort to get a unique, persistent job_id for each job.
@@ -187,7 +187,7 @@ def parse_arg(arg, args=sys.argv[1:], **parse_kw):
 
 def get_scenario_name(scenario_args):
     # use ad-hoc parsing to extract the scenario name from a scenario-definition string
-    return parse_arg("--scenario_name", default="", args=scenario_args)
+    return parse_arg("--scenario-name", default="", args=scenario_args)
 
 def get_scenario_dict():
     # note: we read the list from the disk each time so that we get a fresher version
