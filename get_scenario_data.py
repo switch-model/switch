@@ -11,49 +11,50 @@ import switch_hawaii.scenarios as scenarios
 
 # definitions of standard scenarios (may also specify inputs_subdir to read in alternative data)
 # TODO: find a way to define the base scenario here, then apply the others as changes to it
-# Maybe allow each to start with --inherit_scenario <parent>? (to one level) 
+# Maybe allow each to start with --inherit-scenario <parent>? (to one level) 
 # (--scenario does this already)
 
 scenario_list = []
-for flat in ["flat", "dynamic"]:
-    for marginal in ["marginal"]:   # not +["total"]
-        # note: we've abandoned total-cost pricing because it's theoretically messy.
-        # If a fixed lump has to be spread across all days of the year, then the
-        # retail price (and demand bid) on each day will change depending on quantities
-        # sold on other days of that year. Adding a fixed amount to the marginal cost
-        # or multiplying it by a fixed scalar would be much more tractable, but their
-        # effect would have to be backed out before reporting WTP to the supply side
-        # (otherwise it will think that it's worth doing a change that costs $1 and 
-        # results in $1 of welfare improvement, but due to the adder or multiplier,
-        # the apparent demand curve will be rotated or scaled, and we won't get the full
-        # $1 of welfare improvement.) Fixed adjustments may be theoretically interesting
-        # (to investigate the effect of "taxes" to recover stranded costs), but they 
-        # don't really address a question we're interested in right now, certainly not
-        # in a simple way.
-        for elasticity_scen in [1, 2, 3]:
-            for tech in ["2007", "2045_fossil", "2045_rps", "2045_rps_ev"]:
-                # print flat, marginal, elasticity_scen, tech
-                s = ""
-                s += " --scenario_name " +  "_".join([tech, flat, "scen"+str(elasticity_scen)])
-                s += " --dr_elasticity_scenario " + str(elasticity_scen)
-                if flat == "flat":
-                    s += " --dr_flat_pricing"
-                if marginal == "total":
-                    s += " --dr_total_cost_pricing"
-                if tech == "2007":
-                    s += " --inputs inputs_2007_15"
-                    s += " --exclude_modules switch_hawaii.fuel_markets_expansion switch_hawaii.rps --include_modules switch_mod.fuel_cost"
-                elif tech == "2045_fossil":
-                    s += " --inputs inputs_2045_15 --include_module switch_hawaii.no_renewables --exclude_module switch_hawaii.rps"
-                elif tech == "2045_rps":
-                    s += " --inputs inputs_2045_15"
-                elif tech == "2045_rps_ev":
-                    s += " --inputs inputs_2045_15 --include_module switch_hawaii.ev"
+for marginal in ["marginal"]:   # not +["total"]
+    # note: we've abandoned total-cost pricing because it's theoretically messy.
+    # If a fixed lump has to be spread across all days of the year, then the
+    # retail price (and demand bid) on each day will change depending on quantities
+    # sold on other days of that year. Adding a fixed amount to the marginal cost
+    # or multiplying it by a fixed scalar would be much more tractable, but their
+    # effect would have to be backed out before reporting WTP to the supply side
+    # (otherwise it will think that it's worth doing a change that costs $1 and 
+    # results in $1 of welfare improvement, but due to the adder or multiplier,
+    # the apparent demand curve will be rotated or scaled, and we won't get the full
+    # $1 of welfare improvement.) Fixed adjustments may be theoretically interesting
+    # (to investigate the effect of "taxes" to recover stranded costs), but they 
+    # don't really address a question we're interested in right now, certainly not
+    # in a simple way.
+    for tech_cluster in [["2045_fossil", "2045_rps"], ["2007", "2045_rps_ev"]]:
+        for elasticity_scen in [3, 2, 1]:
+            for tech in tech_cluster:
+                for flat in ["flat", "dynamic"]:
+                    # print flat, marginal, elasticity_scen, tech
+                    s = ""
+                    s += " --scenario-name " +  "_".join([tech, flat, "scen"+str(elasticity_scen)])
+                    s += " --dr-elasticity-scenario " + str(elasticity_scen)
                     if flat == "flat":
-                        s += " --ev_flat"
-                else:
-                    print "WARNING: unrecognized technology option {}.".format(tech)
-                scenario_list.append(s)
+                        s += " --dr-flat-pricing"
+                    if marginal == "total":
+                        s += " --dr-total-cost-pricing"
+                    if tech == "2007":
+                        s += " --inputs-dir inputs_2007_15"
+                        s += " --exclude-modules switch_hawaii.rps"
+                    elif tech == "2045_fossil":
+                        s += " --inputs-dir inputs_2045_15 --include-module switch_hawaii.no_renewables --exclude-module switch_hawaii.rps"
+                    elif tech == "2045_rps":
+                        s += " --inputs-dir inputs_2045_15"
+                    elif tech == "2045_rps_ev":
+                        s += " --inputs-dir inputs_2045_15 --include-module switch_hawaii.ev"
+                        if flat == "flat":
+                            s += " --ev-flat"
+                    else:
+                        print "WARNING: unrecognized technology option {}.".format(tech)
+                    scenario_list.append(s)
 
 with open('scenarios.txt', 'w') as f:
     f.writelines(s + '\n' for s in scenario_list)
@@ -65,25 +66,25 @@ for flat in ["flat", "dynamic"]:
             for tech in ["tiny"]:
                 # print flat, marginal, elasticity_scen, tech
                 s = ""
-                s += " --scenario_name " + "_".join([tech, flat, "scen"+str(elasticity_scen)])
-                s += " --dr_elasticity_scenario " + str(elasticity_scen)
+                s += " --scenario-name " + "_".join([tech, flat, "scen"+str(elasticity_scen)])
+                s += " --dr-elasticity-scenario " + str(elasticity_scen)
                 if flat == "flat":
-                    s += " --dr_flat_pricing"
+                    s += " --dr-flat-pricing"
                 if marginal == "total":
-                    s += " --dr_total_cost_pricing"
+                    s += " --dr-total-cost-pricing"
                 if tech == "2007":
-                    s += " --inputs inputs_2007_15"
-                    s += " --exclude_modules fuel_markets_expansion rps --include_modules fuel_cost"
+                    s += " --inputs-dir inputs_2007_15"
+                    s += " --exclude-modules rps"
                 elif tech == "2045_fossil":
-                    s += " --inputs inputs_2045_15 --include_module no_renewables --exclude_module rps"
+                    s += " --inputs-dir inputs_2045_15 --include-module no_renewables --exclude-module rps"
                 elif tech == "2045_rps":
-                    s += " --inputs inputs_2045_15"
+                    s += " --inputs-dir inputs_2045_15"
                 elif tech == "2045_rps_ev":
-                    s += " --inputs inputs_2045_15 --include_module ev"
+                    s += " --inputs-dir inputs_2045_15 --include-module ev"
                     if flat == "flat":
-                        s += " --ev_flat"
+                        s += " --ev-flat"
                 elif tech == "tiny":
-                    s += " --inputs inputs_tiny"
+                    s += " --inputs-dir inputs_tiny"
                 else:
                     print "WARNING: unrecognized technology option {}.".format(tech)
                 scenario_list.append(s)
@@ -91,8 +92,8 @@ for flat in ["flat", "dynamic"]:
 with open('scenarios_tiny.txt', 'w') as f:
     f.writelines(s + '\n' for s in scenario_list)
 
-scenarios.parser.add_argument('--skip_cf', action='store_true')
-scenarios.parser.add_argument('--time_sample')
+scenarios.parser.add_argument('--skip-cf', action='store_true')
+scenarios.parser.add_argument('--time-sample')
 cmd_line_args = scenarios.cmd_line_args()
 
 # particular settings chosen for this case
@@ -106,7 +107,7 @@ args = dict(
     load_zones = ('Oahu',),       # subset of load zones to model
     load_scen_id = "med",        # "hist"=pseudo-historical, "med"="Moved by Passion", "flat"=2015 levels
     fuel_scen_id = 'EIA_ref',      # '1'=low, '2'=high, '3'=reference, 'EIA_ref'=EIA-derived reference level
-    use_simple_fuel_costs = False,    # True to write tables for historical models with no LNG expansion
+    use_simple_fuel_costs = True,    # True to write tables for historical models with no LNG expansion
     ev_scen_id = 2,              # 1=low, 2=high, 3=reference (omitted or None=none)
     enable_must_run = 0,     # should the must_run flag be converted to 
                              # set minimum commitment for existing plants?

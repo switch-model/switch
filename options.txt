@@ -1,11 +1,12 @@
 --verbose 
 --stream-solver
---max_iter=50
+--max-iter=100
 --solver=cplex --solver-io=nl 
 --solver-options-string="mipgap=0.001 display=1 primalopt='' advance=2 threads=1 iisfind=1 numericalemphasis=1" 
 --suffixes iis 
---inputs inputs_tiny
---dr_demand_module switch_hawaii.r_demand_system
---dr_r_script nestedcespy.R
---dr_elasticity_scenario 3 
---scenario_name tiny_dynamic_scen3
+--inputs-dir inputs_tiny
+#--dr-demand-module switch_hawaii.constant_elasticity_demand_system
+--dr-demand-module switch_hawaii.r_demand_system
+--dr-r-script nestedcespy.R
+--dr-elasticity-scenario 3 
+--scenario-name tiny_dynamic_scen3

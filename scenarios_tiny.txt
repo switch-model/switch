@@ -1,6 +1,6 @@
- --scenario_name tiny_flat_scen1 --dr_elasticity_scenario 1 --dr_flat_pricing --inputs inputs_tiny
- --scenario_name tiny_flat_scen2 --dr_elasticity_scenario 2 --dr_flat_pricing --inputs inputs_tiny
- --scenario_name tiny_flat_scen3 --dr_elasticity_scenario 3 --dr_flat_pricing --inputs inputs_tiny
- --scenario_name tiny_dynamic_scen1 --dr_elasticity_scenario 1 --inputs inputs_tiny
- --scenario_name tiny_dynamic_scen2 --dr_elasticity_scenario 2 --inputs inputs_tiny
- --scenario_name tiny_dynamic_scen3 --dr_elasticity_scenario 3 --inputs inputs_tiny
+ --scenario-name tiny_flat_scen1 --dr-elasticity-scenario 1 --dr-flat-pricing --inputs-dir inputs_tiny
+ --scenario-name tiny_flat_scen2 --dr-elasticity-scenario 2 --dr-flat-pricing --inputs-dir inputs_tiny
+ --scenario-name tiny_flat_scen3 --dr-elasticity-scenario 3 --dr-flat-pricing --inputs-dir inputs_tiny
+ --scenario-name tiny_dynamic_scen1 --dr-elasticity-scenario 1 --inputs-dir inputs_tiny
+ --scenario-name tiny_dynamic_scen2 --dr-elasticity-scenario 2 --inputs-dir inputs_tiny
+ --scenario-name tiny_dynamic_scen3 --dr-elasticity-scenario 3 --inputs-dir inputs_tiny
