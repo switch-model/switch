@@ -10,3 +10,4 @@ Icon*
 .DS_Store
 gurobi.log
 old/
+progress*.txt

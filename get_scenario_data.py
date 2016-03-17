@@ -107,7 +107,8 @@ args = dict(
     load_zones = ('Oahu',),       # subset of load zones to model
     load_scen_id = "med",        # "hist"=pseudo-historical, "med"="Moved by Passion", "flat"=2015 levels
     fuel_scen_id = 'EIA_ref',      # '1'=low, '2'=high, '3'=reference, 'EIA_ref'=EIA-derived reference level
-    use_simple_fuel_costs = True,    # True to write tables for historical models with no LNG expansion
+    use_simple_fuel_costs = True,    # True to write simplified tables with no LNG expansion
+    use_bulk_lng_for_simple_fuel_costs = True,  # use bulk LNG when preparing simplified fuel costs
     ev_scen_id = 2,              # 1=low, 2=high, 3=reference (omitted or None=none)
     enable_must_run = 0,     # should the must_run flag be converted to 
                              # set minimum commitment for existing plants?
@@ -115,12 +116,16 @@ args = dict(
     # TODO: integrate the connect length into switch financial calculations,
     # rather than assigning a cost per MW-km here.
     connect_cost_per_mw_km = 1000,
-    bulk_lng_fixed_cost = 1.75,     # fixed cost per MMBtu/year of capacity developed
-    bulk_lng_limit = 43446735.1,    # limit on bulk LNG capacity (MMBtu/year)
     base_financial_year = 2015,
     interest_rate = 0.06,
     discount_rate = 0.03,
     inflation_rate = 0.025,  # used to convert nominal costs in the tables to real costs
+)
+
+# bulk LNG costs
+args.update(
+    bulk_lng_fixed_cost = 1.75,     # fixed cost ($/year) per MMBtu/year of capacity developed
+    bulk_lng_limit = 43446735.1,    # limit on bulk LNG capacity (MMBtu/year)
 )
 
 # annual change in capital cost of new renewable projects
