@@ -166,16 +166,22 @@ def write_tables(**args):
         # simple fuel markets with no bulk LNG expansion option
         # (use fuel_cost module)
         # TODO: get monthly fuel costs from Karl Jandoc spreadsheet
+        if args.get("use_bulk_lng_for_simple_fuel_costs", False):
+            lng_selector = "tier = 'bulk'"
+        else:
+            lng_selector = "tier != 'bulk'"
         write_table('fuel_cost.tab', """
             SELECT load_zone, fuel_type as fuel, period,
-                price_mmbtu * {inflator} as fuel_cost
+                price_mmbtu * {inflator} 
+                + CASE WHEN (fuel_type='LNG' AND tier='bulk') THEN %(bulk_lng_fixed_cost)s ELSE 0.0 END
+                    as fuel_cost
             FROM fuel_costs c JOIN study_periods p ON (c.year=p.period)
             WHERE load_zone in %(load_zones)s
                 AND fuel_scen_id = %(fuel_scen_id)s
                 AND p.time_sample = %(time_sample)s
-                AND NOT (fuel_type='LNG' AND tier='bulk')
+                AND (fuel_type != 'LNG' OR {lng_selector})
             ORDER BY 1, 2, 3;
-        """.format(inflator=inflator), args)
+        """.format(inflator=inflator, lng_selector=lng_selector), args)
     else:
         # advanced fuel markets with LNG expansion options (used by forward-looking models)
         # (use fuel_markets module)

@@ -18,9 +18,13 @@ def define_components(m):
     vmt_per_vehicle = 11583
     ev_vmt_per_kwh = 4.0    # from MF's LEAF experience
     ice_vmt_per_mmbtu = (40.0 / 114000.0) * 1e6   # assuming 40 mpg @ 114000 Btu/gal gasoline
-    ice_fuel_market = 'Hawaii_Diesel' # we assume gasoline for the ICE vehicles costs the same as diesel
-                        # note: this is the utility price, which is actually lower than retail gasoline
-    ice_fuel_tier = 'base'
+
+    # We assume gasoline for the ICE vehicles costs the same as diesel
+    # note: this is the utility price, which is actually lower than retail gasoline
+    if hasattr(m, "rfm_supply_tier_cost"):
+        ice_fuel_cost = lambda z, p: m.rfm_supply_tier_cost['Hawaii_Diesel', p, 'base']
+    else:
+        ice_fuel_cost = lambda z, p: m.fuel_cost[z, "Diesel", p]
 
     # extra (non-fuel) annual cost of owning an EV vs. conventional vehicle (mostly for batteries)
     ev_extra_vehicle_cost_per_year = 1000.0
@@ -37,10 +41,11 @@ def define_components(m):
         sum(ev_extra_vehicle_cost_per_year * m.ev_count[z, p] for z in m.LOAD_ZONES)
     )
 
+
     # calculate total fuel cost for ICE (non-EV) VMTs
     m.ice_fuel_cost = Param(m.PERIODS, initialize=lambda m, p:
         sum(
-            (total_vmt - m.ev_vmt_annual[z, p]) / ice_vmt_per_mmbtu * m.rfm_supply_tier_cost[ice_fuel_market, p, ice_fuel_tier]
+            (total_vmt - m.ev_vmt_annual[z, p]) / ice_vmt_per_mmbtu * ice_fuel_cost(z, p)
             for z in m.LOAD_ZONES
         )
     )
