@@ -679,7 +679,7 @@ def load_aug(switch_data, optional=False, auto_select=False,
 # flag, the parser could match arguments that are meant to be used later
 # (It's not likely, but for example if the user specifies a flag "--exclude",
 # which will be consumed by one of their modules, the default parser would
-# match that to "--exclude_modules" during the early, partial parse.)
+# match that to "--exclude-modules" during the early, partial parse.)
 if sys.version_info >= (3, 5):
     _ArgumentParser = argparse.ArgumentParser
 else:
