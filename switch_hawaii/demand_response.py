@@ -691,7 +691,7 @@ def write_results(m):
             +tuple("curtail_"+s for s in m.NON_FUEL_ENERGY_SOURCES)
             +tuple(m.LZ_Energy_Components_Produce)
             +tuple(m.LZ_Energy_Components_Consume)
-            +("marginal_cost","price","peak_day"),
+            +("marginal_cost","price","peak_day","base_load","base_price"),
         values=lambda m, z, t: 
             (z, m.tp_period[t], m.tp_timestamp[t]) 
             +tuple(
@@ -714,7 +714,9 @@ def write_results(m):
             +(
                 electricity_marginal_cost(m, z, t),
                 m.dr_price[last_bid, z, t],
-                'peak' if m.ts_scale_to_year[m.tp_ts[t]] < 0.5*avg_ts_scale else 'typical'
+                'peak' if m.ts_scale_to_year[m.tp_ts[t]] < 0.5*avg_ts_scale else 'typical',
+                m.base_data_dict[z, t][0],
+                m.base_data_dict[z, t][1],
             )
     )
     
