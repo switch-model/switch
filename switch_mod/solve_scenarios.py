@@ -242,7 +242,7 @@ def write_running_scenarios_file():
         # done that actually haven't.)
         flags = "r+" if os.path.exists(running_scenarios_file) else "w"
         with open(running_scenarios_file, flags) as f:
-            f.write("\n".join(running_scenarios))
+            f.write("\n".join(running_scenarios)+"\n")
             f.truncate()
     else:
         # remove the running_scenarios_file entirely if it would be empty

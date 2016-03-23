@@ -211,10 +211,12 @@ def get_module_list(args):
         modules = []
     else:
         # if it exists, the module list contains one module name per row (no .py extension)
-        # we strip whitespace from either end (because those errors can be annoyingly hard to debug),
-        # but otherwise take the module names as given.
+        # we strip whitespace from either end (because those errors can be annoyingly hard to debug).
+        # We also omit blank lines and lines that start with "#"
+        # Otherwise take the module names as given.
         with open(module_list_file) as f:
             modules = [r.strip() for r in f.read().splitlines()]
+        modules = [m for m in modules if m and not m.startswith("#")]
 
     modules.extend(module_options.include_modules)
     for module_name in module_options.exclude_modules:
@@ -318,7 +320,7 @@ def solve(model):
     
     if model.options.tempdir is not None:
         # from https://software.sandia.gov/downloads/pub/pyomo/PyomoOnlineDocs.html#_changing_the_temporary_directory
-        from pyutilib.services import TempFileManager
+        from pyutilib.services import TempfileManager
         TempfileManager.tempdir = model.options.tempdir
 
     results = model.solver.solve(model, **solver_args)
