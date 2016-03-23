@@ -285,6 +285,7 @@ args.update(
 # data definitions for alternative scenarios
 alt_args = [
     dict(),         # base scenario
+    dict(inputs_dir='inputs_2045_15_22', time_sample='2045_15_22'),   # short usable scenario
     dict(inputs_dir='inputs_tiny', time_sample='tiny_24'),   # tiny version of 2045
     dict(
         inputs_dir='inputs_2007_15', time_sample='2007_15', load_scen_id='hist', ev_scen_id=None,

@@ -7,4 +7,6 @@ switch_hawaii.emission_rules
 switch_hawaii.hydrogen
 switch_hawaii.batteries
 switch_hawaii.demand_response
+#switch_hawaii.constant_elasticity_demand_system
 switch_hawaii.r_demand_system
+

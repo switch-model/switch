@@ -117,7 +117,9 @@ expf <- function(beta, pd, pb) {
 
 indirectuf <- function(beta, pd, pb, xd, xb, Mb) { #b=baseline, d=newdata
   #Md <- sum(xd*pd)/(1-alpha)
-  Md <- Mb/expf(beta, pd, pb)
+  #Md <- Mb / expf(beta, pd, pb)
+  #Md <- Mb * (1-expf(beta, pd, pb))
+  Md <- expf(beta, pb, pd) - Mb
   return(Md)
 }
 
@@ -167,9 +169,9 @@ showobject <- function(obj) {
 
 
 test_calib <- function () {
-	base.loads <- 500 * array(1:16, dim=c(3,2,2), dimnames=list(c(12, 13, 14), c(100, 200), c("oahu","maui")))
-	base.prices <- 0.0*base.loads + 350
-	calibrate(base.loads, base.prices)
+	base.loads <- 1000 * array(rep(1, 5), dim=c(5,1,1), dimnames=list(c(12, 13, 14, 15, 16), c(100), c("oahu")))
+	base.prices <- 0.0*base.loads + 180
+	calibrate(base.loads, base.prices, 3)
 	print_calib()
 }
 
