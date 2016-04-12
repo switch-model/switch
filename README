@@ -15,6 +15,17 @@ expect. To refresh the documentation, go to the folder and run
 will do until we migrate to Sphinx and invest more effort into writing
 higher-level documentation and tutorials.
 
+
+TESTING
 To test the entire codebase, run this command from the root directory:
 
 ./run_tests.py
+
+
+EXAMPLES
+To run an example, first update the python path to include the source directory.
+If you downloaded the project to ~/src/switch, the commands are:
+    cd ~/src/switch
+    export PYTHONPATH=$(pwd)":"$PYTHONPATH
+    cd examples/copperplate0
+    python -m switch_mod.solve --verbose

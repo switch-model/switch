@@ -9,7 +9,7 @@
 <td valign=bottom>&nbsp;<br>
 <font color="#ffffff" face="helvetica, arial">&nbsp;<br><big><big><strong><a href="switch_mod.html"><font color="#ffffff">switch_mod</font></a>.gen_tech</strong></big></big></font></td
 ><td align=right valign=bottom
-><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="file:/Users/josiah/src/switch/switch_mod/gen_tech.py">/Users/josiah/src/switch/switch_mod/gen_tech.py</a></font></td></tr></table>
+><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="file:/Users/siah/src/switch/switch_mod/gen_tech.py">/Users/siah/src/switch/switch_mod/gen_tech.py</a></font></td></tr></table>
     <p><tt>Defines&nbsp;model&nbsp;components&nbsp;to&nbsp;describe&nbsp;generation&nbsp;technologies&nbsp;for&nbsp;the<br>
 SWITCH-Pyomo&nbsp;model.<br>
 &nbsp;<br>
@@ -28,10 +28,11 @@ SYNOPSIS<br>
     
 <tr><td bgcolor="#aa55cc"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
 <td width="100%"><table width="100%" summary="list"><tr><td width="25%" valign=top><a href="pyomo.core.base.html">pyomo.core.base</a><br>
-<a href="pyomo.core.data.html">pyomo.core.data</a><br>
-</td><td width="25%" valign=top><a href="os.html">os</a><br>
-<a href="pyomo.core.preprocess.html">pyomo.core.preprocess</a><br>
-</td><td width="25%" valign=top><a href="pyomo.html">pyomo</a><br>
+<a href="pyomo.core.beta.html">pyomo.core.beta</a><br>
+</td><td width="25%" valign=top><a href="pyomo.core.data.html">pyomo.core.data</a><br>
+<a href="os.html">os</a><br>
+</td><td width="25%" valign=top><a href="pyomo.core.preprocess.html">pyomo.core.preprocess</a><br>
+<a href="pyomo.html">pyomo</a><br>
 </td><td width="25%" valign=top></td></tr></table></td></tr></table><p>
 <table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
 <tr bgcolor="#eeaa77">
@@ -61,18 +62,17 @@ database&nbsp;id&nbsp;for&nbsp;each&nbsp;generation&nbsp;technology.&nbsp;This&n
 reporting&nbsp;results&nbsp;and&nbsp;defaults&nbsp;to&nbsp;g.<br>
 &nbsp;<br>
 g_energy_source[g]&nbsp;is&nbsp;a&nbsp;mandatory&nbsp;parameter&nbsp;that&nbsp;defines&nbsp;the&nbsp;primary<br>
-energy&nbsp;source&nbsp;used&nbsp;by&nbsp;each&nbsp;generator.&nbsp;For&nbsp;now,&nbsp;elements&nbsp;of&nbsp;this&nbsp;set<br>
-must&nbsp;be&nbsp;a&nbsp;member&nbsp;of&nbsp;the&nbsp;set&nbsp;ENERGY_SOURCES,&nbsp;and&nbsp;each&nbsp;generation<br>
-technology&nbsp;can&nbsp;only&nbsp;have&nbsp;one&nbsp;primary&nbsp;energy&nbsp;source.&nbsp;In&nbsp;the&nbsp;future,<br>
-we&nbsp;plan&nbsp;to&nbsp;support&nbsp;generators&nbsp;that&nbsp;use&nbsp;multiple&nbsp;energy&nbsp;sources:&nbsp;like<br>
+energy&nbsp;source&nbsp;used&nbsp;by&nbsp;each&nbsp;generator.&nbsp;For&nbsp;generation&nbsp;technologies<br>
+with&nbsp;one&nbsp;primary&nbsp;energy&nbsp;source,&nbsp;g_energy_source&nbsp;specifies&nbsp;that&nbsp;energy&nbsp;<br>
+source,&nbsp;and&nbsp;should&nbsp;be&nbsp;a&nbsp;member&nbsp;of&nbsp;the&nbsp;set&nbsp;ENERGY_SOURCES.&nbsp;If&nbsp;a&nbsp;generator&nbsp;<br>
+uses&nbsp;multiple&nbsp;energy&nbsp;sources,&nbsp;then&nbsp;g_energy_source&nbsp;should&nbsp;be&nbsp;set&nbsp;to&nbsp;<br>
+"multiple",&nbsp;and&nbsp;the&nbsp;energy&nbsp;sources&nbsp;should&nbsp;be&nbsp;specified&nbsp;in&nbsp;<br>
+generator_multi_fuel.tab.&nbsp;This&nbsp;can&nbsp;be&nbsp;used&nbsp;to&nbsp;support&nbsp;generators&nbsp;like<br>
 pumped&nbsp;hydro&nbsp;that&nbsp;consumes&nbsp;either&nbsp;upstream&nbsp;water&nbsp;or&nbsp;electricity&nbsp;for<br>
 storage,&nbsp;or&nbsp;compressed&nbsp;air&nbsp;energy&nbsp;storage&nbsp;that&nbsp;consumes&nbsp;electricity<br>
 for&nbsp;storage&nbsp;and&nbsp;natural&nbsp;gas,&nbsp;or&nbsp;oil&nbsp;generators&nbsp;that&nbsp;need&nbsp;to&nbsp;start<br>
 with&nbsp;high-quality&nbsp;distilled&nbsp;oil&nbsp;but&nbsp;can&nbsp;subsequently&nbsp;shift&nbsp;to&nbsp;low-<br>
-quality&nbsp;residual&nbsp;fuel&nbsp;oil.&nbsp;When&nbsp;we&nbsp;implement&nbsp;support&nbsp;for&nbsp;multiple<br>
-energy&nbsp;sources,&nbsp;we&nbsp;may&nbsp;allow&nbsp;g_energy_source&nbsp;to&nbsp;be&nbsp;set&nbsp;to<br>
-"multiple",&nbsp;then&nbsp;have&nbsp;another&nbsp;module&nbsp;deal&nbsp;with&nbsp;the&nbsp;multiple&nbsp;energy<br>
-sources.<br>
+quality&nbsp;residual&nbsp;fuel&nbsp;oil,&nbsp;or&nbsp;plants&nbsp;that&nbsp;can&nbsp;run&nbsp;on&nbsp;either&nbsp;oil&nbsp;or&nbsp;LNG.&nbsp;<br>
 &nbsp;<br>
 g_uses_fuel[g]&nbsp;is&nbsp;a&nbsp;derived&nbsp;binary&nbsp;parameter&nbsp;that&nbsp;is&nbsp;True&nbsp;if&nbsp;a<br>
 generator&nbsp;uses&nbsp;a&nbsp;fuel&nbsp;to&nbsp;produce&nbsp;electricity.&nbsp;Generators&nbsp;with&nbsp;this<br>
@@ -80,6 +80,13 @@ flag&nbsp;set&nbsp;are&nbsp;expected&nbsp;to&nbsp;have&nbsp;a&nbsp;heat&nbsp;rat
 &nbsp;<br>
 GEN_TECH_WITH_FUEL&nbsp;is&nbsp;a&nbsp;subset&nbsp;of&nbsp;GENERATION_TECHNOLOGIES&nbsp;for&nbsp;which<br>
 g_uses_fuel&nbsp;is&nbsp;true.<br>
+&nbsp;<br>
+GEN_TECH_WITH_MULTI_FUEL&nbsp;is&nbsp;a&nbsp;subset&nbsp;of&nbsp;GENERATION_TECHNOLOGIES&nbsp;for&nbsp;<br>
+which&nbsp;multiple&nbsp;allowed&nbsp;fuels&nbsp;have&nbsp;been&nbsp;specified.<br>
+&nbsp;<br>
+G_FUELS&nbsp;is&nbsp;a&nbsp;list&nbsp;of&nbsp;all&nbsp;allowed&nbsp;fuels&nbsp;for&nbsp;each&nbsp;fuel-consuming&nbsp;<br>
+generator&nbsp;technology.&nbsp;It&nbsp;may&nbsp;contain&nbsp;one&nbsp;or&nbsp;more&nbsp;fuels&nbsp;for&nbsp;each<br>
+technology.<br>
 &nbsp;<br>
 g_max_age[g]&nbsp;is&nbsp;how&nbsp;many&nbsp;years&nbsp;a&nbsp;plant&nbsp;can&nbsp;remain&nbsp;operational&nbsp;once<br>
 construction&nbsp;is&nbsp;complete.<br>
@@ -221,6 +228,10 @@ generic&nbsp;costs&nbsp;may&nbsp;be&nbsp;overridden&nbsp;by&nbsp;individual&nbsp
 often&nbsp;overridden&nbsp;for&nbsp;existing&nbsp;plants&nbsp;that&nbsp;were&nbsp;built&nbsp;before&nbsp;the<br>
 first&nbsp;investment&nbsp;period.<br>
 &nbsp;<br>
+G_NEW_BUILD_YEARS[g]&nbsp;describes&nbsp;the&nbsp;periods&nbsp;in&nbsp;which&nbsp;new&nbsp;builds&nbsp;are&nbsp;allowed<br>
+for&nbsp;each&nbsp;generation&nbsp;type.&nbsp;This&nbsp;is&nbsp;the&nbsp;same&nbsp;information&nbsp;as&nbsp;<br>
+NEW_GENERATION_BUILDYEARS,&nbsp;but&nbsp;indexed&nbsp;by&nbsp;generation&nbsp;for&nbsp;convenience.<br>
+&nbsp;<br>
 g_overnight_cost[g,&nbsp;p]&nbsp;is&nbsp;the&nbsp;overnight&nbsp;capital&nbsp;cost&nbsp;per&nbsp;MW&nbsp;of<br>
 capacity&nbsp;for&nbsp;building&nbsp;the&nbsp;given&nbsp;generation&nbsp;technology&nbsp;installed&nbsp;in<br>
 the&nbsp;given&nbsp;period.&nbsp;By&nbsp;"installed&nbsp;in&nbsp;the&nbsp;given&nbsp;period",&nbsp;I&nbsp;mean&nbsp;that&nbsp;it<br>
@@ -240,6 +251,10 @@ load&nbsp;heat&nbsp;rate&nbsp;of&nbsp;a&nbsp;generation&nbsp;technology&nbsp;in&
 Specific&nbsp;projects&nbsp;may&nbsp;override&nbsp;this&nbsp;heat&nbsp;rate.&nbsp;This&nbsp;is&nbsp;optional,&nbsp;but<br>
 if&nbsp;you&nbsp;don't&nbsp;supply&nbsp;a&nbsp;value,&nbsp;then&nbsp;you&nbsp;must&nbsp;specify&nbsp;a&nbsp;heat&nbsp;for&nbsp;each<br>
 project&nbsp;of&nbsp;this&nbsp;type.<br>
+&nbsp;<br>
+G_MULTI_FUELS&nbsp;is&nbsp;an&nbsp;indexed&nbsp;set&nbsp;showing&nbsp;all&nbsp;the&nbsp;fuels&nbsp;that&nbsp;can&nbsp;be&nbsp;used&nbsp;by<br>
+each&nbsp;multi-fuel&nbsp;generation&nbsp;technology.&nbsp;If&nbsp;a&nbsp;list&nbsp;is&nbsp;specified&nbsp;here,&nbsp;then<br>
+g_energy_source&nbsp;should&nbsp;be&nbsp;set&nbsp;to&nbsp;"multiple".<br>
 &nbsp;<br>
 ---&nbsp;DELAYED&nbsp;IMPLEMENATION&nbsp;---<br>
 &nbsp;<br>
