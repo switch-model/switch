@@ -187,8 +187,10 @@ def define_arguments(argparser):
     # e.g. by defining them in a define_standard_arguments() function in switch.utilities.py
 
     # Define input/output options
-    argparser.add_argument("--inputs-dir", default="inputs", 
-        help='Directory containing input files (default is "inputs")')
+    # note: --inputs-dir is defined in add_module_args, because it may specify the
+    # location of the module list (deprecated)
+    # argparser.add_argument("--inputs-dir", default="inputs",
+    #     help='Directory containing input files (default is "inputs")')
     argparser.add_argument("--outputs-dir", default="outputs",
         help='Directory to write output files (default is "outputs")')
 
@@ -211,6 +213,11 @@ def add_module_args(parser):
         "--exclude-modules", "--exclude-module", dest="exclude_modules", nargs='+', default=[],
         help="Module(s) to remove from the model after processing --module-list and --include-modules"
     )
+    # note: we define --inputs-dir here because it may be used to specify the location of 
+    # the module list, which is needed before it is loaded.
+    parser.add_argument("--inputs-dir", default="inputs", 
+        help='Directory containing input files (default is "inputs")')
+    
 
 def get_module_list(args):
     # parse module options
@@ -222,8 +229,15 @@ def get_module_list(args):
     module_list_file = module_options.module_list
     if module_list_file is None and os.path.exists("modules.txt"):
         module_list_file = "modules.txt"
+    inputs_module_path = os.path.join(module_options.inputs_dir, "modules")
+    if module_list_file is None and os.path.exists(inputs_module_path):
+        print ""
+        print "DEPRECATION WARNING: using module list from {}. This should be moved to {}".format(
+            inputs_module_path, os.path.join(".", "modules.txt"))
+        print ""
+        module_list_file = inputs_module_path
     if module_list_file is None:
-        modules = []
+        raise RuntimeError("No module list found. Please list modules to use for the model in modules.txt.")
     else:
         # if it exists, the module list contains one module name per row (no .py extension)
         # we strip whitespace from either end (because those errors can be annoyingly hard to debug).
