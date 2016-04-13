@@ -52,8 +52,13 @@ def main(args=None, return_model=False, return_instance=False):
             return instance
 
     # make sure the outputs_dir exists (used by some modules during iterate)
-    if not os.path.exists(instance.options.outputs_dir):
+    # use a race-safe approach in case this code is run in parallel
+    try:
         os.makedirs(instance.options.outputs_dir)
+    except OSError:
+        # directory probably exists already, but double-check
+        if not os.path.isdir(instance.options.outputs_dir):
+            raise
 
     # solve the model
     if iterate_modules:
