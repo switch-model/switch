@@ -80,12 +80,12 @@ def define_components(mod):
 
     def LZ_TXNet_calculation(m, lz, tp):
         return (
-            sum(m.TxPowerReceived[lz_from, lz_to, tp]
-                for (lz_from, lz_to, tp) in m.TRANS_TIMEPOINTS
-                if lz_to == lz) -
-            sum(m.TxPowerSent[lz_from, lz_to, tp]
-                for (lz_from, lz_to, tp) in m.TRANS_TIMEPOINTS
-                if lz_from == lz))
+            sum(m.TxPowerReceived[lz_from, lz_to, t]
+                for (lz_from, lz_to, t) in m.TRANS_TIMEPOINTS
+                if lz_to == lz and t == tp) -
+            sum(m.TxPowerSent[lz_from, lz_to, t]
+                for (lz_from, lz_to, t) in m.TRANS_TIMEPOINTS
+                if lz_from == lz and t == tp))
     mod.LZ_TXNet = Expression(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         rule=LZ_TXNet_calculation)
