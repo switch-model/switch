@@ -27,7 +27,7 @@ def main(args=None, return_model=False, return_instance=False):
     add_extra_suffixes(model)
     
     # return the model as-is if requested
-    if return_model:
+    if return_model and not return_instance:
         return model
 
     # get a list of modules to iterate through
@@ -46,7 +46,10 @@ def main(args=None, return_model=False, return_instance=False):
     
     # return the instance as-is if requested
     if return_instance:
-        return instance
+        if return_model:
+            return (model, instance)
+        else:
+            return instance
 
     # make sure the outputs_dir exists (used by some modules during iterate)
     if not os.path.exists(instance.options.outputs_dir):
