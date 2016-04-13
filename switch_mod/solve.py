@@ -247,7 +247,15 @@ def get_module_list(args):
             modules = [r.strip() for r in f.read().splitlines()]
         modules = [m for m in modules if m and not m.startswith("#")]
 
+    # add additional modules requested by the user
     modules.extend(module_options.include_modules)
+
+    # switch_mod should always be loaded, so we place it at the start if the user hasn't
+    # specified it somewhere else in the list.
+    if "switch_mod" not in modules:
+        modules.insert(0, "switch_mod")
+
+    # remove modules requested by the user
     for module_name in module_options.exclude_modules:
         modules.remove(module_name)
     
