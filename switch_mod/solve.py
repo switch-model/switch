@@ -7,10 +7,17 @@ from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
 
 from utilities import create_model, _ArgumentParser
 
-def main(args=sys.argv[1:]):
+def main(args=None, return_model=False, return_instance=False):
+
+    if args is None:
+        # combine default arguments read from options.txt file with 
+        # additional arguments specified on the command line
+        args = get_option_file_args()
+        # add any command-line arguments
+        args.extend(sys.argv[1:])
         
-    # build a module list based on configuration options passed in,
-    # and add the current module (to register define_arguments callback)
+    # build a module list based on configuration options, and add
+    # the current module (to register define_arguments callback)
     modules = get_module_list(args)
     
     # Define the model
@@ -19,6 +26,10 @@ def main(args=sys.argv[1:]):
     # Add any suffixes specified on the command line (usually only iis)
     add_extra_suffixes(model)
     
+    # return the model as-is if requested
+    if return_model:
+        return model
+
     # get a list of modules to iterate through
     iterate_modules = get_iteration_list(model)
     
@@ -32,6 +43,10 @@ def main(args=sys.argv[1:]):
 
     # create an instance
     instance = model.load_inputs()
+    
+    # return the instance as-is if requested
+    if return_instance:
+        return instance
 
     # make sure the outputs_dir exists (used by some modules during iterate)
     if not os.path.exists(instance.options.outputs_dir):
@@ -370,10 +385,4 @@ def _options_string_to_dict(istr):
 ###############
 
 if __name__ == "__main__":
-    # combine default arguments read from options.txt file with 
-    # additional arguments specified on the command line
-    args = get_option_file_args()
-    # add any command-line arguments
-    args.extend(sys.argv[1:])
-    main(args)
-    
+    main()

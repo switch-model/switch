@@ -1,30 +1,30 @@
 #!/usr/bin/env python
 
 """Scenario management module. 
-Reads scenario-related arguments from the command line and uses them to
-setup scenarios_to_run(). For each scenario, this generator will yield a 
-tokenized list of arguments that define that scenario (similar to sys.argv, 
-but based on a line from a scenario definition file, followed by any options 
-specified on the command line). The arguments can be retrieved one-by-one 
-using parse_arg() or (once attached to a model as model.args) by using 
-get_arg(). These functions use the same syntax as the argparse module.
-A queueing system (based on lock files in a queue directory) is used to
+Reads scenario-related arguments from the command line and the same options 
+file that solve.py would read, and uses them to setup scenarios_to_run(). 
+For each scenario, this generator yields a tokenized list of arguments that 
+define that scenario (similar to sys.argv, but based on a line from a scenario 
+definition file, followed by any options specified on the command line). 
+Then it calls solve.main() with this list of arguments (once for each scenario).
+
+A queueing system (based on lock directories within a queue directory) is used to
 ensure that scenarios_to_run() will always return the next unsolved 
 scenario from the scenario list file, even if the file is edited while this
 script is running. This makes it possible to amend the scenario list while
-long solver jobs are running. Multiple solvers can also use scenarios_to_run()
-in separate processes to select the next job to do.
+long solver jobs are running. Multiple solver scripts can also use 
+scenarios_to_run() in separate processes to select the next job to run.
 """
 
-from __future__ import print_function
+from __future__ import print_function, absolute_import
 import sys, os, time
 import argparse, shlex, socket, io, glob
 from collections import OrderedDict
 
-from utilities import _ArgumentParser
+from .utilities import _ArgumentParser
 
-# load the main model-solver module
-import solve
+# load the solve module from the same package as this module
+from . import solve
 
 # retrieve base options and command-line arguments
 option_file_args = solve.get_option_file_args()
@@ -50,19 +50,6 @@ requested_scenarios = scenario_manager_args.scenarios
 scenario_list_file = scenario_manager_args.scenario_list
 scenario_queue_dir = scenario_manager_args.scenario_queue
 job_id = scenario_manager_args.job_id
-
-# Note: we could use code like below to collect arguments ad-hoc,
-# but then it is difficult to separate the scenario-related arguments from the
-# pass-through arguments for solve.py.
-# requested_scenarios = (
-#     parse_arg("--scenario", nargs='+', default=[])
-#     + parse_arg("--scenarios", nargs='+', default=[])
-# )
-# scenario_list_file = parse_arg("--scenario-list", default="scenarios.txt")
-# scenario_queue_dir = parse_arg("--scenario-queue", default="scenario_queue")
-#
-# job_id = parse_arg("--job-id", default=None)
-# scenario_cmd_line_args = sys.argv[1:] # note: this includes scenario-related args, which is bad
 
 # note: we make a best effort to get a unique, persistent job_id for each job.
 # this is used to clear the queue of running jobs if a job is stopped and
@@ -94,7 +81,7 @@ except OSError:
 
 #import pdb; pdb.set_trace()
 
-def main():
+def main(args=None):
     # remove lock directories for any scenarios that were
     # previously being solved by this job but were interrupted
     unlock_running_scenarios()
@@ -193,10 +180,12 @@ def get_scenario_dict():
     # note: we read the list from the disk each time so that we get a fresher version
     # if the standard list is changed during a long solution effort.
     with open(scenario_list_file, 'r') as f:
-        scenario_list_text = f.read()
+        scenario_list_text = [r.strip() for r in f.read().splitlines()]
+        scenario_list_text = [r for r in scenario_list_text if r and not r.startswith("#")]
+        
     # note: text.splitlines() omits newlines and ignores presence/absence of \n at end of the text
     # shlex.split() breaks an command-line-style argument string into a list like sys.argv
-    scenario_list = [shlex.split(r) for r in scenario_list_text.splitlines()]
+    scenario_list = [shlex.split(r) for r in scenario_list_text]
     return OrderedDict((get_scenario_name(s), s) for s in scenario_list)
 
 def checkout(scenario_name, force=False):
