@@ -7,10 +7,17 @@ from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
 
 from utilities import create_model, _ArgumentParser
 
-def main(args=sys.argv[1:]):
+def main(args=None, return_model=False, return_instance=False):
+
+    if args is None:
+        # combine default arguments read from options.txt file with 
+        # additional arguments specified on the command line
+        args = get_option_file_args()
+        # add any command-line arguments
+        args.extend(sys.argv[1:])
         
-    # build a module list based on configuration options passed in,
-    # and add the current module (to register define_arguments callback)
+    # build a module list based on configuration options, and add
+    # the current module (to register define_arguments callback)
     modules = get_module_list(args)
     
     # Define the model
@@ -19,6 +26,10 @@ def main(args=sys.argv[1:]):
     # Add any suffixes specified on the command line (usually only iis)
     add_extra_suffixes(model)
     
+    # return the model as-is if requested
+    if return_model:
+        return model
+
     # get a list of modules to iterate through
     iterate_modules = get_iteration_list(model)
     
@@ -32,6 +43,10 @@ def main(args=sys.argv[1:]):
 
     # create an instance
     instance = model.load_inputs()
+    
+    # return the instance as-is if requested
+    if return_instance:
+        return instance
 
     # make sure the outputs_dir exists (used by some modules during iterate)
     if not os.path.exists(instance.options.outputs_dir):
@@ -172,8 +187,10 @@ def define_arguments(argparser):
     # e.g. by defining them in a define_standard_arguments() function in switch.utilities.py
 
     # Define input/output options
-    argparser.add_argument("--inputs-dir", default="inputs", 
-        help='Directory containing input files (default is "inputs")')
+    # note: --inputs-dir is defined in add_module_args, because it may specify the
+    # location of the module list (deprecated)
+    # argparser.add_argument("--inputs-dir", default="inputs",
+    #     help='Directory containing input files (default is "inputs")')
     argparser.add_argument("--outputs-dir", default="outputs",
         help='Directory to write output files (default is "outputs")')
 
@@ -196,6 +213,11 @@ def add_module_args(parser):
         "--exclude-modules", "--exclude-module", dest="exclude_modules", nargs='+', default=[],
         help="Module(s) to remove from the model after processing --module-list and --include-modules"
     )
+    # note: we define --inputs-dir here because it may be used to specify the location of 
+    # the module list, which is needed before it is loaded.
+    parser.add_argument("--inputs-dir", default="inputs", 
+        help='Directory containing input files (default is "inputs")')
+    
 
 def get_module_list(args):
     # parse module options
@@ -207,8 +229,15 @@ def get_module_list(args):
     module_list_file = module_options.module_list
     if module_list_file is None and os.path.exists("modules.txt"):
         module_list_file = "modules.txt"
+    inputs_module_path = os.path.join(module_options.inputs_dir, "modules")
+    if module_list_file is None and os.path.exists(inputs_module_path):
+        print ""
+        print "DEPRECATION WARNING: using module list from {}. This should be moved to {}".format(
+            inputs_module_path, os.path.join(".", "modules.txt"))
+        print ""
+        module_list_file = inputs_module_path
     if module_list_file is None:
-        modules = []
+        raise RuntimeError("No module list found. Please list modules to use for the model in modules.txt.")
     else:
         # if it exists, the module list contains one module name per row (no .py extension)
         # we strip whitespace from either end (because those errors can be annoyingly hard to debug).
@@ -218,7 +247,15 @@ def get_module_list(args):
             modules = [r.strip() for r in f.read().splitlines()]
         modules = [m for m in modules if m and not m.startswith("#")]
 
+    # add additional modules requested by the user
     modules.extend(module_options.include_modules)
+
+    # switch_mod should always be loaded, so we place it at the start if the user hasn't
+    # specified it somewhere else in the list.
+    if "switch_mod" not in modules:
+        modules.insert(0, "switch_mod")
+
+    # remove modules requested by the user
     for module_name in module_options.exclude_modules:
         modules.remove(module_name)
     
@@ -370,10 +407,4 @@ def _options_string_to_dict(istr):
 ###############
 
 if __name__ == "__main__":
-    # combine default arguments read from options.txt file with 
-    # additional arguments specified on the command line
-    args = get_option_file_args()
-    # add any command-line arguments
-    args.extend(sys.argv[1:])
-    main(args)
-    
+    main()
