@@ -2,6 +2,12 @@ import os
 from pyomo.environ import *
 from switch_mod.financials import capital_recovery_factor as crf
 
+def define_arguments(argparser):
+    argparser.add_argument("--ph-mw", type=float, default=None,
+        help="Force construction of a certain total capacity of pumped storage hydro during one or more periods chosen by SWITCH")
+    argparser.add_argument("--ph-year", type=int, default=None,
+        help="Force all pumped storage hydro to be constructed during one particular year (must be in the list of periods)")    
+
 def define_components(m):
     
     m.PH_PROJECTS = Set()
@@ -110,6 +116,21 @@ def define_components(m):
         sum(m.Pumped_Hydro_Proj_Capacity_MW[pr, pe] for pr in m.PH_PROJECTS if m.ph_load_zone[pr]==z)
     )
         
+    # force construction of a fixed amount of pumped hydro
+    if m.options.ph_mw is not None:
+        print "Forcing construction of {m} MW of pumped hydro.".format(m=m.options.ph_mw)
+        m.Build_Pumped_Hydro_MW = Constraint(m.LOAD_ZONES, rule=lambda m, z:
+            m.Pumped_Hydro_Capacity_MW[z, m.PERIODS.last()] == m.options.ph_mw
+        )
+    # force construction of pumped hydro only in a certain period
+    if m.options.ph_year is not None:
+        print "Allowing construction of pumped hydro only in {p}.".format(p=m.options.ph_year)
+        m.Build_Pumped_Hydro_Year = Constraint(
+            m.PH_PROJECTS, m.PERIODS,
+            rule=lambda m, pr, pe:
+                m.BuildPumpedHydroMW[pr, pe] == 0.0 if pe != m.options.ph_year else Constraint.Skip
+        )
+
 
 def load_inputs(m, switch_data, inputs_dir):
     switch_data.load_aug(

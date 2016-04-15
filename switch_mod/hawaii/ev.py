@@ -5,6 +5,8 @@ from switch_mod import timescales
 def define_arguments(argparser):
     argparser.add_argument("--ev-flat", action='store_true', default=False,
         help="Schedule electric vehicle charging flat around the clock. (By default EVs are charged at the best times each day.)")
+    argparser.add_argument('--no-ev-flat', dest='ev_flat', action='store_false',
+        help="Schedule electric vehicles at best times each day (disable previous --ev-flat setting).")
     
 
 def define_components(m):
