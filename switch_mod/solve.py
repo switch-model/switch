@@ -33,13 +33,14 @@ def main(args=None, return_model=False, return_instance=False):
     # get a list of modules to iterate through
     iterate_modules = get_iteration_list(model)
     
-    print "\n\n======================================================================="
-    print "arguments:"
-    print " ".join(k+"="+repr(v) for k, v in model.options.__dict__.items() if v)
-    print "modules:", modules
-    if iterate_modules:
-        print "iterate_modules", iterate_modules
-    print "======================================================================="
+    if model.options.verbose:
+        print "\n\n======================================================================="
+        print "arguments:"
+        print " ".join(k+"="+repr(v) for k, v in model.options.__dict__.items() if v)
+        print "modules:", modules
+        if iterate_modules:
+            print "iterate_modules", iterate_modules
+        print "======================================================================="
 
     # create an instance
     instance = model.load_inputs()
@@ -62,12 +63,11 @@ def main(args=None, return_model=False, return_instance=False):
 
     # solve the model
     if iterate_modules:
-        print "iterating model..."
+        if instance.options.verbose:
+            print "iterating model..."
         iterate(instance, iterate_modules)
     else:
-        print "solving model..."
         solve(instance)
-        print "finished solving"
     
     # report/save results
     instance.post_solve()
@@ -371,6 +371,7 @@ def solve(model):
     results = model.solver.solve(model, **solver_args)
 
     if model.options.verbose:
+        print "solved model."
         print "Total time in solver: {t}s".format(t=time.time()-start)
     
     # check for errors
@@ -378,7 +379,7 @@ def solve(model):
     if results.solver.termination_condition == pyomo.opt.TerminationCondition.infeasible:
         if hasattr(model, "iis"):
             print "Model was infeasible; irreducible infeasible set (IIS) returned by solver:"
-            print "\n".join(c.cname() for c in m.iis)
+            print "\n".join(c.cname() for c in model.iis)
         else:
             print "Model was infeasible; if the solver can generate an irreducible infeasible set,"
             print "more information may be available by calling this script with --suffixes iis ..."
