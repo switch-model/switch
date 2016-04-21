@@ -626,7 +626,7 @@ def write_tables(**args):
     # TODO: put these data in a database and write a .tab file instead
     write_dat_file(
         'batteries.dat',
-        [k for k in args if k.startswith('battery_')],
+        sorted([k for k in args if k.startswith('battery_')]),
         args
     )
 
@@ -686,7 +686,7 @@ def write_tables(**args):
     # TODO: put these data in a database and write a .tab file instead
     write_dat_file(
         'hydrogen.dat',
-        [k for k in args if k.startswith('hydrogen_') or k.startswith('liquid_hydrogen_')],
+        sorted([k for k in args if k.startswith('hydrogen_') or k.startswith('liquid_hydrogen_')]),
         args
     )
 
