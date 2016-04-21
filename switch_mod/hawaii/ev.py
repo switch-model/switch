@@ -3,37 +3,21 @@ from pyomo.environ import *
 from switch_mod import timescales
 
 def define_arguments(argparser):
-    argparser.add_argument("--ev-flat", action='store_true', default=False,
-        help="Schedule electric vehicle charging flat around the clock. (By default EVs are charged at the best times each day.)")
-    argparser.add_argument('--no-ev-flat', dest='ev_flat', action='store_false',
-        help="Schedule electric vehicles at best times each day (disable previous --ev-flat setting).")
-    
+    argparser.add_argument("--ev-timing", choices=['optimal', 'flat', 'bau'], default='bau',
+        help="Rule for when to charge EVs -- optimal times each day, flat around the clock, or business-as-usual (default).")
 
 def define_components(m):
+    print m.options.ev_timing
     
-    m.ev_gwh_annual = Param(m.LOAD_ZONES, m.PERIODS, default=0.0)
+    # setup various parameters describing the EV and ICE fleet each year
+    for p in ["ev_share", "ice_miles_per_gallon", "ev_miles_per_kwh", "ev_extra_cost_per_vehicle_year", "n_all_vehicles", "vmt_per_vehicle"]:
+        setattr(m, p, Param(m.LOAD_ZONES, m.PERIODS))
     
-    # TODO: calculate these data better and get them from a database
-    # total miles traveled by vehicle fleet (assuming constant at Oahu's 2007 level from http://honolulucleancities.org/vmt-reduction/ )
-    total_vmt = 13142000*365
-    # annual vehicle miles per vehicle (HI avg from http://www.fhwa.dot.gov/ohim/onh00/onh2p11.htm)
-    vmt_per_vehicle = 11583
-    ev_vmt_per_kwh = 4.0    # from MF's LEAF experience
-    ice_vmt_per_mmbtu = (40.0 / 114000.0) * 1e6   # assuming 40 mpg @ 114000 Btu/gal gasoline
-
-    # extra (non-fuel) annual cost of owning an EV vs. conventional vehicle (mostly for batteries)
-    ev_extra_vehicle_cost_per_year = 1000.0
+    m.ev_bau_mw = Param(m.LOAD_ZONES, m.TIMEPOINTS)
     
-    m.ev_vmt_annual = Param(m.LOAD_ZONES, m.PERIODS, initialize=lambda m, z, p:
-        m.ev_gwh_annual[z, p] * 1e6 * ev_vmt_per_kwh
-    )
-    m.ev_count = Param(m.LOAD_ZONES, m.PERIODS, initialize=lambda m, z, p:
-        m.ev_vmt_annual[z, p] / vmt_per_vehicle
-    )
-
-    # calculate the extra annual cost (non-fuel) of all EVs, relative to ICEs
+    # calculate the extra annual cost (non-fuel) of having EVs, relative to ICEs (mostly for batteries, could also be chargers)
     m.ev_extra_annual_cost = Param(m.PERIODS, initialize=lambda m, p:
-        sum(ev_extra_vehicle_cost_per_year * m.ev_count[z, p] for z in m.LOAD_ZONES)
+        sum(m.ev_extra_cost_per_vehicle_year[z, p] * m.ev_share[z, p] * m.n_all_vehicles[z, p] for z in m.LOAD_ZONES)
     )
 
     # calculate total fuel cost for ICE (non-EV) VMTs
@@ -44,55 +28,80 @@ def define_components(m):
     else:
         ice_fuel_cost_func = lambda m, z, p: m.fuel_cost[z, "Diesel", p]
 
-    m.ice_fuel_cost = Param(m.PERIODS, initialize=lambda m, p:
+    m.ice_annual_fuel_cost = Param(m.PERIODS, initialize=lambda m, p:
         sum(
-            (total_vmt - m.ev_vmt_annual[z, p]) / ice_vmt_per_mmbtu * ice_fuel_cost_func(m, z, p)
-            for z in m.LOAD_ZONES
+            (1.0 - m.ev_share[z, p]) * m.n_all_vehicles[z, p] * m.vmt_per_vehicle[z, p]
+            / m.ice_miles_per_gallon[z, p]
+            * 0.114   # 0.114 MBtu/gal gasoline
+            * ice_fuel_cost_func(m, z, p)
+                for z in m.LOAD_ZONES
         )
     )
-        
+
     # add cost components to account for the vehicle miles traveled via EV or ICE
     # (not used because it interferes with calculation of cost per kWh for electricity)
     # m.cost_components_annual.append('ev_extra_annual_cost')
-    # m.cost_components_annual.append('ice_fuel_cost')
+    # m.cost_components_annual.append('ice_annual_fuel_cost')
 
-    # calculate the amount of EV energy to provide during each timeseries
-    # (assuming that total EV energy requirements are the same every day)
+    # calculate the amount of energy used during each timeseries under business-as-usual charging
     m.ev_mwh_ts = Param(m.LOAD_ZONES, m.TIMESERIES, initialize=lambda m, z, ts:
-        m.ev_gwh_annual[z, m.ts_period[ts]] * 1000.0 * m.ts_duration_hrs[ts] / timescales.hours_per_year
+        sum(m.ev_bau_mw[z, tp] for tp in m.TS_TPS[ts]) * m.ts_duration_of_tp[ts]
     )
 
     # decide when to provide the EV energy
     m.ChargeEVs = Var(m.LOAD_ZONES, m.TIMEPOINTS, within=NonNegativeReals)
     
-    # make sure to charge all EVs
-    # NOTE: prior to 2016-01-14, this failed to account for multi-hour timepoints,
-    # so, e.g., it would double the average load if the timepoints were 2 hours long
+    # make sure to charge all EVs at some point during the day
+    # (they must always consume the same amount per day as under business-as-usual,
+    # but there may be some room to reschedule it.)
     m.ChargeEVs_min = Constraint(m.LOAD_ZONES, m.TIMESERIES, rule=lambda m, z, ts:
         sum(m.ChargeEVs[z, tp] for tp in m.TS_TPS[ts]) * m.ts_duration_of_tp[ts] 
         == m.ev_mwh_ts[z, ts]
     )
 
-    # charge EVs flat around the clock if requested
-    if m.options.ev_flat:
+    # set rules for when to charge EVs
+    if m.options.ev_timing == "optimal":
+        print "Charging EVs at best time each day."
+        # no extra code needed
+    elif m.options.ev_timing == "flat":
         print "Charging EVs as baseload."
         m.ChargeEVs_flat = Constraint(
             m.LOAD_ZONES, m.TIMEPOINTS, 
             rule=lambda m, z, tp:
-                m.ChargeEVs[z, tp] * m.ts_duration_hrs[m.tp_ts[tp]] == m.ev_mwh_ts[z, m.tp_ts[tp]]
+                m.ChargeEVs[z, tp] == m.ev_mwh_ts[z, m.tp_ts[tp]] / m.ts_duration_hrs[m.tp_ts[tp]]
         )
-    
+    elif m.options.ev_timing == "bau":
+        print "Charging EVs at business-as-usual times of day."
+        m.ChargeEVs_bau = Constraint(
+            m.LOAD_ZONES, m.TIMEPOINTS, 
+            rule=lambda m, z, tp:
+                m.ChargeEVs[z, tp] == m.ev_bau_mw[z, tp]
+        )
+    else:
+        # should never happen
+        raise ValueError("Invalid value specified for --ev-timing: {}".format(str(m.options.ev_timing)))
+
     # add the EV load to the model's energy balance
     m.LZ_Energy_Components_Consume.append('ChargeEVs')
-    
-    
     
 
 def load_inputs(m, switch_data, inputs_dir):
     """
-    Import ev data from a .tab file. 
+    Import ev data from .tab files. 
     """
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'ev_energy.tab'),
+        filename=os.path.join(inputs_dir, 'ev_fleet_info.tab'),
         auto_select=True,
-        param=(m.ev_gwh_annual))
+        param=[
+            getattr(m, p) 
+                for p in 
+                ["ev_share", "ice_miles_per_gallon", "ev_miles_per_kwh", "ev_extra_cost_per_vehicle_year", "n_all_vehicles", "vmt_per_vehicle"]
+        ]
+    )
+    # print "loading ev_bau_load.tab"
+    # import pdb; pdb.set_trace()
+    switch_data.load_aug(
+        filename=os.path.join(inputs_dir, 'ev_bau_load.tab'),
+        auto_select=True,
+        param=m.ev_bau_mw
+    )

@@ -21,6 +21,7 @@ be called automatically to store results.
 
 import os
 import switch_mod.hawaii.util as util
+import switch_mod.financials as financials
 from pyomo.environ import *
 
 def define_components(m):
@@ -53,7 +54,7 @@ def summary_values(m):
     
     # total cost (all periods)
     values.append(m.SystemCost)
-
+    
     # NPV of total cost / NPV of kWh generated (equivalent to spreading 
     # all costs uniformly over all generation)
     values.append(
@@ -94,6 +95,20 @@ def summary_values(m):
         values.extend([m.RPSFuelPower[p]/m.RPSTotalPower[p] for p in m.PERIODS])
 
     return values
+
+def annualize_present_value_period_cost(m, period, val):
+    # convert a discounted, total cost per-period into an annual stream of costs
+    discount_factor = (
+        # this term is straight from financials.py
+        # Conversion to lump sum at beginning of period
+        financials.uniform_series_to_present_value(
+            m.discount_rate, m.period_length_years[period]) *
+        # Conversion to base year
+        financials.future_to_present_value(
+            m.discount_rate, (m.period_start[period] - m.base_financial_year))
+    )
+    return val / discount_factor
+
     
 def write_results(m, outputs_dir):
     tag = "_" + m.options.scenario_name if m.options.scenario_name else ""
@@ -191,6 +206,7 @@ def write_results(m, outputs_dir):
     def cost_breakdown_details(m, z, pe):
         values = [z, pe]
         # capacity built, conventional plants
+    
         values += [
             sum(
                 m.BuildProj[pr, pe] 
@@ -224,6 +240,12 @@ def write_results(m, outputs_dir):
             ])
         else:
             values.extend([0.0, 0.0, 0.0, 0.0])
+        
+        # number of EVs and conventional vehicles
+        if hasattr(m, 'ev_share'):
+            values.append(m.n_all_vehicles[z, pe] * m.ev_share[z, pe])
+            values.append(m.n_all_vehicles[z, pe] * (1.0 - m.ev_share[z, pe]))
+            # import pdb; pdb.set_trace()
         
         # capital investments
         # regular projects
@@ -265,18 +287,36 @@ def write_results(m, outputs_dir):
         if hasattr(m, "RFM_Fixed_Costs_Annual"):
             values.append(m.RFM_Fixed_Costs_Annual[pe])
         # TODO: add similar code for fuel_costs module instead of fuel_markets module
+
+        # total cost per period
+        values.append(annualize_present_value_period_cost(m, pe, m.SystemCostPerPeriod[pe]))
         
+        #  total cost per year for transport
+        if hasattr(m, "ev_extra_annual_cost"):
+            values.append(m.ev_extra_annual_cost[pe])
+            values.append(m.ice_annual_fuel_cost[pe])
+                
         return values
         
     util.write_table(m, m.LOAD_ZONES, m.PERIODS, 
         output_file=os.path.join(outputs_dir, "cost_breakdown{t}.tsv".format(t=tag)),
         headings=("load_zone", "period") + tuple(t+"_mw_added" for t in built_tech)
             + ("batteries_mw_added", "batteries_mwh_added", "hydro_mw_added") 
-            + ("h2_electrolyzer_mw_added", "h2_liquifier_kg_per_hour_added", "liquid_h2_tank_kg_added", "fuel_cell_mw_added")
-            + tuple(t+"_overnight_cost" for t in built_tech) + ("batteries_overnight_cost", "hydro_overnight_cost")
-            + ("h2_electrolyzer_overnight_cost", "h2_liquifier_overnight_cost", "liquid_h2_tank_overnight_cost", "fuel_cell_overnight_cost")
-            + (tuple(rfm+"_annual_cost" for rfm in m.REGIONAL_FUEL_MARKET) if hasattr(m, "REGIONAL_FUEL_MARKET") else ())
-            + (("fuel_market_expansion_annual_cost",) if hasattr(m, "RFM_Fixed_Costs_Annual") else ()),
+            + ( "h2_electrolyzer_mw_added", "h2_liquifier_kg_per_hour_added", 
+                "liquid_h2_tank_kg_added", "fuel_cell_mw_added")
+            + (('ev_count', 'ice_count') if hasattr(m, 'ev_share') else ())
+            + tuple(t+"_overnight_cost" for t in built_tech) 
+            + ("batteries_overnight_cost", "hydro_overnight_cost")
+            + ( "h2_electrolyzer_overnight_cost", "h2_liquifier_overnight_cost",
+                "liquid_h2_tank_overnight_cost", "fuel_cell_overnight_cost")
+            + (tuple(rfm+"_annual_cost" for rfm in m.REGIONAL_FUEL_MARKET) 
+                    if hasattr(m, "REGIONAL_FUEL_MARKET") else ())
+            + (("fuel_market_expansion_annual_cost",) 
+                    if hasattr(m, "RFM_Fixed_Costs_Annual") else ())
+            + ('total_electricity_cost',)
+            + (('ev_extra_capital_recovery',) 
+                    if hasattr(m, 'ev_extra_annual_cost') else ())
+            + (('ice_annual_fuel_cost',) if hasattr(m, 'ice_annual_fuel_cost') else ()),
         values=cost_breakdown_details
     )
     

@@ -28,6 +28,10 @@ import psycopg2
 
 def write_tables(**args):
 
+    # catch obsolete arguments (otherwise they would be silently ignored)
+    if 'ev_scen_id' in args:
+        raise ValueError("ev_scen_id argument is no longer supported; use ev_scenario instead.")
+        
     #########################
     # timescales
     
@@ -194,7 +198,8 @@ def write_tables(**args):
         write_table('fuel_supply_curves.tab', """
             SELECT concat('Hawaii_', fuel_type) as regional_fuel_market, fuel_type as fuel, 
                 period, tier, price_mmbtu * {inflator} as unit_cost,
-                %(bulk_lng_limit)s AS max_avail_at_cost,
+                CASE WHEN fuel_type='LNG' AND tier='bulk' THEN %(bulk_lng_limit)s ELSE NULL END 
+                    AS max_avail_at_cost,
                 CASE WHEN fuel_type='LNG' AND tier='bulk' THEN %(bulk_lng_fixed_cost)s ELSE 0.0 END
                     AS fixed_cost
             FROM fuel_costs c JOIN study_periods p ON (c.year=p.period)
@@ -622,14 +627,36 @@ def write_tables(**args):
 
     #########################
     # EV annual energy consumption
-    if args.get('ev_scen_id', None) is not None:
-        write_table('ev_energy.tab', """
-            SELECT load_zone as "LOAD_ZONE", period, ev_gwh AS ev_gwh_annual
+    # print "ev_scenario:", args.get('ev_scenario', None)
+    if args.get('ev_scenario', None) is not None:
+        write_table('ev_fleet_info.tab', """
+            SELECT load_zone as "LOAD_ZONE", period as "PERIOD", 
+                ev_share, ice_miles_per_gallon, ev_miles_per_kwh, ev_extra_cost_per_vehicle_year, 
+                n_all_vehicles, vmt_per_vehicle
             FROM ev_adoption a JOIN study_periods p on a.year = p.period
             WHERE load_zone in %(load_zones)s
                 AND time_sample = %(time_sample)s
-                AND ev_scen_id = %(ev_scen_id)s
+                AND ev_scenario = %(ev_scenario)s
+            ORDER BY 1, 2;
         """, args)
+        # power consumption for each hour of the day under business-as-usual charging
+        # note: the charge weights have a mean value of 1.0, but go up and down in different hours
+        write_table('ev_bau_load.tab', """
+            SELECT 
+                load_zone AS "LOAD_ZONE", 
+                study_hour AS "TIMEPOINT",
+                charge_weight * ev_share * n_all_vehicles * vmt_per_vehicle / (1000.0 * ev_miles_per_kwh) / 8760 as ev_bau_mw
+            FROM ev_adoption e
+                JOIN study_date d ON d.period = e.year
+                JOIN study_hour h USING (study_date, time_sample) 
+                JOIN ev_hourly_charge_profile p 
+                    ON p.hour_of_day = h.hour_of_day
+            WHERE load_zone in %(load_zones)s
+                AND time_sample = %(time_sample)s
+                AND ev_scenario = %(ev_scenario)s
+            ORDER BY 1, 2;
+        """, args)
+        
 
     #########################
     # pumped hydro
