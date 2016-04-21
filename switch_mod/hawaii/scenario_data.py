@@ -50,7 +50,12 @@ def write_tables(**args):
         )
         SELECT period AS "INVESTMENT_PERIOD",
                 period as period_start,
-                period + length - 1 as period_end
+                round(period + length - 1)::int as period_end
+                -- note: period_end is forced to nearest year before next period
+                -- it would probably be better to count directly to some fractional year
+                -- but that's not how the core switch code works
+                -- (this code also converts period to an int, since postgresql started
+                -- appending .0 to int-valued floats at some point around 9.4)
             FROM study_periods, period_length
             WHERE time_sample = %(time_sample)s
             ORDER by 1;
