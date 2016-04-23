@@ -103,7 +103,10 @@ def iterate(m, iterate_modules, depth=0):
 
         # note: the modules in iterate_modules were also specified in the model's 
         # module list, and have already been loaded, so they are accessible via sys.modules
-        current_modules = [sys.modules[module_name] for module_name in iterate_modules[depth]]
+        # This prepends 'switch_mod.' if needed, to be consistent with modules.txt.
+        current_modules = [
+            sys.modules[module_name if module_name in sys.modules else 'switch_mod.' + module_name] 
+            for module_name in iterate_modules[depth]]
         # truncate the iteration tree at the current level
         m.iteration_node = m.iteration_node[:depth] + [0]
 
