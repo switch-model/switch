@@ -3,12 +3,10 @@ from pyomo.environ import *
 from switch_mod import timescales
 
 def define_arguments(argparser):
-    argparser.add_argument("--ev-timing", choices=['optimal', 'flat', 'bau'], default='bau',
-        help="Rule for when to charge EVs -- optimal times each day, flat around the clock, or business-as-usual (default).")
+    argparser.add_argument("--ev-timing", choices=['bau', 'flat', 'optimal'], default='optimal',
+        help="Rule for when to charge EVs -- business-as-usual (upon arrival), flat around the clock, or optimal (default).")
 
 def define_components(m):
-    print m.options.ev_timing
-    
     # setup various parameters describing the EV and ICE fleet each year
     for p in ["ev_share", "ice_miles_per_gallon", "ev_miles_per_kwh", "ev_extra_cost_per_vehicle_year", "n_all_vehicles", "vmt_per_vehicle"]:
         setattr(m, p, Param(m.LOAD_ZONES, m.PERIODS))
@@ -61,17 +59,20 @@ def define_components(m):
 
     # set rules for when to charge EVs
     if m.options.ev_timing == "optimal":
-        print "Charging EVs at best time each day."
+        if m.options.verbose:
+            print "Charging EVs at best time each day."
         # no extra code needed
     elif m.options.ev_timing == "flat":
-        print "Charging EVs as baseload."
+        if m.options.verbose:
+            print "Charging EVs as baseload."
         m.ChargeEVs_flat = Constraint(
             m.LOAD_ZONES, m.TIMEPOINTS, 
             rule=lambda m, z, tp:
                 m.ChargeEVs[z, tp] == m.ev_mwh_ts[z, m.tp_ts[tp]] / m.ts_duration_hrs[m.tp_ts[tp]]
         )
     elif m.options.ev_timing == "bau":
-        print "Charging EVs at business-as-usual times of day."
+        if m.options.verbose:
+            print "Charging EVs at business-as-usual times of day."
         m.ChargeEVs_bau = Constraint(
             m.LOAD_ZONES, m.TIMEPOINTS, 
             rule=lambda m, z, tp:
