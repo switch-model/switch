@@ -329,14 +329,16 @@ def _parse_inc_heat_rate_file(path, id_column):
                     u + " in " + path + ". Row format not recognized for " +
                     "row " + str(row) + ". See documentation for acceptable " +
                     "formats.")
-    # Make sure that each project that have a incremental heat rates defined
-    # also have a starting point defined.
-    if ihr_dat.keys() != fuel_rate_points.keys():
+    # Make sure that each project that has incremental heat rates defined
+    # also has a starting point defined.
+    # note: keys() returns lists in arbitrary order, so they could fail an equality test; 
+    # but unordered sets can be compared (sorting would also work)
+    if set(ihr_dat.keys()) != set(fuel_rate_points.keys()):
         ValueError(
             "One or more unit did not define both a starting point " +
             "and incremental heat rates for their fuel use curves.")
     # Construct a convex combination of lines describing a fuel use
-    # curves for each representative unit "u".
+    # curve for each representative unit "u".
     for u in fuel_rate_points:
         fuel_rate_segments[u] = []
         fr_points = fuel_rate_points[u]
