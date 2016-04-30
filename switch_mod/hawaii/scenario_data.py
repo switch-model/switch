@@ -354,7 +354,7 @@ def write_tables(**args):
         inflator = "1.0"
 
     # note: this table can only hold costs for technologies with future build years,
-    # so costs for existing technologies are specified in project_specific_costs.tab
+    # so costs for existing technologies are specified in proj_build_costs.tab
     # NOTE: costs in this version of switch are expressed in $/MW, $/MW-year, etc., not per kW.
     write_table('gen_new_build_costs.tab', """
         SELECT  
