@@ -13,6 +13,7 @@ SYNOPSIS
 
 import os
 from pyomo.environ import *
+import utilities
 
 hours_per_year = 8766
 
@@ -240,12 +241,6 @@ def define_components(mod):
     mod.period_start = Param(mod.PERIODS, within=PositiveReals)
     mod.period_end = Param(mod.PERIODS, within=PositiveReals)
     mod.min_data_check('PERIODS', 'period_start', 'period_end')
-    mod.period_length_years = Param(
-        mod.PERIODS,
-        initialize=lambda m, p: m.period_end[p] - m.period_start[p] + 1)
-    mod.period_length_hours = Param(
-        mod.PERIODS,
-        initialize=lambda m, p: m.period_length_years[p] * hours_per_year)
 
     mod.TIMESERIES = Set(ordered=True)
     mod.ts_period = Param(mod.TIMESERIES, within=mod.PERIODS)
@@ -255,6 +250,65 @@ def define_components(mod):
     mod.min_data_check(
         'TIMESERIES', 'ts_period', 'ts_duration_of_tp', 'ts_num_tps',
         'ts_scale_to_period')
+
+    mod.TIMEPOINTS = Set(ordered=True)
+    mod.tp_ts = Param(mod.TIMEPOINTS, within=mod.TIMESERIES)
+    mod.min_data_check('TIMEPOINTS', 'tp_ts')
+    mod.tp_timestamp = Param(mod.TIMEPOINTS, default=lambda m, t: t)
+
+    # Derived sets and parameters
+    # note: the first four are calculated early so they
+    # can be used for the add_one_to_period_end_rule
+    
+    mod.tp_weight = Param(
+        mod.TIMEPOINTS,
+        within=PositiveReals,
+        initialize=lambda m, t: (
+            m.ts_duration_of_tp[m.tp_ts[t]] *
+            m.ts_scale_to_period[m.tp_ts[t]]))
+    mod.TS_TPS = Set(
+        mod.TIMESERIES,
+        ordered=True,
+        within=mod.TIMEPOINTS,
+        initialize=lambda m, ts: [
+            t for t in m.TIMEPOINTS if m.tp_ts[t] == ts])
+    mod.tp_period = Param(
+        mod.TIMEPOINTS,
+        within=mod.PERIODS,
+        initialize=lambda m, t: m.ts_period[m.tp_ts[t]])
+    mod.PERIOD_TPS = Set(
+        mod.PERIODS,
+        ordered=True,
+        within=mod.TIMEPOINTS,
+        initialize=lambda m, p: [
+            t for t in m.TIMEPOINTS if m.tp_period[t] == p])
+    
+    # Decide whether period_end values have been given as exact points in time
+    # (e.g., 2020.0 means 2020-01-01 00:00:00), or as a label for a full
+    # year (e.g., 2020 means 2020-12-31 12:59:59). We use whichever one gives
+    # a better correspondence between the timepoint weights and the period length.
+    # NOTE: we can't just check whether period_end[p] + 1 = period_start[p+1],
+    # because that is undefined for single-period models.
+    def add_one_to_period_end_rule(m):
+        hours_in_period = {p: sum(m.tp_weight[t] for t in m.PERIOD_TPS[p]) for p in m.PERIODS}
+        err_plain = sum(
+            (m.period_end[p] - m.period_start[p]) * hours_per_year - hours_in_period[p]
+                for p in m.PERIODS)
+        err_add_one = sum(
+            (m.period_end[p] + 1 - m.period_start[p]) * hours_per_year - hours_in_period[p]
+                for p in m.PERIODS)
+        add_one = (abs(err_add_one) < abs(err_plain))
+        # print "add_one: {}".format(add_one)
+        return add_one
+    mod.add_one_to_period_end = Param(within=Boolean, initialize=add_one_to_period_end_rule)
+
+    mod.period_length_years = Param(
+        mod.PERIODS,
+        initialize=lambda m, p: m.period_end[p] - m.period_start[p] + (1 if m.add_one_to_period_end else 0))
+    mod.period_length_hours = Param(
+        mod.PERIODS,
+        initialize=lambda m, p: m.period_length_years[p] * hours_per_year)
+
     mod.ts_scale_to_year = Param(
         mod.TIMESERIES,
         initialize=lambda m, ts: (
@@ -264,20 +318,6 @@ def define_components(mod):
         initialize=lambda m, ts: (
             m.ts_num_tps[ts] * m.ts_duration_of_tp[ts]))
 
-    mod.TIMEPOINTS = Set(ordered=True)
-    mod.tp_ts = Param(mod.TIMEPOINTS, within=mod.TIMESERIES)
-    mod.min_data_check('TIMEPOINTS', 'tp_ts')
-    mod.tp_timestamp = Param(mod.TIMEPOINTS, default=lambda m, t: t)
-    mod.tp_period = Param(
-        mod.TIMEPOINTS,
-        within=mod.PERIODS,
-        initialize=lambda m, t: m.ts_period[m.tp_ts[t]])
-    mod.tp_weight = Param(
-        mod.TIMEPOINTS,
-        within=PositiveReals,
-        initialize=lambda m, t: (
-            m.ts_duration_of_tp[m.tp_ts[t]] *
-            m.ts_scale_to_period[m.tp_ts[t]]))
     mod.tp_weight_in_year = Param(
         mod.TIMEPOINTS,
         within=PositiveReals,
@@ -286,29 +326,11 @@ def define_components(mod):
     mod.tp_duration_hrs = Param(
         mod.TIMEPOINTS,
         initialize=lambda m, t: m.ts_duration_of_tp[m.tp_ts[t]])
-
-    ############################################################
-    # Helper sets indexed for convenient look-up.
-    # I didn't use filter because it isn't implemented for indexed sets.
-    mod.TS_TPS = Set(
-        mod.TIMESERIES,
-        ordered=True,
-        within=mod.TIMEPOINTS,
-        initialize=lambda m, ts: [
-            t for t in m.TIMEPOINTS if m.tp_ts[t] == ts])
-    mod.PERIOD_TPS = Set(
-        mod.PERIODS,
-        ordered=True,
-        within=mod.TIMEPOINTS,
-        initialize=lambda m, p: [
-            t for t in m.TIMEPOINTS if m.tp_period[t] == p])
-
-    # This next parameter is responsible for making timeseries either
-    # linear or circular. It is necessary for tracking unit committment
-    # as well as energy in storage. The prevw(x) method of an ordered
-    # set returns the set element that comes before x in the set,
-    # wrapping back to the last element of the set if x is the first
-    # element.
+    # Identify previous step for each timepoint, for use in tracking
+    # unit commitment or storage. We use circular indexing (.prevw() method) 
+    # for the timepoints within a timeseries to give consistency between the 
+    # start and end state. (Note: separate timeseries are assumed to be 
+    # disconnected from each other.)
     mod.tp_previous = Param(
         mod.TIMEPOINTS,
         within=mod.TIMEPOINTS,
@@ -330,7 +352,6 @@ def define_components(mod):
     mod.validate_time_weights = BuildCheck(
         mod.PERIODS,
         rule=validate_time_weights_rule)
-
 
 def load_inputs(mod, switch_data, inputs_dir):
     """
