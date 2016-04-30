@@ -64,8 +64,15 @@ if job_id is None:
 if job_id is None:
     job_id = os.environ.get('OMPI_MCA_ess_base_jobid')
 if job_id is None:
-    # construct one
-    job_id = socket.gethostname() + '_' + str(os.getpid())
+    # construct one from hostname and parent's pid
+    # this way, each job launched from a different terminal window 
+    # or different instance of gnu screen will have a persistent ID
+    # (This won't work on Windows before Python 3.2; in that case, 
+    # users should specify a --job-id or set an environment variable 
+    # when running multiple jobs in parallel. Without that, all 
+    # jobs will think they have the same ID, and at startup they will 
+    # try to re-run the scenario currently being run by some other job.)
+    job_id = socket.gethostname() + '_' + str(os.getppid())
 
 running_scenarios_file = os.path.join(scenario_queue_dir, job_id+"_running.txt")
 
@@ -174,7 +181,7 @@ def parse_arg(arg, args=sys.argv[1:], **parse_kw):
 
 def get_scenario_name(scenario_args):
     # use ad-hoc parsing to extract the scenario name from a scenario-definition string
-    return parse_arg("--scenario-name", default="", args=scenario_args)
+    return parse_arg("--scenario-name", default=None, args=scenario_args)
 
 def get_scenario_dict():
     # note: we read the list from the disk each time so that we get a fresher version

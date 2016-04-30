@@ -33,13 +33,14 @@ def main(args=None, return_model=False, return_instance=False):
     # get a list of modules to iterate through
     iterate_modules = get_iteration_list(model)
     
-    print "\n\n======================================================================="
-    print "arguments:"
-    print " ".join(k+"="+repr(v) for k, v in model.options.__dict__.items() if v)
-    print "modules:", modules
-    if iterate_modules:
-        print "iterate_modules", iterate_modules
-    print "======================================================================="
+    if model.options.verbose:
+        print "\n\n======================================================================="
+        print "arguments:"
+        print " ".join(k+"="+repr(v) for k, v in model.options.__dict__.items() if v)
+        print "modules:", modules
+        if iterate_modules:
+            print "iterate_modules", iterate_modules
+        print "======================================================================="
 
     # create an instance
     instance = model.load_inputs()
@@ -52,17 +53,21 @@ def main(args=None, return_model=False, return_instance=False):
             return instance
 
     # make sure the outputs_dir exists (used by some modules during iterate)
-    if not os.path.exists(instance.options.outputs_dir):
+    # use a race-safe approach in case this code is run in parallel
+    try:
         os.makedirs(instance.options.outputs_dir)
+    except OSError:
+        # directory probably exists already, but double-check
+        if not os.path.isdir(instance.options.outputs_dir):
+            raise
 
     # solve the model
     if iterate_modules:
-        print "iterating model..."
+        if instance.options.verbose:
+            print "iterating model..."
         iterate(instance, iterate_modules)
     else:
-        print "solving model..."
         solve(instance)
-        print "finished solving"
     
     # report/save results
     instance.post_solve()
@@ -98,7 +103,10 @@ def iterate(m, iterate_modules, depth=0):
 
         # note: the modules in iterate_modules were also specified in the model's 
         # module list, and have already been loaded, so they are accessible via sys.modules
-        current_modules = [sys.modules[module_name] for module_name in iterate_modules[depth]]
+        # This prepends 'switch_mod.' if needed, to be consistent with modules.txt.
+        current_modules = [
+            sys.modules[module_name if module_name in sys.modules else 'switch_mod.' + module_name] 
+            for module_name in iterate_modules[depth]]
         # truncate the iteration tree at the current level
         m.iteration_node = m.iteration_node[:depth] + [0]
 
@@ -366,6 +374,7 @@ def solve(model):
     results = model.solver.solve(model, **solver_args)
 
     if model.options.verbose:
+        print "solved model."
         print "Total time in solver: {t}s".format(t=time.time()-start)
     
     # check for errors
@@ -373,7 +382,7 @@ def solve(model):
     if results.solver.termination_condition == pyomo.opt.TerminationCondition.infeasible:
         if hasattr(model, "iis"):
             print "Model was infeasible; irreducible infeasible set (IIS) returned by solver:"
-            print "\n".join(c.cname() for c in m.iis)
+            print "\n".join(c.cname() for c in model.iis)
         else:
             print "Model was infeasible; if the solver can generate an irreducible infeasible set,"
             print "more information may be available by calling this script with --suffixes iis ..."
