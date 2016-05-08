@@ -109,6 +109,20 @@ def annualize_present_value_period_cost(m, period, val):
     )
     return val / discount_factor
 
+def DispatchProjByFuel(m, proj, tp, fuel):
+    """This is a replacement for mod.DispatchProjByFuel, which is only defined in 
+    project.no_commit, not project.unitcommit.fuel_use. In the unit commitment version
+    it can only be defined as a quadratically constrained variable, which we don't
+    want to force on all users."""
+    if value(m.DispatchProj[proj, tp] * m.ProjFuelUseRate[proj, tp, fuel]) == 0.0:
+        result = 0.0
+    else:
+        result = value(
+            m.DispatchProj[proj, tp]
+            * m.ProjFuelUseRate[proj, tp, fuel]
+            / sum(m.ProjFuelUseRate[proj, tp, f] for f in m.G_FUELS[m.proj_gen_tech[proj]])
+        )
+    return result
     
 def write_results(m, outputs_dir):
     tag = "_" + m.options.scenario_name if m.options.scenario_name else ""
@@ -143,7 +157,7 @@ def write_results(m, outputs_dir):
         values=lambda m, z, t: 
             (z, m.tp_period[t], m.tp_timestamp[t]) 
             +tuple(
-                sum(util.get(m.DispatchProjByFuel, (p, t, f), 0.0) for p in m.PROJECTS_BY_FUEL[f])
+                sum(DispatchProjByFuel(m, p, t, f) for p in m.PROJECTS_BY_FUEL[f])
                 for f in m.FUELS
             )
             +tuple(
@@ -222,7 +236,7 @@ def write_results(m, outputs_dir):
                 m.BuildBattery[z, pe]
             ])
         else:
-            values.append([0.0, 0.0])
+            values.extend([0.0, 0.0])
         # capacity built, hydro
         values.append(
             sum(
