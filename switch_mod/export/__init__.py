@@ -5,6 +5,17 @@
 
 Functions to help export results.
 
+Modules within this directory may implement custom exports that
+depend on multiple Switch modules. Each individual Switch module
+that defines components should only access model components that
+it defined or that were defined upstream in Switch modules that 
+it depends on. For example, the load_zone module cannot assume whether users
+will be including project.no_commit or project.unitcommit, so it cannot
+reference model components defined in either of those files. However,
+both project.no_commit and project.unitcommit can assume that components
+defined in load_zones will be available because they have an explicit
+dependency on load_zones.
+
 
 """
 
@@ -37,9 +48,6 @@ def write_table(instance, *indexes, **kwargs):
         # write header row
         w.writerow(list(headings))
         # write the data
-        # global rows
-        # rows=[value(v) for x in idx for v in values(instance, *x)]
-        # print(rows)
         w.writerows(
             tuple(value(v) for v in values(instance, *x))
             for x in idx
