@@ -549,7 +549,7 @@ def _save_generic_results(instance, outdir):
                              for i in xrange(var.index_set().dimen)] +
                             [var.name])
             for key, v in var.iteritems():
-                writer.writerow(key + (v.value,))
+                writer.writerow(tuple(make_iterable(key)) + (v.value,))
 
 
 class InputError(Exception):

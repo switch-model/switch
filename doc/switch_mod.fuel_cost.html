@@ -9,7 +9,7 @@
 <td valign=bottom>&nbsp;<br>
 <font color="#ffffff" face="helvetica, arial">&nbsp;<br><big><big><strong><a href="switch_mod.html"><font color="#ffffff">switch_mod</font></a>.fuel_cost</strong></big></big></font></td
 ><td align=right valign=bottom
-><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="file:/Users/josiah/src/switch/switch_mod/fuel_cost.py">/Users/josiah/src/switch/switch_mod/fuel_cost.py</a></font></td></tr></table>
+><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="file:/Users/siah/src/switch/switch_mod/fuel_cost.py">/Users/siah/src/switch/switch_mod/fuel_cost.py</a></font></td></tr></table>
     <p><tt>A&nbsp;simple&nbsp;description&nbsp;of&nbsp;flat&nbsp;fuel&nbsp;costs&nbsp;for&nbsp;the&nbsp;SWITCH-Pyomo&nbsp;model&nbsp;that<br>
 serves&nbsp;as&nbsp;an&nbsp;alternative&nbsp;to&nbsp;the&nbsp;more&nbsp;complex&nbsp;fuel_markets&nbsp;with&nbsp;tiered<br>
 supply&nbsp;curves.&nbsp;This&nbsp;is&nbsp;mutually&nbsp;exclusive&nbsp;with&nbsp;the&nbsp;fuel_markets&nbsp;module.<br>
@@ -28,10 +28,11 @@ SYNOPSIS<br>
     
 <tr><td bgcolor="#aa55cc"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
 <td width="100%"><table width="100%" summary="list"><tr><td width="25%" valign=top><a href="pyomo.core.base.html">pyomo.core.base</a><br>
-<a href="pyomo.core.data.html">pyomo.core.data</a><br>
-</td><td width="25%" valign=top><a href="os.html">os</a><br>
-<a href="pyomo.core.preprocess.html">pyomo.core.preprocess</a><br>
-</td><td width="25%" valign=top><a href="pyomo.html">pyomo</a><br>
+<a href="pyomo.core.beta.html">pyomo.core.beta</a><br>
+</td><td width="25%" valign=top><a href="pyomo.core.data.html">pyomo.core.data</a><br>
+<a href="os.html">os</a><br>
+</td><td width="25%" valign=top><a href="pyomo.core.preprocess.html">pyomo.core.preprocess</a><br>
+<a href="pyomo.html">pyomo</a><br>
 </td><td width="25%" valign=top></td></tr></table></td></tr></table><p>
 <table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
 <tr bgcolor="#eeaa77">
@@ -55,7 +56,7 @@ PROJ_FUEL_DISPATCH_POINTS&nbsp;that&nbsp;describes&nbsp;which&nbsp;points&nbsp;d
 available.<br>
 &nbsp;<br>
 Enforce_Fuel_Availability[(proj,&nbsp;t)&nbsp;in<br>
-PROJ_FUEL_DISPATCH_POINTS_UNAVAILABLE]&nbsp;is&nbsp;a&nbsp;constrain&nbsp;that&nbsp;restricts<br>
+PROJ_FUEL_DISPATCH_POINTS_UNAVAILABLE]&nbsp;is&nbsp;a&nbsp;constraint&nbsp;that&nbsp;restricts<br>
 ProjFuelUseRate&nbsp;to&nbsp;0&nbsp;for&nbsp;in&nbsp;load&nbsp;zones&nbsp;and&nbsp;periods&nbsp;where&nbsp;the<br>
 projects'&nbsp;fuel&nbsp;is&nbsp;unavailable.<br>
 &nbsp;<br>

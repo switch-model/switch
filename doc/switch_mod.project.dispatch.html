@@ -9,7 +9,7 @@
 <td valign=bottom>&nbsp;<br>
 <font color="#ffffff" face="helvetica, arial">&nbsp;<br><big><big><strong><a href="switch_mod.html"><font color="#ffffff">switch_mod</font></a>.<a href="switch_mod.project.html"><font color="#ffffff">project</font></a>.dispatch</strong></big></big></font></td
 ><td align=right valign=bottom
-><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="file:/Users/josiah/src/switch/switch_mod/project/dispatch.py">/Users/josiah/src/switch/switch_mod/project/dispatch.py</a></font></td></tr></table>
+><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="file:/Users/siah/src/switch/switch_mod/project/dispatch.py">/Users/siah/src/switch/switch_mod/project/dispatch.py</a></font></td></tr></table>
     <p><tt>Defines&nbsp;model&nbsp;components&nbsp;to&nbsp;describe&nbsp;generation&nbsp;projects&nbsp;build-outs&nbsp;for<br>
 the&nbsp;SWITCH-Pyomo&nbsp;model.&nbsp;This&nbsp;module&nbsp;requires&nbsp;either&nbsp;project.unitcommit&nbsp;or<br>
 project.no_commit&nbsp;to&nbsp;constrain&nbsp;project&nbsp;dispatch&nbsp;to&nbsp;either&nbsp;committed&nbsp;or<br>
@@ -29,10 +29,11 @@ SYNOPSIS<br>
     
 <tr><td bgcolor="#aa55cc"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
 <td width="100%"><table width="100%" summary="list"><tr><td width="25%" valign=top><a href="pyomo.core.base.html">pyomo.core.base</a><br>
-<a href="pyomo.core.data.html">pyomo.core.data</a><br>
-</td><td width="25%" valign=top><a href="os.html">os</a><br>
-<a href="pyomo.core.preprocess.html">pyomo.core.preprocess</a><br>
-</td><td width="25%" valign=top><a href="pyomo.html">pyomo</a><br>
+<a href="pyomo.core.beta.html">pyomo.core.beta</a><br>
+</td><td width="25%" valign=top><a href="pyomo.core.data.html">pyomo.core.data</a><br>
+<a href="os.html">os</a><br>
+</td><td width="25%" valign=top><a href="pyomo.core.preprocess.html">pyomo.core.preprocess</a><br>
+<a href="pyomo.html">pyomo</a><br>
 </td><td width="25%" valign=top></td></tr></table></td></tr></table><p>
 <table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
 <tr bgcolor="#eeaa77">
@@ -58,8 +59,7 @@ DispatchProj[(proj,&nbsp;t)&nbsp;in&nbsp;PROJ_DISPATCH_POINTS]&nbsp;is&nbsp;the&
 of&nbsp;generation&nbsp;dispatch&nbsp;decisions:&nbsp;how&nbsp;much&nbsp;average&nbsp;power&nbsp;in&nbsp;MW&nbsp;to<br>
 produce&nbsp;in&nbsp;each&nbsp;timepoint.&nbsp;This&nbsp;value&nbsp;can&nbsp;be&nbsp;multiplied&nbsp;by&nbsp;the<br>
 duration&nbsp;of&nbsp;the&nbsp;timepoint&nbsp;in&nbsp;hours&nbsp;to&nbsp;determine&nbsp;the&nbsp;energy&nbsp;produced<br>
-by&nbsp;a&nbsp;project&nbsp;in&nbsp;a&nbsp;timepoint.&nbsp;This&nbsp;will&nbsp;need&nbsp;to&nbsp;have&nbsp;another&nbsp;index&nbsp;of<br>
-energy_source&nbsp;to&nbsp;fully&nbsp;support&nbsp;generators&nbsp;that&nbsp;use&nbsp;multiple&nbsp;fuels.<br>
+by&nbsp;a&nbsp;project&nbsp;in&nbsp;a&nbsp;timepoint.<br>
 &nbsp;<br>
 proj_forced_outage_rate[prj]&nbsp;and&nbsp;proj_scheduled_outage_rate[prj]<br>
 describe&nbsp;the&nbsp;forces&nbsp;and&nbsp;scheduled&nbsp;outage&nbsp;rates&nbsp;for&nbsp;each&nbsp;project.<br>
@@ -107,10 +107,16 @@ costs&nbsp;associated&nbsp;with&nbsp;project&nbsp;dispatch&nbsp;for&nbsp;each&nb
 in&nbsp;$base_year/hour&nbsp;in&nbsp;the&nbsp;future&nbsp;period&nbsp;(rather&nbsp;than&nbsp;Net&nbsp;Present<br>
 Value).<br>
 &nbsp;<br>
-PROJ_FUEL_DISPATCH_POINTS&nbsp;is&nbsp;a&nbsp;subset&nbsp;of&nbsp;PROJ_DISPATCH_POINTS<br>
-for&nbsp;projects&nbsp;that&nbsp;consume&nbsp;fuel&nbsp;and&nbsp;could&nbsp;produce&nbsp;emissions.<br>
+PROJ_WITH_FUEL_DISPATCH_POINTS&nbsp;is&nbsp;a&nbsp;subset&nbsp;of&nbsp;PROJ_DISPATCH_POINTS<br>
+showing&nbsp;all&nbsp;times&nbsp;when&nbsp;fuel-consuming&nbsp;projects&nbsp;could&nbsp;be&nbsp;dispatched&nbsp;<br>
+(used&nbsp;to&nbsp;identify&nbsp;timepoints&nbsp;when&nbsp;fuel&nbsp;use&nbsp;must&nbsp;match&nbsp;power&nbsp;production).<br>
 &nbsp;<br>
-ProjFuelUseRate[(proj,&nbsp;t)&nbsp;in&nbsp;PROJ_FUEL_DISPATCH_POINTS]&nbsp;is&nbsp;a<br>
+PROJ_FUEL_DISPATCH_POINTS&nbsp;is&nbsp;a&nbsp;subset&nbsp;of&nbsp;PROJ_DISPATCH_POINTS&nbsp;*&nbsp;FUELS,<br>
+showing&nbsp;all&nbsp;the&nbsp;valid&nbsp;combinations&nbsp;of&nbsp;project,&nbsp;timepoint&nbsp;and&nbsp;fuel,<br>
+i.e.,&nbsp;all&nbsp;the&nbsp;times&nbsp;when&nbsp;each&nbsp;project&nbsp;could&nbsp;consume&nbsp;a&nbsp;fuel&nbsp;that&nbsp;is&nbsp;<br>
+limited,&nbsp;costly&nbsp;or&nbsp;produces&nbsp;emissions.<br>
+&nbsp;<br>
+ProjFuelUseRate[(proj,&nbsp;t,&nbsp;f)&nbsp;in&nbsp;PROJ_FUEL_DISPATCH_POINTS]&nbsp;is&nbsp;a<br>
 variable&nbsp;that&nbsp;describes&nbsp;fuel&nbsp;consumption&nbsp;rate&nbsp;in&nbsp;MMBTU/h.&nbsp;This<br>
 should&nbsp;be&nbsp;constrained&nbsp;to&nbsp;the&nbsp;fuel&nbsp;consumed&nbsp;by&nbsp;a&nbsp;project&nbsp;in&nbsp;each<br>
 timepoint&nbsp;and&nbsp;can&nbsp;be&nbsp;calculated&nbsp;as&nbsp;Dispatch&nbsp;[MW]&nbsp;*<br>
@@ -121,7 +127,7 @@ ignores&nbsp;unit&nbsp;commitment&nbsp;and&nbsp;assumes&nbsp;a&nbsp;full&nbsp;lo
 project.unitcommit&nbsp;module&nbsp;implements&nbsp;unit&nbsp;commitment&nbsp;decisions&nbsp;with<br>
 startup&nbsp;fuel&nbsp;requirements&nbsp;and&nbsp;a&nbsp;marginal&nbsp;heat&nbsp;rate.<br>
 &nbsp;<br>
-DispatchEmissions[(proj,&nbsp;t)&nbsp;in&nbsp;PROJ_FUEL_DISPATCH_POINTS]&nbsp;is&nbsp;the<br>
+DispatchEmissions[(proj,&nbsp;t,&nbsp;f)&nbsp;in&nbsp;PROJ_FUEL_DISPATCH_POINTS]&nbsp;is&nbsp;the<br>
 emissions&nbsp;produced&nbsp;by&nbsp;dispatching&nbsp;a&nbsp;fuel-based&nbsp;project&nbsp;in&nbsp;units&nbsp;of<br>
 metric&nbsp;tonnes&nbsp;CO2&nbsp;per&nbsp;hour.&nbsp;This&nbsp;is&nbsp;derived&nbsp;from&nbsp;the&nbsp;fuel<br>
 consumption&nbsp;ProjFuelUseRate,&nbsp;the&nbsp;fuel's&nbsp;direct&nbsp;carbon&nbsp;intensity,&nbsp;the<br>

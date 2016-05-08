@@ -9,7 +9,7 @@
 <td valign=bottom>&nbsp;<br>
 <font color="#ffffff" face="helvetica, arial">&nbsp;<br><big><big><strong><a href="switch_mod.html"><font color="#ffffff">switch_mod</font></a>.utilities</strong></big></big></font></td
 ><td align=right valign=bottom
-><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="file:/Users/josiah/src/switch/switch_mod/utilities.py">/Users/josiah/src/switch/switch_mod/utilities.py</a></font></td></tr></table>
+><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="file:/Users/siah/src/switch/switch_mod/utilities.py">/Users/siah/src/switch/switch_mod/utilities.py</a></font></td></tr></table>
     <p><tt>Utility&nbsp;functions&nbsp;for&nbsp;SWITCH-pyomo.</tt></p>
 <p>
 <table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
@@ -19,15 +19,18 @@
     
 <tr><td bgcolor="#aa55cc"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
 <td width="100%"><table width="100%" summary="list"><tr><td width="25%" valign=top><a href="pyomo.core.base.html">pyomo.core.base</a><br>
-<a href="pyomo.core.data.html">pyomo.core.data</a><br>
+<a href="pyomo.core.beta.html">pyomo.core.beta</a><br>
+<a href="csv.html">csv</a><br>
+</td><td width="25%" valign=top><a href="pyomo.core.data.html">pyomo.core.data</a><br>
 <a href="importlib.html">importlib</a><br>
-</td><td width="25%" valign=top><a href="__main__.html">__main__</a><br>
-<a href="os.html">os</a><br>
+<a href="__main__.html">__main__</a><br>
+</td><td width="25%" valign=top><a href="os.html">os</a><br>
 <a href="pyomo.core.preprocess.html">pyomo.core.preprocess</a><br>
-</td><td width="25%" valign=top><a href="pyomo.html">pyomo</a><br>
+<a href="pyomo.html">pyomo</a><br>
+</td><td width="25%" valign=top><a href="switch_mod.html">switch_mod</a><br>
 <a href="sys.html">sys</a><br>
 <a href="types.html">types</a><br>
-</td><td width="25%" valign=top></td></tr></table></td></tr></table><p>
+</td></tr></table></td></tr></table><p>
 <table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
 <tr bgcolor="#ee77aa">
 <td colspan=3 valign=bottom>&nbsp;<br>
@@ -166,6 +169,7 @@ ValueError:&nbsp;Value&nbsp;not&nbsp;provided&nbsp;for&nbsp;mandatory&nbsp;param
 &nbsp;<br>
 #&nbsp;Demonstration&nbsp;of&nbsp;incorporating&nbsp;this&nbsp;funciton&nbsp;into&nbsp;Pyomo's&nbsp;BuildCheck()<br>
 &gt;&gt;&gt;&nbsp;mod.min_dat_pass&nbsp;=&nbsp;BuildCheck(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rule=lambda&nbsp;m:&nbsp;utilities.<a href="#-check_mandatory_components">check_mandatory_components</a>(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;m,&nbsp;'set_A',&nbsp;'paramA_full','paramB_empty',&nbsp;'paramC'))</tt></dd></dl>
+ <dl><dt><a name="-default_solver"><strong>default_solver</strong></a>()</dt></dl>
  <dl><dt><a name="-define_AbstractModel"><strong>define_AbstractModel</strong></a>(*module_list)</dt><dd><tt>Construct&nbsp;a&nbsp;Pyomo&nbsp;AbstractModel&nbsp;using&nbsp;the&nbsp;Switch&nbsp;modules&nbsp;or&nbsp;packages<br>
 in&nbsp;the&nbsp;given&nbsp;list&nbsp;and&nbsp;return&nbsp;the&nbsp;model.&nbsp;The&nbsp;following&nbsp;utility&nbsp;methods<br>
 are&nbsp;attached&nbsp;to&nbsp;the&nbsp;model&nbsp;as&nbsp;class&nbsp;methods&nbsp;to&nbsp;simplify&nbsp;their&nbsp;use:<br>
@@ -196,16 +200,16 @@ SYNOPSIS:<br>
 keywords.&nbsp;This&nbsp;currently&nbsp;supports&nbsp;a&nbsp;flag&nbsp;for&nbsp;the&nbsp;file&nbsp;being&nbsp;optional.<br>
 In&nbsp;the&nbsp;future,&nbsp;this&nbsp;could&nbsp;also&nbsp;support&nbsp;a&nbsp;list&nbsp;of&nbsp;optional&nbsp;columns.<br>
 The&nbsp;name&nbsp;is&nbsp;not&nbsp;great&nbsp;and&nbsp;may&nbsp;be&nbsp;changed&nbsp;as&nbsp;well.</tt></dd></dl>
- <dl><dt><a name="-load_inputs"><strong>load_inputs</strong></a>(model, inputs_dir<font color="#909090">='inputs'</font>)</dt><dd><tt>Load&nbsp;input&nbsp;data&nbsp;for&nbsp;an&nbsp;AbstractModel&nbsp;using&nbsp;the&nbsp;modules&nbsp;in&nbsp;the&nbsp;given<br>
-list&nbsp;and&nbsp;return&nbsp;a&nbsp;DataPortal&nbsp;object&nbsp;suitable&nbsp;for&nbsp;creating&nbsp;a&nbsp;model<br>
-instance.&nbsp;This&nbsp;is&nbsp;implemented&nbsp;as&nbsp;calling&nbsp;the&nbsp;<a href="#-load_inputs">load_inputs</a>()&nbsp;function<br>
-of&nbsp;each&nbsp;module,&nbsp;if&nbsp;the&nbsp;module&nbsp;has&nbsp;that&nbsp;function.<br>
+ <dl><dt><a name="-load_inputs"><strong>load_inputs</strong></a>(model, inputs_dir<font color="#909090">='inputs'</font>, attachDataPortal<font color="#909090">=True</font>)</dt><dd><tt>Load&nbsp;input&nbsp;data&nbsp;for&nbsp;an&nbsp;AbstractModel&nbsp;using&nbsp;the&nbsp;modules&nbsp;in&nbsp;the&nbsp;given<br>
+list&nbsp;and&nbsp;return&nbsp;a&nbsp;model&nbsp;instance.&nbsp;This&nbsp;is&nbsp;implemented&nbsp;as&nbsp;calling&nbsp;the<br>
+<a href="#-load_inputs">load_inputs</a>()&nbsp;function&nbsp;of&nbsp;each&nbsp;module,&nbsp;if&nbsp;the&nbsp;module&nbsp;has&nbsp;that&nbsp;function.<br>
 &nbsp;<br>
 SYNOPSIS:<br>
 &gt;&gt;&gt;&nbsp;from&nbsp;switch_mod.utilities&nbsp;import&nbsp;define_AbstractModel<br>
 &gt;&gt;&gt;&nbsp;model&nbsp;=&nbsp;<a href="#-define_AbstractModel">define_AbstractModel</a>(<br>
 ...&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'switch_mod',&nbsp;'project.no_commit',&nbsp;'fuel_cost')<br>
 &gt;&gt;&gt;&nbsp;instance&nbsp;=&nbsp;model.<a href="#-load_inputs">load_inputs</a>(inputs_dir='test_dat')</tt></dd></dl>
+ <dl><dt><a name="-make_iterable"><strong>make_iterable</strong></a>(item)</dt><dd><tt>Return&nbsp;an&nbsp;iterable&nbsp;for&nbsp;the&nbsp;one&nbsp;or&nbsp;more&nbsp;items&nbsp;passed.</tt></dd></dl>
  <dl><dt><a name="-min_data_check"><strong>min_data_check</strong></a>(model, *mandatory_model_components)</dt><dd><tt>This&nbsp;function&nbsp;checks&nbsp;that&nbsp;an&nbsp;instance&nbsp;of&nbsp;Pyomo&nbsp;abstract&nbsp;model&nbsp;has<br>
 mandatory&nbsp;components&nbsp;defined.&nbsp;If&nbsp;a&nbsp;user&nbsp;attempts&nbsp;to&nbsp;create&nbsp;an<br>
 instance&nbsp;without&nbsp;defining&nbsp;all&nbsp;of&nbsp;the&nbsp;necessary&nbsp;data,&nbsp;this&nbsp;will<br>
@@ -231,6 +235,19 @@ clear&nbsp;and&nbsp;specific&nbsp;message.&nbsp;I&nbsp;could&nbsp;also&nbsp;use&
 logger&nbsp;methods,&nbsp;and&nbsp;rely&nbsp;on&nbsp;BuildCheck&nbsp;to&nbsp;throw&nbsp;an&nbsp;error,&nbsp;but&nbsp;I've<br>
 already&nbsp;implemented&nbsp;this,&nbsp;and&nbsp;those&nbsp;other&nbsp;methods&nbsp;don't&nbsp;offer&nbsp;any&nbsp;clear<br>
 advantages&nbsp;that&nbsp;I&nbsp;can&nbsp;see.</tt></dd></dl>
+ <dl><dt><a name="-save_inputs_as_dat"><strong>save_inputs_as_dat</strong></a>(model, instance, save_path<font color="#909090">='inputs/complete_inputs.dat'</font>, exclude<font color="#909090">=[]</font>)</dt><dd><tt>Save&nbsp;input&nbsp;data&nbsp;to&nbsp;a&nbsp;.dat&nbsp;file&nbsp;for&nbsp;use&nbsp;with&nbsp;PySP&nbsp;or&nbsp;other&nbsp;command&nbsp;line<br>
+tools&nbsp;that&nbsp;have&nbsp;not&nbsp;been&nbsp;fully&nbsp;integrated&nbsp;with&nbsp;DataPortal.<br>
+&nbsp;<br>
+I&nbsp;wrote&nbsp;a&nbsp;test&nbsp;for&nbsp;this&nbsp;in&nbsp;tests.utilites_test.test_save_inputs_as_dat()<br>
+that&nbsp;calls&nbsp;this&nbsp;function,&nbsp;imports&nbsp;the&nbsp;dat&nbsp;file,&nbsp;and&nbsp;verifies&nbsp;it&nbsp;matches<br>
+the&nbsp;original&nbsp;data.<br>
+&nbsp;<br>
+SYNOPSIS:<br>
+&gt;&gt;&gt;&nbsp;from&nbsp;switch_mod.utilities&nbsp;import&nbsp;define_AbstractModel<br>
+&gt;&gt;&gt;&nbsp;model&nbsp;=&nbsp;<a href="#-define_AbstractModel">define_AbstractModel</a>(<br>
+...&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'switch_mod',&nbsp;'project.no_commit',&nbsp;'fuel_cost')<br>
+&gt;&gt;&gt;&nbsp;instance&nbsp;=&nbsp;model.<a href="#-load_inputs">load_inputs</a>(inputs_dir='test_dat')<br>
+&gt;&gt;&gt;&nbsp;<a href="#-save_inputs_as_dat">save_inputs_as_dat</a>(model,&nbsp;instance,&nbsp;save_path="test_dat/complete_inputs.dat")</tt></dd></dl>
  <dl><dt><a name="-save_results"><strong>save_results</strong></a>(model, results, instance, outdir)</dt><dd><tt>Export&nbsp;results&nbsp;in&nbsp;a&nbsp;modular&nbsp;fashion.</tt></dd></dl>
 </td></tr></table><p>
 <table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">

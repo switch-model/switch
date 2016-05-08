@@ -9,7 +9,7 @@
 <td valign=bottom>&nbsp;<br>
 <font color="#ffffff" face="helvetica, arial">&nbsp;<br><big><big><strong><a href="switch_mod.html"><font color="#ffffff">switch_mod</font></a>.<a href="switch_mod.project.html"><font color="#ffffff">project</font></a>.no_commit</strong></big></big></font></td
 ><td align=right valign=bottom
-><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="file:/Users/josiah/src/switch/switch_mod/project/no_commit.py">/Users/josiah/src/switch/switch_mod/project/no_commit.py</a></font></td></tr></table>
+><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="file:/Users/siah/src/switch/switch_mod/project/no_commit.py">/Users/siah/src/switch/switch_mod/project/no_commit.py</a></font></td></tr></table>
     <p><tt>Defines&nbsp;simple&nbsp;limitations&nbsp;on&nbsp;project&nbsp;dispatch&nbsp;without&nbsp;considering&nbsp;unit<br>
 commitment.&nbsp;This&nbsp;module&nbsp;is&nbsp;mutually&nbsp;exclusive&nbsp;with&nbsp;the&nbsp;project.commit<br>
 module&nbsp;which&nbsp;constrains&nbsp;dispatch&nbsp;to&nbsp;unit&nbsp;committment&nbsp;decisions.<br>
@@ -28,10 +28,11 @@ SYNOPSIS<br>
     
 <tr><td bgcolor="#aa55cc"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
 <td width="100%"><table width="100%" summary="list"><tr><td width="25%" valign=top><a href="pyomo.core.base.html">pyomo.core.base</a><br>
+<a href="pyomo.core.beta.html">pyomo.core.beta</a><br>
 </td><td width="25%" valign=top><a href="pyomo.core.data.html">pyomo.core.data</a><br>
-</td><td width="25%" valign=top><a href="pyomo.core.preprocess.html">pyomo.core.preprocess</a><br>
+<a href="pyomo.core.preprocess.html">pyomo.core.preprocess</a><br>
 </td><td width="25%" valign=top><a href="pyomo.html">pyomo</a><br>
-</td></tr></table></td></tr></table><p>
+</td><td width="25%" valign=top></td></tr></table></td></tr></table><p>
 <table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
 <tr bgcolor="#eeaa77">
 <td colspan=3 valign=bottom>&nbsp;<br>
@@ -70,7 +71,11 @@ defined&nbsp;above.<br>
 ProjFuelUseRate_Calculate[(proj,&nbsp;t)&nbsp;in&nbsp;PROJ_DISPATCH_POINTS]<br>
 calculates&nbsp;fuel&nbsp;consumption&nbsp;for&nbsp;the&nbsp;variable&nbsp;ProjFuelUseRate&nbsp;as<br>
 DispatchProj&nbsp;*&nbsp;proj_full_load_heat_rate.&nbsp;The&nbsp;units&nbsp;become:<br>
-MW&nbsp;*&nbsp;(MMBtu&nbsp;/&nbsp;MWh)&nbsp;=&nbsp;MMBTU&nbsp;/&nbsp;h</tt></dd></dl>
+MW&nbsp;*&nbsp;(MMBtu&nbsp;/&nbsp;MWh)&nbsp;=&nbsp;MMBTU&nbsp;/&nbsp;h<br>
+&nbsp;<br>
+DispatchProjByFuel[(proj,&nbsp;t,&nbsp;f)&nbsp;in&nbsp;PROJ_FUEL_DISPATCH_POINTS]<br>
+calculates&nbsp;power&nbsp;production&nbsp;by&nbsp;each&nbsp;project&nbsp;from&nbsp;each&nbsp;fuel&nbsp;during<br>
+each&nbsp;timepoint.</tt></dd></dl>
 </td></tr></table><p>
 <table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
 <tr bgcolor="#55aa55">
