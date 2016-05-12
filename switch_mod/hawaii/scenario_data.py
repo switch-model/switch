@@ -128,7 +128,7 @@ def write_tables(**args):
 
     write_table('non_fuel_energy_sources.tab', """
         SELECT DISTINCT fuel AS "NON_FUEL_ENERGY_SOURCES"
-            FROM generator_costs 
+            FROM generator_info 
             WHERE fuel NOT IN (SELECT fuel_type FROM fuel_costs)
                 AND min_vintage_year <= (SELECT MAX(period) FROM study_periods WHERE time_sample = %(time_sample)s)
         UNION DISTINCT 
@@ -211,7 +211,7 @@ def write_tables(**args):
             WHERE load_zone in %(load_zones)s
                 AND fuel_scen_id = %(fuel_scen_id)s
                 AND p.time_sample = %(time_sample)s
-            ORDER BY 1, 2, 3;
+            ORDER BY 1, 2, 4, 3;
         """.format(inflator=inflator), args)
 
         write_table('lz_to_regional_fuel_market.tab', """
@@ -235,7 +235,7 @@ def write_tables(**args):
     # TODO: make sure the heat rates are null for non-fuel projects in the upstream database, 
     # and remove the correction code from here
     # TODO: create heat_rate and fuel columns in the existing_plants_gen_tech table and simplify the query below.
-    # TODO: add unit sizes for new projects to the generator_costs table (new projects) from
+    # TODO: add unit sizes for new projects to the generator_info table (new projects) from
     # Switch-Hawaii/data/HECO\ IRP\ Report/IRP-2013-App-K-Supply-Side-Resource-Assessment-062813-Filed.pdf
     # and then incorporate those into unit_sizes.tab below.
     # NOTE: this converts variable o&m from $/kWh to $/MWh
@@ -255,6 +255,7 @@ def write_tables(**args):
     write_table('generator_info.tab', """
         SELECT  technology as generation_technology, 
                 technology as g_dbid,
+                unit_size as g_unit_size,
                 max_age_years as g_max_age, 
                 scheduled_outage_rate as g_scheduled_outage_rate, 
                 forced_outage_rate as g_forced_outage_rate,
@@ -263,16 +264,17 @@ def write_tables(**args):
                 0 as g_is_flexible_baseload, 
                 0 as g_is_cogen,
                 0 as g_competes_for_space, 
-                CASE WHEN fuel IN ('SUN', 'WND') THEN 0 ELSE variable_o_m * 1000.0 END AS g_variable_o_m,
+                variable_o_m * 1000.0 AS g_variable_o_m,
                 CASE WHEN fuel IN ('SUN', 'WND', 'MSW') THEN fuel ELSE 'multiple' END AS g_energy_source,
                 CASE WHEN fuel IN ('SUN', 'WND', 'MSW') THEN null ELSE 0.001*heat_rate END AS g_full_load_heat_rate,
                 null AS g_unit_size
-            FROM generator_costs
+            FROM generator_info
             WHERE technology NOT IN %(exclude_technologies)s
                 AND min_vintage_year <= (SELECT MAX(period) FROM study_periods WHERE time_sample = %(time_sample)s)
         UNION SELECT
                 g.technology as generation_technology, 
                 g.technology as g_dbid, 
+                cast(null as float) as g_unit_size,
                 -- formerly g.max_age + 100 as g_max_age, 
                 g.max_age as g_max_age, 
                 g.scheduled_outage_rate as g_scheduled_outage_rate, 
@@ -293,7 +295,7 @@ def write_tables(**args):
             WHERE p.load_zone in %(load_zones)s
                 AND p.insvyear <= (SELECT MAX(period) FROM study_periods WHERE time_sample = %(time_sample)s)
                 AND g.technology NOT IN %(exclude_technologies)s
-            GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+            GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
         ORDER BY 1;
     """, args)
 
@@ -311,7 +313,7 @@ def write_tables(**args):
                 technology as generation_technology,
                 fuel as orig_fuel,
                 0 as cogen
-            FROM generator_costs c
+            FROM generator_info c
             WHERE min_vintage_year <= (SELECT MAX(period) FROM study_periods WHERE time_sample = %(time_sample)s)
                 AND technology NOT IN %(exclude_technologies)s
             UNION DISTINCT
@@ -343,31 +345,32 @@ def write_tables(**args):
     # NOTE: we divide heat rate by 1000 to convert from Btu/kWh to MBtu/MWh
 
 
-    inflator = "power(1.0 + CASE fuel"
-    if 'wind_capital_cost_escalator' in args or 'pv_capital_cost_escalator' in args:
-        if 'wind_capital_cost_escalator' in args:
-            inflator += " WHEN 'WND' THEN %(wind_capital_cost_escalator)s"
-        if 'pv_capital_cost_escalator' in args:
-            inflator += " WHEN 'SUN' THEN %(pv_capital_cost_escalator)s"
-        inflator += ' ELSE 0.0 END, period - %(base_financial_year)s)'
-    else:
-        inflator = "1.0"
+    if args.get('wind_capital_cost_escalator', 0.0) or args.get('pv_capital_cost_escalator', 0.0):
+        # user supplied a non-zero escalator
+        raise ValueError(
+            'wind_capital_cost_escalator and pv_capital_cost_escalator arguments are '
+            'no longer supported by scenario_data.write_tables(); '
+            'assign variable costs in the generator_costs_by_year table instead.'
+        )
 
     # note: this table can only hold costs for technologies with future build years,
     # so costs for existing technologies are specified in proj_build_costs.tab
     # NOTE: costs in this version of switch are expressed in $/MW, $/MW-year, etc., not per kW.
     write_table('gen_new_build_costs.tab', """
         SELECT  
-            technology as generation_technology, 
+            i.technology as generation_technology, 
             period AS investment_period,
-            capital_cost_per_kw * 1000.0 * {inflator} AS g_overnight_cost, 
+            capital_cost_per_kw * 1000.0 * power(1.0+%(inflation_rate)s, %(base_financial_year)s-c.year)
+                AS g_overnight_cost, 
             fixed_o_m*1000.0 AS g_fixed_o_m
-        FROM generator_costs, study_periods
-        WHERE technology NOT IN %(exclude_technologies)s
+        FROM generator_info i
+            JOIN generator_costs_by_year c USING (technology)
+            JOIN study_periods p ON p.period = c.year
+        WHERE i.technology NOT IN %(exclude_technologies)s
             AND time_sample = %(time_sample)s
             AND min_vintage_year <= (SELECT MAX(period) FROM study_periods WHERE time_sample = %(time_sample)s)
         ORDER BY 1, 2;
-    """.format(inflator=inflator), args)
+    """, args)
 
 
 
@@ -377,13 +380,13 @@ def write_tables(**args):
     # TODO: find connection costs and add them to the switch database (currently all zeroes)
     # TODO: find out why exissting wind and solar projects have non-zero variable O&M in the switch 
     # database, and zero them out there instead of here.
-    # NOTE: if a generator technology in the generator_costs table doesn't have a match in the connect_cost
-    # table, we use the generic_cost_per_kw from the generator_costs table. If that is also null,
+    # NOTE: if a generator technology in the generator_info table doesn't have a match in the connect_cost
+    # table, we use the generic_cost_per_kw from the generator_info table. If that is also null,
     # then the connection cost will be given whatever default value is specified in the SWITCH code
     # (probably zero).
     # If individual projects are identified in connect_cost or max_capacity, we use those;
     # then we also add generic projects in each load_zone for any technologies that are not
-    # marked as resource_limited in generator_costs.
+    # marked as resource_limited in generator_info.
     # NOTE: if a technology ever appears in either max_capacity or connect_cost, then
     # every possible project of that type should be recorded in that table. 
     # Technologies that don't appear in these tables are deemed generic projects,
@@ -399,6 +402,11 @@ def write_tables(**args):
     # table (aggregated by technology instead of project). That is where we put the variable costs for new projects.
     # NOTE: we convert costs from $/kWh to $/MWh
 
+    if args.get('connect_cost_per_mw_km', 0):
+        print(
+            "WARNING: ignoring connect_cost_per_mw_km specified in arguments; "
+            "using connect_cost.connect_cost_per_kw instead."
+        )
     write_table('project_info.tab', """
             -- make a list of all projects with detailed definitions (and gather the available data)
             DROP TABLE IF EXISTS t_specific_projects;
@@ -412,9 +420,10 @@ def write_tables(**args):
                     ) AS "PROJECT",
                     COALESCE(m.load_zone, c.load_zone) as proj_load_zone,
                     COALESCE(m.technology, c.technology) AS proj_gen_tech,
-                    %(connect_cost_per_mw_km)s*connect_length_km + 1000.0*connect_cost_per_kw as proj_connect_cost_per_mw,
+                    1000.0*connect_cost_per_kw as proj_connect_cost_per_mw,
                     max_capacity as proj_capacity_limit_mw
-                FROM connect_cost c FULL JOIN max_capacity m USING (load_zone, technology, site, orientation);
+                FROM connect_cost c 
+                    FULL JOIN max_capacity m USING (load_zone, technology, site, orientation);
 
             -- make a list of generic projects (for which no detailed definitions are available)
             DROP TABLE IF EXISTS t_generic_projects;
@@ -425,7 +434,7 @@ def write_tables(**args):
                     technology AS proj_gen_tech,
                     cast(null as float) AS proj_connect_cost_per_mw,
                     cast(null as float) AS proj_capacity_limit_mw
-                FROM generator_costs g
+                FROM generator_info g
                     CROSS JOIN (SELECT DISTINCT load_zone FROM system_load) z
                 WHERE g.technology NOT IN (SELECT proj_gen_tech FROM t_specific_projects);
         
@@ -434,7 +443,7 @@ def write_tables(**args):
             CREATE TEMPORARY TABLE t_all_projects AS
             SELECT * FROM t_specific_projects UNION SELECT * from t_generic_projects;
         
-            -- collect extra data from the generator_costs table and filter out disallowed projects
+            -- collect extra data from the generator_info table and filter out disallowed projects
             SELECT
                 a."PROJECT", 
                 null as proj_dbid,
@@ -443,7 +452,7 @@ def write_tables(**args):
                 COALESCE(a.proj_connect_cost_per_mw, 1000.0*g.connect_cost_per_kw_generic, 0.0) AS proj_connect_cost_per_mw,
                 a.proj_capacity_limit_mw,
                 cast(null as float) AS proj_variable_om    -- this is supplied in generator_info.tab for new projects
-            FROM t_all_projects a JOIN generator_costs g on g.technology=a.proj_gen_tech
+            FROM t_all_projects a JOIN generator_info g on g.technology=a.proj_gen_tech
             WHERE a.proj_load_zone IN %(load_zones)s
                 AND g.min_vintage_year <= (SELECT MAX(period) FROM study_periods WHERE time_sample = %(time_sample)s)
                 AND g.technology NOT IN %(exclude_technologies)s
@@ -506,7 +515,7 @@ def write_tables(**args):
                 concat_ws('_', load_zone, technology, site, orientation) as "PROJECT",
                 study_hour as timepoint,
                 cap_factor as proj_max_capacity_factor
-            FROM generator_costs g JOIN cap_factor c USING (technology)
+            FROM generator_info g JOIN cap_factor c USING (technology)
                 JOIN study_hour h using (date_time)
             WHERE load_zone in %(load_zones)s and time_sample = %(time_sample)s
                 AND min_vintage_year <= (SELECT MAX(period) FROM study_periods WHERE time_sample = %(time_sample)s)
@@ -568,7 +577,7 @@ def write_tables(**args):
     #         min_load / unit_size AS g_min_load_fraction, 
     #         null AS g_startup_fuel,
     #         null AS g_startup_om
-    #     FROM generator_costs
+    #     FROM generator_info
     #     UNION SELECT DISTINCT
     #         technology AS generation_technology, 
     #         sum(min_load) / sum(peak_mw) AS g_min_load_fraction, 
@@ -624,11 +633,21 @@ def write_tables(**args):
     #########################
     # batteries
     # TODO: put these data in a database and write a .tab file instead
+    bat_years = 'BATTERY_CAPITAL_COST_YEARS'
+    bat_cost = 'battery_capital_cost_per_mwh_capacity_by_year'
     write_dat_file(
         'batteries.dat',
-        sorted([k for k in args if k.startswith('battery_')]),
+        sorted([k for k in args if k.startswith('battery_') and k not in [bat_years, bat_cost]]),
         args
     )
+    if bat_years in args and bat_cost in args:
+        # annual costs were provided -- write those to a tab file
+        write_tab_file(
+            'battery_capital_cost.tab',
+            headers=[bat_years, bat_cost],
+            data=zip(args[bat_years], args[bat_cost]),
+            arguments=args
+        )
 
     #########################
     # EV annual energy consumption

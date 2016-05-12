@@ -114,12 +114,15 @@ def DispatchProjByFuel(m, proj, tp, fuel):
     project.no_commit, not project.unitcommit.fuel_use. In the unit commitment version
     it can only be defined as a quadratically constrained variable, which we don't
     want to force on all users."""
-    if value(m.DispatchProj[proj, tp] * m.ProjFuelUseRate[proj, tp, fuel]) == 0.0:
+    dispatch = m.DispatchProj[proj, tp] if (proj, tp) in m.DispatchProj else 0.0
+    if value(dispatch) == 0.0:
         result = 0.0
     else:
+        # allocate power production proportional to amount of each fuel used
+        # note: the sum of all fuels used should never be zero when dispatch is non-zero
         result = value(
-            m.DispatchProj[proj, tp]
-            * m.ProjFuelUseRate[proj, tp, fuel]
+            dispatch 
+            * m.ProjFuelUseRate[proj, tp, fuel] 
             / sum(m.ProjFuelUseRate[proj, tp, f] for f in m.G_FUELS[m.proj_gen_tech[proj]])
         )
     return result
@@ -267,12 +270,19 @@ def write_results(m, outputs_dir):
             sum(
                 m.BuildProj[pr, pe] * (m.proj_overnight_cost[pr, pe] + m.proj_connect_cost_per_mw[pr])
                     for pr in built_proj 
-                        if m.proj_gen_tech[pr] == t and m.proj_load_zone[pr] == z and (pr, pe) in m.PROJECT_BUILDYEARS
+                        if m.proj_gen_tech[pr] == t and m.proj_load_zone[pr] == z \
+                            and (pr, pe) in m.PROJECT_BUILDYEARS
             )
             for t in built_tech
         ]
         # batteries
-        values.append(m.BuildBattery[z, pe] * m.battery_capital_cost_per_mwh_capacity if hasattr(m, "BuildBattery") else 0.0)
+        if hasattr(m, 'battery_capital_cost_per_mwh_capacity'): 
+            # models with single capital cost (defunct)
+            values.append(m.BuildBattery[z, pe] * m.battery_capital_cost_per_mwh_capacity)
+        elif hasattr(m, 'battery_capital_cost_per_mwh_capacity_by_year'): 
+            values.append(m.BuildBattery[z, pe] * m.battery_capital_cost_per_mwh_capacity_by_year[pe])
+        else:
+            values.append(0.0)
         # hydro
         values.append(
             sum(
