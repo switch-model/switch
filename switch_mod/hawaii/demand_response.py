@@ -69,7 +69,7 @@ def define_components(m):
     ##################
 
     # cost per MWh for unserved load (high)
-    m.dr_unserved_load_penalty_per_mwh = Param(initialize=10000)
+    m.dr_unserved_load_penalty_per_mwh = Param(default=10000)
     # amount of unserved load during each timepoint
     m.DRUnservedLoad = Var(m.LOAD_ZONES, m.TIMEPOINTS, within=NonNegativeReals)
     # total cost for unserved load
