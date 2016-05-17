@@ -356,11 +356,13 @@ def write_tables(**args):
     # note: this table can only hold costs for technologies with future build years,
     # so costs for existing technologies are specified in proj_build_costs.tab
     # NOTE: costs in this version of switch are expressed in $/MW, $/MW-year, etc., not per kW.
+    # TODO: store generator costs base year in a table, not an argument
     write_table('gen_new_build_costs.tab', """
         SELECT  
             i.technology as generation_technology, 
             period AS investment_period,
-            capital_cost_per_kw * 1000.0 * power(1.0+%(inflation_rate)s, %(base_financial_year)s-c.year)
+            capital_cost_per_kw * 1000.0 
+                * power(1.0+%(inflation_rate)s, %(base_financial_year)s-%(generator_costs_base_year)s)
                 AS g_overnight_cost, 
             fixed_o_m*1000.0 AS g_fixed_o_m
         FROM generator_info i
