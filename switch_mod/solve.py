@@ -44,6 +44,7 @@ def main(args=None, return_model=False, return_instance=False):
 
     # create an instance
     instance = model.load_inputs()
+    instance.pre_solve()
     
     # return the instance as-is if requested
     if return_instance:
