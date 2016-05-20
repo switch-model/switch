@@ -192,7 +192,7 @@ def define_components(mod):
             (tx, 'Legacy') for tx in m.TRANSMISSION_LINES))
     mod.existing_trans_cap = Param(
         mod.TRANSMISSION_LINES,
-        within=PositiveReals)
+        within=NonNegativeReals)
     mod.min_data_check(
         'trans_length_km', 'trans_efficiency', 'EXISTING_TRANS_BLD_YRS',
         'existing_trans_cap')
@@ -236,7 +236,7 @@ def define_components(mod):
     mod.TransCapacityAvailable = Expression(
         mod.TRANSMISSION_LINES, mod.PERIODS,
         rule=lambda m, tx, period: (
-            m.TransCapacity[tx, period] * m.trans_derating_factor[tx]))
+            m.TransCapacity[tx, period] * (1 - m.trans_derating_factor[tx])))
     mod.trans_terrain_multiplier = Param(
         mod.TRANSMISSION_LINES,
         within=Reals,
@@ -251,7 +251,7 @@ def define_components(mod):
     mod.trans_fixed_o_m_fraction = Param(
         within=PositiveReals,
         default=0.03)
-    # Total annaul fixed costs for building new transmission lines...
+    # Total annual fixed costs for building new transmission lines...
     # Multiply capital costs by capital recover factor to get annual
     # payments. Add annual fixed O&M that are expressed as a fraction of
     # overnight costs.
@@ -260,7 +260,7 @@ def define_components(mod):
         within=PositiveReals,
         initialize=lambda m, tx: (
             m.trans_capital_cost_per_mw_km * m.trans_terrain_multiplier[tx] *
-            (crf(m.interest_rate, m.trans_lifetime_yrs) +
+            m..trans_length_km[tx] * m.(crf(m.interest_rate, m.trans_lifetime_yrs) +
                 m.trans_fixed_o_m_fraction)))
     # An expression to summarize annual costs for the objective
     # function. Units should be total annual future costs in $base_year
@@ -318,7 +318,7 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     trans_params.dat
         trans_capital_cost_per_mw_km, trans_lifetime_yrs,
-        trans_fixed_o_m_fraction, distribution_losses
+        trans_fixed_o_m_fraction, distribution_loss_rate
 
 
     """
