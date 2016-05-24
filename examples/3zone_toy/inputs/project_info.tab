@@ -15,8 +15,6 @@ N-Central_PV-1	Central_PV	North	51272	3	.	.	3
 N-Central_PV-2	Central_PV	North	101661	2	.	.	2
 N-Wind-1	Wind	North	71602	4	.	.	4
 N-Wind-2	Wind	North	80259	1	.	.	1
-N-NG_GT_CAES_cavern	NG_GT_CAES_cavern	North	57566.6	.	.	.	.
-N-Battery_Storage	Battery_Storage	North	57566.6	.	.	.	.
 C-Coal_IGCC	Coal_IGCC	Central	57566.6	.	.	.	.
 C-Coal_ST	Coal_ST	Central	57566.6	.	9.5	3.6	.
 C-NG_CC	NG_CC	Central	57566.6	.	.	.	.
@@ -29,8 +27,6 @@ C-Central_PV-1	Central_PV	Central	122526.8	2	.	.	2
 C-Central_PV-2	Central_PV	Central	45197.2	3	.	.	3
 C-Wind-1	Wind	Central	72541.5	4	.	.	4
 C-Wind-2	Wind	Central	77892.2	3	.	.	3
-C-NG_GT_CAES_cavern	NG_GT_CAES_cavern	Central	57566.6	.	.	.	.
-C-Battery_Storage	Battery_Storage	Central	57566.6	.	.	.	.
 S-Geothermal	Geothermal	South	134222	3	.	.	3
 S-NG_CC	NG_CC	South	57566.6	.	.	.	.
 S-NG_CC_CCS	NG_CC_CCS	South	57566.6	.	.	.	.
@@ -41,5 +37,3 @@ S-Residential_PV	Residential_PV	South	0	3	.	.	3
 S-Commercial_PV	Commercial_PV	South	0	3.3	.	.	3.3
 S-Central_PV-1	Central_PV	South	74881.9	0.8	.	.	0.8
 S-Central_PV-2	Central_PV	South	65370.3	0.4	.	.	0.4
-S-NG_GT_CAES_cavern	NG_GT_CAES_cavern	South	57566.6	1	.	.	1
-S-Battery_Storage	Battery_Storage	South	57566.6	.	.	.	.

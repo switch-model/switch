@@ -457,7 +457,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     Optional columns are:
         proj_dbid, proj_capacity_limit_mw
 
-    existing_projects.tab
+    prok_existing_builds.tab
         PROJECT, build_year, proj_existing_cap
 
     cap_limited_projects is optional because some systems will not have
@@ -468,7 +468,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     cost adjustments will not be applied to any costs specified in
     project_specific_costs.
 
-    project_specific_costs.tab
+    project_build_costs.tab
         PROJECT, build_year, proj_overnight_cost, proj_fixed_om
 
     """

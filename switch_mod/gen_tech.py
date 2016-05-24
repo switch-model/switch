@@ -390,7 +390,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     gen_new_build_costs is optional to support production cost
     simulations where all projects were built before the start of the
     first period. In that context, all existing projects could
-    reasonably have costs specified in project_specific_costs.tab
+    reasonably have costs specified in project_build_costs.tab
 
     gen_new_build_costs.tab
         generation_technology, investment_period,
