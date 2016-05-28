@@ -401,7 +401,7 @@ def define_components(mod):
         else:
             raise ValueError(
                 ("No fixed O & M costs were provided for project {} " +
-                 "or its generation technology {}.").format(pr, g))
+                 "or its generation technology {}.").format(proj, g))
     mod.proj_fixed_om = Param(
         mod.PROJECT_BUILDYEARS,
         within=NonNegativeReals,
