@@ -234,6 +234,7 @@ def save_results(model, results, instance, outdir):
             print "Model solved successfully."
         _save_results(model, instance, outdir, model.module_list)
         _save_generic_results(instance, outdir)
+        _save_total_cost_value(instance, outdir)
 
     return success
 
@@ -550,6 +551,14 @@ def _save_generic_results(instance, outdir):
                             [var.name])
             for key, v in var.iteritems():
                 writer.writerow(tuple(make_iterable(key)) + (v.value,))
+
+
+def _save_total_cost_value(instance, outdir):
+    values = instance.Minimize_System_Cost.values()
+    assert len(values) == 1
+    total_cost = values[0].expr()
+    with open(os.path.join(outdir, 'total_cost.txt'), 'w') as fh:
+        fh.write('%s\n' % total_cost)
 
 
 class InputError(Exception):
