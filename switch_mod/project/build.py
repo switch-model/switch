@@ -457,7 +457,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     Optional columns are:
         proj_dbid, proj_capacity_limit_mw
 
-    prok_existing_builds.tab
+    proj_existing_builds.tab
         PROJECT, build_year, proj_existing_cap
 
     cap_limited_projects is optional because some systems will not have
