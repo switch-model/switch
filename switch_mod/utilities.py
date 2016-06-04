@@ -582,8 +582,7 @@ def load_aug(switch_data, optional=False, auto_select=False,
 
     This is a wrapper for the DataPortal object that accepts additional
     keywords. This currently supports a flag for the file being optional.
-    In the future, this could also support a list of optional columns.
-    The name is not great and may be changed as well.
+    The name load_aug() is not great and may be changed.
 
     """
     path = kwds['filename']
