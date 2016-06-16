@@ -1,0 +1,314 @@
+param trans_lz2 := C-S "South" N-C "Central";
+set GEN_TECH_STORAGE := ;
+set TIMESERIES := 2020_01winter 2020_06summer 2030_all;
+param ts_scale_to_period := 2020_01winter 913.12 2020_06summer 1826.25 2030_all 3652.5;
+param ts_duration_of_tp := 2020_01winter 12 2020_06summer 12 2030_all 24;
+param tp_timestamp := 1 2025011500 2 2025011512 3 2025011600 4 2025011612 5 2025061500 6 2025061512 7 2035011512;
+set LOAD_ZONES := North Central South;
+param proj_gen_tech := N-Nuclear "Nuclear" C-Nuclear "Nuclear" S-Biomass_IGCC_CCS "Biomass_IGCC_CCS" N-Geothermal "Geothermal" S-Commercial_PV "Commercial_PV" C-Coal_IGCC "Coal_IGCC" C-NG_GT "NG_GT" N-NG_CC_CCS "NG_CC_CCS" N-Biomass_IGCC_CCS "Biomass_IGCC_CCS" C-NG_CC "NG_CC" N-NG_GT "NG_GT" N-Wind-2 "Wind" N-Wind-1 "Wind" S-Biomass_IGCC "Biomass_IGCC" C-Wind-1 "Wind" N-Coal_ST "Coal_ST" N-NG_CC "NG_CC" C-Wind-2 "Wind" C-Biomass_IGCC "Biomass_IGCC" N-Residential_PV "Residential_PV" S-Residential_PV "Residential_PV" C-Central_PV-1 "Central_PV" C-Central_PV-2 "Central_PV" N-Coal_IGCC_CCS "Coal_IGCC_CCS" C-Commercial_PV "Commercial_PV" S-NG_GT "NG_GT" N-Biomass_IGCC "Biomass_IGCC" S-NG_CC_CCS "NG_CC_CCS" S-NG_CC "NG_CC" N-Central_PV-2 "Central_PV" N-Coal_IGCC "Coal_IGCC" N-Central_PV-1 "Central_PV" C-Coal_ST "Coal_ST" S-Geothermal "Geothermal" N-Commercial_PV "Commercial_PV" C-Residential_PV "Residential_PV" S-Central_PV-1 "Central_PV" S-Central_PV-2 "Central_PV";
+param proj_capacity_limit_mw := N-Geothermal 1.5 N-Central_PV-1 3 N-Wind-2 1 N-Wind-1 4 S-Commercial_PV 3.3 N-Residential_PV 1.5 S-Residential_PV 3 C-Central_PV-1 2 C-Central_PV-2 3 N-Central_PV-2 2 C-Wind-1 4 N-Commercial_PV 2 C-Wind-2 3 C-Commercial_PV 0.7 S-NG_GT 5 C-Residential_PV 0.5 S-Central_PV-1 0.8 S-Geothermal 3 S-Central_PV-2 0.4;
+set GEN_TECH_WITH_UNIT_SIZES := Coal_IGCC;
+param g_competes_for_space := Biomass_IGCC_CCS 0 FuelOil_GT 0 NG_CC 0 Nuclear 0 Coal_ST 0 NG_CC_CCS 0 Coal_IGCC 0 Geothermal 0 Coal_IGCC_CCS 0 Commercial_PV 1 Biomass_IGCC 0 Residential_PV 1 NG_GT 0 Central_PV 1 Wind 0;
+param ts_num_tps := 2020_01winter 4 2020_06summer 2 2030_all 1;
+param discount_rate := 0.05;
+set EXISTING_PROJ_BUILDYEARS := ('N-Coal_ST', 1995) ('N-Geothermal', 2000) ('N-NG_CC', 2008) ('N-NG_GT', 2009) ('C-Coal_ST', 1985) ('C-NG_CC', 2005) ('C-NG_GT', 2005) ('S-Geothermal', 1998) ('S-NG_CC', 2000) ('S-NG_GT', 1990) ('S-NG_GT', 2002);
+param proj_max_capacity_factor := 
+ C-Central_PV-1 1 0.0
+ C-Central_PV-1 2 0.61
+ C-Central_PV-1 3 0.0
+ C-Central_PV-1 4 0.64
+ C-Central_PV-1 5 0.0
+ C-Central_PV-1 6 0.79
+ C-Central_PV-1 7 0.39
+ C-Central_PV-2 1 0.0
+ C-Central_PV-2 2 0.64
+ C-Central_PV-2 3 0.0
+ C-Central_PV-2 4 0.68
+ C-Central_PV-2 5 0.0
+ C-Central_PV-2 6 0.72
+ C-Central_PV-2 7 0.41
+ C-Commercial_PV 1 0.0
+ C-Commercial_PV 2 0.61
+ C-Commercial_PV 3 0.0
+ C-Commercial_PV 4 0.66
+ C-Commercial_PV 5 0.0
+ C-Commercial_PV 6 0.74
+ C-Commercial_PV 7 0.4
+ C-Residential_PV 1 0.0
+ C-Residential_PV 2 0.59
+ C-Residential_PV 3 0.0
+ C-Residential_PV 4 0.64
+ C-Residential_PV 5 0.0
+ C-Residential_PV 6 0.74
+ C-Residential_PV 7 0.34
+ C-Wind-1 1 0.66
+ C-Wind-1 2 0.4
+ C-Wind-1 3 0.73
+ C-Wind-1 4 0.5
+ C-Wind-1 5 0.22
+ C-Wind-1 6 0.05
+ C-Wind-1 7 0.8
+ C-Wind-2 1 0.62
+ C-Wind-2 2 0.36
+ C-Wind-2 3 0.66
+ C-Wind-2 4 0.48
+ C-Wind-2 5 0.14
+ C-Wind-2 6 0.05
+ C-Wind-2 7 0.86
+ N-Central_PV-1 1 0.0
+ N-Central_PV-1 2 0.56
+ N-Central_PV-1 3 0.0
+ N-Central_PV-1 4 0.62
+ N-Central_PV-1 5 0.0
+ N-Central_PV-1 6 0.73
+ N-Central_PV-1 7 0.41
+ N-Central_PV-2 1 0.0
+ N-Central_PV-2 2 0.6
+ N-Central_PV-2 3 0.0
+ N-Central_PV-2 4 0.61
+ N-Central_PV-2 5 0.0
+ N-Central_PV-2 6 0.81
+ N-Central_PV-2 7 0.36
+ N-Commercial_PV 1 0.0
+ N-Commercial_PV 2 0.65
+ N-Commercial_PV 3 0.0
+ N-Commercial_PV 4 0.66
+ N-Commercial_PV 5 0.0
+ N-Commercial_PV 6 0.73
+ N-Commercial_PV 7 0.38
+ N-Residential_PV 1 0.0
+ N-Residential_PV 2 0.55
+ N-Residential_PV 3 0.0
+ N-Residential_PV 4 0.6
+ N-Residential_PV 5 0.0
+ N-Residential_PV 6 0.72
+ N-Residential_PV 7 0.33
+ N-Wind-1 1 0.6
+ N-Wind-1 2 0.3
+ N-Wind-1 3 0.65
+ N-Wind-1 4 0.42
+ N-Wind-1 5 0.12
+ N-Wind-1 6 0.05
+ N-Wind-1 7 0.8
+ N-Wind-2 1 0.68
+ N-Wind-2 2 0.33
+ N-Wind-2 3 0.71
+ N-Wind-2 4 0.46
+ N-Wind-2 5 0.17
+ N-Wind-2 6 0.13
+ N-Wind-2 7 0.87
+ S-Central_PV-1 1 0.0
+ S-Central_PV-1 2 0.61
+ S-Central_PV-1 3 0.0
+ S-Central_PV-1 4 0.7
+ S-Central_PV-1 5 0.0
+ S-Central_PV-1 6 0.75
+ S-Central_PV-1 7 0.37
+ S-Central_PV-2 1 0.0
+ S-Central_PV-2 2 0.64
+ S-Central_PV-2 3 0.0
+ S-Central_PV-2 4 0.63
+ S-Central_PV-2 5 0.0
+ S-Central_PV-2 6 0.74
+ S-Central_PV-2 7 0.4
+ S-Commercial_PV 1 0.0
+ S-Commercial_PV 2 0.57
+ S-Commercial_PV 3 0.0
+ S-Commercial_PV 4 0.63
+ S-Commercial_PV 5 0.0
+ S-Commercial_PV 6 0.79
+ S-Commercial_PV 7 0.34
+ S-Residential_PV 1 0.0
+ S-Residential_PV 2 0.57
+ S-Residential_PV 3 0.0
+ S-Residential_PV 4 0.66
+ S-Residential_PV 5 0.0
+ S-Residential_PV 6 0.75
+ S-Residential_PV 7 0.34
+;
+set PROJECTS := N-Geothermal N-Coal_IGCC N-Coal_IGCC_CCS N-Coal_ST N-NG_CC N-NG_CC_CCS N-NG_GT N-Nuclear N-Biomass_IGCC N-Biomass_IGCC_CCS N-Residential_PV N-Commercial_PV N-Central_PV-1 N-Central_PV-2 N-Wind-1 N-Wind-2 C-Coal_IGCC C-Coal_ST C-NG_CC C-NG_GT C-Nuclear C-Biomass_IGCC C-Residential_PV C-Commercial_PV C-Central_PV-1 C-Central_PV-2 C-Wind-1 C-Wind-2 S-Geothermal S-NG_CC S-NG_CC_CCS S-NG_GT S-Biomass_IGCC S-Biomass_IGCC_CCS S-Residential_PV S-Commercial_PV S-Central_PV-1 S-Central_PV-2;
+param lz_demand_mw := 
+ Central 1 3.7
+ Central 2 3
+ Central 3 3.6
+ Central 4 3.3
+ Central 5 3
+ Central 6 4
+ Central 7 4.6
+ North 1 5
+ North 2 4
+ North 3 4.5
+ North 4 4.2
+ North 5 4
+ North 6 6
+ North 7 6
+ South 1 6
+ South 2 7
+ South 3 6.5
+ South 4 7.2
+ South 5 8
+ South 6 10
+ South 7 10.5
+;
+param g_ccs_energy_load := NG_CC_CCS 0.334821429 Coal_IGCC_CCS 0.234104046 Biomass_IGCC_CCS 0.234115557;
+param g_overnight_cost := 
+ Biomass_IGCC 2020 3561900
+ Biomass_IGCC 2030 3561900
+ Biomass_IGCC_CCS 2030 5970600
+ Central_PV 2020 2334300
+ Central_PV 2030 2148300
+ Coal_IGCC 2020 3729300
+ Coal_IGCC 2030 3729300
+ Coal_IGCC_CCS 2030 6138000
+ Commercial_PV 2020 3106200
+ Commercial_PV 2030 2752800
+ Geothermal 2020 5524200
+ Geothermal 2030 5524200
+ NG_CC 2020 1143900
+ NG_CC 2030 1143900
+ NG_CC_CCS 2030 3487500
+ NG_GT 2020 605430
+ NG_GT 2030 605430
+ Nuclear 2030 5673000
+ Residential_PV 2020 3487500
+ Residential_PV 2030 3059700
+ Wind 2020 1841400
+ Wind 2030 1841400
+;
+set FUELS := Coal ResidualFuelOil DistillateFuelOil NaturalGas Uranium BioSolid;
+param g_max_age := Biomass_IGCC_CCS 40 FuelOil_GT 20 NG_CC 20 Nuclear 40 Coal_ST 40 NG_CC_CCS 20 Coal_IGCC 40 Geothermal 30 Coal_IGCC_CCS 40 Commercial_PV 20 Biomass_IGCC 40 Residential_PV 20 NG_GT 20 Central_PV 20 Wind 30;
+set FUEL_AVAILABILITY := ('North', 'Uranium', 2020) ('Central', 'Uranium', 2020) ('South', 'Uranium', 2020) ('North', 'Uranium', 2030) ('Central', 'Uranium', 2030) ('South', 'Uranium', 2030) ('North', 'Coal', 2020) ('Central', 'Coal', 2020) ('North', 'Coal', 2030) ('Central', 'Coal', 2030) ('North', 'NaturalGas', 2020) ('Central', 'NaturalGas', 2020) ('South', 'NaturalGas', 2020) ('North', 'NaturalGas', 2030) ('Central', 'NaturalGas', 2030) ('South', 'NaturalGas', 2030) ('North', 'BioSolid', 2020) ('Central', 'BioSolid', 2020) ('South', 'BioSolid', 2020) ('North', 'BioSolid', 2030) ('Central', 'BioSolid', 2030) ('South', 'BioSolid', 2030);
+param interest_rate := 0.07;
+param ts_period := 2020_01winter 2020 2020_06summer 2020 2030_all 2030;
+param trans_efficiency := C-S 0.94 N-C 0.96;
+param lz_cost_multipliers := North 1 Central 0.8 South 1.2;
+param g_is_cogen := Biomass_IGCC_CCS 0 FuelOil_GT 0 NG_CC 0 Nuclear 0 Coal_ST 0 NG_CC_CCS 0 Coal_IGCC 0 Geothermal 0 Coal_IGCC_CCS 0 Commercial_PV 0 Biomass_IGCC 0 Residential_PV 0 NG_GT 0 Central_PV 0 Wind 0;
+param period_end := 2020 2026 2030 2036;
+param proj_connect_cost_per_mw := N-Nuclear 57566.6 C-Nuclear 57566.6 S-Biomass_IGCC_CCS 57566.6 N-Geothermal 163081.1 S-Commercial_PV 0 C-Coal_IGCC 57566.6 C-NG_GT 57566.6 N-NG_CC_CCS 57566.6 N-Biomass_IGCC_CCS 57566.6 C-NG_CC 57566.6 N-NG_GT 57566.6 N-Wind-2 80259 N-Wind-1 71602 S-Biomass_IGCC 57566.6 C-Wind-1 72541.5 N-Coal_ST 57566.6 N-NG_CC 57566.6 C-Wind-2 77892.2 C-Biomass_IGCC 57566.6 N-Residential_PV 0 S-Residential_PV 0 C-Central_PV-1 122526.8 C-Central_PV-2 45197.2 N-Coal_IGCC_CCS 57566.6 C-Commercial_PV 0 S-NG_GT 57566.6 N-Biomass_IGCC 57566.6 S-NG_CC_CCS 57566.6 S-NG_CC 57566.6 N-Central_PV-2 101661 N-Coal_IGCC 57566.6 N-Central_PV-1 51272 C-Coal_ST 57566.6 S-Geothermal 134222 N-Commercial_PV 0 C-Residential_PV 0 S-Central_PV-1 74881.9 S-Central_PV-2 65370.3;
+param g_unit_size := Coal_IGCC 10;
+param g_ccs_capture_efficiency := NG_CC_CCS 0.85 Coal_IGCC_CCS 0.85 Biomass_IGCC_CCS 0.85;
+param g_variable_o_m := Biomass_IGCC_CCS 20.1307 FuelOil_GT 27.807 NG_CC 3.4131 Nuclear 0 Central_PV 0 NG_CC_CCS 9.3 Coal_IGCC 6.0822 Geothermal 28.83 Coal_IGCC_CCS 9.858 Commercial_PV 0 Biomass_IGCC 13.95 Residential_PV 0 NG_GT 27.807 Wind 0;
+param g_energy_source := Biomass_IGCC_CCS "BioSolid" FuelOil_GT "ResidualFuelOil" NG_CC "NaturalGas" Nuclear "Uranium" Coal_ST "Coal" NG_CC_CCS "NaturalGas" Coal_IGCC "Coal" Geothermal "Geothermal" Coal_IGCC_CCS "Coal" Commercial_PV "Solar" Biomass_IGCC "BioSolid" Residential_PV "Solar" NG_GT "NaturalGas" Central_PV "Solar" Wind "Wind";
+set TRANSMISSION_LINES := N-C C-S;
+param fuel_cost := 
+ Central BioSolid 2020 3.0
+ Central BioSolid 2030 7.5
+ Central Coal 2020 1.8
+ Central Coal 2030 2.0
+ Central NaturalGas 2020 5.0
+ Central NaturalGas 2030 6.0
+ Central Uranium 2020 2.0
+ Central Uranium 2030 2.2
+ North BioSolid 2020 3.0
+ North BioSolid 2030 7.5
+ North Coal 2020 1.8
+ North Coal 2030 2.0
+ North NaturalGas 2020 5.0
+ North NaturalGas 2030 6.0
+ North Uranium 2020 2.0
+ North Uranium 2030 2.2
+ South BioSolid 2020 3.0
+ South BioSolid 2030 7.5
+ South NaturalGas 2020 5.0
+ South NaturalGas 2030 6.0
+ South Uranium 2020 2.0
+ South Uranium 2030 2.2
+;
+param proj_variable_om := C-Coal_ST 3.6 N-Coal_ST 3.4;
+param trans_lz1 := C-S "Central" N-C "North";
+set GENERATION_TECHNOLOGIES := Biomass_IGCC Biomass_IGCC_CCS Central_PV Coal_IGCC Coal_IGCC_CCS Coal_ST Commercial_PV FuelOil_GT Geothermal NG_CC NG_CC_CCS NG_GT Nuclear Residential_PV Wind;
+param proj_overnight_cost := 
+ C-Coal_ST 1985 2687700
+ C-NG_CC 2005 1143900
+ C-NG_GT 2005 605430
+ N-Coal_ST 1995 2687700
+ N-Geothermal 2000 5524200
+ N-NG_CC 2008 1143900
+ N-NG_GT 2009 605430
+ S-Geothermal 1998 5524200
+ S-NG_CC 2000 1143900
+ S-NG_GT 1990 605430
+ S-NG_GT 2002 605430
+;
+set NON_FUEL_ENERGY_SOURCES := Wind Solar Geothermal Water Electricity;
+param proj_full_load_heat_rate := C-Coal_ST 9.5 N-Coal_ST 9;
+param g_is_flexible_baseload := Biomass_IGCC_CCS 0 FuelOil_GT 0 NG_CC 0 Nuclear 0 Coal_ST 1 NG_CC_CCS 0 Coal_IGCC 1 Geothermal 0 Coal_IGCC_CCS 1 Commercial_PV 0 Biomass_IGCC 0 Residential_PV 0 NG_GT 0 Central_PV 0 Wind 0;
+param local_td_annual_cost_per_mw := North 66406.5 Central 61663.4 South 128040;
+param trans_length_km := C-S 200 N-C 100;
+param g_scheduled_outage_rate := Biomass_IGCC_CCS 0.09 FuelOil_GT 0.025 NG_CC 0.04 Nuclear 0.04 Coal_ST 0.06 NG_CC_CCS 0.04 Coal_IGCC 0.08 Geothermal 0.0075 Coal_IGCC_CCS 0.08 Commercial_PV 0 Biomass_IGCC 0.09 Residential_PV 0 NG_GT 0.04 Central_PV 0 Wind 0.05;
+param existing_local_td := North 5.5 Central 3.5 South 9.5;
+param tp_ts := 1 "2020_01winter" 2 "2020_01winter" 3 "2020_01winter" 4 "2020_01winter" 5 "2020_06summer" 6 "2020_06summer" 7 "2030_all";
+param period_start := 2020 2017 2030 2027;
+set NEW_GENERATION_BUILDYEARS := ('Geothermal', 2020) ('Geothermal', 2030) ('Coal_IGCC', 2020) ('Coal_IGCC', 2030) ('Coal_IGCC_CCS', 2030) ('NG_CC', 2020) ('NG_CC', 2030) ('NG_CC_CCS', 2030) ('NG_GT', 2020) ('NG_GT', 2030) ('Nuclear', 2030) ('Biomass_IGCC', 2020) ('Biomass_IGCC', 2030) ('Biomass_IGCC_CCS', 2030) ('Residential_PV', 2020) ('Residential_PV', 2030) ('Commercial_PV', 2020) ('Commercial_PV', 2030) ('Central_PV', 2020) ('Central_PV', 2030) ('Wind', 2020) ('Wind', 2030);
+set GEN_TECH_CCS := NG_CC_CCS Coal_IGCC_CCS Biomass_IGCC_CCS;
+param g_full_load_heat_rate := Biomass_IGCC_CCS 16.3208 FuelOil_GT 12.5 NG_CC 6.705 Nuclear 9.72 NG_CC_CCS 10.08 Coal_IGCC 7.95 Coal_IGCC_CCS 10.38 Biomass_IGCC 12.5 NG_GT 10.39;
+param g_is_variable := Biomass_IGCC_CCS 0 FuelOil_GT 0 NG_CC 0 Nuclear 0 Coal_ST 0 NG_CC_CCS 0 Coal_IGCC 0 Geothermal 0 Coal_IGCC_CCS 0 Commercial_PV 1 Biomass_IGCC 0 Residential_PV 1 NG_GT 0 Central_PV 1 Wind 1;
+param g_fixed_o_m := 
+ Biomass_IGCC 2020 88350
+ Biomass_IGCC 2030 88350
+ Biomass_IGCC_CCS 2030 100719
+ Central_PV 2020 41850
+ Central_PV 2030 38130
+ Coal_IGCC 2020 28923
+ Coal_IGCC 2030 28923
+ Coal_IGCC_CCS 2030 41292
+ Commercial_PV 2020 41850
+ Commercial_PV 2030 38130
+ Geothermal 2020 0
+ Geothermal 2030 0
+ NG_CC 2020 5868.3
+ NG_CC 2030 5868.3
+ NG_CC_CCS 2030 17112
+ NG_GT 2020 4891.8
+ NG_GT 2030 4891.8
+ Nuclear 2030 118110
+ Residential_PV 2020 41850
+ Residential_PV 2030 38130
+ Wind 2020 55800
+ Wind 2030 55800
+;
+param base_financial_year := 2015;
+set TIMEPOINTS := 1 2 3 4 5 6 7;
+param g_min_build_capacity := Biomass_IGCC_CCS 0 FuelOil_GT 0 NG_CC 0 Nuclear 1000 Coal_ST 0 NG_CC_CCS 0 Coal_IGCC 0 Geothermal 0 Coal_IGCC_CCS 0 Commercial_PV 0 Biomass_IGCC 0 Residential_PV 0 NG_GT 0 Central_PV 0 Wind 0;
+param proj_load_zone := N-Nuclear "North" C-Nuclear "Central" S-Biomass_IGCC_CCS "South" N-Geothermal "North" S-Commercial_PV "South" C-Coal_IGCC "Central" C-NG_GT "Central" N-NG_CC_CCS "North" N-Biomass_IGCC_CCS "North" C-NG_CC "Central" N-NG_GT "North" N-Wind-2 "North" N-Wind-1 "North" S-Biomass_IGCC "South" C-Wind-1 "Central" N-Coal_ST "North" N-NG_CC "North" C-Wind-2 "Central" C-Biomass_IGCC "Central" N-Residential_PV "North" S-Residential_PV "South" C-Central_PV-1 "Central" C-Central_PV-2 "Central" N-Coal_IGCC_CCS "North" C-Commercial_PV "Central" S-NG_GT "South" N-Biomass_IGCC "North" S-NG_CC_CCS "South" S-NG_CC "South" N-Central_PV-2 "North" N-Coal_IGCC "North" N-Central_PV-1 "North" C-Coal_ST "Central" S-Geothermal "South" N-Commercial_PV "North" C-Residential_PV "Central" S-Central_PV-1 "South" S-Central_PV-2 "South";
+param lz_peak_demand_mw := 
+ Central 2020 4
+ Central 2030 6
+ North 2020 6
+ North 2030 8
+ South 2020 10
+ South 2030 12
+;
+set PERIODS := 2020 2030;
+param f_co2_intensity := ResidualFuelOil 0.0788 Uranium 0 DistillateFuelOil 0.07315 Coal 0.09552 NaturalGas 0.05306 BioSolid 0.09435;
+param proj_existing_cap := 
+ C-Coal_ST 1985 2
+ C-NG_CC 2005 2
+ C-NG_GT 2005 2
+ N-Coal_ST 1995 2
+ N-Geothermal 2000 1
+ N-NG_CC 2008 2
+ N-NG_GT 2009 2
+ S-Geothermal 1998 3
+ S-NG_CC 2000 5
+ S-NG_GT 1990 3
+ S-NG_GT 2002 2
+;
+set PROJECTS_CAP_LIMITED := N-Geothermal N-Central_PV-1 N-Wind-2 N-Wind-1 S-Commercial_PV N-Residential_PV S-Residential_PV C-Central_PV-1 C-Central_PV-2 N-Central_PV-2 C-Wind-1 N-Commercial_PV C-Wind-2 C-Commercial_PV S-NG_GT C-Residential_PV S-Central_PV-1 S-Geothermal S-Central_PV-2;
+param f_upstream_co2_intensity := NaturalGas 0 Coal 0 BioSolid -0.09435 DistillateFuelOil 0 ResidualFuelOil 0;
+param existing_trans_cap := C-S 6 N-C 3;
+param g_is_baseload := Biomass_IGCC_CCS 1 FuelOil_GT 0 NG_CC 0 Nuclear 1 Coal_ST 0 NG_CC_CCS 0 Coal_IGCC 0 Geothermal 1 Coal_IGCC_CCS 0 Commercial_PV 0 Biomass_IGCC 1 Residential_PV 0 NG_GT 0 Central_PV 0 Wind 0;
+param proj_fixed_om := 
+ C-Coal_ST 1985 21390
+ C-NG_CC 2005 5868.3
+ C-NG_GT 2005 4891.8
+ N-Coal_ST 1995 21390
+ N-Geothermal 2000 0
+ N-NG_CC 2008 5868.3
+ N-NG_GT 2009 4891.8
+ S-Geothermal 1998 0
+ S-NG_CC 2000 5868.3
+ S-NG_GT 1990 4891.8
+ S-NG_GT 2002 4891.8
+;
+param g_forced_outage_rate := Biomass_IGCC_CCS 0.076 FuelOil_GT 0.075 NG_CC 0.06 Nuclear 0.06 Coal_ST 0.1 NG_CC_CCS 0.06 Coal_IGCC 0.12 Geothermal 0.0241 Coal_IGCC_CCS 0.12 Commercial_PV 0.02 Biomass_IGCC 0.076 Residential_PV 0.02 NG_GT 0.06 Central_PV 0.02 Wind 0.006;
