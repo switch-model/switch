@@ -119,12 +119,16 @@ def DispatchProjByFuel(m, proj, tp, fuel):
         result = 0.0
     else:
         # allocate power production proportional to amount of each fuel used
-        # note: the sum of all fuels used should never be zero when dispatch is non-zero
-        result = value(
-            dispatch 
-            * m.ProjFuelUseRate[proj, tp, fuel] 
-            / sum(m.ProjFuelUseRate[proj, tp, f] for f in m.G_FUELS[m.proj_gen_tech[proj]])
-        )
+        # note: the sum of all fuels used should never be zero when dispatch is non-zero,
+        # but somehow it sneaks through occasionally
+        try:
+            result = value(
+                dispatch 
+                * m.ProjFuelUseRate[proj, tp, fuel] 
+                / sum(m.ProjFuelUseRate[proj, tp, f] for f in m.G_FUELS[m.proj_gen_tech[proj]])
+            )
+        except ZeroDivisionError:
+            result = 0.0
     return result
     
 def write_results(m, outputs_dir):
@@ -186,6 +190,10 @@ def write_results(m, outputs_dir):
     built_proj = tuple(set(
         pr for pe in m.PERIODS for pr in m.PROJECTS if value(m.ProjCapacity[pr, pe]) > 0.001
     ))
+    operate_proj_in_period = tuple(set(
+        (pr, m.tp_period[tp]) 
+            for pr, tp in m.PROJ_DISPATCH_POINTS if value(m.DispatchProj[pr, tp]) > 0.001
+    ))
     built_tech = tuple(set(m.proj_gen_tech[p] for p in built_proj))
     built_energy_source = tuple(set(g_energy_source(t) for t in built_tech))
     # print "missing energy_source: "+str([t for t in built_tech if g_energy_source(t)==''])
@@ -197,26 +205,34 @@ def write_results(m, outputs_dir):
     
     util.write_table(m, m.LOAD_ZONES, m.PERIODS, 
         output_file=os.path.join(outputs_dir, "capacity_by_technology{t}.tsv".format(t=tag)),
-        headings=("load_zone", "period") + built_tech + ("hydro", "batteries"),
+        headings=("load_zone", "period") + built_tech + ("hydro", "batteries", "fuel cells"),
         values=lambda m, z, pe: (z, pe,) + tuple(
-            sum(m.ProjCapacity[pr, pe] for pr in built_proj 
-                if m.proj_gen_tech[pr] == t and m.proj_load_zone[pr] == z)
+            sum(
+                (m.ProjCapacity[pr, pe] if ((pr, pe) in operate_proj_in_period) else 0.0)
+                    for pr in built_proj 
+                        if m.proj_gen_tech[pr] == t and m.proj_load_zone[pr] == z
+            )
             for t in built_tech
         ) + (
             m.Pumped_Hydro_Capacity_MW[z, pe] if hasattr(m, "Pumped_Hydro_Capacity_MW") else 0,
-            battery_capacity_mw(m, z, pe) 
+            battery_capacity_mw(m, z, pe),
+            m.FuelCellCapacityMW[z, pe] if hasattr(m, "FuelCellCapacityMW") else 0
         )
     )
     util.write_table(m, m.LOAD_ZONES, m.PERIODS, 
         output_file=os.path.join(outputs_dir, "capacity_by_energy_source{t}.tsv".format(t=tag)),
-        headings=("load_zone", "period") + built_energy_source + ("hydro", "batteries"),
+        headings=("load_zone", "period") + built_energy_source + ("hydro", "batteries", "fuel cells"),
         values=lambda m, z, pe: (z, pe,) + tuple(
-            sum(m.ProjCapacity[pr, pe] for pr in built_proj 
-                if g_energy_source(m.proj_gen_tech[pr]) == s and m.proj_load_zone[pr] == z)
+            sum(
+                (m.ProjCapacity[pr, pe] if ((pr, pe) in operate_proj_in_period) else 0.0)
+                    for pr in built_proj 
+                        if g_energy_source(m.proj_gen_tech[pr]) == s and m.proj_load_zone[pr] == z
+            )
             for s in built_energy_source
         ) + (
             m.Pumped_Hydro_Capacity_MW[z, pe] if hasattr(m, "Pumped_Hydro_Capacity_MW") else 0,
-            battery_capacity_mw(m, z, pe)
+            battery_capacity_mw(m, z, pe),
+            m.FuelCellCapacityMW[z, pe] if hasattr(m, "FuelCellCapacityMW") else 0
         )
     )
     
