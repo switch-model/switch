@@ -202,11 +202,7 @@ def write_tables(**args):
 
         write_table('fuel_supply_curves.tab', """
             SELECT concat('Hawaii_', fuel_type) as regional_fuel_market, fuel_type as fuel, 
-                period, tier, price_mmbtu * {inflator} as unit_cost,
-                CASE WHEN fuel_type='LNG' AND tier='bulk' THEN %(bulk_lng_limit)s ELSE NULL END 
-                    AS max_avail_at_cost,
-                CASE WHEN fuel_type='LNG' AND tier='bulk' THEN %(bulk_lng_fixed_cost)s ELSE 0.0 END
-                    AS fixed_cost
+                period, tier, price_mmbtu * {inflator} as unit_cost, max_avail_at_cost, fixed_cost
             FROM fuel_costs c JOIN study_periods p ON (c.year=p.period)
             WHERE load_zone in %(load_zones)s
                 AND fuel_scen_id = %(fuel_scen_id)s
@@ -266,17 +262,15 @@ def write_tables(**args):
                 0 as g_competes_for_space, 
                 variable_o_m * 1000.0 AS g_variable_o_m,
                 CASE WHEN fuel IN ('SUN', 'WND', 'MSW') THEN fuel ELSE 'multiple' END AS g_energy_source,
-                CASE WHEN fuel IN ('SUN', 'WND', 'MSW') THEN null ELSE 0.001*heat_rate END AS g_full_load_heat_rate,
-                null AS g_unit_size
+                CASE WHEN fuel IN ('SUN', 'WND', 'MSW') THEN null ELSE 0.001*heat_rate END AS g_full_load_heat_rate
             FROM generator_info
             WHERE technology NOT IN %(exclude_technologies)s
                 AND min_vintage_year <= (SELECT MAX(period) FROM study_periods WHERE time_sample = %(time_sample)s)
         UNION SELECT
                 g.technology as generation_technology, 
                 g.technology as g_dbid, 
-                cast(null as float) as g_unit_size,
-                -- formerly g.max_age + 100 as g_max_age, 
-                g.max_age as g_max_age, 
+                avg(peak_mw) AS g_unit_size,    -- minimum block size for unit commitment
+                g.max_age as g_max_age,         -- formerly g.max_age + 100 as g_max_age
                 g.scheduled_outage_rate as g_scheduled_outage_rate, 
                 g.forced_outage_rate as g_forced_outage_rate,
                 g.variable as g_is_variable, 
@@ -289,13 +283,12 @@ def write_tables(**args):
                 CASE WHEN MIN(p.aer_fuel_code) IN ('SUN', 'WND', 'MSW') THEN MIN(p.aer_fuel_code) ELSE 'multiple' END AS g_energy_source,
                 CASE WHEN MIN(p.aer_fuel_code) IN ('SUN', 'WND', 'MSW') THEN null 
                     ELSE 0.001*SUM(p.heat_rate*p.avg_mw)/SUM(p.avg_mw) 
-                    END AS g_full_load_heat_rate,
-                AVG(peak_mw) AS g_unit_size  -- minimum block size for unit commitment
+                    END AS g_full_load_heat_rate
             FROM existing_plants_gen_tech g JOIN existing_plants p USING (technology)
             WHERE p.load_zone in %(load_zones)s
                 AND p.insvyear <= (SELECT MAX(period) FROM study_periods WHERE time_sample = %(time_sample)s)
                 AND g.technology NOT IN %(exclude_technologies)s
-            GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
+            GROUP BY 1, 2, 4, 5, 6, 7, 8, 9, 10, 11
         ORDER BY 1;
     """, args)
 
@@ -380,52 +373,44 @@ def write_tables(**args):
     # project.build
 
     # TODO: find connection costs and add them to the switch database (currently all zeroes)
-    # TODO: find out why exissting wind and solar projects have non-zero variable O&M in the switch 
+    # TODO: find out why existing wind and solar projects have non-zero variable O&M in the switch 
     # database, and zero them out there instead of here.
-    # NOTE: if a generator technology in the generator_info table doesn't have a match in the connect_cost
+    # NOTE: if a generator technology in the generator_info table doesn't have a match in the project
     # table, we use the generic_cost_per_kw from the generator_info table. If that is also null,
     # then the connection cost will be given whatever default value is specified in the SWITCH code
     # (probably zero).
-    # If individual projects are identified in connect_cost or max_capacity, we use those;
+    # If individual projects are identified in the project table, we use those;
     # then we also add generic projects in each load_zone for any technologies that are not
     # marked as resource_limited in generator_info.
-    # NOTE: if a technology ever appears in either max_capacity or connect_cost, then
+    # NOTE: if a technology ever appears in the project table, then
     # every possible project of that type should be recorded in that table. 
-    # Technologies that don't appear in these tables are deemed generic projects,
+    # Technologies that don't appear in this table are deemed generic projects,
     # which can be added once in each load zone.
-    # NOTE: the queries below will not detect if a technology is attached to different 
-    # sets of project definitions in the max_capacity and connect_cost tables;
-    # we leave it to the user to ensure this doesn't happen.
-    # NOTE: we don't provide the following, because they are specified in generator_info.tab instead
+    # NOTE: we don't provide the following, because they are specified in generator_info.tab instead:
     # proj_full_load_heat_rate, proj_forced_outage_rate, proj_scheduled_outage_rate
     # (the project-specific data would only be for otherwise-similar projects that have degraded and 
     # now have different heat rates)
     # NOTE: variable costs for existing plants could alternatively be added to the generator_info.tab 
-    # table (aggregated by technology instead of project). That is where we put the variable costs for new projects.
+    # table (aggregated by technology instead of project). That is where we put the variable costs 
+    # for new projects.
     # NOTE: we convert costs from $/kWh to $/MWh
 
     if args.get('connect_cost_per_mw_km', 0):
         print(
             "WARNING: ignoring connect_cost_per_mw_km specified in arguments; "
-            "using connect_cost.connect_cost_per_kw instead."
+            "using project.connect_cost_per_mw instead."
         )
     write_table('project_info.tab', """
             -- make a list of all projects with detailed definitions (and gather the available data)
             DROP TABLE IF EXISTS t_specific_projects;
             CREATE TEMPORARY TABLE t_specific_projects AS
                 SELECT 
-                    concat_ws('_', 
-                        COALESCE(m.load_zone, c.load_zone),
-                        COALESCE(m.technology, c.technology),
-                        COALESCE(m.site, c.site),
-                        COALESCE(m.orientation, c.orientation)
-                    ) AS "PROJECT",
-                    COALESCE(m.load_zone, c.load_zone) as proj_load_zone,
-                    COALESCE(m.technology, c.technology) AS proj_gen_tech,
-                    1000.0*connect_cost_per_kw as proj_connect_cost_per_mw,
+                    concat_ws('_', load_zone, technology, site, orientation) AS "PROJECT",
+                    load_zone as proj_load_zone,
+                    technology AS proj_gen_tech,
+                    connect_cost_per_mw AS proj_connect_cost_per_mw,
                     max_capacity as proj_capacity_limit_mw
-                FROM connect_cost c 
-                    FULL JOIN max_capacity m USING (load_zone, technology, site, orientation);
+                FROM project;
 
             -- make a list of generic projects (for which no detailed definitions are available)
             DROP TABLE IF EXISTS t_generic_projects;
@@ -517,7 +502,9 @@ def write_tables(**args):
                 concat_ws('_', load_zone, technology, site, orientation) as "PROJECT",
                 study_hour as timepoint,
                 cap_factor as proj_max_capacity_factor
-            FROM generator_info g JOIN cap_factor c USING (technology)
+            FROM generator_info g 
+                JOIN project p USING (technology)
+                JOIN cap_factor c USING (project_id)
                 JOIN study_hour h using (date_time)
             WHERE load_zone in %(load_zones)s and time_sample = %(time_sample)s
                 AND min_vintage_year <= (SELECT MAX(period) FROM study_periods WHERE time_sample = %(time_sample)s)
