@@ -561,8 +561,10 @@ def _save_generic_results(instance, outdir):
             writer.writerow(['%s_%d' % (index_name, i + 1)
                              for i in xrange(var.index_set().dimen)] +
                             [var.name])
-            for key, v in var.iteritems():
-                writer.writerow(tuple(make_iterable(key)) + (v.value,))
+            # Write values sorted by indices
+            key_object_pairs = sorted(var.items())
+            for pair in key_object_pairs:
+                writer.writerow(tuple(make_iterable(pair[0])) + (pair[1].value,))
 
 
 def _save_total_cost_value(instance, outdir):
