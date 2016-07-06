@@ -131,7 +131,7 @@ def load_inputs(model, inputs_dir=None, attachDataPortal=True):
 
 
 def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
-                       exclude=[], determistic_order=False):
+                       exclude=[], deterministic_order=False):
     """
     Save input data to a .dat file for use with PySP or other command line
     tools that have not been fully integrated with DataPortal.
@@ -174,7 +174,7 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
                     else:
                         f.write("\n")
                         for key,value in (sorted(component_data.iteritems()) 
-                                          if determistic_order 
+                                          if deterministic_order 
                                           else component_data.iteritems()):
                             f.write(" " + 
                                     ' '.join(map(str, key)) + " " +
@@ -548,7 +548,7 @@ def _save_results(model, instance, outdir, module_list):
             _save_results(model, instance, outdir, module.core_modules)
 
 
-def _save_generic_results(instance, outdir):
+def _save_generic_results(instance, outdir, deterministic_order=False):
     for var in instance.component_objects():
         if not isinstance(var, Var):
             continue
@@ -561,8 +561,12 @@ def _save_generic_results(instance, outdir):
             writer.writerow(['%s_%d' % (index_name, i + 1)
                              for i in xrange(var.index_set().dimen)] +
                             [var.name])
-            for key, v in var.iteritems():
-                writer.writerow(tuple(make_iterable(key)) + (v.value,))
+            # Results are saved in a random order by default for
+            # increased speed. Sorting is available if wanted.
+            for key, obj in (sorted(var.items())
+                            if deterministic_order
+                            else var.items()):
+                writer.writerow(tuple(make_iterable(key)) + (obj.value,))
 
 
 def _save_total_cost_value(instance, outdir):
