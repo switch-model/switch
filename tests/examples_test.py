@@ -38,6 +38,15 @@ def find_example_dirs():
                 yield path
 
 
+def get_expectation_path(example_dir):
+    expectation_file = os.path.join(example_dir, 'outputs',
+                                        'total_cost.txt')
+    if not os.path.isfile( expectation_file ):
+        return False
+    else:
+        return expectation_file
+
+
 def make_test(example_dir):
     def test_example():
         temp_dir = tempfile.mkdtemp(prefix='switch_test_')
@@ -48,8 +57,7 @@ def make_test(example_dir):
             total_cost = read_file(os.path.join(temp_dir, 'total_cost.txt'))
         finally:
             shutil.rmtree(temp_dir)
-        expectation_file = os.path.join(example_dir, 'outputs',
-                                        'total_cost.txt')
+        expectation_file = get_expectation_path(example_dir)
         if UPDATE_EXPECTATIONS:
             write_file(expectation_file, total_cost)
         else:
@@ -73,7 +81,8 @@ def make_test(example_dir):
 def load_tests(loader, tests, pattern):
     suite = unittest.TestSuite()
     for example_dir in find_example_dirs():
-        suite.addTest(make_test(example_dir))
+        if get_expectation_path(example_dir):
+            suite.addTest(make_test(example_dir))
     return suite
 
 
