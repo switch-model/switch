@@ -352,7 +352,7 @@ def define_components(mod):
 
     mod.g_full_load_heat_rate = Param(
         mod.GEN_TECH_WITH_FUEL,
-        within=PositiveReals)
+        within=NonNegativeReals)
 
     mod.min_data_check(
         'GENERATION_TECHNOLOGIES',
@@ -390,7 +390,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     gen_new_build_costs is optional to support production cost
     simulations where all projects were built before the start of the
     first period. In that context, all existing projects could
-    reasonably have costs specified in project_build_costs.tab
+    reasonably have costs specified in proj_build_costs.tab
 
     gen_new_build_costs.tab
         generation_technology, investment_period,

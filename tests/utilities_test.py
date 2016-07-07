@@ -18,7 +18,9 @@ class UtilitiesTest(unittest.TestCase):
         import switch_mod.solve
         from pyomo.environ import DataPortal
         from testfixtures import compare
-        (model, instance) = switch_mod.solve.load("test_dat")
+        (model, instance) = switch_mod.solve.main(
+            args=["--inputs-dir", "test_dat"], return_model=True, return_instance=True
+        )
         # To do: create a temporary file name for dat_path and delete it
         # when the test is complete.
         dat_path = "test_dat/complete_inputs.dat"

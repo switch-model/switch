@@ -294,7 +294,7 @@ def define_components(mod):
         dimen=2)
     mod.proj_existing_cap = Param(
         mod.EXISTING_PROJ_BUILDYEARS,
-        within=PositiveReals)
+        within=NonNegativeReals)
     mod.min_data_check('proj_existing_cap')
     mod.PROJECT_BUILDYEARS = Set(
         dimen=2,
@@ -466,9 +466,9 @@ def load_inputs(mod, switch_data, inputs_dir):
     The following file is optional because it override generic values
     given by descriptions of generation technologies. Note: Load-zone
     cost adjustments will not be applied to any costs specified in
-    project_specific_costs.
+    proj_build_costs.tab.
 
-    project_build_costs.tab
+    proj_build_costs.tab
         PROJECT, build_year, proj_overnight_cost, proj_fixed_om
 
     """

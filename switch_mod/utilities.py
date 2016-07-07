@@ -84,6 +84,7 @@ def create_model(module_list, args=sys.argv[1:]):
     # Bind some utility functions to the model as class objects
     _add_min_data_check(model)
     model.load_inputs = types.MethodType(load_inputs, model)
+    model.pre_solve = types.MethodType(pre_solve, model)
     model.post_solve = types.MethodType(post_solve, model)
     # note: the next function is redundant with solve and post_solve
     # it is here (temporarily) for backward compatibility
@@ -196,6 +197,15 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
                 raise ValueError(
                     "Error! Component type {} not recognized for model element '{}'.".
                     format(comp_class, component_name))
+
+def pre_solve(model, outputs_dir=None):
+    """
+    Call pre-solve function (if present) in all modules used to compose this model.
+    This function can be used to adjust the instance after it is created and before it is solved.
+    """
+    for module in get_module_list(model):
+        if hasattr(module, 'pre_solve'):
+            module.pre_solve(model)
 
 def post_solve(model, outputs_dir=None):
     """
@@ -701,7 +711,7 @@ def load_aug(switch_data, optional=False, auto_select=False,
 # flag, the parser could match arguments that are meant to be used later
 # (It's not likely, but for example if the user specifies a flag "--exclude",
 # which will be consumed by one of their modules, the default parser would
-# match that to "--exclude_modules" during the early, partial parse.)
+# match that to "--exclude-modules" during the early, partial parse.)
 if sys.version_info >= (3, 5):
     _ArgumentParser = argparse.ArgumentParser
 else:
