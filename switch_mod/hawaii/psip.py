@@ -1,6 +1,5 @@
 import os
 from pyomo.environ import *
-import pha
 
 def define_arguments(argparser):
     argparser.add_argument('--psip-force', action='store_true', default=True, 

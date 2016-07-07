@@ -9,7 +9,7 @@ An alternative approach would be to store calibration data in a particular
 environment or object in R, and return that to Python. Then that could be
 returned by the python calibrate() function and attached to the model.
 """
-print "loading r_demand_system.py"
+# print "loading r_demand_system.py"
 
 import numpy as np
 import rpy2.robjects as robjects
@@ -121,4 +121,4 @@ def make_r_value_array(base_value_dict, hours_of_day, time_series, load_zones):
     )
     return r_array
     
-print "finished loading r_demand_system.py"
+# print "finished loading r_demand_system.py"
