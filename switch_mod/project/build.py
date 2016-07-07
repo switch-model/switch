@@ -401,7 +401,7 @@ def define_components(mod):
         else:
             raise ValueError(
                 ("No fixed O & M costs were provided for project {} " +
-                 "or its generation technology {}.").format(pr, g))
+                 "or its generation technology {}.").format(proj, g))
     mod.proj_fixed_om = Param(
         mod.PROJECT_BUILDYEARS,
         within=NonNegativeReals,
@@ -457,7 +457,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     Optional columns are:
         proj_dbid, proj_capacity_limit_mw
 
-    existing_projects.tab
+    proj_existing_builds.tab
         PROJECT, build_year, proj_existing_cap
 
     cap_limited_projects is optional because some systems will not have
