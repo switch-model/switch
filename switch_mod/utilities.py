@@ -54,6 +54,15 @@ def create_model(module_list, args=sys.argv[1:]):
     storage without rewriting the core equations for system costs. The
     two primary use cases for dynamic components so far are load-zone
     level energy balancing and overall system costs.
+    
+    All modules can request access to command line parameters and set their
+    default values for those options. If this codebase is being used more like a
+    library than a stand-alone executable, this behavior can cause problems. For
+    example, running this model with PySP's runph tool will cause errors where a
+    runph argument such as --instance-directory is unknown to the switch
+    modules, so parse_args() generates an error. This behavior can be avoided
+    calling this function with an empty list for args: 
+        create_model(module_list, args=[])
 
     SYNOPSIS:
     >>> from switch_mod.utilities import define_AbstractModel
@@ -122,7 +131,8 @@ def load_inputs(model, inputs_dir=None, attachDataPortal=True):
     return instance
 
 
-def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat", exclude=[]):
+def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
+                       exclude=[], deterministic_order=False):
     """
     Save input data to a .dat file for use with PySP or other command line
     tools that have not been fully integrated with DataPortal.
@@ -164,7 +174,9 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat", 
                                 for key,value in component_data.iteritems()))
                     else:
                         f.write("\n")
-                        for key,value in component_data.iteritems():
+                        for key,value in (sorted(component_data.iteritems()) 
+                                          if deterministic_order 
+                                          else component_data.iteritems()):
                             f.write(" " + 
                                     ' '.join(map(str, key)) + " " +
                                     quote_str(value) + "\n")
@@ -244,6 +256,7 @@ def save_results(model, results, instance, outdir):
             print "Model solved successfully."
         _save_results(model, instance, outdir, model.module_list)
         _save_generic_results(instance, outdir)
+        _save_total_cost_value(instance, outdir)
 
     return success
 
@@ -545,7 +558,7 @@ def _save_results(model, instance, outdir, module_list):
             _save_results(model, instance, outdir, module.core_modules)
 
 
-def _save_generic_results(instance, outdir):
+def _save_generic_results(instance, outdir, deterministic_order=False):
     for var in instance.component_objects():
         if not isinstance(var, Var):
             continue
@@ -558,8 +571,20 @@ def _save_generic_results(instance, outdir):
             writer.writerow(['%s_%d' % (index_name, i + 1)
                              for i in xrange(var.index_set().dimen)] +
                             [var.name])
-            for key, v in var.iteritems():
-                writer.writerow(tuple(make_iterable(key)) + (v.value,))
+            # Results are saved in a random order by default for
+            # increased speed. Sorting is available if wanted.
+            for key, obj in (sorted(var.items())
+                            if deterministic_order
+                            else var.items()):
+                writer.writerow(tuple(make_iterable(key)) + (obj.value,))
+
+
+def _save_total_cost_value(instance, outdir):
+    values = instance.Minimize_System_Cost.values()
+    assert len(values) == 1
+    total_cost = values[0].expr()
+    with open(os.path.join(outdir, 'total_cost.txt'), 'w') as fh:
+        fh.write('%s\n' % total_cost)
 
 
 class InputError(Exception):
@@ -583,8 +608,7 @@ def load_aug(switch_data, optional=False, auto_select=False,
 
     This is a wrapper for the DataPortal object that accepts additional
     keywords. This currently supports a flag for the file being optional.
-    In the future, this could also support a list of optional columns.
-    The name is not great and may be changed as well.
+    The name load_aug() is not great and may be changed.
 
     """
     path = kwds['filename']
@@ -600,8 +624,6 @@ def load_aug(switch_data, optional=False, auto_select=False,
     # Skip if the file is empty or has no data in the first row.
     if optional and (headers == [''] or dat1 == ['']):
         return
-    # copy the optional_params to avoid side-effects when the list is altered below
-    optional_params=list(optional_params)
     # Try to get a list of parameters. If param was given as a
     # singleton or a tuple, make it into a list that can be edited.
     params = []

@@ -88,7 +88,8 @@ def define_components(mod):
     trans_derating_factor[tx in TRANSMISSION_LINES] is an overall
     derating factor for each transmission line that can reflect forced
     outage rates, stability or contingency limitations. This parameter
-    is optional and defaults to 0.
+    is optional and defaults to 1. This parameter should be in the
+    range of 0 to 1, being 0 a value that disables the line completely.
 
     TransCapacityAvailable[(tx, bld_yr) in TRANS_BUILD_YEARS] is an
     expression that returns the available transfer capacity of a
@@ -139,6 +140,7 @@ def define_components(mod):
     describes which transmission builds will be operational in a given
     period. Currently, transmission lines are kept online indefinitely,
     with parts being replaced as they wear out.
+    
     PERIOD_RELEVANT_TRANS_BUILDS[p] will return a subset of (tx, bld_yr)
     in TRANS_BUILD_YEARS.
 
@@ -231,7 +233,7 @@ def define_components(mod):
     mod.trans_derating_factor = Param(
         mod.TRANSMISSION_LINES,
         within=NonNegativeReals,
-        default=0,
+        default=1,
         validate=lambda m, val, tx: val <= 1)
     mod.TransCapacityAvailable = Expression(
         mod.TRANSMISSION_LINES, mod.PERIODS,
@@ -251,7 +253,7 @@ def define_components(mod):
     mod.trans_fixed_o_m_fraction = Param(
         within=PositiveReals,
         default=0.03)
-    # Total annaul fixed costs for building new transmission lines...
+    # Total annual fixed costs for building new transmission lines...
     # Multiply capital costs by capital recover factor to get annual
     # payments. Add annual fixed O&M that are expressed as a fraction of
     # overnight costs.
@@ -260,7 +262,7 @@ def define_components(mod):
         within=PositiveReals,
         initialize=lambda m, tx: (
             m.trans_capital_cost_per_mw_km * m.trans_terrain_multiplier[tx] *
-            (crf(m.interest_rate, m.trans_lifetime_yrs) +
+            m.trans_length_km[tx] * (crf(m.interest_rate, m.trans_lifetime_yrs) +
                 m.trans_fixed_o_m_fraction)))
     # An expression to summarize annual costs for the objective
     # function. Units should be total annual future costs in $base_year
@@ -314,11 +316,15 @@ def load_inputs(mod, switch_data, inputs_dir):
         TRANSMISSION_LINE, trans_dbid, trans_derating_factor,
         trans_terrain_multiplier, trans_new_build_allowed
 
-    Note that the next file is formatted as .dat, not as .tab.
+    Note that the next file is formatted as .dat, not as .tab. The
+    distribution_loss_rate parameter should only be inputted if the 
+    local_td module is loaded in the simulation. If this parameter is
+    specified a value in trans_params.dat and local_td is not included
+    in the module list, then an error will be raised.
 
     trans_params.dat
         trans_capital_cost_per_mw_km, trans_lifetime_yrs,
-        trans_fixed_o_m_fraction, distribution_losses
+        trans_fixed_o_m_fraction, distribution_loss_rate
 
 
     """

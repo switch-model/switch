@@ -239,15 +239,23 @@ def get_module_list(args):
 
     # identify modules to load
     module_list_file = module_options.module_list
+
+    # search first in the current directory
     if module_list_file is None and os.path.exists("modules.txt"):
         module_list_file = "modules.txt"
-    inputs_module_path = os.path.join(module_options.inputs_dir, "modules")
-    if module_list_file is None and os.path.exists(inputs_module_path):
-        print ""
-        print "DEPRECATION WARNING: using module list from {}. This should be moved to {}".format(
-            inputs_module_path, os.path.join(".", "modules.txt"))
-        print ""
-        module_list_file = inputs_module_path
+    # search next in the inputs directory ('inputs' by default)
+    if module_list_file is None:
+        test_path = os.path.join(module_options.inputs_dir, "modules.txt")
+        if os.path.exists(test_path):
+            module_list_file = test_path
+    if module_list_file is None:
+        test_path = os.path.join(module_options.inputs_dir, "modules")
+        if os.path.exists(test_path):
+            module_list_file = test_path
+            print ""
+            print "DEPRECATION WARNING: using module list from {}. This should be renamed to {}".format(
+                test_path, test_path + '.txt')
+            print ""
     if module_list_file is None:
         raise RuntimeError("No module list found. Please list modules to use for the model in modules.txt.")
     else:
@@ -274,7 +282,7 @@ def get_module_list(args):
     # add the current module, since it has callbacks, e.g. define_arguments for iteration and suffixes
     modules.append(__name__)
 
-    print "module list:", modules
+    # print "module list:", modules
 
     return modules
     
