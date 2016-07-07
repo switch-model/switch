@@ -2,31 +2,6 @@ from pyomo.environ import *
 import switch_mod.utilities as utilities
 from util import get
 
-# patch Pyomo if needed
-import pyomo.version
-if pyomo.version.version_info >= (4, 2, 0, '', 0):
-    # Pyomo 4.2 mistakenly discards the original expression or rule during 
-    # Expression.construct. This makes it impossible to reconstruct expressions
-    # (e.g., for iterated models). So we patch it.
-    # test whether patch is still needed:
-    m = ConcreteModel()
-    m.e = Expression(rule=lambda m: 0)
-    if hasattr(m.e, "_init_rule") and m.e._init_rule is None:
-        # print "Patching incompatible version of Pyomo."
-        old_construct = pyomo.environ.Expression.construct
-        def new_construct(self, *args, **kwargs):
-            # save rule and expression, call the function, then restore them
-            _init_rule = self._init_rule
-            _init_expr = self._init_expr
-            old_construct(self, *args, **kwargs)
-            self._init_rule = _init_rule
-            self._init_expr = _init_expr
-        pyomo.environ.Expression.construct = new_construct
-    else:
-        print "NOTE: Pyomo no longer removes _init_rule during Expression.construct()."
-        print "      The Pyomo patch in {} is probably obsolete.".format(__file__)
-    del m
-
 def define_components(m):
     """Make various changes to the model to facilitate reporting and avoid unwanted behavior"""
     

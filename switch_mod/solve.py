@@ -4,6 +4,7 @@ import sys, os, time, traceback, shlex, re
 
 from pyomo.environ import *
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
+import pyomo.version
 
 from utilities import create_model, _ArgumentParser
 
@@ -73,6 +74,35 @@ def main(args=None, return_model=False, return_instance=False):
     # report/save results
     instance.post_solve()
 
+patched_pyomo = False
+def patch_pyomo():
+    global patched_pyomo
+    if not patched_pyomo:
+        patched_pyomo = True
+        # patch Pyomo if needed
+        if pyomo.version.version_info >= (4, 2, 0, '', 0):
+            # Pyomo 4.2+ mistakenly discards the original expression or rule during 
+            # Expression.construct. This makes it impossible to reconstruct expressions
+            # (e.g., for iterated models). So we patch it.
+            # test whether patch is still needed:
+            m = ConcreteModel()
+            m.e = Expression(rule=lambda m: 0)
+            if hasattr(m.e, "_init_rule") and m.e._init_rule is None:
+                # print "Patching incompatible version of Pyomo."
+                old_construct = pyomo.environ.Expression.construct
+                def new_construct(self, *args, **kwargs):
+                    # save rule and expression, call the function, then restore them
+                    _init_rule = self._init_rule
+                    _init_expr = self._init_expr
+                    old_construct(self, *args, **kwargs)
+                    self._init_rule = _init_rule
+                    self._init_expr = _init_expr
+                pyomo.environ.Expression.construct = new_construct
+            else:
+                print "NOTE: Pyomo no longer removes _init_rule during Expression.construct()."
+                print "      The Pyomo patch in {} is probably obsolete.".format(__file__)
+            del m
+
 def iterate(m, iterate_modules, depth=0):
     """Iterate through all modules listed in the iterate_list (usually iterate.txt),
     if any. If there is no iterate_list, then this will just solve the model once.
@@ -89,6 +119,9 @@ def iterate(m, iterate_modules, depth=0):
     All modules specified in the iterate_list should also be loaded via the module_list
     or include_module(s) arguments.
     """
+    
+    # patch pyomo if needed, to support iterated models
+    patch_pyomo()
     
     # create or truncate the iteration tree
     if depth == 0:
@@ -257,7 +290,10 @@ def get_module_list(args):
                 test_path, test_path + '.txt')
             print ""
     if module_list_file is None:
-        raise RuntimeError("No module list found. Please list modules to use for the model in modules.txt.")
+        # note: this could be a RuntimeError, but then users can't do "switch solve --help" in a random directory
+        # (alternatively, we could provide no warning at all, since the user can specify --include-modules in the arguments)
+        print "WARNING: No module list found. Please create a modules.txt file with a list of modules to use for the model."
+        modules = []
     else:
         # if it exists, the module list contains one module name per row (no .py extension)
         # we strip whitespace from either end (because those errors can be annoyingly hard to debug).
