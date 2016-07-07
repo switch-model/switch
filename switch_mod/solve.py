@@ -282,7 +282,7 @@ def get_module_list(args):
     # add the current module, since it has callbacks, e.g. define_arguments for iteration and suffixes
     modules.append(__name__)
 
-    print "module list:", modules
+    # print "module list:", modules
 
     return modules
     
