@@ -6,7 +6,7 @@ from pyomo.environ import *
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
 import pyomo.version
 
-from utilities import create_model, _ArgumentParser
+from utilities import create_model, _ArgumentParser, Logging
 
 def main(args=None, return_model=False, return_instance=False):
 
@@ -16,7 +16,18 @@ def main(args=None, return_model=False, return_instance=False):
         args = get_option_file_args()
         # add any command-line arguments
         args.extend(sys.argv[1:])
-        
+
+    # Write output to a log file if logging option is specified
+    log_options = parse_logging_options(args)
+    stdout_copy = sys.stdout  # make a copy of current sys.stdout to return to eventually
+
+    if log_options.log_run_to_file:
+        logging = Logging(log_options.logs_dir)
+        print "Logging run to " + str(logging.log_file_path) + "..."
+        sys.stdout = logging  # assign private class to sys.stdout
+    else:
+        pass
+
     # build a module list based on configuration options, and add
     # the current module (to register define_arguments callback)
     modules = get_module_list(args)
@@ -74,6 +85,10 @@ def main(args=None, return_model=False, return_instance=False):
     # report/save results
     instance.post_solve()
 
+    # return stdout to original
+    sys.stdout = stdout_copy
+
+
 patched_pyomo = False
 def patch_pyomo():
     global patched_pyomo
@@ -81,7 +96,7 @@ def patch_pyomo():
         patched_pyomo = True
         # patch Pyomo if needed
         if pyomo.version.version_info >= (4, 2, 0, '', 0):
-            # Pyomo 4.2+ mistakenly discards the original expression or rule during 
+            # Pyomo 4.2+ mistakenly discards the original expression or rule during
             # Expression.construct. This makes it impossible to reconstruct expressions
             # (e.g., for iterated models). So we patch it.
             # test whether patch is still needed:
@@ -122,7 +137,7 @@ def iterate(m, iterate_modules, depth=0):
     
     # patch pyomo if needed, to support iterated models
     patch_pyomo()
-    
+
     # create or truncate the iteration tree
     if depth == 0:
         m.iteration_node = []
@@ -177,8 +192,12 @@ def iterate(m, iterate_modules, depth=0):
             print "Iteration of {ms} was stopped after {j} iterations without convergence.".format(ms=iterate_modules[depth], j=j)
     return
 
+
 def define_arguments(argparser):
     # callback function to define model configuration arguments while the model is built
+
+    # add logging arguments; here to add them to the solve.py help
+    add_log_args(argparser)
 
     # add standard module arguments (not used later, but this adds them to the help)
     add_module_args(argparser)
@@ -262,7 +281,28 @@ def add_module_args(parser):
     # the module list, which is needed before it is loaded.
     parser.add_argument("--inputs-dir", default="inputs", 
         help='Directory containing input files (default is "inputs")')
-    
+
+
+def add_log_args(parser):
+    """
+    Add logging arguments to parser.
+    """
+    parser.add_argument("--log-run", dest="log_run_to_file", default=False, action="store_true",
+                        help="Log output to a file.")
+    parser.add_argument("--logs-dir", dest="logs_dir", default="logs",
+                        help='Directory containing log files (default is "logs"')
+
+
+def parse_logging_options(args):
+    """
+    Parse and return logging options.
+    """
+    parser = _ArgumentParser(allow_abbrev=False, add_help=False)
+    add_log_args(parser)
+    log_args = parser.parse_known_args(args=args)[0]
+
+    return log_args
+
 
 def get_module_list(args):
     # parse module options
@@ -321,7 +361,8 @@ def get_module_list(args):
     # print "module list:", modules
 
     return modules
-    
+
+
 def get_iteration_list(m):
     # Identify modules to iterate until convergence (if any)
     iterate_list_file = m.options.iterate_list
