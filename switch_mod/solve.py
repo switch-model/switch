@@ -8,6 +8,7 @@ import pyomo.version
 
 from utilities import create_model, _ArgumentParser, Logging
 
+
 def main(args=None, return_model=False, return_instance=False):
 
     if args is None:
@@ -17,13 +18,15 @@ def main(args=None, return_model=False, return_instance=False):
         # add any command-line arguments
         args.extend(sys.argv[1:])
 
+    # Get options needed before any modules are loaded
+    pre_module_options = parse_pre_module_options(args)
+
     # Write output to a log file if logging option is specified
-    log_options = parse_logging_options(args)
     stdout_copy = sys.stdout  # make a copy of current sys.stdout to return to eventually
 
-    if log_options.log_run_to_file:
-        logging = Logging(log_options.logs_dir)
-        print "Logging run to " + str(logging.log_file_path) + "..."
+    if pre_module_options.log_run_to_file:
+        logging = Logging(pre_module_options.logs_dir)
+        print "logging run to " + str(logging.log_file_path)
         sys.stdout = logging  # assign private class to sys.stdout
     else:
         pass
@@ -196,8 +199,9 @@ def iterate(m, iterate_modules, depth=0):
 def define_arguments(argparser):
     # callback function to define model configuration arguments while the model is built
 
-    # add logging arguments; here to add them to the solve.py help
-    add_log_args(argparser)
+    # add arguments needed before modules are loaded
+    # here to add them to the solve.py help
+    add_pre_module_args(argparser)
 
     # add standard module arguments (not used later, but this adds them to the help)
     add_module_args(argparser)
@@ -283,9 +287,9 @@ def add_module_args(parser):
         help='Directory containing input files (default is "inputs")')
 
 
-def add_log_args(parser):
+def add_pre_module_args(parser):
     """
-    Add logging arguments to parser.
+    Add arguments needed before any modules are loaded.
     """
     parser.add_argument("--log-run", dest="log_run_to_file", default=False, action="store_true",
                         help="Log output to a file.")
@@ -293,15 +297,15 @@ def add_log_args(parser):
                         help='Directory containing log files (default is "logs"')
 
 
-def parse_logging_options(args):
+def parse_pre_module_options(args):
     """
-    Parse and return logging options.
+    Parse and return options needed before modules are loaded.
     """
     parser = _ArgumentParser(allow_abbrev=False, add_help=False)
-    add_log_args(parser)
-    log_args = parser.parse_known_args(args=args)[0]
+    add_pre_module_args(parser)
+    pre_module_args = parser.parse_known_args(args=args)[0]
 
-    return log_args
+    return pre_module_args
 
 
 def get_module_list(args):
