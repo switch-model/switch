@@ -15,6 +15,7 @@ import __main__ as main
 from pyomo.environ import *
 import pyomo.opt
 import switch_mod.export # For ampl-tab dialect
+import datetime
 
 # This stores full names of modules that are dynamically loaded to
 # define a Switch model.
@@ -755,3 +756,36 @@ def make_iterable(item):
         except TypeError:
             i = iter([item])
     return i
+
+
+class Logging:
+    """
+    Assign standard output and a log file as output destinations. This is accomplished by assigning this class
+    to sys.stdout.
+    """
+    def __init__(self, logs_dir):
+        # Make logs directory if class is initialized
+        if not os.path.exists(logs_dir):
+            os.mkdir(logs_dir)
+
+        # Assign sys.stdout and a log file as locations to write to
+        self.terminal = sys.stdout
+        self.log_file_path = os.path.join(logs_dir, datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".log")
+        self.log_file = open(self.log_file_path, "w", buffering=1)
+
+    def __getattr__(self, attr):
+        """
+        Default to sys.stdout attributes when calling attributes for this class.
+        This is here to prevent unintended consequences for code that assumes sys.stdout is an object with its own
+        methods, etc.
+        """
+        return getattr(self.terminal, attr)
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log_file.write(message)
+
+    def flush(self):
+        self.terminal.flush()
+        self.log_file.flush()
+
