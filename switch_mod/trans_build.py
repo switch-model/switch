@@ -194,7 +194,7 @@ def define_components(mod):
             (tx, 'Legacy') for tx in m.TRANSMISSION_LINES))
     mod.existing_trans_cap = Param(
         mod.TRANSMISSION_LINES,
-        within=PositiveReals)
+        within=NonNegativeReals)
     mod.min_data_check(
         'trans_length_km', 'trans_efficiency', 'EXISTING_TRANS_BLD_YRS',
         'existing_trans_cap')
@@ -284,6 +284,10 @@ def define_components(mod):
     mod.TRANS_DIRECTIONAL = Set(
         dimen=2,
         initialize=init_TRANS_DIRECTIONAL)
+    mod.CONNECTED_LOAD_ZONES = Set(
+        mod.LOAD_ZONES,
+        initialize=lambda m, lz: set(
+            z for z in m.LOAD_ZONES if (lz,z) in m.TRANS_DIRECTIONAL))
 
     def init_trans_d_line(m, lz_from, lz_to):
         for tx in m.TRANSMISSION_LINES:
