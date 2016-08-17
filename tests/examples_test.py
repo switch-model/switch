@@ -34,7 +34,7 @@ def find_example_dirs():
     for dirpath, dirnames, filenames in os.walk(examples_dir):
         for dirname in dirnames:
             path = os.path.join(dirpath, dirname)
-            if os.path.exists(os.path.join(path, 'inputs', 'modules')):
+            if os.path.exists(os.path.join(path, 'inputs', 'modules.txt')):
                 yield path
 
 

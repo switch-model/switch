@@ -83,7 +83,8 @@ def main(args=None, return_model=False, return_instance=False):
             print "iterating model..."
         iterate(instance, iterate_modules)
     else:
-        solve(instance)
+        results = solve(instance)
+        instance.save_results(results, instance, instance.options.outputs_dir)
     
     # report/save results
     instance.post_solve()
