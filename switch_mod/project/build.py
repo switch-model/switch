@@ -457,6 +457,9 @@ def load_inputs(mod, switch_data, inputs_dir):
     Optional columns are:
         proj_dbid, proj_capacity_limit_mw
 
+    The following file lists existing builds of projects, and is
+    optional:
+
     proj_existing_builds.tab
         PROJECT, build_year, proj_existing_cap
 
@@ -486,6 +489,7 @@ def load_inputs(mod, switch_data, inputs_dir):
             None: switch_data.data(name='proj_capacity_limit_mw').keys()
         }
     switch_data.load_aug(
+        optional=True,
         filename=os.path.join(inputs_dir, 'proj_existing_builds.tab'),
         select=('PROJECT', 'build_year', 'proj_existing_cap'),
         index=mod.EXISTING_PROJ_BUILDYEARS,
