@@ -457,14 +457,14 @@ def load_inputs(mod, switch_data, inputs_dir):
     Optional columns are:
         proj_dbid, proj_capacity_limit_mw
 
+    The proj_capacity_limit_mw column is optional because some systems
+    will not have capacity limited projects.
+
     The following file lists existing builds of projects, and is
     optional:
 
     proj_existing_builds.tab
         PROJECT, build_year, proj_existing_cap
-
-    cap_limited_projects is optional because some systems will not have
-    capacity limited projects.
 
     The following file is optional because it override generic values
     given by descriptions of generation technologies. Note: Load-zone
