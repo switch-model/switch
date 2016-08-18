@@ -25,6 +25,13 @@ A solver such as GLPK, Cbc https://projects.coin-or.org/Cbc or cplex.
     expensive for non-academics. It is free for registered academics who
     use it for teaching or research.
 
+R (optional)
+    R is needed for a Hawaii demand module. If you are not using that module,
+    then R is optional, but you will get an error message about rpy2
+    when installing python libraries with pip, and a second error message
+    when you execute run_tests.py from switch_mod.hawaii.r_demand_system
+    being unable to load rpy2.
+
 To use this model, either install this to a standard python library
 location or set the environment variable PYTHONPATH to include this
 directory. The latter option is probably more useful for developers. On
@@ -57,12 +64,15 @@ Instructions for Mac OS X 10.11 (El Capitan)
 
 Install Xcode via the App Store. Open it, accept the license agreement, and say yes if it asks about installing additional required components. Close it when finished.
 
-Install Homebrew, a package manager that ports open source projects to mac os x. For full instructions see http://brew.sh/ The quick instructions are to copy and paste the following command in a terminal.
+Install Homebrew, a package manager that ports open source projects to mac os x. For full instructions see http://brew.sh/ The quick version is to copy and paste the following command in a terminal.
   ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 
-Use brew to install python and glpk
+Use brew to install python, glpk and r
   brew install python
   brew install homebrew/science/glpk
+  brew install r
+
+You can alternately install R from a binary package downloaded from https://cran.r-project.org/bin/macosx/
 
 Install pip:
   sudo easy_install pip
