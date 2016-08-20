@@ -371,13 +371,11 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'lz_to_regional_fuel_market.tab'),
         set=mod.LZ_RFM)
-    # Load load zone fuel cost adder data if the file is available.
-    path = os.path.join(inputs_dir, 'lz_fuel_cost_diff.tab')
-    if os.path.isfile(path):
-        switch_data.load(
-            filename=path,
-            select=('load_zone', 'fuel', 'period', 'fuel_cost_adder'),
-            param=(mod.lz_fuel_cost_adder))
+    switch_data.load_aug(
+        filename=os.path.join(inputs_dir, 'lz_fuel_cost_diff.tab'),
+        optional=True,
+        select=('load_zone', 'fuel', 'period', 'fuel_cost_adder'),
+        param=(mod.lz_fuel_cost_adder))
 
     # Load a simple specifications of costs if the file exists. The
     # actual loading, error checking, and casting into a supply curve is

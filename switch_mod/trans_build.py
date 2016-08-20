@@ -333,22 +333,20 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     """
 
-    switch_data.load(
+    switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'transmission_lines.tab'),
         select=('TRANSMISSION_LINE', 'trans_lz1', 'trans_lz2',
                 'trans_length_km', 'trans_efficiency', 'existing_trans_cap'),
         index=mod.TRANSMISSION_LINES,
         param=(mod.trans_lz1, mod.trans_lz2, mod.trans_length_km,
                mod.trans_efficiency, mod.existing_trans_cap))
-    trans_optional_params_path = os.path.join(
-        inputs_dir, 'trans_optional_params.tab')
-    if os.path.isfile(trans_optional_params_path):
-        switch_data.load(
-            filename=trans_optional_params_path,
-            select=('TRANSMISSION_LINE', 'trans_dbid', 'trans_derating_factor',
-                    'trans_terrain_multiplier', 'trans_new_build_allowed'),
-            param=(mod.trans_dbid, mod.trans_derating_factor,
-                   mod.trans_terrain_multiplier, mod.trans_new_build_allowed))
+    switch_data.load_aug(
+        filename=os.path.join(inputs_dir, 'trans_optional_params.tab'),
+        optional=True,
+        select=('TRANSMISSION_LINE', 'trans_dbid', 'trans_derating_factor',
+                'trans_terrain_multiplier', 'trans_new_build_allowed'),
+        param=(mod.trans_dbid, mod.trans_derating_factor,
+               mod.trans_terrain_multiplier, mod.trans_new_build_allowed))
     trans_params_path = os.path.join(inputs_dir, 'trans_params.dat')
     if os.path.isfile(trans_params_path):
         switch_data.load(filename=trans_params_path)

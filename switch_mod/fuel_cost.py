@@ -92,7 +92,7 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     """
 
-    switch_data.load(
+    switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'fuel_cost.tab'),
         select=('load_zone', 'fuel', 'period', 'fuel_cost'),
         index=mod.FUEL_AVAILABILITY,
