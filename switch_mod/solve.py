@@ -85,6 +85,11 @@ def main(args=None, return_model=False, return_instance=False):
     else:
         results = solve(instance)
         instance.save_results(results, instance, instance.options.outputs_dir)
+
+    if model.options.dump:
+        results.write()
+        instance.pprint()
+
     
     # report/save results
     instance.post_solve()
@@ -267,6 +272,11 @@ def define_arguments(argparser):
     argparser.add_argument(
         '--verbose', '-v', default=False, action='store_true',
         help='Show information about model preparation and solution')
+    argparser.add_argument(
+        '--dump', default=False, action='store_true',
+        help='Dump the solution and full description of the model. Useful '
+             'for debugging or checking small problems during development. '
+             'Not useful for large problems.')
 
 
 def add_module_args(parser):
