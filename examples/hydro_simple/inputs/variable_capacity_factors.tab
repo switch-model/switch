@@ -1,0 +1,9 @@
+PROJECT	timepoint	proj_max_capacity_factor
+S-Central_PV-1	1	0.61
+S-Central_PV-1	2	0
+S-Central_PV-1	3	0.81
+S-Central_PV-1	4	0
+Hydro_RoR	1	.25
+Hydro_RoR	2	.5
+Hydro_RoR	3	.2
+Hydro_RoR	4	.4
