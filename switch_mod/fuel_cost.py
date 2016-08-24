@@ -70,17 +70,17 @@ def define_components(mod):
 
     # Summarize total fuel costs in each timepoint for the objective function
     def Fuel_Costs_TP_rule(m, t):
-    if not hasattr(m, 'Fuel_Costs_TP_dict'):
-        # cache all Fuel_Cost_TP values in a dictionary (created in one pass)
-        m.Fuel_Costs_TP_dict = {t2: 0.0 for t2 in m.TIMEPOINTS}
-        for (proj, t2, f) in m.PROJ_FUEL_DISPATCH_POINTS:
-            if (m.proj_load_zone[proj], f, m.tp_period[t2]) in m.FUEL_AVAILABILITY:
-                m.Fuel_Costs_TP_dict[t2] += (
-                    m.ProjFuelUseRate[proj, t2, f] 
-                    * m.fuel_cost[m.proj_load_zone[proj], f, m.tp_period[t2]])
-    # return a result from the dictionary and pop the element each time 
-    # to release memory
-    return m.Fuel_Costs_TP_dict.pop(t)
+        if not hasattr(m, 'Fuel_Costs_TP_dict'):
+            # cache all Fuel_Cost_TP values in a dictionary (created in one pass)
+            m.Fuel_Costs_TP_dict = {t2: 0.0 for t2 in m.TIMEPOINTS}
+            for (proj, t2, f) in m.PROJ_FUEL_DISPATCH_POINTS:
+                if (m.proj_load_zone[proj], f, m.tp_period[t2]) in m.FUEL_AVAILABILITY:
+                    m.Fuel_Costs_TP_dict[t2] += (
+                        m.ProjFuelUseRate[proj, t2, f] 
+                        * m.fuel_cost[m.proj_load_zone[proj], f, m.tp_period[t2]])
+        # return a result from the dictionary and pop the element each time 
+        # to release memory
+        return m.Fuel_Costs_TP_dict.pop(t)
     mod.Fuel_Costs_TP = Expression(mod.TIMEPOINTS, rule=Fuel_Costs_TP_rule)
     mod.cost_components_tp.append('Fuel_Costs_TP')
 
