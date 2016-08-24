@@ -1,0 +1,861 @@
+71 Set Declarations
+    AverageFuelCosts_index : Dim=0, Dimen=2, Size=2, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    BASELOAD_PROJECTS : Dim=0, Dimen=1, Size=2, Domain=None, Ordered=False, Bounds=None
+        ['S-Biomass_IGCC', 'S-Geothermal']
+    BaseloadOperatingLevelForPeriod_index : Dim=0, Dimen=2, Size=2, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    DumpPower_index : Dim=0, Dimen=2, Size=2, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    ENERGY_SOURCES : Dim=0, Dimen=1, Size=4, Domain=None, Ordered=False, Bounds=None
+        ['BioSolid', 'Geothermal', 'NaturalGas', 'Solar']
+    ENERGY_SOURCES_index_init : Dim=0, Dimen=1, Size=4, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    EXISTING_LOCAL_TD_BLD_YRS : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        [('South', 'Legacy')]
+    EXISTING_PROJ_BUILDYEARS : Dim=0, Dimen=2, Size=4, Domain=None, Ordered=False, Bounds=None
+        [('S-Geothermal', 1998), ('S-NG_CC', 2000), ('S-NG_GT', 1990), ('S-NG_GT', 2002)]
+    Energy_Balance_index : Dim=0, Dimen=2, Size=2, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    Enforce_Fuel_Consumption_By_Tier_index : Dim=0, Dimen=2, Size=2, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    Enforce_Fuel_Consumption_index : Dim=0, Dimen=2, Size=2, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    FUELS : Dim=0, Dimen=1, Size=2, Domain=None, Ordered=False, Bounds=None
+        ['BioSolid', 'NaturalGas']
+    FUEL_BASED_PROJECTS : Dim=0, Dimen=1, Size=3, Domain=None, Ordered=False, Bounds=None
+        ['S-Biomass_IGCC', 'S-NG_CC', 'S-NG_GT']
+    FuelConsumptionInMarket_index : Dim=0, Dimen=2, Size=2, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    GENERATION_TECHNOLOGIES : Dim=0, Dimen=1, Size=7, Domain=None, Ordered=False, Bounds=None
+        ['Biomass_IGCC', 'Central_PV', 'Commercial_PV', 'Geothermal', 'NG_CC', 'NG_GT', 'Residential_PV']
+    GEN_TECH_CCS : Dim=0, Dimen=1, Size=0, Domain=GENERATION_TECHNOLOGIES, Ordered=False, Bounds=None
+        []
+    GEN_TECH_STORAGE : Dim=0, Dimen=1, Size=0, Domain=GENERATION_TECHNOLOGIES, Ordered=False, Bounds=None
+        []
+    GEN_TECH_WITH_FUEL : Dim=0, Dimen=1, Size=3, Domain=None, Ordered=False, Bounds=None
+        ['Biomass_IGCC', 'NG_CC', 'NG_GT']
+    GEN_TECH_WITH_MULTI_FUEL : Dim=0, Dimen=1, Size=0, Domain=None, Ordered=False, Bounds=(None, None)
+        []
+    GEN_TECH_WITH_UNIT_SIZES : Dim=0, Dimen=1, Size=0, Domain=GENERATION_TECHNOLOGIES, Ordered=False, Bounds=None
+        []
+    G_FUELS : Dim=1, Dimen=1, Size=3, Domain=None, ArraySize=3, Ordered=False, Bounds=None
+        Key          : Members
+        Biomass_IGCC :   ['BioSolid']
+               NG_CC : ['NaturalGas']
+               NG_GT : ['NaturalGas']
+    G_MULTI_FUELS : Dim=1, Dimen=1, Size=0, Domain=FUELS, ArraySize=0, Ordered=False, Bounds=None
+        Key : Members
+    G_NEW_BUILD_YEARS : Dim=1, Dimen=1, Size=7, Domain=None, ArraySize=7, Ordered=False, Bounds=None
+        Key            : Members
+          Biomass_IGCC :  [2020]
+            Central_PV :  [2020]
+         Commercial_PV :  [2020]
+            Geothermal :  [2020]
+                 NG_CC :  [2020]
+                 NG_GT :  [2020]
+        Residential_PV :  [2020]
+    LOAD_ZONES : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=False, Bounds=None
+        ['South']
+    LOCAL_TD_BUILD_YEARS : Dim=0, Dimen=2, Size=2, Domain=None, Ordered=False, Bounds=None
+        [('South', 2020), ('South', 'Legacy')]
+    LZ_FUELS : Dim=0, Dimen=2, Size=2, Domain=None, Ordered=False, Bounds=None
+        [('South', 'BioSolid'), ('South', 'NaturalGas')]
+    LZ_NetDispatch_index : Dim=0, Dimen=2, Size=2, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    LZ_PROJECTS : Dim=1, Dimen=1, Size=8, Domain=None, ArraySize=1, Ordered=False, Bounds=None
+        Key   : Members
+        South : ['S-Biomass_IGCC', 'S-Central_PV-1', 'S-Central_PV-2', 'S-Commercial_PV', 'S-Geothermal', 'S-NG_CC', 'S-NG_GT', 'S-Residential_PV']
+    LZ_RFM : Dim=0, Dimen=2, Size=2, Domain=None, Ordered=False, Bounds=None
+        [('South', 'All_NG'), ('South', 'South_Bio')]
+    LocalTDCapacity_index : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    Max_Build_Potential_index : Dim=0, Dimen=2, Size=6, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    Meet_Local_TD_index : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    NEW_GENERATION_BUILDYEARS : Dim=0, Dimen=2, Size=7, Domain=NEW_GENERATION_BUILDYEARS_domain, Ordered=False, Bounds=None
+        [('Biomass_IGCC', 2020), ('Central_PV', 2020), ('Commercial_PV', 2020), ('Geothermal', 2020), ('NG_CC', 2020), ('NG_GT', 2020), ('Residential_PV', 2020)]
+    NEW_GENERATION_BUILDYEARS_domain : Dim=0, Dimen=2, Size=7, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    NEW_PROJ_BUILDYEARS : Dim=0, Dimen=2, Size=8, Domain=None, Ordered=False, Bounds=None
+        [('S-Biomass_IGCC', 2020), ('S-Central_PV-1', 2020), ('S-Central_PV-2', 2020), ('S-Commercial_PV', 2020), ('S-Geothermal', 2020), ('S-NG_CC', 2020), ('S-NG_GT', 2020), ('S-Residential_PV', 2020)]
+    NON_FUEL_BASED_PROJECTS : Dim=0, Dimen=1, Size=5, Domain=None, Ordered=False, Bounds=None
+        ['S-Central_PV-1', 'S-Central_PV-2', 'S-Commercial_PV', 'S-Geothermal', 'S-Residential_PV']
+    NON_FUEL_ENERGY_SOURCES : Dim=0, Dimen=1, Size=2, Domain=None, Ordered=False, Bounds=None
+        ['Geothermal', 'Solar']
+    PERIODS : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=Insertion, Bounds=(2020, 2020)
+        [2020]
+    PERIOD_RELEVANT_LOCAL_TD_BUILDS : Dim=1, Dimen=2, Size=1, Domain=LOCAL_TD_BUILD_YEARS, ArraySize=1, Ordered=False, Bounds=None
+        Key  : Members
+        2020 : [('South', 2020)]
+    PERIOD_TPS : Dim=1, Dimen=1, Size=2, Domain=TIMEPOINTS, ArraySize=1, Ordered=Insertion, Bounds=None
+        Key  : Members
+        2020 : [1, 2]
+    PROJECTS : Dim=0, Dimen=1, Size=8, Domain=None, Ordered=False, Bounds=None
+        ['S-Biomass_IGCC', 'S-Central_PV-1', 'S-Central_PV-2', 'S-Commercial_PV', 'S-Geothermal', 'S-NG_CC', 'S-NG_GT', 'S-Residential_PV']
+    PROJECTS_ACTIVE_IN_TIMEPOINT : Dim=1, Dimen=1, Size=16, Domain=PROJECTS, ArraySize=2, Ordered=False, Bounds=None
+        Key : Members
+          1 : ['S-Biomass_IGCC', 'S-Central_PV-1', 'S-Central_PV-2', 'S-Commercial_PV', 'S-Geothermal', 'S-NG_CC', 'S-NG_GT', 'S-Residential_PV']
+          2 : ['S-Biomass_IGCC', 'S-Central_PV-1', 'S-Central_PV-2', 'S-Commercial_PV', 'S-Geothermal', 'S-NG_CC', 'S-NG_GT', 'S-Residential_PV']
+    PROJECTS_CAP_LIMITED : Dim=0, Dimen=1, Size=6, Domain=PROJECTS, Ordered=False, Bounds=None
+        ['S-Central_PV-1', 'S-Central_PV-2', 'S-Commercial_PV', 'S-Geothermal', 'S-NG_GT', 'S-Residential_PV']
+    PROJECT_BUILDS_OPERATIONAL_PERIODS : Dim=2, Dimen=1, Size=11, Domain=PERIODS, ArraySize=12, Ordered=Insertion, Bounds=None
+        Key                        : Members
+          ('S-Biomass_IGCC', 2020) :  [2020]
+          ('S-Central_PV-1', 2020) :  [2020]
+          ('S-Central_PV-2', 2020) :  [2020]
+         ('S-Commercial_PV', 2020) :  [2020]
+            ('S-Geothermal', 1998) :  [2020]
+            ('S-Geothermal', 2020) :  [2020]
+                 ('S-NG_CC', 2000) :  [2020]
+                 ('S-NG_CC', 2020) :  [2020]
+                 ('S-NG_GT', 1990) :      []
+                 ('S-NG_GT', 2002) :  [2020]
+                 ('S-NG_GT', 2020) :  [2020]
+        ('S-Residential_PV', 2020) :  [2020]
+    PROJECT_BUILDYEARS : Dim=0, Dimen=2, Size=12, Domain=None, Ordered=False, Bounds=None
+        [('S-Biomass_IGCC', 2020), ('S-Central_PV-1', 2020), ('S-Central_PV-2', 2020), ('S-Commercial_PV', 2020), ('S-Geothermal', 1998), ('S-Geothermal', 2020), ('S-NG_CC', 2000), ('S-NG_CC', 2020), ('S-NG_GT', 1990), ('S-NG_GT', 2002), ('S-NG_GT', 2020), ('S-Residential_PV', 2020)]
+    PROJECT_OPERATIONAL_PERIODS : Dim=0, Dimen=2, Size=8, Domain=None, Ordered=False, Bounds=None
+        [('S-Biomass_IGCC', 2020), ('S-Central_PV-1', 2020), ('S-Central_PV-2', 2020), ('S-Commercial_PV', 2020), ('S-Geothermal', 2020), ('S-NG_CC', 2020), ('S-NG_GT', 2020), ('S-Residential_PV', 2020)]
+    PROJECT_PERIOD_ONLINE_BUILD_YRS : Dim=2, Dimen=1, Size=11, Domain=None, ArraySize=8, Ordered=False, Bounds=None
+        Key                        : Members
+          ('S-Biomass_IGCC', 2020) : [2020]
+          ('S-Central_PV-1', 2020) : [2020]
+          ('S-Central_PV-2', 2020) : [2020]
+         ('S-Commercial_PV', 2020) : [2020]
+            ('S-Geothermal', 2020) : [1998, 2020]
+                 ('S-NG_CC', 2020) : [2000, 2020]
+                 ('S-NG_GT', 2020) : [2002, 2020]
+        ('S-Residential_PV', 2020) : [2020]
+    PROJECT_PERIOD_ONLINE_BUILD_YRS_index : Dim=0, Dimen=2, Size=8, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    PROJ_DISPATCH_POINTS : Dim=0, Dimen=2, Size=16, Domain=None, Ordered=False, Bounds=None
+        [('S-Biomass_IGCC', 1), ('S-Biomass_IGCC', 2), ('S-Central_PV-1', 1), ('S-Central_PV-1', 2), ('S-Central_PV-2', 1), ('S-Central_PV-2', 2), ('S-Commercial_PV', 1), ('S-Commercial_PV', 2), ('S-Geothermal', 1), ('S-Geothermal', 2), ('S-NG_CC', 1), ('S-NG_CC', 2), ('S-NG_GT', 1), ('S-NG_GT', 2), ('S-Residential_PV', 1), ('S-Residential_PV', 2)]
+    PROJ_FUEL_DISPATCH_POINTS : Dim=0, Dimen=3, Size=6, Domain=None, Ordered=False, Bounds=None
+        [('S-Biomass_IGCC', 1, 'BioSolid'), ('S-Biomass_IGCC', 2, 'BioSolid'), ('S-NG_CC', 1, 'NaturalGas'), ('S-NG_CC', 2, 'NaturalGas'), ('S-NG_GT', 1, 'NaturalGas'), ('S-NG_GT', 2, 'NaturalGas')]
+    PROJ_WITH_FUEL_DISPATCH_POINTS : Dim=0, Dimen=2, Size=6, Domain=None, Ordered=False, Bounds=None
+        [('S-Biomass_IGCC', 1), ('S-Biomass_IGCC', 2), ('S-NG_CC', 1), ('S-NG_CC', 2), ('S-NG_GT', 1), ('S-NG_GT', 2)]
+    ProjCapacity_index : Dim=0, Dimen=2, Size=8, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    REGIONAL_FUEL_MARKET : Dim=0, Dimen=1, Size=2, Domain=None, Ordered=False, Bounds=None
+        ['All_NG', 'South_Bio']
+    RFM_DISPATCH_POINTS : Dim=2, Dimen=3, Size=6, Domain=PROJ_FUEL_DISPATCH_POINTS, ArraySize=2, Ordered=False, Bounds=None
+        Key                 : Members
+           ('All_NG', 2020) : [('S-NG_CC', 1, 'NaturalGas'), ('S-NG_CC', 2, 'NaturalGas'), ('S-NG_GT', 1, 'NaturalGas'), ('S-NG_GT', 2, 'NaturalGas')]
+        ('South_Bio', 2020) : [('S-Biomass_IGCC', 1, 'BioSolid'), ('S-Biomass_IGCC', 2, 'BioSolid')]
+    RFM_DISPATCH_POINTS_index : Dim=0, Dimen=2, Size=2, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    RFM_LOAD_ZONES : Dim=1, Dimen=1, Size=2, Domain=None, ArraySize=2, Ordered=False, Bounds=None
+        Key       : Members
+           All_NG : ['South']
+        South_Bio : ['South']
+    RFM_P_SUPPLY_TIERS : Dim=2, Dimen=3, Size=4, Domain=None, ArraySize=2, Ordered=False, Bounds=None
+        Key                 : Members
+           ('All_NG', 2020) : [('All_NG', 2020, 0), ('All_NG', 2020, 1)]
+        ('South_Bio', 2020) : [('South_Bio', 2020, 0), ('South_Bio', 2020, 1)]
+    RFM_P_SUPPLY_TIERS_index : Dim=0, Dimen=2, Size=2, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    RFM_SUPPLY_TIERS : Dim=0, Dimen=3, Size=4, Domain=None, Ordered=False, Bounds=None
+        [('All_NG', 2020, 0), ('All_NG', 2020, 1), ('South_Bio', 2020, 0), ('South_Bio', 2020, 1)]
+    TIMEPOINTS : Dim=0, Dimen=1, Size=2, Domain=None, Ordered=Insertion, Bounds=(1, 2)
+        [1, 2]
+    TIMESERIES : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=Insertion, Bounds=None
+        ['2020_all']
+    TS_TPS : Dim=1, Dimen=1, Size=2, Domain=TIMEPOINTS, ArraySize=1, Ordered=Insertion, Bounds=None
+        Key      : Members
+        2020_all : [1, 2]
+    VARIABLE_PROJECTS : Dim=0, Dimen=1, Size=4, Domain=None, Ordered=False, Bounds=None
+        ['S-Central_PV-1', 'S-Central_PV-2', 'S-Commercial_PV', 'S-Residential_PV']
+    VAR_DISPATCH_POINTS : Dim=0, Dimen=2, Size=8, Domain=None, Ordered=False, Bounds=None
+        [('S-Central_PV-1', 1), ('S-Central_PV-1', 2), ('S-Central_PV-2', 1), ('S-Central_PV-2', 2), ('S-Commercial_PV', 1), ('S-Commercial_PV', 2), ('S-Residential_PV', 1), ('S-Residential_PV', 2)]
+    distribution_losses_index : Dim=0, Dimen=2, Size=2, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    g_fixed_o_m_index : Dim=0, Dimen=2, Size=7, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    g_overnight_cost_index : Dim=0, Dimen=2, Size=7, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    lz_demand_mw_index : Dim=0, Dimen=2, Size=2, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    lz_fuel_cost_adder_index : Dim=0, Dimen=3, Size=2, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    lz_peak_demand_mw_index : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    lz_total_demand_in_period_mwh_index : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        Virtual
+
+77 Param Declarations
+    add_one_to_period_end : Size=1, Index=None, Domain=Boolean, Default=None, Mutable=False
+        Key  : Value
+        None :  True
+    base_financial_year : Size=1, Index=None, Domain=PositiveIntegers, Default=None, Mutable=False
+        Key  : Value
+        None :  2015
+    bring_annual_costs_to_base_year : Size=1, Index=PERIODS, Domain=PositiveReals, Default=None, Mutable=False
+        Key  : Value
+        2020 : 7.00384120561
+    bring_timepoint_costs_to_base_year : Size=2, Index=TIMEPOINTS, Domain=PositiveReals, Default=None, Mutable=False
+        Key : Value
+          1 : 30697.8360042
+          2 : 30697.8360042
+    discount_rate : Size=1, Index=None, Domain=NonNegativeReals, Default=interest_rate, Mutable=False
+        Key  : Value
+        None :  0.05
+    distribution_loss_rate : Size=1, Index=None, Domain=Any, Default=0.053, Mutable=False
+        Key  : Value
+        None : 0.053
+    distribution_losses : Size=2, Index=distribution_losses_index, Domain=Any, Default=None, Mutable=False
+        Key          : Value
+        ('South', 1) :  0.424
+        ('South', 2) : 0.0265
+    existing_local_td : Size=1, Index=LOAD_ZONES, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key   : Value
+        South :   7.5
+    f_co2_intensity : Size=2, Index=FUELS, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key        : Value
+          BioSolid : 0.09435
+        NaturalGas : 0.05306
+    f_upstream_co2_intensity : Size=2, Index=FUELS, Domain=Reals, Default=0, Mutable=False
+        Key        : Value
+          BioSolid : -0.09435
+        NaturalGas :        0
+    g_ccs_capture_efficiency : Size=0, Index=GEN_TECH_CCS, Domain=PercentFraction, Default=None, Mutable=False
+        Key : Value
+    g_ccs_energy_load : Size=0, Index=GEN_TECH_CCS, Domain=PercentFraction, Default=None, Mutable=False
+        Key : Value
+    g_competes_for_space : Size=7, Index=GENERATION_TECHNOLOGIES, Domain=Boolean, Default=0, Mutable=False
+        Key            : Value
+          Biomass_IGCC :     0
+            Central_PV :     1
+         Commercial_PV :     1
+            Geothermal :     0
+                 NG_CC :     0
+                 NG_GT :     0
+        Residential_PV :     1
+    g_dbid : Size=7, Index=GENERATION_TECHNOLOGIES, Domain=Any, Default=(function), Mutable=False
+        Key : Value
+    g_energy_source : Size=7, Index=GENERATION_TECHNOLOGIES, Domain=Any, Default=None, Mutable=False
+        Key            : Value
+          Biomass_IGCC :   BioSolid
+            Central_PV :      Solar
+         Commercial_PV :      Solar
+            Geothermal : Geothermal
+                 NG_CC : NaturalGas
+                 NG_GT : NaturalGas
+        Residential_PV :      Solar
+    g_fixed_o_m : Size=7, Index=g_fixed_o_m_index, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key                      : Value
+          ('Biomass_IGCC', 2020) :  88350
+            ('Central_PV', 2020) :  41850
+         ('Commercial_PV', 2020) :  41850
+            ('Geothermal', 2020) :      0
+                 ('NG_CC', 2020) : 5868.3
+                 ('NG_GT', 2020) : 4891.8
+        ('Residential_PV', 2020) :  41850
+    g_forced_outage_rate : Size=7, Index=GENERATION_TECHNOLOGIES, Domain=PercentFraction, Default=None, Mutable=False
+        Key            : Value
+          Biomass_IGCC :  0.076
+            Central_PV :   0.02
+         Commercial_PV :   0.02
+            Geothermal : 0.0241
+                 NG_CC :   0.06
+                 NG_GT :   0.06
+        Residential_PV :   0.02
+    g_full_load_heat_rate : Size=3, Index=GEN_TECH_WITH_FUEL, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key          : Value
+        Biomass_IGCC :  12.5
+               NG_CC : 6.705
+               NG_GT : 10.39
+    g_is_baseload : Size=7, Index=GENERATION_TECHNOLOGIES, Domain=Boolean, Default=None, Mutable=False
+        Key            : Value
+          Biomass_IGCC :     1
+            Central_PV :     0
+         Commercial_PV :     0
+            Geothermal :     1
+                 NG_CC :     0
+                 NG_GT :     0
+        Residential_PV :     0
+    g_is_cogen : Size=7, Index=GENERATION_TECHNOLOGIES, Domain=Boolean, Default=None, Mutable=False
+        Key            : Value
+          Biomass_IGCC :     0
+            Central_PV :     0
+         Commercial_PV :     0
+            Geothermal :     0
+                 NG_CC :     0
+                 NG_GT :     0
+        Residential_PV :     0
+    g_is_flexible_baseload : Size=7, Index=GENERATION_TECHNOLOGIES, Domain=Boolean, Default=None, Mutable=False
+        Key            : Value
+          Biomass_IGCC :     0
+            Central_PV :     0
+         Commercial_PV :     0
+            Geothermal :     0
+                 NG_CC :     0
+                 NG_GT :     0
+        Residential_PV :     0
+    g_is_variable : Size=7, Index=GENERATION_TECHNOLOGIES, Domain=Boolean, Default=None, Mutable=False
+        Key            : Value
+          Biomass_IGCC :     0
+            Central_PV :     1
+         Commercial_PV :     1
+            Geothermal :     0
+                 NG_CC :     0
+                 NG_GT :     0
+        Residential_PV :     1
+    g_max_age : Size=7, Index=GENERATION_TECHNOLOGIES, Domain=PositiveReals, Default=None, Mutable=False
+        Key            : Value
+          Biomass_IGCC :    40
+            Central_PV :    20
+         Commercial_PV :    20
+            Geothermal :    30
+                 NG_CC :    20
+                 NG_GT :    20
+        Residential_PV :    20
+    g_min_build_capacity : Size=7, Index=GENERATION_TECHNOLOGIES, Domain=NonNegativeReals, Default=0, Mutable=False
+        Key            : Value
+          Biomass_IGCC :     0
+            Central_PV :     0
+         Commercial_PV :     0
+            Geothermal :     0
+                 NG_CC :     0
+                 NG_GT :     0
+        Residential_PV :     0
+    g_overnight_cost : Size=7, Index=g_overnight_cost_index, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key                      : Value
+          ('Biomass_IGCC', 2020) : 3561900
+            ('Central_PV', 2020) : 2334300
+         ('Commercial_PV', 2020) : 3106200
+            ('Geothermal', 2020) : 5524200
+                 ('NG_CC', 2020) : 1143900
+                 ('NG_GT', 2020) :  605430
+        ('Residential_PV', 2020) : 3487500
+    g_scheduled_outage_rate : Size=7, Index=GENERATION_TECHNOLOGIES, Domain=PercentFraction, Default=None, Mutable=False
+        Key            : Value
+          Biomass_IGCC :   0.09
+            Central_PV :      0
+         Commercial_PV :      0
+            Geothermal : 0.0075
+                 NG_CC :   0.04
+                 NG_GT :   0.04
+        Residential_PV :      0
+    g_storage_efficiency : Size=0, Index=GEN_TECH_STORAGE, Domain=PercentFraction, Default=None, Mutable=False
+        Key : Value
+    g_store_to_release_ratio : Size=0, Index=GEN_TECH_STORAGE, Domain=PositiveReals, Default=None, Mutable=False
+        Key : Value
+    g_unit_size : Size=0, Index=GEN_TECH_WITH_UNIT_SIZES, Domain=PositiveReals, Default=None, Mutable=False
+        Key : Value
+    g_uses_fuel : Size=7, Index=GENERATION_TECHNOLOGIES, Domain=Any, Default=None, Mutable=False
+        Key            : Value
+          Biomass_IGCC :  True
+            Central_PV : False
+         Commercial_PV : False
+            Geothermal : False
+                 NG_CC :  True
+                 NG_GT :  True
+        Residential_PV : False
+    g_variable_o_m : Size=7, Index=GENERATION_TECHNOLOGIES, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key            : Value
+          Biomass_IGCC :  13.95
+            Central_PV :      0
+         Commercial_PV :      0
+            Geothermal :  28.83
+                 NG_CC : 3.4131
+                 NG_GT : 27.807
+        Residential_PV :      0
+    interest_rate : Size=1, Index=None, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key  : Value
+        None :  0.07
+    local_td_annual_cost_per_mw : Size=1, Index=LOAD_ZONES, Domain=PositiveReals, Default=None, Mutable=False
+        Key   : Value
+        South : 128040
+    lz_ccs_distance_km : Size=1, Index=LOAD_ZONES, Domain=NonNegativeReals, Default=0.0, Mutable=False
+        Key : Value
+    lz_cost_multipliers : Size=1, Index=LOAD_ZONES, Domain=PositiveReals, Default=1.0, Mutable=False
+        Key : Value
+    lz_dbid : Size=1, Index=LOAD_ZONES, Domain=Any, Default=(function), Mutable=False
+        Key : Value
+    lz_demand_mw : Size=2, Index=lz_demand_mw_index, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key          : Value
+        ('South', 1) :     8
+        ('South', 2) :   0.5
+    lz_fuel_cost_adder : Size=2, Index=lz_fuel_cost_adder_index, Domain=Reals, Default=0, Mutable=False
+        Key : Value
+    lz_peak_demand_mw : Size=1, Index=lz_peak_demand_mw_index, Domain=NonNegativeReals, Default=(function), Mutable=False
+        Key : Value
+    lz_rfm : Size=2, Index=LZ_FUELS, Domain=REGIONAL_FUEL_MARKET, Default=None, Mutable=False
+        Key                     : Value
+          ('South', 'BioSolid') : South_Bio
+        ('South', 'NaturalGas') :    All_NG
+    lz_total_demand_in_period_mwh : Size=1, Index=lz_total_demand_in_period_mwh_index, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key             : Value
+        ('South', 2020) : 372555.0
+    period_end : Size=1, Index=PERIODS, Domain=PositiveReals, Default=None, Mutable=False
+        Key  : Value
+        2020 :  2026
+    period_length_hours : Size=1, Index=PERIODS, Domain=Any, Default=None, Mutable=False
+        Key  : Value
+        2020 : 87660
+    period_length_years : Size=1, Index=PERIODS, Domain=Any, Default=None, Mutable=False
+        Key  : Value
+        2020 :    10
+    period_start : Size=1, Index=PERIODS, Domain=PositiveReals, Default=None, Mutable=False
+        Key  : Value
+        2020 :  2017
+    proj_availability : Size=8, Index=PROJECTS, Domain=PositiveReals, Default=None, Mutable=False
+        Key              : Value
+          S-Biomass_IGCC :    0.84084
+          S-Central_PV-1 :       0.98
+          S-Central_PV-2 :       0.98
+         S-Commercial_PV :       0.98
+            S-Geothermal : 0.96858075
+                 S-NG_CC :       0.94
+                 S-NG_GT :       0.94
+        S-Residential_PV :       0.98
+    proj_capacity_limit_mw : Size=6, Index=PROJECTS_CAP_LIMITED, Domain=PositiveReals, Default=None, Mutable=False
+        Key              : Value
+          S-Central_PV-1 :   0.8
+          S-Central_PV-2 :   0.4
+         S-Commercial_PV :   3.3
+            S-Geothermal :     3
+                 S-NG_GT :     5
+        S-Residential_PV :     3
+    proj_capital_cost_annual : Size=12, Index=PROJECT_BUILDYEARS, Domain=Any, Default=None, Mutable=False
+        Key                        : Value
+          ('S-Biomass_IGCC', 2020) : 271493.072848
+          ('S-Central_PV-1', 2020) : 227409.728189
+          ('S-Central_PV-2', 2020) : 226511.900436
+         ('S-Commercial_PV', 2020) : 293203.305944
+            ('S-Geothermal', 1998) : 455991.878528
+            ('S-Geothermal', 2020) : 455991.878528
+                 ('S-NG_CC', 2000) : 113409.947557
+                 ('S-NG_CC', 2020) : 113409.947557
+                 ('S-NG_GT', 1990) : 62582.1888318
+                 ('S-NG_GT', 2002) : 62582.1888318
+                 ('S-NG_GT', 2020) : 62582.1888318
+        ('S-Residential_PV', 2020) :  329195.32853
+    proj_connect_cost_per_mw : Size=8, Index=PROJECTS, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key              : Value
+          S-Biomass_IGCC : 57566.6
+          S-Central_PV-1 : 74881.9
+          S-Central_PV-2 : 65370.3
+         S-Commercial_PV :       0
+            S-Geothermal :  134222
+                 S-NG_CC : 57566.6
+                 S-NG_GT : 57566.6
+        S-Residential_PV :       0
+    proj_dbid : Size=8, Index=PROJECTS, Domain=Any, Default=(function), Mutable=False
+        Key              : Value
+          S-Biomass_IGCC :    37
+          S-Central_PV-1 :    41
+          S-Central_PV-2 :    42
+         S-Commercial_PV :    40
+            S-Geothermal :    33
+                 S-NG_CC :    34
+                 S-NG_GT :    36
+        S-Residential_PV :    39
+    proj_end_year : Size=12, Index=PROJECT_BUILDYEARS, Domain=Any, Default=None, Mutable=False
+        Key                        : Value
+          ('S-Biomass_IGCC', 2020) :  2020
+          ('S-Central_PV-1', 2020) :  2020
+          ('S-Central_PV-2', 2020) :  2020
+         ('S-Commercial_PV', 2020) :  2020
+            ('S-Geothermal', 1998) :  2020
+            ('S-Geothermal', 2020) :  2020
+                 ('S-NG_CC', 2000) :  2020
+                 ('S-NG_CC', 2020) :  2020
+                 ('S-NG_GT', 1990) :  2010
+                 ('S-NG_GT', 2002) :  2020
+                 ('S-NG_GT', 2020) :  2020
+        ('S-Residential_PV', 2020) :  2020
+    proj_existing_cap : Size=4, Index=EXISTING_PROJ_BUILDYEARS, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key                    : Value
+        ('S-Geothermal', 1998) :     3
+             ('S-NG_CC', 2000) :     5
+             ('S-NG_GT', 1990) :     3
+             ('S-NG_GT', 2002) :     2
+    proj_fixed_om : Size=12, Index=PROJECT_BUILDYEARS, Domain=NonNegativeReals, Default=(function), Mutable=False
+        Key                    : Value
+        ('S-Geothermal', 1998) :      0
+             ('S-NG_CC', 2000) : 5868.3
+             ('S-NG_GT', 1990) : 4891.8
+             ('S-NG_GT', 2002) : 4891.8
+    proj_forced_outage_rate : Size=8, Index=PROJECTS, Domain=PercentFraction, Default=(function), Mutable=False
+        Key : Value
+    proj_full_load_heat_rate : Size=3, Index=FUEL_BASED_PROJECTS, Domain=PositiveReals, Default=(function), Mutable=False
+        Key : Value
+    proj_gen_tech : Size=8, Index=PROJECTS, Domain=GENERATION_TECHNOLOGIES, Default=None, Mutable=False
+        Key              : Value
+          S-Biomass_IGCC :   Biomass_IGCC
+          S-Central_PV-1 :     Central_PV
+          S-Central_PV-2 :     Central_PV
+         S-Commercial_PV :  Commercial_PV
+            S-Geothermal :     Geothermal
+                 S-NG_CC :          NG_CC
+                 S-NG_GT :          NG_GT
+        S-Residential_PV : Residential_PV
+    proj_load_zone : Size=8, Index=PROJECTS, Domain=LOAD_ZONES, Default=None, Mutable=False
+        Key              : Value
+          S-Biomass_IGCC : South
+          S-Central_PV-1 : South
+          S-Central_PV-2 : South
+         S-Commercial_PV : South
+            S-Geothermal : South
+                 S-NG_CC : South
+                 S-NG_GT : South
+        S-Residential_PV : South
+    proj_max_capacity_factor : Size=8, Index=VAR_DISPATCH_POINTS, Domain=Reals, Default=None, Mutable=False
+        Key                     : Value
+          ('S-Central_PV-1', 1) :  0.61
+          ('S-Central_PV-1', 2) :     0
+          ('S-Central_PV-2', 1) :  0.64
+          ('S-Central_PV-2', 2) :     0
+         ('S-Commercial_PV', 1) :  0.57
+         ('S-Commercial_PV', 2) :     0
+        ('S-Residential_PV', 1) :  0.57
+        ('S-Residential_PV', 2) :     0
+    proj_overnight_cost : Size=12, Index=PROJECT_BUILDYEARS, Domain=NonNegativeReals, Default=(function), Mutable=False
+        Key                    : Value
+        ('S-Geothermal', 1998) : 5524200
+             ('S-NG_CC', 2000) : 1143900
+             ('S-NG_GT', 1990) :  605430
+             ('S-NG_GT', 2002) :  605430
+    proj_scheduled_outage_rate : Size=8, Index=PROJECTS, Domain=PercentFraction, Default=(function), Mutable=False
+        Key : Value
+    proj_variable_om : Size=8, Index=PROJECTS, Domain=NonNegativeReals, Default=(function), Mutable=False
+        Key : Value
+    rfm_fuel : Size=2, Index=REGIONAL_FUEL_MARKET, Domain=FUELS, Default=None, Mutable=False
+        Key       : Value
+           All_NG : NaturalGas
+        South_Bio :   BioSolid
+    rfm_supply_tier_cost : Size=4, Index=RFM_SUPPLY_TIERS, Domain=Reals, Default=None, Mutable=False
+        Key                    : Value
+           ('All_NG', 2020, 0) :  4.4647
+           ('All_NG', 2020, 1) :  5.0709
+        ('South_Bio', 2020, 0) :  1.7115
+        ('South_Bio', 2020, 1) : 17.1714
+    rfm_supply_tier_limit : Size=4, Index=RFM_SUPPLY_TIERS, Domain=PositiveReals, Default=inf, Mutable=False
+        Key                    : Value
+           ('All_NG', 2020, 0) : 1950514555
+           ('All_NG', 2020, 1) :        inf
+        ('South_Bio', 2020, 0) :   26427258
+        ('South_Bio', 2020, 1) :     486066
+    tp_duration_hrs : Size=2, Index=TIMEPOINTS, Domain=Any, Default=None, Mutable=False
+        Key : Value
+          1 :    12
+          2 :    12
+    tp_period : Size=2, Index=TIMEPOINTS, Domain=PERIODS, Default=None, Mutable=False
+        Key : Value
+          1 :  2020
+          2 :  2020
+    tp_previous : Size=2, Index=TIMEPOINTS, Domain=TIMEPOINTS, Default=None, Mutable=False
+        Key : Value
+          1 :     2
+          2 :     1
+    tp_timestamp : Size=2, Index=TIMEPOINTS, Domain=Any, Default=(function), Mutable=False
+        Key : Value
+          1 : 2025011512
+          2 : 2025011600
+    tp_ts : Size=2, Index=TIMEPOINTS, Domain=TIMESERIES, Default=None, Mutable=False
+        Key : Value
+          1 : 2020_all
+          2 : 2020_all
+    tp_weight : Size=2, Index=TIMEPOINTS, Domain=PositiveReals, Default=None, Mutable=False
+        Key : Value
+          1 : 43830.0
+          2 : 43830.0
+    tp_weight_in_year : Size=2, Index=TIMEPOINTS, Domain=PositiveReals, Default=None, Mutable=False
+        Key : Value
+          1 : 4383.0
+          2 : 4383.0
+    ts_duration_hrs : Size=1, Index=TIMESERIES, Domain=Any, Default=None, Mutable=False
+        Key      : Value
+        2020_all :    24
+    ts_duration_of_tp : Size=1, Index=TIMESERIES, Domain=PositiveReals, Default=None, Mutable=False
+        Key      : Value
+        2020_all :    12
+    ts_num_tps : Size=1, Index=TIMESERIES, Domain=PositiveIntegers, Default=None, Mutable=False
+        Key      : Value
+        2020_all :     2
+    ts_period : Size=1, Index=TIMESERIES, Domain=PERIODS, Default=None, Mutable=False
+        Key      : Value
+        2020_all :  2020
+    ts_scale_to_period : Size=1, Index=TIMESERIES, Domain=PositiveReals, Default=None, Mutable=False
+        Key      : Value
+        2020_all : 3652.5
+    ts_scale_to_year : Size=1, Index=TIMESERIES, Domain=Any, Default=None, Mutable=False
+        Key      : Value
+        2020_all : 365.25
+
+8 Var Declarations
+    BaseloadOperatingLevelForPeriod : Size=2, Index=BaseloadOperatingLevelForPeriod_index, Domain=Reals
+        Key                      : Lower : Value      : Upper : Fixed : Stale
+        ('S-Biomass_IGCC', 2020) :  None :        0.0 :  None : False : False
+          ('S-Geothermal', 2020) :  None : 2.90574225 :  None : False : False
+    BuildLocalTD : Size=2, Index=LOCAL_TD_BUILD_YEARS, Domain=NonNegativeReals
+        Key                 : Lower : Value : Upper : Fixed : Stale
+            ('South', 2020) :     0 :   0.5 :  None : False : False
+        ('South', 'Legacy') :   7.5 :   7.5 :   7.5 : False : False
+    BuildProj : Size=12, Index=PROJECT_BUILDYEARS, Domain=NonNegativeReals
+        Key                        : Lower : Value          : Upper : Fixed : Stale
+          ('S-Biomass_IGCC', 2020) :     0 :            0.0 :  None : False : False
+          ('S-Central_PV-1', 2020) :     0 :            0.0 :   0.8 : False : False
+          ('S-Central_PV-2', 2020) :     0 :            0.0 :   0.4 : False : False
+         ('S-Commercial_PV', 2020) :     0 :            0.0 :   3.3 : False : False
+            ('S-Geothermal', 1998) :     3 :            3.0 :     3 : False : False
+            ('S-Geothermal', 2020) :     0 :            0.0 :     3 : False : False
+                 ('S-NG_CC', 2000) :     5 :            5.0 :     5 : False : False
+                 ('S-NG_CC', 2020) :     0 : 0.870486968085 :  None : False : False
+                 ('S-NG_GT', 1990) :     3 :              3 :     3 : False :  True
+                 ('S-NG_GT', 2002) :     2 :            2.0 :     2 : False : False
+                 ('S-NG_GT', 2020) :     0 :            0.0 :     5 : False : False
+        ('S-Residential_PV', 2020) :     0 :            0.0 :     3 : False : False
+    DispatchProj : Size=16, Index=PROJ_DISPATCH_POINTS, Domain=NonNegativeReals
+        Key                     : Lower : Value      : Upper : Fixed : Stale
+          ('S-Biomass_IGCC', 1) :     0 :        0.0 :  None : False : False
+          ('S-Biomass_IGCC', 2) :     0 :        0.0 :  None : False : False
+          ('S-Central_PV-1', 1) :     0 :        0.0 :  None : False : False
+          ('S-Central_PV-1', 2) :     0 :        0.0 :  None : False : False
+          ('S-Central_PV-2', 1) :     0 :        0.0 :  None : False : False
+          ('S-Central_PV-2', 2) :     0 :        0.0 :  None : False : False
+         ('S-Commercial_PV', 1) :     0 :        0.0 :  None : False : False
+         ('S-Commercial_PV', 2) :     0 :        0.0 :  None : False : False
+            ('S-Geothermal', 1) :     0 : 2.90574225 :  None : False : False
+            ('S-Geothermal', 2) :     0 : 2.90574225 :  None : False : False
+                 ('S-NG_CC', 1) :     0 : 5.51825775 :  None : False : False
+                 ('S-NG_CC', 2) :     0 :        0.0 :  None : False : False
+                 ('S-NG_GT', 1) :     0 :        0.0 :  None : False : False
+                 ('S-NG_GT', 2) :     0 :        0.0 :  None : False : False
+        ('S-Residential_PV', 1) :     0 :        0.0 :  None : False : False
+        ('S-Residential_PV', 2) :     0 :        0.0 :  None : False : False
+    DumpPower : Size=2, Index=DumpPower_index, Domain=NonNegativeReals
+        Key          : Lower : Value      : Upper : Fixed : Stale
+        ('South', 1) :     0 :        0.0 :  None : False : False
+        ('South', 2) :     0 : 2.37924225 :  None : False : False
+    FuelConsumptionByTier : Size=4, Index=RFM_SUPPLY_TIERS, Domain=NonNegativeReals
+        Key                    : Lower : Value         : Upper      : Fixed : Stale
+           ('All_NG', 2020, 0) :     0 : 162170.641531 : 1950514555 : False : False
+           ('All_NG', 2020, 1) :     0 :           0.0 :       None : False : False
+        ('South_Bio', 2020, 0) :     0 :           0.0 :   26427258 : False : False
+        ('South_Bio', 2020, 1) :     0 :           0.0 :     486066 : False : False
+    FuelConsumptionInMarket : Size=2, Index=FuelConsumptionInMarket_index, Domain=NonNegativeReals
+        Key                 : Lower : Value         : Upper : Fixed : Stale
+           ('All_NG', 2020) :     0 : 162170.641531 :  None : False : False
+        ('South_Bio', 2020) :     0 :           0.0 :  None : False : False
+    ProjFuelUseRate : Size=6, Index=PROJ_FUEL_DISPATCH_POINTS, Domain=NonNegativeReals
+        Key                               : Lower : Value         : Upper : Fixed : Stale
+        ('S-Biomass_IGCC', 1, 'BioSolid') :     0 :           0.0 :  None : False : False
+        ('S-Biomass_IGCC', 2, 'BioSolid') :     0 :           0.0 :  None : False : False
+             ('S-NG_CC', 1, 'NaturalGas') :     0 : 36.9999182138 :  None : False : False
+             ('S-NG_CC', 2, 'NaturalGas') :     0 :           0.0 :  None : False : False
+             ('S-NG_GT', 1, 'NaturalGas') :     0 :           0.0 :  None : False : False
+             ('S-NG_GT', 2, 'NaturalGas') :     0 :           0.0 :  None : False : False
+
+16 Expression Declarations
+    AverageFuelCosts : Size=2, Index=AverageFuelCosts_index
+        Key                 : Expression
+           ('All_NG', 2020) : ( 5.0709*FuelConsumptionByTier[All_NG,2020,1] + 4.4647*FuelConsumptionByTier[All_NG,2020,0] ) / ( FuelConsumptionByTier[All_NG,2020,1] + FuelConsumptionByTier[All_NG,2020,0] )
+        ('South_Bio', 2020) : ( 1.7115*FuelConsumptionByTier[South_Bio,2020,0] + 17.1714*FuelConsumptionByTier[South_Bio,2020,1] ) / ( FuelConsumptionByTier[South_Bio,2020,0] + FuelConsumptionByTier[South_Bio,2020,1] )
+    DispatchEmissions : Size=6, Index=PROJ_FUEL_DISPATCH_POINTS
+        Key                               : Expression
+        ('S-Biomass_IGCC', 1, 'BioSolid') : 0.1887 * ProjFuelUseRate[S-Biomass_IGCC,1,BioSolid]
+        ('S-Biomass_IGCC', 2, 'BioSolid') : 0.1887 * ProjFuelUseRate[S-Biomass_IGCC,2,BioSolid]
+             ('S-NG_CC', 1, 'NaturalGas') : 0.05306 * ProjFuelUseRate[S-NG_CC,1,NaturalGas]
+             ('S-NG_CC', 2, 'NaturalGas') : 0.05306 * ProjFuelUseRate[S-NG_CC,2,NaturalGas]
+             ('S-NG_GT', 1, 'NaturalGas') : 0.05306 * ProjFuelUseRate[S-NG_GT,1,NaturalGas]
+             ('S-NG_GT', 2, 'NaturalGas') : 0.05306 * ProjFuelUseRate[S-NG_GT,2,NaturalGas]
+    DispatchProjByFuel : Size=6, Index=PROJ_FUEL_DISPATCH_POINTS
+        Key                               : Expression
+        ('S-Biomass_IGCC', 1, 'BioSolid') : 0.08 * ProjFuelUseRate[S-Biomass_IGCC,1,BioSolid]
+        ('S-Biomass_IGCC', 2, 'BioSolid') : 0.08 * ProjFuelUseRate[S-Biomass_IGCC,2,BioSolid]
+             ('S-NG_CC', 1, 'NaturalGas') : 0.149142431022 * ProjFuelUseRate[S-NG_CC,1,NaturalGas]
+             ('S-NG_CC', 2, 'NaturalGas') : 0.149142431022 * ProjFuelUseRate[S-NG_CC,2,NaturalGas]
+             ('S-NG_GT', 1, 'NaturalGas') : 0.0962463907603 * ProjFuelUseRate[S-NG_GT,1,NaturalGas]
+             ('S-NG_GT', 2, 'NaturalGas') : 0.0962463907603 * ProjFuelUseRate[S-NG_GT,2,NaturalGas]
+    DispatchUpperLimit : Size=16, Index=PROJ_DISPATCH_POINTS
+        Key                     : Expression
+          ('S-Biomass_IGCC', 1) : 0.84084 * BuildProj[S-Biomass_IGCC,2020]
+          ('S-Biomass_IGCC', 2) : 0.84084 * BuildProj[S-Biomass_IGCC,2020]
+          ('S-Central_PV-1', 1) : 0.5978 * BuildProj[S-Central_PV-1,2020]
+          ('S-Central_PV-1', 2) : 0.0
+          ('S-Central_PV-2', 1) : 0.6272 * BuildProj[S-Central_PV-2,2020]
+          ('S-Central_PV-2', 2) : 0.0
+         ('S-Commercial_PV', 1) : 0.5586 * BuildProj[S-Commercial_PV,2020]
+         ('S-Commercial_PV', 2) : 0.0
+            ('S-Geothermal', 1) : 0.96858075 * ( BuildProj[S-Geothermal,2020] + BuildProj[S-Geothermal,1998] )
+            ('S-Geothermal', 2) : 0.96858075 * ( BuildProj[S-Geothermal,2020] + BuildProj[S-Geothermal,1998] )
+                 ('S-NG_CC', 1) : 0.94 * ( BuildProj[S-NG_CC,2000] + BuildProj[S-NG_CC,2020] )
+                 ('S-NG_CC', 2) : 0.94 * ( BuildProj[S-NG_CC,2000] + BuildProj[S-NG_CC,2020] )
+                 ('S-NG_GT', 1) : 0.94 * ( BuildProj[S-NG_GT,2002] + BuildProj[S-NG_GT,2020] )
+                 ('S-NG_GT', 2) : 0.94 * ( BuildProj[S-NG_GT,2002] + BuildProj[S-NG_GT,2020] )
+        ('S-Residential_PV', 1) : 0.5586 * BuildProj[S-Residential_PV,2020]
+        ('S-Residential_PV', 2) : 0.0
+    Fuel_Costs_Annual : Size=1, Index=PERIODS
+        Key  : Expression
+        2020 : 1.7115*FuelConsumptionByTier[South_Bio,2020,0] + 17.1714*FuelConsumptionByTier[South_Bio,2020,1] + 5.0709*FuelConsumptionByTier[All_NG,2020,1] + 4.4647*FuelConsumptionByTier[All_NG,2020,0]
+    LZ_NetDispatch : Size=2, Index=LZ_NetDispatch_index
+        Key          : Expression
+        ('South', 1) : DispatchProj[S-Biomass_IGCC,1] + DispatchProj[S-Commercial_PV,1] + DispatchProj[S-Residential_PV,1] + DispatchProj[S-NG_CC,1] + DispatchProj[S-NG_GT,1] + DispatchProj[S-Central_PV-1,1] + DispatchProj[S-Geothermal,1] + DispatchProj[S-Central_PV-2,1]
+        ('South', 2) : DispatchProj[S-Biomass_IGCC,2] + DispatchProj[S-Commercial_PV,2] + DispatchProj[S-Residential_PV,2] + DispatchProj[S-NG_CC,2] + DispatchProj[S-NG_GT,2] + DispatchProj[S-Central_PV-1,2] + DispatchProj[S-Geothermal,2] + DispatchProj[S-Central_PV-2,2]
+    LocalTDCapacity : Size=1, Index=LocalTDCapacity_index
+        Key             : Expression
+        ('South', 2020) : BuildLocalTD[South,Legacy] + BuildLocalTD[South,2020]
+    LocalTD_Fixed_Costs_Annual : Size=1, Index=PERIODS
+        Key  : Expression
+        2020 : 128040 * BuildLocalTD[South,2020]
+    ProjCapacity : Size=8, Index=ProjCapacity_index
+        Key                        : Expression
+          ('S-Biomass_IGCC', 2020) : BuildProj[S-Biomass_IGCC,2020]
+          ('S-Central_PV-1', 2020) : BuildProj[S-Central_PV-1,2020]
+          ('S-Central_PV-2', 2020) : BuildProj[S-Central_PV-2,2020]
+         ('S-Commercial_PV', 2020) : BuildProj[S-Commercial_PV,2020]
+            ('S-Geothermal', 2020) : BuildProj[S-Geothermal,2020] + BuildProj[S-Geothermal,1998]
+                 ('S-NG_CC', 2020) : BuildProj[S-NG_CC,2000] + BuildProj[S-NG_CC,2020]
+                 ('S-NG_GT', 2020) : BuildProj[S-NG_GT,2002] + BuildProj[S-NG_GT,2020]
+        ('S-Residential_PV', 2020) : BuildProj[S-Residential_PV,2020]
+    ProjCapacityTP : Size=16, Index=PROJ_DISPATCH_POINTS
+        Key                     : Expression
+          ('S-Biomass_IGCC', 1) :   ProjCapacity[S-Biomass_IGCC,2020]
+          ('S-Biomass_IGCC', 2) :   ProjCapacity[S-Biomass_IGCC,2020]
+          ('S-Central_PV-1', 1) :   ProjCapacity[S-Central_PV-1,2020]
+          ('S-Central_PV-1', 2) :   ProjCapacity[S-Central_PV-1,2020]
+          ('S-Central_PV-2', 1) :   ProjCapacity[S-Central_PV-2,2020]
+          ('S-Central_PV-2', 2) :   ProjCapacity[S-Central_PV-2,2020]
+         ('S-Commercial_PV', 1) :  ProjCapacity[S-Commercial_PV,2020]
+         ('S-Commercial_PV', 2) :  ProjCapacity[S-Commercial_PV,2020]
+            ('S-Geothermal', 1) :     ProjCapacity[S-Geothermal,2020]
+            ('S-Geothermal', 2) :     ProjCapacity[S-Geothermal,2020]
+                 ('S-NG_CC', 1) :          ProjCapacity[S-NG_CC,2020]
+                 ('S-NG_CC', 2) :          ProjCapacity[S-NG_CC,2020]
+                 ('S-NG_GT', 1) :          ProjCapacity[S-NG_GT,2020]
+                 ('S-NG_GT', 2) :          ProjCapacity[S-NG_GT,2020]
+        ('S-Residential_PV', 1) : ProjCapacity[S-Residential_PV,2020]
+        ('S-Residential_PV', 2) : ProjCapacity[S-Residential_PV,2020]
+    Proj_Fixed_Costs_Annual : Size=8, Index=PROJECT_OPERATIONAL_PERIODS
+        Key                        : Expression
+          ('S-Biomass_IGCC', 2020) : 359843.072848 * BuildProj[S-Biomass_IGCC,2020]
+          ('S-Central_PV-1', 2020) : 269259.728189 * BuildProj[S-Central_PV-1,2020]
+          ('S-Central_PV-2', 2020) : 268361.900436 * BuildProj[S-Central_PV-2,2020]
+         ('S-Commercial_PV', 2020) : 335053.305944 * BuildProj[S-Commercial_PV,2020]
+            ('S-Geothermal', 2020) : 455991.878528*BuildProj[S-Geothermal,1998] + 455991.878528*BuildProj[S-Geothermal,2020]
+                 ('S-NG_CC', 2020) : 119278.247557*BuildProj[S-NG_CC,2020] + 119278.247557*BuildProj[S-NG_CC,2000]
+                 ('S-NG_GT', 2020) : 67473.9888318*BuildProj[S-NG_GT,2002] + 67473.9888318*BuildProj[S-NG_GT,2020]
+        ('S-Residential_PV', 2020) : 371045.32853 * BuildProj[S-Residential_PV,2020]
+    Proj_Var_Costs_Hourly : Size=16, Index=PROJ_DISPATCH_POINTS
+        Key                     : Expression
+          ('S-Biomass_IGCC', 1) : 13.95 * DispatchProj[S-Biomass_IGCC,1]
+          ('S-Biomass_IGCC', 2) : 13.95 * DispatchProj[S-Biomass_IGCC,2]
+          ('S-Central_PV-1', 1) : 0.0
+          ('S-Central_PV-1', 2) : 0.0
+          ('S-Central_PV-2', 1) : 0.0
+          ('S-Central_PV-2', 2) : 0.0
+         ('S-Commercial_PV', 1) : 0.0
+         ('S-Commercial_PV', 2) : 0.0
+            ('S-Geothermal', 1) : 28.83 * DispatchProj[S-Geothermal,1]
+            ('S-Geothermal', 2) : 28.83 * DispatchProj[S-Geothermal,2]
+                 ('S-NG_CC', 1) : 3.4131 * DispatchProj[S-NG_CC,1]
+                 ('S-NG_CC', 2) : 3.4131 * DispatchProj[S-NG_CC,2]
+                 ('S-NG_GT', 1) : 27.807 * DispatchProj[S-NG_GT,1]
+                 ('S-NG_GT', 2) : 27.807 * DispatchProj[S-NG_GT,2]
+        ('S-Residential_PV', 1) : 0.0
+        ('S-Residential_PV', 2) : 0.0
+    SystemCost : Size=1, Index=None
+        Key  : Expression
+        None : SystemCostPerPeriod[2020]
+    SystemCostPerPeriod : Size=1, Index=PERIODS
+        Key  : Expression
+        2020 : 7.00384120561 * ( 269259.728189 * BuildProj[S-Central_PV-1,2020] + 371045.32853 * BuildProj[S-Residential_PV,2020] + 268361.900436 * BuildProj[S-Central_PV-2,2020] + 67473.9888318*BuildProj[S-NG_GT,2002] + 67473.9888318*BuildProj[S-NG_GT,2020] + 119278.247557*BuildProj[S-NG_CC,2020] + 119278.247557*BuildProj[S-NG_CC,2000] + 455991.878528*BuildProj[S-Geothermal,1998] + 455991.878528*BuildProj[S-Geothermal,2020] + 359843.072848 * BuildProj[S-Biomass_IGCC,2020] + 335053.305944 * BuildProj[S-Commercial_PV,2020] + 128040 * BuildLocalTD[South,2020] + 1.7115*FuelConsumptionByTier[South_Bio,2020,0] + 17.1714*FuelConsumptionByTier[South_Bio,2020,1] + 5.0709*FuelConsumptionByTier[All_NG,2020,1] + 4.4647*FuelConsumptionByTier[All_NG,2020,0] + 4383.0*( 13.95 * DispatchProj[S-Biomass_IGCC,1] + 0.0 + 0.0 + 3.4131 * DispatchProj[S-NG_CC,1] + 27.807 * DispatchProj[S-NG_GT,1] + 0.0 + 28.83 * DispatchProj[S-Geothermal,1] + 0.0 ) + 4383.0*( 13.95 * DispatchProj[S-Biomass_IGCC,2] + 0.0 + 0.0 + 3.4131 * DispatchProj[S-NG_CC,2] + 27.807 * DispatchProj[S-NG_GT,2] + 0.0 + 28.83 * DispatchProj[S-Geothermal,2] + 0.0 ) )
+    Total_Proj_Fixed_Costs_Annual : Size=1, Index=PERIODS
+        Key  : Expression
+        2020 : 269259.728189 * BuildProj[S-Central_PV-1,2020] + 371045.32853 * BuildProj[S-Residential_PV,2020] + 268361.900436 * BuildProj[S-Central_PV-2,2020] + 67473.9888318*BuildProj[S-NG_GT,2002] + 67473.9888318*BuildProj[S-NG_GT,2020] + 119278.247557*BuildProj[S-NG_CC,2020] + 119278.247557*BuildProj[S-NG_CC,2000] + 455991.878528*BuildProj[S-Geothermal,1998] + 455991.878528*BuildProj[S-Geothermal,2020] + 359843.072848 * BuildProj[S-Biomass_IGCC,2020] + 335053.305944 * BuildProj[S-Commercial_PV,2020]
+    Total_Proj_Var_Costs_Hourly : Size=2, Index=TIMEPOINTS
+        Key : Expression
+          1 : 13.95 * DispatchProj[S-Biomass_IGCC,1] + 0.0 + 0.0 + 3.4131 * DispatchProj[S-NG_CC,1] + 27.807 * DispatchProj[S-NG_GT,1] + 0.0 + 28.83 * DispatchProj[S-Geothermal,1] + 0.0
+          2 : 13.95 * DispatchProj[S-Biomass_IGCC,2] + 0.0 + 0.0 + 3.4131 * DispatchProj[S-NG_CC,2] + 27.807 * DispatchProj[S-NG_GT,2] + 0.0 + 28.83 * DispatchProj[S-Geothermal,2] + 0.0
+
+1 Objective Declarations
+    Minimize_System_Cost : Size=1, Index=None, Active=True
+        Key  : Active : Sense    : Expression
+        None :   True : minimize : SystemCost
+
+8 Constraint Declarations
+    Energy_Balance : Size=2, Index=Energy_Balance_index, Active=True
+        Key          : Lower : Body                                                                                                                                                                                                                                                                                    : Upper : Active
+        ('South', 1) :   0.0 :  -8.424 + DispatchProj[S-Biomass_IGCC,1] + DispatchProj[S-Commercial_PV,1] + DispatchProj[S-Residential_PV,1] + DispatchProj[S-NG_CC,1] + DispatchProj[S-NG_GT,1] + DispatchProj[S-Central_PV-1,1] + DispatchProj[S-Geothermal,1] + DispatchProj[S-Central_PV-2,1] - DumpPower[South,1] :   0.0 :   True
+        ('South', 2) :   0.0 : -0.5265 + DispatchProj[S-Biomass_IGCC,2] + DispatchProj[S-Commercial_PV,2] + DispatchProj[S-Residential_PV,2] + DispatchProj[S-NG_CC,2] + DispatchProj[S-NG_GT,2] + DispatchProj[S-Central_PV-1,2] + DispatchProj[S-Geothermal,2] + DispatchProj[S-Central_PV-2,2] - DumpPower[South,2] :   0.0 :   True
+    Enforce_Dispatch_Baseload_Flat : Size=4, Index=PROJ_DISPATCH_POINTS, Active=True
+        Key                   : Lower : Body                                                                                  : Upper : Active
+        ('S-Biomass_IGCC', 1) :   0.0 : DispatchProj[S-Biomass_IGCC,1] - BaseloadOperatingLevelForPeriod[S-Biomass_IGCC,2020] :   0.0 :   True
+        ('S-Biomass_IGCC', 2) :   0.0 : DispatchProj[S-Biomass_IGCC,2] - BaseloadOperatingLevelForPeriod[S-Biomass_IGCC,2020] :   0.0 :   True
+          ('S-Geothermal', 1) :   0.0 :     DispatchProj[S-Geothermal,1] - BaseloadOperatingLevelForPeriod[S-Geothermal,2020] :   0.0 :   True
+          ('S-Geothermal', 2) :   0.0 :     DispatchProj[S-Geothermal,2] - BaseloadOperatingLevelForPeriod[S-Geothermal,2020] :   0.0 :   True
+    Enforce_Dispatch_Upper_Limit : Size=16, Index=PROJ_DISPATCH_POINTS, Active=True
+        Key                     : Lower : Body                                                                                                        : Upper                                  : Active
+          ('S-Biomass_IGCC', 1) :  -Inf :                                   DispatchProj[S-Biomass_IGCC,1] - 0.84084 * BuildProj[S-Biomass_IGCC,2020] :                                    0.0 :   True
+          ('S-Biomass_IGCC', 2) :  -Inf :                                   DispatchProj[S-Biomass_IGCC,2] - 0.84084 * BuildProj[S-Biomass_IGCC,2020] :                                    0.0 :   True
+          ('S-Central_PV-1', 1) :  -Inf :                                    DispatchProj[S-Central_PV-1,1] - 0.5978 * BuildProj[S-Central_PV-1,2020] :                                    0.0 :   True
+          ('S-Central_PV-1', 2) :  -Inf :                                                                              DispatchProj[S-Central_PV-1,2] :   DispatchUpperLimit[S-Central_PV-1,2] :   True
+          ('S-Central_PV-2', 1) :  -Inf :                                    DispatchProj[S-Central_PV-2,1] - 0.6272 * BuildProj[S-Central_PV-2,2020] :                                    0.0 :   True
+          ('S-Central_PV-2', 2) :  -Inf :                                                                              DispatchProj[S-Central_PV-2,2] :   DispatchUpperLimit[S-Central_PV-2,2] :   True
+         ('S-Commercial_PV', 1) :  -Inf :                                  DispatchProj[S-Commercial_PV,1] - 0.5586 * BuildProj[S-Commercial_PV,2020] :                                    0.0 :   True
+         ('S-Commercial_PV', 2) :  -Inf :                                                                             DispatchProj[S-Commercial_PV,2] :  DispatchUpperLimit[S-Commercial_PV,2] :   True
+            ('S-Geothermal', 1) :  -Inf : DispatchProj[S-Geothermal,1] - 0.96858075 * ( BuildProj[S-Geothermal,2020] + BuildProj[S-Geothermal,1998] ) :                                    0.0 :   True
+            ('S-Geothermal', 2) :  -Inf : DispatchProj[S-Geothermal,2] - 0.96858075 * ( BuildProj[S-Geothermal,2020] + BuildProj[S-Geothermal,1998] ) :                                    0.0 :   True
+                 ('S-NG_CC', 1) :  -Inf :                      DispatchProj[S-NG_CC,1] - 0.94 * ( BuildProj[S-NG_CC,2000] + BuildProj[S-NG_CC,2020] ) :                                    0.0 :   True
+                 ('S-NG_CC', 2) :  -Inf :                      DispatchProj[S-NG_CC,2] - 0.94 * ( BuildProj[S-NG_CC,2000] + BuildProj[S-NG_CC,2020] ) :                                    0.0 :   True
+                 ('S-NG_GT', 1) :  -Inf :                      DispatchProj[S-NG_GT,1] - 0.94 * ( BuildProj[S-NG_GT,2002] + BuildProj[S-NG_GT,2020] ) :                                    0.0 :   True
+                 ('S-NG_GT', 2) :  -Inf :                      DispatchProj[S-NG_GT,2] - 0.94 * ( BuildProj[S-NG_GT,2002] + BuildProj[S-NG_GT,2020] ) :                                    0.0 :   True
+        ('S-Residential_PV', 1) :  -Inf :                                DispatchProj[S-Residential_PV,1] - 0.5586 * BuildProj[S-Residential_PV,2020] :                                    0.0 :   True
+        ('S-Residential_PV', 2) :  -Inf :                                                                            DispatchProj[S-Residential_PV,2] : DispatchUpperLimit[S-Residential_PV,2] :   True
+    Enforce_Fuel_Consumption : Size=2, Index=Enforce_Fuel_Consumption_index, Active=True
+        Key                 : Lower : Body                                                                                                                                                                                                                             : Upper : Active
+           ('All_NG', 2020) :   0.0 : FuelConsumptionInMarket[All_NG,2020] - 4383.0*ProjFuelUseRate[S-NG_CC,1,NaturalGas] - 4383.0*ProjFuelUseRate[S-NG_CC,2,NaturalGas] - 4383.0*ProjFuelUseRate[S-NG_GT,1,NaturalGas] - 4383.0*ProjFuelUseRate[S-NG_GT,2,NaturalGas] :   0.0 :   True
+        ('South_Bio', 2020) :   0.0 :                                                                                  FuelConsumptionInMarket[South_Bio,2020] - 4383.0*ProjFuelUseRate[S-Biomass_IGCC,1,BioSolid] - 4383.0*ProjFuelUseRate[S-Biomass_IGCC,2,BioSolid] :   0.0 :   True
+    Enforce_Fuel_Consumption_By_Tier : Size=2, Index=Enforce_Fuel_Consumption_By_Tier_index, Active=True
+        Key                 : Lower : Body                                                                                                                        : Upper : Active
+           ('All_NG', 2020) :   0.0 :          FuelConsumptionInMarket[All_NG,2020] - FuelConsumptionByTier[All_NG,2020,1] - FuelConsumptionByTier[All_NG,2020,0] :   0.0 :   True
+        ('South_Bio', 2020) :   0.0 : FuelConsumptionInMarket[South_Bio,2020] - FuelConsumptionByTier[South_Bio,2020,0] - FuelConsumptionByTier[South_Bio,2020,1] :   0.0 :   True
+    Max_Build_Potential : Size=6, Index=Max_Build_Potential_index, Active=True
+        Key                        : Lower : Body                                : Upper : Active
+          ('S-Central_PV-1', 2020) :  -Inf :   ProjCapacity[S-Central_PV-1,2020] :   0.8 :   True
+          ('S-Central_PV-2', 2020) :  -Inf :   ProjCapacity[S-Central_PV-2,2020] :   0.4 :   True
+         ('S-Commercial_PV', 2020) :  -Inf :  ProjCapacity[S-Commercial_PV,2020] :   3.3 :   True
+            ('S-Geothermal', 2020) :  -Inf :     ProjCapacity[S-Geothermal,2020] :   3.0 :   True
+                 ('S-NG_GT', 2020) :  -Inf :          ProjCapacity[S-NG_GT,2020] :   5.0 :   True
+        ('S-Residential_PV', 2020) :  -Inf : ProjCapacity[S-Residential_PV,2020] :   3.0 :   True
+    Meet_Local_TD : Size=1, Index=Meet_Local_TD_index, Active=True
+        Key             : Lower : Body                        : Upper : Active
+        ('South', 2020) :   8.0 : LocalTDCapacity[South,2020] :  +Inf :   True
+    ProjFuelUseRate_Calculate : Size=6, Index=PROJ_WITH_FUEL_DISPATCH_POINTS, Active=True
+        Key                   : Lower : Body                                                                             : Upper : Active
+        ('S-Biomass_IGCC', 1) :   0.0 : ProjFuelUseRate[S-Biomass_IGCC,1,BioSolid] - 12.5*DispatchProj[S-Biomass_IGCC,1] :   0.0 :   True
+        ('S-Biomass_IGCC', 2) :   0.0 : ProjFuelUseRate[S-Biomass_IGCC,2,BioSolid] - 12.5*DispatchProj[S-Biomass_IGCC,2] :   0.0 :   True
+               ('S-NG_CC', 1) :   0.0 :            ProjFuelUseRate[S-NG_CC,1,NaturalGas] - 6.705*DispatchProj[S-NG_CC,1] :   0.0 :   True
+               ('S-NG_CC', 2) :   0.0 :            ProjFuelUseRate[S-NG_CC,2,NaturalGas] - 6.705*DispatchProj[S-NG_CC,2] :   0.0 :   True
+               ('S-NG_GT', 1) :   0.0 :            ProjFuelUseRate[S-NG_GT,1,NaturalGas] - 10.39*DispatchProj[S-NG_GT,1] :   0.0 :   True
+               ('S-NG_GT', 2) :   0.0 :            ProjFuelUseRate[S-NG_GT,2,NaturalGas] - 10.39*DispatchProj[S-NG_GT,2] :   0.0 :   True
+
+1 BuildAction Declarations
+    BuildProj_assign_default_value : Size=0, Index=EXISTING_PROJ_BUILDYEARS, Active=True
+
+19 BuildCheck Declarations
+    e_source_is_fuel_or_not_check : 
+    min_data_check_1 : 
+    min_data_check_10 : 
+    min_data_check_11 : 
+    min_data_check_12 : 
+    min_data_check_13 : 
+    min_data_check_14 : 
+    min_data_check_15 : 
+    min_data_check_16 : 
+    min_data_check_17 : 
+    min_data_check_2 : 
+    min_data_check_3 : 
+    min_data_check_4 : 
+    min_data_check_5 : 
+    min_data_check_6 : 
+    min_data_check_7 : 
+    min_data_check_8 : 
+    min_data_check_9 : 
+    validate_time_weights : 
+
+201 Declarations: PERIODS period_start period_end min_data_check_1 TIMESERIES ts_period ts_duration_of_tp ts_num_tps ts_scale_to_period min_data_check_2 TIMEPOINTS tp_ts min_data_check_3 tp_timestamp tp_weight TS_TPS tp_period PERIOD_TPS add_one_to_period_end period_length_years period_length_hours ts_scale_to_year ts_duration_hrs tp_weight_in_year tp_duration_hrs tp_previous validate_time_weights base_financial_year interest_rate discount_rate min_data_check_4 bring_annual_costs_to_base_year bring_timepoint_costs_to_base_year LOAD_ZONES lz_demand_mw_index lz_demand_mw lz_cost_multipliers lz_ccs_distance_km lz_dbid min_data_check_5 lz_total_demand_in_period_mwh_index lz_total_demand_in_period_mwh DumpPower_index DumpPower NON_FUEL_ENERGY_SOURCES FUELS f_co2_intensity f_upstream_co2_intensity min_data_check_6 e_source_is_fuel_or_not_check ENERGY_SOURCES_index_init ENERGY_SOURCES min_data_check_7 GENERATION_TECHNOLOGIES g_dbid g_max_age g_scheduled_outage_rate g_forced_outage_rate g_is_variable g_is_baseload g_is_flexible_baseload g_is_cogen g_min_build_capacity g_competes_for_space GEN_TECH_WITH_UNIT_SIZES g_unit_size g_energy_source g_uses_fuel GEN_TECH_WITH_FUEL GEN_TECH_WITH_MULTI_FUEL G_MULTI_FUELS G_FUELS GEN_TECH_STORAGE g_storage_efficiency g_store_to_release_ratio GEN_TECH_CCS g_ccs_capture_efficiency g_ccs_energy_load NEW_GENERATION_BUILDYEARS_domain NEW_GENERATION_BUILDYEARS G_NEW_BUILD_YEARS g_overnight_cost_index g_overnight_cost g_fixed_o_m_index g_fixed_o_m g_variable_o_m g_full_load_heat_rate min_data_check_8 PROJECTS proj_dbid proj_gen_tech proj_load_zone min_data_check_9 VARIABLE_PROJECTS BASELOAD_PROJECTS LZ_PROJECTS PROJECTS_CAP_LIMITED proj_capacity_limit_mw FUEL_BASED_PROJECTS NON_FUEL_BASED_PROJECTS NEW_PROJ_BUILDYEARS EXISTING_PROJ_BUILDYEARS proj_existing_cap min_data_check_10 PROJECT_BUILDYEARS proj_end_year min_data_check_11 PROJECT_BUILDS_OPERATIONAL_PERIODS PROJECT_PERIOD_ONLINE_BUILD_YRS_index PROJECT_PERIOD_ONLINE_BUILD_YRS BuildProj BuildProj_assign_default_value ProjCapacity_index ProjCapacity Max_Build_Potential_index Max_Build_Potential proj_connect_cost_per_mw min_data_check_12 proj_overnight_cost proj_fixed_om proj_capital_cost_annual PROJECT_OPERATIONAL_PERIODS Proj_Fixed_Costs_Annual Total_Proj_Fixed_Costs_Annual PROJECTS_ACTIVE_IN_TIMEPOINT PROJ_DISPATCH_POINTS ProjCapacityTP DispatchProj LZ_NetDispatch_index LZ_NetDispatch proj_full_load_heat_rate proj_forced_outage_rate proj_scheduled_outage_rate proj_availability VAR_DISPATCH_POINTS proj_max_capacity_factor min_data_check_13 proj_variable_om PROJ_WITH_FUEL_DISPATCH_POINTS PROJ_FUEL_DISPATCH_POINTS ProjFuelUseRate DispatchEmissions Proj_Var_Costs_Hourly Total_Proj_Var_Costs_Hourly EXISTING_LOCAL_TD_BLD_YRS existing_local_td lz_peak_demand_mw_index lz_peak_demand_mw min_data_check_14 LOCAL_TD_BUILD_YEARS PERIOD_RELEVANT_LOCAL_TD_BUILDS BuildLocalTD LocalTDCapacity_index LocalTDCapacity distribution_loss_rate distribution_losses_index distribution_losses Meet_Local_TD_index Meet_Local_TD local_td_annual_cost_per_mw min_data_check_15 LocalTD_Fixed_Costs_Annual BaseloadOperatingLevelForPeriod_index BaseloadOperatingLevelForPeriod DispatchUpperLimit Enforce_Dispatch_Baseload_Flat Enforce_Dispatch_Upper_Limit ProjFuelUseRate_Calculate DispatchProjByFuel REGIONAL_FUEL_MARKET rfm_fuel LZ_RFM LZ_FUELS lz_rfm min_data_check_16 RFM_LOAD_ZONES RFM_SUPPLY_TIERS rfm_supply_tier_cost rfm_supply_tier_limit min_data_check_17 RFM_P_SUPPLY_TIERS_index RFM_P_SUPPLY_TIERS FuelConsumptionByTier FuelConsumptionInMarket_index FuelConsumptionInMarket Enforce_Fuel_Consumption_By_Tier_index Enforce_Fuel_Consumption_By_Tier lz_fuel_cost_adder_index lz_fuel_cost_adder Fuel_Costs_Annual RFM_DISPATCH_POINTS_index RFM_DISPATCH_POINTS Enforce_Fuel_Consumption_index Enforce_Fuel_Consumption AverageFuelCosts_index AverageFuelCosts SystemCostPerPeriod SystemCost Minimize_System_Cost Energy_Balance_index Energy_Balance

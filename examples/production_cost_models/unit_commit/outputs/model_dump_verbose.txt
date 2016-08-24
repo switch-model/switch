@@ -1,0 +1,981 @@
+61 Set Declarations
+    BASELOAD_PROJECTS : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=False, Bounds=None
+        ['S-Geothermal']
+    DumpPower_index : Dim=0, Dimen=2, Size=4, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    ENERGY_SOURCES : Dim=0, Dimen=1, Size=3, Domain=None, Ordered=False, Bounds=None
+        ['Geothermal', 'NaturalGas', 'Solar']
+    ENERGY_SOURCES_index_init : Dim=0, Dimen=1, Size=3, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    EXISTING_LOCAL_TD_BLD_YRS : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        [('South', 'Legacy')]
+    EXISTING_PROJ_BUILDYEARS : Dim=0, Dimen=2, Size=5, Domain=None, Ordered=False, Bounds=None
+        [('S-Central_PV-1', 2001), ('S-Geothermal', 1998), ('S-NG_CC', 2000), ('S-NG_GT', 1990), ('S-NG_GT', 2002)]
+    Energy_Balance_index : Dim=0, Dimen=2, Size=4, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    FUELS : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=False, Bounds=None
+        ['NaturalGas']
+    FUEL_AVAILABILITY : Dim=0, Dimen=3, Size=1, Domain=None, Ordered=False, Bounds=None
+        [('South', 'NaturalGas', 2010)]
+    FUEL_BASED_PROJECTS : Dim=0, Dimen=1, Size=2, Domain=None, Ordered=False, Bounds=None
+        ['S-NG_CC', 'S-NG_GT']
+    GENERATION_TECHNOLOGIES : Dim=0, Dimen=1, Size=4, Domain=None, Ordered=False, Bounds=None
+        ['Central_PV', 'Geothermal', 'NG_CC', 'NG_GT']
+    GEN_FUEL_USE_SEGMENTS : Dim=1, Dimen=2, Size=2, Domain=None, ArraySize=2, Ordered=False, Bounds=None
+        Key   : Members
+        NG_CC : [(0.020115000000000122, 6.684885)]
+        NG_GT : [(0.1039, 10.2861)]
+    GEN_TECH_CCS : Dim=0, Dimen=1, Size=0, Domain=GENERATION_TECHNOLOGIES, Ordered=False, Bounds=None
+        []
+    GEN_TECH_STORAGE : Dim=0, Dimen=1, Size=0, Domain=GENERATION_TECHNOLOGIES, Ordered=False, Bounds=None
+        []
+    GEN_TECH_WITH_FUEL : Dim=0, Dimen=1, Size=2, Domain=None, Ordered=False, Bounds=None
+        ['NG_CC', 'NG_GT']
+    GEN_TECH_WITH_MULTI_FUEL : Dim=0, Dimen=1, Size=0, Domain=None, Ordered=False, Bounds=(None, None)
+        []
+    GEN_TECH_WITH_UNIT_SIZES : Dim=0, Dimen=1, Size=1, Domain=GENERATION_TECHNOLOGIES, Ordered=False, Bounds=None
+        ['NG_CC']
+    G_FUELS : Dim=1, Dimen=1, Size=2, Domain=None, ArraySize=2, Ordered=False, Bounds=None
+        Key   : Members
+        NG_CC : ['NaturalGas']
+        NG_GT : ['NaturalGas']
+    G_MULTI_FUELS : Dim=1, Dimen=1, Size=0, Domain=FUELS, ArraySize=0, Ordered=False, Bounds=None
+        Key : Members
+    G_NEW_BUILD_YEARS : Dim=1, Dimen=1, Size=0, Domain=None, ArraySize=4, Ordered=False, Bounds=None
+        Key        : Members
+        Central_PV :      []
+        Geothermal :      []
+             NG_CC :      []
+             NG_GT :      []
+    LOAD_ZONES : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=False, Bounds=None
+        ['South']
+    LOCAL_TD_BUILD_YEARS : Dim=0, Dimen=2, Size=2, Domain=None, Ordered=False, Bounds=None
+        [('South', 2010), ('South', 'Legacy')]
+    LZ_NetDispatch_index : Dim=0, Dimen=2, Size=4, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    LZ_PROJECTS : Dim=1, Dimen=1, Size=4, Domain=None, ArraySize=1, Ordered=False, Bounds=None
+        Key   : Members
+        South : ['S-Central_PV-1', 'S-Geothermal', 'S-NG_CC', 'S-NG_GT']
+    LocalTDCapacity_index : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    Max_Build_Potential_index : Dim=0, Dimen=2, Size=3, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    Meet_Local_TD_index : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    NEW_GENERATION_BUILDYEARS : Dim=0, Dimen=2, Size=0, Domain=NEW_GENERATION_BUILDYEARS_domain, Ordered=False, Bounds=None
+        []
+    NEW_GENERATION_BUILDYEARS_domain : Dim=0, Dimen=2, Size=4, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    NEW_PROJ_BUILDYEARS : Dim=0, Dimen=2, Size=0, Domain=None, Ordered=False, Bounds=None
+        []
+    NON_FUEL_BASED_PROJECTS : Dim=0, Dimen=1, Size=2, Domain=None, Ordered=False, Bounds=None
+        ['S-Central_PV-1', 'S-Geothermal']
+    NON_FUEL_ENERGY_SOURCES : Dim=0, Dimen=1, Size=2, Domain=None, Ordered=False, Bounds=None
+        ['Geothermal', 'Solar']
+    PERIODS : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=Insertion, Bounds=(2010, 2010)
+        [2010]
+    PERIOD_RELEVANT_LOCAL_TD_BUILDS : Dim=1, Dimen=2, Size=1, Domain=LOCAL_TD_BUILD_YEARS, ArraySize=1, Ordered=False, Bounds=None
+        Key  : Members
+        2010 : [('South', 2010)]
+    PERIOD_TPS : Dim=1, Dimen=1, Size=4, Domain=TIMEPOINTS, ArraySize=1, Ordered=Insertion, Bounds=None
+        Key  : Members
+        2010 : [1, 2, 3, 4]
+    PROJECTS : Dim=0, Dimen=1, Size=4, Domain=None, Ordered=False, Bounds=None
+        ['S-Central_PV-1', 'S-Geothermal', 'S-NG_CC', 'S-NG_GT']
+    PROJECTS_ACTIVE_IN_TIMEPOINT : Dim=1, Dimen=1, Size=16, Domain=PROJECTS, ArraySize=4, Ordered=False, Bounds=None
+        Key : Members
+          1 : ['S-Central_PV-1', 'S-Geothermal', 'S-NG_CC', 'S-NG_GT']
+          2 : ['S-Central_PV-1', 'S-Geothermal', 'S-NG_CC', 'S-NG_GT']
+          3 : ['S-Central_PV-1', 'S-Geothermal', 'S-NG_CC', 'S-NG_GT']
+          4 : ['S-Central_PV-1', 'S-Geothermal', 'S-NG_CC', 'S-NG_GT']
+    PROJECTS_CAP_LIMITED : Dim=0, Dimen=1, Size=3, Domain=PROJECTS, Ordered=False, Bounds=None
+        ['S-Central_PV-1', 'S-Geothermal', 'S-NG_GT']
+    PROJECT_BUILDS_OPERATIONAL_PERIODS : Dim=2, Dimen=1, Size=5, Domain=PERIODS, ArraySize=5, Ordered=Insertion, Bounds=None
+        Key                      : Members
+        ('S-Central_PV-1', 2001) :  [2010]
+          ('S-Geothermal', 1998) :  [2010]
+               ('S-NG_CC', 2000) :  [2010]
+               ('S-NG_GT', 1990) :  [2010]
+               ('S-NG_GT', 2002) :  [2010]
+    PROJECT_BUILDYEARS : Dim=0, Dimen=2, Size=5, Domain=None, Ordered=False, Bounds=None
+        [('S-Central_PV-1', 2001), ('S-Geothermal', 1998), ('S-NG_CC', 2000), ('S-NG_GT', 1990), ('S-NG_GT', 2002)]
+    PROJECT_OPERATIONAL_PERIODS : Dim=0, Dimen=2, Size=4, Domain=None, Ordered=False, Bounds=None
+        [('S-Central_PV-1', 2010), ('S-Geothermal', 2010), ('S-NG_CC', 2010), ('S-NG_GT', 2010)]
+    PROJECT_PERIOD_ONLINE_BUILD_YRS : Dim=2, Dimen=1, Size=5, Domain=None, ArraySize=4, Ordered=False, Bounds=None
+        Key                      : Members
+        ('S-Central_PV-1', 2010) : [2001]
+          ('S-Geothermal', 2010) : [1998]
+               ('S-NG_CC', 2010) : [2000]
+               ('S-NG_GT', 2010) : [1990, 2002]
+    PROJECT_PERIOD_ONLINE_BUILD_YRS_index : Dim=0, Dimen=2, Size=4, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    PROJ_DISPATCH_POINTS : Dim=0, Dimen=2, Size=16, Domain=None, Ordered=False, Bounds=None
+        [('S-Central_PV-1', 1), ('S-Central_PV-1', 2), ('S-Central_PV-1', 3), ('S-Central_PV-1', 4), ('S-Geothermal', 1), ('S-Geothermal', 2), ('S-Geothermal', 3), ('S-Geothermal', 4), ('S-NG_CC', 1), ('S-NG_CC', 2), ('S-NG_CC', 3), ('S-NG_CC', 4), ('S-NG_GT', 1), ('S-NG_GT', 2), ('S-NG_GT', 3), ('S-NG_GT', 4)]
+    PROJ_DISP_FUEL_PIECEWISE_CONS_SET : Dim=0, Dimen=4, Size=8, Domain=None, Ordered=False, Bounds=None
+        [('S-NG_CC', 1, 0.020115000000000122, 6.684885), ('S-NG_CC', 2, 0.020115000000000122, 6.684885), ('S-NG_CC', 3, 0.020115000000000122, 6.684885), ('S-NG_CC', 4, 0.020115000000000122, 6.684885), ('S-NG_GT', 1, 0.1039, 10.2861), ('S-NG_GT', 2, 0.1039, 10.2861), ('S-NG_GT', 3, 0.1039, 10.2861), ('S-NG_GT', 4, 0.1039, 10.2861)]
+    PROJ_FUEL_DISPATCH_POINTS : Dim=0, Dimen=3, Size=8, Domain=None, Ordered=False, Bounds=None
+        [('S-NG_CC', 1, 'NaturalGas'), ('S-NG_CC', 2, 'NaturalGas'), ('S-NG_CC', 3, 'NaturalGas'), ('S-NG_CC', 4, 'NaturalGas'), ('S-NG_GT', 1, 'NaturalGas'), ('S-NG_GT', 2, 'NaturalGas'), ('S-NG_GT', 3, 'NaturalGas'), ('S-NG_GT', 4, 'NaturalGas')]
+    PROJ_FUEL_DISPATCH_POINTS_UNAVAILABLE : Dim=0, Dimen=3, Size=0, Domain=None, Ordered=False, Bounds=(None, None)
+        []
+    PROJ_FUEL_USE_SEGMENTS : Dim=1, Dimen=2, Size=2, Domain=None, ArraySize=2, Ordered=False, Bounds=None
+        Key     : Members
+        S-NG_CC : [(0.020115000000000122, 6.684885)]
+        S-NG_GT : [(0.1039, 10.2861)]
+    PROJ_WITH_FUEL_DISPATCH_POINTS : Dim=0, Dimen=2, Size=8, Domain=None, Ordered=False, Bounds=None
+        [('S-NG_CC', 1), ('S-NG_CC', 2), ('S-NG_CC', 3), ('S-NG_CC', 4), ('S-NG_GT', 1), ('S-NG_GT', 2), ('S-NG_GT', 3), ('S-NG_GT', 4)]
+    ProjCapacity_index : Dim=0, Dimen=2, Size=4, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    TIMEPOINTS : Dim=0, Dimen=1, Size=4, Domain=None, Ordered=Insertion, Bounds=(1, 4)
+        [1, 2, 3, 4]
+    TIMESERIES : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=Insertion, Bounds=None
+        ['2010_all']
+    TS_TPS : Dim=1, Dimen=1, Size=4, Domain=TIMEPOINTS, ArraySize=1, Ordered=Insertion, Bounds=None
+        Key      : Members
+        2010_all : [1, 2, 3, 4]
+    VARIABLE_PROJECTS : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=False, Bounds=None
+        ['S-Central_PV-1']
+    VAR_DISPATCH_POINTS : Dim=0, Dimen=2, Size=4, Domain=None, Ordered=False, Bounds=None
+        [('S-Central_PV-1', 1), ('S-Central_PV-1', 2), ('S-Central_PV-1', 3), ('S-Central_PV-1', 4)]
+    distribution_losses_index : Dim=0, Dimen=2, Size=4, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    g_fixed_o_m_index : Dim=0, Dimen=2, Size=4, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    g_overnight_cost_index : Dim=0, Dimen=2, Size=4, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    lz_demand_mw_index : Dim=0, Dimen=2, Size=4, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    lz_peak_demand_mw_index : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    lz_total_demand_in_period_mwh_index : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        Virtual
+
+81 Param Declarations
+    add_one_to_period_end : Size=1, Index=None, Domain=Boolean, Default=None, Mutable=False
+        Key  : Value
+        None :  True
+    base_financial_year : Size=1, Index=None, Domain=PositiveIntegers, Default=None, Mutable=False
+        Key  : Value
+        None :  2015
+    bring_annual_costs_to_base_year : Size=1, Index=PERIODS, Domain=PositiveReals, Default=None, Mutable=False
+        Key  : Value
+        2010 : 6.09200845313
+    bring_timepoint_costs_to_base_year : Size=4, Index=TIMEPOINTS, Domain=PositiveReals, Default=None, Mutable=False
+        Key : Value
+          1 : 13350.636525
+          2 : 13350.636525
+          3 : 13350.636525
+          4 : 13350.636525
+    discount_rate : Size=1, Index=None, Domain=NonNegativeReals, Default=interest_rate, Mutable=False
+        Key  : Value
+        None :  0.05
+    distribution_loss_rate : Size=1, Index=None, Domain=Any, Default=0.053, Mutable=False
+        Key  : Value
+        None : 0.053
+    distribution_losses : Size=4, Index=distribution_losses_index, Domain=Any, Default=None, Mutable=False
+        Key          : Value
+        ('South', 1) : 0.159
+        ('South', 2) : 0.424
+        ('South', 3) :  0.53
+        ('South', 4) : 0.371
+    existing_local_td : Size=1, Index=LOAD_ZONES, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key   : Value
+        South :    10
+    f_co2_intensity : Size=1, Index=FUELS, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key        : Value
+        NaturalGas : 0.05306
+    f_upstream_co2_intensity : Size=1, Index=FUELS, Domain=Reals, Default=0, Mutable=False
+        Key        : Value
+        NaturalGas :     0
+    fuel_cost : Size=1, Index=FUEL_AVAILABILITY, Domain=PositiveReals, Default=None, Mutable=False
+        Key                           : Value
+        ('South', 'NaturalGas', 2010) :     4
+    g_ccs_capture_efficiency : Size=0, Index=GEN_TECH_CCS, Domain=PercentFraction, Default=None, Mutable=False
+        Key : Value
+    g_ccs_energy_load : Size=0, Index=GEN_TECH_CCS, Domain=PercentFraction, Default=None, Mutable=False
+        Key : Value
+    g_competes_for_space : Size=4, Index=GENERATION_TECHNOLOGIES, Domain=Boolean, Default=0, Mutable=False
+        Key        : Value
+        Central_PV :     1
+        Geothermal :     0
+             NG_CC :     0
+             NG_GT :     0
+    g_dbid : Size=4, Index=GENERATION_TECHNOLOGIES, Domain=Any, Default=(function), Mutable=False
+        Key : Value
+    g_energy_source : Size=4, Index=GENERATION_TECHNOLOGIES, Domain=Any, Default=None, Mutable=False
+        Key        : Value
+        Central_PV :      Solar
+        Geothermal : Geothermal
+             NG_CC : NaturalGas
+             NG_GT : NaturalGas
+    g_fixed_o_m : Size=0, Index=g_fixed_o_m_index, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key : Value
+    g_forced_outage_rate : Size=4, Index=GENERATION_TECHNOLOGIES, Domain=PercentFraction, Default=None, Mutable=False
+        Key        : Value
+        Central_PV :   0.02
+        Geothermal : 0.0241
+             NG_CC :   0.06
+             NG_GT :   0.06
+    g_full_load_heat_rate : Size=2, Index=GEN_TECH_WITH_FUEL, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key   : Value
+        NG_CC : 6.705
+        NG_GT : 10.39
+    g_is_baseload : Size=4, Index=GENERATION_TECHNOLOGIES, Domain=Boolean, Default=None, Mutable=False
+        Key        : Value
+        Central_PV :     0
+        Geothermal :     1
+             NG_CC :     0
+             NG_GT :     0
+    g_is_cogen : Size=4, Index=GENERATION_TECHNOLOGIES, Domain=Boolean, Default=None, Mutable=False
+        Key        : Value
+        Central_PV :     0
+        Geothermal :     0
+             NG_CC :     0
+             NG_GT :     0
+    g_is_flexible_baseload : Size=4, Index=GENERATION_TECHNOLOGIES, Domain=Boolean, Default=None, Mutable=False
+        Key        : Value
+        Central_PV :     0
+        Geothermal :     0
+             NG_CC :     0
+             NG_GT :     0
+    g_is_variable : Size=4, Index=GENERATION_TECHNOLOGIES, Domain=Boolean, Default=None, Mutable=False
+        Key        : Value
+        Central_PV :     1
+        Geothermal :     0
+             NG_CC :     0
+             NG_GT :     0
+    g_max_age : Size=4, Index=GENERATION_TECHNOLOGIES, Domain=PositiveReals, Default=None, Mutable=False
+        Key        : Value
+        Central_PV :    20
+        Geothermal :    30
+             NG_CC :    20
+             NG_GT :    20
+    g_min_build_capacity : Size=4, Index=GENERATION_TECHNOLOGIES, Domain=NonNegativeReals, Default=0, Mutable=False
+        Key        : Value
+        Central_PV :     0
+        Geothermal :     0
+             NG_CC :     0
+             NG_GT :     0
+    g_min_load_fraction : Size=4, Index=GENERATION_TECHNOLOGIES, Domain=PercentFraction, Default=(function), Mutable=False
+        Key        : Value
+        Central_PV :     0
+             NG_CC :   0.4
+             NG_GT :     0
+    g_overnight_cost : Size=0, Index=g_overnight_cost_index, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key : Value
+    g_scheduled_outage_rate : Size=4, Index=GENERATION_TECHNOLOGIES, Domain=PercentFraction, Default=None, Mutable=False
+        Key        : Value
+        Central_PV :      0
+        Geothermal : 0.0075
+             NG_CC :   0.04
+             NG_GT :   0.04
+    g_startup_fuel : Size=2, Index=GEN_TECH_WITH_FUEL, Domain=Any, Default=0.0, Mutable=False
+        Key   : Value
+        NG_CC :  9.16
+        NG_GT :  0.22
+    g_startup_om : Size=4, Index=GENERATION_TECHNOLOGIES, Domain=Any, Default=0.0, Mutable=False
+        Key        : Value
+        Central_PV :     0
+             NG_CC :  10.3
+             NG_GT :  0.86
+    g_storage_efficiency : Size=0, Index=GEN_TECH_STORAGE, Domain=PercentFraction, Default=None, Mutable=False
+        Key : Value
+    g_store_to_release_ratio : Size=0, Index=GEN_TECH_STORAGE, Domain=PositiveReals, Default=None, Mutable=False
+        Key : Value
+    g_unit_size : Size=1, Index=GEN_TECH_WITH_UNIT_SIZES, Domain=PositiveReals, Default=None, Mutable=False
+        Key   : Value
+        NG_CC :     1
+    g_uses_fuel : Size=4, Index=GENERATION_TECHNOLOGIES, Domain=Any, Default=None, Mutable=False
+        Key        : Value
+        Central_PV : False
+        Geothermal : False
+             NG_CC :  True
+             NG_GT :  True
+    g_variable_o_m : Size=4, Index=GENERATION_TECHNOLOGIES, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key        : Value
+        Central_PV :      0
+        Geothermal :  28.83
+             NG_CC : 3.4131
+             NG_GT : 27.807
+    interest_rate : Size=1, Index=None, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key  : Value
+        None :  0.07
+    local_td_annual_cost_per_mw : Size=1, Index=LOAD_ZONES, Domain=PositiveReals, Default=None, Mutable=False
+        Key   : Value
+        South : 128040
+    lz_ccs_distance_km : Size=1, Index=LOAD_ZONES, Domain=NonNegativeReals, Default=0.0, Mutable=False
+        Key : Value
+    lz_cost_multipliers : Size=1, Index=LOAD_ZONES, Domain=PositiveReals, Default=1.0, Mutable=False
+        Key : Value
+    lz_dbid : Size=1, Index=LOAD_ZONES, Domain=Any, Default=(function), Mutable=False
+        Key : Value
+    lz_demand_mw : Size=4, Index=lz_demand_mw_index, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key          : Value
+        ('South', 1) :     3
+        ('South', 2) :     8
+        ('South', 3) :    10
+        ('South', 4) :     7
+    lz_peak_demand_mw : Size=1, Index=lz_peak_demand_mw_index, Domain=NonNegativeReals, Default=(function), Mutable=False
+        Key             : Value
+        ('South', 2010) :    10
+    lz_total_demand_in_period_mwh : Size=1, Index=lz_total_demand_in_period_mwh_index, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key             : Value
+        ('South', 2010) : 306810.0
+    period_end : Size=1, Index=PERIODS, Domain=PositiveReals, Default=None, Mutable=False
+        Key  : Value
+        2010 :  2012
+    period_length_hours : Size=1, Index=PERIODS, Domain=Any, Default=None, Mutable=False
+        Key  : Value
+        2010 : 43830
+    period_length_years : Size=1, Index=PERIODS, Domain=Any, Default=None, Mutable=False
+        Key  : Value
+        2010 :     5
+    period_start : Size=1, Index=PERIODS, Domain=PositiveReals, Default=None, Mutable=False
+        Key  : Value
+        2010 :  2008
+    proj_availability : Size=4, Index=PROJECTS, Domain=PositiveReals, Default=None, Mutable=False
+        Key            : Value
+        S-Central_PV-1 :       0.98
+          S-Geothermal : 0.96858075
+               S-NG_CC :       0.94
+               S-NG_GT :       0.94
+    proj_capacity_limit_mw : Size=3, Index=PROJECTS_CAP_LIMITED, Domain=PositiveReals, Default=None, Mutable=False
+        Key            : Value
+        S-Central_PV-1 :     4
+          S-Geothermal :     3
+               S-NG_GT :     5
+    proj_capital_cost_annual : Size=5, Index=PROJECT_BUILDYEARS, Domain=Any, Default=None, Mutable=False
+        Key                      : Value
+        ('S-Central_PV-1', 2001) : 227409.728189
+          ('S-Geothermal', 1998) : 455991.878528
+               ('S-NG_CC', 2000) : 113409.947557
+               ('S-NG_GT', 1990) : 62582.1888318
+               ('S-NG_GT', 2002) : 62582.1888318
+    proj_connect_cost_per_mw : Size=4, Index=PROJECTS, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key            : Value
+        S-Central_PV-1 : 74881.9
+          S-Geothermal :  134222
+               S-NG_CC : 57566.6
+               S-NG_GT : 57566.6
+    proj_dbid : Size=4, Index=PROJECTS, Domain=Any, Default=(function), Mutable=False
+        Key            : Value
+        S-Central_PV-1 :    41
+          S-Geothermal :    33
+               S-NG_CC :    34
+               S-NG_GT :    36
+    proj_end_year : Size=5, Index=PROJECT_BUILDYEARS, Domain=Any, Default=None, Mutable=False
+        Key                      : Value
+        ('S-Central_PV-1', 2001) :  2010
+          ('S-Geothermal', 1998) :  2010
+               ('S-NG_CC', 2000) :  2010
+               ('S-NG_GT', 1990) :  2010
+               ('S-NG_GT', 2002) :  2010
+    proj_existing_cap : Size=5, Index=EXISTING_PROJ_BUILDYEARS, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key                      : Value
+        ('S-Central_PV-1', 2001) :     3
+          ('S-Geothermal', 1998) :     2
+               ('S-NG_CC', 2000) :     5
+               ('S-NG_GT', 1990) :     3
+               ('S-NG_GT', 2002) :     2
+    proj_fixed_om : Size=5, Index=PROJECT_BUILDYEARS, Domain=NonNegativeReals, Default=(function), Mutable=False
+        Key                      : Value
+        ('S-Central_PV-1', 2001) :  41850
+          ('S-Geothermal', 1998) :      0
+               ('S-NG_CC', 2000) : 5868.3
+               ('S-NG_GT', 1990) : 4891.8
+               ('S-NG_GT', 2002) : 4891.8
+    proj_forced_outage_rate : Size=4, Index=PROJECTS, Domain=PercentFraction, Default=(function), Mutable=False
+        Key : Value
+    proj_full_load_heat_rate : Size=2, Index=FUEL_BASED_PROJECTS, Domain=PositiveReals, Default=(function), Mutable=False
+        Key : Value
+    proj_gen_tech : Size=4, Index=PROJECTS, Domain=GENERATION_TECHNOLOGIES, Default=None, Mutable=False
+        Key            : Value
+        S-Central_PV-1 : Central_PV
+          S-Geothermal : Geothermal
+               S-NG_CC :      NG_CC
+               S-NG_GT :      NG_GT
+    proj_load_zone : Size=4, Index=PROJECTS, Domain=LOAD_ZONES, Default=None, Mutable=False
+        Key            : Value
+        S-Central_PV-1 : South
+          S-Geothermal : South
+               S-NG_CC : South
+               S-NG_GT : South
+    proj_max_capacity_factor : Size=4, Index=VAR_DISPATCH_POINTS, Domain=Reals, Default=None, Mutable=False
+        Key                   : Value
+        ('S-Central_PV-1', 1) :   0.0
+        ('S-Central_PV-1', 2) :  0.61
+        ('S-Central_PV-1', 3) :     1
+        ('S-Central_PV-1', 4) :   0.4
+    proj_max_commit_fraction : Size=16, Index=PROJ_DISPATCH_POINTS, Domain=PercentFraction, Default=(function), Mutable=False
+        Key : Value
+    proj_min_commit_fraction : Size=16, Index=PROJ_DISPATCH_POINTS, Domain=PercentFraction, Default=(function), Mutable=False
+        Key : Value
+    proj_min_load_fraction : Size=16, Index=PROJ_DISPATCH_POINTS, Domain=Any, Default=(function), Mutable=False
+        Key : Value
+    proj_overnight_cost : Size=5, Index=PROJECT_BUILDYEARS, Domain=NonNegativeReals, Default=(function), Mutable=False
+        Key                      : Value
+        ('S-Central_PV-1', 2001) : 2334300
+          ('S-Geothermal', 1998) : 5524200
+               ('S-NG_CC', 2000) : 1143900
+               ('S-NG_GT', 1990) :  605430
+               ('S-NG_GT', 2002) :  605430
+    proj_scheduled_outage_rate : Size=4, Index=PROJECTS, Domain=PercentFraction, Default=(function), Mutable=False
+        Key : Value
+    proj_startup_fuel : Size=2, Index=FUEL_BASED_PROJECTS, Domain=Any, Default=(function), Mutable=False
+        Key : Value
+    proj_startup_om : Size=4, Index=PROJECTS, Domain=Any, Default=(function), Mutable=False
+        Key : Value
+    proj_variable_om : Size=4, Index=PROJECTS, Domain=NonNegativeReals, Default=(function), Mutable=False
+        Key : Value
+    tp_duration_hrs : Size=4, Index=TIMEPOINTS, Domain=Any, Default=None, Mutable=False
+        Key : Value
+          1 :     6
+          2 :     6
+          3 :     6
+          4 :     6
+    tp_period : Size=4, Index=TIMEPOINTS, Domain=PERIODS, Default=None, Mutable=False
+        Key : Value
+          1 :  2010
+          2 :  2010
+          3 :  2010
+          4 :  2010
+    tp_previous : Size=4, Index=TIMEPOINTS, Domain=TIMEPOINTS, Default=None, Mutable=False
+        Key : Value
+          1 :     4
+          2 :     1
+          3 :     2
+          4 :     3
+    tp_timestamp : Size=4, Index=TIMEPOINTS, Domain=Any, Default=(function), Mutable=False
+        Key : Value
+          1 : 2010011500
+          2 : 2010011506
+          3 : 2010011512
+          4 : 2010011518
+    tp_ts : Size=4, Index=TIMEPOINTS, Domain=TIMESERIES, Default=None, Mutable=False
+        Key : Value
+          1 : 2010_all
+          2 : 2010_all
+          3 : 2010_all
+          4 : 2010_all
+    tp_weight : Size=4, Index=TIMEPOINTS, Domain=PositiveReals, Default=None, Mutable=False
+        Key : Value
+          1 : 10957.5
+          2 : 10957.5
+          3 : 10957.5
+          4 : 10957.5
+    tp_weight_in_year : Size=4, Index=TIMEPOINTS, Domain=PositiveReals, Default=None, Mutable=False
+        Key : Value
+          1 : 2191.5
+          2 : 2191.5
+          3 : 2191.5
+          4 : 2191.5
+    ts_duration_hrs : Size=1, Index=TIMESERIES, Domain=Any, Default=None, Mutable=False
+        Key      : Value
+        2010_all :     6
+    ts_duration_of_tp : Size=1, Index=TIMESERIES, Domain=PositiveReals, Default=None, Mutable=False
+        Key      : Value
+        2010_all :     6
+    ts_num_tps : Size=1, Index=TIMESERIES, Domain=PositiveIntegers, Default=None, Mutable=False
+        Key      : Value
+        2010_all :     1
+    ts_period : Size=1, Index=TIMESERIES, Domain=PERIODS, Default=None, Mutable=False
+        Key      : Value
+        2010_all :  2010
+    ts_scale_to_period : Size=1, Index=TIMESERIES, Domain=PositiveReals, Default=None, Mutable=False
+        Key      : Value
+        2010_all : 1826.25
+    ts_scale_to_year : Size=1, Index=TIMESERIES, Domain=Any, Default=None, Mutable=False
+        Key      : Value
+        2010_all : 365.25
+
+8 Var Declarations
+    BuildLocalTD : Size=2, Index=LOCAL_TD_BUILD_YEARS, Domain=NonNegativeReals
+        Key                 : Lower : Value : Upper : Fixed : Stale
+            ('South', 2010) :     0 :   0.0 :  None : False : False
+        ('South', 'Legacy') :    10 :  10.0 :    10 : False : False
+    BuildProj : Size=5, Index=PROJECT_BUILDYEARS, Domain=NonNegativeReals
+        Key                      : Lower : Value : Upper : Fixed : Stale
+        ('S-Central_PV-1', 2001) :     3 :   3.0 :     3 : False : False
+          ('S-Geothermal', 1998) :     2 :   2.0 :     2 : False : False
+               ('S-NG_CC', 2000) :     5 :   5.0 :     5 : False : False
+               ('S-NG_GT', 1990) :     3 :   3.0 :     3 : False : False
+               ('S-NG_GT', 2002) :     2 :   2.0 :     2 : False : False
+    CommitProject : Size=16, Index=PROJ_DISPATCH_POINTS, Domain=NonNegativeReals
+        Key                   : Lower : Value             : Upper : Fixed : Stale
+        ('S-Central_PV-1', 1) :     0 :              2.94 :  None : False : False
+        ('S-Central_PV-1', 2) :     0 :              2.94 :  None : False : False
+        ('S-Central_PV-1', 3) :     0 :              2.94 :  None : False : False
+        ('S-Central_PV-1', 4) :     0 :              2.94 :  None : False : False
+          ('S-Geothermal', 1) :     0 :         1.9371615 :  None : False : False
+          ('S-Geothermal', 2) :     0 :         1.9371615 :  None : False : False
+          ('S-Geothermal', 3) :     0 :         1.9371615 :  None : False : False
+          ('S-Geothermal', 4) :     0 :         1.9371615 :  None : False : False
+               ('S-NG_CC', 1) :     0 :        3.05459625 :  None : False : False
+               ('S-NG_CC', 2) :     0 :         4.6934385 :  None : False : False
+               ('S-NG_CC', 3) :     0 :               4.7 :  None : False : False
+               ('S-NG_CC', 4) :     0 :         4.2578385 :  None : False : False
+               ('S-NG_GT', 1) :     0 :               0.0 :  None : False : False
+               ('S-NG_GT', 2) :     0 : 2.22044604925e-16 :  None : False : False
+               ('S-NG_GT', 3) :     0 :         0.9528385 :  None : False : False
+               ('S-NG_GT', 4) :     0 : 2.22044604925e-16 :  None : False : False
+    DispatchProj : Size=16, Index=PROJ_DISPATCH_POINTS, Domain=NonNegativeReals
+        Key                   : Lower : Value     : Upper : Fixed : Stale
+        ('S-Central_PV-1', 1) :     0 :       0.0 :  None : False : False
+        ('S-Central_PV-1', 2) :     0 :    1.7934 :  None : False : False
+        ('S-Central_PV-1', 3) :     0 :      2.94 :  None : False : False
+        ('S-Central_PV-1', 4) :     0 :     1.176 :  None : False : False
+          ('S-Geothermal', 1) :     0 : 1.9371615 :  None : False : False
+          ('S-Geothermal', 2) :     0 : 1.9371615 :  None : False : False
+          ('S-Geothermal', 3) :     0 : 1.9371615 :  None : False : False
+          ('S-Geothermal', 4) :     0 : 1.9371615 :  None : False : False
+               ('S-NG_CC', 1) :     0 : 1.2218385 :  None : False : False
+               ('S-NG_CC', 2) :     0 : 4.6934385 :  None : False : False
+               ('S-NG_CC', 3) :     0 :       4.7 :  None : False : False
+               ('S-NG_CC', 4) :     0 : 4.2578385 :  None : False : False
+               ('S-NG_GT', 1) :     0 :       0.0 :  None : False : False
+               ('S-NG_GT', 2) :     0 :       0.0 :  None : False : False
+               ('S-NG_GT', 3) :     0 : 0.9528385 :  None : False : False
+               ('S-NG_GT', 4) :     0 :       0.0 :  None : False : False
+    DumpPower : Size=4, Index=DumpPower_index, Domain=NonNegativeReals
+        Key          : Lower : Value : Upper : Fixed : Stale
+        ('South', 1) :     0 :   0.0 :  None : False : False
+        ('South', 2) :     0 :   0.0 :  None : False : False
+        ('South', 3) :     0 :   0.0 :  None : False : False
+        ('South', 4) :     0 :   0.0 :  None : False : False
+    ProjFuelUseRate : Size=8, Index=PROJ_FUEL_DISPATCH_POINTS, Domain=NonNegativeReals
+        Key                          : Lower : Value             : Upper : Fixed : Stale
+        ('S-NG_CC', 1, 'NaturalGas') :     0 :     8.22929306464 :  None : False : False
+        ('S-NG_CC', 2, 'NaturalGas') :     0 :     33.9714709775 :  None : False : False
+        ('S-NG_CC', 3, 'NaturalGas') :     0 :     31.5235172233 :  None : False : False
+        ('S-NG_CC', 4, 'NaturalGas') :     0 :     28.5488071425 :  None : False : False
+        ('S-NG_GT', 1, 'NaturalGas') :     0 :              -0.0 :  None : False : False
+        ('S-NG_GT', 2, 'NaturalGas') :     0 : 3.12120699656e-17 :  None : False : False
+        ('S-NG_GT', 3, 'NaturalGas') :     0 :     9.93492942667 :  None : False : False
+        ('S-NG_GT', 4, 'NaturalGas') :     0 : 2.30704344517e-17 :  None : False : False
+    Shutdown : Size=16, Index=PROJ_DISPATCH_POINTS, Domain=NonNegativeReals
+        Key                   : Lower : Value             : Upper : Fixed : Stale
+        ('S-Central_PV-1', 1) :     0 :               0.0 :  None : False : False
+        ('S-Central_PV-1', 2) :     0 :               0.0 :  None : False : False
+        ('S-Central_PV-1', 3) :     0 :               0.0 :  None : False : False
+        ('S-Central_PV-1', 4) :     0 :               0.0 :  None : False : False
+          ('S-Geothermal', 1) :     0 :              -0.0 :  None : False : False
+          ('S-Geothermal', 2) :     0 :              -0.0 :  None : False : False
+          ('S-Geothermal', 3) :     0 :              -0.0 :  None : False : False
+          ('S-Geothermal', 4) :     0 :              -0.0 :  None : False : False
+               ('S-NG_CC', 1) :     0 :        1.20324225 :  None : False : False
+               ('S-NG_CC', 2) :     0 :               0.0 :  None : False : False
+               ('S-NG_CC', 3) :     0 :               0.0 :  None : False : False
+               ('S-NG_CC', 4) :     0 :         0.4421615 :  None : False : False
+               ('S-NG_GT', 1) :     0 : 2.22044604925e-16 :  None : False : False
+               ('S-NG_GT', 2) :     0 :               0.0 :  None : False : False
+               ('S-NG_GT', 3) :     0 :               0.0 :  None : False : False
+               ('S-NG_GT', 4) :     0 :         0.9528385 :  None : False : False
+    Startup : Size=16, Index=PROJ_DISPATCH_POINTS, Domain=NonNegativeReals
+        Key                   : Lower : Value             : Upper : Fixed : Stale
+        ('S-Central_PV-1', 1) :     0 :               0.0 :  None : False : False
+        ('S-Central_PV-1', 2) :     0 :               0.0 :  None : False : False
+        ('S-Central_PV-1', 3) :     0 :               0.0 :  None : False : False
+        ('S-Central_PV-1', 4) :     0 :               0.0 :  None : False : False
+          ('S-Geothermal', 1) :     0 :               0.0 :  None : False : False
+          ('S-Geothermal', 2) :     0 :               0.0 :  None : False : False
+          ('S-Geothermal', 3) :     0 :               0.0 :  None : False : False
+          ('S-Geothermal', 4) :     0 :               0.0 :  None : False : False
+               ('S-NG_CC', 1) :     0 :               0.0 :  None : False : False
+               ('S-NG_CC', 2) :     0 :        1.63884225 :  None : False : False
+               ('S-NG_CC', 3) :     0 :         0.0065615 :  None : False : False
+               ('S-NG_CC', 4) :     0 :               0.0 :  None : False : False
+               ('S-NG_GT', 1) :     0 :               0.0 :  None : False : False
+               ('S-NG_GT', 2) :     0 : 2.22044604925e-16 :  None : False : False
+               ('S-NG_GT', 3) :     0 :         0.9528385 :  None : False : False
+               ('S-NG_GT', 4) :     0 :               0.0 :  None : False : False
+
+22 Expression Declarations
+    CommitLowerLimit : Size=16, Index=PROJ_DISPATCH_POINTS
+        Key                   : Expression
+        ('S-Central_PV-1', 1) : 0.0
+        ('S-Central_PV-1', 2) : 0.0
+        ('S-Central_PV-1', 3) : 0.0
+        ('S-Central_PV-1', 4) : 0.0
+          ('S-Geothermal', 1) : 0.96858075 * BuildProj[S-Geothermal,1998]
+          ('S-Geothermal', 2) : 0.96858075 * BuildProj[S-Geothermal,1998]
+          ('S-Geothermal', 3) : 0.96858075 * BuildProj[S-Geothermal,1998]
+          ('S-Geothermal', 4) : 0.96858075 * BuildProj[S-Geothermal,1998]
+               ('S-NG_CC', 1) : 0.0
+               ('S-NG_CC', 2) : 0.0
+               ('S-NG_CC', 3) : 0.0
+               ('S-NG_CC', 4) : 0.0
+               ('S-NG_GT', 1) : 0.0
+               ('S-NG_GT', 2) : 0.0
+               ('S-NG_GT', 3) : 0.0
+               ('S-NG_GT', 4) : 0.0
+    CommitSlackDown : Size=16, Index=PROJ_DISPATCH_POINTS
+        Key                   : Expression
+        ('S-Central_PV-1', 1) : CommitProject[S-Central_PV-1,1] - 0.0
+        ('S-Central_PV-1', 2) : CommitProject[S-Central_PV-1,2] - 0.0
+        ('S-Central_PV-1', 3) : CommitProject[S-Central_PV-1,3] - 0.0
+        ('S-Central_PV-1', 4) : CommitProject[S-Central_PV-1,4] - 0.0
+          ('S-Geothermal', 1) : CommitProject[S-Geothermal,1] - 0.96858075 * BuildProj[S-Geothermal,1998]
+          ('S-Geothermal', 2) : CommitProject[S-Geothermal,2] - 0.96858075 * BuildProj[S-Geothermal,1998]
+          ('S-Geothermal', 3) : CommitProject[S-Geothermal,3] - 0.96858075 * BuildProj[S-Geothermal,1998]
+          ('S-Geothermal', 4) : CommitProject[S-Geothermal,4] - 0.96858075 * BuildProj[S-Geothermal,1998]
+               ('S-NG_CC', 1) : CommitProject[S-NG_CC,1] - 0.0
+               ('S-NG_CC', 2) : CommitProject[S-NG_CC,2] - 0.0
+               ('S-NG_CC', 3) : CommitProject[S-NG_CC,3] - 0.0
+               ('S-NG_CC', 4) : CommitProject[S-NG_CC,4] - 0.0
+               ('S-NG_GT', 1) : CommitProject[S-NG_GT,1] - 0.0
+               ('S-NG_GT', 2) : CommitProject[S-NG_GT,2] - 0.0
+               ('S-NG_GT', 3) : CommitProject[S-NG_GT,3] - 0.0
+               ('S-NG_GT', 4) : CommitProject[S-NG_GT,4] - 0.0
+    CommitSlackUp : Size=16, Index=PROJ_DISPATCH_POINTS
+        Key                   : Expression
+        ('S-Central_PV-1', 1) : 0.98 * BuildProj[S-Central_PV-1,2001] - CommitProject[S-Central_PV-1,1]
+        ('S-Central_PV-1', 2) : 0.98 * BuildProj[S-Central_PV-1,2001] - CommitProject[S-Central_PV-1,2]
+        ('S-Central_PV-1', 3) : 0.98 * BuildProj[S-Central_PV-1,2001] - CommitProject[S-Central_PV-1,3]
+        ('S-Central_PV-1', 4) : 0.98 * BuildProj[S-Central_PV-1,2001] - CommitProject[S-Central_PV-1,4]
+          ('S-Geothermal', 1) : 0.96858075 * BuildProj[S-Geothermal,1998] - CommitProject[S-Geothermal,1]
+          ('S-Geothermal', 2) : 0.96858075 * BuildProj[S-Geothermal,1998] - CommitProject[S-Geothermal,2]
+          ('S-Geothermal', 3) : 0.96858075 * BuildProj[S-Geothermal,1998] - CommitProject[S-Geothermal,3]
+          ('S-Geothermal', 4) : 0.96858075 * BuildProj[S-Geothermal,1998] - CommitProject[S-Geothermal,4]
+               ('S-NG_CC', 1) : 0.94 * BuildProj[S-NG_CC,2000] - CommitProject[S-NG_CC,1]
+               ('S-NG_CC', 2) : 0.94 * BuildProj[S-NG_CC,2000] - CommitProject[S-NG_CC,2]
+               ('S-NG_CC', 3) : 0.94 * BuildProj[S-NG_CC,2000] - CommitProject[S-NG_CC,3]
+               ('S-NG_CC', 4) : 0.94 * BuildProj[S-NG_CC,2000] - CommitProject[S-NG_CC,4]
+               ('S-NG_GT', 1) : 0.94 * ( BuildProj[S-NG_GT,2002] + BuildProj[S-NG_GT,1990] ) - CommitProject[S-NG_GT,1]
+               ('S-NG_GT', 2) : 0.94 * ( BuildProj[S-NG_GT,2002] + BuildProj[S-NG_GT,1990] ) - CommitProject[S-NG_GT,2]
+               ('S-NG_GT', 3) : 0.94 * ( BuildProj[S-NG_GT,2002] + BuildProj[S-NG_GT,1990] ) - CommitProject[S-NG_GT,3]
+               ('S-NG_GT', 4) : 0.94 * ( BuildProj[S-NG_GT,2002] + BuildProj[S-NG_GT,1990] ) - CommitProject[S-NG_GT,4]
+    CommitUpperLimit : Size=16, Index=PROJ_DISPATCH_POINTS
+        Key                   : Expression
+        ('S-Central_PV-1', 1) : 0.98 * BuildProj[S-Central_PV-1,2001]
+        ('S-Central_PV-1', 2) : 0.98 * BuildProj[S-Central_PV-1,2001]
+        ('S-Central_PV-1', 3) : 0.98 * BuildProj[S-Central_PV-1,2001]
+        ('S-Central_PV-1', 4) : 0.98 * BuildProj[S-Central_PV-1,2001]
+          ('S-Geothermal', 1) : 0.96858075 * BuildProj[S-Geothermal,1998]
+          ('S-Geothermal', 2) : 0.96858075 * BuildProj[S-Geothermal,1998]
+          ('S-Geothermal', 3) : 0.96858075 * BuildProj[S-Geothermal,1998]
+          ('S-Geothermal', 4) : 0.96858075 * BuildProj[S-Geothermal,1998]
+               ('S-NG_CC', 1) : 0.94 * BuildProj[S-NG_CC,2000]
+               ('S-NG_CC', 2) : 0.94 * BuildProj[S-NG_CC,2000]
+               ('S-NG_CC', 3) : 0.94 * BuildProj[S-NG_CC,2000]
+               ('S-NG_CC', 4) : 0.94 * BuildProj[S-NG_CC,2000]
+               ('S-NG_GT', 1) : 0.94 * ( BuildProj[S-NG_GT,2002] + BuildProj[S-NG_GT,1990] )
+               ('S-NG_GT', 2) : 0.94 * ( BuildProj[S-NG_GT,2002] + BuildProj[S-NG_GT,1990] )
+               ('S-NG_GT', 3) : 0.94 * ( BuildProj[S-NG_GT,2002] + BuildProj[S-NG_GT,1990] )
+               ('S-NG_GT', 4) : 0.94 * ( BuildProj[S-NG_GT,2002] + BuildProj[S-NG_GT,1990] )
+    DispatchEmissions : Size=8, Index=PROJ_FUEL_DISPATCH_POINTS
+        Key                          : Expression
+        ('S-NG_CC', 1, 'NaturalGas') : 0.05306 * ProjFuelUseRate[S-NG_CC,1,NaturalGas]
+        ('S-NG_CC', 2, 'NaturalGas') : 0.05306 * ProjFuelUseRate[S-NG_CC,2,NaturalGas]
+        ('S-NG_CC', 3, 'NaturalGas') : 0.05306 * ProjFuelUseRate[S-NG_CC,3,NaturalGas]
+        ('S-NG_CC', 4, 'NaturalGas') : 0.05306 * ProjFuelUseRate[S-NG_CC,4,NaturalGas]
+        ('S-NG_GT', 1, 'NaturalGas') : 0.05306 * ProjFuelUseRate[S-NG_GT,1,NaturalGas]
+        ('S-NG_GT', 2, 'NaturalGas') : 0.05306 * ProjFuelUseRate[S-NG_GT,2,NaturalGas]
+        ('S-NG_GT', 3, 'NaturalGas') : 0.05306 * ProjFuelUseRate[S-NG_GT,3,NaturalGas]
+        ('S-NG_GT', 4, 'NaturalGas') : 0.05306 * ProjFuelUseRate[S-NG_GT,4,NaturalGas]
+    DispatchLowerLimit : Size=16, Index=PROJ_DISPATCH_POINTS
+        Key                   : Expression
+        ('S-Central_PV-1', 1) : 0.0
+        ('S-Central_PV-1', 2) : 0.0
+        ('S-Central_PV-1', 3) : 0.0
+        ('S-Central_PV-1', 4) : 0.0
+          ('S-Geothermal', 1) : CommitProject[S-Geothermal,1]
+          ('S-Geothermal', 2) : CommitProject[S-Geothermal,2]
+          ('S-Geothermal', 3) : CommitProject[S-Geothermal,3]
+          ('S-Geothermal', 4) : CommitProject[S-Geothermal,4]
+               ('S-NG_CC', 1) : 0.4 * CommitProject[S-NG_CC,1]
+               ('S-NG_CC', 2) : 0.4 * CommitProject[S-NG_CC,2]
+               ('S-NG_CC', 3) : 0.4 * CommitProject[S-NG_CC,3]
+               ('S-NG_CC', 4) : 0.4 * CommitProject[S-NG_CC,4]
+               ('S-NG_GT', 1) : 0.0
+               ('S-NG_GT', 2) : 0.0
+               ('S-NG_GT', 3) : 0.0
+               ('S-NG_GT', 4) : 0.0
+    DispatchSlackDown : Size=16, Index=PROJ_DISPATCH_POINTS
+        Key                   : Expression
+        ('S-Central_PV-1', 1) : DispatchProj[S-Central_PV-1,1] - 0.0
+        ('S-Central_PV-1', 2) : DispatchProj[S-Central_PV-1,2] - 0.0
+        ('S-Central_PV-1', 3) : DispatchProj[S-Central_PV-1,3] - 0.0
+        ('S-Central_PV-1', 4) : DispatchProj[S-Central_PV-1,4] - 0.0
+          ('S-Geothermal', 1) : DispatchProj[S-Geothermal,1] - CommitProject[S-Geothermal,1]
+          ('S-Geothermal', 2) : DispatchProj[S-Geothermal,2] - CommitProject[S-Geothermal,2]
+          ('S-Geothermal', 3) : DispatchProj[S-Geothermal,3] - CommitProject[S-Geothermal,3]
+          ('S-Geothermal', 4) : DispatchProj[S-Geothermal,4] - CommitProject[S-Geothermal,4]
+               ('S-NG_CC', 1) : DispatchProj[S-NG_CC,1] - 0.4 * CommitProject[S-NG_CC,1]
+               ('S-NG_CC', 2) : DispatchProj[S-NG_CC,2] - 0.4 * CommitProject[S-NG_CC,2]
+               ('S-NG_CC', 3) : DispatchProj[S-NG_CC,3] - 0.4 * CommitProject[S-NG_CC,3]
+               ('S-NG_CC', 4) : DispatchProj[S-NG_CC,4] - 0.4 * CommitProject[S-NG_CC,4]
+               ('S-NG_GT', 1) : DispatchProj[S-NG_GT,1] - 0.0
+               ('S-NG_GT', 2) : DispatchProj[S-NG_GT,2] - 0.0
+               ('S-NG_GT', 3) : DispatchProj[S-NG_GT,3] - 0.0
+               ('S-NG_GT', 4) : DispatchProj[S-NG_GT,4] - 0.0
+    DispatchSlackUp : Size=16, Index=PROJ_DISPATCH_POINTS
+        Key                   : Expression
+        ('S-Central_PV-1', 1) : 0.0 - DispatchProj[S-Central_PV-1,1]
+        ('S-Central_PV-1', 2) : 0.61 * CommitProject[S-Central_PV-1,2] - DispatchProj[S-Central_PV-1,2]
+        ('S-Central_PV-1', 3) : CommitProject[S-Central_PV-1,3] - DispatchProj[S-Central_PV-1,3]
+        ('S-Central_PV-1', 4) : 0.4 * CommitProject[S-Central_PV-1,4] - DispatchProj[S-Central_PV-1,4]
+          ('S-Geothermal', 1) : CommitProject[S-Geothermal,1] - DispatchProj[S-Geothermal,1]
+          ('S-Geothermal', 2) : CommitProject[S-Geothermal,2] - DispatchProj[S-Geothermal,2]
+          ('S-Geothermal', 3) : CommitProject[S-Geothermal,3] - DispatchProj[S-Geothermal,3]
+          ('S-Geothermal', 4) : CommitProject[S-Geothermal,4] - DispatchProj[S-Geothermal,4]
+               ('S-NG_CC', 1) : CommitProject[S-NG_CC,1] - DispatchProj[S-NG_CC,1]
+               ('S-NG_CC', 2) : CommitProject[S-NG_CC,2] - DispatchProj[S-NG_CC,2]
+               ('S-NG_CC', 3) : CommitProject[S-NG_CC,3] - DispatchProj[S-NG_CC,3]
+               ('S-NG_CC', 4) : CommitProject[S-NG_CC,4] - DispatchProj[S-NG_CC,4]
+               ('S-NG_GT', 1) : CommitProject[S-NG_GT,1] - DispatchProj[S-NG_GT,1]
+               ('S-NG_GT', 2) : CommitProject[S-NG_GT,2] - DispatchProj[S-NG_GT,2]
+               ('S-NG_GT', 3) : CommitProject[S-NG_GT,3] - DispatchProj[S-NG_GT,3]
+               ('S-NG_GT', 4) : CommitProject[S-NG_GT,4] - DispatchProj[S-NG_GT,4]
+    DispatchUpperLimit : Size=16, Index=PROJ_DISPATCH_POINTS
+        Key                   : Expression
+        ('S-Central_PV-1', 1) : 0.0
+        ('S-Central_PV-1', 2) : 0.61 * CommitProject[S-Central_PV-1,2]
+        ('S-Central_PV-1', 3) : CommitProject[S-Central_PV-1,3]
+        ('S-Central_PV-1', 4) : 0.4 * CommitProject[S-Central_PV-1,4]
+          ('S-Geothermal', 1) : CommitProject[S-Geothermal,1]
+          ('S-Geothermal', 2) : CommitProject[S-Geothermal,2]
+          ('S-Geothermal', 3) : CommitProject[S-Geothermal,3]
+          ('S-Geothermal', 4) : CommitProject[S-Geothermal,4]
+               ('S-NG_CC', 1) : CommitProject[S-NG_CC,1]
+               ('S-NG_CC', 2) : CommitProject[S-NG_CC,2]
+               ('S-NG_CC', 3) : CommitProject[S-NG_CC,3]
+               ('S-NG_CC', 4) : CommitProject[S-NG_CC,4]
+               ('S-NG_GT', 1) : CommitProject[S-NG_GT,1]
+               ('S-NG_GT', 2) : CommitProject[S-NG_GT,2]
+               ('S-NG_GT', 3) : CommitProject[S-NG_GT,3]
+               ('S-NG_GT', 4) : CommitProject[S-NG_GT,4]
+    Fuel_Costs_TP : Size=4, Index=TIMEPOINTS
+        Key : Expression
+          1 : 4*ProjFuelUseRate[S-NG_CC,1,NaturalGas] + 4*ProjFuelUseRate[S-NG_GT,1,NaturalGas]
+          2 : 4*ProjFuelUseRate[S-NG_CC,2,NaturalGas] + 4*ProjFuelUseRate[S-NG_GT,2,NaturalGas]
+          3 : 4*ProjFuelUseRate[S-NG_GT,3,NaturalGas] + 4*ProjFuelUseRate[S-NG_CC,3,NaturalGas]
+          4 : 4*ProjFuelUseRate[S-NG_CC,4,NaturalGas] + 4*ProjFuelUseRate[S-NG_GT,4,NaturalGas]
+    LZ_NetDispatch : Size=4, Index=LZ_NetDispatch_index
+        Key          : Expression
+        ('South', 1) : DispatchProj[S-Geothermal,1] + DispatchProj[S-NG_CC,1] + DispatchProj[S-NG_GT,1] + DispatchProj[S-Central_PV-1,1]
+        ('South', 2) : DispatchProj[S-Geothermal,2] + DispatchProj[S-NG_CC,2] + DispatchProj[S-NG_GT,2] + DispatchProj[S-Central_PV-1,2]
+        ('South', 3) : DispatchProj[S-Geothermal,3] + DispatchProj[S-NG_CC,3] + DispatchProj[S-NG_GT,3] + DispatchProj[S-Central_PV-1,3]
+        ('South', 4) : DispatchProj[S-Geothermal,4] + DispatchProj[S-NG_CC,4] + DispatchProj[S-NG_GT,4] + DispatchProj[S-Central_PV-1,4]
+    LocalTDCapacity : Size=1, Index=LocalTDCapacity_index
+        Key             : Expression
+        ('South', 2010) : BuildLocalTD[South,Legacy] + BuildLocalTD[South,2010]
+    LocalTD_Fixed_Costs_Annual : Size=1, Index=PERIODS
+        Key  : Expression
+        2010 : 128040 * BuildLocalTD[South,2010]
+    ProjCapacity : Size=4, Index=ProjCapacity_index
+        Key                      : Expression
+        ('S-Central_PV-1', 2010) : BuildProj[S-Central_PV-1,2001]
+          ('S-Geothermal', 2010) : BuildProj[S-Geothermal,1998]
+               ('S-NG_CC', 2010) : BuildProj[S-NG_CC,2000]
+               ('S-NG_GT', 2010) : BuildProj[S-NG_GT,2002] + BuildProj[S-NG_GT,1990]
+    ProjCapacityTP : Size=16, Index=PROJ_DISPATCH_POINTS
+        Key                   : Expression
+        ('S-Central_PV-1', 1) : ProjCapacity[S-Central_PV-1,2010]
+        ('S-Central_PV-1', 2) : ProjCapacity[S-Central_PV-1,2010]
+        ('S-Central_PV-1', 3) : ProjCapacity[S-Central_PV-1,2010]
+        ('S-Central_PV-1', 4) : ProjCapacity[S-Central_PV-1,2010]
+          ('S-Geothermal', 1) :   ProjCapacity[S-Geothermal,2010]
+          ('S-Geothermal', 2) :   ProjCapacity[S-Geothermal,2010]
+          ('S-Geothermal', 3) :   ProjCapacity[S-Geothermal,2010]
+          ('S-Geothermal', 4) :   ProjCapacity[S-Geothermal,2010]
+               ('S-NG_CC', 1) :        ProjCapacity[S-NG_CC,2010]
+               ('S-NG_CC', 2) :        ProjCapacity[S-NG_CC,2010]
+               ('S-NG_CC', 3) :        ProjCapacity[S-NG_CC,2010]
+               ('S-NG_CC', 4) :        ProjCapacity[S-NG_CC,2010]
+               ('S-NG_GT', 1) :        ProjCapacity[S-NG_GT,2010]
+               ('S-NG_GT', 2) :        ProjCapacity[S-NG_GT,2010]
+               ('S-NG_GT', 3) :        ProjCapacity[S-NG_GT,2010]
+               ('S-NG_GT', 4) :        ProjCapacity[S-NG_GT,2010]
+    Proj_Fixed_Costs_Annual : Size=4, Index=PROJECT_OPERATIONAL_PERIODS
+        Key                      : Expression
+        ('S-Central_PV-1', 2010) : 269259.728189 * BuildProj[S-Central_PV-1,2001]
+          ('S-Geothermal', 2010) : 455991.878528 * BuildProj[S-Geothermal,1998]
+               ('S-NG_CC', 2010) : 119278.247557 * BuildProj[S-NG_CC,2000]
+               ('S-NG_GT', 2010) : 67473.9888318*BuildProj[S-NG_GT,1990] + 67473.9888318*BuildProj[S-NG_GT,2002]
+    Proj_Var_Costs_Hourly : Size=16, Index=PROJ_DISPATCH_POINTS
+        Key                   : Expression
+        ('S-Central_PV-1', 1) : 0.0
+        ('S-Central_PV-1', 2) : 0.0
+        ('S-Central_PV-1', 3) : 0.0
+        ('S-Central_PV-1', 4) : 0.0
+          ('S-Geothermal', 1) : 28.83 * DispatchProj[S-Geothermal,1]
+          ('S-Geothermal', 2) : 28.83 * DispatchProj[S-Geothermal,2]
+          ('S-Geothermal', 3) : 28.83 * DispatchProj[S-Geothermal,3]
+          ('S-Geothermal', 4) : 28.83 * DispatchProj[S-Geothermal,4]
+               ('S-NG_CC', 1) : 3.4131 * DispatchProj[S-NG_CC,1]
+               ('S-NG_CC', 2) : 3.4131 * DispatchProj[S-NG_CC,2]
+               ('S-NG_CC', 3) : 3.4131 * DispatchProj[S-NG_CC,3]
+               ('S-NG_CC', 4) : 3.4131 * DispatchProj[S-NG_CC,4]
+               ('S-NG_GT', 1) : 27.807 * DispatchProj[S-NG_GT,1]
+               ('S-NG_GT', 2) : 27.807 * DispatchProj[S-NG_GT,2]
+               ('S-NG_GT', 3) : 27.807 * DispatchProj[S-NG_GT,3]
+               ('S-NG_GT', 4) : 27.807 * DispatchProj[S-NG_GT,4]
+    SystemCost : Size=1, Index=None
+        Key  : Expression
+        None : SystemCostPerPeriod[2010]
+    SystemCostPerPeriod : Size=1, Index=PERIODS
+        Key  : Expression
+        2010 : 6.09200845313 * ( 119278.247557 * BuildProj[S-NG_CC,2000] + 269259.728189 * BuildProj[S-Central_PV-1,2001] + 455991.878528 * BuildProj[S-Geothermal,1998] + 67473.9888318*BuildProj[S-NG_GT,1990] + 67473.9888318*BuildProj[S-NG_GT,2002] + 128040 * BuildLocalTD[South,2010] + 2191.5*( 28.83 * DispatchProj[S-Geothermal,1] + 3.4131 * DispatchProj[S-NG_CC,1] + 27.807 * DispatchProj[S-NG_GT,1] + 0.0 ) + 2191.5*( 0.143333333333*Startup[S-NG_GT,1] + 1.71666666667*Startup[S-NG_CC,1] ) + 2191.5*( 4*ProjFuelUseRate[S-NG_CC,1,NaturalGas] + 4*ProjFuelUseRate[S-NG_GT,1,NaturalGas] ) + 2191.5*( 28.83 * DispatchProj[S-Geothermal,2] + 3.4131 * DispatchProj[S-NG_CC,2] + 27.807 * DispatchProj[S-NG_GT,2] + 0.0 ) + 2191.5*( 0.143333333333*Startup[S-NG_GT,2] + 1.71666666667*Startup[S-NG_CC,2] ) + 2191.5*( 4*ProjFuelUseRate[S-NG_CC,2,NaturalGas] + 4*ProjFuelUseRate[S-NG_GT,2,NaturalGas] ) + 2191.5*( 28.83 * DispatchProj[S-Geothermal,3] + 3.4131 * DispatchProj[S-NG_CC,3] + 27.807 * DispatchProj[S-NG_GT,3] + 0.0 ) + 2191.5*( 0.143333333333*Startup[S-NG_GT,3] + 1.71666666667*Startup[S-NG_CC,3] ) + 2191.5*( 4*ProjFuelUseRate[S-NG_GT,3,NaturalGas] + 4*ProjFuelUseRate[S-NG_CC,3,NaturalGas] ) + 2191.5*( 28.83 * DispatchProj[S-Geothermal,4] + 3.4131 * DispatchProj[S-NG_CC,4] + 27.807 * DispatchProj[S-NG_GT,4] + 0.0 ) + 2191.5*( 0.143333333333*Startup[S-NG_GT,4] + 1.71666666667*Startup[S-NG_CC,4] ) + 2191.5*( 4*ProjFuelUseRate[S-NG_CC,4,NaturalGas] + 4*ProjFuelUseRate[S-NG_GT,4,NaturalGas] ) )
+    Total_Proj_Fixed_Costs_Annual : Size=1, Index=PERIODS
+        Key  : Expression
+        2010 : 119278.247557 * BuildProj[S-NG_CC,2000] + 269259.728189 * BuildProj[S-Central_PV-1,2001] + 455991.878528 * BuildProj[S-Geothermal,1998] + 67473.9888318*BuildProj[S-NG_GT,1990] + 67473.9888318*BuildProj[S-NG_GT,2002]
+    Total_Proj_Var_Costs_Hourly : Size=4, Index=TIMEPOINTS
+        Key : Expression
+          1 : 28.83 * DispatchProj[S-Geothermal,1] + 3.4131 * DispatchProj[S-NG_CC,1] + 27.807 * DispatchProj[S-NG_GT,1] + 0.0
+          2 : 28.83 * DispatchProj[S-Geothermal,2] + 3.4131 * DispatchProj[S-NG_CC,2] + 27.807 * DispatchProj[S-NG_GT,2] + 0.0
+          3 : 28.83 * DispatchProj[S-Geothermal,3] + 3.4131 * DispatchProj[S-NG_CC,3] + 27.807 * DispatchProj[S-NG_GT,3] + 0.0
+          4 : 28.83 * DispatchProj[S-Geothermal,4] + 3.4131 * DispatchProj[S-NG_CC,4] + 27.807 * DispatchProj[S-NG_GT,4] + 0.0
+    Total_Startup_OM_Costs : Size=4, Index=TIMEPOINTS
+        Key : Expression
+          1 : 0.143333333333*Startup[S-NG_GT,1] + 1.71666666667*Startup[S-NG_CC,1]
+          2 : 0.143333333333*Startup[S-NG_GT,2] + 1.71666666667*Startup[S-NG_CC,2]
+          3 : 0.143333333333*Startup[S-NG_GT,3] + 1.71666666667*Startup[S-NG_CC,3]
+          4 : 0.143333333333*Startup[S-NG_GT,4] + 1.71666666667*Startup[S-NG_CC,4]
+
+1 Objective Declarations
+    Minimize_System_Cost : Size=1, Index=None, Active=True
+        Key  : Active : Sense    : Expression
+        None :   True : minimize : SystemCost
+
+10 Constraint Declarations
+    Commit_Startup_Shutdown_Consistency : Size=16, Index=PROJ_DISPATCH_POINTS, Active=True
+        Key                   : Lower : Body                                                                                                                       : Upper : Active
+        ('S-Central_PV-1', 1) :   0.0 : CommitProject[S-Central_PV-1,4] + Startup[S-Central_PV-1,1] - Shutdown[S-Central_PV-1,1] - CommitProject[S-Central_PV-1,1] :   0.0 :   True
+        ('S-Central_PV-1', 2) :   0.0 : CommitProject[S-Central_PV-1,1] + Startup[S-Central_PV-1,2] - Shutdown[S-Central_PV-1,2] - CommitProject[S-Central_PV-1,2] :   0.0 :   True
+        ('S-Central_PV-1', 3) :   0.0 : CommitProject[S-Central_PV-1,2] + Startup[S-Central_PV-1,3] - Shutdown[S-Central_PV-1,3] - CommitProject[S-Central_PV-1,3] :   0.0 :   True
+        ('S-Central_PV-1', 4) :   0.0 : CommitProject[S-Central_PV-1,3] + Startup[S-Central_PV-1,4] - Shutdown[S-Central_PV-1,4] - CommitProject[S-Central_PV-1,4] :   0.0 :   True
+          ('S-Geothermal', 1) :   0.0 :         CommitProject[S-Geothermal,4] + Startup[S-Geothermal,1] - Shutdown[S-Geothermal,1] - CommitProject[S-Geothermal,1] :   0.0 :   True
+          ('S-Geothermal', 2) :   0.0 :         CommitProject[S-Geothermal,1] + Startup[S-Geothermal,2] - Shutdown[S-Geothermal,2] - CommitProject[S-Geothermal,2] :   0.0 :   True
+          ('S-Geothermal', 3) :   0.0 :         CommitProject[S-Geothermal,2] + Startup[S-Geothermal,3] - Shutdown[S-Geothermal,3] - CommitProject[S-Geothermal,3] :   0.0 :   True
+          ('S-Geothermal', 4) :   0.0 :         CommitProject[S-Geothermal,3] + Startup[S-Geothermal,4] - Shutdown[S-Geothermal,4] - CommitProject[S-Geothermal,4] :   0.0 :   True
+               ('S-NG_CC', 1) :   0.0 :                             CommitProject[S-NG_CC,4] + Startup[S-NG_CC,1] - Shutdown[S-NG_CC,1] - CommitProject[S-NG_CC,1] :   0.0 :   True
+               ('S-NG_CC', 2) :   0.0 :                             CommitProject[S-NG_CC,1] + Startup[S-NG_CC,2] - Shutdown[S-NG_CC,2] - CommitProject[S-NG_CC,2] :   0.0 :   True
+               ('S-NG_CC', 3) :   0.0 :                             CommitProject[S-NG_CC,2] + Startup[S-NG_CC,3] - Shutdown[S-NG_CC,3] - CommitProject[S-NG_CC,3] :   0.0 :   True
+               ('S-NG_CC', 4) :   0.0 :                             CommitProject[S-NG_CC,3] + Startup[S-NG_CC,4] - Shutdown[S-NG_CC,4] - CommitProject[S-NG_CC,4] :   0.0 :   True
+               ('S-NG_GT', 1) :   0.0 :                             CommitProject[S-NG_GT,4] + Startup[S-NG_GT,1] - Shutdown[S-NG_GT,1] - CommitProject[S-NG_GT,1] :   0.0 :   True
+               ('S-NG_GT', 2) :   0.0 :                             CommitProject[S-NG_GT,1] + Startup[S-NG_GT,2] - Shutdown[S-NG_GT,2] - CommitProject[S-NG_GT,2] :   0.0 :   True
+               ('S-NG_GT', 3) :   0.0 :                             CommitProject[S-NG_GT,2] + Startup[S-NG_GT,3] - Shutdown[S-NG_GT,3] - CommitProject[S-NG_GT,3] :   0.0 :   True
+               ('S-NG_GT', 4) :   0.0 :                             CommitProject[S-NG_GT,3] + Startup[S-NG_GT,4] - Shutdown[S-NG_GT,4] - CommitProject[S-NG_GT,4] :   0.0 :   True
+    Energy_Balance : Size=4, Index=Energy_Balance_index, Active=True
+        Key          : Lower : Body                                                                                                                                            : Upper : Active
+        ('South', 1) :   0.0 : -3.159 + DispatchProj[S-Geothermal,1] + DispatchProj[S-NG_CC,1] + DispatchProj[S-NG_GT,1] + DispatchProj[S-Central_PV-1,1] - DumpPower[South,1] :   0.0 :   True
+        ('South', 2) :   0.0 : -8.424 + DispatchProj[S-Geothermal,2] + DispatchProj[S-NG_CC,2] + DispatchProj[S-NG_GT,2] + DispatchProj[S-Central_PV-1,2] - DumpPower[South,2] :   0.0 :   True
+        ('South', 3) :   0.0 : -10.53 + DispatchProj[S-Geothermal,3] + DispatchProj[S-NG_CC,3] + DispatchProj[S-NG_GT,3] + DispatchProj[S-Central_PV-1,3] - DumpPower[South,3] :   0.0 :   True
+        ('South', 4) :   0.0 : -7.371 + DispatchProj[S-Geothermal,4] + DispatchProj[S-NG_CC,4] + DispatchProj[S-NG_GT,4] + DispatchProj[S-Central_PV-1,4] - DumpPower[South,4] :   0.0 :   True
+    Enforce_Commit_Lower_Limit : Size=16, Index=PROJ_DISPATCH_POINTS, Active=True
+        Key                   : Lower                              : Body                                                                      : Upper : Active
+        ('S-Central_PV-1', 1) : CommitLowerLimit[S-Central_PV-1,1] :                                           CommitProject[S-Central_PV-1,1] :  +Inf :   True
+        ('S-Central_PV-1', 2) : CommitLowerLimit[S-Central_PV-1,2] :                                           CommitProject[S-Central_PV-1,2] :  +Inf :   True
+        ('S-Central_PV-1', 3) : CommitLowerLimit[S-Central_PV-1,3] :                                           CommitProject[S-Central_PV-1,3] :  +Inf :   True
+        ('S-Central_PV-1', 4) : CommitLowerLimit[S-Central_PV-1,4] :                                           CommitProject[S-Central_PV-1,4] :  +Inf :   True
+          ('S-Geothermal', 1) :                               -Inf : 0.96858075 * BuildProj[S-Geothermal,1998] - CommitProject[S-Geothermal,1] :   0.0 :   True
+          ('S-Geothermal', 2) :                               -Inf : 0.96858075 * BuildProj[S-Geothermal,1998] - CommitProject[S-Geothermal,2] :   0.0 :   True
+          ('S-Geothermal', 3) :                               -Inf : 0.96858075 * BuildProj[S-Geothermal,1998] - CommitProject[S-Geothermal,3] :   0.0 :   True
+          ('S-Geothermal', 4) :                               -Inf : 0.96858075 * BuildProj[S-Geothermal,1998] - CommitProject[S-Geothermal,4] :   0.0 :   True
+               ('S-NG_CC', 1) :        CommitLowerLimit[S-NG_CC,1] :                                                  CommitProject[S-NG_CC,1] :  +Inf :   True
+               ('S-NG_CC', 2) :        CommitLowerLimit[S-NG_CC,2] :                                                  CommitProject[S-NG_CC,2] :  +Inf :   True
+               ('S-NG_CC', 3) :        CommitLowerLimit[S-NG_CC,3] :                                                  CommitProject[S-NG_CC,3] :  +Inf :   True
+               ('S-NG_CC', 4) :        CommitLowerLimit[S-NG_CC,4] :                                                  CommitProject[S-NG_CC,4] :  +Inf :   True
+               ('S-NG_GT', 1) :        CommitLowerLimit[S-NG_GT,1] :                                                  CommitProject[S-NG_GT,1] :  +Inf :   True
+               ('S-NG_GT', 2) :        CommitLowerLimit[S-NG_GT,2] :                                                  CommitProject[S-NG_GT,2] :  +Inf :   True
+               ('S-NG_GT', 3) :        CommitLowerLimit[S-NG_GT,3] :                                                  CommitProject[S-NG_GT,3] :  +Inf :   True
+               ('S-NG_GT', 4) :        CommitLowerLimit[S-NG_GT,4] :                                                  CommitProject[S-NG_GT,4] :  +Inf :   True
+    Enforce_Commit_Upper_Limit : Size=16, Index=PROJ_DISPATCH_POINTS, Active=True
+        Key                   : Lower : Body                                                                                    : Upper : Active
+        ('S-Central_PV-1', 1) :  -Inf :                 CommitProject[S-Central_PV-1,1] - 0.98 * BuildProj[S-Central_PV-1,2001] :   0.0 :   True
+        ('S-Central_PV-1', 2) :  -Inf :                 CommitProject[S-Central_PV-1,2] - 0.98 * BuildProj[S-Central_PV-1,2001] :   0.0 :   True
+        ('S-Central_PV-1', 3) :  -Inf :                 CommitProject[S-Central_PV-1,3] - 0.98 * BuildProj[S-Central_PV-1,2001] :   0.0 :   True
+        ('S-Central_PV-1', 4) :  -Inf :                 CommitProject[S-Central_PV-1,4] - 0.98 * BuildProj[S-Central_PV-1,2001] :   0.0 :   True
+          ('S-Geothermal', 1) :  -Inf :               CommitProject[S-Geothermal,1] - 0.96858075 * BuildProj[S-Geothermal,1998] :   0.0 :   True
+          ('S-Geothermal', 2) :  -Inf :               CommitProject[S-Geothermal,2] - 0.96858075 * BuildProj[S-Geothermal,1998] :   0.0 :   True
+          ('S-Geothermal', 3) :  -Inf :               CommitProject[S-Geothermal,3] - 0.96858075 * BuildProj[S-Geothermal,1998] :   0.0 :   True
+          ('S-Geothermal', 4) :  -Inf :               CommitProject[S-Geothermal,4] - 0.96858075 * BuildProj[S-Geothermal,1998] :   0.0 :   True
+               ('S-NG_CC', 1) :  -Inf :                               CommitProject[S-NG_CC,1] - 0.94 * BuildProj[S-NG_CC,2000] :   0.0 :   True
+               ('S-NG_CC', 2) :  -Inf :                               CommitProject[S-NG_CC,2] - 0.94 * BuildProj[S-NG_CC,2000] :   0.0 :   True
+               ('S-NG_CC', 3) :  -Inf :                               CommitProject[S-NG_CC,3] - 0.94 * BuildProj[S-NG_CC,2000] :   0.0 :   True
+               ('S-NG_CC', 4) :  -Inf :                               CommitProject[S-NG_CC,4] - 0.94 * BuildProj[S-NG_CC,2000] :   0.0 :   True
+               ('S-NG_GT', 1) :  -Inf : CommitProject[S-NG_GT,1] - 0.94 * ( BuildProj[S-NG_GT,2002] + BuildProj[S-NG_GT,1990] ) :   0.0 :   True
+               ('S-NG_GT', 2) :  -Inf : CommitProject[S-NG_GT,2] - 0.94 * ( BuildProj[S-NG_GT,2002] + BuildProj[S-NG_GT,1990] ) :   0.0 :   True
+               ('S-NG_GT', 3) :  -Inf : CommitProject[S-NG_GT,3] - 0.94 * ( BuildProj[S-NG_GT,2002] + BuildProj[S-NG_GT,1990] ) :   0.0 :   True
+               ('S-NG_GT', 4) :  -Inf : CommitProject[S-NG_GT,4] - 0.94 * ( BuildProj[S-NG_GT,2002] + BuildProj[S-NG_GT,1990] ) :   0.0 :   True
+    Enforce_Dispatch_Lower_Limit : Size=16, Index=PROJ_DISPATCH_POINTS, Active=True
+        Key                   : Lower                                : Body                                                         : Upper : Active
+        ('S-Central_PV-1', 1) : DispatchLowerLimit[S-Central_PV-1,1] :                               DispatchProj[S-Central_PV-1,1] :  +Inf :   True
+        ('S-Central_PV-1', 2) : DispatchLowerLimit[S-Central_PV-1,2] :                               DispatchProj[S-Central_PV-1,2] :  +Inf :   True
+        ('S-Central_PV-1', 3) : DispatchLowerLimit[S-Central_PV-1,3] :                               DispatchProj[S-Central_PV-1,3] :  +Inf :   True
+        ('S-Central_PV-1', 4) : DispatchLowerLimit[S-Central_PV-1,4] :                               DispatchProj[S-Central_PV-1,4] :  +Inf :   True
+          ('S-Geothermal', 1) :                                 -Inf : CommitProject[S-Geothermal,1] - DispatchProj[S-Geothermal,1] :   0.0 :   True
+          ('S-Geothermal', 2) :                                 -Inf : CommitProject[S-Geothermal,2] - DispatchProj[S-Geothermal,2] :   0.0 :   True
+          ('S-Geothermal', 3) :                                 -Inf : CommitProject[S-Geothermal,3] - DispatchProj[S-Geothermal,3] :   0.0 :   True
+          ('S-Geothermal', 4) :                                 -Inf : CommitProject[S-Geothermal,4] - DispatchProj[S-Geothermal,4] :   0.0 :   True
+               ('S-NG_CC', 1) :                                 -Inf :     0.4 * CommitProject[S-NG_CC,1] - DispatchProj[S-NG_CC,1] :   0.0 :   True
+               ('S-NG_CC', 2) :                                 -Inf :     0.4 * CommitProject[S-NG_CC,2] - DispatchProj[S-NG_CC,2] :   0.0 :   True
+               ('S-NG_CC', 3) :                                 -Inf :     0.4 * CommitProject[S-NG_CC,3] - DispatchProj[S-NG_CC,3] :   0.0 :   True
+               ('S-NG_CC', 4) :                                 -Inf :     0.4 * CommitProject[S-NG_CC,4] - DispatchProj[S-NG_CC,4] :   0.0 :   True
+               ('S-NG_GT', 1) :        DispatchLowerLimit[S-NG_GT,1] :                                      DispatchProj[S-NG_GT,1] :  +Inf :   True
+               ('S-NG_GT', 2) :        DispatchLowerLimit[S-NG_GT,2] :                                      DispatchProj[S-NG_GT,2] :  +Inf :   True
+               ('S-NG_GT', 3) :        DispatchLowerLimit[S-NG_GT,3] :                                      DispatchProj[S-NG_GT,3] :  +Inf :   True
+               ('S-NG_GT', 4) :        DispatchLowerLimit[S-NG_GT,4] :                                      DispatchProj[S-NG_GT,4] :  +Inf :   True
+    Enforce_Dispatch_Upper_Limit : Size=16, Index=PROJ_DISPATCH_POINTS, Active=True
+        Key                   : Lower : Body                                                                    : Upper                                : Active
+        ('S-Central_PV-1', 1) :  -Inf :                                          DispatchProj[S-Central_PV-1,1] : DispatchUpperLimit[S-Central_PV-1,1] :   True
+        ('S-Central_PV-1', 2) :  -Inf : DispatchProj[S-Central_PV-1,2] - 0.61 * CommitProject[S-Central_PV-1,2] :                                  0.0 :   True
+        ('S-Central_PV-1', 3) :  -Inf :        DispatchProj[S-Central_PV-1,3] - CommitProject[S-Central_PV-1,3] :                                  0.0 :   True
+        ('S-Central_PV-1', 4) :  -Inf :  DispatchProj[S-Central_PV-1,4] - 0.4 * CommitProject[S-Central_PV-1,4] :                                  0.0 :   True
+          ('S-Geothermal', 1) :  -Inf :            DispatchProj[S-Geothermal,1] - CommitProject[S-Geothermal,1] :                                  0.0 :   True
+          ('S-Geothermal', 2) :  -Inf :            DispatchProj[S-Geothermal,2] - CommitProject[S-Geothermal,2] :                                  0.0 :   True
+          ('S-Geothermal', 3) :  -Inf :            DispatchProj[S-Geothermal,3] - CommitProject[S-Geothermal,3] :                                  0.0 :   True
+          ('S-Geothermal', 4) :  -Inf :            DispatchProj[S-Geothermal,4] - CommitProject[S-Geothermal,4] :                                  0.0 :   True
+               ('S-NG_CC', 1) :  -Inf :                      DispatchProj[S-NG_CC,1] - CommitProject[S-NG_CC,1] :                                  0.0 :   True
+               ('S-NG_CC', 2) :  -Inf :                      DispatchProj[S-NG_CC,2] - CommitProject[S-NG_CC,2] :                                  0.0 :   True
+               ('S-NG_CC', 3) :  -Inf :                      DispatchProj[S-NG_CC,3] - CommitProject[S-NG_CC,3] :                                  0.0 :   True
+               ('S-NG_CC', 4) :  -Inf :                      DispatchProj[S-NG_CC,4] - CommitProject[S-NG_CC,4] :                                  0.0 :   True
+               ('S-NG_GT', 1) :  -Inf :                      DispatchProj[S-NG_GT,1] - CommitProject[S-NG_GT,1] :                                  0.0 :   True
+               ('S-NG_GT', 2) :  -Inf :                      DispatchProj[S-NG_GT,2] - CommitProject[S-NG_GT,2] :                                  0.0 :   True
+               ('S-NG_GT', 3) :  -Inf :                      DispatchProj[S-NG_GT,3] - CommitProject[S-NG_GT,3] :                                  0.0 :   True
+               ('S-NG_GT', 4) :  -Inf :                      DispatchProj[S-NG_GT,4] - CommitProject[S-NG_GT,4] :                                  0.0 :   True
+    Enforce_Fuel_Availability : Size=0, Index=PROJ_FUEL_DISPATCH_POINTS_UNAVAILABLE, Active=True
+        Key : Lower : Body : Upper : Active
+    Max_Build_Potential : Size=3, Index=Max_Build_Potential_index, Active=True
+        Key                      : Lower : Body                              : Upper : Active
+        ('S-Central_PV-1', 2010) :  -Inf : ProjCapacity[S-Central_PV-1,2010] :   4.0 :   True
+          ('S-Geothermal', 2010) :  -Inf :   ProjCapacity[S-Geothermal,2010] :   3.0 :   True
+               ('S-NG_GT', 2010) :  -Inf :        ProjCapacity[S-NG_GT,2010] :   5.0 :   True
+    Meet_Local_TD : Size=1, Index=Meet_Local_TD_index, Active=True
+        Key             : Lower : Body                        : Upper : Active
+        ('South', 2010) :  10.0 : LocalTDCapacity[South,2010] :  +Inf :   True
+    ProjFuelUseRate_Calculate : Size=8, Index=PROJ_DISP_FUEL_PIECEWISE_CONS_SET, Active=True
+        Key                                            : Lower : Body                                                                                                                                            : Upper : Active
+        ('S-NG_CC', 1, 0.020115000000000122, 6.684885) :  -Inf : 1.52666666667*Startup[S-NG_CC,1] + 0.020115*CommitProject[S-NG_CC,1] + 6.684885*DispatchProj[S-NG_CC,1] - ProjFuelUseRate[S-NG_CC,1,NaturalGas] :   0.0 :   True
+        ('S-NG_CC', 2, 0.020115000000000122, 6.684885) :  -Inf : 1.52666666667*Startup[S-NG_CC,2] + 0.020115*CommitProject[S-NG_CC,2] + 6.684885*DispatchProj[S-NG_CC,2] - ProjFuelUseRate[S-NG_CC,2,NaturalGas] :   0.0 :   True
+        ('S-NG_CC', 3, 0.020115000000000122, 6.684885) :  -Inf : 1.52666666667*Startup[S-NG_CC,3] + 0.020115*CommitProject[S-NG_CC,3] + 6.684885*DispatchProj[S-NG_CC,3] - ProjFuelUseRate[S-NG_CC,3,NaturalGas] :   0.0 :   True
+        ('S-NG_CC', 4, 0.020115000000000122, 6.684885) :  -Inf : 1.52666666667*Startup[S-NG_CC,4] + 0.020115*CommitProject[S-NG_CC,4] + 6.684885*DispatchProj[S-NG_CC,4] - ProjFuelUseRate[S-NG_CC,4,NaturalGas] :   0.0 :   True
+                       ('S-NG_GT', 1, 0.1039, 10.2861) :  -Inf :  0.0366666666667*Startup[S-NG_GT,1] + 0.1039*CommitProject[S-NG_GT,1] + 10.2861*DispatchProj[S-NG_GT,1] - ProjFuelUseRate[S-NG_GT,1,NaturalGas] :   0.0 :   True
+                       ('S-NG_GT', 2, 0.1039, 10.2861) :  -Inf :  0.0366666666667*Startup[S-NG_GT,2] + 0.1039*CommitProject[S-NG_GT,2] + 10.2861*DispatchProj[S-NG_GT,2] - ProjFuelUseRate[S-NG_GT,2,NaturalGas] :   0.0 :   True
+                       ('S-NG_GT', 3, 0.1039, 10.2861) :  -Inf :  0.0366666666667*Startup[S-NG_GT,3] + 0.1039*CommitProject[S-NG_GT,3] + 10.2861*DispatchProj[S-NG_GT,3] - ProjFuelUseRate[S-NG_GT,3,NaturalGas] :   0.0 :   True
+                       ('S-NG_GT', 4, 0.1039, 10.2861) :  -Inf :  0.0366666666667*Startup[S-NG_GT,4] + 0.1039*CommitProject[S-NG_GT,4] + 10.2861*DispatchProj[S-NG_GT,4] - ProjFuelUseRate[S-NG_GT,4,NaturalGas] :   0.0 :   True
+
+2 BuildAction Declarations
+    BuildProj_assign_default_value : Size=0, Index=EXISTING_PROJ_BUILDYEARS, Active=True
+    PROJ_FUEL_USE_SEGMENTS_default : Size=0, Index=FUEL_BASED_PROJECTS, Active=True
+
+18 BuildCheck Declarations
+    e_source_is_fuel_or_not_check : 
+    min_data_check_1 : 
+    min_data_check_10 : 
+    min_data_check_11 : 
+    min_data_check_12 : 
+    min_data_check_13 : 
+    min_data_check_14 : 
+    min_data_check_15 : 
+    min_data_check_16 : 
+    min_data_check_2 : 
+    min_data_check_3 : 
+    min_data_check_4 : 
+    min_data_check_5 : 
+    min_data_check_6 : 
+    min_data_check_7 : 
+    min_data_check_8 : 
+    min_data_check_9 : 
+    validate_time_weights : 
+
+203 Declarations: PERIODS period_start period_end min_data_check_1 TIMESERIES ts_period ts_duration_of_tp ts_num_tps ts_scale_to_period min_data_check_2 TIMEPOINTS tp_ts min_data_check_3 tp_timestamp tp_weight TS_TPS tp_period PERIOD_TPS add_one_to_period_end period_length_years period_length_hours ts_scale_to_year ts_duration_hrs tp_weight_in_year tp_duration_hrs tp_previous validate_time_weights base_financial_year interest_rate discount_rate min_data_check_4 bring_annual_costs_to_base_year bring_timepoint_costs_to_base_year LOAD_ZONES lz_demand_mw_index lz_demand_mw lz_cost_multipliers lz_ccs_distance_km lz_dbid min_data_check_5 lz_total_demand_in_period_mwh_index lz_total_demand_in_period_mwh DumpPower_index DumpPower NON_FUEL_ENERGY_SOURCES FUELS f_co2_intensity f_upstream_co2_intensity min_data_check_6 e_source_is_fuel_or_not_check ENERGY_SOURCES_index_init ENERGY_SOURCES min_data_check_7 GENERATION_TECHNOLOGIES g_dbid g_max_age g_scheduled_outage_rate g_forced_outage_rate g_is_variable g_is_baseload g_is_flexible_baseload g_is_cogen g_min_build_capacity g_competes_for_space GEN_TECH_WITH_UNIT_SIZES g_unit_size g_energy_source g_uses_fuel GEN_TECH_WITH_FUEL GEN_TECH_WITH_MULTI_FUEL G_MULTI_FUELS G_FUELS GEN_TECH_STORAGE g_storage_efficiency g_store_to_release_ratio GEN_TECH_CCS g_ccs_capture_efficiency g_ccs_energy_load NEW_GENERATION_BUILDYEARS_domain NEW_GENERATION_BUILDYEARS G_NEW_BUILD_YEARS g_overnight_cost_index g_overnight_cost g_fixed_o_m_index g_fixed_o_m g_variable_o_m g_full_load_heat_rate min_data_check_8 PROJECTS proj_dbid proj_gen_tech proj_load_zone min_data_check_9 VARIABLE_PROJECTS BASELOAD_PROJECTS LZ_PROJECTS PROJECTS_CAP_LIMITED proj_capacity_limit_mw FUEL_BASED_PROJECTS NON_FUEL_BASED_PROJECTS NEW_PROJ_BUILDYEARS EXISTING_PROJ_BUILDYEARS proj_existing_cap min_data_check_10 PROJECT_BUILDYEARS proj_end_year min_data_check_11 PROJECT_BUILDS_OPERATIONAL_PERIODS PROJECT_PERIOD_ONLINE_BUILD_YRS_index PROJECT_PERIOD_ONLINE_BUILD_YRS BuildProj BuildProj_assign_default_value ProjCapacity_index ProjCapacity Max_Build_Potential_index Max_Build_Potential proj_connect_cost_per_mw min_data_check_12 proj_overnight_cost proj_fixed_om proj_capital_cost_annual PROJECT_OPERATIONAL_PERIODS Proj_Fixed_Costs_Annual Total_Proj_Fixed_Costs_Annual PROJECTS_ACTIVE_IN_TIMEPOINT PROJ_DISPATCH_POINTS ProjCapacityTP DispatchProj LZ_NetDispatch_index LZ_NetDispatch proj_full_load_heat_rate proj_forced_outage_rate proj_scheduled_outage_rate proj_availability VAR_DISPATCH_POINTS proj_max_capacity_factor min_data_check_13 proj_variable_om PROJ_WITH_FUEL_DISPATCH_POINTS PROJ_FUEL_DISPATCH_POINTS ProjFuelUseRate DispatchEmissions Proj_Var_Costs_Hourly Total_Proj_Var_Costs_Hourly EXISTING_LOCAL_TD_BLD_YRS existing_local_td lz_peak_demand_mw_index lz_peak_demand_mw min_data_check_14 LOCAL_TD_BUILD_YEARS PERIOD_RELEVANT_LOCAL_TD_BUILDS BuildLocalTD LocalTDCapacity_index LocalTDCapacity distribution_loss_rate distribution_losses_index distribution_losses Meet_Local_TD_index Meet_Local_TD local_td_annual_cost_per_mw min_data_check_15 LocalTD_Fixed_Costs_Annual CommitProject proj_max_commit_fraction proj_min_commit_fraction CommitLowerLimit CommitUpperLimit Enforce_Commit_Lower_Limit Enforce_Commit_Upper_Limit CommitSlackUp CommitSlackDown Startup Shutdown Commit_Startup_Shutdown_Consistency g_startup_fuel g_startup_om proj_startup_fuel proj_startup_om Total_Startup_OM_Costs g_min_load_fraction proj_min_load_fraction DispatchLowerLimit DispatchUpperLimit Enforce_Dispatch_Lower_Limit Enforce_Dispatch_Upper_Limit DispatchSlackUp DispatchSlackDown GEN_FUEL_USE_SEGMENTS PROJ_FUEL_USE_SEGMENTS PROJ_FUEL_USE_SEGMENTS_default PROJ_DISP_FUEL_PIECEWISE_CONS_SET ProjFuelUseRate_Calculate FUEL_AVAILABILITY fuel_cost min_data_check_16 PROJ_FUEL_DISPATCH_POINTS_UNAVAILABLE Enforce_Fuel_Availability Fuel_Costs_TP SystemCostPerPeriod SystemCost Minimize_System_Cost Energy_Balance_index Energy_Balance

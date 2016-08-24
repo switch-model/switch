@@ -1,0 +1,741 @@
+55 Set Declarations
+    BASELOAD_PROJECTS : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=False, Bounds=None
+        ['S-Geothermal']
+    BaseloadOperatingLevelForPeriod_index : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    DumpPower_index : Dim=0, Dimen=2, Size=4, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    ENERGY_SOURCES : Dim=0, Dimen=1, Size=4, Domain=None, Ordered=False, Bounds=None
+        ['Geothermal', 'NaturalGas', 'Solar', 'Water']
+    ENERGY_SOURCES_index_init : Dim=0, Dimen=1, Size=4, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    EXISTING_PROJ_BUILDYEARS : Dim=0, Dimen=2, Size=5, Domain=None, Ordered=False, Bounds=None
+        [('Hydro', 2000), ('Hydro_RoR', 2000), ('S-Central_PV-1', 2000), ('S-Geothermal', 1998), ('S-NG_CC', 2000)]
+    Energy_Balance_index : Dim=0, Dimen=2, Size=4, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    FUELS : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=False, Bounds=None
+        ['NaturalGas']
+    FUEL_AVAILABILITY : Dim=0, Dimen=3, Size=1, Domain=None, Ordered=False, Bounds=None
+        [('South', 'NaturalGas', 2020)]
+    FUEL_BASED_PROJECTS : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=False, Bounds=None
+        ['S-NG_CC']
+    GENERATION_TECHNOLOGIES : Dim=0, Dimen=1, Size=5, Domain=None, Ordered=False, Bounds=None
+        ['Central_PV', 'Geothermal', 'Hydro', 'Hydro_RoR', 'NG_CC']
+    GEN_TECH_CCS : Dim=0, Dimen=1, Size=0, Domain=GENERATION_TECHNOLOGIES, Ordered=False, Bounds=None
+        []
+    GEN_TECH_STORAGE : Dim=0, Dimen=1, Size=0, Domain=GENERATION_TECHNOLOGIES, Ordered=False, Bounds=None
+        []
+    GEN_TECH_WITH_FUEL : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=False, Bounds=None
+        ['NG_CC']
+    GEN_TECH_WITH_MULTI_FUEL : Dim=0, Dimen=1, Size=0, Domain=None, Ordered=False, Bounds=(None, None)
+        []
+    GEN_TECH_WITH_UNIT_SIZES : Dim=0, Dimen=1, Size=0, Domain=GENERATION_TECHNOLOGIES, Ordered=False, Bounds=None
+        []
+    G_FUELS : Dim=1, Dimen=1, Size=1, Domain=None, ArraySize=1, Ordered=False, Bounds=None
+        Key   : Members
+        NG_CC : ['NaturalGas']
+    G_MULTI_FUELS : Dim=1, Dimen=1, Size=0, Domain=FUELS, ArraySize=0, Ordered=False, Bounds=None
+        Key : Members
+    G_NEW_BUILD_YEARS : Dim=1, Dimen=1, Size=3, Domain=None, ArraySize=5, Ordered=False, Bounds=None
+        Key        : Members
+        Central_PV :  [2020]
+        Geothermal :  [2020]
+             Hydro :      []
+         Hydro_RoR :      []
+             NG_CC :  [2020]
+    HYDRO_PROJECTS : Dispatchable hydro projects
+        Dim=0, Dimen=1, Size=1, Domain=None, Ordered=False, Bounds=None
+        ['Hydro']
+    HYDRO_PROJ_DISPATCH_POINTS : Dim=0, Dimen=2, Size=4, Domain=None, Ordered=False, Bounds=None
+        [('Hydro', 1), ('Hydro', 2), ('Hydro', 3), ('Hydro', 4)]
+    HYDRO_TIMESERIES : Dim=0, Dimen=2, Size=2, Domain=None, Ordered=False, Bounds=None
+        [('Hydro', '2020_summer'), ('Hydro', '2020_winter')]
+    LOAD_ZONES : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=False, Bounds=None
+        ['South']
+    LZ_NetDispatch_index : Dim=0, Dimen=2, Size=4, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    LZ_PROJECTS : Dim=1, Dimen=1, Size=5, Domain=None, ArraySize=1, Ordered=False, Bounds=None
+        Key   : Members
+        South : ['Hydro', 'Hydro_RoR', 'S-Central_PV-1', 'S-Geothermal', 'S-NG_CC']
+    Max_Build_Potential_index : Dim=0, Dimen=2, Size=4, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    NEW_GENERATION_BUILDYEARS : Dim=0, Dimen=2, Size=3, Domain=NEW_GENERATION_BUILDYEARS_domain, Ordered=False, Bounds=None
+        [('Central_PV', 2020), ('Geothermal', 2020), ('NG_CC', 2020)]
+    NEW_GENERATION_BUILDYEARS_domain : Dim=0, Dimen=2, Size=5, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    NEW_PROJ_BUILDYEARS : Dim=0, Dimen=2, Size=3, Domain=None, Ordered=False, Bounds=None
+        [('S-Central_PV-1', 2020), ('S-Geothermal', 2020), ('S-NG_CC', 2020)]
+    NON_FUEL_BASED_PROJECTS : Dim=0, Dimen=1, Size=4, Domain=None, Ordered=False, Bounds=None
+        ['Hydro', 'Hydro_RoR', 'S-Central_PV-1', 'S-Geothermal']
+    NON_FUEL_ENERGY_SOURCES : Dim=0, Dimen=1, Size=3, Domain=None, Ordered=False, Bounds=None
+        ['Geothermal', 'Solar', 'Water']
+    PERIODS : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=Insertion, Bounds=(2020, 2020)
+        [2020]
+    PERIOD_TPS : Dim=1, Dimen=1, Size=4, Domain=TIMEPOINTS, ArraySize=1, Ordered=Insertion, Bounds=None
+        Key  : Members
+        2020 : [1, 2, 3, 4]
+    PROJECTS : Dim=0, Dimen=1, Size=5, Domain=None, Ordered=False, Bounds=None
+        ['Hydro', 'Hydro_RoR', 'S-Central_PV-1', 'S-Geothermal', 'S-NG_CC']
+    PROJECTS_ACTIVE_IN_TIMEPOINT : Dim=1, Dimen=1, Size=20, Domain=PROJECTS, ArraySize=4, Ordered=False, Bounds=None
+        Key : Members
+          1 : ['Hydro', 'Hydro_RoR', 'S-Central_PV-1', 'S-Geothermal', 'S-NG_CC']
+          2 : ['Hydro', 'Hydro_RoR', 'S-Central_PV-1', 'S-Geothermal', 'S-NG_CC']
+          3 : ['Hydro', 'Hydro_RoR', 'S-Central_PV-1', 'S-Geothermal', 'S-NG_CC']
+          4 : ['Hydro', 'Hydro_RoR', 'S-Central_PV-1', 'S-Geothermal', 'S-NG_CC']
+    PROJECTS_CAP_LIMITED : Dim=0, Dimen=1, Size=4, Domain=PROJECTS, Ordered=False, Bounds=None
+        ['Hydro', 'Hydro_RoR', 'S-Central_PV-1', 'S-Geothermal']
+    PROJECT_BUILDS_OPERATIONAL_PERIODS : Dim=2, Dimen=1, Size=8, Domain=PERIODS, ArraySize=8, Ordered=Insertion, Bounds=None
+        Key                      : Members
+                 ('Hydro', 2000) :  [2020]
+             ('Hydro_RoR', 2000) :  [2020]
+        ('S-Central_PV-1', 2000) :  [2020]
+        ('S-Central_PV-1', 2020) :  [2020]
+          ('S-Geothermal', 1998) :  [2020]
+          ('S-Geothermal', 2020) :  [2020]
+               ('S-NG_CC', 2000) :  [2020]
+               ('S-NG_CC', 2020) :  [2020]
+    PROJECT_BUILDYEARS : Dim=0, Dimen=2, Size=8, Domain=None, Ordered=False, Bounds=None
+        [('Hydro', 2000), ('Hydro_RoR', 2000), ('S-Central_PV-1', 2000), ('S-Central_PV-1', 2020), ('S-Geothermal', 1998), ('S-Geothermal', 2020), ('S-NG_CC', 2000), ('S-NG_CC', 2020)]
+    PROJECT_OPERATIONAL_PERIODS : Dim=0, Dimen=2, Size=5, Domain=None, Ordered=False, Bounds=None
+        [('Hydro', 2020), ('Hydro_RoR', 2020), ('S-Central_PV-1', 2020), ('S-Geothermal', 2020), ('S-NG_CC', 2020)]
+    PROJECT_PERIOD_ONLINE_BUILD_YRS : Dim=2, Dimen=1, Size=8, Domain=None, ArraySize=5, Ordered=False, Bounds=None
+        Key                      : Members
+                 ('Hydro', 2020) : [2000]
+             ('Hydro_RoR', 2020) : [2000]
+        ('S-Central_PV-1', 2020) : [2000, 2020]
+          ('S-Geothermal', 2020) : [1998, 2020]
+               ('S-NG_CC', 2020) : [2000, 2020]
+    PROJECT_PERIOD_ONLINE_BUILD_YRS_index : Dim=0, Dimen=2, Size=5, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    PROJ_DISPATCH_POINTS : Dim=0, Dimen=2, Size=20, Domain=None, Ordered=False, Bounds=None
+        [('Hydro', 1), ('Hydro', 2), ('Hydro', 3), ('Hydro', 4), ('Hydro_RoR', 1), ('Hydro_RoR', 2), ('Hydro_RoR', 3), ('Hydro_RoR', 4), ('S-Central_PV-1', 1), ('S-Central_PV-1', 2), ('S-Central_PV-1', 3), ('S-Central_PV-1', 4), ('S-Geothermal', 1), ('S-Geothermal', 2), ('S-Geothermal', 3), ('S-Geothermal', 4), ('S-NG_CC', 1), ('S-NG_CC', 2), ('S-NG_CC', 3), ('S-NG_CC', 4)]
+    PROJ_FUEL_DISPATCH_POINTS : Dim=0, Dimen=3, Size=4, Domain=None, Ordered=False, Bounds=None
+        [('S-NG_CC', 1, 'NaturalGas'), ('S-NG_CC', 2, 'NaturalGas'), ('S-NG_CC', 3, 'NaturalGas'), ('S-NG_CC', 4, 'NaturalGas')]
+    PROJ_FUEL_DISPATCH_POINTS_UNAVAILABLE : Dim=0, Dimen=3, Size=0, Domain=None, Ordered=False, Bounds=(None, None)
+        []
+    PROJ_WITH_FUEL_DISPATCH_POINTS : Dim=0, Dimen=2, Size=4, Domain=None, Ordered=False, Bounds=None
+        [('S-NG_CC', 1), ('S-NG_CC', 2), ('S-NG_CC', 3), ('S-NG_CC', 4)]
+    ProjCapacity_index : Dim=0, Dimen=2, Size=5, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    TIMEPOINTS : Dim=0, Dimen=1, Size=4, Domain=None, Ordered=Insertion, Bounds=(1, 4)
+        [1, 2, 3, 4]
+    TIMESERIES : Dim=0, Dimen=1, Size=2, Domain=None, Ordered=Insertion, Bounds=None
+        ['2020_winter', '2020_summer']
+    TS_TPS : Dim=1, Dimen=1, Size=4, Domain=TIMEPOINTS, ArraySize=2, Ordered=Insertion, Bounds=None
+        Key         : Members
+        2020_summer : [3, 4]
+        2020_winter : [1, 2]
+    VARIABLE_PROJECTS : Dim=0, Dimen=1, Size=2, Domain=None, Ordered=False, Bounds=None
+        ['Hydro_RoR', 'S-Central_PV-1']
+    VAR_DISPATCH_POINTS : Dim=0, Dimen=2, Size=8, Domain=None, Ordered=False, Bounds=None
+        [('Hydro_RoR', 1), ('Hydro_RoR', 2), ('Hydro_RoR', 3), ('Hydro_RoR', 4), ('S-Central_PV-1', 1), ('S-Central_PV-1', 2), ('S-Central_PV-1', 3), ('S-Central_PV-1', 4)]
+    g_fixed_o_m_index : Dim=0, Dimen=2, Size=5, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    g_overnight_cost_index : Dim=0, Dimen=2, Size=5, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    lz_demand_mw_index : Dim=0, Dimen=2, Size=4, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    lz_total_demand_in_period_mwh_index : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        Virtual
+
+70 Param Declarations
+    add_one_to_period_end : Size=1, Index=None, Domain=Boolean, Default=None, Mutable=False
+        Key  : Value
+        None :  True
+    base_financial_year : Size=1, Index=None, Domain=PositiveIntegers, Default=None, Mutable=False
+        Key  : Value
+        None :  2015
+    bring_annual_costs_to_base_year : Size=1, Index=PERIODS, Domain=PositiveReals, Default=None, Mutable=False
+        Key  : Value
+        2020 : 7.00384120561
+    bring_timepoint_costs_to_base_year : Size=4, Index=TIMEPOINTS, Domain=PositiveReals, Default=None, Mutable=False
+        Key : Value
+          1 : 15345.4160815
+          2 : 15345.4160815
+          3 : 15345.4160815
+          4 : 15345.4160815
+    discount_rate : Size=1, Index=None, Domain=NonNegativeReals, Default=interest_rate, Mutable=False
+        Key  : Value
+        None :  0.05
+    f_co2_intensity : Size=1, Index=FUELS, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key        : Value
+        NaturalGas : 0.05306
+    f_upstream_co2_intensity : Size=1, Index=FUELS, Domain=Reals, Default=0, Mutable=False
+        Key        : Value
+        NaturalGas :     0
+    fuel_cost : Size=1, Index=FUEL_AVAILABILITY, Domain=PositiveReals, Default=None, Mutable=False
+        Key                           : Value
+        ('South', 'NaturalGas', 2020) :     4
+    g_ccs_capture_efficiency : Size=0, Index=GEN_TECH_CCS, Domain=PercentFraction, Default=None, Mutable=False
+        Key : Value
+    g_ccs_energy_load : Size=0, Index=GEN_TECH_CCS, Domain=PercentFraction, Default=None, Mutable=False
+        Key : Value
+    g_competes_for_space : Size=5, Index=GENERATION_TECHNOLOGIES, Domain=Boolean, Default=0, Mutable=False
+        Key        : Value
+        Central_PV :     1
+        Geothermal :     0
+             Hydro :     0
+         Hydro_RoR :     0
+             NG_CC :     0
+    g_dbid : Size=5, Index=GENERATION_TECHNOLOGIES, Domain=Any, Default=(function), Mutable=False
+        Key : Value
+    g_energy_source : Size=5, Index=GENERATION_TECHNOLOGIES, Domain=Any, Default=None, Mutable=False
+        Key        : Value
+        Central_PV :      Solar
+        Geothermal : Geothermal
+             Hydro :      Water
+         Hydro_RoR :      Water
+             NG_CC : NaturalGas
+    g_fixed_o_m : Size=3, Index=g_fixed_o_m_index, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key                  : Value
+        ('Central_PV', 2020) :  41850
+        ('Geothermal', 2020) :      0
+             ('NG_CC', 2020) : 5868.3
+    g_forced_outage_rate : Size=5, Index=GENERATION_TECHNOLOGIES, Domain=PercentFraction, Default=None, Mutable=False
+        Key        : Value
+        Central_PV :   0.02
+        Geothermal : 0.0241
+             Hydro :   0.05
+         Hydro_RoR :   0.05
+             NG_CC :   0.06
+    g_full_load_heat_rate : Size=1, Index=GEN_TECH_WITH_FUEL, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key   : Value
+        NG_CC : 6.705
+    g_is_baseload : Size=5, Index=GENERATION_TECHNOLOGIES, Domain=Boolean, Default=None, Mutable=False
+        Key        : Value
+        Central_PV :     0
+        Geothermal :     1
+             Hydro :     0
+         Hydro_RoR :     0
+             NG_CC :     0
+    g_is_cogen : Size=5, Index=GENERATION_TECHNOLOGIES, Domain=Boolean, Default=None, Mutable=False
+        Key        : Value
+        Central_PV :     0
+        Geothermal :     0
+             Hydro :     0
+         Hydro_RoR :     0
+             NG_CC :     0
+    g_is_flexible_baseload : Size=5, Index=GENERATION_TECHNOLOGIES, Domain=Boolean, Default=None, Mutable=False
+        Key        : Value
+        Central_PV :     0
+        Geothermal :     0
+             Hydro :     0
+         Hydro_RoR :     0
+             NG_CC :     0
+    g_is_variable : Size=5, Index=GENERATION_TECHNOLOGIES, Domain=Boolean, Default=None, Mutable=False
+        Key        : Value
+        Central_PV :     1
+        Geothermal :     0
+             Hydro :     0
+         Hydro_RoR :     1
+             NG_CC :     0
+    g_max_age : Size=5, Index=GENERATION_TECHNOLOGIES, Domain=PositiveReals, Default=None, Mutable=False
+        Key        : Value
+        Central_PV :    20
+        Geothermal :    30
+             Hydro :   100
+         Hydro_RoR :    30
+             NG_CC :    20
+    g_min_build_capacity : Size=5, Index=GENERATION_TECHNOLOGIES, Domain=NonNegativeReals, Default=0, Mutable=False
+        Key        : Value
+        Central_PV :     0
+        Geothermal :     0
+             Hydro :     0
+         Hydro_RoR :     0
+             NG_CC :     0
+    g_overnight_cost : Size=3, Index=g_overnight_cost_index, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key                  : Value
+        ('Central_PV', 2020) : 2334300
+        ('Geothermal', 2020) : 5524200
+             ('NG_CC', 2020) : 1143900
+    g_scheduled_outage_rate : Size=5, Index=GENERATION_TECHNOLOGIES, Domain=PercentFraction, Default=None, Mutable=False
+        Key        : Value
+        Central_PV :      0
+        Geothermal : 0.0075
+             Hydro :  0.019
+         Hydro_RoR :  0.019
+             NG_CC :   0.04
+    g_storage_efficiency : Size=0, Index=GEN_TECH_STORAGE, Domain=PercentFraction, Default=None, Mutable=False
+        Key : Value
+    g_store_to_release_ratio : Size=0, Index=GEN_TECH_STORAGE, Domain=PositiveReals, Default=None, Mutable=False
+        Key : Value
+    g_unit_size : Size=0, Index=GEN_TECH_WITH_UNIT_SIZES, Domain=PositiveReals, Default=None, Mutable=False
+        Key : Value
+    g_uses_fuel : Size=5, Index=GENERATION_TECHNOLOGIES, Domain=Any, Default=None, Mutable=False
+        Key        : Value
+        Central_PV : False
+        Geothermal : False
+             Hydro : False
+         Hydro_RoR : False
+             NG_CC :  True
+    g_variable_o_m : Size=5, Index=GENERATION_TECHNOLOGIES, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key        : Value
+        Central_PV :      0
+        Geothermal :  28.83
+             Hydro :      0
+         Hydro_RoR :      0
+             NG_CC : 3.4131
+    hydro_avg_flow_mw : Size=2, Index=HYDRO_TIMESERIES, Domain=NonNegativeReals, Default=0.0, Mutable=False
+        Key                      : Value
+        ('Hydro', '2020_summer') :   0.6
+        ('Hydro', '2020_winter') :  0.75
+    hydro_min_flow_mw : Size=2, Index=HYDRO_TIMESERIES, Domain=NonNegativeReals, Default=0.0, Mutable=False
+        Key                      : Value
+        ('Hydro', '2020_summer') :   0.2
+        ('Hydro', '2020_winter') :   0.6
+    interest_rate : Size=1, Index=None, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key  : Value
+        None :  0.07
+    lz_ccs_distance_km : Size=1, Index=LOAD_ZONES, Domain=NonNegativeReals, Default=0.0, Mutable=False
+        Key : Value
+    lz_cost_multipliers : Size=1, Index=LOAD_ZONES, Domain=PositiveReals, Default=1.0, Mutable=False
+        Key : Value
+    lz_dbid : Size=1, Index=LOAD_ZONES, Domain=Any, Default=(function), Mutable=False
+        Key : Value
+    lz_demand_mw : Size=4, Index=lz_demand_mw_index, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key          : Value
+        ('South', 1) :     9
+        ('South', 2) :   2.5
+        ('South', 3) :    10
+        ('South', 4) :     4
+    lz_total_demand_in_period_mwh : Size=1, Index=lz_total_demand_in_period_mwh_index, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key             : Value
+        ('South', 2020) : 558756.0
+    period_end : Size=1, Index=PERIODS, Domain=PositiveReals, Default=None, Mutable=False
+        Key  : Value
+        2020 :  2026
+    period_length_hours : Size=1, Index=PERIODS, Domain=Any, Default=None, Mutable=False
+        Key  : Value
+        2020 : 87660
+    period_length_years : Size=1, Index=PERIODS, Domain=Any, Default=None, Mutable=False
+        Key  : Value
+        2020 :    10
+    period_start : Size=1, Index=PERIODS, Domain=PositiveReals, Default=None, Mutable=False
+        Key  : Value
+        2020 :  2017
+    proj_availability : Size=5, Index=PROJECTS, Domain=PositiveReals, Default=None, Mutable=False
+        Key            : Value
+                 Hydro :       0.95
+             Hydro_RoR :       0.95
+        S-Central_PV-1 :       0.98
+          S-Geothermal : 0.96858075
+               S-NG_CC :       0.94
+    proj_capacity_limit_mw : Size=4, Index=PROJECTS_CAP_LIMITED, Domain=PositiveReals, Default=None, Mutable=False
+        Key            : Value
+                 Hydro :     1
+             Hydro_RoR :     1
+        S-Central_PV-1 :     2
+          S-Geothermal :    10
+    proj_capital_cost_annual : Size=8, Index=PROJECT_BUILDYEARS, Domain=Any, Default=None, Mutable=False
+        Key                      : Value
+                 ('Hydro', 2000) :   700807.646031
+             ('Hydro_RoR', 2000) : 0.0805864035111
+        ('S-Central_PV-1', 2000) :   227409.728189
+        ('S-Central_PV-1', 2020) :   227409.728189
+          ('S-Geothermal', 1998) :   455991.878528
+          ('S-Geothermal', 2020) :   455991.878528
+               ('S-NG_CC', 2000) :   113409.947557
+               ('S-NG_CC', 2020) :   113409.947557
+    proj_connect_cost_per_mw : Size=5, Index=PROJECTS, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key            : Value
+                 Hydro :       0
+             Hydro_RoR :       0
+        S-Central_PV-1 : 74881.9
+          S-Geothermal :  134222
+               S-NG_CC : 57566.6
+    proj_dbid : Size=5, Index=PROJECTS, Domain=Any, Default=(function), Mutable=False
+        Key            : Value
+        S-Central_PV-1 :    41
+          S-Geothermal :    33
+               S-NG_CC :    34
+    proj_end_year : Size=8, Index=PROJECT_BUILDYEARS, Domain=Any, Default=None, Mutable=False
+        Key                      : Value
+                 ('Hydro', 2000) :  2020
+             ('Hydro_RoR', 2000) :  2020
+        ('S-Central_PV-1', 2000) :  2020
+        ('S-Central_PV-1', 2020) :  2020
+          ('S-Geothermal', 1998) :  2020
+          ('S-Geothermal', 2020) :  2020
+               ('S-NG_CC', 2000) :  2020
+               ('S-NG_CC', 2020) :  2020
+    proj_existing_cap : Size=5, Index=EXISTING_PROJ_BUILDYEARS, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key                      : Value
+                 ('Hydro', 2000) :     1
+             ('Hydro_RoR', 2000) :     1
+        ('S-Central_PV-1', 2000) :     1
+          ('S-Geothermal', 1998) :     1
+               ('S-NG_CC', 2000) :     5
+    proj_fixed_om : Size=8, Index=PROJECT_BUILDYEARS, Domain=NonNegativeReals, Default=(function), Mutable=False
+        Key                      : Value
+                 ('Hydro', 2000) :  100000
+             ('Hydro_RoR', 2000) : 1000000
+        ('S-Central_PV-1', 2000) :   41850
+          ('S-Geothermal', 1998) :       0
+               ('S-NG_CC', 2000) :  5868.3
+    proj_forced_outage_rate : Size=5, Index=PROJECTS, Domain=PercentFraction, Default=(function), Mutable=False
+        Key : Value
+    proj_full_load_heat_rate : Size=1, Index=FUEL_BASED_PROJECTS, Domain=PositiveReals, Default=(function), Mutable=False
+        Key : Value
+    proj_gen_tech : Size=5, Index=PROJECTS, Domain=GENERATION_TECHNOLOGIES, Default=None, Mutable=False
+        Key            : Value
+                 Hydro :      Hydro
+             Hydro_RoR :  Hydro_RoR
+        S-Central_PV-1 : Central_PV
+          S-Geothermal : Geothermal
+               S-NG_CC :      NG_CC
+    proj_load_zone : Size=5, Index=PROJECTS, Domain=LOAD_ZONES, Default=None, Mutable=False
+        Key            : Value
+                 Hydro : South
+             Hydro_RoR : South
+        S-Central_PV-1 : South
+          S-Geothermal : South
+               S-NG_CC : South
+    proj_max_capacity_factor : Size=8, Index=VAR_DISPATCH_POINTS, Domain=Reals, Default=None, Mutable=False
+        Key                   : Value
+             ('Hydro_RoR', 1) :  0.25
+             ('Hydro_RoR', 2) :   0.5
+             ('Hydro_RoR', 3) :   0.2
+             ('Hydro_RoR', 4) :   0.4
+        ('S-Central_PV-1', 1) :  0.61
+        ('S-Central_PV-1', 2) :     0
+        ('S-Central_PV-1', 3) :  0.81
+        ('S-Central_PV-1', 4) :     0
+    proj_overnight_cost : Size=8, Index=PROJECT_BUILDYEARS, Domain=NonNegativeReals, Default=(function), Mutable=False
+        Key                      : Value
+                 ('Hydro', 2000) : 10000000
+             ('Hydro_RoR', 2000) :        1
+        ('S-Central_PV-1', 2000) :  2334300
+          ('S-Geothermal', 1998) :  5524200
+               ('S-NG_CC', 2000) :  1143900
+    proj_scheduled_outage_rate : Size=5, Index=PROJECTS, Domain=PercentFraction, Default=(function), Mutable=False
+        Key : Value
+    proj_variable_om : Size=5, Index=PROJECTS, Domain=NonNegativeReals, Default=(function), Mutable=False
+        Key          : Value
+               Hydro :    0.1
+        S-Geothermal :  28.83
+             S-NG_CC : 3.4131
+    tp_duration_hrs : Size=4, Index=TIMEPOINTS, Domain=Any, Default=None, Mutable=False
+        Key : Value
+          1 :    12
+          2 :    12
+          3 :    12
+          4 :    12
+    tp_period : Size=4, Index=TIMEPOINTS, Domain=PERIODS, Default=None, Mutable=False
+        Key : Value
+          1 :  2020
+          2 :  2020
+          3 :  2020
+          4 :  2020
+    tp_previous : Size=4, Index=TIMEPOINTS, Domain=TIMEPOINTS, Default=None, Mutable=False
+        Key : Value
+          1 :     2
+          2 :     1
+          3 :     4
+          4 :     3
+    tp_timestamp : Size=4, Index=TIMEPOINTS, Domain=Any, Default=(function), Mutable=False
+        Key : Value
+          1 : 2025011512
+          2 : 2025011600
+          3 : 2025071512
+          4 : 2025071600
+    tp_ts : Size=4, Index=TIMEPOINTS, Domain=TIMESERIES, Default=None, Mutable=False
+        Key : Value
+          1 : 2020_winter
+          2 : 2020_winter
+          3 : 2020_summer
+          4 : 2020_summer
+    tp_weight : Size=4, Index=TIMEPOINTS, Domain=PositiveReals, Default=None, Mutable=False
+        Key : Value
+          1 : 21912
+          2 : 21912
+          3 : 21912
+          4 : 21912
+    tp_weight_in_year : Size=4, Index=TIMEPOINTS, Domain=PositiveReals, Default=None, Mutable=False
+        Key : Value
+          1 :  2191
+          2 :  2191
+          3 :  2191
+          4 :  2191
+    ts_duration_hrs : Size=2, Index=TIMESERIES, Domain=Any, Default=None, Mutable=False
+        Key         : Value
+        2020_summer :    24
+        2020_winter :    24
+    ts_duration_of_tp : Size=2, Index=TIMESERIES, Domain=PositiveReals, Default=None, Mutable=False
+        Key         : Value
+        2020_summer :    12
+        2020_winter :    12
+    ts_num_tps : Size=2, Index=TIMESERIES, Domain=PositiveIntegers, Default=None, Mutable=False
+        Key         : Value
+        2020_summer :     2
+        2020_winter :     2
+    ts_period : Size=2, Index=TIMESERIES, Domain=PERIODS, Default=None, Mutable=False
+        Key         : Value
+        2020_summer :  2020
+        2020_winter :  2020
+    ts_scale_to_period : Size=2, Index=TIMESERIES, Domain=PositiveReals, Default=None, Mutable=False
+        Key         : Value
+        2020_summer :  1826
+        2020_winter :  1826
+    ts_scale_to_year : Size=2, Index=TIMESERIES, Domain=Any, Default=None, Mutable=False
+        Key         : Value
+        2020_summer :   182
+        2020_winter :   182
+
+5 Var Declarations
+    BaseloadOperatingLevelForPeriod : Size=1, Index=BaseloadOperatingLevelForPeriod_index, Domain=Reals
+        Key                    : Lower : Value      : Upper : Fixed : Stale
+        ('S-Geothermal', 2020) :  None : 0.96858075 :  None : False : False
+    BuildProj : Size=8, Index=PROJECT_BUILDYEARS, Domain=NonNegativeReals
+        Key                      : Lower : Value        : Upper : Fixed : Stale
+                 ('Hydro', 2000) :     1 :          1.0 :     1 : False : False
+             ('Hydro_RoR', 2000) :     1 :          1.0 :     1 : False : False
+        ('S-Central_PV-1', 2000) :     1 :          1.0 :     1 : False : False
+        ('S-Central_PV-1', 2020) :     0 :          0.0 :     2 : False : False
+          ('S-Geothermal', 1998) :     1 :          1.0 :     1 : False : False
+          ('S-Geothermal', 2020) :     0 :          0.0 :    10 : False : False
+               ('S-NG_CC', 2000) :     5 :          5.0 :     5 : False : False
+               ('S-NG_CC', 2020) :     0 : 2.5506587766 :  None : False : False
+    DispatchProj : Size=20, Index=PROJ_DISPATCH_POINTS, Domain=NonNegativeReals
+        Key                   : Lower : Value      : Upper : Fixed : Stale
+                 ('Hydro', 1) :     0 :        0.9 :  None : False : False
+                 ('Hydro', 2) :     0 :        0.6 :  None : False : False
+                 ('Hydro', 3) :     0 :       0.95 :  None : False : False
+                 ('Hydro', 4) :     0 :       0.25 :  None : False : False
+             ('Hydro_RoR', 1) :     0 :     0.2375 :  None : False : False
+             ('Hydro_RoR', 2) :     0 :      0.475 :  None : False : False
+             ('Hydro_RoR', 3) :     0 :       0.19 :  None : False : False
+             ('Hydro_RoR', 4) :     0 :       0.38 :  None : False : False
+        ('S-Central_PV-1', 1) :     0 :     0.5978 :  None : False : False
+        ('S-Central_PV-1', 2) :     0 :        0.0 :  None : False : False
+        ('S-Central_PV-1', 3) :     0 :     0.7938 :  None : False : False
+        ('S-Central_PV-1', 4) :     0 :        0.0 :  None : False : False
+          ('S-Geothermal', 1) :     0 : 0.96858075 :  None : False : False
+          ('S-Geothermal', 2) :     0 : 0.96858075 :  None : False : False
+          ('S-Geothermal', 3) :     0 : 0.96858075 :  None : False : False
+          ('S-Geothermal', 4) :     0 : 0.96858075 :  None : False : False
+               ('S-NG_CC', 1) :     0 : 6.29611925 :  None : False : False
+               ('S-NG_CC', 2) :     0 : 0.45641925 :  None : False : False
+               ('S-NG_CC', 3) :     0 : 7.09761925 :  None : False : False
+               ('S-NG_CC', 4) :     0 : 2.40141925 :  None : False : False
+    DumpPower : Size=4, Index=DumpPower_index, Domain=NonNegativeReals
+        Key          : Lower : Value : Upper : Fixed : Stale
+        ('South', 1) :     0 :   0.0 :  None : False : False
+        ('South', 2) :     0 :   0.0 :  None : False : False
+        ('South', 3) :     0 :   0.0 :  None : False : False
+        ('South', 4) :     0 :   0.0 :  None : False : False
+    ProjFuelUseRate : Size=4, Index=PROJ_FUEL_DISPATCH_POINTS, Domain=NonNegativeReals
+        Key                          : Lower : Value         : Upper : Fixed : Stale
+        ('S-NG_CC', 1, 'NaturalGas') :     0 : 42.2154795713 :  None : False : False
+        ('S-NG_CC', 2, 'NaturalGas') :     0 : 3.06029107125 :  None : False : False
+        ('S-NG_CC', 3, 'NaturalGas') :     0 : 47.5895370712 :  None : False : False
+        ('S-NG_CC', 4, 'NaturalGas') :     0 : 16.1015160712 :  None : False : False
+
+13 Expression Declarations
+    DispatchEmissions : Size=4, Index=PROJ_FUEL_DISPATCH_POINTS
+        Key                          : Expression
+        ('S-NG_CC', 1, 'NaturalGas') : 0.05306 * ProjFuelUseRate[S-NG_CC,1,NaturalGas]
+        ('S-NG_CC', 2, 'NaturalGas') : 0.05306 * ProjFuelUseRate[S-NG_CC,2,NaturalGas]
+        ('S-NG_CC', 3, 'NaturalGas') : 0.05306 * ProjFuelUseRate[S-NG_CC,3,NaturalGas]
+        ('S-NG_CC', 4, 'NaturalGas') : 0.05306 * ProjFuelUseRate[S-NG_CC,4,NaturalGas]
+    DispatchProjByFuel : Size=4, Index=PROJ_FUEL_DISPATCH_POINTS
+        Key                          : Expression
+        ('S-NG_CC', 1, 'NaturalGas') : 0.149142431022 * ProjFuelUseRate[S-NG_CC,1,NaturalGas]
+        ('S-NG_CC', 2, 'NaturalGas') : 0.149142431022 * ProjFuelUseRate[S-NG_CC,2,NaturalGas]
+        ('S-NG_CC', 3, 'NaturalGas') : 0.149142431022 * ProjFuelUseRate[S-NG_CC,3,NaturalGas]
+        ('S-NG_CC', 4, 'NaturalGas') : 0.149142431022 * ProjFuelUseRate[S-NG_CC,4,NaturalGas]
+    DispatchUpperLimit : Size=20, Index=PROJ_DISPATCH_POINTS
+        Key                   : Expression
+                 ('Hydro', 1) : 0.95 * BuildProj[Hydro,2000]
+                 ('Hydro', 2) : 0.95 * BuildProj[Hydro,2000]
+                 ('Hydro', 3) : 0.95 * BuildProj[Hydro,2000]
+                 ('Hydro', 4) : 0.95 * BuildProj[Hydro,2000]
+             ('Hydro_RoR', 1) : 0.2375 * BuildProj[Hydro_RoR,2000]
+             ('Hydro_RoR', 2) : 0.475 * BuildProj[Hydro_RoR,2000]
+             ('Hydro_RoR', 3) : 0.19 * BuildProj[Hydro_RoR,2000]
+             ('Hydro_RoR', 4) : 0.38 * BuildProj[Hydro_RoR,2000]
+        ('S-Central_PV-1', 1) : 0.5978 * ( BuildProj[S-Central_PV-1,2000] + BuildProj[S-Central_PV-1,2020] )
+        ('S-Central_PV-1', 2) : 0.0
+        ('S-Central_PV-1', 3) : 0.7938 * ( BuildProj[S-Central_PV-1,2000] + BuildProj[S-Central_PV-1,2020] )
+        ('S-Central_PV-1', 4) : 0.0
+          ('S-Geothermal', 1) : 0.96858075 * ( BuildProj[S-Geothermal,2020] + BuildProj[S-Geothermal,1998] )
+          ('S-Geothermal', 2) : 0.96858075 * ( BuildProj[S-Geothermal,2020] + BuildProj[S-Geothermal,1998] )
+          ('S-Geothermal', 3) : 0.96858075 * ( BuildProj[S-Geothermal,2020] + BuildProj[S-Geothermal,1998] )
+          ('S-Geothermal', 4) : 0.96858075 * ( BuildProj[S-Geothermal,2020] + BuildProj[S-Geothermal,1998] )
+               ('S-NG_CC', 1) : 0.94 * ( BuildProj[S-NG_CC,2000] + BuildProj[S-NG_CC,2020] )
+               ('S-NG_CC', 2) : 0.94 * ( BuildProj[S-NG_CC,2000] + BuildProj[S-NG_CC,2020] )
+               ('S-NG_CC', 3) : 0.94 * ( BuildProj[S-NG_CC,2000] + BuildProj[S-NG_CC,2020] )
+               ('S-NG_CC', 4) : 0.94 * ( BuildProj[S-NG_CC,2000] + BuildProj[S-NG_CC,2020] )
+    Fuel_Costs_TP : Size=4, Index=TIMEPOINTS
+        Key : Expression
+          1 : 4 * ProjFuelUseRate[S-NG_CC,1,NaturalGas]
+          2 : 4 * ProjFuelUseRate[S-NG_CC,2,NaturalGas]
+          3 : 4 * ProjFuelUseRate[S-NG_CC,3,NaturalGas]
+          4 : 4 * ProjFuelUseRate[S-NG_CC,4,NaturalGas]
+    LZ_NetDispatch : Size=4, Index=LZ_NetDispatch_index
+        Key          : Expression
+        ('South', 1) : DispatchProj[S-Geothermal,1] + DispatchProj[S-NG_CC,1] + DispatchProj[Hydro_RoR,1] + DispatchProj[S-Central_PV-1,1] + DispatchProj[Hydro,1]
+        ('South', 2) : DispatchProj[S-Geothermal,2] + DispatchProj[S-NG_CC,2] + DispatchProj[Hydro_RoR,2] + DispatchProj[S-Central_PV-1,2] + DispatchProj[Hydro,2]
+        ('South', 3) : DispatchProj[S-Geothermal,3] + DispatchProj[S-NG_CC,3] + DispatchProj[Hydro_RoR,3] + DispatchProj[S-Central_PV-1,3] + DispatchProj[Hydro,3]
+        ('South', 4) : DispatchProj[S-Geothermal,4] + DispatchProj[S-NG_CC,4] + DispatchProj[Hydro_RoR,4] + DispatchProj[S-Central_PV-1,4] + DispatchProj[Hydro,4]
+    ProjCapacity : Size=5, Index=ProjCapacity_index
+        Key                      : Expression
+                 ('Hydro', 2020) : BuildProj[Hydro,2000]
+             ('Hydro_RoR', 2020) : BuildProj[Hydro_RoR,2000]
+        ('S-Central_PV-1', 2020) : BuildProj[S-Central_PV-1,2000] + BuildProj[S-Central_PV-1,2020]
+          ('S-Geothermal', 2020) : BuildProj[S-Geothermal,2020] + BuildProj[S-Geothermal,1998]
+               ('S-NG_CC', 2020) : BuildProj[S-NG_CC,2000] + BuildProj[S-NG_CC,2020]
+    ProjCapacityTP : Size=20, Index=PROJ_DISPATCH_POINTS
+        Key                   : Expression
+                 ('Hydro', 1) :          ProjCapacity[Hydro,2020]
+                 ('Hydro', 2) :          ProjCapacity[Hydro,2020]
+                 ('Hydro', 3) :          ProjCapacity[Hydro,2020]
+                 ('Hydro', 4) :          ProjCapacity[Hydro,2020]
+             ('Hydro_RoR', 1) :      ProjCapacity[Hydro_RoR,2020]
+             ('Hydro_RoR', 2) :      ProjCapacity[Hydro_RoR,2020]
+             ('Hydro_RoR', 3) :      ProjCapacity[Hydro_RoR,2020]
+             ('Hydro_RoR', 4) :      ProjCapacity[Hydro_RoR,2020]
+        ('S-Central_PV-1', 1) : ProjCapacity[S-Central_PV-1,2020]
+        ('S-Central_PV-1', 2) : ProjCapacity[S-Central_PV-1,2020]
+        ('S-Central_PV-1', 3) : ProjCapacity[S-Central_PV-1,2020]
+        ('S-Central_PV-1', 4) : ProjCapacity[S-Central_PV-1,2020]
+          ('S-Geothermal', 1) :   ProjCapacity[S-Geothermal,2020]
+          ('S-Geothermal', 2) :   ProjCapacity[S-Geothermal,2020]
+          ('S-Geothermal', 3) :   ProjCapacity[S-Geothermal,2020]
+          ('S-Geothermal', 4) :   ProjCapacity[S-Geothermal,2020]
+               ('S-NG_CC', 1) :        ProjCapacity[S-NG_CC,2020]
+               ('S-NG_CC', 2) :        ProjCapacity[S-NG_CC,2020]
+               ('S-NG_CC', 3) :        ProjCapacity[S-NG_CC,2020]
+               ('S-NG_CC', 4) :        ProjCapacity[S-NG_CC,2020]
+    Proj_Fixed_Costs_Annual : Size=5, Index=PROJECT_OPERATIONAL_PERIODS
+        Key                      : Expression
+                 ('Hydro', 2020) : 800807.646031 * BuildProj[Hydro,2000]
+             ('Hydro_RoR', 2020) : 1000000.08059 * BuildProj[Hydro_RoR,2000]
+        ('S-Central_PV-1', 2020) : 269259.728189*BuildProj[S-Central_PV-1,2020] + 269259.728189*BuildProj[S-Central_PV-1,2000]
+          ('S-Geothermal', 2020) : 455991.878528*BuildProj[S-Geothermal,1998] + 455991.878528*BuildProj[S-Geothermal,2020]
+               ('S-NG_CC', 2020) : 119278.247557*BuildProj[S-NG_CC,2000] + 119278.247557*BuildProj[S-NG_CC,2020]
+    Proj_Var_Costs_Hourly : Size=20, Index=PROJ_DISPATCH_POINTS
+        Key                   : Expression
+                 ('Hydro', 1) : 0.1 * DispatchProj[Hydro,1]
+                 ('Hydro', 2) : 0.1 * DispatchProj[Hydro,2]
+                 ('Hydro', 3) : 0.1 * DispatchProj[Hydro,3]
+                 ('Hydro', 4) : 0.1 * DispatchProj[Hydro,4]
+             ('Hydro_RoR', 1) : 0.0
+             ('Hydro_RoR', 2) : 0.0
+             ('Hydro_RoR', 3) : 0.0
+             ('Hydro_RoR', 4) : 0.0
+        ('S-Central_PV-1', 1) : 0.0
+        ('S-Central_PV-1', 2) : 0.0
+        ('S-Central_PV-1', 3) : 0.0
+        ('S-Central_PV-1', 4) : 0.0
+          ('S-Geothermal', 1) : 28.83 * DispatchProj[S-Geothermal,1]
+          ('S-Geothermal', 2) : 28.83 * DispatchProj[S-Geothermal,2]
+          ('S-Geothermal', 3) : 28.83 * DispatchProj[S-Geothermal,3]
+          ('S-Geothermal', 4) : 28.83 * DispatchProj[S-Geothermal,4]
+               ('S-NG_CC', 1) : 3.4131 * DispatchProj[S-NG_CC,1]
+               ('S-NG_CC', 2) : 3.4131 * DispatchProj[S-NG_CC,2]
+               ('S-NG_CC', 3) : 3.4131 * DispatchProj[S-NG_CC,3]
+               ('S-NG_CC', 4) : 3.4131 * DispatchProj[S-NG_CC,4]
+    SystemCost : Size=1, Index=None
+        Key  : Expression
+        None : SystemCostPerPeriod[2020]
+    SystemCostPerPeriod : Size=1, Index=PERIODS
+        Key  : Expression
+        2020 : 7.00384120561 * ( 1000000.08059 * BuildProj[Hydro_RoR,2000] + 800807.646031 * BuildProj[Hydro,2000] + 269259.728189*BuildProj[S-Central_PV-1,2020] + 269259.728189*BuildProj[S-Central_PV-1,2000] + 119278.247557*BuildProj[S-NG_CC,2000] + 119278.247557*BuildProj[S-NG_CC,2020] + 455991.878528*BuildProj[S-Geothermal,1998] + 455991.878528*BuildProj[S-Geothermal,2020] + 2191*( 28.83 * DispatchProj[S-Geothermal,1] + 3.4131 * DispatchProj[S-NG_CC,1] + 0.0 + 0.0 + 0.1 * DispatchProj[Hydro,1] ) + 2191*4 * ProjFuelUseRate[S-NG_CC,1,NaturalGas] + 2191*( 28.83 * DispatchProj[S-Geothermal,2] + 3.4131 * DispatchProj[S-NG_CC,2] + 0.0 + 0.0 + 0.1 * DispatchProj[Hydro,2] ) + 2191*4 * ProjFuelUseRate[S-NG_CC,2,NaturalGas] + 2191*( 28.83 * DispatchProj[S-Geothermal,3] + 3.4131 * DispatchProj[S-NG_CC,3] + 0.0 + 0.0 + 0.1 * DispatchProj[Hydro,3] ) + 2191*4 * ProjFuelUseRate[S-NG_CC,3,NaturalGas] + 2191*( 28.83 * DispatchProj[S-Geothermal,4] + 3.4131 * DispatchProj[S-NG_CC,4] + 0.0 + 0.0 + 0.1 * DispatchProj[Hydro,4] ) + 2191*4 * ProjFuelUseRate[S-NG_CC,4,NaturalGas] )
+    Total_Proj_Fixed_Costs_Annual : Size=1, Index=PERIODS
+        Key  : Expression
+        2020 : 1000000.08059 * BuildProj[Hydro_RoR,2000] + 800807.646031 * BuildProj[Hydro,2000] + 269259.728189*BuildProj[S-Central_PV-1,2020] + 269259.728189*BuildProj[S-Central_PV-1,2000] + 119278.247557*BuildProj[S-NG_CC,2000] + 119278.247557*BuildProj[S-NG_CC,2020] + 455991.878528*BuildProj[S-Geothermal,1998] + 455991.878528*BuildProj[S-Geothermal,2020]
+    Total_Proj_Var_Costs_Hourly : Size=4, Index=TIMEPOINTS
+        Key : Expression
+          1 : 28.83 * DispatchProj[S-Geothermal,1] + 3.4131 * DispatchProj[S-NG_CC,1] + 0.0 + 0.0 + 0.1 * DispatchProj[Hydro,1]
+          2 : 28.83 * DispatchProj[S-Geothermal,2] + 3.4131 * DispatchProj[S-NG_CC,2] + 0.0 + 0.0 + 0.1 * DispatchProj[Hydro,2]
+          3 : 28.83 * DispatchProj[S-Geothermal,3] + 3.4131 * DispatchProj[S-NG_CC,3] + 0.0 + 0.0 + 0.1 * DispatchProj[Hydro,3]
+          4 : 28.83 * DispatchProj[S-Geothermal,4] + 3.4131 * DispatchProj[S-NG_CC,4] + 0.0 + 0.0 + 0.1 * DispatchProj[Hydro,4]
+
+1 Objective Declarations
+    Minimize_System_Cost : Size=1, Index=None, Active=True
+        Key  : Active : Sense    : Expression
+        None :   True : minimize : SystemCost
+
+8 Constraint Declarations
+    Energy_Balance : Size=4, Index=Energy_Balance_index, Active=True
+        Key          : Lower : Body                                                                                                                                                                    : Upper : Active
+        ('South', 1) :   0.0 :   -9 + DispatchProj[S-Geothermal,1] + DispatchProj[S-NG_CC,1] + DispatchProj[Hydro_RoR,1] + DispatchProj[S-Central_PV-1,1] + DispatchProj[Hydro,1] - DumpPower[South,1] :   0.0 :   True
+        ('South', 2) :   0.0 : -2.5 + DispatchProj[S-Geothermal,2] + DispatchProj[S-NG_CC,2] + DispatchProj[Hydro_RoR,2] + DispatchProj[S-Central_PV-1,2] + DispatchProj[Hydro,2] - DumpPower[South,2] :   0.0 :   True
+        ('South', 3) :   0.0 :  -10 + DispatchProj[S-Geothermal,3] + DispatchProj[S-NG_CC,3] + DispatchProj[Hydro_RoR,3] + DispatchProj[S-Central_PV-1,3] + DispatchProj[Hydro,3] - DumpPower[South,3] :   0.0 :   True
+        ('South', 4) :   0.0 :   -4 + DispatchProj[S-Geothermal,4] + DispatchProj[S-NG_CC,4] + DispatchProj[Hydro_RoR,4] + DispatchProj[S-Central_PV-1,4] + DispatchProj[Hydro,4] - DumpPower[South,4] :   0.0 :   True
+    Enforce_Dispatch_Baseload_Flat : Size=4, Index=PROJ_DISPATCH_POINTS, Active=True
+        Key                 : Lower : Body                                                                              : Upper : Active
+        ('S-Geothermal', 1) :   0.0 : DispatchProj[S-Geothermal,1] - BaseloadOperatingLevelForPeriod[S-Geothermal,2020] :   0.0 :   True
+        ('S-Geothermal', 2) :   0.0 : DispatchProj[S-Geothermal,2] - BaseloadOperatingLevelForPeriod[S-Geothermal,2020] :   0.0 :   True
+        ('S-Geothermal', 3) :   0.0 : DispatchProj[S-Geothermal,3] - BaseloadOperatingLevelForPeriod[S-Geothermal,2020] :   0.0 :   True
+        ('S-Geothermal', 4) :   0.0 : DispatchProj[S-Geothermal,4] - BaseloadOperatingLevelForPeriod[S-Geothermal,2020] :   0.0 :   True
+    Enforce_Dispatch_Upper_Limit : Size=20, Index=PROJ_DISPATCH_POINTS, Active=True
+        Key                   : Lower : Body                                                                                                          : Upper                                : Active
+                 ('Hydro', 1) :  -Inf :                                                          DispatchProj[Hydro,1] - 0.95 * BuildProj[Hydro,2000] :                                  0.0 :   True
+                 ('Hydro', 2) :  -Inf :                                                          DispatchProj[Hydro,2] - 0.95 * BuildProj[Hydro,2000] :                                  0.0 :   True
+                 ('Hydro', 3) :  -Inf :                                                          DispatchProj[Hydro,3] - 0.95 * BuildProj[Hydro,2000] :                                  0.0 :   True
+                 ('Hydro', 4) :  -Inf :                                                          DispatchProj[Hydro,4] - 0.95 * BuildProj[Hydro,2000] :                                  0.0 :   True
+             ('Hydro_RoR', 1) :  -Inf :                                                DispatchProj[Hydro_RoR,1] - 0.2375 * BuildProj[Hydro_RoR,2000] :                                  0.0 :   True
+             ('Hydro_RoR', 2) :  -Inf :                                                 DispatchProj[Hydro_RoR,2] - 0.475 * BuildProj[Hydro_RoR,2000] :                                  0.0 :   True
+             ('Hydro_RoR', 3) :  -Inf :                                                  DispatchProj[Hydro_RoR,3] - 0.19 * BuildProj[Hydro_RoR,2000] :                                  0.0 :   True
+             ('Hydro_RoR', 4) :  -Inf :                                                  DispatchProj[Hydro_RoR,4] - 0.38 * BuildProj[Hydro_RoR,2000] :                                  0.0 :   True
+        ('S-Central_PV-1', 1) :  -Inf : DispatchProj[S-Central_PV-1,1] - 0.5978 * ( BuildProj[S-Central_PV-1,2000] + BuildProj[S-Central_PV-1,2020] ) :                                  0.0 :   True
+        ('S-Central_PV-1', 2) :  -Inf :                                                                                DispatchProj[S-Central_PV-1,2] : DispatchUpperLimit[S-Central_PV-1,2] :   True
+        ('S-Central_PV-1', 3) :  -Inf : DispatchProj[S-Central_PV-1,3] - 0.7938 * ( BuildProj[S-Central_PV-1,2000] + BuildProj[S-Central_PV-1,2020] ) :                                  0.0 :   True
+        ('S-Central_PV-1', 4) :  -Inf :                                                                                DispatchProj[S-Central_PV-1,4] : DispatchUpperLimit[S-Central_PV-1,4] :   True
+          ('S-Geothermal', 1) :  -Inf :   DispatchProj[S-Geothermal,1] - 0.96858075 * ( BuildProj[S-Geothermal,2020] + BuildProj[S-Geothermal,1998] ) :                                  0.0 :   True
+          ('S-Geothermal', 2) :  -Inf :   DispatchProj[S-Geothermal,2] - 0.96858075 * ( BuildProj[S-Geothermal,2020] + BuildProj[S-Geothermal,1998] ) :                                  0.0 :   True
+          ('S-Geothermal', 3) :  -Inf :   DispatchProj[S-Geothermal,3] - 0.96858075 * ( BuildProj[S-Geothermal,2020] + BuildProj[S-Geothermal,1998] ) :                                  0.0 :   True
+          ('S-Geothermal', 4) :  -Inf :   DispatchProj[S-Geothermal,4] - 0.96858075 * ( BuildProj[S-Geothermal,2020] + BuildProj[S-Geothermal,1998] ) :                                  0.0 :   True
+               ('S-NG_CC', 1) :  -Inf :                        DispatchProj[S-NG_CC,1] - 0.94 * ( BuildProj[S-NG_CC,2000] + BuildProj[S-NG_CC,2020] ) :                                  0.0 :   True
+               ('S-NG_CC', 2) :  -Inf :                        DispatchProj[S-NG_CC,2] - 0.94 * ( BuildProj[S-NG_CC,2000] + BuildProj[S-NG_CC,2020] ) :                                  0.0 :   True
+               ('S-NG_CC', 3) :  -Inf :                        DispatchProj[S-NG_CC,3] - 0.94 * ( BuildProj[S-NG_CC,2000] + BuildProj[S-NG_CC,2020] ) :                                  0.0 :   True
+               ('S-NG_CC', 4) :  -Inf :                        DispatchProj[S-NG_CC,4] - 0.94 * ( BuildProj[S-NG_CC,2000] + BuildProj[S-NG_CC,2020] ) :                                  0.0 :   True
+    Enforce_Fuel_Availability : Size=0, Index=PROJ_FUEL_DISPATCH_POINTS_UNAVAILABLE, Active=True
+        Key : Lower : Body : Upper : Active
+    Enforce_Hydro_Avg_Flow : Size=2, Index=HYDRO_TIMESERIES, Active=True
+        Key                      : Lower : Body                                                    : Upper : Active
+        ('Hydro', '2020_summer') :   0.6 : 0.5 * ( DispatchProj[Hydro,3] + DispatchProj[Hydro,4] ) :   0.6 :   True
+        ('Hydro', '2020_winter') :  0.75 : 0.5 * ( DispatchProj[Hydro,1] + DispatchProj[Hydro,2] ) :  0.75 :   True
+    Enforce_Hydro_Min_Flow : Size=4, Index=HYDRO_PROJ_DISPATCH_POINTS, Active=True
+        Key          : Lower : Body                  : Upper : Active
+        ('Hydro', 1) :   0.6 : DispatchProj[Hydro,1] :  +Inf :   True
+        ('Hydro', 2) :   0.6 : DispatchProj[Hydro,2] :  +Inf :   True
+        ('Hydro', 3) :   0.2 : DispatchProj[Hydro,3] :  +Inf :   True
+        ('Hydro', 4) :   0.2 : DispatchProj[Hydro,4] :  +Inf :   True
+    Max_Build_Potential : Size=4, Index=Max_Build_Potential_index, Active=True
+        Key                      : Lower : Body                              : Upper : Active
+                 ('Hydro', 2020) :  -Inf :          ProjCapacity[Hydro,2020] :   1.0 :   True
+             ('Hydro_RoR', 2020) :  -Inf :      ProjCapacity[Hydro_RoR,2020] :   1.0 :   True
+        ('S-Central_PV-1', 2020) :  -Inf : ProjCapacity[S-Central_PV-1,2020] :   2.0 :   True
+          ('S-Geothermal', 2020) :  -Inf :   ProjCapacity[S-Geothermal,2020] :  10.0 :   True
+    ProjFuelUseRate_Calculate : Size=4, Index=PROJ_WITH_FUEL_DISPATCH_POINTS, Active=True
+        Key            : Lower : Body                                                                  : Upper : Active
+        ('S-NG_CC', 1) :   0.0 : ProjFuelUseRate[S-NG_CC,1,NaturalGas] - 6.705*DispatchProj[S-NG_CC,1] :   0.0 :   True
+        ('S-NG_CC', 2) :   0.0 : ProjFuelUseRate[S-NG_CC,2,NaturalGas] - 6.705*DispatchProj[S-NG_CC,2] :   0.0 :   True
+        ('S-NG_CC', 3) :   0.0 : ProjFuelUseRate[S-NG_CC,3,NaturalGas] - 6.705*DispatchProj[S-NG_CC,3] :   0.0 :   True
+        ('S-NG_CC', 4) :   0.0 : ProjFuelUseRate[S-NG_CC,4,NaturalGas] - 6.705*DispatchProj[S-NG_CC,4] :   0.0 :   True
+
+1 BuildAction Declarations
+    BuildProj_assign_default_value : Size=0, Index=EXISTING_PROJ_BUILDYEARS, Active=True
+
+17 BuildCheck Declarations
+    e_source_is_fuel_or_not_check : 
+    min_data_check_1 : 
+    min_data_check_10 : 
+    min_data_check_11 : 
+    min_data_check_12 : 
+    min_data_check_13 : 
+    min_data_check_14 : 
+    min_data_check_15 : 
+    min_data_check_2 : 
+    min_data_check_3 : 
+    min_data_check_4 : 
+    min_data_check_5 : 
+    min_data_check_6 : 
+    min_data_check_7 : 
+    min_data_check_8 : 
+    min_data_check_9 : 
+    validate_time_weights : 
+
+170 Declarations: PERIODS period_start period_end min_data_check_1 TIMESERIES ts_period ts_duration_of_tp ts_num_tps ts_scale_to_period min_data_check_2 TIMEPOINTS tp_ts min_data_check_3 tp_timestamp tp_weight TS_TPS tp_period PERIOD_TPS add_one_to_period_end period_length_years period_length_hours ts_scale_to_year ts_duration_hrs tp_weight_in_year tp_duration_hrs tp_previous validate_time_weights base_financial_year interest_rate discount_rate min_data_check_4 bring_annual_costs_to_base_year bring_timepoint_costs_to_base_year LOAD_ZONES lz_demand_mw_index lz_demand_mw lz_cost_multipliers lz_ccs_distance_km lz_dbid min_data_check_5 lz_total_demand_in_period_mwh_index lz_total_demand_in_period_mwh DumpPower_index DumpPower NON_FUEL_ENERGY_SOURCES FUELS f_co2_intensity f_upstream_co2_intensity min_data_check_6 e_source_is_fuel_or_not_check ENERGY_SOURCES_index_init ENERGY_SOURCES min_data_check_7 GENERATION_TECHNOLOGIES g_dbid g_max_age g_scheduled_outage_rate g_forced_outage_rate g_is_variable g_is_baseload g_is_flexible_baseload g_is_cogen g_min_build_capacity g_competes_for_space GEN_TECH_WITH_UNIT_SIZES g_unit_size g_energy_source g_uses_fuel GEN_TECH_WITH_FUEL GEN_TECH_WITH_MULTI_FUEL G_MULTI_FUELS G_FUELS GEN_TECH_STORAGE g_storage_efficiency g_store_to_release_ratio GEN_TECH_CCS g_ccs_capture_efficiency g_ccs_energy_load NEW_GENERATION_BUILDYEARS_domain NEW_GENERATION_BUILDYEARS G_NEW_BUILD_YEARS g_overnight_cost_index g_overnight_cost g_fixed_o_m_index g_fixed_o_m g_variable_o_m g_full_load_heat_rate min_data_check_8 PROJECTS proj_dbid proj_gen_tech proj_load_zone min_data_check_9 VARIABLE_PROJECTS BASELOAD_PROJECTS LZ_PROJECTS PROJECTS_CAP_LIMITED proj_capacity_limit_mw FUEL_BASED_PROJECTS NON_FUEL_BASED_PROJECTS NEW_PROJ_BUILDYEARS EXISTING_PROJ_BUILDYEARS proj_existing_cap min_data_check_10 PROJECT_BUILDYEARS proj_end_year min_data_check_11 PROJECT_BUILDS_OPERATIONAL_PERIODS PROJECT_PERIOD_ONLINE_BUILD_YRS_index PROJECT_PERIOD_ONLINE_BUILD_YRS BuildProj BuildProj_assign_default_value ProjCapacity_index ProjCapacity Max_Build_Potential_index Max_Build_Potential proj_connect_cost_per_mw min_data_check_12 proj_overnight_cost proj_fixed_om proj_capital_cost_annual PROJECT_OPERATIONAL_PERIODS Proj_Fixed_Costs_Annual Total_Proj_Fixed_Costs_Annual PROJECTS_ACTIVE_IN_TIMEPOINT PROJ_DISPATCH_POINTS ProjCapacityTP DispatchProj LZ_NetDispatch_index LZ_NetDispatch proj_full_load_heat_rate proj_forced_outage_rate proj_scheduled_outage_rate proj_availability VAR_DISPATCH_POINTS proj_max_capacity_factor min_data_check_13 proj_variable_om PROJ_WITH_FUEL_DISPATCH_POINTS PROJ_FUEL_DISPATCH_POINTS ProjFuelUseRate DispatchEmissions Proj_Var_Costs_Hourly Total_Proj_Var_Costs_Hourly BaseloadOperatingLevelForPeriod_index BaseloadOperatingLevelForPeriod DispatchUpperLimit Enforce_Dispatch_Baseload_Flat Enforce_Dispatch_Upper_Limit ProjFuelUseRate_Calculate DispatchProjByFuel FUEL_AVAILABILITY fuel_cost min_data_check_14 PROJ_FUEL_DISPATCH_POINTS_UNAVAILABLE Enforce_Fuel_Availability Fuel_Costs_TP HYDRO_TIMESERIES HYDRO_PROJECTS HYDRO_PROJ_DISPATCH_POINTS hydro_min_flow_mw Enforce_Hydro_Min_Flow hydro_avg_flow_mw Enforce_Hydro_Avg_Flow min_data_check_15 SystemCostPerPeriod SystemCost Minimize_System_Cost Energy_Balance_index Energy_Balance

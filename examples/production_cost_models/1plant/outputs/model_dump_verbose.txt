@@ -1,0 +1,449 @@
+59 Set Declarations
+    BASELOAD_PROJECTS : Dim=0, Dimen=1, Size=0, Domain=None, Ordered=False, Bounds=(None, None)
+        []
+    BaseloadOperatingLevelForPeriod_index : Dim=0, Dimen=2, Size=0, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    DumpPower_index : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    ENERGY_SOURCES : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=False, Bounds=None
+        ['NaturalGas']
+    ENERGY_SOURCES_index_init : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    EXISTING_LOCAL_TD_BLD_YRS : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        [('South', 'Legacy')]
+    EXISTING_PROJ_BUILDYEARS : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        [('S-NG_CC', 2000)]
+    Energy_Balance_index : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    FUELS : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=False, Bounds=None
+        ['NaturalGas']
+    FUEL_AVAILABILITY : Dim=0, Dimen=3, Size=1, Domain=None, Ordered=False, Bounds=None
+        [('South', 'NaturalGas', 2010)]
+    FUEL_BASED_PROJECTS : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=False, Bounds=None
+        ['S-NG_CC']
+    GENERATION_TECHNOLOGIES : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=False, Bounds=None
+        ['NG_CC']
+    GEN_TECH_CCS : Dim=0, Dimen=1, Size=0, Domain=GENERATION_TECHNOLOGIES, Ordered=False, Bounds=None
+        []
+    GEN_TECH_STORAGE : Dim=0, Dimen=1, Size=0, Domain=GENERATION_TECHNOLOGIES, Ordered=False, Bounds=None
+        []
+    GEN_TECH_WITH_FUEL : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=False, Bounds=None
+        ['NG_CC']
+    GEN_TECH_WITH_MULTI_FUEL : Dim=0, Dimen=1, Size=0, Domain=None, Ordered=False, Bounds=(None, None)
+        []
+    GEN_TECH_WITH_UNIT_SIZES : Dim=0, Dimen=1, Size=0, Domain=GENERATION_TECHNOLOGIES, Ordered=False, Bounds=None
+        []
+    G_FUELS : Dim=1, Dimen=1, Size=1, Domain=None, ArraySize=1, Ordered=False, Bounds=None
+        Key   : Members
+        NG_CC : ['NaturalGas']
+    G_MULTI_FUELS : Dim=1, Dimen=1, Size=0, Domain=FUELS, ArraySize=0, Ordered=False, Bounds=None
+        Key : Members
+    G_NEW_BUILD_YEARS : Dim=1, Dimen=1, Size=0, Domain=None, ArraySize=1, Ordered=False, Bounds=None
+        Key   : Members
+        NG_CC :      []
+    LOAD_ZONES : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=False, Bounds=None
+        ['South']
+    LOCAL_TD_BUILD_YEARS : Dim=0, Dimen=2, Size=2, Domain=None, Ordered=False, Bounds=None
+        [('South', 2010), ('South', 'Legacy')]
+    LZ_NetDispatch_index : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    LZ_PROJECTS : Dim=1, Dimen=1, Size=1, Domain=None, ArraySize=1, Ordered=False, Bounds=None
+        Key   : Members
+        South : ['S-NG_CC']
+    LocalTDCapacity_index : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    Max_Build_Potential_index : Dim=0, Dimen=2, Size=0, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    Meet_Local_TD_index : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    NEW_GENERATION_BUILDYEARS : Dim=0, Dimen=2, Size=0, Domain=NEW_GENERATION_BUILDYEARS_domain, Ordered=False, Bounds=None
+        []
+    NEW_GENERATION_BUILDYEARS_domain : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    NEW_PROJ_BUILDYEARS : Dim=0, Dimen=2, Size=0, Domain=None, Ordered=False, Bounds=None
+        []
+    NON_FUEL_BASED_PROJECTS : Dim=0, Dimen=1, Size=0, Domain=None, Ordered=False, Bounds=(None, None)
+        []
+    NON_FUEL_ENERGY_SOURCES : Dim=0, Dimen=1, Size=0, Domain=None, Ordered=False, Bounds=None
+        []
+    PERIODS : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=Insertion, Bounds=(2010, 2010)
+        [2010]
+    PERIOD_RELEVANT_LOCAL_TD_BUILDS : Dim=1, Dimen=2, Size=1, Domain=LOCAL_TD_BUILD_YEARS, ArraySize=1, Ordered=False, Bounds=None
+        Key  : Members
+        2010 : [('South', 2010)]
+    PERIOD_TPS : Dim=1, Dimen=1, Size=1, Domain=TIMEPOINTS, ArraySize=1, Ordered=Insertion, Bounds=None
+        Key  : Members
+        2010 :     [1]
+    PROJECTS : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=False, Bounds=None
+        ['S-NG_CC']
+    PROJECTS_ACTIVE_IN_TIMEPOINT : Dim=1, Dimen=1, Size=1, Domain=PROJECTS, ArraySize=1, Ordered=False, Bounds=None
+        Key : Members
+          1 : ['S-NG_CC']
+    PROJECTS_CAP_LIMITED : Dim=0, Dimen=1, Size=0, Domain=PROJECTS, Ordered=False, Bounds=None
+        []
+    PROJECT_BUILDS_OPERATIONAL_PERIODS : Dim=2, Dimen=1, Size=1, Domain=PERIODS, ArraySize=1, Ordered=Insertion, Bounds=None
+        Key               : Members
+        ('S-NG_CC', 2000) :  [2010]
+    PROJECT_BUILDYEARS : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        [('S-NG_CC', 2000)]
+    PROJECT_OPERATIONAL_PERIODS : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        [('S-NG_CC', 2010)]
+    PROJECT_PERIOD_ONLINE_BUILD_YRS : Dim=2, Dimen=1, Size=1, Domain=None, ArraySize=1, Ordered=False, Bounds=None
+        Key               : Members
+        ('S-NG_CC', 2010) :  [2000]
+    PROJECT_PERIOD_ONLINE_BUILD_YRS_index : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    PROJ_DISPATCH_POINTS : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        [('S-NG_CC', 1)]
+    PROJ_FUEL_DISPATCH_POINTS : Dim=0, Dimen=3, Size=1, Domain=None, Ordered=False, Bounds=None
+        [('S-NG_CC', 1, 'NaturalGas')]
+    PROJ_FUEL_DISPATCH_POINTS_UNAVAILABLE : Dim=0, Dimen=3, Size=0, Domain=None, Ordered=False, Bounds=(None, None)
+        []
+    PROJ_WITH_FUEL_DISPATCH_POINTS : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        [('S-NG_CC', 1)]
+    ProjCapacity_index : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    TIMEPOINTS : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=Insertion, Bounds=(1, 1)
+        [1]
+    TIMESERIES : Dim=0, Dimen=1, Size=1, Domain=None, Ordered=Insertion, Bounds=None
+        ['2010_all']
+    TS_TPS : Dim=1, Dimen=1, Size=1, Domain=TIMEPOINTS, ArraySize=1, Ordered=Insertion, Bounds=None
+        Key      : Members
+        2010_all :     [1]
+    VARIABLE_PROJECTS : Dim=0, Dimen=1, Size=0, Domain=None, Ordered=False, Bounds=(None, None)
+        []
+    VAR_DISPATCH_POINTS : Dim=0, Dimen=2, Size=0, Domain=None, Ordered=False, Bounds=(None, None)
+        []
+    distribution_losses_index : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    g_fixed_o_m_index : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    g_overnight_cost_index : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    lz_demand_mw_index : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    lz_peak_demand_mw_index : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        Virtual
+    lz_total_demand_in_period_mwh_index : Dim=0, Dimen=2, Size=1, Domain=None, Ordered=False, Bounds=None
+        Virtual
+
+73 Param Declarations
+    add_one_to_period_end : Size=1, Index=None, Domain=Boolean, Default=None, Mutable=False
+        Key  : Value
+        None :  True
+    base_financial_year : Size=1, Index=None, Domain=PositiveIntegers, Default=None, Mutable=False
+        Key  : Value
+        None :  2015
+    bring_annual_costs_to_base_year : Size=1, Index=PERIODS, Domain=PositiveReals, Default=None, Mutable=False
+        Key  : Value
+        2010 : 6.09200845313
+    bring_timepoint_costs_to_base_year : Size=1, Index=TIMEPOINTS, Domain=PositiveReals, Default=None, Mutable=False
+        Key : Value
+          1 : 53402.5461001
+    discount_rate : Size=1, Index=None, Domain=NonNegativeReals, Default=interest_rate, Mutable=False
+        Key  : Value
+        None :  0.05
+    distribution_loss_rate : Size=1, Index=None, Domain=Any, Default=0.053, Mutable=False
+        Key  : Value
+        None : 0.053
+    distribution_losses : Size=1, Index=distribution_losses_index, Domain=Any, Default=None, Mutable=False
+        Key          : Value
+        ('South', 1) : 0.424
+    existing_local_td : Size=1, Index=LOAD_ZONES, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key   : Value
+        South :    10
+    f_co2_intensity : Size=1, Index=FUELS, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key        : Value
+        NaturalGas : 0.05306
+    f_upstream_co2_intensity : Size=1, Index=FUELS, Domain=Reals, Default=0, Mutable=False
+        Key        : Value
+        NaturalGas :     0
+    fuel_cost : Size=1, Index=FUEL_AVAILABILITY, Domain=PositiveReals, Default=None, Mutable=False
+        Key                           : Value
+        ('South', 'NaturalGas', 2010) :     4
+    g_ccs_capture_efficiency : Size=0, Index=GEN_TECH_CCS, Domain=PercentFraction, Default=None, Mutable=False
+        Key : Value
+    g_ccs_energy_load : Size=0, Index=GEN_TECH_CCS, Domain=PercentFraction, Default=None, Mutable=False
+        Key : Value
+    g_competes_for_space : Size=1, Index=GENERATION_TECHNOLOGIES, Domain=Boolean, Default=0, Mutable=False
+        Key   : Value
+        NG_CC :     0
+    g_dbid : Size=1, Index=GENERATION_TECHNOLOGIES, Domain=Any, Default=(function), Mutable=False
+        Key : Value
+    g_energy_source : Size=1, Index=GENERATION_TECHNOLOGIES, Domain=Any, Default=None, Mutable=False
+        Key   : Value
+        NG_CC : NaturalGas
+    g_fixed_o_m : Size=0, Index=g_fixed_o_m_index, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key : Value
+    g_forced_outage_rate : Size=1, Index=GENERATION_TECHNOLOGIES, Domain=PercentFraction, Default=None, Mutable=False
+        Key   : Value
+        NG_CC :  0.06
+    g_full_load_heat_rate : Size=1, Index=GEN_TECH_WITH_FUEL, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key   : Value
+        NG_CC : 6.705
+    g_is_baseload : Size=1, Index=GENERATION_TECHNOLOGIES, Domain=Boolean, Default=None, Mutable=False
+        Key   : Value
+        NG_CC :     0
+    g_is_cogen : Size=1, Index=GENERATION_TECHNOLOGIES, Domain=Boolean, Default=None, Mutable=False
+        Key   : Value
+        NG_CC :     0
+    g_is_flexible_baseload : Size=1, Index=GENERATION_TECHNOLOGIES, Domain=Boolean, Default=None, Mutable=False
+        Key   : Value
+        NG_CC :     0
+    g_is_variable : Size=1, Index=GENERATION_TECHNOLOGIES, Domain=Boolean, Default=None, Mutable=False
+        Key   : Value
+        NG_CC :     0
+    g_max_age : Size=1, Index=GENERATION_TECHNOLOGIES, Domain=PositiveReals, Default=None, Mutable=False
+        Key   : Value
+        NG_CC :    20
+    g_min_build_capacity : Size=1, Index=GENERATION_TECHNOLOGIES, Domain=NonNegativeReals, Default=0, Mutable=False
+        Key   : Value
+        NG_CC :     0
+    g_overnight_cost : Size=0, Index=g_overnight_cost_index, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key : Value
+    g_scheduled_outage_rate : Size=1, Index=GENERATION_TECHNOLOGIES, Domain=PercentFraction, Default=None, Mutable=False
+        Key   : Value
+        NG_CC :  0.04
+    g_storage_efficiency : Size=0, Index=GEN_TECH_STORAGE, Domain=PercentFraction, Default=None, Mutable=False
+        Key : Value
+    g_store_to_release_ratio : Size=0, Index=GEN_TECH_STORAGE, Domain=PositiveReals, Default=None, Mutable=False
+        Key : Value
+    g_unit_size : Size=0, Index=GEN_TECH_WITH_UNIT_SIZES, Domain=PositiveReals, Default=None, Mutable=False
+        Key : Value
+    g_uses_fuel : Size=1, Index=GENERATION_TECHNOLOGIES, Domain=Any, Default=None, Mutable=False
+        Key   : Value
+        NG_CC :  True
+    g_variable_o_m : Size=1, Index=GENERATION_TECHNOLOGIES, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key   : Value
+        NG_CC : 3.4131
+    interest_rate : Size=1, Index=None, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key  : Value
+        None :  0.07
+    local_td_annual_cost_per_mw : Size=1, Index=LOAD_ZONES, Domain=PositiveReals, Default=None, Mutable=False
+        Key   : Value
+        South : 128040
+    lz_ccs_distance_km : Size=1, Index=LOAD_ZONES, Domain=NonNegativeReals, Default=0.0, Mutable=False
+        Key : Value
+    lz_cost_multipliers : Size=1, Index=LOAD_ZONES, Domain=PositiveReals, Default=1.0, Mutable=False
+        Key : Value
+    lz_dbid : Size=1, Index=LOAD_ZONES, Domain=Any, Default=(function), Mutable=False
+        Key : Value
+    lz_demand_mw : Size=1, Index=lz_demand_mw_index, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key          : Value
+        ('South', 1) :     8
+    lz_peak_demand_mw : Size=1, Index=lz_peak_demand_mw_index, Domain=NonNegativeReals, Default=(function), Mutable=False
+        Key             : Value
+        ('South', 2010) :    10
+    lz_total_demand_in_period_mwh : Size=1, Index=lz_total_demand_in_period_mwh_index, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key             : Value
+        ('South', 2010) : 350640.0
+    period_end : Size=1, Index=PERIODS, Domain=PositiveReals, Default=None, Mutable=False
+        Key  : Value
+        2010 :  2012
+    period_length_hours : Size=1, Index=PERIODS, Domain=Any, Default=None, Mutable=False
+        Key  : Value
+        2010 : 43830
+    period_length_years : Size=1, Index=PERIODS, Domain=Any, Default=None, Mutable=False
+        Key  : Value
+        2010 :     5
+    period_start : Size=1, Index=PERIODS, Domain=PositiveReals, Default=None, Mutable=False
+        Key  : Value
+        2010 :  2008
+    proj_availability : Size=1, Index=PROJECTS, Domain=PositiveReals, Default=None, Mutable=False
+        Key     : Value
+        S-NG_CC :  0.94
+    proj_capacity_limit_mw : Size=0, Index=PROJECTS_CAP_LIMITED, Domain=PositiveReals, Default=None, Mutable=False
+        Key : Value
+    proj_capital_cost_annual : Size=1, Index=PROJECT_BUILDYEARS, Domain=Any, Default=None, Mutable=False
+        Key               : Value
+        ('S-NG_CC', 2000) : 113409.947557
+    proj_connect_cost_per_mw : Size=1, Index=PROJECTS, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key     : Value
+        S-NG_CC : 57566.6
+    proj_dbid : Size=1, Index=PROJECTS, Domain=Any, Default=(function), Mutable=False
+        Key     : Value
+        S-NG_CC :    34
+    proj_end_year : Size=1, Index=PROJECT_BUILDYEARS, Domain=Any, Default=None, Mutable=False
+        Key               : Value
+        ('S-NG_CC', 2000) :  2010
+    proj_existing_cap : Size=1, Index=EXISTING_PROJ_BUILDYEARS, Domain=NonNegativeReals, Default=None, Mutable=False
+        Key               : Value
+        ('S-NG_CC', 2000) :     9
+    proj_fixed_om : Size=1, Index=PROJECT_BUILDYEARS, Domain=NonNegativeReals, Default=(function), Mutable=False
+        Key               : Value
+        ('S-NG_CC', 2000) : 5868.3
+    proj_forced_outage_rate : Size=1, Index=PROJECTS, Domain=PercentFraction, Default=(function), Mutable=False
+        Key : Value
+    proj_full_load_heat_rate : Size=1, Index=FUEL_BASED_PROJECTS, Domain=PositiveReals, Default=(function), Mutable=False
+        Key : Value
+    proj_gen_tech : Size=1, Index=PROJECTS, Domain=GENERATION_TECHNOLOGIES, Default=None, Mutable=False
+        Key     : Value
+        S-NG_CC : NG_CC
+    proj_load_zone : Size=1, Index=PROJECTS, Domain=LOAD_ZONES, Default=None, Mutable=False
+        Key     : Value
+        S-NG_CC : South
+    proj_max_capacity_factor : Size=0, Index=VAR_DISPATCH_POINTS, Domain=Reals, Default=None, Mutable=False
+        Key : Value
+    proj_overnight_cost : Size=1, Index=PROJECT_BUILDYEARS, Domain=NonNegativeReals, Default=(function), Mutable=False
+        Key               : Value
+        ('S-NG_CC', 2000) : 1143900
+    proj_scheduled_outage_rate : Size=1, Index=PROJECTS, Domain=PercentFraction, Default=(function), Mutable=False
+        Key : Value
+    proj_variable_om : Size=1, Index=PROJECTS, Domain=NonNegativeReals, Default=(function), Mutable=False
+        Key : Value
+    tp_duration_hrs : Size=1, Index=TIMEPOINTS, Domain=Any, Default=None, Mutable=False
+        Key : Value
+          1 :    24
+    tp_period : Size=1, Index=TIMEPOINTS, Domain=PERIODS, Default=None, Mutable=False
+        Key : Value
+          1 :  2010
+    tp_previous : Size=1, Index=TIMEPOINTS, Domain=TIMEPOINTS, Default=None, Mutable=False
+        Key : Value
+          1 :     1
+    tp_timestamp : Size=1, Index=TIMEPOINTS, Domain=Any, Default=(function), Mutable=False
+        Key : Value
+          1 : 2010011512
+    tp_ts : Size=1, Index=TIMEPOINTS, Domain=TIMESERIES, Default=None, Mutable=False
+        Key : Value
+          1 : 2010_all
+    tp_weight : Size=1, Index=TIMEPOINTS, Domain=PositiveReals, Default=None, Mutable=False
+        Key : Value
+          1 : 43830.0
+    tp_weight_in_year : Size=1, Index=TIMEPOINTS, Domain=PositiveReals, Default=None, Mutable=False
+        Key : Value
+          1 : 8766.0
+    ts_duration_hrs : Size=1, Index=TIMESERIES, Domain=Any, Default=None, Mutable=False
+        Key      : Value
+        2010_all :    24
+    ts_duration_of_tp : Size=1, Index=TIMESERIES, Domain=PositiveReals, Default=None, Mutable=False
+        Key      : Value
+        2010_all :    24
+    ts_num_tps : Size=1, Index=TIMESERIES, Domain=PositiveIntegers, Default=None, Mutable=False
+        Key      : Value
+        2010_all :     1
+    ts_period : Size=1, Index=TIMESERIES, Domain=PERIODS, Default=None, Mutable=False
+        Key      : Value
+        2010_all :  2010
+    ts_scale_to_period : Size=1, Index=TIMESERIES, Domain=PositiveReals, Default=None, Mutable=False
+        Key      : Value
+        2010_all : 1826.25
+    ts_scale_to_year : Size=1, Index=TIMESERIES, Domain=Any, Default=None, Mutable=False
+        Key      : Value
+        2010_all : 365.25
+
+6 Var Declarations
+    BaseloadOperatingLevelForPeriod : Size=0, Index=BaseloadOperatingLevelForPeriod_index, Domain=Reals
+        Key : Lower : Value : Upper : Fixed : Stale
+    BuildLocalTD : Size=2, Index=LOCAL_TD_BUILD_YEARS, Domain=NonNegativeReals
+        Key                 : Lower : Value : Upper : Fixed : Stale
+            ('South', 2010) :     0 :   0.0 :  None : False : False
+        ('South', 'Legacy') :    10 :  10.0 :    10 : False : False
+    BuildProj : Size=1, Index=PROJECT_BUILDYEARS, Domain=NonNegativeReals
+        Key               : Lower : Value : Upper : Fixed : Stale
+        ('S-NG_CC', 2000) :     9 :   9.0 :     9 : False : False
+    DispatchProj : Size=1, Index=PROJ_DISPATCH_POINTS, Domain=NonNegativeReals
+        Key            : Lower : Value : Upper : Fixed : Stale
+        ('S-NG_CC', 1) :     0 : 8.424 :  None : False : False
+    DumpPower : Size=1, Index=DumpPower_index, Domain=NonNegativeReals
+        Key          : Lower : Value : Upper : Fixed : Stale
+        ('South', 1) :     0 :   0.0 :  None : False : False
+    ProjFuelUseRate : Size=1, Index=PROJ_FUEL_DISPATCH_POINTS, Domain=NonNegativeReals
+        Key                          : Lower : Value    : Upper : Fixed : Stale
+        ('S-NG_CC', 1, 'NaturalGas') :     0 : 56.48292 :  None : False : False
+
+15 Expression Declarations
+    DispatchEmissions : Size=1, Index=PROJ_FUEL_DISPATCH_POINTS
+        Key                          : Expression
+        ('S-NG_CC', 1, 'NaturalGas') : 0.05306 * ProjFuelUseRate[S-NG_CC,1,NaturalGas]
+    DispatchProjByFuel : Size=1, Index=PROJ_FUEL_DISPATCH_POINTS
+        Key                          : Expression
+        ('S-NG_CC', 1, 'NaturalGas') : 0.149142431022 * ProjFuelUseRate[S-NG_CC,1,NaturalGas]
+    DispatchUpperLimit : Size=1, Index=PROJ_DISPATCH_POINTS
+        Key            : Expression
+        ('S-NG_CC', 1) : 0.94 * BuildProj[S-NG_CC,2000]
+    Fuel_Costs_TP : Size=1, Index=TIMEPOINTS
+        Key : Expression
+          1 : 4 * ProjFuelUseRate[S-NG_CC,1,NaturalGas]
+    LZ_NetDispatch : Size=1, Index=LZ_NetDispatch_index
+        Key          : Expression
+        ('South', 1) : DispatchProj[S-NG_CC,1]
+    LocalTDCapacity : Size=1, Index=LocalTDCapacity_index
+        Key             : Expression
+        ('South', 2010) : BuildLocalTD[South,Legacy] + BuildLocalTD[South,2010]
+    LocalTD_Fixed_Costs_Annual : Size=1, Index=PERIODS
+        Key  : Expression
+        2010 : 128040 * BuildLocalTD[South,2010]
+    ProjCapacity : Size=1, Index=ProjCapacity_index
+        Key               : Expression
+        ('S-NG_CC', 2010) : BuildProj[S-NG_CC,2000]
+    ProjCapacityTP : Size=1, Index=PROJ_DISPATCH_POINTS
+        Key            : Expression
+        ('S-NG_CC', 1) : ProjCapacity[S-NG_CC,2010]
+    Proj_Fixed_Costs_Annual : Size=1, Index=PROJECT_OPERATIONAL_PERIODS
+        Key               : Expression
+        ('S-NG_CC', 2010) : 119278.247557 * BuildProj[S-NG_CC,2000]
+    Proj_Var_Costs_Hourly : Size=1, Index=PROJ_DISPATCH_POINTS
+        Key            : Expression
+        ('S-NG_CC', 1) : 3.4131 * DispatchProj[S-NG_CC,1]
+    SystemCost : Size=1, Index=None
+        Key  : Expression
+        None : SystemCostPerPeriod[2010]
+    SystemCostPerPeriod : Size=1, Index=PERIODS
+        Key  : Expression
+        2010 : 6.09200845313 * ( 119278.247557 * BuildProj[S-NG_CC,2000] + 128040 * BuildLocalTD[South,2010] + 8766.0*3.4131 * DispatchProj[S-NG_CC,1] + 8766.0*4 * ProjFuelUseRate[S-NG_CC,1,NaturalGas] )
+    Total_Proj_Fixed_Costs_Annual : Size=1, Index=PERIODS
+        Key  : Expression
+        2010 : Proj_Fixed_Costs_Annual[S-NG_CC,2010]
+    Total_Proj_Var_Costs_Hourly : Size=1, Index=TIMEPOINTS
+        Key : Expression
+          1 : Proj_Var_Costs_Hourly[S-NG_CC,1]
+
+1 Objective Declarations
+    Minimize_System_Cost : Size=1, Index=None, Active=True
+        Key  : Active : Sense    : Expression
+        None :   True : minimize : SystemCost
+
+7 Constraint Declarations
+    Energy_Balance : Size=1, Index=Energy_Balance_index, Active=True
+        Key          : Lower : Body                                                  : Upper : Active
+        ('South', 1) :   0.0 : -8.424 + DispatchProj[S-NG_CC,1] - DumpPower[South,1] :   0.0 :   True
+    Enforce_Dispatch_Baseload_Flat : Size=0, Index=PROJ_DISPATCH_POINTS, Active=True
+        Key : Lower : Body : Upper : Active
+    Enforce_Dispatch_Upper_Limit : Size=1, Index=PROJ_DISPATCH_POINTS, Active=True
+        Key            : Lower : Body                                                     : Upper : Active
+        ('S-NG_CC', 1) :  -Inf : DispatchProj[S-NG_CC,1] - 0.94 * BuildProj[S-NG_CC,2000] :   0.0 :   True
+    Enforce_Fuel_Availability : Size=0, Index=PROJ_FUEL_DISPATCH_POINTS_UNAVAILABLE, Active=True
+        Key : Lower : Body : Upper : Active
+    Max_Build_Potential : Size=0, Index=Max_Build_Potential_index, Active=True
+        Key : Lower : Body : Upper : Active
+    Meet_Local_TD : Size=1, Index=Meet_Local_TD_index, Active=True
+        Key             : Lower : Body                        : Upper : Active
+        ('South', 2010) :  10.0 : LocalTDCapacity[South,2010] :  +Inf :   True
+    ProjFuelUseRate_Calculate : Size=1, Index=PROJ_WITH_FUEL_DISPATCH_POINTS, Active=True
+        Key            : Lower : Body                                                                  : Upper : Active
+        ('S-NG_CC', 1) :   0.0 : ProjFuelUseRate[S-NG_CC,1,NaturalGas] - 6.705*DispatchProj[S-NG_CC,1] :   0.0 :   True
+
+1 BuildAction Declarations
+    BuildProj_assign_default_value : Size=0, Index=EXISTING_PROJ_BUILDYEARS, Active=True
+
+18 BuildCheck Declarations
+    e_source_is_fuel_or_not_check : 
+    min_data_check_1 : 
+    min_data_check_10 : 
+    min_data_check_11 : 
+    min_data_check_12 : 
+    min_data_check_13 : 
+    min_data_check_14 : 
+    min_data_check_15 : 
+    min_data_check_16 : 
+    min_data_check_2 : 
+    min_data_check_3 : 
+    min_data_check_4 : 
+    min_data_check_5 : 
+    min_data_check_6 : 
+    min_data_check_7 : 
+    min_data_check_8 : 
+    min_data_check_9 : 
+    validate_time_weights : 
+
+180 Declarations: PERIODS period_start period_end min_data_check_1 TIMESERIES ts_period ts_duration_of_tp ts_num_tps ts_scale_to_period min_data_check_2 TIMEPOINTS tp_ts min_data_check_3 tp_timestamp tp_weight TS_TPS tp_period PERIOD_TPS add_one_to_period_end period_length_years period_length_hours ts_scale_to_year ts_duration_hrs tp_weight_in_year tp_duration_hrs tp_previous validate_time_weights base_financial_year interest_rate discount_rate min_data_check_4 bring_annual_costs_to_base_year bring_timepoint_costs_to_base_year LOAD_ZONES lz_demand_mw_index lz_demand_mw lz_cost_multipliers lz_ccs_distance_km lz_dbid min_data_check_5 lz_total_demand_in_period_mwh_index lz_total_demand_in_period_mwh DumpPower_index DumpPower NON_FUEL_ENERGY_SOURCES FUELS f_co2_intensity f_upstream_co2_intensity min_data_check_6 e_source_is_fuel_or_not_check ENERGY_SOURCES_index_init ENERGY_SOURCES min_data_check_7 GENERATION_TECHNOLOGIES g_dbid g_max_age g_scheduled_outage_rate g_forced_outage_rate g_is_variable g_is_baseload g_is_flexible_baseload g_is_cogen g_min_build_capacity g_competes_for_space GEN_TECH_WITH_UNIT_SIZES g_unit_size g_energy_source g_uses_fuel GEN_TECH_WITH_FUEL GEN_TECH_WITH_MULTI_FUEL G_MULTI_FUELS G_FUELS GEN_TECH_STORAGE g_storage_efficiency g_store_to_release_ratio GEN_TECH_CCS g_ccs_capture_efficiency g_ccs_energy_load NEW_GENERATION_BUILDYEARS_domain NEW_GENERATION_BUILDYEARS G_NEW_BUILD_YEARS g_overnight_cost_index g_overnight_cost g_fixed_o_m_index g_fixed_o_m g_variable_o_m g_full_load_heat_rate min_data_check_8 PROJECTS proj_dbid proj_gen_tech proj_load_zone min_data_check_9 VARIABLE_PROJECTS BASELOAD_PROJECTS LZ_PROJECTS PROJECTS_CAP_LIMITED proj_capacity_limit_mw FUEL_BASED_PROJECTS NON_FUEL_BASED_PROJECTS NEW_PROJ_BUILDYEARS EXISTING_PROJ_BUILDYEARS proj_existing_cap min_data_check_10 PROJECT_BUILDYEARS proj_end_year min_data_check_11 PROJECT_BUILDS_OPERATIONAL_PERIODS PROJECT_PERIOD_ONLINE_BUILD_YRS_index PROJECT_PERIOD_ONLINE_BUILD_YRS BuildProj BuildProj_assign_default_value ProjCapacity_index ProjCapacity Max_Build_Potential_index Max_Build_Potential proj_connect_cost_per_mw min_data_check_12 proj_overnight_cost proj_fixed_om proj_capital_cost_annual PROJECT_OPERATIONAL_PERIODS Proj_Fixed_Costs_Annual Total_Proj_Fixed_Costs_Annual PROJECTS_ACTIVE_IN_TIMEPOINT PROJ_DISPATCH_POINTS ProjCapacityTP DispatchProj LZ_NetDispatch_index LZ_NetDispatch proj_full_load_heat_rate proj_forced_outage_rate proj_scheduled_outage_rate proj_availability VAR_DISPATCH_POINTS proj_max_capacity_factor min_data_check_13 proj_variable_om PROJ_WITH_FUEL_DISPATCH_POINTS PROJ_FUEL_DISPATCH_POINTS ProjFuelUseRate DispatchEmissions Proj_Var_Costs_Hourly Total_Proj_Var_Costs_Hourly EXISTING_LOCAL_TD_BLD_YRS existing_local_td lz_peak_demand_mw_index lz_peak_demand_mw min_data_check_14 LOCAL_TD_BUILD_YEARS PERIOD_RELEVANT_LOCAL_TD_BUILDS BuildLocalTD LocalTDCapacity_index LocalTDCapacity distribution_loss_rate distribution_losses_index distribution_losses Meet_Local_TD_index Meet_Local_TD local_td_annual_cost_per_mw min_data_check_15 LocalTD_Fixed_Costs_Annual BaseloadOperatingLevelForPeriod_index BaseloadOperatingLevelForPeriod DispatchUpperLimit Enforce_Dispatch_Baseload_Flat Enforce_Dispatch_Upper_Limit ProjFuelUseRate_Calculate DispatchProjByFuel FUEL_AVAILABILITY fuel_cost min_data_check_16 PROJ_FUEL_DISPATCH_POINTS_UNAVAILABLE Enforce_Fuel_Availability Fuel_Costs_TP SystemCostPerPeriod SystemCost Minimize_System_Cost Energy_Balance_index Energy_Balance

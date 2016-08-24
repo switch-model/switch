@@ -1,0 +1,2 @@
+timestamp	S-NG_CC
+2010011512	8.424
