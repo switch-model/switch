@@ -260,13 +260,6 @@ def define_components(mod):
     # mod.PROJ_WITH_FUEL_DISPATCH_POINTS = Set(
     #     initialize=mod.PROJ_DISPATCH_POINTS,
     #     filter=lambda m, p, t: m.g_uses_fuel[m.proj_gen_tech[p]])
-    mod.DISPATCHED_PROJECTS_FUEL_IN_TP = Set(
-        mod.TIMEPOINTS,
-        dimen=2,
-        initialize=lambda m, t: (
-            (p, f) for p in m.PROJECTS 
-            if (p, t) in m.PROJ_WITH_FUEL_DISPATCH_POINTS 
-                for f in m.G_FUELS[m.proj_gen_tech[p]]))
     mod.PROJ_FUEL_DISPATCH_POINTS = Set(
         dimen=3,
         initialize=lambda m: (
