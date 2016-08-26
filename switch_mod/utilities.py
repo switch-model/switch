@@ -620,10 +620,13 @@ def load_aug(switch_data, optional=False, auto_select=False,
     optional_params=list(optional_params)
     # Parse header and first row
     with open(path) as infile:
-        headers = infile.readline().strip().split('\t')
-        dat1 = infile.readline().strip().split('\t')
-    # Skip if the file is empty or has no data in the first row.
-    if optional and (headers == [''] or dat1 == ['']):
+        headers_line = infile.readline()
+        second_line = infile.readline()
+    file_is_empty = (headers_line == '')
+    file_has_no_data_rows = (second_line == '')
+    headers = headers_line.strip().split('\t')
+    # Skip if the file is empty.
+    if optional and file_is_empty:
         return
     # Try to get a list of parameters. If param was given as a
     # singleton or a tuple, make it into a list that can be edited.
@@ -698,6 +701,10 @@ def load_aug(switch_data, optional=False, auto_select=False,
         for (i, p_i) in del_items:
             del kwds['select'][i]
             del kwds['param'][p_i]
+    if optional and file_has_no_data_rows:
+        # Skip the file.  Note that we are only doing this after having
+        # validated the file's column headings.
+        return
     # All done with cleaning optional bits. Pass the updated arguments
     # into the DataPortal.load() function.
     switch_data.load(**kwds)
