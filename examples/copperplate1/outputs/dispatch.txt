@@ -1,3 +1,0 @@
-timestamp	S-Commercial_PV	S-Biomass_IGCC	S-Geothermal	S-Residential_PV	S-NG_CC	S-NG_GT	S-Central_PV-1	S-Central_PV-2
-2025011512	0.0	0.0	2.90574225	0.0	5.51825775	0.0	0.0	0.0
-2025011600	0.0	0.0	2.90574225	0.0	0.0	0.0	0.0	0.0

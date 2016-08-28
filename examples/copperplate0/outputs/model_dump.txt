@@ -1,0 +1,63 @@
+Model unknown
+
+  Variables:
+    DumpPower : Size=2, Index=DumpPower_index
+        Key          : Lower : Value      : Upper : Fixed : Stale : Domain
+        ('South', 1) :     0 :        0.0 :  None : False : False : NonNegativeReals
+        ('South', 2) :     0 : 0.46858075 :  None : False : False : NonNegativeReals
+    BuildProj : Size=6, Index=PROJECT_BUILDYEARS
+        Key                      : Lower : Value         : Upper : Fixed : Stale : Domain
+        ('S-Central_PV-1', 2000) :     1 :           1.0 :     1 : False : False : NonNegativeReals
+        ('S-Central_PV-1', 2020) :     0 :           0.0 :     2 : False : False : NonNegativeReals
+          ('S-Geothermal', 1998) :     1 :           1.0 :     1 : False : False : NonNegativeReals
+          ('S-Geothermal', 2020) :     0 :           0.0 :    10 : False : False : NonNegativeReals
+               ('S-NG_CC', 2000) :     5 :           5.0 :     5 : False : False : NonNegativeReals
+               ('S-NG_CC', 2020) :     0 : 1.84427579787 :  None : False : False : NonNegativeReals
+    DispatchProj : Size=6, Index=PROJ_DISPATCH_POINTS
+        Key                   : Lower : Value      : Upper : Fixed : Stale : Domain
+        ('S-Central_PV-1', 1) :     0 :     0.5978 :  None : False : False : NonNegativeReals
+        ('S-Central_PV-1', 2) :     0 :        0.0 :  None : False : False : NonNegativeReals
+          ('S-Geothermal', 1) :     0 : 0.96858075 :  None : False : False : NonNegativeReals
+          ('S-Geothermal', 2) :     0 : 0.96858075 :  None : False : False : NonNegativeReals
+               ('S-NG_CC', 1) :     0 : 6.43361925 :  None : False : False : NonNegativeReals
+               ('S-NG_CC', 2) :     0 :        0.0 :  None : False : False : NonNegativeReals
+    ProjFuelUseRate : Size=2, Index=PROJ_FUEL_DISPATCH_POINTS
+        Key                          : Lower : Value         : Upper : Fixed : Stale : Domain
+        ('S-NG_CC', 1, 'NaturalGas') :     0 : 43.1374170712 :  None : False : False : NonNegativeReals
+        ('S-NG_CC', 2, 'NaturalGas') :     0 :           0.0 :  None : False : False : NonNegativeReals
+    BaseloadOperatingLevelForPeriod : Size=1, Index=BaseloadOperatingLevelForPeriod_index
+        Key                    : Lower : Value      : Upper : Fixed : Stale : Domain
+        ('S-Geothermal', 2020) :  None : 0.96858075 :  None : False : False :  Reals
+
+  Objectives:
+    Minimize_System_Cost : Size=1, Index=None, Active=True
+        Key  : Active : Value
+        None :   True : 18482701.9749
+
+  Constraints:
+    Max_Build_Potential : Size=2
+        Key                      : Lower : Body : Upper
+        ('S-Central_PV-1', 2020) :  None :  1.0 :   2.0
+          ('S-Geothermal', 2020) :  None :  1.0 :  10.0
+    Enforce_Dispatch_Baseload_Flat : Size=2
+        Key                 : Lower : Body : Upper
+        ('S-Geothermal', 1) :   0.0 :  0.0 :   0.0
+        ('S-Geothermal', 2) :   0.0 :  0.0 :   0.0
+    Enforce_Dispatch_Upper_Limit : Size=6
+        Key                   : Lower : Body        : Upper
+        ('S-Central_PV-1', 1) :  None :         0.0 :   0.0
+        ('S-Central_PV-1', 2) :  None :         0.0 :   0.0
+          ('S-Geothermal', 1) :  None :         0.0 :   0.0
+          ('S-Geothermal', 2) :  None :         0.0 :   0.0
+               ('S-NG_CC', 1) :  None :         0.0 :   0.0
+               ('S-NG_CC', 2) :  None : -6.43361925 :   0.0
+    ProjFuelUseRate_Calculate : Size=2
+        Key            : Lower : Body : Upper
+        ('S-NG_CC', 1) :   0.0 :  0.0 :   0.0
+        ('S-NG_CC', 2) :   0.0 :  0.0 :   0.0
+    Enforce_Fuel_Availability : Size=0
+        Key : Lower : Body : Upper
+    Energy_Balance : Size=2
+        Key          : Lower : Body : Upper
+        ('South', 1) :   0.0 :  0.0 :   0.0
+        ('South', 2) :   0.0 :  0.0 :   0.0

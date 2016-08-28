@@ -1,2 +1,0 @@
-load_zone	timestamp	LZ_NetDispatch	lz_demand_mw	DumpPower	distribution_losses
-South	2010011512	8.424	8	0.0	0.424
