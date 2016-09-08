@@ -1,13 +1,17 @@
 # Below is a list of people and organizations that have contributed source
-# code to this implementation of the SWITCH model.  Names should be added 
-# to the list like this, in alphabetical order:
-#
-#   Name/Organization
+# code to this implementation of the SWITCH model.  Names of individuals and
+# organizations should be added to this list in alphabetical order. Relative
+# contributions of individuals can be tracked via git history.
 
 Matthias Fripp
 Josiah Johnston
+Benjamin Maluenda
+Ana Mileva
 Mark Seaborn
 
+# Organizations
+
+Google, Inc.
+Pontificia Universidad Catolica de Chile
 University of California Berkeley
 University of Hawaii Manoa
-Google, Inc.
