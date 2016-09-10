@@ -8,14 +8,6 @@ modules to include.
 See INSTALL for installation instructions.
 
 To generate documentation, go to the doc folder and run ./make_doc.sh
-This will build html documenation files from python doc strings which
-will includes descriptions of each module, their intentions, model
-components they define, and what input files they expect. This
-documentation is not well-formatted or pretty, but it will do until we
-migrate to Sphinx and invest more effort into writing higher-level
-documentation and tutorials. We don't include the documentation in the
-git repository because pydoc creates links specific to the machine that
-it is generated on. This means the generated documentation is not portable.
 
 TESTING
 To test the entire codebase, run this command from the root directory:
