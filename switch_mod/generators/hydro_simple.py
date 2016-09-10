@@ -33,7 +33,7 @@ SYNOPSIS
 >>> model = define_AbstractModel(
 ...     'timescales', 'financials', 'load_zones', 'fuels',
 ...     'gen_tech', 'project.build', 'project.dispatch', 'project.no_commit',
-...     'hydro_simple')
+...     'generators.hydro_simple')
 >>> instance = model.load_inputs(inputs_dir='test_dat')
 
 """
