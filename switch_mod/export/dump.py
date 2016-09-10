@@ -33,7 +33,6 @@ def save_results(model, instance, outdir):
     or instance.pprint(), depending on the value of dump-level. Default is pprint().
 
     """
-    print instance.options.dump_level
     stdout_copy = sys.stdout  # make a copy of current sys.stdout to return to eventually
     out_path = os.path.join(outdir, "model_dump.txt")
     out_file = open(out_path, "w", buffering=1)
