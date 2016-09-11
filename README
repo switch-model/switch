@@ -7,7 +7,10 @@ modules to include.
 
 See INSTALL for installation instructions.
 
-To generate documentation, go to the doc folder and run ./make_doc.sh
+To generate documentation, go to the doc folder and run ./make_doc.sh.
+This will build html documentation files from python doc strings which
+will include descriptions of each module, their intentions, model
+components they define, and what input files they expect.
 
 TESTING
 To test the entire codebase, run this command from the root directory:
