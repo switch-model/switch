@@ -7,14 +7,10 @@ modules to include.
 
 See INSTALL for installation instructions.
 
-The doc folder contains auto-generated documentation from the python doc
-strings. This should include descriptions of each module, their
-intentions, model components they define, and what input files they
-expect. To refresh the documentation, go to the folder and run
-./make_doc.sh This documentation is not well-formatted or pretty, but it
-will do until we migrate to Sphinx and invest more effort into writing
-higher-level documentation and tutorials.
-
+To generate documentation, go to the doc folder and run ./make_doc.sh.
+This will build html documentation files from python doc strings which
+will include descriptions of each module, their intentions, model
+components they define, and what input files they expect.
 
 TESTING
 To test the entire codebase, run this command from the root directory:
