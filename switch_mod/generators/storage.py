@@ -308,7 +308,7 @@ def load_inputs(mod, switch_data, inputs_dir):
         param=(mod.proj_storage_energy_overnight_cost))
 
 
-def save_results(model, instance, outdir):
+def post_solve(instance, outdir):
     """
     Export storage build information to storage_builds.txt, and storage
     dispatch info to storage_dispatch.txt

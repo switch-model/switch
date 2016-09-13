@@ -87,9 +87,6 @@ def create_model(module_list, args=sys.argv[1:]):
     model.load_inputs = types.MethodType(load_inputs, model)
     model.pre_solve = types.MethodType(pre_solve, model)
     model.post_solve = types.MethodType(post_solve, model)
-    # note: the next function is redundant with solve and post_solve
-    # it is here (temporarily) for backward compatibility
-    model.save_results = types.MethodType(save_results, model)
 
     # Define the model components
     _define_components(model, model.module_list)
@@ -213,56 +210,25 @@ def pre_solve(model, outputs_dir=None):
 
 def post_solve(model, outputs_dir=None):
     """
-    Call post-solve function (if present) in all modules used to compose this model.
+    Call post-solve function (if present) in all modules used to compose this model. 
     This function can be used to report or save results from the solved model.
     """
     if outputs_dir is None:
         outputs_dir = getattr(model.options, "outputs_dir", "outputs")
     if not os.path.exists(outputs_dir):
         os.makedirs(outputs_dir)
+        
+    # TODO: implement a check to call post solve functions only if
+    # solver termination condition was not infeasible or unknown
+    # (the latter occurs when there are problems with licenses, etc)
+    
+    # replace the old _save_results function
     for module in get_module_list(model):
         if hasattr(module, 'post_solve'):
             module.post_solve(model, outputs_dir)
     _save_generic_results(model, outputs_dir)
+    _save_total_cost_value(model, outputs_dir)
 
-
-def save_results(model, results, instance, outdir):
-    """
-
-    Export results in a modular fashion.
-
-    """
-    # Ensure the output directory exists. Don't worry about race
-    # conditions.
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
-    
-    # Try to load the results and export.
-    success = True
-    
-    if results.solver.termination_condition == pyomo.opt.TerminationCondition.infeasible:
-        success = False
-        if interactive_session:
-            print ("ERROR: Problem is infeasible.") # this could be turned into an exception
-    
-    if hasattr(instance, 'solutions'):
-        instance.solutions.load_from(results)
-    else:
-        # support for old versions of Pyomo (with undocumented True/False behavior)
-        # (we should drop this and require everyone to use a suitably up-to-date pyomo)
-        if not instance.load(results):
-            success = False
-            if interactive_session:
-                print ("ERROR: unable to load solver results (may be caused by infeasibililty).")
-
-    if success:
-        if interactive_session:
-            print "Model solved successfully."
-        _save_results(model, instance, outdir, model.module_list)
-        _save_generic_results(instance, outdir)
-        _save_total_cost_value(instance, outdir)
-
-    return success
 
 def min_data_check(model, *mandatory_model_components):
     """
@@ -549,20 +515,7 @@ def _load_inputs(model, inputs_dir, module_list, data):
             _load_inputs(model, inputs_dir, module.core_modules, data)
 
 
-def _save_results(model, instance, outdir, module_list):
-    """
-    A private function to allow recurve calling of saving results from
-    modules or packages.
-    """
-    for m in module_list:
-        module = sys.modules[m]
-        if hasattr(module, 'save_results'):
-            module.save_results(model, instance, outdir)
-        if hasattr(module, 'core_modules'):
-            _save_results(model, instance, outdir, module.core_modules)
-
-
-def _save_generic_results(instance, outdir, deterministic_order=False):
+def _save_generic_results(instance, outdir):
     for var in instance.component_objects():
         if not isinstance(var, Var):
             continue
@@ -578,7 +531,7 @@ def _save_generic_results(instance, outdir, deterministic_order=False):
             # Results are saved in a random order by default for
             # increased speed. Sorting is available if wanted.
             for key, obj in (sorted(var.items())
-                            if deterministic_order
+                            if instance.options.deterministic_order
                             else var.items()):
                 writer.writerow(tuple(make_iterable(key)) + (obj.value,))
 

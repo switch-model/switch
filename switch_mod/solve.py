@@ -49,13 +49,13 @@ def main(args=None, return_model=False, return_instance=False):
     iterate_modules = get_iteration_list(model)
     
     if model.options.verbose:
-        print "\n\n======================================================================="
+        print "\n======================================================================="
         print "arguments:"
         print " ".join(k+"="+repr(v) for k, v in model.options.__dict__.items() if v)
         print "modules:", modules
         if iterate_modules:
             print "iterate_modules", iterate_modules
-        print "======================================================================="
+        print "=======================================================================\n"
 
     # create an instance
     instance = model.load_inputs()
@@ -84,7 +84,9 @@ def main(args=None, return_model=False, return_instance=False):
         iterate(instance, iterate_modules)
     else:
         results = solve(instance)
-        instance.save_results(results, instance, instance.options.outputs_dir)
+        if instance.options.verbose:
+            print ("Optimization termination condition was %s." 
+                    % results.solver.termination_condition)
     
     # report/save results
     instance.post_solve()
@@ -262,6 +264,10 @@ def define_arguments(argparser):
     #     help='Directory containing input files (default is "inputs")')
     argparser.add_argument("--outputs-dir", default="outputs",
         help='Directory to write output files (default is "outputs")')
+    argparser.add_argument(
+        "--sorted-output", default=False, action='store_true', 
+        dest='deterministic_order',
+        help='Write generic variable result values in sorted order')
 
     # General purpose arguments
     argparser.add_argument(
