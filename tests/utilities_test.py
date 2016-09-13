@@ -4,7 +4,9 @@
 import unittest
 
 import switch_mod.utilities as utilities
-import tempfile, os, shutil
+import os
+import shutil
+import tempfile
 
 
 class UtilitiesTest(unittest.TestCase):
@@ -22,7 +24,7 @@ class UtilitiesTest(unittest.TestCase):
         (model, instance) = switch_mod.solve.main(
             args=["--inputs-dir", "test_dat"], return_model=True, return_instance=True
         )
-        temp_dir = tempfile.mkdtemp()
+        temp_dir = tempfile.mkdtemp(prefix="switch_test_")
         try:
             dat_path = os.path.join(temp_dir, "complete_inputs.dat")
             utilities.save_inputs_as_dat(model, instance, save_path=dat_path)
