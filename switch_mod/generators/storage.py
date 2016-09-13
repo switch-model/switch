@@ -89,7 +89,8 @@ def define_components(mod):
     proj_store_to_release_ratio)
     
     StateOfChargeMWh[(proj, t) in STORAGE_PROJ_DISPATCH_POINTS] is a variable
-    for tracking state of charge.
+    for tracking state of charge. This value stores the state of charge at
+    the end of each timepoint for each storage project.
     
     Track_State_Of_Charge[(proj, t) in STORAGE_PROJ_DISPATCH_POINTS] constrains
     StateOfChargeMWh based on the StateOfChargeMWh in the previous timepoint,
@@ -135,8 +136,8 @@ def define_components(mod):
 
     def proj_storage_energy_overnight_cost_default_rule(m, proj, bld_yr):
         g = m.proj_gen_tech[proj]
-        if (g, bld_yr) in m.g_overnight_cost:
-            return(m.g_overnight_cost[g, bld_yr] *
+        if (g, bld_yr) in m.g_storage_energy_overnight_cost:
+            return(m.g_storage_energy_overnight_cost[g, bld_yr] *
                    m.lz_cost_multipliers[m.proj_load_zone[proj]])
         else:
             raise ValueError(
@@ -296,15 +297,15 @@ def load_inputs(mod, switch_data, inputs_dir):
         optional=True,
         filename=os.path.join(inputs_dir, 'project_info.tab'),
         auto_select=True,
-        optional_params=['proj_storage_energy_overnight_cost'],
-        param=(mod.proj_storage_energy_overnight_cost))
+        optional_params=['proj_storage_efficiency',
+                         'proj_store_to_release_ratio'],
+        param=(mod.proj_storage_efficiency, mod.proj_store_to_release_ratio))
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, 'proj_build_costs.tab'),
         auto_select=True,
-        optional_params=['proj_storage_efficiency',
-                         'proj_store_to_release_ratio'],
-        param=(mod.proj_storage_efficiency, mod.proj_store_to_release_ratio))
+        optional_params=['proj_storage_energy_overnight_cost'],
+        param=(mod.proj_storage_energy_overnight_cost))
 
 
 def save_results(model, instance, outdir):
