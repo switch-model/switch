@@ -148,6 +148,9 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
     ...     'switch_mod', 'project.no_commit', 'fuel_cost')
     >>> instance = model.load_inputs(inputs_dir='test_dat')
     >>> save_inputs_as_dat(model, instance, save_path="test_dat/complete_inputs.dat")
+    >>> # Clean up...
+    >>> import os
+    >>> os.remove("test_dat/complete_inputs.dat")
     
 
     """

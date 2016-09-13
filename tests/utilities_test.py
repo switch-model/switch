@@ -1,10 +1,12 @@
 # Copyright 2015 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2, which is in the LICENSE file.
 
+import os
+import shutil
+import tempfile
 import unittest
 
 import switch_mod.utilities as utilities
-
 
 class UtilitiesTest(unittest.TestCase):
 
@@ -21,13 +23,15 @@ class UtilitiesTest(unittest.TestCase):
         (model, instance) = switch_mod.solve.main(
             args=["--inputs-dir", "test_dat"], return_model=True, return_instance=True
         )
-        # To do: create a temporary file name for dat_path and delete it
-        # when the test is complete.
-        dat_path = "test_dat/complete_inputs.dat"
-        utilities.save_inputs_as_dat(model, instance, save_path=dat_path)
-        reloaded_data = DataPortal(model=model)
-        reloaded_data.load(filename=dat_path)
-        compare(reloaded_data.data(), instance.DataPortal.data())
+        temp_dir = tempfile.mkdtemp(prefix="switch_test_")
+        try:
+            dat_path = os.path.join(temp_dir, "complete_inputs.dat")
+            utilities.save_inputs_as_dat(model, instance, save_path=dat_path)
+            reloaded_data = DataPortal(model=model)
+            reloaded_data.load(filename=dat_path)
+            compare(reloaded_data.data(), instance.DataPortal.data())
+        finally:
+            shutil.rmtree(temp_dir)
     
 
 if __name__ == '__main__':
