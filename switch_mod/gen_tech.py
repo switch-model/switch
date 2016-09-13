@@ -11,8 +11,6 @@ SYNOPSIS
 ...     'timescales', 'financials', 'load_zones', 'fuels', 'gen_tech')
 >>> instance = model.load_inputs(inputs_dir='test_dat')
 
-#>>> instance.pprint()
-
 """
 
 import os
@@ -28,16 +26,15 @@ def define_components(mod):
     generation technology are optional and provide default values that
     individual projects may override.
 
-    GENERATION_TECHNOLOGIES is a set of all generation and storage
-    technologies. By default, certain attributes of a generation
-    technology such as heat rates and maximum lifetime remain constant
-    over time, while cost attributes may change over time. If you expect
-    those constant attributes of generation technologies to actually
-    change in the future (such as improved heat rates or reduced outage
-    rates), you could model those improvements as additional
-    technologies, or you could edit the model to index those attribute
-    by year. Members of this set are abbreviated as gen and g in
-    parameter names and indexes.
+    GENERATION_TECHNOLOGIES is the set of all generation technologies.
+    By default, certain attributes of a generation technology such as
+    heat rates and maximum lifetime remain constant over time, while
+    cost attributes may change over time. If you expect those constant
+    attributes of generation technologies to actually change in the
+    future (such as improved heat rates or reduced outage rates), you
+    could model those improvements as additional technologies, or you
+    could edit the model to index those attribute by year. Members of
+    this set are abbreviated as gen and g in parameter names and indexes.
 
     g_dbid[g] is an optional parameter that stores an external
     database id for each generation technology. This is used for
@@ -154,33 +151,6 @@ def define_components(mod):
     custom logic to handle this, it's better to be clear and exlicit
     rather than relying on implicit encoding.
 
-    GEN_TECH_STORAGE is a subset of GENERATION_TECHNOLOGIES that can
-    store electricity for later discharge. GEN_TECH_STORAGE consume
-    electricity and possibly additional energy sources such as upstream
-    water in the case of pumped hydro. If a technology is storage, then
-    SWITCH preprocessing will augment the ENERGY_SOURCES[g] list to
-    include electricity. If Renewable Portfolio Standards are enabled,
-    SWITCH preprocessing will separate electricity into RPS-eligible and
-    non-RPS-eligible categories. The following two parameters are only
-    defined for storage technologies.
-
-    g_storage_efficiency[g] describes the round trip efficiency of a
-    storage technology. A storage technology that is 75 percent
-    efficient would have a storage_efficiency of .75. If 1 MWh was
-    stored in such a storage project, 750 kWh would be available for
-    extraction later. Internal leakage or energy dissipation of storage
-    technologies is assumed to be neglible, which is consistent with
-    short-duration storage technologies currently on the market which
-    tend to consume stored power within 1 day. If a given storage
-    technology has significant internal discharge when it stores power
-    for extended time perios, then those behaviors will need to be
-    modeled in more detail.
-
-    g_store_to_release_ratio[g] describes the maximum rate that energy
-    can be stored, expressed as a ratio of discharge power capacity. If
-    a storage project has 1 MW of dischage capacity and a max_store_rate
-    of 1.2, then it can consume up to 1.2 MW of power while charging.
-
     GEN_TECH_CCS is a subset of generation technologies that
     use Carbon Capture and Sequestration (CCS). The model assumes
     that all CCS technologies combust fuels such as coal, natural gas or
@@ -241,18 +211,6 @@ def define_components(mod):
     --- DELAYED IMPLEMENATION ---
 
     The following parameters are not implemented at this time.
-
-    g_energy_capacity_overnight_cost[g, y] is the overnight capital cost
-    per MWh of energy capacity for building the given storage technology
-    installed in the given year. This is only defined for storage
-    technologies. Note that this describes the energy component and the
-    overnight_cost describes the power component.
-
-    other storage cost components: Separate storage power cap from
-    release power cap. decided whether to implement compound projects
-    that link storage and non-storage components that are each a project
-    or hybrid augmented projects that are multi-energy soure with
-    storage and non-storage.
 
     g_construction_schedule[g,y] Describes which fraction of overnight
     cost of capital is spent in each year of construction from year 1
@@ -319,12 +277,6 @@ def define_components(mod):
     mod.G_FUELS = Set(mod.GEN_TECH_WITH_FUEL, initialize=lambda m, g:
         m.G_MULTI_FUELS[g] if m.g_energy_source[g] == "multiple" else [m.g_energy_source[g]])
 
-    mod.GEN_TECH_STORAGE = Set(within=mod.GENERATION_TECHNOLOGIES)
-    mod.g_storage_efficiency = Param(
-        mod.GEN_TECH_STORAGE, within=PercentFraction)
-    mod.g_store_to_release_ratio = Param(
-        mod.GEN_TECH_STORAGE, within=PositiveReals)
-
     mod.GEN_TECH_CCS = Set(within=mod.GENERATION_TECHNOLOGIES)
     mod.g_ccs_capture_efficiency = Param(
         mod.GEN_TECH_CCS, within=PercentFraction)
@@ -368,7 +320,9 @@ def load_inputs(mod, switch_data, inputs_dir):
     Import generator data. The following files are expected in the input
     directory. You may drop optional columns, or put a dot . in rows
     for which you do not wish to specify data. Some other modules may look
-    for additional columns in generator_info.tab.
+    for additional columns in generator_info.tab. See documentation in
+    define_components to see what units are expected for each variable 
+    (eg. g_max_age is in units of years).
 
     generator_info.tab has a mix of mandatory and optional columns. The
     mandatory columns are:
@@ -380,33 +334,27 @@ def load_inputs(mod, switch_data, inputs_dir):
     The optional columns are:
         g_dbid, g_scheduled_outage_rate, g_forced_outage_rate,
         g_min_build_capacity, g_full_load_heat_rate, g_unit_size,
-        g_ccs_capture_efficiency, g_ccs_energy_load,
-        g_storage_efficiency, g_store_to_release_ratio
+        g_ccs_capture_efficiency, g_ccs_energy_load
 
-    Note: The model does not yet support CCS or storage. Those columns
-    exist primarily as place-holders for now. CCS is mostly written, but
-    untested. Storage is not written.
+    Note: The model does not fully support CCS; it is mostly written,
+    but untested.
 
-    gen_new_build_costs is optional to support production cost
-    simulations where all projects were built before the start of the
-    first period. In that context, all existing projects could
-    reasonably have costs specified in proj_build_costs.tab
+    gen_new_build_costs provides default capital costs for new projects.
+    These costs can optionally be overridden for individual projects via
+    proj_build_costs.tab. This file is optional, but at the end of the
+    day, each project needs to have theses costs defined somewhere.
 
     gen_new_build_costs.tab
         generation_technology, investment_period,
         g_overnight_cost, g_fixed_o_m
 
     """
-    # Include select in each load() function so that it will check out
-    # column names, be indifferent to column order, and throw an error
-    # message if some columns are not found.
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'generator_info.tab'),
         auto_select=True,
         optional_params=[
             'g_unit_size', 'g_scheduled_outage_rate', 'g_forced_outage_rate',
-            'g_ccs_capture_efficiency', 'g_ccs_energy_load',
-            'g_storage_efficiency', 'g_store_to_release_ratio'],
+            'g_ccs_capture_efficiency', 'g_ccs_energy_load'],
         index=mod.GENERATION_TECHNOLOGIES,
         param=(
             mod.g_dbid, mod.g_max_age, mod.g_min_build_capacity,
@@ -416,10 +364,9 @@ def load_inputs(mod, switch_data, inputs_dir):
             mod.g_competes_for_space, mod.g_variable_o_m,
             mod.g_energy_source, mod.g_full_load_heat_rate,
             mod.g_unit_size, mod.g_ccs_capture_efficiency,
-            mod.g_ccs_energy_load, mod.g_storage_efficiency,
-            mod.g_store_to_release_ratio))
-    # Construct sets of storage and CCS technologies as well as
-    # technologies with discrete unit sizes.
+            mod.g_ccs_energy_load))
+    # Construct sets of CCS technologies as well as technologies with
+    # discrete unit sizes.
     if 'g_unit_size' in switch_data.data():
         switch_data.data()['GEN_TECH_WITH_UNIT_SIZES'] = {
             None: switch_data.data(name='g_unit_size').keys()
@@ -427,10 +374,6 @@ def load_inputs(mod, switch_data, inputs_dir):
     if 'g_ccs_capture_efficiency' in switch_data.data():
         switch_data.data()['GEN_TECH_CCS'] = {
             None: switch_data.data(name='g_ccs_capture_efficiency').keys()
-        }
-    if 'g_storage_efficiency' in switch_data.data():
-        switch_data.data()['GEN_TECH_STORAGE'] = {
-            None: switch_data.data(name='g_storage_efficiency').keys()
         }
     switch_data.load_aug(
         optional=True,
