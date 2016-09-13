@@ -1,13 +1,12 @@
 # Copyright 2015 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2, which is in the LICENSE file.
 
-import unittest
-
-import switch_mod.utilities as utilities
 import os
 import shutil
 import tempfile
+import unittest
 
+import switch_mod.utilities as utilities
 
 class UtilitiesTest(unittest.TestCase):
 
