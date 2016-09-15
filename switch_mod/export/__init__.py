@@ -19,9 +19,10 @@ dependency on load_zones.
 
 """
 
+import os
 import csv
 import itertools
-from pyomo.environ import value
+from pyomo.environ import value, Var
 
 csv.register_dialect(
     "ampl-tab",
@@ -52,3 +53,54 @@ def write_table(instance, *indexes, **kwargs):
             tuple(value(v) for v in values(instance, *x))
             for x in idx
         )
+
+
+def make_iterable(item):
+    """Return an iterable for the one or more items passed."""
+    if isinstance(item, basestring):
+        i = iter([item])
+    else:
+        try:
+            # check if it's iterable
+            i = iter(item)
+        except TypeError:
+            i = iter([item])
+    return i
+
+
+def _save_generic_results(instance, outdir, deterministic_order=False):
+    for var in instance.component_objects():
+        if not isinstance(var, Var):
+            continue
+
+        index_name = var.index_set().name
+        output_file = os.path.join(outdir, '%s.tab' % var.name)
+        with open(output_file, 'wb') as fh:
+            writer = csv.writer(fh, dialect='ampl-tab')
+            # Write column headings
+            writer.writerow(['%s_%d' % (index_name, i + 1)
+                             for i in xrange(var.index_set().dimen)] +
+                            [var.name])
+            # Results are saved in a random order by default for
+            # increased speed. Sorting is available if wanted.
+            for key, obj in (sorted(var.items())
+                            if deterministic_order
+                            else var.items()):
+                writer.writerow(tuple(make_iterable(key)) + (obj.value,))
+
+
+def _save_total_cost_value(instance, outdir):
+    values = instance.Minimize_System_Cost.values()
+    assert len(values) == 1
+    total_cost = values[0].expr()
+    with open(os.path.join(outdir, 'total_cost.txt'), 'w') as fh:
+        fh.write('%s\n' % total_cost)
+
+
+def post_solve(instance, outdir):
+    """
+    Minimum output generation for all model runs.
+    
+    """
+    _save_generic_results(instance, outdir)
+    _save_total_cost_value(instance, outdir)

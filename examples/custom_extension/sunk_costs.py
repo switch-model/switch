@@ -9,8 +9,10 @@ mimics the convention of switch modules that can include the following
 functions:
 
 define_components(model)
-load_data(model, data_portal, inputs_dir)
-save_results(model, instance, outdir)
+define_dynamic_components(model)
+load_inputs(model, data_portal, inputs_dir)
+pre_solve(instance, outdir)
+post_solve(instance, outdir)
 
 In this example, I have only implemented define_components() which adds
 a administration_fees parameter to the model that specifies a fixed

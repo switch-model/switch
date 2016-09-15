@@ -264,10 +264,6 @@ def define_arguments(argparser):
     #     help='Directory containing input files (default is "inputs")')
     argparser.add_argument("--outputs-dir", default="outputs",
         help='Directory to write output files (default is "outputs")')
-    argparser.add_argument(
-        "--sorted-output", default=False, action='store_true', 
-        dest='deterministic_order',
-        help='Write generic variable result values in sorted order')
 
     # General purpose arguments
     argparser.add_argument(

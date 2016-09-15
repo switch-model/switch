@@ -10,7 +10,7 @@ This module has prerequisites of timescales and load_zones.
 """
 import os
 
-def save_results(model, instance, outdir):
+def post_solve(instance, outdir):
     """
     Export results to standard files.
 

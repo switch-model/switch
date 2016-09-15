@@ -27,7 +27,7 @@ def _print_output(instance):
         raise RuntimeError("Invalid value for command line param --dump-level") 
 
 
-def save_results(model, instance, outdir):
+def post_solve(instance, outdir):
     """
     Dump the model & solution to model_dump.txt using either instance.display()
     or instance.pprint(), depending on the value of dump-level. Default is pprint().
