@@ -34,7 +34,7 @@ from pyomo.environ import *
 print "loading model..."
 
 try:
-    module_fh = open(os.path.join(inputs_dir, 'modules'), 'r')
+    module_fh = open(os.path.join(inputs_dir, 'modules.txt'), 'r')
 except IOError, exc:
     sys.exit('Failed to open input file: {}'.format(exc))
 module_list = [line.rstrip('\n') for line in module_fh]
