@@ -52,7 +52,7 @@ def ph_rhosetter_callback(ph, scenario_tree, scenario):
     # parts because I used two sets of parenthesis. I don't care about the
     # second parenthesis that returns the indexed bits, just the larger part
 
-    pattern = "(?<=[^a-zA-Z])([a-zA-Z][a-zA-Z_0-9]*(\[[^]]*\])?)"
+    pattern = "(?<=[^a-zA-Z])([a-zA-Z][a-zA-Z_0-9]+(\[[^]]*\])?)"
     component_by_alias = {}
     variable_list = findall(pattern, objective_as_str)
     for (cname, index_as_str) in variable_list:
