@@ -340,12 +340,9 @@ def load_inputs(mod, switch_data, inputs_dir):
                mod.proj_forced_outage_rate, mod.proj_scheduled_outage_rate))
 
 
-def save_results(model, instance, outdir):
+def post_solve(instance, outdir):
     """
-    Export results to standard files.
-
-    This initial placeholder version is integrating snippets of
-    some of Matthias's code into the main codebase.
+    Default export of project dispatch per timepoint in tabular format.
 
     """
     import switch_mod.export as export

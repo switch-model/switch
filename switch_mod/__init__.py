@@ -41,4 +41,5 @@ core_modules = [
     'switch_mod.load_zones',
     'switch_mod.fuels',
     'switch_mod.gen_tech',
-    'switch_mod.project']
+    'switch_mod.project',
+    'switch_mod.export']

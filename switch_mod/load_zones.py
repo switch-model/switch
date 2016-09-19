@@ -163,12 +163,9 @@ def load_inputs(mod, switch_data, inputs_dir):
         param=(mod.lz_demand_mw))
 
 
-def save_results(model, instance, outdir):
+def post_solve(instance, outdir):
     """
-    Export results to standard files.
-
-    This initial placeholder version is integrating snippets of
-    some of Matthias's code into the main codebase.
+    Default export of energy balance per node and timepoint in tabular format.
 
     """
     import switch_mod.export as export

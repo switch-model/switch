@@ -5,7 +5,6 @@
 Utility functions for SWITCH-pyomo.
 """
 
-import csv
 import os
 import types
 import importlib
@@ -14,7 +13,6 @@ import argparse
 import __main__ as main
 from pyomo.environ import *
 import pyomo.opt
-import switch_mod.export # For ampl-tab dialect
 import datetime
 
 # This stores full names of modules that are dynamically loaded to
@@ -37,7 +35,7 @@ def create_model(module_list, args=sys.argv[1:]):
     Construct a Pyomo AbstractModel using the Switch modules or packages
     in the given list and return the model. The following utility methods
     are attached to the model as class methods to simplify their use:
-    min_data_check(), load_inputs(), save_results().
+    min_data_check(), load_inputs(), pre_solve(), post_solve().
 
     This is implemented as calling define_components() for each module
     that has that function defined, then calling
@@ -87,9 +85,6 @@ def create_model(module_list, args=sys.argv[1:]):
     model.load_inputs = types.MethodType(load_inputs, model)
     model.pre_solve = types.MethodType(pre_solve, model)
     model.post_solve = types.MethodType(post_solve, model)
-    # note: the next function is redundant with solve and post_solve
-    # it is here (temporarily) for backward compatibility
-    model.save_results = types.MethodType(save_results, model)
 
     # Define the model components
     _define_components(model, model.module_list)
@@ -202,67 +197,33 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
                     "Error! Component type {} not recognized for model element '{}'.".
                     format(comp_class, component_name))
 
-def pre_solve(model, outputs_dir=None):
+def pre_solve(instance, outputs_dir=None):
     """
     Call pre-solve function (if present) in all modules used to compose this model.
     This function can be used to adjust the instance after it is created and before it is solved.
     """
-    for module in get_module_list(model):
+    for module in get_module_list(instance):
         if hasattr(module, 'pre_solve'):
-            module.pre_solve(model)
+            module.pre_solve(instance)
 
-def post_solve(model, outputs_dir=None):
+def post_solve(instance, outputs_dir=None):
     """
-    Call post-solve function (if present) in all modules used to compose this model.
+    Call post-solve function (if present) in all modules used to compose this model. 
     This function can be used to report or save results from the solved model.
     """
     if outputs_dir is None:
-        outputs_dir = getattr(model.options, "outputs_dir", "outputs")
+        outputs_dir = getattr(instance.options, "outputs_dir", "outputs")
     if not os.path.exists(outputs_dir):
         os.makedirs(outputs_dir)
-    for module in get_module_list(model):
+        
+    # TODO: implement a check to call post solve functions only if
+    # solver termination condition is not 'infeasible' or 'unknown'
+    # (the latter may occur when there are problems with licenses, etc)
+    
+    for module in get_module_list(instance):
         if hasattr(module, 'post_solve'):
-            module.post_solve(model, outputs_dir)
-    _save_generic_results(model, outputs_dir)
+            module.post_solve(instance, outputs_dir)
 
-
-def save_results(model, results, instance, outdir):
-    """
-
-    Export results in a modular fashion.
-
-    """
-    # Ensure the output directory exists. Don't worry about race
-    # conditions.
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
-    
-    # Try to load the results and export.
-    success = True
-    
-    if results.solver.termination_condition == pyomo.opt.TerminationCondition.infeasible:
-        success = False
-        if interactive_session:
-            print ("ERROR: Problem is infeasible.") # this could be turned into an exception
-    
-    if hasattr(instance, 'solutions'):
-        instance.solutions.load_from(results)
-    else:
-        # support for old versions of Pyomo (with undocumented True/False behavior)
-        # (we should drop this and require everyone to use a suitably up-to-date pyomo)
-        if not instance.load(results):
-            success = False
-            if interactive_session:
-                print ("ERROR: unable to load solver results (may be caused by infeasibililty).")
-
-    if success:
-        if interactive_session:
-            print "Model solved successfully."
-        _save_results(model, instance, outdir, model.module_list)
-        _save_generic_results(instance, outdir)
-        _save_total_cost_value(instance, outdir)
-
-    return success
 
 def min_data_check(model, *mandatory_model_components):
     """
@@ -549,48 +510,6 @@ def _load_inputs(model, inputs_dir, module_list, data):
             _load_inputs(model, inputs_dir, module.core_modules, data)
 
 
-def _save_results(model, instance, outdir, module_list):
-    """
-    A private function to allow recurve calling of saving results from
-    modules or packages.
-    """
-    for m in module_list:
-        module = sys.modules[m]
-        if hasattr(module, 'save_results'):
-            module.save_results(model, instance, outdir)
-        if hasattr(module, 'core_modules'):
-            _save_results(model, instance, outdir, module.core_modules)
-
-
-def _save_generic_results(instance, outdir, deterministic_order=False):
-    for var in instance.component_objects():
-        if not isinstance(var, Var):
-            continue
-
-        index_name = var.index_set().name
-        output_file = os.path.join(outdir, '%s.tab' % var.name)
-        with open(output_file, 'wb') as fh:
-            writer = csv.writer(fh, dialect='ampl-tab')
-            # Write column headings
-            writer.writerow(['%s_%d' % (index_name, i + 1)
-                             for i in xrange(var.index_set().dimen)] +
-                            [var.name])
-            # Results are saved in a random order by default for
-            # increased speed. Sorting is available if wanted.
-            for key, obj in (sorted(var.items())
-                            if deterministic_order
-                            else var.items()):
-                writer.writerow(tuple(make_iterable(key)) + (obj.value,))
-
-
-def _save_total_cost_value(instance, outdir):
-    values = instance.Minimize_System_Cost.values()
-    assert len(values) == 1
-    total_cost = values[0].expr()
-    with open(os.path.join(outdir, 'total_cost.txt'), 'w') as fh:
-        fh.write('%s\n' % total_cost)
-
-
 class InputError(Exception):
     """Exception raised for errors in the input.
 
@@ -754,18 +673,6 @@ def approx_equal(a, b, tolerance=0.01):
 
 def default_solver():
     return pyomo.opt.SolverFactory('glpk')
-
-def make_iterable(item):
-    """Return an iterable for the one or more items passed."""
-    if isinstance(item, basestring):
-        i = iter([item])
-    else:
-        try:
-            # check if it's iterable
-            i = iter(item)
-        except TypeError:
-            i = iter([item])
-    return i
 
 
 class Logging:
