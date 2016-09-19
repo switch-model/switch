@@ -217,10 +217,9 @@ def post_solve(instance, outputs_dir=None):
         os.makedirs(outputs_dir)
         
     # TODO: implement a check to call post solve functions only if
-    # solver termination condition was not infeasible or unknown
-    # (the latter occurs when there are problems with licenses, etc)
+    # solver termination condition is not 'infeasible' or 'unknown'
+    # (the latter may occur when there are problems with licenses, etc)
     
-    # replace the old _save_results function
     for module in get_module_list(instance):
         if hasattr(module, 'post_solve'):
             module.post_solve(instance, outputs_dir)
