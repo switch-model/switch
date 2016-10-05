@@ -127,8 +127,7 @@ def load_inputs(model, inputs_dir=None, attachDataPortal=True):
     return instance
 
 
-def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
-                       exclude=[], deterministic_order=False):
+def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat", exclude=[], sorted_output=False):
     """
     Save input data to a .dat file for use with PySP or other command line
     tools that have not been fully integrated with DataPortal.
@@ -174,7 +173,7 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
                     else:
                         f.write("\n")
                         for key,value in (sorted(component_data.iteritems()) 
-                                          if deterministic_order 
+                                          if sorted_output
                                           else component_data.iteritems()):
                             f.write(" " + 
                                     ' '.join(map(str, key)) + " " +
