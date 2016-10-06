@@ -11,6 +11,7 @@ from switch_mod.utilities import create_model, _ArgumentParser, Logging
 
 def main(args=None, return_model=False, return_instance=False):
 
+    start_time = time.time()
     if args is None:
         # combine default arguments read from options.txt file with 
         # additional arguments specified on the command line
@@ -49,17 +50,22 @@ def main(args=None, return_model=False, return_instance=False):
     iterate_modules = get_iteration_list(model)
     
     if model.options.verbose:
+        creation_time = time.time()
         print "\n======================================================================="
-        print "arguments:"
-        print " ".join(k+"="+repr(v) for k, v in model.options.__dict__.items() if v)
-        print "modules:", modules
+        print "SWITCH model successfully created in %.2f s.\nArguments:" % (creation_time - start_time)
+        print ", ".join(k+"="+repr(v) for k, v in model.options.__dict__.items() if v)
+        print "Modules:\n"+", ".join(m for m in modules)
         if iterate_modules:
-            print "iterate_modules", iterate_modules
+            print "Iteration modules:", iterate_modules
         print "=======================================================================\n"
+        print "Loading inputs..."
 
     # create an instance
     instance = model.load_inputs()
     instance.pre_solve()
+    if model.options.verbose:
+        instantiation_time = time.time()
+        print "Inputs successfully loaded in %.2f s." % (instantiation_time - creation_time)
     
     # return the instance as-is if requested
     if return_instance:
@@ -85,11 +91,17 @@ def main(args=None, return_model=False, return_instance=False):
     else:
         results = solve(instance)
         if instance.options.verbose:
-            print ("Optimization termination condition was %s." 
+            print ("Optimization termination condition was %s.\n"
                     % results.solver.termination_condition)
     
     # report/save results
+    if instance.options.verbose:
+        post_solve_start_time = time.time()
+        print "Executing post solve functions..."
     instance.post_solve()
+    if instance.options.verbose:
+        post_solve_end_time = time.time()
+        print "Post solve processing completed in %.2f s." % (post_solve_end_time - post_solve_start_time)
 
     # return stdout to original
     sys.stdout = stdout_copy
@@ -454,8 +466,8 @@ def solve(model):
 
     # solve the model
     if model.options.verbose:
-        print "solving model..."
-    start = time.time()
+        solve_start_time = time.time()
+        print "\nSolving model..."
     
     if model.options.tempdir is not None:
         # from https://software.sandia.gov/downloads/pub/pyomo/PyomoOnlineDocs.html#_changing_the_temporary_directory
@@ -465,8 +477,8 @@ def solve(model):
     results = model.solver.solve(model, **solver_args)
 
     if model.options.verbose:
-        print "solved model."
-        print "Total time in solver: {t}s".format(t=time.time()-start)
+        solve_end_time = time.time()
+        print "Solved model. Total time spent in solver: %.2f s." % (solve_end_time - solve_start_time)
     
     # check for errors
     model.solutions.load_from(results)
