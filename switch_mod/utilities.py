@@ -127,7 +127,8 @@ def load_inputs(model, inputs_dir=None, attachDataPortal=True):
     return instance
 
 
-def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat", exclude=[], sorted_output=False):
+def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
+    exclude=[], sorted_output=False):
     """
     Save input data to a .dat file for use with PySP or other command line
     tools that have not been fully integrated with DataPortal.

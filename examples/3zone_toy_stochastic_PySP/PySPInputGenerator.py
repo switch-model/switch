@@ -97,8 +97,8 @@ def save_dat_files():
 
     dat_file = os.path.join(inputs_dir, pysp_subdir, "RootNode.dat")
     print "creating and saving {}...".format(dat_file)
-    utilities.save_inputs_as_dat(
-        model, instance, save_path=dat_file, determistic_order=True)
+    utilities.save_inputs_as_dat(model, instance, save_path=dat_file,
+        sorted_output=model.options.sorted_output)
     
     #######################
     # ScenarioStructure.dat
