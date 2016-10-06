@@ -72,14 +72,14 @@ from pyomo.environ import *
 print "creating model for scenario input generation..."
 
 try:
-    module_fh = open(os.path.join(inputs_dir, 'modules'), 'r')
+    module_fh = open(os.path.join(inputs_dir, 'modules.txt'), 'r')
 except IOError, exc:
     sys.exit('Failed to open input file: {}'.format(exc))
 
 module_list = [line.rstrip('\n') for line in module_fh]
 module_list.insert(0,'switch_mod')
 
-model = utilities.define_AbstractModel(*module_list)
+model = utilities.create_model(module_list)
 
 print "model successfully created..."
 

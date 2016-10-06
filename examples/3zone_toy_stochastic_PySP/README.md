@@ -48,6 +48,8 @@ PySPInputGenerator.py
     problem. Further documentation on the construction of these files is located
     inside this script. Note: branch and leaf node .dat files are not generated
     by this file, they must be built by the user.
+    You may execute this script with the SWITCH command line option
+    "--sorted-output" (without quotes) to get a sorted .dat file.
 
 rhosetter.py
     When using the progressive hedging algorithm a value for the Rho parameter
