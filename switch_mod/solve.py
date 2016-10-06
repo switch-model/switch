@@ -6,7 +6,7 @@ from pyomo.environ import *
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
 import pyomo.version
 
-from utilities import create_model, _ArgumentParser, Logging
+from switch_mod.utilities import create_model, _ArgumentParser, Logging
 
 
 def main(args=None, return_model=False, return_instance=False):
@@ -363,9 +363,7 @@ def get_module_list(args):
         modules.remove(module_name)
     
     # add the current module, since it has callbacks, e.g. define_arguments for iteration and suffixes
-    modules.append(__name__)
-
-    # print "module list:", modules
+    modules.append("switch_mod.solve")
 
     return modules
 
