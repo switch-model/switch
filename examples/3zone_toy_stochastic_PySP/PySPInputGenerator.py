@@ -72,14 +72,14 @@ from pyomo.environ import *
 print "creating model for scenario input generation..."
 
 try:
-    module_fh = open(os.path.join(inputs_dir, 'modules'), 'r')
+    module_fh = open(os.path.join(inputs_dir, 'modules.txt'), 'r')
 except IOError, exc:
     sys.exit('Failed to open input file: {}'.format(exc))
 
 module_list = [line.rstrip('\n') for line in module_fh]
 module_list.insert(0,'switch_mod')
 
-model = utilities.define_AbstractModel(*module_list)
+model = utilities.create_model(module_list)
 
 print "model successfully created..."
 
@@ -97,8 +97,8 @@ def save_dat_files():
 
     dat_file = os.path.join(inputs_dir, pysp_subdir, "RootNode.dat")
     print "creating and saving {}...".format(dat_file)
-    utilities.save_inputs_as_dat(
-        model, instance, save_path=dat_file, determistic_order=True)
+    utilities.save_inputs_as_dat(model, instance, save_path=dat_file,
+        sorted_output=model.options.sorted_output)
     
     #######################
     # ScenarioStructure.dat

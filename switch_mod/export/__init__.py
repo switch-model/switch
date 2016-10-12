@@ -33,6 +33,11 @@ csv.register_dialect(
     skipinitialspace=False
 )
 
+def define_arguments(argparser):
+    argparser.add_argument(
+        "--sorted-output", default=False, action='store_true',
+        dest='sorted_output',
+        help='Write generic variable result values in sorted order')
 
 def write_table(instance, *indexes, **kwargs):
     # there must be a way to accept specific named keyword arguments and
@@ -68,7 +73,7 @@ def make_iterable(item):
     return i
 
 
-def _save_generic_results(instance, outdir, deterministic_order=False):
+def _save_generic_results(instance, outdir, sorted_output):
     for var in instance.component_objects():
         if not isinstance(var, Var):
             continue
@@ -84,7 +89,7 @@ def _save_generic_results(instance, outdir, deterministic_order=False):
             # Results are saved in a random order by default for
             # increased speed. Sorting is available if wanted.
             for key, obj in (sorted(var.items())
-                            if deterministic_order
+                            if sorted_output
                             else var.items()):
                 writer.writerow(tuple(make_iterable(key)) + (obj.value,))
 
@@ -102,5 +107,5 @@ def post_solve(instance, outdir):
     Minimum output generation for all model runs.
     
     """
-    _save_generic_results(instance, outdir)
+    _save_generic_results(instance, outdir, instance.options.sorted_output)
     _save_total_cost_value(instance, outdir)
