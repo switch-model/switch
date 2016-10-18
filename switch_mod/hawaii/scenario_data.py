@@ -286,7 +286,6 @@ def write_tables(**args):
                 0 as g_is_baseload,
                 0 as g_is_flexible_baseload, 
                 0 as g_is_cogen,
-                0 as g_competes_for_space, 
                 variable_o_m * 1000.0 AS g_variable_o_m,
                 CASE WHEN fuel IN ('SUN', 'WND', 'MSW') THEN fuel ELSE 'multiple' END AS g_energy_source,
                 CASE WHEN fuel IN ('SUN', 'WND', 'MSW') THEN null ELSE 0.001*heat_rate END AS g_full_load_heat_rate
@@ -304,7 +303,6 @@ def write_tables(**args):
                 g.baseload as g_is_baseload,
                 0 as g_is_flexible_baseload, 
                 g.cogen as g_is_cogen,
-                g.competes_for_space as g_competes_for_space, 
                 CASE WHEN MIN(p.aer_fuel_code) IN ('SUN', 'WND') THEN 0.0 ELSE AVG(g.variable_o_m) * 1000.0 END 
                     AS g_variable_o_m,
                 CASE WHEN MIN(p.aer_fuel_code) IN ('SUN', 'WND', 'MSW') THEN MIN(p.aer_fuel_code) ELSE 'multiple' END AS g_energy_source,
