@@ -329,12 +329,12 @@ def load_inputs(mod, switch_data, inputs_dir):
         generation_technology, g_max_age,
         g_is_variable, g_is_baseload,
         g_is_flexible_baseload, g_is_cogen,
-        g_competes_for_space, g_variable_o_m, g_energy_source
+        g_energy_source
 
     The optional columns are:
-        g_dbid, g_scheduled_outage_rate, g_forced_outage_rate,
+        g_dbid, g_variable_o_m, g_scheduled_outage_rate, g_forced_outage_rate,
         g_min_build_capacity, g_full_load_heat_rate, g_unit_size,
-        g_ccs_capture_efficiency, g_ccs_energy_load
+        g_competes_for_space, g_ccs_capture_efficiency, g_ccs_energy_load
 
     Note: The model does not fully support CCS; it is mostly written,
     but untested.
@@ -354,6 +354,7 @@ def load_inputs(mod, switch_data, inputs_dir):
         auto_select=True,
         optional_params=[
             'g_unit_size', 'g_scheduled_outage_rate', 'g_forced_outage_rate',
+            'g_competes_for_space', 'g_variable_o_m',
             'g_ccs_capture_efficiency', 'g_ccs_energy_load'],
         index=mod.GENERATION_TECHNOLOGIES,
         param=(
