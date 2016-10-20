@@ -160,6 +160,22 @@ def define_components(mod):
     mod.PROJ_DISPATCH_POINTS = Set(
         dimen=2,
         initialize=init_dispatch_timepoints)
+    # make set array showing all timepoints when each project is active
+    # note: it might be cleaner to first define PROJ_ACTIVE_PERIODS, then use that
+    # to define PROJ_ACTIVE_TIMEPOINTS, PROJ_DISPATCH_POINTS, etc.
+    def proj_active_timepoints_rule(m, p):
+        if not hasattr(m, 'proj_active_timepoints_dict'):
+            d = m.proj_active_timepoints_dict = dict()
+            for p, t in m.PROJ_DISPATCH_POINTS:
+                if p not in d:
+                    d[p] = []
+                d[p].append(t)
+        # note: we could use pop(p) here to reduce memory use, but for some reason pyomo does 
+        # one extra call at the start, so that doesn't work.
+        # note: we return an empty list if a project has no active timepoints, usually 
+        # for projects that retire before the study
+        return m.proj_active_timepoints_dict.get(p, [])
+    mod.PROJ_ACTIVE_TIMEPOINTS = Set(mod.PROJECTS, initialize=proj_active_timepoints_rule)
     mod.ProjCapacityTP = Expression(
         mod.PROJ_DISPATCH_POINTS,
         rule=lambda m, proj, t: m.ProjCapacity[proj, m.tp_period[t]])

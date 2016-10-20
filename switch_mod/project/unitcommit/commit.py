@@ -19,7 +19,7 @@ SYNOPSIS
 
 """
 
-import os
+import os, itertools
 from pyomo.environ import *
 
 
@@ -86,11 +86,11 @@ def define_components(mod):
 
     The capacity started up or shutdown is completely determined by
     the change in CommitProject from one hour to the next, but we can't
-    calculate these directly directly within the linear program because
-    linear programs don't have if statements. Instead, we'll define extra
-    decision variables that are tightly constrained. Since startup incurs
-    costs and shutdown does not, the linear program will not simultaneously
-    set both of these to non-zero values.
+    calculate these directly within the linear program because linear
+    programs don't have if statements. Instead, we'll define extra decision 
+    variables that are tightly constrained. Since startup incurs costs and 
+    shutdown does not, the linear program will not simultaneously set both 
+    of these to non-zero values.
 
     Startup[(proj, t) in PROJ_DISPATCH_POINTS] is a decision variable
     describing how much additional capacity was brought online in a given
@@ -128,6 +128,12 @@ def define_components(mod):
 
     Total_Startup_OM_Costs[t in TIMEPOINTS] is an expression for passing
     total startup O&M costs to the sys_cost module.
+
+    g_min_uptime[g] and g_min_downtime[g] show the minimum time that a 
+    generator can be committed (turned on) or uncommitted (turned off),
+    in hours. These usually reflect rules intended to limit thermal 
+    stress on generator units. They default to 0 (free to turn on or
+    off at any point) if not provided.
 
     -- Dispatch limits based on committed capacity --
 
@@ -249,6 +255,72 @@ def define_components(mod):
             if t == t2))
     mod.cost_components_tp.append('Total_Startup_OM_Costs')
 
+    mod.g_min_uptime = Param(
+        mod.GENERATION_TECHNOLOGIES,
+        within=NonNegativeReals,
+        default=0.0)
+    mod.g_min_downtime = Param(
+        mod.GENERATION_TECHNOLOGIES,
+        within=NonNegativeReals,
+        default=0.0)
+    # timepoints when projects with uptime or downtime constraints are active
+    mod.PROJ_MIN_UPTIME_DISPATCH_POINTS = Set(dimen=2, initialize=lambda m: [
+        (pr, tp) 
+            for pr in m.PROJECTS if m.g_min_uptime[m.proj_gen_tech[pr]] > 0.0
+                for tp in m.PROJ_ACTIVE_TIMEPOINTS[pr] 
+    ])
+    mod.PROJ_MIN_DOWNTIME_DISPATCH_POINTS = Set(dimen=2, initialize=lambda m: [
+        (pr, tp) 
+            for pr in m.PROJECTS if m.g_min_downtime[m.proj_gen_tech[pr]] > 0.0
+                for tp in m.PROJ_ACTIVE_TIMEPOINTS[pr] 
+    ])
+    
+    def tp_prev(m, tp, n=1):
+        # find nth previous timepoint, wrapping from start to end of day
+        return m.TS_TPS[m.tp_ts[tp]].prevw(tp, n)
+    # min_time_projects = set()
+    def min_time_rule(m, pr, tp, up):
+        # if (pr, up) not in min_time_projects:
+        #     min_time_projects.add((pr, up))
+        #     print "creating min {}time constraint for {}".format('up' if up else 'down', pr)
+        # note: this enforces a simple rule: all capacity turned on in the last x hours must 
+        # still be on now (or all capacity recently turned off must still be off).
+        # If there is a slice of capacity that is supposed to be forced out of service all day, 
+        # this could assume that some other capacity was turned off in the last x hours, but then 
+        # it is now turning on part of the forced-off capacity.
+        # This could be resolved by adding a term reflecting the minimum forced-off capacity over
+        # the last x hours, or by modeling each unit separately (so capacity is either 100% 
+        # available or 100% unavailable).
+
+        # how many timepoints must the project stay on/off once it's started/shutdown?
+        # note: we round to the nearest integer, so a project will be off for 1 timepoint if 
+        # g_min_downtime is 4 and ts_duration_of_tp is 3; if more conservative behavior is needed,
+        # the user should raise g_min_downtime to the desired multiple of ts_duration_of_tp
+        n_tp = int(round(m.g_min_downtime[m.proj_gen_tech[pr]] / m.ts_duration_of_tp[m.tp_ts[tp]]))
+        if n_tp == 1:
+            # project can be shutdown and restarted in the same timepoint
+            rule = Constraint.Skip
+        else:
+            # note: this rule stops one short of n_tp steps back (normal behavior of range()), because 
+            # the current timepoint is included in the duration when the capacity will be on/off.
+            if up:
+                rule = (    # online capacity >= recent startups (all recent startups are still online)
+                    m.CommitProject[pr, tp] 
+                    >= sum(m.Startup[pr, tp_prev(m, tp, i)] for i in range(1, n_tp))
+                )
+            else:
+                rule = (    # offline capacity >= recent shutdowns (all recent shutdowns are still offline)
+                    m.ProjCapacityTP[pr, tp] * m.proj_availability[pr] - m.CommitProject[pr, tp] 
+                    >= sum(m.Shutdown[pr, tp_prev(m, tp, i)] for i in range(1, n_tp))
+                )
+        return rule
+    mod.Enforce_Min_Uptime = Constraint(
+        mod.PROJ_MIN_UPTIME_DISPATCH_POINTS, rule=lambda *a: min_time_rule(*a, up=True)
+    )
+    mod.Enforce_Min_Downtime = Constraint(
+        mod.PROJ_MIN_DOWNTIME_DISPATCH_POINTS, rule=lambda *a: min_time_rule(*a, up=False)
+    )
+    
     # Dispatch limits relative to committed capacity.
     mod.g_min_load_fraction = Param(
         mod.GENERATION_TECHNOLOGIES,
@@ -315,7 +387,7 @@ def load_inputs(mod, switch_data, inputs_dir):
         filename=os.path.join(inputs_dir, 'generator_info.tab'),
         auto_select=True,
         param=(mod.g_min_load_fraction, mod.g_startup_fuel,
-               mod.g_startup_om))
+               mod.g_startup_om, mod.g_min_uptime, mod.g_min_downtime))
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, 'proj_commit_bounds_timeseries.tab'),
