@@ -114,21 +114,19 @@ def DispatchProjByFuel(m, proj, tp, fuel):
     project.no_commit, not project.unitcommit.fuel_use. In the unit commitment version
     it can only be defined as a quadratically constrained variable, which we don't
     want to force on all users."""
-    dispatch = m.DispatchProj[proj, tp] if (proj, tp) in m.DispatchProj else 0.0
-    if value(dispatch) == 0.0:
+    dispatch = value(m.DispatchProj[proj, tp]) if (proj, tp) in m.DispatchProj else 0.0
+    total_fuel = value(sum(m.ProjFuelUseRate[proj, tp, f] for f in m.G_FUELS[m.proj_gen_tech[proj]]))
+    if dispatch == 0.0:
         result = 0.0
+    elif total_fuel == 0.0:
+        # power produced, but no fuel used (e.g., steam generator on combined-cycle plant).
+        # allocate evenly between fuels that could be used (should really be allocated the 
+        # same as the upstream generator, e.g., CT in combined-cycle plant, but we don't
+        # know that allocation here).
+        result = dispatch / len(m.G_FUELS[m.proj_gen_tech[proj]])
     else:
         # allocate power production proportional to amount of each fuel used
-        # note: the sum of all fuels used should never be zero when dispatch is non-zero,
-        # but somehow it sneaks through occasionally
-        try:
-            result = value(
-                dispatch 
-                * m.ProjFuelUseRate[proj, tp, fuel] 
-                / sum(m.ProjFuelUseRate[proj, tp, f] for f in m.G_FUELS[m.proj_gen_tech[proj]])
-            )
-        except ZeroDivisionError:
-            result = 0.0
+        result = value(m.ProjFuelUseRate[proj, tp, fuel]) * dispatch / total_fuel
     return result
     
 def write_results(m, outputs_dir):
@@ -164,7 +162,10 @@ def write_results(m, outputs_dir):
         values=lambda m, z, t: 
             (z, m.tp_period[t], m.tp_timestamp[t]) 
             +tuple(
-                sum(DispatchProjByFuel(m, p, t, f) for p in m.PROJECTS_BY_FUEL[f])
+                sum(
+                    DispatchProjByFuel(m, p, t, f) 
+                        for p in m.PROJECTS_BY_FUEL[f] if (p, t) in m.PROJ_DISPATCH_POINTS
+                )
                 for f in m.FUELS
             )
             +tuple(
