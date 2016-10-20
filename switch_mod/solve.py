@@ -52,7 +52,7 @@ def main(args=None, return_model=False, return_instance=False):
     if model.options.verbose:
         creation_time = time.time()
         print "\n======================================================================="
-        print "SWITCH model successfully created in %.2f s.\nArguments:" % (creation_time - start_time)
+        print "SWITCH model created in {:.2f} s.\nArguments:".format(creation_time - start_time)
         print ", ".join(k+"="+repr(v) for k, v in model.options.__dict__.items() if v)
         print "Modules:\n"+", ".join(m for m in modules)
         if iterate_modules:
@@ -65,7 +65,7 @@ def main(args=None, return_model=False, return_instance=False):
     instance.pre_solve()
     if model.options.verbose:
         instantiation_time = time.time()
-        print "Inputs successfully loaded in %.2f s." % (instantiation_time - creation_time)
+        print "Inputs loaded in {:.2f} s.".format(instantiation_time - creation_time)
     
     # return the instance as-is if requested
     if return_instance:
@@ -91,8 +91,8 @@ def main(args=None, return_model=False, return_instance=False):
     else:
         results = solve(instance)
         if instance.options.verbose:
-            print ("Optimization termination condition was %s.\n"
-                    % results.solver.termination_condition)
+            print "Optimization termination condition was {}.\n".format(
+                results.solver.termination_condition)
     
     # report/save results
     if instance.options.verbose:
@@ -101,10 +101,12 @@ def main(args=None, return_model=False, return_instance=False):
     instance.post_solve()
     if instance.options.verbose:
         post_solve_end_time = time.time()
-        print "Post solve processing completed in %.2f s." % (post_solve_end_time - post_solve_start_time)
+        print "Post solve processing completed in {:.2f} s.".format(
+            post_solve_end_time - post_solve_start_time)
 
     # return stdout to original
     sys.stdout = stdout_copy
+
 
 
 patched_pyomo = False
@@ -113,28 +115,25 @@ def patch_pyomo():
     if not patched_pyomo:
         patched_pyomo = True
         # patch Pyomo if needed
-        if pyomo.version.version_info >= (4, 2, 0, '', 0):
-            # Pyomo 4.2+ mistakenly discards the original expression or rule during
-            # Expression.construct. This makes it impossible to reconstruct expressions
-            # (e.g., for iterated models). So we patch it.
-            # test whether patch is still needed:
+        if (4, 2) <= pyomo.version.version_info[:2] <= (4, 3):
+            # Pyomo 4.2 and 4.3 mistakenly discard the original rule during
+            # Expression.construct. This makes it impossible to reconstruct
+            # expressions (e.g., for iterated models). So we patch it.
+            # test whether patch is needed:
             m = ConcreteModel()
             m.e = Expression(rule=lambda m: 0)
             if hasattr(m.e, "_init_rule") and m.e._init_rule is None:
-                # print "Patching incompatible version of Pyomo."
+                print "Patching Expression.construct method of incompatible version of Pyomo."
+                print "Upgrade to Pyomo 4.4 or later to avoid this message."
                 old_construct = pyomo.environ.Expression.construct
                 def new_construct(self, *args, **kwargs):
-                    # save rule and expression, call the function, then restore them
+                    # save rule, call the function, then restore it
                     _init_rule = self._init_rule
-                    _init_expr = self._init_expr
                     old_construct(self, *args, **kwargs)
                     self._init_rule = _init_rule
-                    self._init_expr = _init_expr
                 pyomo.environ.Expression.construct = new_construct
-            else:
-                print "NOTE: Pyomo no longer removes _init_rule during Expression.construct()."
-                print "      The Pyomo patch in {} is probably obsolete.".format(__file__)
             del m
+
 
 def iterate(m, iterate_modules, depth=0):
     """Iterate through all modules listed in the iterate_list (usually iterate.txt),
@@ -478,7 +477,7 @@ def solve(model):
 
     if model.options.verbose:
         solve_end_time = time.time()
-        print "Solved model. Total time spent in solver: %.2f s." % (solve_end_time - solve_start_time)
+        print "Solved model. Total time spent in solver: {:2f} s.".format(solve_end_time - solve_start_time)
     
     # check for errors
     model.solutions.load_from(results)
@@ -508,7 +507,7 @@ def _options_string_to_dict(istr):
         index = token.find('=')
         if index is -1:
             raise ValueError(
-                "Solver options must have the form option=value: '%s'" % istr)
+                "Solver options must have the form option=value: '{}'".format(istr))
         try:
             val = eval(token[(index+1):])
         except:
@@ -518,7 +517,7 @@ def _options_string_to_dict(istr):
 
 
 
-        
+
 ###############
 
 if __name__ == "__main__":
