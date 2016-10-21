@@ -14,13 +14,6 @@ and hydroelectric projects.
 The hydraulic system is expected to be operational throughout the whole
 horizon of the simulation.
 
-SYNOPSIS
->>> from switch_mod.utilities import create_model
->>> model = create_model(
-...     ['timescales', 'financials', 'load_zones', 'fuels',
-...     'gen_tech', 'project.build', 'project.dispatch', 'generators.hydro'])
->>> instance = model.load_inputs(inputs_dir='test_dat')
-
 """
 
 import os
@@ -153,14 +146,6 @@ def define_components(mod):
     that enforce maximum and minimum volumes of each reservoir for each
     timepoint.
     
-    FilteredFlow[r, t] is a variable that represents the flow of water,
-    in cubic meters per second, that is filtered from the reservoir.
-    These flows are unconstrained in this hydro module. If filtrations
-    want to be modeled, another module should be incorporated to the
-    SWITCH simulation with specific constraints for the system, such as
-    linking filtrations with stored water volume through a polynomial
-    equation.
-    
     
     WATER_CONNECTIONS is the set of flows that begin and end in different
     water bodies, such as reservoirs and nodes. The model decides how much
@@ -190,11 +175,6 @@ def define_components(mod):
     rivers or streams have a defined capacity and greater flows could
     cause them to collapse and/or flood the surrounding area. Defaults
     to 9999 cumec.
-    
-    wc_is_a_filtration[wc] is a boolean parameter that specifies whether
-    a connection corresponds to a filtrated flow. This flag would allow
-    a separate module to build additional constraints for calculation of
-    filtered flows according to reservoir stored water volume.
     
     min_eco_flow[wc, t] is a parameter that indicates the minimum ecological 
     water flow that must be dispatched through each water connection at each 
@@ -235,12 +215,6 @@ def define_components(mod):
     reservoir in a timepoint, that will translate into a change in stored
     volume.
     
-    Enforce_Reservoir_Filtrations[r, t] is the constraint that ensures
-    that the filtrated water at each reservoir and timepoint flows
-    through the correct water connections that start from it. This allows
-    exogenous modules to set up constraints forcing the filtrated flow
-    to have a relationship with the stored water volume.
-    
     Enforce_Reservoir_Vol_Links[r, t] is the constraint that links the
     final volume at each reservoir and timepoint with the initial volume
     at the next timepoint. The initial volume is forced to be equal to
@@ -269,7 +243,7 @@ def define_components(mod):
     of stored water. In this module, the efficiency is assumed to be a
     constant for each project, to mantain linearity.
     
-    hidraulic_location[hproj] is a parameter that specifies the water
+    hydraulic_location[hproj] is a parameter that specifies the water
     connection in which each hydro project is located. Multiple projects
     may be located at the same connection, which allows modeling of
     cascading generation.
@@ -322,15 +296,9 @@ def define_components(mod):
     mod.WATER_SINKS = Set(
         initialize=mod.WATER_NODES,
         filter=lambda m, wn: m.wn_is_sink[wn])
-    def init_water_nodes_balance_points(m):
-        water_node_set = set()        
-        for wn in m.WATER_NODES:
-            for t in m.TIMEPOINTS:
-                water_node_set.add((wn,t))
-        return water_node_set
     mod.WATER_NODES_BALANCE_POINTS = Set(
         dimen=2,
-        initialize=init_water_nodes_balance_points)
+        initialize=lambda m: m.WATER_NODES * m.TIMEPOINTS)
     mod.WATER_SINKS_BALANCE_POINTS = Set(
         initialize=mod.WATER_NODES_BALANCE_POINTS,
         filter=lambda m, wn, t: m.wn_is_sink[wn])
@@ -362,15 +330,9 @@ def define_components(mod):
         mod.RESERVOIRS,
         within=PositiveReals,
         validate=lambda m, val, r: val >= m.res_min_vol[r])
-    def init_reservoirs_balance_points(m):
-        reservoir_set = set()        
-        for r in m.RESERVOIRS:
-            for t in m.TIMEPOINTS:
-                reservoir_set.add((r,t))
-        return reservoir_set
     mod.RESERVOIRS_BALANCE_POINTS = Set(
         dimen=2,
-        initialize=init_reservoirs_balance_points)
+        initialize=lambda m: m.RESERVOIRS * m.TIMEPOINTS)
     mod.res_min_vol_tp = Param(
         mod.RESERVOIRS_BALANCE_POINTS,
         within=NonNegativeReals,
@@ -397,6 +359,7 @@ def define_components(mod):
         mod.RESERVOIRS_BALANCE_POINTS,
         within=NonNegativeReals,
         default=0.0)    
+    mod.min_data_check('res_min_vol', 'res_max_vol', 'initial_res_vol', 'final_res_vol')
     mod.ReservoirInitialVol = Var(
         mod.RESERVOIRS_BALANCE_POINTS,
         within=NonNegativeReals)
@@ -411,23 +374,13 @@ def define_components(mod):
         mod.RESERVOIRS_BALANCE_POINTS,
         rule=lambda m, r, t: (   
             m.ReservoirFinalVol[r, t] >= m.res_min_vol_tp[r, t]))    
-    mod.FilteredFlow = Var(
-        mod.RESERVOIRS_BALANCE_POINTS,
-        within=NonNegativeReals)  
-    
     
     mod.WATER_CONNECTIONS = Set()
     mod.WATER_BODIES = Set(
         initialize=lambda m: m.WATER_NODES | m.RESERVOIRS)
-    def init_water_connections_dispatch_points(m):
-        wcs_set = set()        
-        for w in m.WATER_CONNECTIONS:
-            for t in m.TIMEPOINTS:
-                wcs_set.add((w,t))
-        return wcs_set
     mod.WCONS_DISPATCH_POINTS = Set(
         dimen=2,
-        initialize=init_water_connections_dispatch_points)    
+        initialize=lambda m: m.WATER_CONNECTIONS * m.TIMEPOINTS)    
     mod.water_body_from = Param(
         mod.WATER_CONNECTIONS, 
         within=mod.WATER_BODIES)
@@ -437,14 +390,12 @@ def define_components(mod):
     mod.wc_capacity = Param(
         mod.WATER_CONNECTIONS,
         within=PositiveReals,
-        default=9999)
-    mod.wc_is_a_filtration = Param(
-        mod.WATER_CONNECTIONS,
-        within=Boolean)
+        default=float('inf'))
     mod.min_eco_flow = Param(
         mod.WCONS_DISPATCH_POINTS,
         within=NonNegativeReals,
-        default=lambda m, w, t: 0.0)    
+        default=0.0)    
+    mod.min_data_check('water_body_from', 'water_body_to')
     mod.DispatchWater = Var(
         mod.WCONS_DISPATCH_POINTS,
         within=NonNegativeReals) 
@@ -478,18 +429,16 @@ def define_components(mod):
     
     mod.Enforce_Reservoir_Balance = Constraint(
         mod.RESERVOIRS_BALANCE_POINTS,
-        rule=lambda m, r, t: (m.res_tp_inflow[r, t] + 
-            sum(m.DispatchWater[wc, t] for wc in m.WATER_CONNECTIONS 
-                if m.water_body_to[wc] == r) == (m.ReservoirFinalVol[r, t] -
-                    m.ReservoirInitialVol[r, t]) / m.tp_duration_hrs[t] +
-                        sum( m.DispatchWater[wc, t] 
-                            for wc in m.WATER_CONNECTIONS 
-                                if m.water_body_from[wc] == r)))
-    mod.Enforce_Reservoir_Filtrations = Constraint(
-        mod.RESERVOIRS_BALANCE_POINTS,
-        rule=lambda m, r, t: (m.FilteredFlow[r, t] == 
-            sum(m.DispatchWater[wc, t] for wc in m.WATER_CONNECTIONS 
-                if m.water_body_from[wc] == r and m.wc_is_a_filtration[wc])))
+        # Rule: timepoint_duration * Net_flow_rate = Change_in_volume
+        rule=lambda m, r, t: (
+            m.tp_duration_hrs[t] * 3600 * (
+                m.res_tp_inflow[r, t] + 
+                sum(m.DispatchWater[wc, t] for wc in m.WATER_CONNECTIONS 
+                    if m.water_body_to[wc] == r) -
+                sum( m.DispatchWater[wc, t] for wc in m.WATER_CONNECTIONS 
+                    if m.water_body_from[wc] == r) -
+                m.res_tp_consumption[r, t]
+            ) == m.ReservoirFinalVol[r, t] - m.ReservoirInitialVol[r, t]))
     def Enforce_Reservoir_Vol_Links_rule(m, r, t):
         if not hasattr(m, 'first_tps_in_period'):
             m.first_tps_in_period = {p: [m.TS_TPS[ts][1] 
@@ -530,7 +479,7 @@ def define_components(mod):
         mod.HYDRO_PROJECTS,
         within=PositiveReals,
         validate=lambda m, val, proj: val <= 10)
-    mod.hidraulic_location = Param(
+    mod.hydraulic_location = Param(
         mod.HYDRO_PROJECTS,
         validate=lambda m, val, proj: val in m.WATER_CONNECTIONS)
     mod.TurbinatedFlow = Var(
@@ -547,9 +496,10 @@ def define_components(mod):
         mod.HYDRO_PROJ_DISPATCH_POINTS,
         rule=lambda m, proj, t: (m.TurbinatedFlow[proj, t] +
             m.SpilledFlow[proj, t] == 
-            m.DispatchWater[m.hidraulic_location[proj], t]))
+            m.DispatchWater[m.hydraulic_location[proj], t]))
 
-            
+
+
 def load_inputs(mod, switch_data, inputs_dir):
     """
     
@@ -602,8 +552,7 @@ def load_inputs(mod, switch_data, inputs_dir):
         filename=os.path.join(inputs_dir, 'water_connections.tab'),
         auto_select=True,
         index=mod.WATER_CONNECTIONS,
-        param=(mod.water_body_from, mod.water_body_to, 
-            mod.wc_capacity, mod.wc_is_a_filtration))
+        param=(mod.water_body_from, mod.water_body_to, mod.wc_capacity))
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, 'min_eco_flows.tab'),
@@ -613,5 +562,5 @@ def load_inputs(mod, switch_data, inputs_dir):
         filename=os.path.join(inputs_dir, 'hydro_projects.tab'),
         auto_select=True,
         index=mod.HYDRO_PROJECTS,
-        param=(mod.hydro_efficiency, mod.hidraulic_location))
+        param=(mod.hydro_efficiency, mod.hydraulic_location))
 
