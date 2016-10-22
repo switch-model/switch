@@ -11,7 +11,7 @@ note: we also take advantage of this assumption and store a reference to the
 current demand_module in this module (rather than storing it in the model itself)
 """
 
-import os, sys
+import os, sys, time
 from pprint import pprint
 from pyomo.environ import *
 import switch_mod.utilities as utilities
@@ -59,9 +59,11 @@ def define_components(m):
         )
     demand_module = sys.modules[m.options.dr_demand_module]
     
-    # Make sure the model has a dual suffix
+    # Make sure the model has dual and rc suffixes
     if not hasattr(m, "dual"):
         m.dual = Suffix(direction=Suffix.IMPORT)
+    if not hasattr(m, "rc"):
+        m.rc = Suffix(direction=Suffix.IMPORT)
     
     ###################
     # Unserved load, with a penalty.
@@ -69,7 +71,7 @@ def define_components(m):
     ##################
 
     # cost per MWh for unserved load (high)
-    m.dr_unserved_load_penalty_per_mwh = Param(default=10000)
+    m.dr_unserved_load_penalty_per_mwh = Param(initialize=10000)
     # amount of unserved load during each timepoint
     m.DRUnservedLoad = Var(m.LOAD_ZONES, m.TIMEPOINTS, within=NonNegativeReals)
     # total cost for unserved load
@@ -196,6 +198,9 @@ def post_iterate(m):
                 for tp in m.TS_TPS[m.TIMESERIES[2]]
     ]
 
+    # report the dual costs before the model is altered by update_demand
+    write_dual_costs(m)
+    
     # if m.iteration_number % 5 == 0:
     #     # save time by only writing results every 5 iterations
     # write_results(m)
@@ -243,8 +248,14 @@ def post_iterate(m):
                 for p in m.PERIODS
         ])
 
-    # Check for convergence (no progress during the last iteration)
-    converged = (m.iteration_number > 0 and new_SystemCost == old_SystemCost)
+    # # Check for convergence (no progress during the last iteration)
+    # converged = (m.iteration_number > 0 and new_SystemCost == old_SystemCost)
+
+    # Check for convergence -- optimality gap is less than 0.1% of best possible cost 
+    # (which may be negative)
+    # TODO: index this to the direct costs, rather than the direct costs minus benefits
+    # as it stands, it converges with about $50,000,000 optimality gap, which is about 3% of direct costs.
+    converged = (m.iteration_number > 0 and (current_cost - best_cost)/abs(best_cost) <= 0.001)
         
     return converged
 
@@ -725,6 +736,62 @@ def write_results(m):
     # bt=set(x[3] for x in b) # technologies
     # pprint([(t, sum(x[2] for x in b if x[3]==t), sum(x[4] for x in b if x[3]==t)/sum(1.0 for x in b if x[3]==t)) for t in bt])
 
+def write_dual_costs(m):
+    outputs_dir = m.options.outputs_dir
+    tag = filename_tag(m)
+
+    # with open(os.path.join(outputs_dir, "producer_surplus{t}.tsv".format(t=tag)), 'w') as f:
+    #     for proj, per in m.Max_Build_Potential:
+    #         const = m.Max_Build_Potential[proj, per]
+    #         surplus = const.upper() * m.dual[const]
+    #         if surplus != 0.0:
+    #             f.write('\t'.join([const.cname(), str(surplus)]) + '\n')
+    #     # import pdb; pdb.set_trace()
+    #     for proj, year in m.BuildProj:
+    #         var = m.BuildProj[proj, year]
+    #         if var.ub is not None and var.ub > 0.0 and value(var) > 0.0 and var in m.rc and m.rc[var] != 0.0:
+    #             surplus = var.ub * m.rc[var]
+    #             f.write('\t'.join([var.cname(), str(surplus)]) + '\n')
+
+    outfile = os.path.join(outputs_dir, "dual_costs{t}.tsv".format(t=tag))
+    dual_data = []
+    start_time = time.time()
+    print "Writing {} ... ".format(outfile),
+    
+    def add_dual(const, lbound, ubound, duals):
+        if const in duals:
+            dual = duals[const]
+            if dual >= 0.0:
+                direction = ">="
+                bound = lbound
+            else:
+                direction = "<="
+                bound = ubound
+            if bound is None:
+                # Variable is unbounded; dual should be 0.0 or possibly a tiny non-zero value.
+                if not (-1e-5 < dual < 1e-5):
+                    raise ValueError("{} has no {} bound but has a non-zero dual value {}.".format(
+                        const.cname(), "lower" if dual > 0 else "upper", dual))
+            else:
+                total_cost = dual * bound
+                if total_cost != 0.0:
+                    dual_data.append((const.cname(), direction, bound, dual, total_cost))
+
+    for comp in m.component_objects(ctype=Var):
+        for idx in comp:
+            var = comp[idx]
+            add_dual(var, var.lb, var.ub, m.rc)
+    for comp in m.component_objects(ctype=Constraint):
+        for idx in comp:
+            constr = comp[idx]
+            add_dual(constr, value(constr.lower), value(constr.upper), m.dual)
+
+    dual_data.sort(key=lambda r: (not r[0].startswith('DR_Convex_'), r[3] >= 0)+r)
+
+    with open(outfile, 'w') as f:
+        f.write('\t'.join(['constraint', 'direction', 'bound', 'dual', 'total_cost']) + '\n')
+        f.writelines('\t'.join(map(str, r)) + '\n' for r in dual_data)
+    print "time taken: {dur:.2f}s".format(dur=time.time()-start_time)
 
 def filename_tag(m):
     if m.options.scenario_name:
