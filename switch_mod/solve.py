@@ -36,6 +36,10 @@ def main(args=None, return_model=False, return_instance=False):
     # the current module (to register define_arguments callback)
     modules = get_module_list(args)
     
+    # Patch pyomo if needed, to allow reconstruction of expressions.
+    # This must be done before the model is constructed.
+    patch_pyomo()
+
     # Define the model
     model = create_model(modules, args=args)
 
@@ -123,8 +127,7 @@ def patch_pyomo():
             m = ConcreteModel()
             m.e = Expression(rule=lambda m: 0)
             if hasattr(m.e, "_init_rule") and m.e._init_rule is None:
-                print "Patching Expression.construct method of incompatible version of Pyomo."
-                print "Upgrade to Pyomo 4.4 or later to avoid this message."
+                # add a deprecation warning here when we stop supporting Pyomo 4.2 or 4.3
                 old_construct = pyomo.environ.Expression.construct
                 def new_construct(self, *args, **kwargs):
                     # save rule, call the function, then restore it
@@ -152,9 +155,6 @@ def iterate(m, iterate_modules, depth=0):
     or include_module(s) arguments.
     """
     
-    # patch pyomo if needed, to support iterated models
-    patch_pyomo()
-
     # create or truncate the iteration tree
     if depth == 0:
         m.iteration_node = []
