@@ -14,6 +14,18 @@ and hydroelectric projects.
 The hydraulic system is expected to be operational throughout the whole
 time horizon of the simulation.
 
+The water network is a graph composed of nodes and connections. Nodes
+represent rivers, lakes or reservoirs, while connections represent flows
+between nodes where generating stations may be located. All nodes can have
+inflows and consumption that are independent of the hydrological network and
+are specified with external data. All connections can control flow between
+nodes, potentially limited by minimum flow constraints, or dictated by
+geological filtration. All flow is currently downstream, but pumped hydro may
+be implemented at a later date. Sink nodes have the ability to spill outside
+of the hydraulic system. Reservoir nodes track their water levels during
+investment periods, and have their levels externally determined at the
+beginning and end of investment periods.
+
 """
 
 import os
@@ -81,10 +93,10 @@ def define_components(mod):
     cubic meters per second.
     
     
-    RESERVOIRS is the set of water reservoirs. These can be thought of as
-    nodes where water may be stored, which requires additional 
-    characterization. Members of this set may be abbreviated as r or res. 
-    
+    RESERVOIRS is a subset of water nodes that are reservoirs. These
+    require additional characterization. Members of this set may be
+    abbreviated as r or res.
+   
     res_min_vol[r] is a parameter that specifies the minimum
     storage capacity of the reservoir in cubic meters. Usually this will
     be a positive value, since reservoirs cannot be completely emptied
@@ -128,22 +140,13 @@ def define_components(mod):
     the initial volume, so that the reservoir may only arbitrage with the
     water inflows that come into it during the period.
     
-    res_tp_inflow[r, t] and res_tp_consumption[r, t] are
-    parameters that specify the water inflow and consumption at each
-    reservoir in cubic meters per second (cumec). These are indexed by
-    timepoint and don't have a constant parameter to default to (they
-    default to 0) like water nodes do.
-
-    ReservoirInitialVol[r, t] and ReservoirFinalVol[r, t] are variables
-    that determine the initial and final volumes of water at each reservoir
-    at each timepoint, specified in cubic meters. These variables are
-    determined by the water balance between inflows and outflows at each
-    reservoir.
+    ReservoirVol[r, t] is a variable that tracks the volume of water at each
+    reservoir in the beginging of each timepoint, specified in cubic meters.
+    This variable is determined by the volume in the previous timepoint,
+    the inflows and the outflows.
     
-    Enforce_Res_Max_Vol[r, t] and Enforce_Res_Min_Vol[r, t] are constraints
-    that enforce maximum and minimum volumes of each reservoir for each
-    timepoint.
-    
+    ReservoirSurplus[r, p] is the amount of water in the reservoir at the end
+    of each period in excess of final_res_vol[r].
     
     WATER_CONNECTIONS is the set of flows that begin and end in different
     water bodies, such as reservoirs and nodes. The model decides how much
@@ -151,20 +154,16 @@ def define_components(mod):
     may only flow in one direction, so "to" and "from" parameters must be
     inputted. Members of this set may be abbreviated by wc or wcon.
     
-    WATER_BODIES is the set resulting from the union of the RESERVOIRS set
-    and the WATER_NODES set. It represents all locations that may be
-    connected through a water connection.
-    
     WCONS_DISPATCH_POINTS is the set of the cross product between 
     TIMEPOINTS and WATER_CONNECTIONS. In the future, this should be 
     flexibilized to allow for new water connections to be created within 
     the simulation horizon (as with WATER_NODES_BALANCE_POINTS and 
     RESERVOIRS_BALANCE_POINTS).
     
-    water_body_from[wc] is a parameter that specifies the water body from
+    water_node_from[wc] is a parameter that specifies the water body from
     which the connection extracts water.
     
-    water_body_to[wc] is a parameter that specifies the water body to which 
+    water_node_to[wc] is a parameter that specifies the water body to which 
     the connection injects water. 
     
     wc_capacity[wc] is a parameter that specifies the limit, in cubic
@@ -187,24 +186,9 @@ def define_components(mod):
     
     Enforce_Wnode_Balance[(wn, t) for (wn, t) in WATER_NODES_BALANCE_POINTS]
     is a constraint that enforces conservation of mass at water nodes. This
-    accounts for any spills at sink nodes.
-    
-    Enforce_Reservoir_Balance[r, t] is the constraint that enforces the
-    conservation of mass at each reservoir and timepoint, ensuring that
-    if there is an imbalance between inflows and outflows to and from a
-    reservoir in a timepoint, that will translate into a change in stored
-    volume.
-    
-    Enforce_Reservoir_Vol_Links[r, t] is the constraint that links the
-    final volume at each reservoir and timepoint with the initial volume
-    at the next timepoint. The initial volume is forced to be equal to
-    the initial_res_vol parameter.
-    
-    Enforce_Final_Vol_Condition[r] is the constraint that forces the
-    final volume at each reservoir to be greater than or equal to the 
-    final_res_vol parameter. This boundary condition is key to prevent
-    an extreme use of water by the model. 
-    
+    accounts for any spills at sink nodes, or any change in reservoir volume
+    between one timepoint and the next. This also links the reservoir volumes
+    between timepoints, and enforces the final reservoir volume constraint.
     
     HYDRO_PROJECTS is a subset of PROJECTS which are to be linked with the
     hydraulic system. Both reservoir generators as well as hydroelectric
@@ -255,18 +239,7 @@ def define_components(mod):
     as well as dispatch points for water connections, so that the hydraulic
     system topology may change during the simulation. This would allow
     representation of new connections and reservoirs that may be built.
-    
-    -Analyze the possibility of merging reservoirs and water nodes into
-    a single set of objects. Reservoirs would just then be water nodes
-    with the ability of storing water.
-    
-    -Check if it is faster to skip creation of constraints enforcing
-    wcon maximum capacity and minimum ecological flow, or having them
-    be created with the default parameters. I'm not sure if the savings
-    in time of not creating the constraints and printing them to the LP file
-    compensate the time spent checking if the constraint should or shouldn't
-    be created.
-    
+        
     """
     
     #################
@@ -307,7 +280,11 @@ def define_components(mod):
 
     #################
     # Reservoir nodes
-    mod.RESERVOIRS = Set()
+    mod.RESERVOIRS = Set(
+        within=mod.WATER_NODES)
+    mod.RESERVOIRS_BALANCE_POINTS = Set(
+        dimen=2,
+        initialize=lambda m: m.RESERVOIRS * m.TIMEPOINTS)
     mod.res_min_vol = Param(
         mod.RESERVOIRS,
         within=NonNegativeReals)
@@ -315,9 +292,6 @@ def define_components(mod):
         mod.RESERVOIRS,
         within=PositiveReals,
         validate=lambda m, val, r: val >= m.res_min_vol[r])
-    mod.RESERVOIRS_BALANCE_POINTS = Set(
-        dimen=2,
-        initialize=lambda m: m.RESERVOIRS * m.TIMEPOINTS)
     mod.res_min_vol_tp = Param(
         mod.RESERVOIRS_BALANCE_POINTS,
         within=NonNegativeReals,
@@ -336,45 +310,34 @@ def define_components(mod):
         within=NonNegativeReals,
         validate=lambda m, val, r: (
             m.res_min_vol[r] <= val <= m.res_max_vol[r]))
-    mod.res_tp_inflow = Param(
-        mod.RESERVOIRS_BALANCE_POINTS,
-        within=NonNegativeReals,
-        default=0.0)
-    mod.res_tp_consumption = Param(
-        mod.RESERVOIRS_BALANCE_POINTS,
-        within=NonNegativeReals,
-        default=0.0)    
     mod.min_data_check('res_min_vol', 'res_max_vol', 'initial_res_vol', 'final_res_vol')
-    mod.ReservoirInitialVol = Var(
+    def ReservoirVol_bounds(m, r, t):
+        # In the first timepoint of each period, this is externally defined
+        if t == m.PERIOD_TPS[m.tp_period[t]].first():
+            return(m.initial_res_vol[r], m.initial_res_vol[r])
+        # In all other timepoints, this is constrained by min & max params
+        else:
+            return(m.res_min_vol[r], m.res_max_vol[r])
+    mod.ReservoirVol = Var(
         mod.RESERVOIRS_BALANCE_POINTS,
+        within=NonNegativeReals,
+        bounds=ReservoirVol_bounds)
+    mod.ReservoirSurplus = Var(
+        mod.RESERVOIRS, mod.PERIODS,
         within=NonNegativeReals)
-    mod.ReservoirFinalVol = Var(
-        mod.RESERVOIRS_BALANCE_POINTS,
-        within=NonNegativeReals)
-    mod.Enforce_Res_Max_Vol = Constraint(
-        mod.RESERVOIRS_BALANCE_POINTS,
-        rule=lambda m, r, t: (
-            m.ReservoirFinalVol[r, t] <= m.res_max_vol_tp[r, t]))
-    mod.Enforce_Res_Min_Vol = Constraint(
-        mod.RESERVOIRS_BALANCE_POINTS,
-        rule=lambda m, r, t: (   
-            m.ReservoirFinalVol[r, t] >= m.res_min_vol_tp[r, t]))    
-    
 
     ################
     # Edges of the water network
     mod.WATER_CONNECTIONS = Set()
-    mod.WATER_BODIES = Set(
-        initialize=lambda m: m.WATER_NODES | m.RESERVOIRS)
     mod.WCONS_DISPATCH_POINTS = Set(
         dimen=2,
         initialize=lambda m: m.WATER_CONNECTIONS * m.TIMEPOINTS)    
-    mod.water_body_from = Param(
+    mod.water_node_from = Param(
         mod.WATER_CONNECTIONS, 
-        within=mod.WATER_BODIES)
-    mod.water_body_to = Param(
+        within=mod.WATER_NODES)
+    mod.water_node_to = Param(
         mod.WATER_CONNECTIONS, 
-        within=mod.WATER_BODIES)
+        within=mod.WATER_NODES)
     mod.wc_capacity = Param(
         mod.WATER_CONNECTIONS,
         within=PositiveReals,
@@ -383,11 +346,11 @@ def define_components(mod):
         mod.WCONS_DISPATCH_POINTS,
         within=NonNegativeReals,
         default=0.0)    
-    mod.min_data_check('water_body_from', 'water_body_to')
+    mod.min_data_check('water_node_from', 'water_node_to')
     mod.DispatchWater = Var(
         mod.WCONS_DISPATCH_POINTS,
         within=NonNegativeReals,
-        bounds=lambda m, wc, t: (m.min_eco_flow[wc, t], m.wc_capacity[wc]))  
+        bounds=lambda m, wc, t: (m.min_eco_flow[wc, t], m.wc_capacity[wc]))
 
     def Enforce_Wnode_Balance_rule(m, wn, t):
         # Cache (inflow, outflow) for all nodes & timepoints in one pass
@@ -396,10 +359,10 @@ def define_components(mod):
                                   for (wn2, t2) in m.WATER_NODES_BALANCE_POINTS}
             for wn2 in m.WATER_NODES:
                 for wc in m.WATER_CONNECTIONS:
-                    if m.water_body_to[wc] == wn2:
+                    if m.water_node_to[wc] == wn2:
                         for t2 in m.TIMEPOINTS:
                             m._WaterFlows_dict[(wn2, t2)][0] += m.DispatchWater[wc, t2]
-                    if m.water_body_from[wc] == wn2:
+                    if m.water_node_from[wc] == wn2:
                         for t2 in m.TIMEPOINTS:
                             m._WaterFlows_dict[(wn2, t2)][1] += m.DispatchWater[wc, t2]
         # Use pop to free memory in each loop and delattr to clean up at the end
@@ -410,58 +373,30 @@ def define_components(mod):
         spill_outflow = 0.0
         if m.wn_is_sink[wn]:
             spill_outflow = m.SinkSpillage[wn, t]
+        # Reservoir flows: 0 for non-reservoirs
+        reservoir_fill_rate = 0.0
+        if wn in m.RESERVOIRS:
+            p = m.tp_period[t]
+            end_volume = 0.0
+            if t != m.PERIOD_TPS[p].last():
+                t_next = m.PERIOD_TPS[p].next(t)
+                end_volume = m.ReservoirVol[wn, t_next]
+            else:
+                end_volume = m.final_res_vol[wn] + m.ReservoirSurplus[wn, p]
+            reservoir_fill_rate = (
+                (end_volume - m.ReservoirVol[wn, t]) /
+                (m.tp_duration_hrs[t] * 3600))
         # Conservation of mass flow
         return (
             m.wnode_tp_inflow[wn, t] + dispatch_inflow == \
-            m.wnode_tp_consumption[wn, t] + dispatch_outflow + spill_outflow)
+            m.wnode_tp_consumption[wn, t] + dispatch_outflow \
+            + spill_outflow + reservoir_fill_rate)
     mod.Enforce_Wnode_Balance = Constraint(
         mod.WATER_NODES_BALANCE_POINTS,
         rule=Enforce_Wnode_Balance_rule)
 
-    mod.Enforce_Reservoir_Balance = Constraint(
-        mod.RESERVOIRS_BALANCE_POINTS,
-        # Rule: timepoint_duration * Net_flow_rate = Change_in_volume
-        rule=lambda m, r, t: (
-            m.tp_duration_hrs[t] * 3600 * (
-                m.res_tp_inflow[r, t] + 
-                sum(m.DispatchWater[wc, t] for wc in m.WATER_CONNECTIONS 
-                    if m.water_body_to[wc] == r) -
-                sum( m.DispatchWater[wc, t] for wc in m.WATER_CONNECTIONS 
-                    if m.water_body_from[wc] == r) -
-                m.res_tp_consumption[r, t]
-            ) == m.ReservoirFinalVol[r, t] - m.ReservoirInitialVol[r, t]))
-    def Enforce_Reservoir_Vol_Links_rule(m, r, t):
-        if not hasattr(m, '_first_tps_in_period'):
-            m._first_tps_in_period = {p: [] for p in m.PERIODS}
-            for ts in m.TIMESERIES:
-                p = m.ts_period[ts]
-                m._first_tps_in_period[p].append(m.TS_TPS[ts].first())
-        tp_p = m.tp_period[t]
-        if t == m.PERIOD_TPS[tp_p].first():
-            # All reservoirs start with the specified initial volume
-            return (m.ReservoirInitialVol[r, t] == m.initial_res_vol[r])
-        elif (t in m._first_tps_in_period[tp_p] and 
-                t != m.PERIOD_TPS[tp_p].first()):
-            # If the timepoint is the first of a series, start with the
-            # final volume of the previous series' last timepoint
-            previous_ts = m.TIMESERIES.prev(m.tp_ts[t])
-            previous_ts_last_tp = m.TS_TPS[previous_ts].last()
-            return (m.ReservoirInitialVol[r, t] == 
-                m.ReservoirFinalVol[r, previous_ts_last_tp])
-        else:
-            # In other cases, the initial volume will be equal to the
-            # final volume of the previous timepoint
-            return (m.ReservoirInitialVol[r, t] == 
-                m.ReservoirFinalVol[r, m.tp_previous[t]])
-    mod.Enforce_Reservoir_Vol_Links = Constraint(
-        mod.RESERVOIRS_BALANCE_POINTS,
-        rule=Enforce_Reservoir_Vol_Links_rule)
-    mod.Enforce_Final_Vol_Condition = Constraint(
-        mod.RESERVOIRS, mod.PERIODS,
-        rule=lambda m, r, p: (m.final_res_vol[r] <= 
-            m.ReservoirFinalVol[r, m.PERIOD_TPS[p].last()]))
-    
-    
+    ################
+    # Hydro projects
     mod.HYDRO_PROJECTS = Set(
         validate=lambda m, val: val in m.PROJECTS)
     mod.HYDRO_PROJ_DISPATCH_POINTS = Set(
@@ -489,7 +424,6 @@ def define_components(mod):
         rule=lambda m, proj, t: (m.TurbinatedFlow[proj, t] +
             m.SpilledFlow[proj, t] == 
             m.DispatchWater[m.hydraulic_location[proj], t]))
-
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -536,15 +470,13 @@ def load_inputs(mod, switch_data, inputs_dir):
         filename=os.path.join(inputs_dir, 'reservoir_tp_data.tab'),
         optional=True,
         auto_select=True,
-        optional_params=['mod.res_tp_inflow', 'mod.res_tp_inflow_consumption', 
-            'mod.res_max_vol_tp', 'mod.res_min_vol_tp'],
-        param=(mod.res_tp_inflow, mod.res_tp_consumption, 
-            mod.res_max_vol_tp, mod.res_min_vol_tp))
+        optional_params=['mod.res_max_vol_tp', 'mod.res_min_vol_tp'],
+        param=(mod.res_max_vol_tp, mod.res_min_vol_tp))
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'water_connections.tab'),
         auto_select=True,
         index=mod.WATER_CONNECTIONS,
-        param=(mod.water_body_from, mod.water_body_to, mod.wc_capacity))
+        param=(mod.water_node_from, mod.water_node_to, mod.wc_capacity))
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, 'min_eco_flows.tab'),
