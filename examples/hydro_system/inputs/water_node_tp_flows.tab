@@ -1,4 +1,4 @@
-RESERVOIRS	TIMEPOINTS	res_tp_inflow	res_tp_consumption
+WATER_NODES	TIMEPOINTS	wnode_tp_inflow	wnode_tp_consumption
 Dam_1	1	5	1
 Dam_1	2	5	1
 Dam_1	3	5	1
