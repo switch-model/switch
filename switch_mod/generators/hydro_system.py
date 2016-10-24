@@ -12,7 +12,7 @@ water system topology, such as water nodes, reservoirs, water connections
 and hydroelectric projects.
 
 The hydraulic system is expected to be operational throughout the whole
-horizon of the simulation.
+time horizon of the simulation.
 
 """
 
@@ -32,8 +32,6 @@ def define_components(mod):
     mass, so that water flows that go into them may be greater than the
     ones that flow out. The main use case for these is to be the end of a
     water basin (representing the ocean or other sink).
-    
-    WATER_SINKS is a subset of WATER_NODES for which wn_is_sink is true.
     
     WATER_NODES_BALANCE_POINTS is a set showing all the combinations of
     water nodes and timepoints, in which the conservation of mass law 
@@ -184,30 +182,12 @@ def define_components(mod):
     defaults to 0. 
     
     DispatchWater[wc, t] is a variable that represents how much water is
-    flowing through each water connection at each timepoint. 
+    flowing through each water connection at each timepoint. The lower bound is
+    m.min_eco_flow[wc, t] and the upper bound is m.wc_capacity[wc].
     
-    Enforce_WC_Capacity[wc, t] is a constraint that enforces the maximum
-    flow limit for water through each connection at each timepoint.
-    
-    Enforce_Min_Eco_Flow[wc, t] is a constraint that enforces the minimum
-    ecological flows through each connection at each timepoint. 
-        
-    
-    WaterNodeNet[wn, t] is an expression that calculates the difference
-    between all the water flows that come into the node through a water
-    connection, and all those that go out. Inflow and consumption that
-    are specified at the node are not considered here.
-    
-    Enforce_Wnode_Sinks_Balance[(wn, t) for (wn, t) in 
-    WATER_SINKS_BALANCE_POINTS] is a constraint that enforces conservation 
-    of mass at water sinks. It will ensure that all inflows equal the water
-    that flows out either through a water connection or that is spilled, at 
-    each timepoint.
-    
-    Enforce_Wnode_Non_Sinks_Balance[(wn, t) for (wn, t) not in 
-    WATER_SINKS_BALANCE_POINTS] is a constraint that enforces conservation
-    of mass at all non sink water nodes at each timepoint. The option of
-    spilling is not available at these nodes.
+    Enforce_Wnode_Balance[(wn, t) for (wn, t) in WATER_NODES_BALANCE_POINTS]
+    is a constraint that enforces conservation of mass at water nodes. This
+    accounts for any spills at sink nodes.
     
     Enforce_Reservoir_Balance[r, t] is the constraint that enforces the
     conservation of mass at each reservoir and timepoint, ensuring that
@@ -289,19 +269,12 @@ def define_components(mod):
     
     """
     
+    #################
+    # Nodes of the water network
     mod.WATER_NODES = Set()
-    mod.wn_is_sink = Param(
-        mod.WATER_NODES,
-        within=Boolean)
-    mod.WATER_SINKS = Set(
-        initialize=mod.WATER_NODES,
-        filter=lambda m, wn: m.wn_is_sink[wn])
     mod.WATER_NODES_BALANCE_POINTS = Set(
         dimen=2,
         initialize=lambda m: m.WATER_NODES * m.TIMEPOINTS)
-    mod.WATER_SINKS_BALANCE_POINTS = Set(
-        initialize=mod.WATER_NODES_BALANCE_POINTS,
-        filter=lambda m, wn, t: m.wn_is_sink[wn])
     mod.wnode_constant_inflow = Param(
         mod.WATER_NODES,
         within=NonNegativeReals,
@@ -318,10 +291,22 @@ def define_components(mod):
         mod.WATER_NODES_BALANCE_POINTS,
         within=NonNegativeReals,
         default=lambda m, wn, t: m.wnode_constant_consumption[wn])
+
+    #################
+    # Sink nodes
+    mod.wn_is_sink = Param(
+        mod.WATER_NODES,
+        within=Boolean)
+    mod.min_data_check('wn_is_sink')
+    mod.WATER_SINKS_BALANCE_POINTS = Set(
+        initialize=mod.WATER_NODES_BALANCE_POINTS,
+        filter=lambda m, wn, t: m.wn_is_sink[wn])
     mod.SinkSpillage = Var(
         mod.WATER_SINKS_BALANCE_POINTS,
         within=NonNegativeReals)
-    
+
+    #################
+    # Reservoir nodes
     mod.RESERVOIRS = Set()
     mod.res_min_vol = Param(
         mod.RESERVOIRS,
@@ -344,13 +329,13 @@ def define_components(mod):
     mod.initial_res_vol = Param(
         mod.RESERVOIRS,
         within=NonNegativeReals,
-        validate=lambda m, val, r: (val >= m.res_min_vol[r]
-            and val <= m.res_max_vol[r]))
+        validate=lambda m, val, r: (
+            m.res_min_vol[r] <= val <= m.res_max_vol[r]))
     mod.final_res_vol = Param(
         mod.RESERVOIRS,
         within=NonNegativeReals,
-        validate=lambda m, val, r: (val >= m.res_min_vol[r]
-            and val <= m.res_max_vol[r]))
+        validate=lambda m, val, r: (
+            m.res_min_vol[r] <= val <= m.res_max_vol[r]))
     mod.res_tp_inflow = Param(
         mod.RESERVOIRS_BALANCE_POINTS,
         within=NonNegativeReals,
@@ -375,6 +360,9 @@ def define_components(mod):
         rule=lambda m, r, t: (   
             m.ReservoirFinalVol[r, t] >= m.res_min_vol_tp[r, t]))    
     
+
+    ################
+    # Edges of the water network
     mod.WATER_CONNECTIONS = Set()
     mod.WATER_BODIES = Set(
         initialize=lambda m: m.WATER_NODES | m.RESERVOIRS)
@@ -398,35 +386,38 @@ def define_components(mod):
     mod.min_data_check('water_body_from', 'water_body_to')
     mod.DispatchWater = Var(
         mod.WCONS_DISPATCH_POINTS,
-        within=NonNegativeReals) 
-    mod.Enforce_WC_Capacity = Constraint(
-        mod.WCONS_DISPATCH_POINTS,
-        rule=lambda m, wc, t: (m.DispatchWater[wc, t] <= 
-            m.wc_capacity[wc]))
-    mod.Enforce_Min_Eco_Flow = Constraint(
-        mod.WCONS_DISPATCH_POINTS,
-        rule=lambda m, w, t: (
-            m.DispatchWater[w, t] >= m.min_eco_flow[w, t]))
-    
-    mod.WaterNodeNet = Expression(
+        within=NonNegativeReals,
+        bounds=lambda m, wc, t: (m.min_eco_flow[wc, t], m.wc_capacity[wc]))  
+
+    def Enforce_Wnode_Balance_rule(m, wn, t):
+        # Cache (inflow, outflow) for all nodes & timepoints in one pass
+        if not hasattr(m, '_WaterNodeNet_dict'):
+            m._WaterFlows_dict = {(wn2, t2): [0.0, 0.0] \
+                                  for (wn2, t2) in m.WATER_NODES_BALANCE_POINTS}
+            for wn2 in m.WATER_NODES:
+                for wc in m.WATER_CONNECTIONS:
+                    if m.water_body_to[wc] == wn2:
+                        for t2 in m.TIMEPOINTS:
+                            m._WaterFlows_dict[(wn2, t2)][0] += m.DispatchWater[wc, t2]
+                    if m.water_body_from[wc] == wn2:
+                        for t2 in m.TIMEPOINTS:
+                            m._WaterFlows_dict[(wn2, t2)][1] += m.DispatchWater[wc, t2]
+        # Use pop to free memory in each loop and delattr to clean up at the end
+        [dispatch_inflow, dispatch_outflow] = m._WaterFlows_dict.pop((wn, t))
+        if len(m._WaterFlows_dict.keys()) == 0:
+            delattr(m, '_WaterFlows_dict')
+        # Spill flows: 0 for non-sink nodes
+        spill_outflow = 0.0
+        if m.wn_is_sink[wn]:
+            spill_outflow = m.SinkSpillage[wn, t]
+        # Conservation of mass flow
+        return (
+            m.wnode_tp_inflow[wn, t] + dispatch_inflow == \
+            m.wnode_tp_consumption[wn, t] + dispatch_outflow + spill_outflow)
+    mod.Enforce_Wnode_Balance = Constraint(
         mod.WATER_NODES_BALANCE_POINTS,
-        rule=lambda m, wn, t: sum(m.DispatchWater[wc, t] 
-            for wc in m.WATER_CONNECTIONS 
-                if m.water_body_to[wc] == wn) - 
-                    sum(m.DispatchWater[wc, t] 
-                        for wc in m.WATER_CONNECTIONS 
-                            if m.water_body_from[wc] == wn))
-    mod.Enforce_Wnode_Sinks_Balance = Constraint(
-        mod.WATER_SINKS_BALANCE_POINTS,
-        rule=lambda m, w, t: (m.wnode_tp_inflow[w, t] + 
-            m.WaterNodeNet[w, t] == m.wnode_tp_consumption[w, t] + 
-                m.SinkSpillage[w, t]))
-    mod.Enforce_Wnode_Non_Sinks_Balance = Constraint(
-        mod.WATER_NODES_BALANCE_POINTS - mod.WATER_SINKS_BALANCE_POINTS,
-        rule=lambda m, w, t: (m.wnode_tp_inflow[w, t] + 
-            m.WaterNodeNet[w, t] == m.wnode_tp_consumption[w, t]))
-                
-    
+        rule=Enforce_Wnode_Balance_rule)
+
     mod.Enforce_Reservoir_Balance = Constraint(
         mod.RESERVOIRS_BALANCE_POINTS,
         # Rule: timepoint_duration * Net_flow_rate = Change_in_volume
@@ -440,15 +431,16 @@ def define_components(mod):
                 m.res_tp_consumption[r, t]
             ) == m.ReservoirFinalVol[r, t] - m.ReservoirInitialVol[r, t]))
     def Enforce_Reservoir_Vol_Links_rule(m, r, t):
-        if not hasattr(m, 'first_tps_in_period'):
-            m.first_tps_in_period = {p: [m.TS_TPS[ts][1] 
-                for ts in m.TIMESERIES if m.ts_period[ts] == m.tp_period[t]]
-                    for p in m.PERIODS}
+        if not hasattr(m, '_first_tps_in_period'):
+            m._first_tps_in_period = {p: [] for p in m.PERIODS}
+            for ts in m.TIMESERIES:
+                p = m.ts_period[ts]
+                m._first_tps_in_period[p].append(m.TS_TPS[ts].first())
         tp_p = m.tp_period[t]
         if t == m.PERIOD_TPS[tp_p].first():
             # All reservoirs start with the specified initial volume
             return (m.ReservoirInitialVol[r, t] == m.initial_res_vol[r])
-        elif (t in m.first_tps_in_period[tp_p] and 
+        elif (t in m._first_tps_in_period[tp_p] and 
                 t != m.PERIOD_TPS[tp_p].first()):
             # If the timepoint is the first of a series, start with the
             # final volume of the previous series' last timepoint
