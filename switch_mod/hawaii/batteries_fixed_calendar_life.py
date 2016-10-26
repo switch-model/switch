@@ -65,8 +65,10 @@ def define_components(m):
     m.Battery_Level_Calc = Constraint(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
         m.BatteryLevel[z, t] == 
             m.BatteryLevel[z, m.tp_previous[t]]
-            + m.battery_efficiency * m.ChargeBattery[z, m.tp_previous[t]] 
-            - m.DischargeBattery[z, m.tp_previous[t]]
+            + m.tp_duration_hrs[t] * (
+                m.battery_efficiency * m.ChargeBattery[z, m.tp_previous[t]] 
+                - m.DischargeBattery[z, m.tp_previous[t]]
+            )
     )
       
     # limits on storage level
@@ -86,10 +88,17 @@ def define_components(m):
         <=
         m.Battery_Capacity[z, m.tp_period[t]] * m.battery_max_discharge / m.battery_min_discharge_time
     )
-    m.Battery_Max_Disharge = Constraint(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
+    m.Battery_Max_Discharge = Constraint(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
         m.DischargeBattery[z, t]
         <=
         m.Battery_Capacity[z, m.tp_period[t]] * m.battery_max_discharge / m.battery_min_discharge_time
+    )
+
+    # assume batteries can only complete one full cycle per day
+    m.Battery_Cycle_Limit = Constraint(m.LOAD_ZONES, m.TIMESERIES, rule=lambda m, z, ts:
+        sum(m.DischargeBattery[z, tp] * m.tp_duration_hrs[tp] for tp in m.TS_TPS[ts])
+        <= 
+        m.Battery_Capacity[z, m.ts_period[ts]] * m.ts_duration_hrs[ts] / 24.0
     )
 
 
