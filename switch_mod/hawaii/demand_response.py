@@ -263,7 +263,7 @@ def pre_iterate(m):
     # TODO: index this to the direct costs, rather than the direct costs minus benefits
     # as it stands, it converges with about $50,000,000 optimality gap, which is about 
     # 3% of direct costs.
-    converged = (m.iteration_number > 0 and (prev_cost - best_cost)/abs(best_cost) <= 0.001)
+    converged = (m.iteration_number > 0 and (prev_cost - best_cost)/abs(best_cost) <= 0.0001)
         
     return converged
 
