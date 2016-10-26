@@ -45,7 +45,7 @@ def define_components(m):
         )
     r.source(m.options.dr_r_script)
 
-def calibrate(base_data, dr_elasticity_scenario=1):
+def calibrate(base_data):
     """Accept a list of tuples showing load_zone, time_series, [base hourly loads], [base hourly prices]
     for each load_zone and time_series (day). Perform any calibration needed in the demand system
     so that customized bids can later be generated for each load_zone and time_series, using new prices.
@@ -69,14 +69,14 @@ def calibrate(base_data, dr_elasticity_scenario=1):
     base_prices = make_r_value_array(base_price_dict, hours_of_day, time_series, load_zones)
     
     # calibrate the demand system within R
-    r.calibrate(base_loads, base_prices, dr_elasticity_scenario)
+    r.calibrate(base_loads, base_prices)
 
 
-def bid(load_zone, time_series, prices):
+def bid(load_zone, time_series, prices, dr_elasticity_scenario=1):
     """Accept a vector of prices in a particular load_zone during a particular day (time_series).
     Return a tuple showing hourly load levels and willingness to pay for those loads."""
     
-    bid = r.bid(str(load_zone), str(time_series), np.array(prices))
+    bid = r.bid(str(load_zone), str(time_series), np.array(prices), dr_elasticity_scenario)
     demand = list(bid[0])
     wtp = bid[1][0] # everything is a vector in R, so we have to take the first element
     return (demand, wtp)
@@ -121,4 +121,4 @@ def make_r_value_array(base_value_dict, hours_of_day, time_series, load_zones):
     )
     return r_array
     
-# print "finished loading r_demand_system.py"
+print "finished loading r_demand_system.py"

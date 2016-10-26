@@ -150,13 +150,15 @@ def define_components(m):
             sum(m.DRBidWeight[b, lz, m.tp_ts[tp]] * m.dr_bid[b, lz, tp] for b in m.DR_BID_LIST)
     )
 
-    # # FlexibleDemand reported as an adjustment (negative equals more demand)
-    # # We have to do it this way because there's no way to remove the lz_demand_mw from the model
-    # # without changing the core code.
-    # m.DemandPriceResponse = Expression(m.LOAD_ZONES, m.TIMEPOINTS, 
-    #     rule=lambda m, lz, tp: m.lz_demand_mw[lz, tp] - m.FlexibleDemand[lz, tp]
-    # )
-    
+    # replace lz_demand_mw with FlexibleDemand in the energy balance constraint
+    # note: the first two lines are simpler than the method I use, but my approach
+    # preserves the ordering of the list, which is nice for older spreadsheets that expect
+    # a certain ordering.
+    # m.LZ_Energy_Components_Consume.remove('lz_demand_mw')
+    # m.LZ_Energy_Components_Consume.append('FlexibleDemand')
+    idx = m.LZ_Energy_Components_Consume.index('lz_demand_mw')
+    m.LZ_Energy_Components_Consume[idx] = 'FlexibleDemand'
+
     # private benefit of the electricity consumption 
     # (i.e., willingness to pay for the current electricity supply)
     # reported as negative cost, i.e., positive benefit
@@ -180,42 +182,55 @@ def define_components(m):
     # variable to store the baseline data
     m.base_data = None
 
-def post_iterate(m):
-    print "\n\n======================================================="
-    print "Solved model"
-    print "======================================================="
-    print "Total cost: ${v:,.0f}".format(v=value(m.SystemCost))
-    print "marginal costs (first day):"
-    print [
-        electricity_marginal_cost(m, lz, tp) 
-            for lz in m.LOAD_ZONES
-                for tp in m.TS_TPS[m.TIMESERIES[1]]
-    ]
-    print "marginal costs (second day):"
-    print [
-        electricity_marginal_cost(m, lz, tp) 
-            for lz in m.LOAD_ZONES
-                for tp in m.TS_TPS[m.TIMESERIES[2]]
-    ]
-
-    # report the dual costs before the model is altered by update_demand
-    write_dual_costs(m)
+def pre_iterate(m):
+    # could all prev values be stored in post_iterate?
+    # then this func would just alter the model based on values calculated in post_iterate
+    # (e.g., get a bid based on current prices, add bid to model, rebuild components)
     
-    # if m.iteration_number % 5 == 0:
-    #     # save time by only writing results every 5 iterations
-    # write_results(m)
+    # NOTE:
+    # bids must be added to the model here, and the model must be reconstructed here, 
+    # so the model can then be solved and remain in a "solved" state through the end
+    # of post-iterate, to avoid problems in final reporting.
+    
+    # store various properties from previous model solution for later reference
+    m.prev_marginal_cost = (
+        {(lz, tp): None for lz in m.LOAD_ZONES for tp in m.TIMEPOINTS} # model hasn't been solved yet
+        if m.iteration_number == 0 else 
+        {(lz, tp): electricity_marginal_cost(m, lz, tp) for lz in m.LOAD_ZONES for tp in m.TIMEPOINTS}
+    )
+    m.prev_demand = (
+        {(lz, tp): None for lz in m.LOAD_ZONES for tp in m.TIMEPOINTS} # model hasn't been solved yet
+        if m.iteration_number == 0 else 
+        {(lz, tp): electricity_demand(m, lz, tp) for lz in m.LOAD_ZONES for tp in m.TIMEPOINTS}
+    )
+    m.prev_SystemCost = (
+        None
+        if m.iteration_number == 0 else 
+        value(m.SystemCost)
+    )
 
-    # Retrieve SystemCost before calling update_demand()
-    # because that breaks SystemCost until the next solve
-    old_SystemCost = getattr(m, "last_SystemCost", None)
-    new_SystemCost = value(m.SystemCost)
-    m.last_SystemCost = new_SystemCost
     if m.iteration_number > 0:
-        # store cost of current solution before it gets altered by update_demand()
-        current_cost = value(sum(
+        # store cost of previous solution before it gets altered by update_demand()
+        # TODO: this and best_cost could probably be moved to post_iterate
+        # Then we'd be comparing the final (current) solution to the best possible
+        # solution based on the prior round of bids, rather than comparing the new
+        # bid to the prior solution to the master problem. This is probably fine.
+        # TODO: does this correctly account for producer surplus? It seems like that's
+        # being treated as a cost (embedded in MC * demand); maybe this should use 
+        # total direct cost instead,
+        # or focus specifically on consumer surplus (use prices instead of MC as the
+        # convergence measure). But maybe this is OK, since the question is, "if we
+        # could serve the last bid at the MC we had then (which also means the PS
+        # we had then? no change for altered volume?), would everyone be much
+        # better off than they are with the allocation we have now chosen?"
+        # Maybe using MC lets us focus on whether there can be another incrementally
+        # different solution that would be much better than the one we have now. 
+        # This ignores other solutions far away, where an integer variable is flipped,
+        # but that's OK. (?)
+        prev_cost = value(sum(
             (
                 sum(
-                    electricity_marginal_cost(m, lz, tp) * electricity_demand(m, lz, tp)
+                    m.prev_marginal_cost[lz, tp] * m.prev_demand[lz, tp]
                         for lz in m.LOAD_ZONES 
                 ) + m.DR_Welfare_Cost[tp]
             ) * m.bring_timepoint_costs_to_base_year[tp]
@@ -223,41 +238,105 @@ def post_iterate(m):
                     for tp in m.TS_TPS[ts]
         ))
     
+    # get the next bid and attach it to the model
     update_demand(m)
+
+    b = m.DR_BID_LIST.last()    # current bid number
 
     if m.iteration_number > 0:
         # get an estimate of best possible net cost of serving load
         # (if we could completely serve the last bid at the prices we quoted,
         # that would be an optimum; the actual cost may be higher but never lower)
-        b = m.DR_BID_LIST.last()
         best_cost = value(sum(
             sum(
-                electricity_marginal_cost(m, lz, tp) * m.dr_bid[b, lz, tp] 
+                m.prev_marginal_cost[lz, tp] * m.dr_bid[b, lz, tp] 
                 - m.dr_bid_benefit[b, lz, ts] * m.tp_duration_hrs[tp] / m.ts_num_tps[ts]
-                    for lz in m.LOAD_ZONES 
-            ) * m.bring_timepoint_costs_to_base_year[tp]
-                for ts in m.TIMESERIES
-                    for tp in m.TS_TPS[ts]
+                for lz in m.LOAD_ZONES 
+            ) 
+            * m.bring_timepoint_costs_to_base_year[tp]
+            for ts in m.TIMESERIES
+            for tp in m.TS_TPS[ts]
         ))
-        print "last_SystemCost={}, SystemCost={}, ratio={}".format(
-            old_SystemCost, new_SystemCost, new_SystemCost/old_SystemCost)
-        print "lower bound={}, current cost={}, ratio={}".format(
-            best_cost, current_cost, current_cost/best_cost)
-        print "discount factors: " + " ".join([
-            "{}={}".format(p, m.bring_timepoint_costs_to_base_year[m.PERIOD_TPS[p].first()])
-                for p in m.PERIODS
-        ])
-
-    # # Check for convergence (no progress during the last iteration)
-    # converged = (m.iteration_number > 0 and new_SystemCost == old_SystemCost)
+        print "lower bound={}, previous cost={}, ratio={}".format(
+            best_cost, prev_cost, prev_cost/best_cost)
 
     # Check for convergence -- optimality gap is less than 0.1% of best possible cost 
     # (which may be negative)
     # TODO: index this to the direct costs, rather than the direct costs minus benefits
-    # as it stands, it converges with about $50,000,000 optimality gap, which is about 3% of direct costs.
-    converged = (m.iteration_number > 0 and (current_cost - best_cost)/abs(best_cost) <= 0.001)
+    # as it stands, it converges with about $50,000,000 optimality gap, which is about 
+    # 3% of direct costs.
+    converged = (m.iteration_number > 0 and (prev_cost - best_cost)/abs(best_cost) <= 0.001)
         
     return converged
+
+def post_iterate(m):
+    print "\n\n======================================================="
+    print "Solved model"
+    print "======================================================="
+    print "Total cost: ${v:,.0f}".format(v=value(m.SystemCost))
+
+
+    # TODO: 
+    # maybe calculate prices for the next round here and attach them to the
+    # model, so they can be reported as final prices (currently we don't
+    # report the final prices, only the prices prior to the final model run)
+
+    SystemCost = value(m.SystemCost)    # calculate once to save time
+    print "prev_SystemCost={}, SystemCost={}, ratio={}".format(
+        m.prev_SystemCost, SystemCost, 
+        None if m.prev_SystemCost is None else SystemCost/m.prev_SystemCost
+    )
+
+    tag = m.options.scenario_name
+    outputs_dir = m.options.outputs_dir
+
+    # report information on most recent bid
+    if m.iteration_number == 0:
+        util.create_table(
+            output_file=os.path.join(outputs_dir, "bid_{t}.tsv".format(t=tag)), 
+            headings=(
+                "bid_num", "load_zone", "timeseries", "timepoint", "marginal_cost", "price", 
+                "bid_load", "wtp", "base_price", "base_load"
+            )
+        )
+    b = m.DR_BID_LIST.last()    # current bid
+    util.append_table(m, m.LOAD_ZONES, m.TIMEPOINTS,
+        output_file=os.path.join(outputs_dir, "bid_{t}.tsv".format(t=tag)), 
+        values=lambda m, lz, tp: (
+            b,
+            lz,
+            m.tp_ts[tp],
+            m.tp_timestamp[tp],
+            m.prev_marginal_cost[lz, tp],
+            m.dr_price[b, lz, tp],
+            m.dr_bid[b, lz, tp],
+            m.dr_bid_benefit[b, lz, m.tp_ts[tp]],
+            m.base_data_dict[lz, tp][1],
+            m.base_data_dict[lz, tp][0],
+        )
+    )
+
+    # store the current bid weights for future reference
+    if m.iteration_number == 0:
+        util.create_table(
+            output_file=os.path.join(outputs_dir, "bid_weights_{t}.tsv".format(t=tag)), 
+            headings=("iteration", "load_zone", "timeseries", "bid_num", "weight")
+        )
+    util.append_table(m, m.LOAD_ZONES, m.TIMESERIES, m.DR_BID_LIST, 
+        output_file=os.path.join(outputs_dir, "bid_weights_{t}.tsv".format(t=tag)), 
+        values=lambda m, lz, ts, b: (len(m.DR_BID_LIST), lz, ts, b, m.DRBidWeight[b, lz, ts])
+    )
+    
+    # report the dual costs
+    write_dual_costs(m)
+
+    # if m.iteration_number % 5 == 0:
+    #     # save time by only writing results every 5 iterations
+    # write_results(m)
+    
+    write_results(m)
+    write_batch_results(m)
+
 
 def update_demand(m):
     """
@@ -267,17 +346,11 @@ def update_demand(m):
     demand with the flexible demand system.
     """
     first_run = (m.base_data is None)
-    outputs_dir = m.options.outputs_dir
-    tag = m.options.scenario_name
 
     print "attaching new demand bid to model"
     if first_run:
         calibrate_model(m)
-
-        util.create_table(
-            output_file=os.path.join(outputs_dir, "bid_weights_{t}.tsv".format(t=tag)), 
-            headings=("iteration", "load_zone", "timeseries", "bid_num", "weight")
-        )
+        
     else:   # not first run
         # print "m.DRBidWeight (first day):"
         # print [(b, lz, ts, value(m.DRBidWeight[b, lz, ts])) 
@@ -291,13 +364,6 @@ def update_demand(m):
         #print "DR_Convex_Bid_Weight:"
         #m.DR_Convex_Bid_Weight.pprint()
 
-        # store the current bid weights for future reference
-        # This should be done before adding the new bid.
-        util.append_table(m, m.LOAD_ZONES, m.TIMESERIES, m.DR_BID_LIST, 
-            output_file=os.path.join(outputs_dir, "bid_weights_{t}.tsv".format(t=tag)), 
-            values=lambda m, lz, ts, b: (len(m.DR_BID_LIST), lz, ts, b, m.DRBidWeight[b, lz, ts])
-        )
-
     # get new bids from the demand system at the current prices
     bids = get_bids(m)
     
@@ -306,11 +372,11 @@ def update_demand(m):
     # pprint(bids[0])
     # add the new bids to the model
     add_bids(m, bids)
-    print "m.dr_bid_benefit (first day):"
-    pprint([(b, lz, ts, value(m.dr_bid_benefit[b, lz, ts])) 
-        for b in m.DR_BID_LIST
-        for lz in m.LOAD_ZONES
-        for ts in [m.TIMESERIES.first()]])
+    # print "m.dr_bid_benefit (first day):"
+    # pprint([(b, lz, ts, value(m.dr_bid_benefit[b, lz, ts]))
+    #     for b in m.DR_BID_LIST
+    #     for lz in m.LOAD_ZONES
+    #     for ts in [m.TIMESERIES.first()]])
     
     # print "m.dr_bid (first day):"
     # print [(b, lz, ts, value(m.dr_bid[b, lz, ts]))
@@ -318,17 +384,6 @@ def update_demand(m):
     #     for lz in m.LOAD_ZONES 
     #     for ts in m.TS_TPS[m.TIMESERIES.first()]]
     
-    if first_run:
-        # replace lz_demand_mw with FlexibleDemand in the energy balance constraint
-        # note: it is easiest to do this after retrieving the bids because this
-        # destroys the dual values which are needed for calculating the bids
-        # note: the first two lines are simpler than the method I use, but my approach
-        # preserves the ordering of the list, which is nice for reporting.
-        # m.LZ_Energy_Components_Consume.remove('lz_demand_mw')
-        # m.LZ_Energy_Components_Consume.append('FlexibleDemand')
-        ecc = m.LZ_Energy_Components_Consume
-        ecc[ecc.index('lz_demand_mw')] = 'FlexibleDemand'
-        reconstruct_energy_balance(m)
 
 def sum_product(vector1, vector2):
     return sum(v1*v2 for (v1, v2) in zip(vector1, vector2))
@@ -481,10 +536,13 @@ def calibrate_model(m):
     for lz, ts, loads, prices in m.base_data:
         annual_revenue[m.ts_period[ts]] += sum_product(loads, prices) * m.tp_weight_in_year[m.TS_TPS[ts].first()]
     for p in m.PERIODS:
-        m.other_costs[p] = annual_revenue[p] - total_direct_costs_per_year(m, p)
+        # m.other_costs[p] = annual_revenue[p] - total_direct_costs_per_year(m, p)
+        # disable other_costs calculation; these should be specified externally if at all
+        m.other_costs[p] = 0.0
     
     # calibrate the demand module
-    demand_module.calibrate(m.base_data, m.options.dr_elasticity_scenario)
+    #demand_module.calibrate(m.base_data, m.options.dr_elasticity_scenario)
+    demand_module.calibrate(m.base_data)
 
     # note: SystemCostPerPeriod and SystemCost will get reconstructed
     # in add_bids later in the first iteration, so there's no need to reconstruct them here.
@@ -497,7 +555,12 @@ def get_bids(m):
     """
 
     bids = []
-    all_prices = make_prices(m)
+
+    if m.iteration_number > 0:
+        # calculate prices from last model solution
+        all_prices = make_prices(m)
+        # TODO: change make_prices to use base_price in iteration 0,
+        # instead of doing it below
 
 
     for i, (lz, ts, base_load, base_price) in enumerate(m.base_data):
@@ -506,9 +569,14 @@ def get_bids(m):
         #     print "prices (day {i}): {p}".format(i=i, p=prices)
         #     print "weights: {w}".format(w=[m.bring_timepoint_costs_to_base_year[tp] for tp in m.TS_TPS[ts]])
 
-        prices = [all_prices[(lz, tp)] for tp in m.TS_TPS[ts]]
+        if m.iteration_number == 0:
+            # use base prices on the first pass
+            prices = base_price
+        else:
+            # use prices from last solution
+            prices = [all_prices[(lz, tp)] for tp in m.TS_TPS[ts]]
         
-        demand, wtp = demand_module.bid(lz, ts, prices)
+        demand, wtp = demand_module.bid(lz, ts, prices, m.options.dr_elasticity_scenario)
 
         bids.append((lz, ts, prices, demand, wtp))
 
@@ -532,9 +600,6 @@ def add_bids(m, bids):
         b = 1
     else:
         b = max(m.DR_BID_LIST) + 1
-
-    tag = m.options.scenario_name
-    outputs_dir = m.options.outputs_dir
     
     m.DR_BID_LIST.add(b)
     # m.DR_BIDS_LZ_TP.reconstruct()
@@ -560,36 +625,6 @@ def add_bids(m, bids):
     print "len(m.DR_BID_LIST): {l}".format(l=len(m.DR_BID_LIST))
     print "m.DR_BID_LIST: {b}".format(b=[x for x in m.DR_BID_LIST])
 
-    # store bid information for later reference
-    # this has to be done after the model is updated and
-    # before DRBidWeight is reconstructed (which destroys the duals)
-    if b == 1:
-        util.create_table(
-            output_file=os.path.join(outputs_dir, "bid_{t}.tsv".format(t=tag)), 
-            headings=(
-                "bid_num", "load_zone", "timeseries", "timepoint", "marginal_cost", "price", 
-                "bid_load", "wtp", "base_price", "base_load"
-            )
-        )   
-    util.append_table(m, m.LOAD_ZONES, m.TIMEPOINTS,
-        output_file=os.path.join(outputs_dir, "bid_{t}.tsv".format(t=tag)), 
-        values=lambda m, lz, tp: (
-            b,
-            lz,
-            m.tp_ts[tp],
-            m.tp_timestamp[tp],
-            electricity_marginal_cost(m, lz, tp),
-            m.dr_price[max(m.DR_BID_LIST), lz, tp],
-            m.dr_bid[max(m.DR_BID_LIST), lz, tp],
-            m.dr_bid_benefit[b, lz, m.tp_ts[tp]],
-            m.base_data_dict[lz, tp][1],
-            m.base_data_dict[lz, tp][0],
-        )
-    )
-
-    write_results(m)
-    write_batch_results(m)
-
     # reconstruct the components that depend on m.DR_BID_LIST, m.dr_bid_benefit and m.dr_bid
     m.DRBidWeight.reconstruct()
     m.DR_Convex_Bid_Weight.reconstruct()
@@ -610,9 +645,12 @@ def reconstruct_energy_balance(m):
     # copy the existing Energy_Balance object
     old_Energy_Balance = dict(m.Energy_Balance)
     m.Energy_Balance.reconstruct()
-    for k in old_Energy_Balance:
-        # change dual entries to match new Energy_Balance objects
-        m.dual[m.Energy_Balance[k]] = m.dual.pop(old_Energy_Balance[k])
+    # TODO: now that this happens just before a solve, there may be no need to 
+    # preserve duals across the reconstruct().
+    if m.iteration_number > 0:
+        for k in old_Energy_Balance:
+            # change dual entries to match new Energy_Balance objects
+            m.dual[m.Energy_Balance[k]] = m.dual.pop(old_Energy_Balance[k])
     
 
 def write_batch_results(m):
@@ -665,14 +703,20 @@ def summary_values(m):
     ])
     
     # payments by customers ([expected load] * [price offered for that load])
+    # TODO: this uses the price from just _before_ the final solution.
+    # eventually this should be changed to reflect our expected pricing strategy 
+    # (final constructed load * last offered price or final ex post price?)
     last_bid = m.DR_BID_LIST.last()
-    values.extend([
-        sum(
-            electricity_demand(m, lz, tp) * m.dr_price[last_bid, lz, tp] * m.tp_weight_in_year[tp]
-            for lz in m.LOAD_ZONES for tp in m.PERIOD_TPS[p]
-        )
-        for p in m.PERIODS
-    ])
+    if m.iteration_number == 0:
+        values.extend([None for p in m.PERIODS])
+    else:
+        values.extend([
+            sum(
+                electricity_demand(m, lz, tp) * m.dr_price[last_bid, lz, tp] * m.tp_weight_in_year[tp]
+                for lz in m.LOAD_ZONES for tp in m.PERIOD_TPS[p]
+            )
+            for p in m.PERIODS
+        ])
     
     # total MWh delivered each year
     values.extend([
@@ -702,7 +746,7 @@ def write_results(m):
             +tuple("curtail_"+s for s in m.NON_FUEL_ENERGY_SOURCES)
             +tuple(m.LZ_Energy_Components_Produce)
             +tuple(m.LZ_Energy_Components_Consume)
-            +("marginal_cost","price","peak_day","base_load","base_price"),
+            +("marginal_cost","final_marginal_cost","price","peak_day","base_load","base_price"),
         values=lambda m, z, t: 
             (z, m.tp_period[t], m.tp_timestamp[t]) 
             +tuple(
@@ -723,6 +767,7 @@ def write_results(m):
             +tuple(getattr(m, component)[z, t] for component in m.LZ_Energy_Components_Produce)
             +tuple(getattr(m, component)[z, t] for component in m.LZ_Energy_Components_Consume)
             +(
+                m.prev_marginal_cost[z, t],
                 electricity_marginal_cost(m, z, t),
                 m.dr_price[last_bid, z, t],
                 'peak' if m.ts_scale_to_year[m.tp_ts[t]] < 0.5*avg_ts_scale else 'typical',
