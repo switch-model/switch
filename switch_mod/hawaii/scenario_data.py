@@ -370,7 +370,13 @@ def write_tables(**args):
         raise ValueError(
             'wind_capital_cost_escalator and pv_capital_cost_escalator arguments are '
             'no longer supported by scenario_data.write_tables(); '
-            'assign variable costs in the generator_costs_by_year table instead.'
+            'assign time-varying costs in the generator_costs_by_year table instead.'
+        )
+    if args.get('generator_costs_base_year', 0):
+        # user supplied a generator_costs_base_year
+        raise ValueError(
+            'generator_costs_base_year is no longer supported by scenario_data.write_tables(); '
+            'assign base_year in the generator_costs_by_year table instead.'
         )
 
     # note: this table can only hold costs for technologies with future build years,
@@ -381,10 +387,11 @@ def write_tables(**args):
         SELECT  
             i.technology as generation_technology, 
             period AS investment_period,
-            capital_cost_per_kw * 1000.0 
-                * power(1.0+%(inflation_rate)s, %(base_financial_year)s-%(generator_costs_base_year)s)
+            c.capital_cost_per_kw * 1000.0 
+                * power(1.0+%(inflation_rate)s, %(base_financial_year)s-c.base_year)
                 AS g_overnight_cost, 
-            fixed_o_m*1000.0 AS g_fixed_o_m
+            i.fixed_o_m * 1000.0 * power(1.0+%(inflation_rate)s, %(base_financial_year)s-i.base_year)
+                AS g_fixed_o_m
         FROM generator_info i
             JOIN generator_costs_by_year c USING (technology)
             JOIN study_periods p ON p.period = c.year
