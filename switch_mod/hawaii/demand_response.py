@@ -25,8 +25,6 @@ def define_arguments(argparser):
         help="Charge a constant (average) price for electricity, rather than varying hour by hour")
     argparser.add_argument("--dr-total-cost-pricing", action='store_true', default=False,
         help="Include both marginal and non-marginal(fixed) costs when setting prices")
-    argparser.add_argument("--dr-elasticity-scenario", type=int, default=3,
-        help="Choose a scenario of customer elasticity (1-3), defined in the demand_module")
     argparser.add_argument("--dr-demand-module", default=None,
         help="Name of module to use for demand-response bids. This should also be "
         "specified in the modules list, and should provide calibrate() and bid() functions. "
@@ -542,10 +540,7 @@ def calibrate_model(m):
     
     # calibrate the demand module
     #demand_module.calibrate(m.base_data, m.options.dr_elasticity_scenario)
-    demand_module.calibrate(m.base_data)
-
-    # note: SystemCostPerPeriod and SystemCost will get reconstructed
-    # in add_bids later in the first iteration, so there's no need to reconstruct them here.
+    demand_module.calibrate(m, m.base_data)
 
 
 def get_bids(m):
@@ -576,7 +571,7 @@ def get_bids(m):
             # use prices from last solution
             prices = [all_prices[(lz, tp)] for tp in m.TS_TPS[ts]]
         
-        demand, wtp = demand_module.bid(lz, ts, prices, m.options.dr_elasticity_scenario)
+        demand, wtp = demand_module.bid(m, lz, ts, prices)
 
         bids.append((lz, ts, prices, demand, wtp))
 
