@@ -191,16 +191,14 @@ def iterate(m, iterate_modules, depth=0):
             converged = True
             # pre-iterate modules at this level
             for module in current_modules:
-                if hasattr(module, 'pre_iterate'): 
-                    converged = module.pre_iterate(m) and converged
+                converged = iterate_module_func(m, module, 'pre_iterate', converged)
 
             # converge the deeper-level modules, if any (inner loop)
             iterate(m, iterate_modules, depth=depth+1)
             
             # post-iterate modules at this level
             for module in current_modules:
-                if hasattr(module, 'post_iterate'):
-                    converged = module.post_iterate(m) and converged
+                converged = iterate_module_func(m, module, 'post_iterate', converged)
 
             j += 1
         if converged:
@@ -209,6 +207,20 @@ def iterate(m, iterate_modules, depth=0):
             print "Iteration of {ms} was stopped after {j} iterations without convergence.".format(ms=iterate_modules[depth], j=j)
     return
 
+def iterate_module_func(m, module, func, converged):
+    """Call function func() in specified module (if available) and use the result to 
+    adjust model convergence status. If func doesn't exist or returns None, convergence 
+    status will not be changed."""
+    module_converged = None
+    iter_func = getattr(module, func, None)
+    if iter_func is not None:
+        module_converged = iter_func(m)
+    if module_converged is None:
+        # module is not taking a stand on whether the model has converged
+        return converged
+    else:
+        return converged and module_converged
+    
 
 def define_arguments(argparser):
     # callback function to define model configuration arguments while the model is built
