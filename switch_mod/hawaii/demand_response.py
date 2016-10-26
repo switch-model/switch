@@ -741,7 +741,7 @@ def write_results(m):
             +tuple("curtail_"+s for s in m.NON_FUEL_ENERGY_SOURCES)
             +tuple(m.LZ_Energy_Components_Produce)
             +tuple(m.LZ_Energy_Components_Consume)
-            +("marginal_cost","final_marginal_cost","price","bid_quantity","peak_day","base_load","base_price"),
+            +("marginal_cost","final_marginal_cost","price","bid_load","peak_day","base_load","base_price"),
         values=lambda m, z, t: 
             (z, m.tp_period[t], m.tp_timestamp[t]) 
             +tuple(

@@ -94,11 +94,12 @@ def define_components(m):
         m.Battery_Capacity[z, m.tp_period[t]] * m.battery_max_discharge / m.battery_min_discharge_time
     )
 
-    # assume batteries can only complete one full cycle per day
-    m.Battery_Cycle_Limit = Constraint(m.LOAD_ZONES, m.TIMESERIES, rule=lambda m, z, ts:
-        sum(m.DischargeBattery[z, tp] * m.tp_duration_hrs[tp] for tp in m.TS_TPS[ts])
+    # assume batteries can only complete one full cycle (charged to max discharge)
+    # per day, averaged over each period
+    m.Battery_Cycle_Limit = Constraint(m.LOAD_ZONES, m.PERIODS, rule=lambda m, z, ts:
+        sum(m.DischargeBattery[z, tp] * m.tp_duration_hrs[tp] for tp in m.PERIOD_TPS[p])
         <= 
-        m.Battery_Capacity[z, m.ts_period[ts]] * m.ts_duration_hrs[ts] / 24.0
+        m.Battery_Capacity[z, p] * m.battery_max_discharge * m.period_length_hours[p]
     )
 
 
