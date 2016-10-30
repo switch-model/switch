@@ -353,22 +353,11 @@ def define_components(mod):
         bounds=lambda m, wc, t: (m.min_eco_flow[wc, t], m.wc_capacity[wc]))
 
     def Enforce_Wnode_Balance_rule(m, wn, t):
-        # Cache (inflow, outflow) for all nodes & timepoints in one pass
-        if not hasattr(m, '_WaterNodeNet_dict'):
-            m._WaterFlows_dict = {(wn2, t2): [0.0, 0.0] \
-                                  for (wn2, t2) in m.WATER_NODES_BALANCE_POINTS}
-            for wn2 in m.WATER_NODES:
-                for wc in m.WATER_CONNECTIONS:
-                    if m.water_node_to[wc] == wn2:
-                        for t2 in m.TIMEPOINTS:
-                            m._WaterFlows_dict[(wn2, t2)][0] += m.DispatchWater[wc, t2]
-                    if m.water_node_from[wc] == wn2:
-                        for t2 in m.TIMEPOINTS:
-                            m._WaterFlows_dict[(wn2, t2)][1] += m.DispatchWater[wc, t2]
-        # Use pop to free memory in each loop and delattr to clean up at the end
-        [dispatch_inflow, dispatch_outflow] = m._WaterFlows_dict.pop((wn, t))
-        if len(m._WaterFlows_dict.keys()) == 0:
-            delattr(m, '_WaterFlows_dict')
+        # Sum inflows and outflows from and to other nodes
+        dispatch_inflow = sum(m.DispatchWater[wc, t] 
+            for wc in m.WATER_CONNECTIONS if m.water_node_to[wc] == wn)
+        dispatch_outflow = sum(m.DispatchWater[wc, t] 
+            for wc in m.WATER_CONNECTIONS if m.water_node_from[wc] == wn)
         # Spill flows: 0 for non-sink nodes
         spill_outflow = 0.0
         if m.wn_is_sink[wn]:
