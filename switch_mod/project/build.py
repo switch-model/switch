@@ -218,24 +218,6 @@ def define_components(mod):
     ccs_pipeline_cost_per_mw[proj, build_year] is the normalize cost of
     a ccs pipeline sized relative to a project's emissions intensity.
 
-    ProjCommitToMinBuild[proj, build_year] is a binary decision variable
-    that is only defined for generation technologies that have minimum
-    build requirements as specified by g_min_build_capacity[g].
-
-    Enforce_Min_Build[proj, build_year] is a constraint that forces
-    project build-outs to meet the minimum build requirements for
-    generation technologies that have those requirements. This is
-    defined as a pair of constraints that force BuildProj to be 0 when
-    ProjCommitToMinBuild is 0, and force BuildProj to be greater than
-    g_min_build_capacity when ProjCommitToMinBuild is 1. The value used
-    for max_reasonable_build_capacity can be set to something like three
-    times the sum of the peak demand of all load zones in a given
-    period, or just to the maximum possible floating point value. When
-    ProjCommitToMinBuild is 1, the upper constraint should be non-binding.
-
-        ProjCommitToMinBuild * g_min_build_capacity <= BuildProj ...
-            <= ProjCommitToMinBuild * max_reasonable_build_capacity
-
     Decommission[proj, build_year, period] is a decision variable that
     allows early retirement of portions of projects. Any portion of a
     project that is decomisssioned early will not incur fixed O&M
