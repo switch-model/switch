@@ -130,9 +130,8 @@ def define_components(mod):
     generation technologies that have those requirements. They force BuildProj
     to be 0 when ProjCommitToMinBuild is 0, and to be greater than
     g_min_build_capacity when ProjCommitToMinBuild is 1. In the latter case,
-    the upper constraint should be non-binding. The total demand over all
-    periods and load zones is used as  a limit, as in the extreme case where
-    all energy should have to be served in one hour.
+    the upper constraint should be non-binding; the upper limit is set to 10
+    times the peak non-conincident demand of the entire system.
 
     --- OPERATIONS ---
 
@@ -389,10 +388,9 @@ def define_components(mod):
         mod.NEW_PROJ_WITH_MIN_BUILD_YEARS,
         rule=lambda m, proj, p: (
             m.BuildProj[proj, p] <=
-            m.ProjCommitToMinBuild[proj, p] *
-            sum(m.lz_total_demand_in_period_mwh[lz, p2]
-                for lz in m.LOAD_ZONES
-                for p2 in m.PERIODS)))
+            m.ProjCommitToMinBuild[proj, p] * 10 * 
+            sum(m.lz_peak_demand_mw[lz, p]
+                for lz in m.LOAD_ZONES)))
 
     # Costs
     mod.proj_connect_cost_per_mw = Param(mod.PROJECTS, within=NonNegativeReals)

@@ -1,5 +1,4 @@
 local_td
 project.discrete_build
-project.min_build
 project.no_commit
 fuel_markets
