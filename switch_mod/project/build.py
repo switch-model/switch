@@ -117,6 +117,23 @@ def define_components(mod):
     be operated. It can either indicate retirement or the end of the
     simulation. This is derived from g_max_age.
 
+    NEW_PROJ_WITH_MIN_BUILD_YEARS is the subset of NEW_PROJ_BUILDYEARS for
+    which minimum capacity build-out constraints will be enforced.
+
+    ProjCommitToMinBuild[proj, build_year] is a binary variable that indicates
+    whether a project will build capacity in a period or not. If the model is
+    committing to building capacity, then the minimum must be enforced.
+
+    Enforce_Min_Build_Lower[proj, build_year]  and
+    Enforce_Min_Build_Upper[proj, build_year] are a pair of constraints that
+    force project build-outs to meet the minimum build requirements for
+    generation technologies that have those requirements. They force BuildProj
+    to be 0 when ProjCommitToMinBuild is 0, and to be greater than
+    g_min_build_capacity when ProjCommitToMinBuild is 1. In the latter case,
+    the upper constraint should be non-binding. The total demand over all
+    periods and load zones is used as  a limit, as in the extreme case where
+    all energy should have to be served in one hour.
+
     --- OPERATIONS ---
 
     PROJECT_BUILDS_OPERATIONAL_PERIODS[proj, build_year] is an indexed
@@ -217,24 +234,6 @@ def define_components(mod):
 
     ccs_pipeline_cost_per_mw[proj, build_year] is the normalize cost of
     a ccs pipeline sized relative to a project's emissions intensity.
-
-    ProjCommitToMinBuild[proj, build_year] is a binary decision variable
-    that is only defined for generation technologies that have minimum
-    build requirements as specified by g_min_build_capacity[g].
-
-    Enforce_Min_Build[proj, build_year] is a constraint that forces
-    project build-outs to meet the minimum build requirements for
-    generation technologies that have those requirements. This is
-    defined as a pair of constraints that force BuildProj to be 0 when
-    ProjCommitToMinBuild is 0, and force BuildProj to be greater than
-    g_min_build_capacity when ProjCommitToMinBuild is 1. The value used
-    for max_reasonable_build_capacity can be set to something like three
-    times the sum of the peak demand of all load zones in a given
-    period, or just to the maximum possible floating point value. When
-    ProjCommitToMinBuild is 1, the upper constraint should be non-binding.
-
-        ProjCommitToMinBuild * g_min_build_capacity <= BuildProj ...
-            <= ProjCommitToMinBuild * max_reasonable_build_capacity
 
     Decommission[proj, build_year, period] is a decision variable that
     allows early retirement of portions of projects. Any portion of a
@@ -371,6 +370,29 @@ def define_components(mod):
         mod.PROJECTS_CAP_LIMITED, mod.PERIODS,
         rule=lambda m, proj, p: (
             m.proj_capacity_limit_mw[proj] >= m.ProjCapacity[proj, p]))
+
+    # The following components enforce minimum capacity build-outs.
+    # Note that this adds binary variables to the model.
+    mod.NEW_PROJ_WITH_MIN_BUILD_YEARS = Set(
+        initialize=mod.NEW_PROJ_BUILDYEARS,
+        filter=lambda m, pr, p: (
+            m.g_min_build_capacity[m.proj_gen_tech[pr]] > 0))
+    mod.ProjCommitToMinBuild = Var(
+        mod.NEW_PROJ_WITH_MIN_BUILD_YEARS, within=Binary)
+    mod.Enforce_Min_Build_Lower = Constraint(
+        mod.NEW_PROJ_WITH_MIN_BUILD_YEARS,
+        rule=lambda m, proj, p: (
+            m.ProjCommitToMinBuild[proj, p] *
+            m.g_min_build_capacity[m.proj_gen_tech[proj]] <=
+            m.BuildProj[proj, p]))
+    mod.Enforce_Min_Build_Upper = Constraint(
+        mod.NEW_PROJ_WITH_MIN_BUILD_YEARS,
+        rule=lambda m, proj, p: (
+            m.BuildProj[proj, p] <=
+            m.ProjCommitToMinBuild[proj, p] *
+            sum(m.lz_total_demand_in_period_mwh[lz, p2]
+                for lz in m.LOAD_ZONES
+                for p2 in m.PERIODS)))
 
     # Costs
     mod.proj_connect_cost_per_mw = Param(mod.PROJECTS, within=NonNegativeReals)
