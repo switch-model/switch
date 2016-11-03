@@ -1,5 +1,5 @@
 This document specifies the standard Git workflow required to submit
-cotributions to the SWITCH model repository.
+contributions to the SWITCH model repository.
 
 1) If you are already a trusted collaborator:
 
@@ -34,9 +34,10 @@ available on the GitHub interface.
     addition, the Git history gets messier.
 
 (*) There is an exception to this rule. If the changes are being applied only
-to a regional part of the repository (such as the 'hawaii' directory), then
-you may merge them at your convenience. In this case, a cleaner option is to
-directly push a commit from your local repository into the master branch at
+to a regional part of the repository (such as the 'hawaii' directory), and you
+are a manager for that region, then you may merge them at your convenience
+(assuming the automated tests still pass). In this case, a cleaner option is
+to directly push a commit from your local repository into the master branch at
 the main Switch repo.
 
 2) If you are a new collaborator:
