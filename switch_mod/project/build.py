@@ -390,9 +390,9 @@ def define_components(mod):
         rule=lambda m, proj, p: (
             m.BuildProj[proj, p] <=
             m.ProjCommitToMinBuild[proj, p] *
-            sum(m.lz_demand_mw[lz, tp] * m.tp_weight[tp]
+            sum(m.lz_total_demand_in_period_mwh[lz, p2]
                 for lz in m.LOAD_ZONES
-                for tp in m.TIMEPOINTS)))
+                for p2 in m.PERIODS)))
 
     # Costs
     mod.proj_connect_cost_per_mw = Param(mod.PROJECTS, within=NonNegativeReals)
