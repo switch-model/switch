@@ -78,20 +78,25 @@ def _save_generic_results(instance, outdir, sorted_output):
         if not isinstance(var, Var):
             continue
 
-        index_name = var.index_set().name
         output_file = os.path.join(outdir, '%s.tab' % var.name)
         with open(output_file, 'wb') as fh:
             writer = csv.writer(fh, dialect='ampl-tab')
-            # Write column headings
-            writer.writerow(['%s_%d' % (index_name, i + 1)
-                             for i in xrange(var.index_set().dimen)] +
-                            [var.name])
-            # Results are saved in a random order by default for
-            # increased speed. Sorting is available if wanted.
-            for key, obj in (sorted(var.items())
-                            if sorted_output
-                            else var.items()):
-                writer.writerow(tuple(make_iterable(key)) + (obj.value,))
+            if var.is_indexed():
+                index_name = var.index_set().name
+                # Write column headings
+                writer.writerow(['%s_%d' % (index_name, i + 1)
+                                 for i in xrange(var.index_set().dimen)] +
+                                [var.name])
+                # Results are saved in a random order by default for
+                # increased speed. Sorting is available if wanted.
+                for key, obj in (sorted(var.items())
+                                if sorted_output
+                                else var.items()):
+                    writer.writerow(tuple(make_iterable(key)) + (obj.value,))
+            else:
+                # single-valued variable
+                writer.writerow([var.name])
+                writer.writerow([value(obj)])
 
 
 def _save_total_cost_value(instance, outdir):
