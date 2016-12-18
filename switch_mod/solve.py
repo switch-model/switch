@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys, os, time, traceback, shlex, re
+import sys, os, time, traceback, shlex, re, pdb, traceback
 
 from pyomo.environ import *
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
@@ -21,6 +21,14 @@ def main(args=None, return_model=False, return_instance=False):
 
     # Get options needed before any modules are loaded
     pre_module_options = parse_pre_module_options(args)
+    
+    # turn on post-mortem debugging mode if requested
+    # (from http://stackoverflow.com/a/1237407 ; more options available there)
+    if pre_module_options.debug:
+        def info(type, value, tb):
+            traceback.print_exception(type, value, tb)
+            pdb.pm()
+        sys.excepthook = info
 
     # Write output to a log file if logging option is specified
     stdout_copy = sys.stdout  # make a copy of current sys.stdout to return to eventually
@@ -321,7 +329,8 @@ def add_pre_module_args(parser):
                         help="Log output to a file.")
     parser.add_argument("--logs-dir", dest="logs_dir", default="logs",
                         help='Directory containing log files (default is "logs"')
-
+    parser.add_argument("--debug", action="store_true", default=False,
+                        help='Automatically start pdb debugger on exceptions')
 
 def parse_pre_module_options(args):
     """
