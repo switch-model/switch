@@ -164,7 +164,7 @@ def define_components(mod):
                 m.Storage_Build_Summation_dict[p2] = set(
                     (proj, bld_yr)
                     for bld_yr in m.G_NEW_BUILD_YEARS[m.proj_gen_tech[proj]]
-                    if bld_yr <= p2 <= m.proj_end_year[proj, bld_yr])
+                    if bld_yr <= p2 <= m.proj_final_period[proj, bld_yr])
         # Use pop to free memory
         relevant_proj_build_years = m.Storage_Build_Summation_dict.pop(p)
         return sum(m.BuildStorageEnergyMWh[proj, bld_yr] *

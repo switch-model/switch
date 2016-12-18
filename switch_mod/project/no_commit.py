@@ -106,13 +106,3 @@ def define_components(mod):
             sum(m.ProjFuelUseRate[proj, t, f] for f in m.G_FUELS[m.proj_gen_tech[proj]])
             ==
             m.DispatchProj[proj, t] * m.proj_full_load_heat_rate[proj]))
-
-    # allocate the power produced during each timepoint among the fuels
-    # Here, we just calculate it from fuel usage and the full load heat rate,
-    # but it could be more complicated if we model the plant in more detail.
-    # note: this must be linear, because it may be used in RPS calculations
-    mod.DispatchProjByFuel = Expression(
-        mod.PROJ_FUEL_DISPATCH_POINTS,
-        rule=lambda m, proj, t, f:
-            m.ProjFuelUseRate[proj, t, f] / m.proj_full_load_heat_rate[proj]
-    )
