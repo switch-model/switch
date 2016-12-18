@@ -132,10 +132,12 @@ def define_components(mod):
 
     mod.PROJ_DISP_FUEL_PIECEWISE_CONS_SET = Set(
         dimen=4,
-        initialize=lambda m: set(
+        initialize=lambda m: [
             (proj, t, intercept, slope)
             for (proj, t) in m.PROJ_WITH_FUEL_DISPATCH_POINTS
-            for (intercept, slope) in m.PROJ_FUEL_USE_SEGMENTS[proj]))
+            for (intercept, slope) in m.PROJ_FUEL_USE_SEGMENTS[proj]
+        ]
+    )
     mod.ProjFuelUseRate_Calculate = Constraint(
         mod.PROJ_DISP_FUEL_PIECEWISE_CONS_SET,
         rule=lambda m, pr, t, intercept, incremental_heat_rate: (
@@ -145,6 +147,11 @@ def define_components(mod):
             intercept * m.CommitProject[pr, t] +
             incremental_heat_rate * m.DispatchProj[pr, t]))
 
+# TODO: switch to defining heat rates as a collection of (output_mw, fuel_mmbtu_per_h) points;
+# read those directly as normal sets, then derive the project heat rate curves from those
+# within define_components.
+# This will simplify data preparation (the current format is hard to produce from any
+# normalized database) and the import code and help the readability of this file.
 
 def load_inputs(mod, switch_data, inputs_dir):
     """
@@ -221,7 +228,7 @@ def load_inputs(mod, switch_data, inputs_dir):
                 full_hr_dat = switch_data.data(name='g_full_load_heat_rate')[g]
                 if abs((full_hr[g] - full_hr_dat) / full_hr_dat) > 0.01:
                     raise ValueError((
-                        "g_full_load_heat_rate is inconsistant with " +
+                        "g_full_load_heat_rate is inconsistent with " +
                         "incremental heat rate data for generation " +
                         "technology {}.").format(g))
             else:
@@ -310,7 +317,7 @@ def _parse_inc_heat_rate_file(path, id_column):
             if(p2 == '.' and ihr == '.'):
                 fr = float(fr)
                 if(u in fuel_rate_points):
-                    ValueError(
+                    raise ValueError(
                         "Error processing incremental heat rates for " +
                         u + " in " + path + ". More than one row has " +
                         "a fuel use rate specified.")
@@ -324,24 +331,33 @@ def _parse_inc_heat_rate_file(path, id_column):
                 ihr_dat[u].append((p1, p2, ihr))
             # Throw an error if the row's format is not recognized.
             else:
-                ValueError(
+                raise ValueError(
                     "Error processing incremental heat rates for row " +
                     u + " in " + path + ". Row format not recognized for " +
                     "row " + str(row) + ". See documentation for acceptable " +
                     "formats.")
+
     # Make sure that each project that has incremental heat rates defined
     # also has a starting point defined.
-    # note: keys() returns lists in arbitrary order, so they could fail an equality test; 
-    # but unordered sets can be compared (sorting would also work)
-    if set(ihr_dat.keys()) != set(fuel_rate_points.keys()):
-        ValueError(
-            "One or more unit did not define both a starting point " +
-            "and incremental heat rates for their fuel use curves.")
+    missing_starts = [k for k in ihr_dat if k not in fuel_rate_points]
+    if missing_starts:
+        raise ValueError(
+            'No starting point(s) are defined for incremental heat rate curves '
+            'for the following technologies: {}'.format(','.join(missing_starts)))
+
     # Construct a convex combination of lines describing a fuel use
     # curve for each representative unit "u".
-    for u in fuel_rate_points:
+    for u, fr_points in fuel_rate_points.items():
+        if u not in ihr_dat:
+            # no heat rate segments specified; plant can only be off or on at full power
+            # create a dummy curve at full heat rate
+            output, fuel = fr_points.items()[0]
+            fuel_rate_segments[u] = [(0.0, fuel / output)]
+            min_cap_factor[u] = 1.0
+            full_load_hr[u] = fuel / output
+            continue
+
         fuel_rate_segments[u] = []
-        fr_points = fuel_rate_points[u]
         # Sort the line segments by their domains.
         ihr_dat[u].sort()
         # Assume that the maximum power output is the rated capacity.
@@ -350,12 +366,11 @@ def _parse_inc_heat_rate_file(path, id_column):
         (min_power, junk, ihr_prev) = ihr_dat[u][0]
         min_cap_factor[u] = min_power / capacity
         # Process each line segment.
-        for segment in range(0, len(ihr_dat[u])):
-            (p_start, p_end, ihr) = ihr_dat[u][segment]
+        for (p_start, p_end, ihr) in ihr_dat[u]:
             # Error check: This incremental heat rate cannot be less than
             # the previous one.
             if ihr_prev > ihr:
-                ValueError((
+                raise ValueError((
                     "Error processing incremental heat rates for " +
                     "{} in file {}. The incremental heat rate " +
                     "between power output levels {}-{} is less than " +
@@ -363,7 +378,7 @@ def _parse_inc_heat_rate_file(path, id_column):
                         u, path, p_start, p_end))
             # Error check: This segment needs to start at an existing point.
             if p_start not in fr_points:
-                ValueError((
+                raise ValueError((
                     "Error processing incremental heat rates for " +
                     "{} in file {}. The incremental heat rate " +
                     "between power output levels {}-{} does not start at a " +
