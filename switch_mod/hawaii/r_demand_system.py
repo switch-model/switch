@@ -73,13 +73,24 @@ def calibrate(m, base_data):
     r.calibrate(base_loads, base_prices, m.options.dr_elasticity_scenario)
 
 
-def bid(m, load_zone, time_series, prices):
+def bid(m, load_zone, timeseries, prices):
     """Accept a vector of prices in a particular load_zone during a particular day (time_series).
     Return a tuple showing hourly load levels and willingness to pay for those loads."""
     
-    bid = r.bid(str(load_zone), str(time_series), np.array(prices), m.options.dr_elasticity_scenario)
-    demand = list(bid[0])
-    wtp = bid[1][0] # everything is a vector in R, so we have to take the first element
+    bid = r.bid(
+        str(load_zone), str(timeseries), 
+        np.array(prices['energy']), 
+        np.array(prices['energy up']), 
+        np.array(prices['energy down']),
+        m.options.dr_elasticity_scenario
+    )
+    demand = {
+        'energy': list(bid[0]),
+        'energy up': list(bid[1]),
+        'energy down': list(bid[2]),
+    }
+    wtp = bid[3][0] # everything is a vector in R, so we have to take the first element
+    
     return (demand, wtp)
 
 

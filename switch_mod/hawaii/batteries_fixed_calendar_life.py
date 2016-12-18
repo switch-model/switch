@@ -83,15 +83,27 @@ def define_components(m):
         m.Battery_Capacity[z, m.tp_period[t]]
     )
 
-    m.Battery_Max_Charge = Constraint(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
+    m.Battery_Max_Charge_Rate = Constraint(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
         m.ChargeBattery[z, t]
         <=
         m.Battery_Capacity[z, m.tp_period[t]] * m.battery_max_discharge / m.battery_min_discharge_time
     )
-    m.Battery_Max_Discharge = Constraint(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
+    m.Battery_Max_Discharge_Rate = Constraint(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
         m.DischargeBattery[z, t]
         <=
         m.Battery_Capacity[z, m.tp_period[t]] * m.battery_max_discharge / m.battery_min_discharge_time
+    )
+
+    # how much could output/input be increased on short notice (to provide reserves)
+    m.BatterySlackUp = Expression(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
+        m.Battery_Capacity[z, m.tp_period[t]] * m.battery_max_discharge / m.battery_min_discharge_time
+        - m.DischargeBattery[z, t]
+        + m.ChargeBattery[z, t]
+    )
+    m.BatterySlackDown = Expression(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
+        m.Battery_Capacity[z, m.tp_period[t]] * m.battery_max_discharge / m.battery_min_discharge_time
+        - m.ChargeBattery[z, t]
+        + m.DischargeBattery[z, t]
     )
 
     # assume batteries can only complete one full cycle (charged to max discharge)
