@@ -145,28 +145,6 @@ def define_components(mod):
             intercept * m.CommitProject[pr, t] +
             incremental_heat_rate * m.DispatchProj[pr, t]))
 
-    # Allocate the power produced during each timepoint among the fuels.
-    # This can be written as a non-linear expression, but that can't be
-    # added to a model, since it will produce division-by-zero errors at 
-    # times and Pyomo Expressions can't use if functions to work around
-    # this. The quadratic version below can be used in a model (e.g.,
-    # for RPS calculations.) However, it would force all users to use a
-    # quadratic solver, so we haven't activated it. Eventually we may need
-    # a way for users to turn this on (e.g., to run an RPS with unit 
-    # commitment). (Also note: this could be replaced with 
-    # m.DispatchProjByFuel[proj, t, f] == DispatchProj[proj, t]
-    # for projects that only use one fuel, but we'd need extra code to take 
-    # advantage of that.)
-    # mod.DispatchProjByFuel = Var(mod.PROJ_FUEL_DISPATCH_POINTS)
-    # mod.DispatchProjByFuel_Allocate = Constraint(
-    #     mod.PROJ_FUEL_DISPATCH_POINTS,
-    #     rule = lambda m, proj, t, f:
-    #         m.DispatchProjByFuel[proj, t, f]
-    #         * sum(m.ProjFuelUseRate[proj, t, _f] for _f in m.G_FUELS[m.proj_gen_tech[proj]])
-    #         ==
-    #         DispatchProj[proj, t]
-    #         * m.ProjFuelUseRate[proj, t, f]
-    # )
 
 def load_inputs(mod, switch_data, inputs_dir):
     """
