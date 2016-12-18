@@ -34,6 +34,17 @@ def define_components(m):
         initialize=lambda m: {tier for rfm, per, tier in m.LNG_RFM_SUPPLY_TIERS}
     )
     
+    # force LNG to be deactivated when RPS is 100%; 
+    # this forces recovery of all costs before the 100% RPS takes effect
+    # (otherwise the model sometimes tries to postpone recovery beyond the end of the study)
+    if hasattr(m, 'RPS_Enforce'):
+        m.No_LNG_In_100_RPS = Constraint(m.LNG_RFM_SUPPLY_TIERS, 
+            rule=lambda m, rfm, per, tier:
+                (m.RFMSupplyTierActivate[rfm, per, tier] == 0) 
+                    if m.rps_target_for_period[per] >= 1.0 
+                        else Constraint.Skip
+        )
+    
     # user can study different LNG durations by specifying a tier to activate and 
     # a start and end date. Both the capital recovery and fixed costs for this tier are
     # bundled into the market's fixed cost, which means a different fuel_supply_curves.tab

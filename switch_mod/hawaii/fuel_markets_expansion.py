@@ -29,11 +29,29 @@ def define_components(m):
     m.rfm_supply_tier_fixed_cost = Param(m.RFM_SUPPLY_TIERS, default=0.0,
         validate=lambda m, v, r, p, st: v == 0.0 or m.rfm_supply_tier_limit[r, p, st] < inf)
     
-    # should the tier be activated?
+    # lifetime for each tier, once it is placed in service 
+    # (default is one period)
+    m.rfm_supply_tier_max_age = Param(m.RFM_SUPPLY_TIERS, default=lambda m, r, p, st: m.period_length_years[p])
+
     # Note: in large regions, a tier represents a block of expandable capacity, 
     # so this could be continuous, but then you could just lump the fixed cost 
     # into the variable cost and not use this module.
-    m.RFMSupplyTierActivate = Var(m.RFM_SUPPLY_TIERS, within=Binary)
+    m.RFMBuildSupplyTier = Var(m.RFM_SUPPLY_TIERS, within=Binary)
+
+    # will the tier be active during each period?
+    m.RFMSupplyTierActivate = Var(m.RFM_SUPPLY_TIERS, within=PercentFraction)
+    
+    # force activation to match build decision
+    m.RFM_Build_Activate_Consistency = Constraint(m.RFM_SUPPLY_TIERS, rule=lambda m, r, p, st:
+        m.RFMSupplyTierActivate[r, p, st]
+        == 
+        sum(
+            m.RFMBuildSupplyTier[r, vintage, st] 
+                for vintage in m.PERIODS 
+                    if vintage < m.period_start[p] + m.period_length_years[p]                        # starts before end of current period
+                        and vintage + m.rfm_supply_tier_max_age[r, vintage, st] > m.period_start[p]  # ends after start of current period
+        )
+    )
     
     # force all unlimited tiers to be activated (since they must have no cost, 
     # and to avoid a limit of 0.0 * inf in the constraint below)
@@ -82,5 +100,5 @@ def load_inputs(m, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, 'fuel_supply_curves.tab'),
-        select=('regional_fuel_market', 'period', 'tier', 'fixed_cost'),
-        param=(m.rfm_supply_tier_fixed_cost,))
+        select=('regional_fuel_market', 'period', 'tier', 'fixed_cost', 'max_age'),
+        param=(m.rfm_supply_tier_fixed_cost,m.rfm_supply_tier_max_age))

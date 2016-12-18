@@ -6,6 +6,8 @@ def define_arguments(argparser):
         help="Force following of PSIP plans (retiring AES and building certain technologies).")
     argparser.add_argument('--psip-relax', dest='psip_force', action='store_false', 
         help="Relax PSIP plans, to find a more optimal strategy.")
+    argparser.add_argument('--psip-minimal-renewables', action='store_true', default=False, 
+        help="Use only the amount of renewables shown in PSIP plans, and no more (should be combined with --psip-relax).")
     argparser.add_argument('--force-build', nargs=3, default=None, 
         help="Force construction of at least a certain quantity of a particular technology during certain years. Space-separated list of year, technology and quantity.")
 
@@ -134,6 +136,10 @@ def define_components(m):
                     if m.proj_gen_tech[proj] == tech and (proj, per) in m.PROJECT_BUILDYEARS
         )
         target = m.technology_target[per, tech]
+        if tech in m.GEN_TECH_WITH_UNIT_SIZES:
+            # round to the nearest full unit, since some of the targets are based on
+            # nominal unit sizes rather than actual max output
+            target = round(target / m.g_unit_size[tech]) * m.g_unit_size[tech]
         if type(build) is int and build == 0:    # no matching projects found
             if target == 0:
                 return Constraint.Skip
@@ -145,7 +151,11 @@ def define_components(m):
                 return Constraint.Infeasible
         elif psip:
             return (build == target)
+        elif m.options.psip_minimal_renewables and m.g_energy_source[tech] in ['WND', 'SUN']:
+            # only build the specified amount of renewables, no more
+            return (build == target)
         else:
+            # treat the target as a lower bound
             return (build >= target)
     m.Enforce_Technology_Target = Constraint(
         m.PERIODS, m.GENERATION_TECHNOLOGIES, rule=Enforce_Technology_Target_rule
