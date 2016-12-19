@@ -61,9 +61,6 @@ python --version
 # Install pip through AUR.
 yaourt pip
 
-# Install the R language.
-sudo pacman -S r
-
 # Only if you're currently using Python 3:
 pip install virtualenv
 cd <switch folder>
