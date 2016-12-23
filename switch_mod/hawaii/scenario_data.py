@@ -121,7 +121,8 @@ def write_tables(**args):
                 )
                 -- projects that could be built during the study
                 LEFT JOIN generator_costs_by_year c ON (
-                    c.technology = g.technology 
+                    c.cap_cost_scen_id = %(cap_cost_scen_id)s
+                    AND c.technology = g.technology 
                     AND (g.min_vintage_year IS NULL OR c.year >= g.min_vintage_year) 
                     AND c.year >= study_start 
                     AND c.year < study_end
@@ -441,6 +442,7 @@ def write_tables(**args):
             JOIN study_periods p ON p.period = c.year
         WHERE time_sample = %(time_sample)s 
             AND (i.min_vintage_year IS NULL OR c.year >= i.min_vintage_year)
+            AND c.cap_cost_scen_id = %(cap_cost_scen_id)s
         ORDER BY 1, 2;
     """, args)
 
