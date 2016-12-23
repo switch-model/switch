@@ -7,10 +7,15 @@ from util import get
 def define_arguments(argparser):
     argparser.add_argument('--biofuel-limit', type=float, default=0.05, 
         help="Maximum fraction of power that can be obtained from biofuel in any period (default=0.05)")
-    argparser.add_argument('--rps-activate', action='store_true', default=True, 
+    argparser.add_argument('--rps-activate', default='activate',
+        dest='rps_level', action='store_const', const='activate', 
         help="Activate RPS (on by default).")
-    argparser.add_argument('--rps-deactivate', dest='rps_activate', action='store_false',
+    argparser.add_argument('--rps-deactivate', 
+        dest='rps_level', action='store_const', const='deactivate', 
         help="Dectivate RPS.")
+    argparser.add_argument('--rps-no-renewables', 
+        dest='rps_level', action='store_const', const='no_renewables', 
+        help="Dectivate RPS and don't allow any new renewables.")
     argparser.add_argument('--rps-quadratic-allocation', action='store_true', default=False, 
         help="Use quadratic formulation to allocate power output among fuels.")
     
@@ -90,13 +95,22 @@ def define_components(m):
         - sum(m.DumpPower[lz, tp] * m.tp_weight[tp] for lz in m.LOAD_ZONES for tp in m.PERIOD_TPS[per])
     )
     
-    # we completely skip creating the constraint if the RPS is deactivated
-    # this makes it easy for other modules to check whether there's an RPS in effect
-    # (if we deactivated the RPS after it is constructed, then other modules would
-    # have to postpone checking until then)
-    if m.options.rps_activate:
+    if m.options.rps_level == 'activate':
+        # we completely skip creating the constraint if the RPS is not activated.
+        # this makes it easy for other modules to check whether there's an RPS in effect
+        # (if we deactivated the RPS after it is constructed, then other modules would
+        # have to postpone checking until then)
         m.RPS_Enforce = Constraint(m.PERIODS, rule=lambda m, per:
             m.RPSEligiblePower[per] >= m.rps_target_for_period[per] * m.RPSTotalPower[per]
+        )
+    elif m.options.rps_level == 'no_renewables':
+        # prevent construction of any new exclusively-renewable projects
+        # (doesn't actually ban use of biofuels in existing or multi-fuel projects,
+        # but that could be done with --biofuel-limit 0)
+        m.No_Renewables = Constraint(m.NEW_PROJ_BUILDYEARS, rule=lambda m, proj, bld_yr:
+            (m.BuildProj[proj, bld_yr] == 0)
+            if m.g_energy_source[m.proj_gen_tech[proj]] in m.RPS_ENERGY_SOURCES else
+            Constraint.Skip
         )
 
     # Don't allow (bio)fuels to provide more than a certain percentage of the system's energy
@@ -211,7 +225,7 @@ def advanced_DispatchProjByFuel(m):
         m.PROJ_WITH_FUEL_ACTIVE_PERIODS, 
         rule=lambda m, pr, pe:
             (m.DispatchRenewableFlag[pr, pe] == 0) 
-            if (m.rps_target_for_period[pe]==0.0 or not m.options.rps_activate)
+            if (m.rps_target_for_period[pe]==0.0 or m.options.rps_level != 'activate')
             else (
                 (m.DispatchRenewableFlag[pr, pe] == 1) 
                 if m.rps_target_for_period[pe]==1.0
