@@ -111,6 +111,11 @@ def define_dynamic_components(m):
             else 0.0
         )
         + (
+            sum(m.HydrogenSlackUp[lz, tp] for lz in m.LOAD_ZONES) 
+            if hasattr(m, 'HydrogenSlackUp') 
+            else 0.0
+        )
+        + (
             sum(m.DemandUpReserves[lz, tp] for lz in m.LOAD_ZONES) 
             if hasattr(m, 'DemandUpReserves') 
             else 0.0
@@ -121,6 +126,11 @@ def define_dynamic_components(m):
         + (
             sum(m.BatterySlackDown[lz, tp] for lz in m.LOAD_ZONES)
             if hasattr(m, 'BatterySlackDown')
+            else 0.0
+        )
+        + (
+            sum(m.HydrogenSlackDown[lz, tp] for lz in m.LOAD_ZONES) 
+            if hasattr(m, 'HydrogenSlackDown') 
             else 0.0
         )
         + (
