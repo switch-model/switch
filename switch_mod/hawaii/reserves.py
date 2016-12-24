@@ -105,11 +105,11 @@ def define_dynamic_components(m):
     # Available reserves
     m.SpinningReservesUpAvailable = Expression(m.TIMEPOINTS, rule=lambda m, tp:
         sum(m.DispatchSlackUp[p, tp] for p in m.FIRM_PROJECTS if (p, tp) in m.PROJ_DISPATCH_POINTS)
-        # + (
-        #     sum(m.BatterySlackUp[lz, tp] for lz in m.LOAD_ZONES)
-        #     if hasattr(m, 'BatterySlackDown')
-        #     else 0.0
-        # )
+        + (
+            sum(m.BatterySlackUp[lz, tp] for lz in m.LOAD_ZONES)
+            if hasattr(m, 'BatterySlackDown')
+            else 0.0
+        )
         + (
             sum(m.DemandUpReserves[lz, tp] for lz in m.LOAD_ZONES) 
             if hasattr(m, 'DemandUpReserves') 
@@ -118,11 +118,11 @@ def define_dynamic_components(m):
     )
     m.SpinningReservesDownAvailable = Expression(m.TIMEPOINTS, rule=lambda m, tp:
         sum(m.DispatchSlackDown[p, tp] for p in m.FIRM_PROJECTS if (p, tp) in m.PROJ_DISPATCH_POINTS)
-        # + (
-        #     sum(m.BatterySlackDown[lz, tp] for lz in m.LOAD_ZONES)
-        #     if hasattr(m, 'BatterySlackDown')
-        #     else 0.0
-        # )
+        + (
+            sum(m.BatterySlackDown[lz, tp] for lz in m.LOAD_ZONES)
+            if hasattr(m, 'BatterySlackDown')
+            else 0.0
+        )
         + (
             sum(m.DemandDownReserves[lz, tp] for lz in m.LOAD_ZONES) 
             if hasattr(m, 'DemandDownReserves') 
