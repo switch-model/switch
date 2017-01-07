@@ -39,12 +39,6 @@ def define_components(mod):
     of different water flows. Members of this set can be abbreviated as 
     wn or wnode.
     
-    wn_is_sink[WATER_NODES] is a binary flag indicating whether a water
-    node is a sink. These nodes need not obey the law of conservation of 
-    mass, so that water flows that go into them may be greater than the
-    ones that flow out. The main use case for these is to be the end of a
-    water basin (representing the ocean or other sink).
-    
     WATER_NODES_BALANCE_POINTS is a set showing all the combinations of
     water nodes and timepoints, in which the conservation of mass law 
     must be enforced. For now it is initialized as the cross product of
@@ -88,23 +82,39 @@ def define_components(mod):
     simulated timepoints that belong to the same week will have the same
     wnode_tp_inflow_cumec parameter specified for each water node.
     
-    SinkSpillage[(wn, t) for (wn, t) in WATER_SINKS_BALANCE_POINTS] are 
-    the water spillage decisions at each water sink and timepoint, in 
-    cubic meters per second.
+    wn_is_sink[WATER_NODES] is a binary flag indicating whether a water
+    node is a sink. These nodes need not obey the law of conservation of 
+    mass, so that water flows that go into them may be greater than the
+    ones that flow out. The main use case for these is to be the end of a
+    water basin (such as the ocen or a lake).
+    
+    node_spillage_cost[WATER_NODES] is a derived parameter that sets
+    the cost in US$/(cubic meters) of spilling water out of the water
+    network. This is equivalent to disobeying the conservation of mass
+    law when balancing flows in each node and timepoint, so cost is
+    set to a high default value. This parameter lets the model spill
+    water freely in sink nodes, but relaxes the equality constraint
+    for mass balance. This aids the solver into obtaining optimal
+    solutions significantly faster and with small water spillages.
+    
+    NodeSpillage[WATER_NODES_BALANCE_POINTS] are  the decisions of
+    water spillage out of the water network at each node and timepoint
+    in  cubic meters per second.
     
     
     RESERVOIRS is a subset of water nodes that are reservoirs. These
     require additional characterization. Members of this set may be
     abbreviated as r or res.
    
-    res_min_vol[r] is a parameter that specifies the minimum
-    storage capacity of the reservoir in cubic meters. Usually this will
-    be a positive value, since reservoirs cannot be completely emptied
-    because of physical limitations, but it is allowed to be 0 in case
-    relative volumes want to be used.
+    res_min_vol[r] is a parameter that specifies the minimum storage
+    capacity of the reservoir in millions of cubic meters. Usually
+    this will be a positive value, since reservoirs cannot be
+    completely emptied because of physical limitations, but it is
+    allowed to be 0 in case relative volumes want to be used.
     
-    res_max_vol[r] is a parameter that specifies the maximum
-    storage capacity of the reservoir in cubic meters. If at any
+    res_max_vol[r] is a parameter that specifies the maximum storage
+    capacity of the reservoir in millions of cubic meters. If at any
+
     timepoint the volume of water in the reservoir reaches this limit,
     spillage may occur to mantain the mass balance. This parameter is
     determined by the physical characteristics of the reservoir.
@@ -126,24 +136,26 @@ def define_components(mod):
     and default to reservoir_min_vol and reservoir_max_vol.
     
     initial_res_vol[r] is a parameter that states the starting volume
-    of stored water in each reservoir. The same value will be used as
-    a starting point in each period of the simulation, independent of
-    which was the final level at the last timepoint of the previous period.
-    This methodology has been used in several expansion planning papers 
-    that include reservoir hydro power plants, because it allows decoupling
-    the operational subproblems of each period and thus speeding up the
-    optimization considerably.
+    of stored water in each reservoir in millions of cubic meters. The
+    same value will be used as a starting point in each period of the
+    simulation, independent of which was the final level at the last
+    timepoint of the previous period. This methodology has been used
+    in several expansion planning papers  that include reservoir hydro
+    power plants, because it allows decoupling the operational
+    subproblems of each period and thus speeding up the optimization
+    considerably.
     
-    final_res_vol[r] is a parameter that states the final volume of stored
-    water in each reservoir. This level is enforced as a minimum for the
-    final volume. Usually, this parameter is specified to be the same as 
-    the initial volume, so that the reservoir may only arbitrage with the
-    water inflows that come into it during the period.
+    final_res_vol[r] is a parameter that states the final volume of
+    stored water in each reservoir in millions of cubic meters. This
+    level is enforced as a minimum for the final volume. Usually, this
+    parameter is specified to be the same as  the initial volume, so
+    that the reservoir may only arbitrage with the water inflows that
+    come into it during the period.
     
-    ReservoirVol[r, t] is a variable that tracks the volume of water at each
-    reservoir in the beginging of each timepoint, specified in cubic meters.
-    This variable is determined by the volume in the previous timepoint,
-    the inflows and the outflows.
+    ReservoirVol[r, t] is a variable that tracks the volume of water
+    at each reservoir in the beginging of each timepoint, specified in
+    cubic meters. This variable is determined by the volume in the
+    previous timepoint, the inflows and the outflows.
     
     ReservoirSurplus[r, p] is the amount of water in the reservoir at the end
     of each period in excess of final_res_vol[r].
@@ -199,13 +211,13 @@ def define_components(mod):
     projects that belong to the HYDRO_PROJECTS set. This set is used to
     index the electricity generation decisions.
     
-    hydro_efficiency[hproj] is a parameter that specifies the "hydraulic
-    efficiency" of a project, in units of MW/(cubic meters per second). 
+    hydro_efficiency[hproj] is a parameter that specifies the hydraulic
+    efficiency of a project, in units of MW/(cubic meters per second). 
     The amount of power generated by a hydroelectric generator with a 
     certain flow depends on the water head. This creates a non linear
     relationship between the generated power per water flow and the volume
-    of stored water. In this module, the efficiency is assumed to be a
-    constant for each project, to mantain linearity.
+    of stored water. In this module the efficiency is assumed to be a
+    constant for each project, to keep the problem linead.
     
     hydraulic_location[hproj] is a parameter that specifies the water
     connection in which each hydro project is located. Multiple projects
@@ -221,7 +233,7 @@ def define_components(mod):
     in cubic meters per second, that is spilled by each project at each
     timepoint. All spilled water is considered to be returned to the same
     water connection from which it was originally extracted. 
-        
+    
     Enforce_Hydro_Generation[hproj, t] is the constraint that forces power
     generation at each hydro project to be equal to the flow of water that
     goes through its turbines, times its hydro efficiency. This relation
@@ -233,15 +245,17 @@ def define_components(mod):
     spilled are equal to the water that is flowing at each timepoint through
     the water connection where it is located.
     
-    -----------------
-    TODO:
-    -Flexibilize definition of balance points for water nodes and reservoirs,
-    as well as dispatch points for water connections, so that the hydraulic
-    system topology may change during the simulation. This would allow
-    representation of new connections and reservoirs that may be built.
+    -----     
+    TODO:    
+    -Implement pumped storage     
+    
+    -Allow setting the water spillage cost as a parameter. The default
+    of 10000 US$/cumecshould prevent significant water spillage in 
+    non-sink nodes in mostcases. Nonetheless, some users could want to 
+    lower the penalties forsome nodes in order to get faster solution 
+    times, and other could want to raise them to avoid spilling completely.
         
     """
-    
     #################
     # Nodes of the water network
     mod.WATER_NODES = Set()
@@ -264,18 +278,16 @@ def define_components(mod):
         mod.WATER_NODES_BALANCE_POINTS,
         within=NonNegativeReals,
         default=lambda m, wn, t: m.wnode_constant_consumption[wn])
-
-    #################
-    # Sink nodes
     mod.wn_is_sink = Param(
         mod.WATER_NODES,
         within=Boolean)
     mod.min_data_check('wn_is_sink')
-    mod.WATER_SINKS_BALANCE_POINTS = Set(
-        initialize=mod.WATER_NODES_BALANCE_POINTS,
-        filter=lambda m, wn, t: m.wn_is_sink[wn])
-    mod.SinkSpillage = Var(
-        mod.WATER_SINKS_BALANCE_POINTS,
+    mod.node_spillage_cost = Param(
+        mod.WATER_NODES,
+        within=NonNegativeReals,
+        initialize=lambda m, wn: (1 - m.wn_is_sink[wn]) * 10000)
+    mod.NodeSpillage = Var(
+        mod.WATER_NODES_BALANCE_POINTS,
         within=NonNegativeReals)
 
     #################
@@ -310,7 +322,8 @@ def define_components(mod):
         within=NonNegativeReals,
         validate=lambda m, val, r: (
             m.res_min_vol[r] <= val <= m.res_max_vol[r]))
-    mod.min_data_check('res_min_vol', 'res_max_vol', 'initial_res_vol', 'final_res_vol')
+    mod.min_data_check('res_min_vol', 'res_max_vol', 'initial_res_vol', 
+        'final_res_vol')
     def ReservoirVol_bounds(m, r, t):
         # In the first timepoint of each period, this is externally defined
         if t == m.PERIOD_TPS[m.tp_period[t]].first():
@@ -347,6 +360,14 @@ def define_components(mod):
         within=NonNegativeReals,
         default=0.0)    
     mod.min_data_check('water_node_from', 'water_node_to')
+    mod.CONNECTIONS_DIRECTED_INTO_WN = Set(
+        mod.WATER_NODES,
+        initialize=lambda m, wn: set(wc for wc in m.WATER_CONNECTIONS 
+            if m.water_node_to[wc] == wn))
+    mod.CONNECTIONS_DIRECTED_OUT_OF_WN = Set(
+        mod.WATER_NODES,
+        initialize=lambda m, wn: set(wc for wc in m.WATER_CONNECTIONS 
+            if m.water_node_from[wc] == wn))
     mod.DispatchWater = Var(
         mod.WCONS_DISPATCH_POINTS,
         within=NonNegativeReals,
@@ -355,13 +376,9 @@ def define_components(mod):
     def Enforce_Wnode_Balance_rule(m, wn, t):
         # Sum inflows and outflows from and to other nodes
         dispatch_inflow = sum(m.DispatchWater[wc, t] 
-            for wc in m.WATER_CONNECTIONS if m.water_node_to[wc] == wn)
+            for wc in m.CONNECTIONS_DIRECTED_INTO_WN[wn])
         dispatch_outflow = sum(m.DispatchWater[wc, t] 
-            for wc in m.WATER_CONNECTIONS if m.water_node_from[wc] == wn)
-        # Spill flows: 0 for non-sink nodes
-        spill_outflow = 0.0
-        if m.wn_is_sink[wn]:
-            spill_outflow = m.SinkSpillage[wn, t]
+            for wc in m.CONNECTIONS_DIRECTED_OUT_OF_WN[wn])
         # Reservoir flows: 0 for non-reservoirs
         reservoir_fill_rate = 0.0
         if wn in m.RESERVOIRS:
@@ -373,16 +390,22 @@ def define_components(mod):
             else:
                 end_volume = m.final_res_vol[wn] + m.ReservoirSurplus[wn, p]
             reservoir_fill_rate = (
-                (end_volume - m.ReservoirVol[wn, t]) /
+                (end_volume - m.ReservoirVol[wn, t]) * 1000000.0 /
                 (m.tp_duration_hrs[t] * 3600))
         # Conservation of mass flow
         return (
             m.wnode_tp_inflow[wn, t] + dispatch_inflow == \
             m.wnode_tp_consumption[wn, t] + dispatch_outflow \
-            + spill_outflow + reservoir_fill_rate)
+            + m.NodeSpillage[wn, t] + reservoir_fill_rate)
     mod.Enforce_Wnode_Balance = Constraint(
         mod.WATER_NODES_BALANCE_POINTS,
         rule=Enforce_Wnode_Balance_rule)
+    
+    mod.Nodes_Spillage_Costs = Expression(
+        mod.TIMEPOINTS,
+        rule=lambda m, t: sum(m.NodeSpillage[wn,t] * m.node_spillage_cost[wn]
+            for wn in m.WATER_NODES))
+    mod.cost_components_tp.append('Nodes_Spillage_Costs')
 
     ################
     # Hydro projects
@@ -431,7 +454,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     
     Run-of-River hydro projects should not be included in this file; RoR
     hydro is treated like any other variable renewable resource, and
-    which expects data in variable_capacity_factors.tab.
+    expects data in variable_capacity_factors.tab.
     
     """
     
