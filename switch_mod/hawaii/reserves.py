@@ -80,7 +80,7 @@ def define_components(m):
     m.Set_CommitProjectFlag = Constraint(
         m.CONTINGENCY_PROJ_DISPATCH_POINTS,
         rule = lambda m, pr, tp: 
-            m.DispatchProj[pr, tp] <= m.CommitProjectFlag[pr, tp] * m.proj_capacity_limit_mw[pr]
+            m.CommitProject[pr, tp] <= m.CommitProjectFlag[pr, tp] * m.proj_capacity_limit_mw[pr]
     )
     m.ContingencyReserveUpRequirement_Calculate = Constraint(
         m.CONTINGENCY_PROJ_DISPATCH_POINTS, 

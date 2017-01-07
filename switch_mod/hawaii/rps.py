@@ -252,15 +252,23 @@ def advanced_DispatchProjByFuel(m):
     )
     
     # prevent use of non-renewable fuels during renewable timepoints
-    m.Enforce_DispatchRenewableFlag = Constraint(
-        m.PROJ_FUEL_DISPATCH_POINTS, 
-        rule=lambda m, pr, tp, f: 
-            Constraint.Skip if f in m.RPS_ENERGY_SOURCES
-            else (
+    def Enforce_DispatchRenewableFlag_rule(m, pr, tp, f):
+        if f in m.RPS_ENERGY_SOURCES:
+            return Constraint.Skip
+        else:
+            # harder to read like this, but having all numerical values on the right hand side
+            # facilitates analysis of duals and reduced costs
+            # note: we also add a little slack to avoid having this be the main constraint
+            # on total output from any power plant (that also clarifies dual analysis)
+            big_fuel = 1.01 * m.proj_capacity_limit_mw[pr] * m.proj_full_load_heat_rate[pr]
+            return (
                 m.ProjFuelUseRate[pr, tp, f] 
+                + m.DispatchRenewableFlag[pr, m.tp_period[tp]] * big_fuel
                 <= 
-                (1-m.DispatchRenewableFlag[pr, m.tp_period[tp]]) * m.proj_capacity_limit_mw[pr] * m.proj_full_load_heat_rate[pr]
+                big_fuel
             )
+    m.Enforce_DispatchRenewableFlag = Constraint(
+        m.PROJ_FUEL_DISPATCH_POINTS, rule=Enforce_DispatchRenewableFlag_rule
     )
 
 def advanced_by_timeseries_DispatchProjByFuel(m):
@@ -308,9 +316,14 @@ def advanced_by_timeseries_DispatchProjByFuel(m):
         rule=lambda m, pr, tp, f: 
             Constraint.Skip if f in m.RPS_ENERGY_SOURCES
             else (
+                # original code, rewritten to get numerical parts on rhs
+                # m.ProjFuelUseRate[pr, tp, f]
+                # <=
+                # (1-m.DispatchRenewableFlag[pr, m.tp_ts[tp]]) * m.proj_capacity_limit_mw[pr] * m.proj_full_load_heat_rate[pr]
                 m.ProjFuelUseRate[pr, tp, f] 
+                + m.DispatchRenewableFlag[pr, m.tp_ts[tp]] * m.proj_capacity_limit_mw[pr] * m.proj_full_load_heat_rate[pr]
                 <= 
-                (1-m.DispatchRenewableFlag[pr, m.tp_ts[tp]]) * m.proj_capacity_limit_mw[pr] * m.proj_full_load_heat_rate[pr]
+                m.proj_capacity_limit_mw[pr] * m.proj_full_load_heat_rate[pr]
             )
     )
 

@@ -31,6 +31,25 @@ demand_module = None    # will be set via command-line options
 import util
 from util import get
 
+# patch Pyomo's solver to retrieve duals and reduced costs for MIPs from cplex lp solver
+# (This could be made permanent in pyomo.solvers.plugins.solvers.CPLEX.create_command_line)
+def new_create_command_line(*args, **kwargs):
+    # call original command
+    command = old_create_command_line(*args, **kwargs)
+    # alter script
+    if hasattr(command, 'script') and 'optimize\n' in command.script:
+        command.script = command.script.replace(
+            'optimize\n',
+            'optimize\nchange problem fix\noptimize\n'
+            # see http://www-01.ibm.com/support/docview.wss?uid=swg21399941
+            # and http://www-01.ibm.com/support/docview.wss?uid=swg21400009
+        )
+    return command
+from pyomo.solvers.plugins.solvers.CPLEX import CPLEXSHELL
+old_create_command_line = CPLEXSHELL.create_command_line
+CPLEXSHELL.create_command_line = new_create_command_line
+
+
 def define_arguments(argparser):
     argparser.add_argument("--dr-flat-pricing", action='store_true', default=False,
         help="Charge a constant (average) price for electricity, rather than varying hour by hour")
@@ -336,25 +355,39 @@ def pre_iterate(m):
         # import pdb; pdb.set_trace()
 
     # basis for optimality test:
-    # If we could satisfy the latest bids at the corresponding marginal cost, 
-    # then that would be an optimum (in next round we would offer the same prices 
-    # and get back the same bid, and we'd be done). So total cost must be higher than that?
-    # Conversely, total cost of master problem can't go up after adding new column, because
-    # it relaxes constraints rather than tightening them. (i.e., it can only
-    # go down from previous solution.)
+    # 1. The total cost of supply, as a function of quantity produced each hour, forms
+    # a surface which is convex downward, since it is linear (assuming all variables are 
+    # continuous or all integer variables are kept at their current level, i.e., the curve 
+    # is locally convex). (Think of the convex hull of the extreme points of the production 
+    # cost function.)
+    # 2. The total benefit of consumption, as a function of quantity consumed each hour, 
+    # forms a surface which is concave downward (by the assumption/requirement of convexity
+    # of the demand function).
+    # 3. marginal costs (prev_marginal_cost) and production levels (pref_demand) from the
+    # most recent solution to the master problem define a production cost plane which is 
+    # tangent to the production cost function at that production level. From 1, the production 
+    # cost function must lie on or above this surface everywhere. This plane is given by
+    # (something + prev_marginal_cost * (demand - dr_bid))
+    # 4. The last bid quantities (dr_bid) must be at a point where marginal benefit of consumption 
+    # equals marginal cost of consumption (prev_marginal_cost) in all directions; otherwise 
+    # they would not be a private optimum. 
+    # 5. The benefit reported in the last bid (dr_bid_benefit) shows the level of the total 
+    # benefit curve at that point.
+    # 6. From 2, 4 and 5, the prev_marginal_cost and the last reported benefit must form
+    # a plane which is at or above the total benefit curve everywhere. This plane is given by
+    # (-DR_Welfare_Cost - (prev_marginal_cost * (demand - prev_demand) + something))
+    # 7. Since the total cost curve must lie above the plane defined in 3. and the total
+    # benefit curve must lie below the plane defined in 6., the (constant) distance between 
+    # these planes is an upper bound on the net benefit that can be obtained. This is given by
+    # (-DR_Welfare_Cost - prev_marginal_cost * (demand - prev_demand))
+    # - (prev_marginal_cost * (demand - dr_bid))
+    # = ...
     
-    # current MCs/duals correspond to an optimum without the new bid
-    # new bid must have welfare >= welfare of previously constructed demand (convexity)
-    # so serving the bid at least a little will make sense -- serving a thin slice of this
-    #   bid instead of a thin slice of the previously constructed demand will raise welfare
-    #   by welfare(bid) - welfare(constructed), but change total costs by less (at the outset,
-    #   d(costs)/d(something) == d(welfare[constructed])/d(something)) until the slice gets
-    #   thick enough so that d(welfare)/d(weight) == d(costs)/d(weight).
-    # the greatest possible improvement in welfare would be if you could raise weight to
-    #   100% while d(costs)/d(weight) remains unchanged. then you would offer the same prices
-    #   in the next round and be done? (need to go from d(costs)/d(weight) to d(costs)/d(demand))
-    # what if d(costs)/d(weight) rises, but stays less than d(welfare)/d(weight)? That may be
-    #   something we can ignore in the convergence test, since it sets a tighter bound.
+    # (prev_marginal_cost * (demand - dr_bid))
+    # - (prev_marginal_cost * (demand - prev_demand) )
+    # - 
+    # = prev_marginal_cost * prev_demand + DR_Welfare_Cost 
+    #   - (prev_marginal_cost * dr_bid - dr_bid_benefit)
     
     # Check for convergence -- optimality gap is less than 0.1% of best possible cost 
     # (which may be negative)
@@ -930,7 +963,7 @@ def write_dual_costs(m):
     start_time = time.time()
     print "Writing {} ... ".format(outfile),
     
-    def add_dual(const, lbound, ubound, duals):
+    def add_dual(const, lbound, ubound, duals, prefix=''):
         if const in duals:
             dual = duals[const]
             if dual >= 0.0:
@@ -947,12 +980,16 @@ def write_dual_costs(m):
             else:
                 total_cost = dual * bound
                 if total_cost != 0.0:
-                    dual_data.append((const.cname(), direction, bound, dual, total_cost))
+                    dual_data.append((prefix+const.cname(), direction, bound, dual, total_cost))
 
     for comp in m.component_objects(ctype=Var):
         for idx in comp:
             var = comp[idx]
-            add_dual(var, var.lb, var.ub, m.rc)
+            if var.is_integer() or var.is_binary():
+                # integrality constraint sets upper and lower bounds
+                add_dual(var, value(var), value(var), m.rc, prefix='integer: ')
+            else:
+                add_dual(var, var.lb, var.ub, m.rc)
     for comp in m.component_objects(ctype=Constraint):
         for idx in comp:
             constr = comp[idx]
