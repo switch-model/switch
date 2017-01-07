@@ -23,8 +23,17 @@ def define_components(m):
             >=
             m.ProjCapacityTP[proj, tp] * m.proj_availability[proj]
     )
-    m.Run_Kalaeloa_CC3_Only_When_Full = Constraint(m.TIMEPOINTS, rule=lambda m, tp:
-        m.DispatchProj["Oahu_Kalaeloa_CC3", tp]
-        <= 
-        m.RunKalaeloaFull[tp] * more_than_kalaeloa_capacity
-    )
+    if hasattr(m, 'CommitUnits'):
+        # using unit commitment
+        m.Run_Kalaeloa_CC3_Only_When_Full = Constraint(m.TIMEPOINTS, rule=lambda m, tp:
+            m.CommitUnits["Oahu_Kalaeloa_CC3", tp]
+            <= 
+            m.RunKalaeloaFull[tp]
+        )
+    else:
+        # simple model (probably doesn't work well with Kalaeloa!)
+        m.Run_Kalaeloa_CC3_Only_When_Full = Constraint(m.TIMEPOINTS, rule=lambda m, tp:
+            m.DispatchProj["Oahu_Kalaeloa_CC3", tp]
+            <= 
+            m.RunKalaeloaFull[tp] * more_than_kalaeloa_capacity
+        )
