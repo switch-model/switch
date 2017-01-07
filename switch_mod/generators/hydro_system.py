@@ -114,6 +114,7 @@ def define_components(mod):
     
     res_max_vol[r] is a parameter that specifies the maximum storage
     capacity of the reservoir in millions of cubic meters. If at any
+
     timepoint the volume of water in the reservoir reaches this limit,
     spillage may occur to mantain the mass balance. This parameter is
     determined by the physical characteristics of the reservoir.
@@ -255,7 +256,6 @@ def define_components(mod):
     times, and other could want to raise them to avoid spilling completely.
         
     """
-
     #################
     # Nodes of the water network
     mod.WATER_NODES = Set()
