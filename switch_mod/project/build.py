@@ -112,7 +112,7 @@ def define_components(mod):
 
         ProjCapacity <= proj_capacity_limit_mw
 
-    proj_end_year[(proj, build_year) in PROJECT_BUILDYEARS] is the last
+    proj_final_period[(proj, build_year) in PROJECT_BUILDYEARS] is the last
     investment period in the simulation that a given project build will
     be operated. It can either indicate retirement or the end of the
     simulation. This is derived from g_max_age.
@@ -299,20 +299,20 @@ def define_components(mod):
         initialize=lambda m: set(
             m.EXISTING_PROJ_BUILDYEARS | m.NEW_PROJ_BUILDYEARS))
 
-    def init_proj_end_year(m, proj, build_year):
+    def init_proj_final_period(m, proj, build_year):
         g = m.proj_gen_tech[proj]
         max_age = m.g_max_age[g]
         earliest_study_year = m.period_start[m.PERIODS.first()]
         if build_year + max_age < earliest_study_year:
             return build_year + max_age
         for p in m.PERIODS:
-            if build_year + max_age < m.period_end[p]:
+            if build_year + max_age <= m.period_start[p] + m.period_length_years[p]:
                 break
         return p
-    mod.proj_end_year = Param(
+    mod.proj_final_period = Param(
         mod.PROJECT_BUILDYEARS,
-        initialize=init_proj_end_year)
-    mod.min_data_check('proj_end_year')
+        initialize=init_proj_final_period)
+    mod.min_data_check('proj_final_period')
 
     mod.PROJECT_BUILDS_OPERATIONAL_PERIODS = Set(
         mod.PROJECT_BUILDYEARS,
@@ -320,14 +320,14 @@ def define_components(mod):
         ordered=True,
         initialize=lambda m, proj, bld_yr: set(
             p for p in m.PERIODS
-            if bld_yr <= p <= m.proj_end_year[proj, bld_yr]))
+            if bld_yr <= p <= m.proj_final_period[proj, bld_yr]))
     # The set of build years that could be online in the given period
     # for the given project.
     mod.PROJECT_PERIOD_ONLINE_BUILD_YRS = Set(
         mod.PROJECTS, mod.PERIODS,
         initialize=lambda m, proj, p: set(
             bld_yr for (prj, bld_yr) in m.PROJECT_BUILDYEARS
-            if prj == proj and bld_yr <= p <= m.proj_end_year[proj, bld_yr]))
+            if prj == proj and bld_yr <= p <= m.proj_final_period[proj, bld_yr]))
 
     def bounds_BuildProj(model, proj, bld_yr):
         if((proj, bld_yr) in model.EXISTING_PROJ_BUILDYEARS):

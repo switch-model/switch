@@ -276,6 +276,12 @@ def define_components(mod):
         mod.TIMEPOINTS,
         within=mod.PERIODS,
         initialize=lambda m, t: m.ts_period[m.tp_ts[t]])
+    mod.PERIOD_TS = Set(
+        mod.PERIODS,
+        ordered=True,
+        within=mod.TIMESERIES,
+        initialize=lambda m, p: [
+            ts for ts in m.TIMESERIES if m.ts_period[ts] == p])
     mod.PERIOD_TPS = Set(
         mod.PERIODS,
         ordered=True,
@@ -352,6 +358,24 @@ def define_components(mod):
     mod.validate_time_weights = BuildCheck(
         mod.PERIODS,
         rule=validate_time_weights_rule)
+
+    def validate_period_lengths_rule(m, p):
+        tol = 0.01
+        if p != m.PERIODS.last():
+            p_end = m.period_start[p] + m.period_length_years[p]
+            p_next = m.period_start[m.PERIODS.next(p)]
+            if abs(p_next - p_end) > tol:
+                print (
+                    "validate_period_lengths_rule failed for period"
+                    + "'{p:.0f}'. Period ends at {p_end}, but next period"
+                    + "begins at {p_next}."
+                ).format(p=p, p_end=p_end, p_next=p_next)
+                return False
+        return True
+    mod.validate_period_lengths = BuildCheck(
+        mod.PERIODS, 
+        rule=validate_period_lengths_rule)
+
 
 def load_inputs(mod, switch_data, inputs_dir):
     """
