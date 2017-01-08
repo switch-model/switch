@@ -65,8 +65,10 @@ def define_components(m):
     m.Battery_Level_Calc = Constraint(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
         m.BatteryLevel[z, t] == 
             m.BatteryLevel[z, m.tp_previous[t]]
-            + m.battery_efficiency * m.ChargeBattery[z, m.tp_previous[t]] 
-            - m.DischargeBattery[z, m.tp_previous[t]]
+            + m.tp_duration_hrs[t] * (
+                m.battery_efficiency * m.ChargeBattery[z, m.tp_previous[t]] 
+                - m.DischargeBattery[z, m.tp_previous[t]]
+            )
     )
       
     # limits on storage level
@@ -81,15 +83,35 @@ def define_components(m):
         m.Battery_Capacity[z, m.tp_period[t]]
     )
 
-    m.Battery_Max_Charge = Constraint(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
+    m.Battery_Max_Charge_Rate = Constraint(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
         m.ChargeBattery[z, t]
         <=
         m.Battery_Capacity[z, m.tp_period[t]] * m.battery_max_discharge / m.battery_min_discharge_time
     )
-    m.Battery_Max_Disharge = Constraint(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
+    m.Battery_Max_Discharge_Rate = Constraint(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
         m.DischargeBattery[z, t]
         <=
         m.Battery_Capacity[z, m.tp_period[t]] * m.battery_max_discharge / m.battery_min_discharge_time
+    )
+
+    # how much could output/input be increased on short notice (to provide reserves)
+    m.BatterySlackUp = Expression(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
+        m.Battery_Capacity[z, m.tp_period[t]] * m.battery_max_discharge / m.battery_min_discharge_time
+        - m.DischargeBattery[z, t]
+        + m.ChargeBattery[z, t]
+    )
+    m.BatterySlackDown = Expression(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
+        m.Battery_Capacity[z, m.tp_period[t]] * m.battery_max_discharge / m.battery_min_discharge_time
+        - m.ChargeBattery[z, t]
+        + m.DischargeBattery[z, t]
+    )
+
+    # assume batteries can only complete one full cycle (charged to max discharge)
+    # per day, averaged over each period
+    m.Battery_Cycle_Limit = Constraint(m.LOAD_ZONES, m.PERIODS, rule=lambda m, z, p:
+        sum(m.DischargeBattery[z, tp] * m.tp_duration_hrs[tp] for tp in m.PERIOD_TPS[p])
+        <= 
+        m.Battery_Capacity[z, p] * m.battery_max_discharge * m.period_length_hours[p]
     )
 
 

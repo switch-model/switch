@@ -11,48 +11,20 @@ note: we also take advantage of this assumption and store a reference to the
 current demand_module in this module (rather than storing it in the model itself)
 """
 
-# TODO: create a new module to handle total-cost pricing.
-# That should apply a simple tax to every retail kWh sold (lz_demand_mw or FlexibleDemand)
-# (this is a fixed adder to the cost in $/kWh, not a multiplier times the marginal cost)
-# that module can be used as-is to find the effect of any particular adder
-# or it can iterate at a level above the demand_response module
-# and use something like scipy.optimize.newton() to find the right tax to come out 
-# revenue-neutral (i.e., recover any stranded costs, rebate any supply-side rents)
-
 import os, sys, time
 from pprint import pprint
 from pyomo.environ import *
-import scipy.optimize
 import switch_mod.utilities as utilities
-from save_results import DispatchProjByFuel
-
 demand_module = None    # will be set via command-line options
 
 import util
 from util import get
 
-# patch Pyomo's solver to retrieve duals and reduced costs for MIPs from cplex lp solver
-# (This could be made permanent in pyomo.solvers.plugins.solvers.CPLEX.create_command_line)
-def new_create_command_line(*args, **kwargs):
-    # call original command
-    command = old_create_command_line(*args, **kwargs)
-    # alter script
-    if hasattr(command, 'script') and 'optimize\n' in command.script:
-        command.script = command.script.replace(
-            'optimize\n',
-            'optimize\nchange problem fix\noptimize\n'
-            # see http://www-01.ibm.com/support/docview.wss?uid=swg21399941
-            # and http://www-01.ibm.com/support/docview.wss?uid=swg21400009
-        )
-    return command
-from pyomo.solvers.plugins.solvers.CPLEX import CPLEXSHELL
-old_create_command_line = CPLEXSHELL.create_command_line
-CPLEXSHELL.create_command_line = new_create_command_line
-
-
 def define_arguments(argparser):
     argparser.add_argument("--dr-flat-pricing", action='store_true', default=False,
         help="Charge a constant (average) price for electricity, rather than varying hour by hour")
+    argparser.add_argument("--dr-total-cost-pricing", action='store_true', default=False,
+        help="Include both marginal and non-marginal(fixed) costs when setting prices")
     argparser.add_argument("--dr-demand-module", default=None,
         help="Name of module to use for demand-response bids. This should also be "
         "specified in the modules list, and should provide calibrate() and bid() functions. "
@@ -79,10 +51,9 @@ def define_components(m):
     if m.options.dr_demand_module not in sys.modules:
         raise RuntimeError(
             "Demand module {mod} cannot be used because it has not been loaded. "
-            "Please add this module to the modules list (usually modules.txt) "
-            "or specify --include-module {mod} in options.txt, scenarios.txt or "
-            "on the command line."
-            .format(mod=m.options.dr_demand_module)
+            "Please add this module to the the modules list (usually modules.txt) "
+            "or specify --include-module {mod} in options.txt or on the command line."
+            "".format(mod=m.options.dr_demand_module)
         )
     demand_module = sys.modules[m.options.dr_demand_module]
     
@@ -110,9 +81,6 @@ def define_components(m):
     # add the unserved load penalty to the model's objective function
     m.cost_components_tp.append('DR_Unserved_Load_Penalty')
 
-    # list of products (commodities and reserves) that can be bought or sold
-    m.DR_PRODUCTS = Set(initialize=['energy', 'energy up', 'energy down'])
-
     ###################
     # Price Responsive Demand bids
     ##################
@@ -128,10 +96,10 @@ def define_components(m):
     # data for the individual bids; each load_zone gets one bid for each timeseries,
     # and each bid covers all the timepoints in that timeseries. So we just record 
     # the bid for each timepoint for each load_zone.
-    m.dr_bid = Param(m.DR_BID_LIST, m.LOAD_ZONES, m.TIMEPOINTS, m.DR_PRODUCTS, mutable=True)
+    m.dr_bid = Param(m.DR_BID_LIST, m.LOAD_ZONES, m.TIMEPOINTS, mutable=True)
 
     # price used to get this bid (only kept for reference)
-    m.dr_price = Param(m.DR_BID_LIST, m.LOAD_ZONES, m.TIMEPOINTS, m.DR_PRODUCTS, mutable=True)
+    m.dr_price = Param(m.DR_BID_LIST, m.LOAD_ZONES, m.TIMEPOINTS, mutable=True)
 
     # the private benefit of serving each bid
     m.dr_bid_benefit = Param(m.DR_BID_LIST, m.LOAD_ZONES, m.TIMESERIES, mutable=True)
@@ -157,11 +125,10 @@ def define_components(m):
     # weights for all zones. (Otherwise the model will try to micromanage load in each
     # zone, but that won't be reflected in the prices we report.)
     # Note: LOAD_ZONES is not an ordered set, so we have to use a trick to get a single
-    # arbitrary one to refer to (list(m.LOAD_ZONES)[0] or m.LOAD_ZONES.iterkeys().next()
-    # would also work).
+    # arbitrary one to refer to (next(iter(m.LOAD_ZONES)) would also work).
     m.DR_Load_Zone_Shared_Bid_Weight = Constraint(
         m.DR_BID_LIST, m.LOAD_ZONES, m.TIMESERIES, rule=lambda m, b, lz, ts: 
-            m.DRBidWeight[b, lz, ts] == m.DRBidWeight[b, iter(m.LOAD_ZONES).next(), ts]
+            m.DRBidWeight[b, lz, ts] == m.DRBidWeight[b, list(m.LOAD_ZONES)[0], ts]
     )
 
     # For flat-price models, we have to use the same weight for all timeseries within the
@@ -177,25 +144,8 @@ def define_components(m):
     
     # Optimal level of demand, calculated from available bids (negative, indicating consumption)
     m.FlexibleDemand = Expression(m.LOAD_ZONES, m.TIMEPOINTS, 
-        rule=lambda m, lz, tp: sum(
-            m.DRBidWeight[b, lz, m.tp_ts[tp]] * m.dr_bid[b, lz, tp, 'energy'] 
-            for b in m.DR_BID_LIST
-        )
-    )
-    # provide up and down reserves (from supply perspective, so "up" means less load)
-    # note: the bids are negative quantities, indicating _production_ of reserves;
-    # they contribute to the reserve requirement with opposite sign
-    m.DemandUpReserves = Expression(m.LOAD_ZONES, m.TIMEPOINTS, 
-        rule=lambda m, lz, tp: -sum(
-            m.DRBidWeight[b, lz, m.tp_ts[tp]] * m.dr_bid[b, lz, tp, 'energy up'] 
-            for b in m.DR_BID_LIST
-        )
-    )
-    m.DemandDownReserves = Expression(m.LOAD_ZONES, m.TIMEPOINTS, 
-        rule=lambda m, lz, tp: -sum(
-            m.DRBidWeight[b, lz, m.tp_ts[tp]] * m.dr_bid[b, lz, tp, 'energy down'] 
-            for b in m.DR_BID_LIST
-        )
+        rule=lambda m, lz, tp:
+            sum(m.DRBidWeight[b, lz, m.tp_ts[tp]] * m.dr_bid[b, lz, tp] for b in m.DR_BID_LIST)
     )
 
     # replace lz_demand_mw with FlexibleDemand in the energy balance constraint
@@ -222,6 +172,11 @@ def define_components(m):
     # add the private benefit to the model's objective function
     m.cost_components_tp.append('DR_Welfare_Cost')
 
+    # annual costs, recovered via baseline prices
+    # but not included in switch's calculation of costs
+    m.other_costs = Param(m.PERIODS, mutable=True, default=0.0)
+    m.cost_components_annual.append('other_costs')
+    
     # variable to store the baseline data
     m.base_data = None
 
@@ -236,27 +191,21 @@ def pre_iterate(m):
     # of post-iterate, to avoid problems in final reporting.
     
     # store various properties from previous model solution for later reference
-    if m.iteration_number == 0:
-        # model hasn't been solved yet
-        m.prev_marginal_cost = {
-            (lz, tp, prod): None 
-            for lz in m.LOAD_ZONES for tp in m.TIMEPOINTS for prod in m.DR_PRODUCTS
-        } 
-        m.prev_demand = {
-            (lz, tp, prod): None for lz in m.LOAD_ZONES for tp in m.TIMEPOINTS for prod in m.DR_PRODUCTS
-        }
-        m.prev_SystemCost = None
-    else:
-        # get values from previous solution
-        m.prev_marginal_cost = {
-            (lz, tp, prod): electricity_marginal_cost(m, lz, tp, prod) 
-            for lz in m.LOAD_ZONES for tp in m.TIMEPOINTS for prod in m.DR_PRODUCTS
-        }
-        m.prev_demand = {
-            (lz, tp, prod): electricity_demand(m, lz, tp, prod) 
-            for lz in m.LOAD_ZONES for tp in m.TIMEPOINTS for prod in m.DR_PRODUCTS
-        }
-        m.prev_SystemCost = value(m.SystemCost)
+    m.prev_marginal_cost = (
+        {(lz, tp): None for lz in m.LOAD_ZONES for tp in m.TIMEPOINTS} # model hasn't been solved yet
+        if m.iteration_number == 0 else 
+        {(lz, tp): electricity_marginal_cost(m, lz, tp) for lz in m.LOAD_ZONES for tp in m.TIMEPOINTS}
+    )
+    m.prev_demand = (
+        {(lz, tp): None for lz in m.LOAD_ZONES for tp in m.TIMEPOINTS} # model hasn't been solved yet
+        if m.iteration_number == 0 else 
+        {(lz, tp): electricity_demand(m, lz, tp) for lz in m.LOAD_ZONES for tp in m.TIMEPOINTS}
+    )
+    m.prev_SystemCost = (
+        None
+        if m.iteration_number == 0 else 
+        value(m.SystemCost)
+    )
 
     if m.iteration_number > 0:
         # store cost of previous solution before it gets altered by update_demand()
@@ -279,123 +228,43 @@ def pre_iterate(m):
         prev_cost = value(sum(
             (
                 sum(
-                    m.prev_marginal_cost[lz, tp, prod] * m.prev_demand[lz, tp, prod]
-                    for lz in m.LOAD_ZONES for prod in m.DR_PRODUCTS
+                    m.prev_marginal_cost[lz, tp] * m.prev_demand[lz, tp]
+                        for lz in m.LOAD_ZONES 
                 ) + m.DR_Welfare_Cost[tp]
             ) * m.bring_timepoint_costs_to_base_year[tp]
-            for ts in m.TIMESERIES
-            for tp in m.TS_TPS[ts]
+                for ts in m.TIMESERIES
+                    for tp in m.TS_TPS[ts]
         ))
-
-        print ""
-        print 'previous direct cost: ${:,.0f}'.format(value(sum(
-            (
-                sum(
-                    m.prev_marginal_cost[lz, tp, prod] * m.prev_demand[lz, tp, prod]
-                    for lz in m.LOAD_ZONES for prod in m.DR_PRODUCTS
-                )
-            ) * m.bring_timepoint_costs_to_base_year[tp]
-            for ts in m.TIMESERIES
-            for tp in m.TS_TPS[ts]
-        )))
-        print 'previous welfare cost: ${:,.0f}'.format(value(sum(
-            (
-                m.DR_Welfare_Cost[tp]
-            ) * m.bring_timepoint_costs_to_base_year[tp]
-            for ts in m.TIMESERIES
-            for tp in m.TS_TPS[ts]
-        )))
-        print ""
     
     # get the next bid and attach it to the model
     update_demand(m)
+
+    b = m.DR_BID_LIST.last()    # current bid number
 
     if m.iteration_number > 0:
         # get an estimate of best possible net cost of serving load
         # (if we could completely serve the last bid at the prices we quoted,
         # that would be an optimum; the actual cost may be higher but never lower)
-        b = m.DR_BID_LIST.last()    # current bid number
         best_cost = value(sum(
-            (
-                sum(
-                    m.prev_marginal_cost[lz, tp, prod] * m.dr_bid[b, lz, tp, prod] 
-                    for lz in m.LOAD_ZONES for prod in m.DR_PRODUCTS
-                ) 
-                - sum(m.dr_bid_benefit[b, lz, ts] for lz in m.LOAD_ZONES)
-                * m.tp_duration_hrs[tp] / m.ts_num_tps[ts]
-            ) * m.bring_timepoint_costs_to_base_year[tp]
+            sum(
+                m.prev_marginal_cost[lz, tp] * m.dr_bid[b, lz, tp] 
+                - m.dr_bid_benefit[b, lz, ts] * m.tp_duration_hrs[tp] / m.ts_num_tps[ts]
+                for lz in m.LOAD_ZONES 
+            ) 
+            * m.bring_timepoint_costs_to_base_year[tp]
             for ts in m.TIMESERIES
             for tp in m.TS_TPS[ts]
         ))
-        
-        print ""
-        print 'best direct cost: ${:,.0f}'.format(value(sum(
-            (
-                sum(
-                    m.prev_marginal_cost[lz, tp, prod] * m.dr_bid[b, lz, tp, prod] 
-                    for lz in m.LOAD_ZONES for prod in m.DR_PRODUCTS
-                ) 
-            ) * m.bring_timepoint_costs_to_base_year[tp]
-            for ts in m.TIMESERIES
-            for tp in m.TS_TPS[ts]
-        )))
-        print 'best bid benefit: ${:,.0f}'.format(value(sum(
-            (
-                - sum(m.dr_bid_benefit[b, lz, ts] for lz in m.LOAD_ZONES)
-                * m.tp_duration_hrs[tp] / m.ts_num_tps[ts]
-            ) * m.bring_timepoint_costs_to_base_year[tp]
-            for ts in m.TIMESERIES
-            for tp in m.TS_TPS[ts]
-        )))
-        print ""
-        
-        print "lower bound=${:,.0f}, previous cost=${:,.0f}, ratio={}" \
-            .format(best_cost, prev_cost, prev_cost/best_cost)
+        print "lower bound={}, previous cost={}, ratio={}".format(
+            best_cost, prev_cost, prev_cost/best_cost)
 
-        # import pdb; pdb.set_trace()
-
-    # basis for optimality test:
-    # 1. The total cost of supply, as a function of quantity produced each hour, forms
-    # a surface which is convex downward, since it is linear (assuming all variables are 
-    # continuous or all integer variables are kept at their current level, i.e., the curve 
-    # is locally convex). (Think of the convex hull of the extreme points of the production 
-    # cost function.)
-    # 2. The total benefit of consumption, as a function of quantity consumed each hour, 
-    # forms a surface which is concave downward (by the assumption/requirement of convexity
-    # of the demand function).
-    # 3. marginal costs (prev_marginal_cost) and production levels (pref_demand) from the
-    # most recent solution to the master problem define a production cost plane which is 
-    # tangent to the production cost function at that production level. From 1, the production 
-    # cost function must lie on or above this surface everywhere. This plane is given by
-    # (something + prev_marginal_cost * (demand - dr_bid))
-    # 4. The last bid quantities (dr_bid) must be at a point where marginal benefit of consumption 
-    # equals marginal cost of consumption (prev_marginal_cost) in all directions; otherwise 
-    # they would not be a private optimum. 
-    # 5. The benefit reported in the last bid (dr_bid_benefit) shows the level of the total 
-    # benefit curve at that point.
-    # 6. From 2, 4 and 5, the prev_marginal_cost and the last reported benefit must form
-    # a plane which is at or above the total benefit curve everywhere. This plane is given by
-    # (-DR_Welfare_Cost - (prev_marginal_cost * (demand - prev_demand) + something))
-    # 7. Since the total cost curve must lie above the plane defined in 3. and the total
-    # benefit curve must lie below the plane defined in 6., the (constant) distance between 
-    # these planes is an upper bound on the net benefit that can be obtained. This is given by
-    # (-DR_Welfare_Cost - prev_marginal_cost * (demand - prev_demand))
-    # - (prev_marginal_cost * (demand - dr_bid))
-    # = ...
-    
-    # (prev_marginal_cost * (demand - dr_bid))
-    # - (prev_marginal_cost * (demand - prev_demand) )
-    # - 
-    # = prev_marginal_cost * prev_demand + DR_Welfare_Cost 
-    #   - (prev_marginal_cost * dr_bid - dr_bid_benefit)
-    
     # Check for convergence -- optimality gap is less than 0.1% of best possible cost 
     # (which may be negative)
     # TODO: index this to the direct costs, rather than the direct costs minus benefits
     # as it stands, it converges with about $50,000,000 optimality gap, which is about 
     # 3% of direct costs.
     converged = (m.iteration_number > 0 and (prev_cost - best_cost)/abs(best_cost) <= 0.0001)
-    
+        
     return converged
 
 def post_iterate(m):
@@ -411,11 +280,10 @@ def post_iterate(m):
     # report the final prices, only the prices prior to the final model run)
 
     SystemCost = value(m.SystemCost)    # calculate once to save time
-    if m.prev_SystemCost is None:
-        print "prev_SystemCost=<n/a>, SystemCost={:,.0f}, ratio=<n/a>".format(SystemCost)
-    else:
-        print "prev_SystemCost={:,.0f}, SystemCost={:,.0f}, ratio={}" \
-            .format(m.prev_SystemCost, SystemCost, SystemCost/m.prev_SystemCost)
+    print "prev_SystemCost={}, SystemCost={}, ratio={}".format(
+        m.prev_SystemCost, SystemCost, 
+        None if m.prev_SystemCost is None else SystemCost/m.prev_SystemCost
+    )
 
     tag = m.options.scenario_name
     outputs_dir = m.options.outputs_dir
@@ -424,35 +292,26 @@ def post_iterate(m):
     if m.iteration_number == 0:
         util.create_table(
             output_file=os.path.join(outputs_dir, "bid_{t}.tsv".format(t=tag)), 
-            headings= 
-                (
-                    "bid_num", "load_zone", "timeseries", "timepoint", 
-                ) + tuple("marginal_cost " + prod for prod in m.DR_PRODUCTS)
-                + tuple("price " + prod for prod in m.DR_PRODUCTS)
-                + tuple("bid " + prod for prod in m.DR_PRODUCTS)
-                + (
-                    "wtp", "base_price", "base_load"
-                )
+            headings=(
+                "bid_num", "load_zone", "timeseries", "timepoint", "marginal_cost", "price", 
+                "bid_load", "wtp", "base_price", "base_load"
+            )
         )
     b = m.DR_BID_LIST.last()    # current bid
-    util.append_table(
-        m, m.LOAD_ZONES, m.TIMEPOINTS,
+    util.append_table(m, m.LOAD_ZONES, m.TIMEPOINTS,
         output_file=os.path.join(outputs_dir, "bid_{t}.tsv".format(t=tag)), 
-        values=lambda m, lz, tp: 
-            (
-                b,
-                lz,
-                m.tp_ts[tp],
-                m.tp_timestamp[tp],
-            ) 
-            + tuple(m.prev_marginal_cost[lz, tp, prod] for prod in m.DR_PRODUCTS)
-            + tuple(m.dr_price[b, lz, tp, prod] for prod in m.DR_PRODUCTS)
-            + tuple(m.dr_bid[b, lz, tp, prod] for prod in m.DR_PRODUCTS)
-            + (
-                m.dr_bid_benefit[b, lz, m.tp_ts[tp]],
-                m.base_data_dict[lz, tp][1],
-                m.base_data_dict[lz, tp][0],
-            )
+        values=lambda m, lz, tp: (
+            b,
+            lz,
+            m.tp_ts[tp],
+            m.tp_timestamp[tp],
+            m.prev_marginal_cost[lz, tp],
+            m.dr_price[b, lz, tp],
+            m.dr_bid[b, lz, tp],
+            m.dr_bid_benefit[b, lz, m.tp_ts[tp]],
+            m.base_data_dict[lz, tp][1],
+            m.base_data_dict[lz, tp][0],
+        )
     )
 
     # store the current bid weights for future reference
@@ -476,9 +335,6 @@ def post_iterate(m):
     write_results(m)
     write_batch_results(m)
 
-    # if m.iteration_number >= 3:
-    #     import pdb; pdb.set_trace()
-    
 
 def update_demand(m):
     """
@@ -492,21 +348,27 @@ def update_demand(m):
     print "attaching new demand bid to model"
     if first_run:
         calibrate_model(m)
+        
     else:   # not first run
-        if m.options.verbose:
-            print "m.DRBidWeight:"
-            pprint([(lz, ts, [(b, value(m.DRBidWeight[b, lz, ts])) for b in m.DR_BID_LIST])
-                for lz in m.LOAD_ZONES
-                for ts in m.TIMESERIES])
+        # print "m.DRBidWeight (first day):"
+        # print [(b, lz, ts, value(m.DRBidWeight[b, lz, ts])) 
+        #     for b in m.DR_BID_LIST
+        #     for lz in m.LOAD_ZONES
+        #     for ts in m.TIMESERIES]
+        print "m.DRBidWeight:"
+        pprint([(lz, ts, [(b, value(m.DRBidWeight[b, lz, ts])) for b in m.DR_BID_LIST])
+            for lz in m.LOAD_ZONES
+            for ts in m.TIMESERIES])
+        #print "DR_Convex_Bid_Weight:"
+        #m.DR_Convex_Bid_Weight.pprint()
 
     # get new bids from the demand system at the current prices
     bids = get_bids(m)
     
+    print "adding bids to model"
+    # print "first day (lz, ts, prices, demand, wtp) ="
+    # pprint(bids[0])
     # add the new bids to the model
-    if m.options.verbose:
-        print "adding bids to model"
-        # print "first day (lz, ts, prices, demand, wtp) ="
-        # pprint(bids[0])
     add_bids(m, bids)
     # print "m.dr_bid_benefit (first day):"
     # pprint([(b, lz, ts, value(m.dr_bid_benefit[b, lz, ts]))
@@ -524,6 +386,9 @@ def update_demand(m):
 def total_direct_costs_per_year(m, period):
     """Return undiscounted total cost per year, during each period, as calculated by SWITCH,
     including everything except DR_Welfare_Cost.
+
+    note: during the first iteration, this doesn't include "other_costs", but in later 
+    iterations it does.
 
     This code comes from financials.calc_sys_costs_per_period(), excluding discounting
     and upscaling to the period.
@@ -543,39 +408,90 @@ def total_direct_costs_per_year(m, period):
         )
     )    
 
-def electricity_marginal_cost(m, lz, tp, prod):
-    """Return marginal cost of providing product prod in load_zone lz during timepoint tp."""
-    if prod == 'energy':
-        component = m.Energy_Balance[lz, tp]
-    elif prod == 'energy up':
-        component = m.Satisfy_Spinning_Reserve_Up_Requirement[tp]
-    elif prod == 'energy down':
-        component = m.Satisfy_Spinning_Reserve_Down_Requirement[tp]
-    else:
-        raise ValueError('Unrecognized electricity product: {}.'.format(prod))
-    return m.dual[component]/m.bring_timepoint_costs_to_base_year[tp]
-    
-def electricity_demand(m, lz, tp, prod):
-    """Return total consumption of product prod in load_zone lz during timepoint tp (negative if customers supply product)."""
-    if prod == 'energy':
-        if len(m.DR_BID_LIST)==0:
-            # use lz_demand_mw (base demand) if no bids have been received yet
-            # (needed to find flat prices before solving the model the first time)
-            demand = m.lz_demand_mw[lz, tp]
-        else:
-            demand = m.FlexibleDemand[lz, tp]
-    elif prod == 'energy up':
-        demand = value(m.DemandUpReserves[lz, tp])
-    elif prod == 'energy down':
-        demand = value(m.DemandDownReserves[lz, tp])
-    else:
-        raise ValueError('Unrecognized electricity product: {}.'.format(prod))
-    return demand
+def electricity_marginal_cost(m, lz, tp):
+    """Return marginal cost of production per MWh in load_zone lz during timepoint tp."""
+    return m.dual[m.Energy_Balance[lz, tp]]/m.bring_timepoint_costs_to_base_year[tp]
 
+def electricity_demand(m, lz, tp):
+    """Return total electricity consumption by customers in load_zone lz during timepoint tp."""
+    return value(sum(
+        getattr(m, component)[lz, tp]
+            for component in ('lz_demand_mw', 'FlexibleDemand')
+                if component in m.LZ_Energy_Components_Consume
+    ))
     
+def make_prices(m):
+    """Calculate hourly prices for customers, based on the current model configuration.
+    These may be any combination of marginal vs. total-cost and flat vs. dynamic.
+    """
+
+    if m.options.dr_total_cost_pricing:
+        # rescale (long-run) marginal costs to recover all costs 
+        # (sunk and other, in addition to marginal)
+        # calculate the ratio between potential revenue 
+        # at marginal-cost pricing and total costs for each period
+        mc_annual_revenue = {
+            (lz, p): 
+            sum(
+                electricity_demand(m, lz, tp) 
+                * electricity_marginal_cost(m, lz, tp) 
+                * m.tp_weight_in_year[tp]
+                for tp in m.PERIOD_TPS[p]
+            )
+            for lz in m.LOAD_ZONES for p in m.PERIODS
+        }
+        # note: it would be nice to do this on a zonal basis, but production costs
+        # are only available model-wide.
+        price_scalar = {
+            p: total_direct_costs_per_year(m, p) 
+                / sum(mc_annual_revenue[lz, p] for lz in m.LOAD_ZONES) 
+            for p in m.PERIODS
+        }
+    else:
+        # use marginal costs directly as prices
+        price_scalar = {p: 1.0 for p in m.PERIODS}
+        
+    # calculate hourly prices
+    hourly_prices = {
+        (lz, tp): price_scalar[m.tp_period[tp]] * electricity_marginal_cost(m, lz, tp)
+            for lz in m.LOAD_ZONES for tp in m.TIMEPOINTS
+    }
+    
+    if m.options.dr_flat_pricing:
+        # use flat prices each year
+        # calculate annual average prices (total revenue / total kWh)
+        average_prices = {
+            (lz, p): 
+            sum(
+                hourly_prices[lz, tp] 
+                * electricity_demand(m, lz, tp) 
+                * m.tp_weight_in_year[tp] 
+                for tp in m.PERIOD_TPS[p]
+            ) 
+            / 
+            sum(
+                electricity_demand(m, lz, tp) 
+                * m.tp_weight_in_year[tp] 
+                for tp in m.PERIOD_TPS[p]
+            )
+            for lz in m.LOAD_ZONES for p in m.PERIODS
+        }
+        prices = {
+            (lz, tp): average_prices[lz, m.tp_period[tp]]
+            for lz in m.LOAD_ZONES for tp in m.TIMEPOINTS
+        }
+    else:
+        prices = hourly_prices
+    
+    return prices
+
+annual_revenue = None
+
 def calibrate_model(m):
+    global annual_revenue   # save a copy for debugging later
     """
     Calibrate the demand system and add it to the model. 
+    Also calculate other_costs (utility costs not modeled by SWITCH).
     """
     
     # base_data consists of a list of tuples showing (load_zone, timeseries, base_load (list) and base_price)
@@ -606,150 +522,68 @@ def calibrate_model(m):
             for lz in m.LOAD_ZONES for tp in m.TIMEPOINTS
     }
     
+    # calculate costs that are included in the base prices but not reflected in SWITCH.
+    # note: during the first iteration, other_costs = 0, so this calculates a value for
+    # other_costs that will bring total_direct_costs_per_year() up to the baseline 
+    # annual_revenue level.
+    annual_revenue = dict(zip(list(m.PERIODS), [0.0]*len(m.PERIODS)))
+    for (lz, tp), (load, price) in m.base_data_dict.iteritems():
+        annual_revenue[m.tp_period[tp]] += load * prices * m.tp_weight_in_year[tp]
+    for p in m.PERIODS:
+        # m.other_costs[p] = annual_revenue[p] - total_direct_costs_per_year(m, p)
+        # disable other_costs calculation; these should be specified externally if at all
+        m.other_costs[p] = 0.0
+    
     # calibrate the demand module
+    #demand_module.calibrate(m.base_data, m.options.dr_elasticity_scenario)
     demand_module.calibrate(m, m.base_data)
 
 
 def get_bids(m):
-    """Get bids from the demand system showing quantities at the current prices and willingness-to-pay for those quantities
-    call bid() with dictionary of prices for different products
+    """Get bids for loads and willingness-to-pay from the demand system at the current prices.
     
-    Each bid is a tuple of (load_zone, timeseries, {prod: [hourly prices]}, {prod: [hourly quantities]}, wtp)
-    quantity will be positive for consumption, negative if customer will supply product
+    Each bid is a tuple of (load_zone, timeseries, [hourly prices], [hourly demand], wtp)
     """
 
-    # construct dictionaries of marginal cost vectors for each product for each load zone and time series
-    if m.iteration_number == 0:
-        # use base prices on the first pass ($0 for everything other than energy)
-        marginal_costs = {
-            (lz, ts): {
-                prod: (
-                    [m.base_data_dict[lz, tp][1] for tp in m.TS_TPS[ts]] if prod == 'energy'
-                    else [0.0]*len(m.TS_TPS[ts]) 
-                ) 
-                for prod in m.DR_PRODUCTS 
-            } 
-            for lz in m.LOAD_ZONES for ts in m.TIMESERIES 
-        }
-    else:
-        # use marginal costs from last solution
-        marginal_costs = {
-            (lz, ts): {
-                prod: [electricity_marginal_cost(m, lz, tp, prod) for tp in m.TS_TPS[ts]]
-                for prod in m.DR_PRODUCTS
-            }
-            for lz in m.LOAD_ZONES for ts in m.TIMESERIES
-        }
-
-    if m.options.dr_flat_pricing:
-        # find flat price for the whole period that is revenue neutral with the marginal costs
-        # (e.g., an aggregator could buy at dynamic marginal cost and sell to the customer at
-        # a flat price; the aggregator must find the correct flat price so they break even)
-        prices = find_flat_prices(m, marginal_costs)
-    else:
-        prices = marginal_costs
-    
-    # get bids for all load zones and timeseries
     bids = []
-    for lz in m.LOAD_ZONES:
-        for ts in m.TIMESERIES:
-            demand, wtp = demand_module.bid(m, lz, ts, prices[lz, ts])
-            if m.options.dr_flat_pricing:
-                # assume demand side will not provide reserves, even if they offered some
-                # (at zero price)
-                for (k, v) in demand.items():
-                    if k != 'energy':
-                        for i in range(len(v)):
-                            v[i] = 0.0
-            bids.append((lz, ts, prices[lz, ts], demand, wtp))
+
+    if m.iteration_number > 0:
+        # calculate prices from last model solution
+        all_prices = make_prices(m)
+        # TODO: change make_prices to use base_price in iteration 0,
+        # instead of doing it below
+
+
+    for i, (lz, ts, base_load, base_price) in enumerate(m.base_data):
+        
+        # if i < 2:
+        #     print "prices (day {i}): {p}".format(i=i, p=prices)
+        #     print "weights: {w}".format(w=[m.bring_timepoint_costs_to_base_year[tp] for tp in m.TS_TPS[ts]])
+
+        if m.iteration_number == 0:
+            # use base prices on the first pass
+            prices = base_price
+        else:
+            # use prices from last solution
+            prices = [all_prices[(lz, tp)] for tp in m.TS_TPS[ts]]
+        
+        demand, wtp = demand_module.bid(m, lz, ts, prices)
+
+        bids.append((lz, ts, prices, demand, wtp))
+
+        # if i < 2:
+        #     import pdb; pdb.set_trace()
 
     return bids
-            
-def find_flat_prices(m, marginal_costs):
-    # calculate flat prices for an imaginary load-serving entity (LSE) who must break even
-    # in each load zone and period
-    # LSE buys at marginal cost, sells at flat prices
-    # this is like a transformation on the demand function, where we are now
-    # selling to the LSE rather than directly to the customers
-    #
-    # LSE iterates in sub-loop (scipy.optimize.newton) to find flat price:
-        # set price (e.g., simple average of MC or avg weighted by expected demand)
-        # offer price to demand side
-        # receive bids
-        # calc revenue balance for LSE (q*price - q.MC)
-        # if > 0: decrease price (q will go up across the board)
-        # if < 0: increase price (q will go down across the board) but
     
-    flat_prices = dict()
-    for lz in m.LOAD_ZONES:
-        for p in m.PERIODS:
-            # find a flat price that produces revenue equal to marginal costs
-            price_guess = value(
-                sum(
-                    marginal_costs[lz, ts]['energy'][i] 
-                    * electricity_demand(m, lz, tp, 'energy')
-                    * m.tp_weight_in_year[tp] 
-                    for ts in m.PERIOD_TS[p] for i, tp in enumerate(m.TS_TPS[ts])
-                )
-                / 
-                sum(electricity_demand(m, lz, tp, 'energy') * m.tp_weight_in_year[tp] 
-                    for tp in m.PERIOD_TPS[p])
-            )
-            flat_prices[lz, p] = scipy.optimize.newton(
-                revenue_imbalance, 
-                price_guess, 
-                args=(m, lz, p, marginal_costs)
-            )
-    
-    # construct a collection of flat prices with the right structure
-    final_prices = {
-        (lz, ts): 
-            { 
-                prod: [flat_prices[lz, p] if prod=='energy' else 0.0] * len(m.TS_TPS[ts]) 
-                for prod in m.DR_PRODUCTS
-            }
-        for lz in m.LOAD_ZONES for p in m.PERIODS for ts in m.PERIOD_TS[p] 
-    }
-    return final_prices
-    
-
-def revenue_imbalance(flat_price, m, load_zone, period, dynamic_prices):
-    """find demand and revenue that would occur in this load_zone and period with flat prices, and
-    compare to the cost of meeting that demand by purchasing power at the current dynamic prices"""
-    flat_price_revenue = 0.0
-    dynamic_price_revenue = 0.0
-    for ts in m.PERIOD_TS[period]:
-        prices = {
-            prod: [flat_price if prod=='energy' else 0.0] * len(m.TS_TPS[ts]) 
-            for prod in m.DR_PRODUCTS
-        }
-        demand, wtp = demand_module.bid(m, load_zone, ts, prices)
-        # flat_price_revenue += sum(
-        #     p * d * m.ts_duration_of_tp[ts] * m.ts_scale_to_year[ts]
-        #     for p, d in zip(prices['energy'], demand['energy']
-        # )
-        flat_price_revenue += flat_price * sum(
-            d * m.ts_duration_of_tp[ts] * m.ts_scale_to_year[ts]
-            for d in demand['energy']
-        )
-        dynamic_price_revenue += sum(
-            p * d * m.ts_duration_of_tp[ts] * m.ts_scale_to_year[ts]
-            for p, d in zip(dynamic_prices[load_zone, ts]['energy'], demand['energy'])
-        )
-    imbalance = dynamic_price_revenue - flat_price_revenue
-
-    print "{}, {}: price ${} produces revenue imbalance of ${}/year".format(load_zone, period, flat_price, imbalance)
-    
-    return imbalance
-
 
 def add_bids(m, bids):
     """ 
     accept a list of bids written as tuples like
-    (lz, ts, prod, prices, demand, wtp)
-    where lz is the load zone, ts is the timeseries, prod is the product,
-    demand is a list of demand levels for the timepoints during that series (possibly negative, to sell), 
-    and wtp is the net private benefit from consuming/selling the amount of power in that bid.
+    (lz, ts, prices, demand, wtp)
+    where lz is the load zone, ts is the timeseries, 
+    demand is a list of demand levels for the timepoints during that series, 
+    and wtp is the private benefit from consuming the amount of power in that bid.
     Then add that set of bids to the model
     """
     # create a bid ID and add it to the list of bids
@@ -759,16 +593,25 @@ def add_bids(m, bids):
         b = max(m.DR_BID_LIST) + 1
     
     m.DR_BID_LIST.add(b)
-
+    # m.DR_BIDS_LZ_TP.reconstruct()
+    # m.DR_BIDS_LZ_TS.reconstruct()
     # add the bids for each load zone and timepoint to the dr_bid list
     for (lz, ts, prices, demand, wtp) in bids:
         # record the private benefit
         m.dr_bid_benefit[b, lz, ts] = wtp
         # record the level of demand for each timepoint
-        for prod in m.DR_PRODUCTS:
-            for i, tp in enumerate(m.TS_TPS[ts]):
-                m.dr_bid[b, lz, tp, prod] = demand[prod][i]
-                m.dr_price[b, lz, tp, prod] = prices[prod][i]
+        timepoints = m.TS_TPS[ts]
+        # print "ts: "+str(ts)
+        # print "demand: " + str(demand)
+        # print "timepoints: " + str([t for t in timepoints])
+        for i, d in enumerate(demand):
+            # print "i+1: "+str(i+1)
+            # print "d: "+str(d)
+            # print "timepoints[i+1]: "+str(timepoints[i+1])
+            # note: demand is a python list or array, which uses 0-based indexing, but
+            # timepoints is a pyomo set, which uses 1-based indexing, so we have to shift the index by 1.
+            m.dr_bid[b, lz, timepoints[i+1]] = d
+            m.dr_price[b, lz, timepoints[i+1]] = prices[i]
 
     print "len(m.DR_BID_LIST): {l}".format(l=len(m.DR_BID_LIST))
     print "m.DR_BID_LIST: {b}".format(b=[x for x in m.DR_BID_LIST])
@@ -776,12 +619,7 @@ def add_bids(m, bids):
     # reconstruct the components that depend on m.DR_BID_LIST, m.dr_bid_benefit and m.dr_bid
     m.DRBidWeight.reconstruct()
     m.DR_Convex_Bid_Weight.reconstruct()
-    m.DR_Load_Zone_Shared_Bid_Weight.reconstruct()
-    if hasattr(m, 'DR_Flat_Bid_Weight'):
-        m.DR_Flat_Bid_Weight.reconstruct()
     m.FlexibleDemand.reconstruct()
-    m.DemandUpReserves.reconstruct()
-    m.DemandDownReserves.reconstruct()
     m.DR_Welfare_Cost.reconstruct()
     # it seems like we have to reconstruct the higher-level components that depend on these 
     # ones (even though these are Expressions), because otherwise they refer to objects that
@@ -789,13 +627,7 @@ def add_bids(m, bids):
     # that no longer exist in the model).
     # (i.e., Energy_Balance refers to the items returned by FlexibleDemand instead of referring 
     # to FlexibleDemand itself)
-    m.Energy_Balance.reconstruct()
-    if hasattr(m, 'SpinningReservesUpAvailable'):
-        m.SpinningReservesUpAvailable.reconstruct()
-        m.SpinningReservesDownAvailable.reconstruct()
-        m.Satisfy_Spinning_Reserve_Up_Requirement.reconstruct()
-        m.Satisfy_Spinning_Reserve_Down_Requirement.reconstruct()
-    # reconstruct_energy_balance(m)
+    reconstruct_energy_balance(m)
     m.SystemCostPerPeriod.reconstruct()
     m.SystemCost.reconstruct()
 
@@ -830,9 +662,10 @@ def summary_headers(m):
     return (
         ("tag", "iteration", "total_cost")
         +tuple('total_direct_costs_per_year_'+str(p) for p in m.PERIODS)
+        +tuple('other_costs_'+str(p) for p in m.PERIODS)
         +tuple('DR_Welfare_Cost_'+str(p) for p in m.PERIODS)
         +tuple('customer_payments_'+str(p) for p in m.PERIODS)
-        +tuple(prod + ' sold ' + str(p) for prod in m.DR_PRODUCTS for p in m.PERIODS)
+        +tuple('MWh_sold_'+str(p) for p in m.PERIODS)
     )
     
 def summary_values(m):
@@ -851,13 +684,16 @@ def summary_values(m):
     # direct costs (including "other")
     values.extend([total_direct_costs_per_year(m, p) for p in m.PERIODS])
     
+    # other_costs
+    values.extend([m.other_costs[p] for p in m.PERIODS])
+    
     # DR_Welfare_Cost
     values.extend([
         sum(m.DR_Welfare_Cost[t] * m.tp_weight_in_year[t] for t in m.PERIOD_TPS[p])
         for p in m.PERIODS
     ])
     
-    # payments by customers ([expected demand] * [price offered for that demand])
+    # payments by customers ([expected load] * [price offered for that load])
     # TODO: this uses the price from just _before_ the final solution.
     # eventually this should be changed to reflect our expected pricing strategy 
     # (final constructed load * last offered price or final ex post price?)
@@ -867,19 +703,19 @@ def summary_values(m):
     else:
         values.extend([
             sum(
-                electricity_demand(m, lz, tp, prod) * m.dr_price[last_bid, lz, tp, prod] * m.tp_weight_in_year[tp]
-                for lz in m.LOAD_ZONES for tp in m.PERIOD_TPS[p] for prod in m.DR_PRODUCTS
+                electricity_demand(m, lz, tp) * m.dr_price[last_bid, lz, tp] * m.tp_weight_in_year[tp]
+                for lz in m.LOAD_ZONES for tp in m.PERIOD_TPS[p]
             )
             for p in m.PERIODS
         ])
     
-    # total quantities bought (or sold) by customers each year
+    # total MWh delivered each year
     values.extend([
         sum(
-            electricity_demand(m, lz, tp, prod) * m.tp_weight_in_year[tp]
+            electricity_demand(m, lz, tp) * m.tp_weight_in_year[tp]
             for lz in m.LOAD_ZONES for tp in m.PERIOD_TPS[p]
         )
-        for prod in m.DR_PRODUCTS for p in m.PERIODS
+        for p in m.PERIODS
     ])
 
     return values
@@ -901,15 +737,11 @@ def write_results(m):
             +tuple("curtail_"+s for s in m.NON_FUEL_ENERGY_SOURCES)
             +tuple(m.LZ_Energy_Components_Produce)
             +tuple(m.LZ_Energy_Components_Consume)
-            +tuple("marginal cost "+prod for prod in m.DR_PRODUCTS)
-            +tuple("final mc "+prod for prod in m.DR_PRODUCTS)
-            +tuple("price "+prod for prod in m.DR_PRODUCTS)
-            +tuple("bid q "+prod for prod in m.DR_PRODUCTS)
-            +("peak_day", "base_load", "base_price"),
+            +("marginal_cost","final_marginal_cost","price","bid_load","peak_day","base_load","base_price"),
         values=lambda m, z, t: 
             (z, m.tp_period[t], m.tp_timestamp[t]) 
             +tuple(
-                sum(DispatchProjByFuel(m, p, t, f) for p in m.PROJECTS_BY_FUEL[f])
+                sum(get(m.DispatchProjByFuel, (p, t, f), 0.0) for p in m.PROJECTS_BY_FUEL[f])
                 for f in m.FUELS
             )
             +tuple(
@@ -925,11 +757,11 @@ def write_results(m):
             )
             +tuple(getattr(m, component)[z, t] for component in m.LZ_Energy_Components_Produce)
             +tuple(getattr(m, component)[z, t] for component in m.LZ_Energy_Components_Consume)
-            +tuple(m.prev_marginal_cost[z, t, prod] for prod in m.DR_PRODUCTS)
-            +tuple(electricity_marginal_cost(m, z, t, prod) for prod in m.DR_PRODUCTS)
-            +tuple(m.dr_price[last_bid, z, t, prod] for prod in m.DR_PRODUCTS)
-            +tuple(m.dr_bid[last_bid, z, t, prod] for prod in m.DR_PRODUCTS)
             +(
+                m.prev_marginal_cost[z, t],
+                electricity_marginal_cost(m, z, t),
+                m.dr_price[last_bid, z, t],
+                m.dr_bid[last_bid, z, t],
                 'peak' if m.ts_scale_to_year[m.tp_ts[t]] < 0.5*avg_ts_scale else 'typical',
                 m.base_data_dict[z, t][0],
                 m.base_data_dict[z, t][1],
@@ -963,7 +795,7 @@ def write_dual_costs(m):
     start_time = time.time()
     print "Writing {} ... ".format(outfile),
     
-    def add_dual(const, lbound, ubound, duals, prefix=''):
+    def add_dual(const, lbound, ubound, duals):
         if const in duals:
             dual = duals[const]
             if dual >= 0.0:
@@ -980,16 +812,12 @@ def write_dual_costs(m):
             else:
                 total_cost = dual * bound
                 if total_cost != 0.0:
-                    dual_data.append((prefix+const.cname(), direction, bound, dual, total_cost))
+                    dual_data.append((const.cname(), direction, bound, dual, total_cost))
 
     for comp in m.component_objects(ctype=Var):
         for idx in comp:
             var = comp[idx]
-            if var.is_integer() or var.is_binary():
-                # integrality constraint sets upper and lower bounds
-                add_dual(var, value(var), value(var), m.rc, prefix='integer: ')
-            else:
-                add_dual(var, var.lb, var.ub, m.rc)
+            add_dual(var, var.lb, var.ub, m.rc)
     for comp in m.component_objects(ctype=Constraint):
         for idx in comp:
             constr = comp[idx]

@@ -95,6 +95,18 @@ def define_components(m):
         m.DispatchFuelCellMW[z, t] <= m.FuelCellCapacityMW[z, m.tp_period[t]])
     m.Max_Run_Liquifier = Constraint(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
         m.LiquifyHydrogenKgPerHour[z, t] <= m.LiquifierCapacityKgPerHour[z, m.tp_period[t]])
+
+    # how much extra power could hydrogen equipment produce or absorb on short notice
+    m.HydrogenSlackUp = Expression(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
+        m.RunElectrolyzerMW[z, t] 
+        + m.LiquifyHydrogenMW[z, t]
+        + m.FuelCellCapacityMW[z, m.tp_period[t]] - m.DispatchFuelCellMW[z, t]
+    )
+    m.HydrogenSlackDown = Expression(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
+        m.ElectrolyzerCapacityMW[z, m.tp_period[t]] - m.RunElectrolyzerMW[z, t] 
+        # ignore liquifier potential since it's small and this is a low-value reserve product
+        + m.DispatchFuelCellMW[z, t]
+    )
     
     # there must be enough storage to hold _all_ the production each period (net of same-day consumption)
     # note: this assumes we cycle the system only once per year (store all energy, then release all energy)
