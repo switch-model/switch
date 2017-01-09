@@ -1004,7 +1004,7 @@ def write_dual_costs(m):
             canonical_constraint = pyomo.repn.canonical_repn.generate_canonical_repn(constr.body)
             if canonical_constraint.constant is not None:
                 offset = -canonical_constraint.constant
-            add_dual(constr, value(constr.lower+offset), value(constr.upper+offset), m.dual)
+            add_dual(constr, value(constr.lower)+offset, value(constr.upper)+offset, m.dual)
 
     dual_data.sort(key=lambda r: (not r[0].startswith('DR_Convex_'), r[3] >= 0)+r)
 
