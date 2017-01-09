@@ -22,6 +22,8 @@ current demand_module in this module (rather than storing it in the model itself
 import os, sys, time
 from pprint import pprint
 from pyomo.environ import *
+import pyomo.repn.canonical_repn
+
 import scipy.optimize
 import switch_mod.utilities as utilities
 from save_results import DispatchProjByFuel
@@ -466,13 +468,11 @@ def post_iterate(m):
         values=lambda m, lz, ts, b: (len(m.DR_BID_LIST), lz, ts, b, m.DRBidWeight[b, lz, ts])
     )
     
-    # report the dual costs
-    write_dual_costs(m)
-
     # if m.iteration_number % 5 == 0:
     #     # save time by only writing results every 5 iterations
     # write_results(m)
     
+    write_dual_costs(m)
     write_results(m)
     write_batch_results(m)
 
@@ -867,7 +867,11 @@ def summary_values(m):
     else:
         values.extend([
             sum(
-                electricity_demand(m, lz, tp, prod) * m.dr_price[last_bid, lz, tp, prod] * m.tp_weight_in_year[tp]
+                # electricity_demand(m, lz, tp, prod) * m.dr_price[last_bid, lz, tp, prod] * m.tp_weight_in_year[tp]
+                # here we assume customers pay final marginal cost, so we don't artificially
+                # shift surplus between consumers and producers
+                electricity_demand(m, lz, tp, prod) * electricity_marginal_cost(m, lz, tp, prod) 
+                    * m.tp_weight_in_year[tp]
                 for lz in m.LOAD_ZONES for tp in m.PERIOD_TPS[p] for prod in m.DR_PRODUCTS
             )
             for p in m.PERIODS
@@ -993,7 +997,12 @@ def write_dual_costs(m):
     for comp in m.component_objects(ctype=Constraint):
         for idx in comp:
             constr = comp[idx]
-            add_dual(constr, value(constr.lower), value(constr.upper), m.dual)
+            # cancel out any constants that were stored in the body instead of the bounds
+            # (see https://groups.google.com/d/msg/pyomo-forum/-loinAh0Wx4/IIkxdfqxAQAJ)
+            # (might be faster to do this once during model setup instead of every time)
+            canonical_constraint = pyomo.repn.canonical_repn.generate_canonical_repn(constr)
+            offset = -canonical_constraint.constant
+            add_dual(constr, value(constr.lower+offset), value(constr.upper+offset), m.dual)
 
     dual_data.sort(key=lambda r: (not r[0].startswith('DR_Convex_'), r[3] >= 0)+r)
 
@@ -1012,3 +1021,6 @@ def filename_tag(m):
         t = "_" + t
     return t
 
+# def post_solve(m, outputs_dir):
+#     # report the dual costs
+#     write_dual_costs(m)
