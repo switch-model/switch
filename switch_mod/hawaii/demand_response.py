@@ -967,7 +967,7 @@ def write_dual_costs(m):
     start_time = time.time()
     print "Writing {} ... ".format(outfile),
     
-    def add_dual(const, lbound, ubound, duals, prefix=''):
+    def add_dual(const, lbound, ubound, duals, prefix='', offset=0.0):
         if const in duals:
             dual = duals[const]
             if dual >= 0.0:
@@ -982,9 +982,9 @@ def write_dual_costs(m):
                     raise ValueError("{} has no {} bound but has a non-zero dual value {}.".format(
                         const.cname(), "lower" if dual > 0 else "upper", dual))
             else:
-                total_cost = dual * bound
+                total_cost = dual * (bound + offset)
                 if total_cost != 0.0:
-                    dual_data.append((prefix+const.cname(), direction, bound, dual, total_cost))
+                    dual_data.append((prefix+const.cname(), direction, (bound+offset), dual, total_cost))
 
     for comp in m.component_objects(ctype=Var):
         for idx in comp:
@@ -1004,7 +1004,7 @@ def write_dual_costs(m):
             canonical_constraint = pyomo.repn.canonical_repn.generate_canonical_repn(constr.body)
             if canonical_constraint.constant is not None:
                 offset = -canonical_constraint.constant
-            add_dual(constr, value(constr.lower)+offset, value(constr.upper)+offset, m.dual)
+            add_dual(constr, value(constr.lower), value(constr.upper), m.dual, offset=offset)
 
     dual_data.sort(key=lambda r: (not r[0].startswith('DR_Convex_'), r[3] >= 0)+r)
 
