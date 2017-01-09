@@ -1,6 +1,7 @@
 #!/usr/bin/env python
-
-import sys, os, time, traceback, shlex, re, pdb, traceback
+# Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
+# Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
+import sys, os, time, traceback, shlex, re
 
 from pyomo.environ import *
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
