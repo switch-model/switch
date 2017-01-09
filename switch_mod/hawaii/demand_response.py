@@ -1000,7 +1000,7 @@ def write_dual_costs(m):
             # cancel out any constants that were stored in the body instead of the bounds
             # (see https://groups.google.com/d/msg/pyomo-forum/-loinAh0Wx4/IIkxdfqxAQAJ)
             # (might be faster to do this once during model setup instead of every time)
-            canonical_constraint = pyomo.repn.canonical_repn.generate_canonical_repn(constr)
+            canonical_constraint = pyomo.repn.canonical_repn.generate_canonical_repn(constr.body)
             offset = -canonical_constraint.constant
             add_dual(constr, value(constr.lower+offset), value(constr.upper+offset), m.dual)
 
