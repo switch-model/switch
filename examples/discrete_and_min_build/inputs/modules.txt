@@ -1,4 +1,4 @@
 local_td
-project.discrete_build
-project.no_commit
+investment.proj_discrete_build
+operations.no_commit
 fuel_markets

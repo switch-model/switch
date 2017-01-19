@@ -37,36 +37,35 @@ def create_model(module_list, args=sys.argv[1:]):
     are attached to the model as class methods to simplify their use:
     min_data_check(), load_inputs(), pre_solve(), post_solve().
 
-    This is implemented as calling define_components() for each module
-    that has that function defined, then calling
-    define_dynamic_components() for each module that has that function
-    defined. This division into two stages give some modules an
-    opportunity to have dynamic constraints or objective functions. For
-    example, financials.define_components() defines empty lists that
-    will be used to calculate overall system costs. Other modules such
-    as transmission.build and project.build that have components that
-    contribute to system costs insert the names of those components into
-    these lists. The total system costs equation is defined in
-    financials.define_dynamic_components() as the sum of elements in
-    those lists. This division into multiple stages allows a user of
-    Switch to include additional modules such as demand response or
-    storage without rewriting the core equations for system costs. The
-    two primary use cases for dynamic components so far are load-zone
-    level energy balancing and overall system costs.
+    This is implemented as calling define_components() for each module that
+    has that function defined, then calling define_dynamic_components() for
+    each module that has that function defined. This division into two stages
+    give some modules an opportunity to have dynamic constraints or objective
+    functions. For example, financials.define_components() defines empty lists
+    that will be used to calculate overall system costs. Other modules such as
+    investment.trans_build and investment.proj_build that have components that
+    contribute to system costs insert the names of those components into these
+    lists. The total system costs equation is defined in
+    financials.define_dynamic_components() as the sum of elements in those
+    lists. This division into multiple stages allows a user of Switch to
+    include additional modules such as demand response or storage without
+    rewriting the core equations for system costs. The two primary use cases
+    for dynamic components so far are load-zone level energy balancing and
+    overall system costs.
     
     All modules can request access to command line parameters and set their
-    default values for those options. If this codebase is being used more like a
-    library than a stand-alone executable, this behavior can cause problems. For
-    example, running this model with PySP's runph tool will cause errors where a
-    runph argument such as --instance-directory is unknown to the switch
-    modules, so parse_args() generates an error. This behavior can be avoided
-    calling this function with an empty list for args: 
-        create_model(module_list, args=[])
+    default values for those options. If this codebase is being used more like
+    a library than a stand-alone executable, this behavior can cause problems.
+    For example, running this model with PySP's runph tool will cause errors
+    where a runph argument such as --instance-directory is unknown to the
+    switch modules, so parse_args() generates an error. This behavior can be
+    avoided calling this function with an empty list for args:
+    create_model(module_list, args=[])
 
     SYNOPSIS:
     >>> from switch_mod.utilities import define_AbstractModel
     >>> model = define_AbstractModel(
-    ...     'switch_mod', 'project.no_commit', 'fuel_cost')
+    ...     'switch_mod', 'operations.no_commit', 'fuel_cost')
 
     """
     # Load modules
@@ -103,7 +102,7 @@ def load_inputs(model, inputs_dir=None, attachDataPortal=True):
     SYNOPSIS:
     >>> from switch_mod.utilities import define_AbstractModel
     >>> model = define_AbstractModel(
-    ...     'switch_mod', 'project.no_commit', 'fuel_cost')
+    ...     'switch_mod', 'operations.no_commit', 'fuel_cost')
     >>> instance = model.load_inputs(inputs_dir='test_dat')
 
     """
@@ -140,9 +139,10 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
     SYNOPSIS:
     >>> from switch_mod.utilities import define_AbstractModel
     >>> model = define_AbstractModel(
-    ...     'switch_mod', 'project.no_commit', 'fuel_cost')
+    ...     'switch_mod', 'operations.no_commit', 'fuel_cost')
     >>> instance = model.load_inputs(inputs_dir='test_dat')
-    >>> save_inputs_as_dat(model, instance, save_path="test_dat/complete_inputs.dat")
+    >>> save_inputs_as_dat(
+    ...     model, instance, save_path="test_dat/complete_inputs.dat")
     >>> # Clean up...
     >>> import os
     >>> os.remove("test_dat/complete_inputs.dat")
@@ -399,7 +399,7 @@ def _load_modules(module_list):
     SYNOPSIS:
     >>> from switch_mod.utilities import _load_modules
     >>> full_module_names = _load_modules([
-    ...     'switch_mod', 'project.no_commit', 'fuel_cost'])
+    ...     'switch_mod', 'operations.no_commit', 'fuel_cost'])
 
     This will first attempt to load each listed module from the
     switch_mod package, and will look for them in the broader system

@@ -5,16 +5,17 @@
 
 Defines model components to describe unit commitment of projects for the
 SWITCH-Pyomo model. This module is mutually exclusive with the
-project.no_commit module which specifies simplified dispatch
+operations.no_commit module which specifies simplified dispatch
 constraints. If you want to use this module directly in a list of switch
-modules (instead of including the package project.unitcommit), you will also
-need to include the module project.unitcommit.fuel_use.
+modules (instead of including the package operations.unitcommit), you will also
+need to include the module operations.unitcommit.fuel_use.
 
 SYNOPSIS
 >>> from switch_mod.utilities import define_AbstractModel
 >>> model = define_AbstractModel(
 ...     'timescales', 'financials', 'load_zones', 'fuels',
-...     'gen_tech', 'project.build', 'project.dispatch', 'project.unitcommit')
+...     'gen_tech', 'investment.proj_build', 'operations.proj_dispatch',
+...     'operations.unitcommit')
 >>> instance = model.load_inputs(inputs_dir='test_dat')
 
 """

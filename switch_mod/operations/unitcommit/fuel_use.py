@@ -7,7 +7,7 @@ This module describes fuel use with considerations of unit commitment
 and incremental heat rates using piecewise linear expressions. If you
 want to use this module directly in a list of switch modules (instead of
 including the package project.unitcommit), you will also need to include
-the module project.unitcommit.commit
+the module operations.unitcommit.commit
 
 If you haven't worked with incremental heat rates before, you may want
 to start by reading a background document on incremental heat rates such
@@ -63,7 +63,8 @@ SYNOPSIS
 >>> from switch_mod.utilities import define_AbstractModel
 >>> model = define_AbstractModel(
 ...     'timescales', 'financials', 'load_zones', 'fuels', 'gen_tech',
-...     'project.build', 'project.dispatch', 'project.unitcommit')
+...     'investment.proj_build', 'operations.proj_dispatch', 
+...     'operations.unitcommit')
 >>> instance = model.load_inputs(inputs_dir='test_dat')
 
 """
@@ -281,7 +282,7 @@ def _parse_inc_heat_rate_file(path, id_column):
     lines that describe each segment, and perform various error checks.
 
     SYNOPSIS:
-    >>> import switch_mod.project.unitcommit.fuel_use as f
+    >>> import switch_mod.operations.unitcommit.fuel_use as f
     >>> (fuel_rate_segments, min_load, full_hr) = f._parse_inc_heat_rate_file(
     ...     'test_dat/inc_heat_rates.tab', 'project')
     >>> fuel_rate_segments

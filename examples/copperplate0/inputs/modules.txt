@@ -1,2 +1,2 @@
-project.no_commit
+operations.no_commit
 fuel_cost

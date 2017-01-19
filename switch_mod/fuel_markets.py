@@ -9,7 +9,7 @@ SYNOPSIS
 >>> from switch_mod.utilities import define_AbstractModel
 >>> model = define_AbstractModel(
 ...     'timescales', 'load_zones', 'financials', 'fuels', 'gen_tech',
-...     'project.build', 'project.dispatch', 'fuel_markets')
+...     'investment.proj_build', 'operations.proj_dispatch', 'fuel_markets')
 >>> instance = model.load_inputs(inputs_dir='test_dat')
 
 """

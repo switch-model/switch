@@ -6,29 +6,29 @@
 This package defines the Switch model for Pyomo.
 
 The core modules in this package are timescales, financials, load_zones,
-fuels, gen_tech, and project.
+fuels, gen_tech, investment and operations.
 
 An additional module is required to describe fuel costs - either
 fuel_cost which specifies a simple flat fuel cost that can vary by load
 zone and period, or fuel_markets which specifies a tiered supply curve.
 
 Also, an additional module is required to constrain project dispatch -
-either project.no_commit or project.unitcommit.
+either operations.no_commit or operations.unitcommit.
 
-Most applications of this Switch will also benefit from optional modules
-such as transmission, local_td, reserves, etc.
+Most applications of Switch will also benefit from optional modules such as 
+transmission, local_td, reserves, etc.
 
-I wrote some magic sauce so that you can treat this package as a module
-that includes all of the core modules instead of having to refer to them
-individually. This means you can either specify your module list as:
+This package can be treated as a module that includes all of the mentioned 
+core modules instead of having to refer to them individually. This means that
+the module list can be specified, for example, as:
 
-switch_modules = ('switch_mod', 'project.no_commit', 'fuel_markets')
+switch_modules = ('switch_mod', 'operations.no_commit', 'fuel_markets')
 
 or as
 
 switch_modules = (
     'timescales', 'financials', 'load_zones', 'fuels', 'gen_tech',
-    'project', 'project.no_commit', 'fuel_markets')
+    'investment', 'operations', 'operations.no_commit', 'fuel_markets')
 
 You will get an error if you include both the package and the core modules,
 because they are redundant.
@@ -41,5 +41,6 @@ core_modules = [
     'switch_mod.load_zones',
     'switch_mod.fuels',
     'switch_mod.gen_tech',
-    'switch_mod.project',
+    'switch_mod.investment',
+    'switch_mod.operations',
     'switch_mod.export']

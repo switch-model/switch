@@ -10,8 +10,9 @@ SYNOPSIS
 >>> from switch_mod.utilities import define_AbstractModel
 >>> model = define_AbstractModel(
 ...     'timescales', 'financials', 'load_zones', 'fuels', 'gen_tech',
-...     'project.build', 'project.discrete_build', 'project.dispatch',
-...     'project.unitcommit', 'project.unitcommit.discrete')
+...     'investment.proj_build', 'investment.proj_discrete_build', 
+...     'operations.proj_dispatch', 'operations.unitcommit', 
+...     'operations.unitcommit.discrete')
 >>> instance = model.load_inputs(inputs_dir='test_dat')
 
 """

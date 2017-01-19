@@ -1,5 +1,5 @@
 local_td
-project.no_commit
+operations.no_commit
 fuel_markets
-trans_build
-trans_dispatch
+investment.trans_build
+operations.trans_dispatch

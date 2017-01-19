@@ -4,14 +4,15 @@
 """
 
 Defines simple limitations on project dispatch without considering unit
-commitment. This module is mutually exclusive with the project.commit
-module which constrains dispatch to unit committment decisions.
+commitment. This module is mutually exclusive with the operations.unitcommit
+module which constrains dispatch to unit commitment decisions.
 
 SYNOPSIS
 >>> from switch_mod.utilities import define_AbstractModel
 >>> model = define_AbstractModel(
 ...     'timescales', 'financials', 'load_zones', 'fuels',
-...     'gen_tech', 'project.build', 'project.dispatch', 'project.no_commit')
+...     'gen_tech', 'investment.proj_build', 'operations.proj_dispatch', 
+...     'operations.no_commit')
 >>> instance = model.load_inputs(inputs_dir='test_dat')
 
 """

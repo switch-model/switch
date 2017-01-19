@@ -4,15 +4,15 @@
 """
 
 Defines model components to describe generation projects build-outs for
-the SWITCH-Pyomo model. This module requires either project.unitcommit or
-project.no_commit to constrain project dispatch to either committed or
+the SWITCH-Pyomo model. This module requires either operations.unitcommit or
+operations.no_commit to constrain project dispatch to either committed or
 installed capacity.
 
 SYNOPSIS
 >>> from switch_mod.utilities import define_AbstractModel
 >>> model = define_AbstractModel(
 ...     'timescales', 'financials', 'load_zones', 'fuels',
-...     'gen_tech', 'project.build', 'project.dispatch')
+...     'gen_tech', 'investment.proj_build', 'operations.proj_dispatch')
 >>> instance = model.load_inputs(inputs_dir='test_dat')
 
 """
