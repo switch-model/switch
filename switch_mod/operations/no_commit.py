@@ -11,7 +11,7 @@ SYNOPSIS
 >>> from switch_mod.utilities import define_AbstractModel
 >>> model = define_AbstractModel(
 ...     'timescales', 'financials', 'load_zones', 'fuels',
-...     'gen_tech', 'investment.proj_build', 'operations.proj_dispatch', 
+...     'investment.proj_build', 'operations.proj_dispatch', 
 ...     'operations.no_commit')
 >>> instance = model.load_inputs(inputs_dir='test_dat')
 
@@ -93,8 +93,7 @@ def define_components(mod):
         rule=lambda m, proj, t: 
             (m.DispatchProj[proj, t] == m.BaseloadOperatingLevelForPeriod[proj, m.tp_period[t]])
                 if proj in m.BASELOAD_PROJECTS
-            else Constraint.Skip
-    )
+            else Constraint.Skip)
 
     mod.Enforce_Dispatch_Upper_Limit = Constraint(
         mod.PROJ_DISPATCH_POINTS,
@@ -104,6 +103,6 @@ def define_components(mod):
     mod.ProjFuelUseRate_Calculate = Constraint(
         mod.PROJ_WITH_FUEL_DISPATCH_POINTS,
         rule=lambda m, proj, t: (
-            sum(m.ProjFuelUseRate[proj, t, f] for f in m.G_FUELS[m.proj_gen_tech[proj]])
-            ==
-            m.DispatchProj[proj, t] * m.proj_full_load_heat_rate[proj]))
+            sum(m.ProjFuelUseRate[proj, t, f] 
+                for f in m.PROJ_FUELS[proj])
+            == m.DispatchProj[proj, t] * m.proj_full_load_heat_rate[proj]))

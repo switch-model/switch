@@ -4,13 +4,13 @@
 """
 
 Defines model components to force discrete builds for generation technologies
-that have g_unit_size specified.
+that have proj_unit_size specified.
 
 SYNOPSIS
 >>> from switch_mod.utilities import define_AbstractModel
 >>> model = define_AbstractModel(
 ...     'timescales', 'financials', 'load_zones', 'fuels',
-...     'gen_tech', 'investment.proj_build', 'investment.proj_discrete_build')
+...     'investment.proj_build', 'investment.proj_discrete_build')
 >>> instance = model.load_inputs(inputs_dir='test_dat')
 
 """
@@ -22,12 +22,12 @@ def define_components(mod):
     """
 
     Adds components to a Pyomo abstract model object to force discrete
-    builds for generation technologies that have g_unit_size specified.
+    builds for generation technologies that have proj_unit_size specified.
     Unless otherwise stated, all power capacity is specified in units of
     MW and all sets and parameters are mandatory.
 
     NEW_PROJ_BUILDYEARS_DISCRETE is a subset of NEW_PROJ_BUILDYEARS that
-    only includes projects that have g_unit_size defined for their
+    only includes projects that have proj_unit_size defined for their
     technology.
 
     BuildUnits[(proj, bld_yr) in NEW_PROJ_BUILDYEARS_DISCRETE] is an
@@ -35,14 +35,13 @@ def define_components(mod):
 
     Build_Units_Consistency[(proj, bld_yr) in NEW_PROJ_BUILDYEARS_DISCRETE]
     is a constraint that forces the continous decision variable
-    BuildProj to be equal to BuildUnits * g_unit_size.
+    BuildProj to be equal to BuildUnits * proj_unit_size.
 
     """
 
     mod.NEW_PROJ_BUILDYEARS_DISCRETE = Set(
         initialize=mod.NEW_PROJ_BUILDYEARS,
-        filter=lambda m, proj, bld_yr: (
-            m.proj_gen_tech[proj] in m.GEN_TECH_WITH_UNIT_SIZES))
+        filter=lambda m, proj, bld_yr: proj in m.PROJECTS_WITH_UNIT_SIZES)
     mod.BuildUnits = Var(
         mod.NEW_PROJ_BUILDYEARS_DISCRETE,
         within=NonNegativeIntegers)
@@ -50,4 +49,4 @@ def define_components(mod):
         mod.NEW_PROJ_BUILDYEARS_DISCRETE,
         rule=lambda m, proj, bld_yr: (
             m.BuildProj[proj, bld_yr] ==
-            m.BuildUnits[proj, bld_yr] * m.g_unit_size[m.proj_gen_tech[proj]]))
+            m.BuildUnits[proj, bld_yr] * m.proj_unit_size[proj]))

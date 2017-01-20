@@ -9,7 +9,7 @@ generation technologies that have g_unit_size specified.
 SYNOPSIS
 >>> from switch_mod.utilities import define_AbstractModel
 >>> model = define_AbstractModel(
-...     'timescales', 'financials', 'load_zones', 'fuels', 'gen_tech',
+...     'timescales', 'financials', 'load_zones', 'fuels',
 ...     'investment.proj_build', 'investment.proj_discrete_build', 
 ...     'operations.proj_dispatch', 'operations.unitcommit', 
 ...     'operations.unitcommit.discrete')
@@ -58,14 +58,13 @@ def define_components(mod):
 
     mod.PROJ_DISPATCH_POINTS_DISCRETE = Set(
         initialize=mod.PROJ_DISPATCH_POINTS,
-        filter=lambda m, pr, t: (
-            m.proj_gen_tech[pr] in m.GEN_TECH_WITH_UNIT_SIZES))
+        filter=lambda m, proj, t: (
+            proj in m.PROJECTS_WITH_UNIT_SIZES))
     mod.CommitUnits = Var(
         mod.PROJ_DISPATCH_POINTS_DISCRETE,
         within=NonNegativeIntegers)
     mod.Commit_Units_Consistency = Constraint(
         mod.PROJ_DISPATCH_POINTS_DISCRETE,
-        rule=lambda m, pr, t: (
-            m.CommitProject[pr, t] ==
-            m.CommitUnits[pr, t] * m.g_unit_size[m.proj_gen_tech[pr]] *
-            m.proj_availability[pr]))
+        rule=lambda m, proj, t: (
+            m.CommitProject[proj, t] == m.CommitUnits[proj, t] * 
+            m.proj_unit_size[proj] * m.proj_availability[proj]))

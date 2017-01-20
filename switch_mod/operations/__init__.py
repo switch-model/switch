@@ -20,13 +20,12 @@ core modules instead of having to refer to them individually. This means that
 the module list can be specified as:
 
 switch_modules = (
-    'timescales', 'financials', 'load_zones', 'fuels', 'gen_tech',
-    'operations')
+    'timescales', 'financials', 'load_zones', 'fuels', 'operations')
 
 or as
 
 switch_modules = (
-    'timescales', 'financials', 'load_zones', 'fuels', 'gen_tech',
+    'timescales', 'financials', 'load_zones', 'fuels',
     'operations.proj_dispatch')
 
 You will get an error if you include both the package and the core modules,

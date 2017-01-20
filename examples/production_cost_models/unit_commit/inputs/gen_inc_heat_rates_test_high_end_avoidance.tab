@@ -1,6 +1,0 @@
-generation_technology	power_start_mw	power_end_mw	incremental_heat_rate_mbtu_per_mwhr	fuel_use_rate_mmbtu_per_h
-NG_CC	40	.	.	150
-NG_CC	40	90	4	.
-NG_CC	90	100	32.05	.
-NG_GT	0	.	.	0.1039
-NG_GT	0	1	10.2861	.

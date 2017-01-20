@@ -79,10 +79,6 @@ def define_components(mod):
     mod.lz_demand_mw = Param(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         within=NonNegativeReals)
-    mod.lz_cost_multipliers = Param(
-        mod.LOAD_ZONES,
-        within=PositiveReals,
-        default=1.0)
     mod.lz_ccs_distance_km = Param(
         mod.LOAD_ZONES,
         within=NonNegativeReals,
@@ -152,7 +148,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     load_zones.tab except for the name of the load zone are optional.
 
     load_zones.tab
-        LOAD_ZONE, lz_cost_multipliers, lz_ccs_distance_km, lz_dbid
+        LOAD_ZONE, lz_ccs_distance_km, lz_dbid
 
     loads.tab
         LOAD_ZONE, TIMEPOINT, lz_demand_mw
@@ -168,8 +164,7 @@ def load_inputs(mod, switch_data, inputs_dir):
         filename=os.path.join(inputs_dir, 'load_zones.tab'),
         auto_select=True,
         index=mod.LOAD_ZONES,
-        param=(mod.lz_cost_multipliers, mod.lz_ccs_distance_km,
-               mod.lz_dbid))
+        param=(mod.lz_ccs_distance_km, mod.lz_dbid))
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'loads.tab'),
         auto_select=True,

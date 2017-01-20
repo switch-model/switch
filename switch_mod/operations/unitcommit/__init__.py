@@ -13,13 +13,13 @@ core modules instead of having to refer to them individually. This means that
 the module list can be specified as:
 
 switch_modules = ('timescales', 'financials', 'load_zones', 'fuels',
-                  'gen_tech', 'operations.proj_dispatch', 
+                  'operations.proj_dispatch', 
                   'investment.proj_build', 'operations.unitcommit')
 
 or as
 
 switch_modules = ('timescales', 'financials', 'load_zones', 'fuels',
-                  'gen_tech',  'operations.proj_dispatch', 
+                  'operations.proj_dispatch', 
                   'investment.proj_build', 'operations.unitcommit.commit', 
                   'operations.unitcommit.fuel_use')
 

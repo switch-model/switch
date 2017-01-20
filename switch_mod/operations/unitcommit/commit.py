@@ -14,7 +14,7 @@ SYNOPSIS
 >>> from switch_mod.utilities import define_AbstractModel
 >>> model = define_AbstractModel(
 ...     'timescales', 'financials', 'load_zones', 'fuels',
-...     'gen_tech', 'investment.proj_build', 'operations.proj_dispatch',
+...     'investment.proj_build', 'operations.proj_dispatch',
 ...     'operations.unitcommit')
 >>> instance = model.load_inputs(inputs_dir='test_dat')
 
@@ -231,14 +231,10 @@ def define_components(mod):
         rule=lambda m, pr, t: (
             m.CommitProject[pr, m.tp_previous[t]] +
             m.Startup[pr, t] - m.Shutdown[pr, t] == m.CommitProject[pr, t]))
-    mod.g_startup_fuel = Param(mod.GEN_TECH_WITH_FUEL, default=0.0)
-    mod.g_startup_om = Param(mod.GENERATION_TECHNOLOGIES, default=0.0)
-    mod.proj_startup_fuel = Param(
-        mod.FUEL_BASED_PROJECTS,
-        default=lambda m, pr: m.g_startup_fuel[m.proj_gen_tech[pr]])
-    mod.proj_startup_om = Param(
-        mod.PROJECTS,
-        default=lambda m, pr: m.g_startup_om[m.proj_gen_tech[pr]])
+    
+    # Startup costs
+    mod.proj_startup_fuel = Param(mod.FUEL_BASED_PROJECTS, default=0.0)
+    mod.proj_startup_om = Param(mod.PROJECTS, default=0.0)
     # Startup costs need to be divided over the duration of the
     # timepoint because it is a one-time expenditure in units of $
     # but cost_components_tp requires an hourly cost rate in $ / hr.
@@ -251,23 +247,23 @@ def define_components(mod):
     mod.cost_components_tp.append('Total_Startup_OM_Costs')
 
     # Dispatch limits relative to committed capacity.
-    mod.g_min_load_fraction = Param(
-        mod.GENERATION_TECHNOLOGIES,
-        within=PercentFraction,
-        default=lambda m, g: 1.0 if m.g_is_baseload[g] else 0.0)
     mod.proj_min_load_fraction = Param(
+        mod.PROJECTS,
+        within=PercentFraction,
+        default=lambda m, proj: 1.0 if m.proj_is_baseload[proj] else 0.0)
+    mod.proj_min_load_fraction_TP = Param(
         mod.PROJ_DISPATCH_POINTS,
-        default=lambda m, pr, t: m.g_min_load_fraction[m.proj_gen_tech[pr]])
+        default=lambda m, proj, t: m.proj_min_load_fraction[proj])
     mod.DispatchLowerLimit = Expression(
         mod.PROJ_DISPATCH_POINTS,
-        rule=lambda m, pr, t: (
-            m.CommitProject[pr, t] * m.proj_min_load_fraction[pr, t]))
+        rule=lambda m, proj, t: (
+            m.CommitProject[proj, t] * m.proj_min_load_fraction_TP[proj, t]))
 
-    def DispatchUpperLimit_expr(m, pr, t):
-        if pr in m.VARIABLE_PROJECTS:
-            return m.CommitProject[pr, t] * m.proj_max_capacity_factor[pr, t]
+    def DispatchUpperLimit_expr(m, proj, t):
+        if proj in m.VARIABLE_PROJECTS:
+            return m.CommitProject[proj, t]*m.proj_max_capacity_factor[proj, t]
         else:
-            return m.CommitProject[pr, t]
+            return m.CommitProject[proj, t]
     mod.DispatchUpperLimit = Expression(
         mod.PROJ_DISPATCH_POINTS,
         rule=DispatchUpperLimit_expr)
@@ -298,28 +294,27 @@ def load_inputs(mod, switch_data, inputs_dir):
     If you only want to override default values for certain columns in a
     row, insert a dot . into the other columns.
 
-    generator_info.tab
-        generation_technology, g_min_load_fraction, g_startup_fuel,
-        g_startup_om
+    project_info.tab
+        PROJECT, proj_min_load_fraction, proj_startup_fuel, proj_startup_om
 
     Note: If you need to specify minimum loading fraction or startup
     costs for a non-fuel based generator, you must put a dot . in the
-    g_startup_fuel column to avoid an error.
+    proj_startup_fuel column to avoid an error.
 
-    proj_commit_bounds_timeseries.tab
-        PROJECT, TIMEPOINT, proj_min_commit_fraction, proj_max_commit_fraction,
-        proj_min_load_fraction
+    proj_commit_bounds_timepoints.tab
+        PROJECT, TIMEPOINT, proj_min_commit_fraction_TP,
+        proj_max_commit_fraction_TP, proj_min_load_fraction_TP
 
     """
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'generator_info.tab'),
+        filename=os.path.join(inputs_dir, 'project_info.tab'),
         auto_select=True,
-        param=(mod.g_min_load_fraction, mod.g_startup_fuel,
-               mod.g_startup_om))
+        param=(mod.proj_min_load_fraction, mod.proj_startup_fuel,
+               mod.proj_startup_om))
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'proj_commit_bounds_timeseries.tab'),
+        filename=os.path.join(inputs_dir, 'proj_commit_bounds_timepoints.tab'),
         auto_select=True,
-        param=(mod.proj_min_commit_fraction, mod.proj_max_commit_fraction,
-               mod.proj_min_load_fraction))
+        param=(mod.proj_min_commit_fraction, 
+            mod.proj_max_commit_fraction, mod.proj_min_load_fraction_TP))

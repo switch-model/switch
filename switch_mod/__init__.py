@@ -27,8 +27,8 @@ switch_modules = ('switch_mod', 'operations.no_commit', 'fuel_markets')
 or as
 
 switch_modules = (
-    'timescales', 'financials', 'load_zones', 'fuels', 'gen_tech',
-    'investment', 'operations', 'operations.no_commit', 'fuel_markets')
+    'timescales', 'financials', 'load_zones', 'fuels', 'investment',
+    'operations', 'operations.no_commit', 'fuel_markets')
 
 You will get an error if you include both the package and the core modules,
 because they are redundant.
@@ -40,7 +40,6 @@ core_modules = [
     'switch_mod.financials',
     'switch_mod.load_zones',
     'switch_mod.fuels',
-    'switch_mod.gen_tech',
     'switch_mod.investment',
     'switch_mod.operations',
     'switch_mod.export']

@@ -32,7 +32,7 @@ SYNOPSIS
 >>> from switch_mod.utilities import define_AbstractModel
 >>> model = define_AbstractModel(
 ...     'timescales', 'financials', 'load_zones', 'fuels',
-...     'gen_tech', 'investment.proj_build', 'operations.proj_dispatch',
+...     'investment.proj_build', 'operations.proj_dispatch',
 ...     'operations.no_commit', 'generators.hydro_simple')
 >>> instance = model.load_inputs(inputs_dir='test_dat')
 

@@ -10,7 +10,7 @@ SYNOPSIS
 >>> from switch_mod.utilities import define_AbstractModel
 >>> model = define_AbstractModel(
 ...     'timescales', 'financials', 'load_zones', 'fuels',
-...     'gen_tech', 'investment.proj_build')
+...     'investment.proj_build')
 >>> instance = model.load_inputs(inputs_dir='test_dat')
 
 """
@@ -245,63 +245,93 @@ def define_components(mod):
     that occured.
 
         NameplateCapacity = BuildProj - sum(Decommission)
-
+    
+    TODO:
+    - Allow capacity retirements
+    
     """
 
     mod.PROJECTS = Set()
     mod.proj_dbid = Param(mod.PROJECTS, default=lambda m, proj: proj)
-    mod.proj_gen_tech = Param(mod.PROJECTS, within=mod.GENERATION_TECHNOLOGIES)
+    mod.proj_gen_tech = Param(mod.PROJECTS)
+    mod.proj_energy_source = Param(mod.PROJECTS, 
+        validate=lambda m,val,g: val in m.ENERGY_SOURCES or val == "multiple")
     mod.proj_load_zone = Param(mod.PROJECTS, within=mod.LOAD_ZONES)
-    mod.min_data_check('PROJECTS', 'proj_gen_tech', 'proj_load_zone')
-    mod.VARIABLE_PROJECTS = Set(
-        initialize=mod.PROJECTS,
-        filter=lambda m, proj: (
-            m.g_is_variable[m.proj_gen_tech[proj]]))
-    mod.BASELOAD_PROJECTS = Set(
-        initialize=mod.PROJECTS,
-        filter=lambda m, proj: (
-            m.g_is_baseload[m.proj_gen_tech[proj]]))
+    mod.proj_max_age = Param (mod.PROJECTS, within=PositiveIntegers)
+    mod.proj_is_variable = Param (mod.PROJECTS, within=Boolean)
+    mod.proj_is_baseload = Param (mod.PROJECTS, within=Boolean)
+    mod.proj_scheduled_outage_rate = Param (mod.PROJECTS,
+        within=PercentFraction, default=0)
+    mod.proj_forced_outage_rate = Param (mod.PROJECTS,
+        within=PercentFraction, default=0)
+    mod.min_data_check('PROJECTS', 'proj_gen_tech', 'proj_energy_source',
+        'proj_load_zone', 'proj_max_age', 'proj_is_variable', 
+        'proj_is_baseload')
+    
     mod.LZ_PROJECTS = Set(
         mod.LOAD_ZONES,
         initialize=lambda m, lz: set(
-            p for p in m.PROJECTS if m.proj_load_zone[p] == lz))
+            proj for proj in m.PROJECTS if m.proj_load_zone[proj] == lz))
+    mod.VARIABLE_PROJECTS = Set(
+        initialize=mod.PROJECTS,
+        filter=lambda m, proj: m.proj_is_variable[proj])
+    mod.BASELOAD_PROJECTS = Set(
+        initialize=mod.PROJECTS,
+        filter=lambda m, proj: m.proj_is_baseload[proj])
+    
     mod.PROJECTS_CAP_LIMITED = Set(within=mod.PROJECTS)
     mod.proj_capacity_limit_mw = Param(
-        mod.PROJECTS_CAP_LIMITED,
-        within=PositiveReals)
-    # Add PROJECTS_LOCATION_LIMITED & associated stuff later
-
-    mod.FUEL_BASED_PROJECTS = Set(
-        initialize=mod.PROJECTS,
-        filter=lambda m, pr: m.g_uses_fuel[m.proj_gen_tech[pr]])
+        mod.PROJECTS_CAP_LIMITED, within=PositiveReals)
+    mod.PROJECTS_WITH_UNIT_SIZES = Set(within=mod.PROJECTS)
+    mod.proj_unit_size = Param(
+        mod.PROJECTS_WITH_UNIT_SIZES, within=PositiveReals)
+    mod.PROJECTS_WITH_CCS = Set(within=mod.PROJECTS)
+    mod.proj_ccs_capture_efficiency = Param(
+        mod.PROJECTS_WITH_CCS, within=PercentFraction)
+    mod.proj_ccs_energy_load = Param(
+        mod.PROJECTS_WITH_CCS, within=PercentFraction)
+        
+    mod.proj_uses_fuel = Param(
+        mod.PROJECTS,
+        initialize=lambda m, proj: (
+            m.proj_energy_source[proj] in m.FUELS 
+                or m.proj_energy_source[proj] == "multiple"))
     mod.NON_FUEL_BASED_PROJECTS = Set(
         initialize=mod.PROJECTS,
-        filter=lambda m, pr: not m.g_uses_fuel[m.proj_gen_tech[pr]])
+        filter=lambda m, proj: not m.proj_uses_fuel[proj])
+    mod.FUEL_BASED_PROJECTS = Set(
+        initialize=mod.PROJECTS,
+        filter=lambda m, proj: m.proj_uses_fuel[proj])
+    mod.proj_full_load_heat_rate = Param(
+        mod.FUEL_BASED_PROJECTS,
+        within=PositiveReals)
+    mod.PROJECTS_WITH_MULTI_FUEL = Set(
+        initialize=mod.PROJECTS,
+        filter=lambda m, proj: m.proj_energy_source[proj] == "multiple")
+    mod.PROJ_MULTI_FUELS = Set(mod.PROJECTS_WITH_MULTI_FUEL, within=mod.FUELS)
+    mod.PROJ_FUELS = Set(mod.FUEL_BASED_PROJECTS, 
+        initialize=lambda m, proj: (m.PROJ_MULTI_FUELS[proj] 
+            if proj in m.PROJECTS_WITH_MULTI_FUEL 
+                else [m.proj_energy_source[proj]]))
 
-    def init_proj_buildyears(m):
-        project_buildyears = set()
-        for proj in m.PROJECTS:
-            g = m.proj_gen_tech[proj]
-            for b in m.G_NEW_BUILD_YEARS[g]:
-                project_buildyears.add((proj, b))
-        return project_buildyears
-    mod.NEW_PROJ_BUILDYEARS = Set(
-        dimen=2,
-        initialize=init_proj_buildyears)
     mod.EXISTING_PROJ_BUILDYEARS = Set(
         dimen=2)
+    mod.PROJECT_BUILDYEARS = Set(
+        dimen=2,
+        validate=lambda m, proj, bld_yr: (
+            (proj, bld_yr) in m.EXISTING_PROJ_BUILDYEARS or
+            (proj, bld_yr) in m.PROJECTS * m.PERIODS))
+    mod.NEW_PROJ_BUILDYEARS = Set(
+        dimen=2,
+        initialize=lambda m: m.PROJECT_BUILDYEARS - m.EXISTING_PROJ_BUILDYEARS)
     mod.proj_existing_cap = Param(
         mod.EXISTING_PROJ_BUILDYEARS,
         within=NonNegativeReals)
     mod.min_data_check('proj_existing_cap')
-    mod.PROJECT_BUILDYEARS = Set(
-        dimen=2,
-        initialize=lambda m: set(
-            m.EXISTING_PROJ_BUILDYEARS | m.NEW_PROJ_BUILDYEARS))
+    
 
     def init_proj_final_period(m, proj, build_year):
-        g = m.proj_gen_tech[proj]
-        max_age = m.g_max_age[g]
+        max_age = m.proj_max_age[proj]
         earliest_study_year = m.period_start[m.PERIODS.first()]
         if build_year + max_age < earliest_study_year:
             return build_year + max_age
@@ -313,7 +343,9 @@ def define_components(mod):
         mod.PROJECT_BUILDYEARS,
         initialize=init_proj_final_period)
     mod.min_data_check('proj_final_period')
-
+    
+    # The set of periods when a given project will be online for a given
+    # build year
     mod.PROJECT_BUILDS_OPERATIONAL_PERIODS = Set(
         mod.PROJECT_BUILDYEARS,
         within=mod.PERIODS,
@@ -355,10 +387,8 @@ def define_components(mod):
         m.BuildProj[proj, bld_yr] = m.proj_existing_cap[proj, bld_yr]
     mod.BuildProj_assign_default_value = BuildAction(
         mod.EXISTING_PROJ_BUILDYEARS,
-        rule=BuildProj_assign_default_value
-    )
+        rule=BuildProj_assign_default_value)
 
-    # To Do: Subtract retirements after I write support for that.
     mod.ProjCapacity = Expression(
         mod.PROJECTS, mod.PERIODS,
         rule=lambda m, proj, period: sum(
@@ -372,67 +402,46 @@ def define_components(mod):
 
     # The following components enforce minimum capacity build-outs.
     # Note that this adds binary variables to the model.
+    mod.proj_min_build_capacity = Param (mod.PROJECTS,
+        within=NonNegativeReals, default=0)
     mod.NEW_PROJ_WITH_MIN_BUILD_YEARS = Set(
         initialize=mod.NEW_PROJ_BUILDYEARS,
-        filter=lambda m, pr, p: (
-            m.g_min_build_capacity[m.proj_gen_tech[pr]] > 0))
+        filter=lambda m, proj, p: (
+            m.proj_min_build_capacity[proj] > 0))
     mod.ProjCommitToMinBuild = Var(
-        mod.NEW_PROJ_WITH_MIN_BUILD_YEARS, within=Binary)
+        mod.NEW_PROJ_WITH_MIN_BUILD_YEARS,
+        within=Binary)
     mod.Enforce_Min_Build_Lower = Constraint(
         mod.NEW_PROJ_WITH_MIN_BUILD_YEARS,
         rule=lambda m, proj, p: (
-            m.ProjCommitToMinBuild[proj, p] *
-            m.g_min_build_capacity[m.proj_gen_tech[proj]] <=
-            m.BuildProj[proj, p]))
+            m.ProjCommitToMinBuild[proj, p] * m.proj_min_build_capacity[proj] 
+            <= m.BuildProj[proj, p]))
     mod.Enforce_Min_Build_Upper = Constraint(
         mod.NEW_PROJ_WITH_MIN_BUILD_YEARS,
         rule=lambda m, proj, p: (
-            m.BuildProj[proj, p] <=
-            m.ProjCommitToMinBuild[proj, p] * 10 * 
-            sum(m.lz_peak_demand_mw[lz, p]
-                for lz in m.LOAD_ZONES)))
+            m.BuildProj[proj, p] <= m.ProjCommitToMinBuild[proj, p] 
+            * 10 * sum(m.lz_peak_demand_mw[lz, p] for lz in m.LOAD_ZONES)))
 
     # Costs
+    mod.proj_variable_om = Param (mod.PROJECTS, within=NonNegativeReals)
     mod.proj_connect_cost_per_mw = Param(mod.PROJECTS, within=NonNegativeReals)
-    mod.min_data_check('proj_connect_cost_per_mw')
+    mod.min_data_check('proj_variable_om', 'proj_connect_cost_per_mw')
 
-    # The next few parameters need values, but those can come from
-    # their parent technology or this specific project. If neither
-    # data source was provided, throw an error.
-    def proj_overnight_cost_default_rule(m, proj, bld_yr):
-        g = m.proj_gen_tech[proj]
-        if (g, bld_yr) in m.g_overnight_cost:
-            return(m.g_overnight_cost[g, bld_yr] *
-                   m.lz_cost_multipliers[m.proj_load_zone[proj]])
-        else:
-            raise ValueError(
-                ("No overnight costs were provided for project {} " +
-                 "or its generation technology {}.").format(proj, g))
     mod.proj_overnight_cost = Param(
         mod.PROJECT_BUILDYEARS,
-        within=NonNegativeReals,
-        default=proj_overnight_cost_default_rule)
-
-    def proj_fixed_om_default_rule(m, proj, bld_yr):
-        g = m.proj_gen_tech[proj]
-        if (g, bld_yr) in m.g_fixed_o_m:
-            return(m.g_fixed_o_m[g, bld_yr] *
-                   m.lz_cost_multipliers[m.proj_load_zone[proj]])
-        else:
-            raise ValueError(
-                ("No fixed O & M costs were provided for project {} " +
-                 "or its generation technology {}.").format(proj, g))
+        within=NonNegativeReals)
     mod.proj_fixed_om = Param(
         mod.PROJECT_BUILDYEARS,
-        within=NonNegativeReals,
-        default=proj_fixed_om_default_rule)
+        within=NonNegativeReals)
+    mod.min_data_check('proj_overnight_cost', 'proj_fixed_om')
+    
     # Derived annual costs
     mod.proj_capital_cost_annual = Param(
         mod.PROJECT_BUILDYEARS,
         initialize=lambda m, proj, bld_yr: (
             (m.proj_overnight_cost[proj, bld_yr] +
                 m.proj_connect_cost_per_mw[proj]) *
-            crf(m.interest_rate, m.g_max_age[m.proj_gen_tech[proj]])))
+            crf(m.interest_rate, m.proj_max_age[proj])))
 
     mod.PROJECT_OPERATIONAL_PERIODS = Set(
         dimen=2,
@@ -469,27 +478,26 @@ def load_inputs(mod, switch_data, inputs_dir):
     expected in the input directory.
 
     project_info.tab has mandatory and optional columns. The
-    project.dispatch module will also look for additional columns in
+    operations.proj_dispatch module will also look for additional columns in
     this file. You may drop optional columns entirely or mark blank
     values with a dot '.' for select rows for which the column does not
     apply. Mandatory columns are:
-        PROJECT, proj_gen_tech, proj_load_zone, proj_connect_cost_per_mw
+        PROJECT, proj_gen_tech, proj_energy_source, proj_load_zone,
+        proj_max_age, proj_is_variable, proj_is_baseload,
+        proj_full_load_heat_rate, proj_variable_om, proj_connect_cost_per_mw
     Optional columns are:
-        proj_dbid, proj_capacity_limit_mw
-
-    The proj_capacity_limit_mw column is optional because some systems
-    will not have capacity limited projects.
+        proj_dbid, proj_scheduled_outage_rate, proj_forced_outage_rate,
+        proj_capacity_limit_mw, proj_unit_size, proj_ccs_energy_load,
+        proj_ccs_capture_efficiency, proj_min_build_capacity
 
     The following file lists existing builds of projects, and is
-    optional:
+    optional for simulations where there is no existing capacity:
 
     proj_existing_builds.tab
         PROJECT, build_year, proj_existing_cap
 
-    The following file is optional because it override generic values
-    given by descriptions of generation technologies. Note: Load-zone
-    cost adjustments will not be applied to any costs specified in
-    proj_build_costs.tab.
+    The following file is mandatory, because it sets cost parameters for
+    both existing and new project buildouts:
 
     proj_build_costs.tab
         PROJECT, build_year, proj_overnight_cost, proj_fixed_om
@@ -498,25 +506,43 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'project_info.tab'),
         auto_select=True,
-        optional_params=['proj_capacity_limit_mw'],
+        optional_params=['proj_dbid', 'proj_scheduled_outage_rate',
+        'proj_forced_outage_rate', 'proj_capacity_limit_mw', 'proj_unit_size',
+        'proj_ccs_energy_load', 'proj_ccs_capture_efficiency', 
+        'proj_min_build_capacity'],
         index=mod.PROJECTS,
-        param=(mod.proj_dbid, mod.proj_gen_tech,
-               mod.proj_load_zone, mod.proj_connect_cost_per_mw,
-               mod.proj_capacity_limit_mw))
-    # Make a list of projects that have capacity limits specified.
+        param=(mod.proj_dbid, mod.proj_gen_tech, mod.proj_energy_source,
+               mod.proj_load_zone, mod.proj_max_age, mod.proj_is_variable,
+               mod.proj_is_baseload, mod.proj_scheduled_outage_rate,
+               mod.proj_forced_outage_rate, mod.proj_capacity_limit_mw,
+               mod.proj_unit_size, mod.proj_ccs_energy_load,
+               mod.proj_ccs_capture_efficiency, mod.proj_full_load_heat_rate, 
+               mod.proj_variable_om, mod.proj_min_build_capacity,
+               mod.proj_connect_cost_per_mw))
+    # Construct sets of capacity-limited, ccs-capable and unit-size-specified
+    # projects. These sets include projects for which these parameters have
+    # a value
     if 'proj_capacity_limit_mw' in switch_data.data():
         switch_data.data()['PROJECTS_CAP_LIMITED'] = {
-            None: switch_data.data(name='proj_capacity_limit_mw').keys()
-        }
+            None: switch_data.data(name='proj_capacity_limit_mw').keys()}
+    if 'proj_unit_size' in switch_data.data():
+        switch_data.data()['PROJECTS_WITH_UNIT_SIZES'] = {
+            None: switch_data.data(name='proj_unit_size').keys()}
+    if 'proj_ccs_capture_efficiency' in switch_data.data():
+        switch_data.data()['PROJECTS_WITH_CCS'] = {
+            None: switch_data.data(name='proj_ccs_capture_efficiency').keys()}
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, 'proj_existing_builds.tab'),
-        select=('PROJECT', 'build_year', 'proj_existing_cap'),
+        auto_select=True,
         index=mod.EXISTING_PROJ_BUILDYEARS,
         param=(mod.proj_existing_cap))
     switch_data.load_aug(
-        optional=True,
         filename=os.path.join(inputs_dir, 'proj_build_costs.tab'),
-        select=('PROJECT', 'build_year',
-                'proj_overnight_cost', 'proj_fixed_om'),
+        auto_select=True,
+        index=mod.PROJECT_BUILDYEARS,
         param=(mod.proj_overnight_cost, mod.proj_fixed_om))
+    # read PROJ_MULTI_FUELS from proj_multiple_fuels.dat if available
+    multi_fuels_path = os.path.join(inputs_dir, 'proj_multiple_fuels.dat')
+    if os.path.isfile(multi_fuels_path):
+        switch_data.load(filename=multi_fuels_path)

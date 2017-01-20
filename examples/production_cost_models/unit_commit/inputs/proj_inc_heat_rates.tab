@@ -1,0 +1,5 @@
+project	power_start_mw	power_end_mw	incremental_heat_rate_mbtu_per_mwhr	fuel_use_rate_mmbtu_per_h
+S-NG_CC	40	.	.	269.4069
+S-NG_CC	40	100	6.684885	.
+S-NG_GT	0	.	.	0.1039
+S-NG_GT	0	1	10.2861	.

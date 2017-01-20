@@ -62,7 +62,7 @@ for fuel use.
 SYNOPSIS
 >>> from switch_mod.utilities import define_AbstractModel
 >>> model = define_AbstractModel(
-...     'timescales', 'financials', 'load_zones', 'fuels', 'gen_tech',
+...     'timescales', 'financials', 'load_zones', 'fuels',
 ...     'investment.proj_build', 'operations.proj_dispatch', 
 ...     'operations.unitcommit')
 >>> instance = model.load_inputs(inputs_dir='test_dat')
@@ -109,24 +109,15 @@ def define_components(mod):
 
     """
 
-    # Pyomo doesn't allow default for sets, so I need to specify default
-    # data in the data load function.
-    mod.GEN_FUEL_USE_SEGMENTS = Set(
-        mod.GEN_TECH_WITH_FUEL,
-        dimen=2)
     mod.PROJ_FUEL_USE_SEGMENTS = Set(
         mod.FUEL_BASED_PROJECTS,
         dimen=2)
-
+    
     # Use BuildAction to populate a set's default values.
     def PROJ_FUEL_USE_SEGMENTS_default_rule(m, pr):
         if pr not in m.PROJ_FUEL_USE_SEGMENTS:
-            g = m.proj_gen_tech[pr]
-            if g in m.GEN_FUEL_USE_SEGMENTS:
-                m.PROJ_FUEL_USE_SEGMENTS[pr] = m.GEN_FUEL_USE_SEGMENTS[g]
-            else:
-                heat_rate = m.proj_full_load_heat_rate[pr]
-                m.PROJ_FUEL_USE_SEGMENTS[pr] = [(0, heat_rate)]
+            heat_rate = m.proj_full_load_heat_rate[pr]
+            m.PROJ_FUEL_USE_SEGMENTS[pr] = [(0, heat_rate)]
     mod.PROJ_FUEL_USE_SEGMENTS_default = BuildAction(
         mod.FUEL_BASED_PROJECTS,
         rule=PROJ_FUEL_USE_SEGMENTS_default_rule)
@@ -142,7 +133,7 @@ def define_components(mod):
     mod.ProjFuelUseRate_Calculate = Constraint(
         mod.PROJ_DISP_FUEL_PIECEWISE_CONS_SET,
         rule=lambda m, pr, t, intercept, incremental_heat_rate: (
-            sum(m.ProjFuelUseRate[pr, t, f] for f in m.G_FUELS[m.proj_gen_tech[pr]]) >=
+            sum(m.ProjFuelUseRate[pr, t, f] for f in m.PROJ_FUELS[pr]) >=
             # Do the startup
             m.Startup[pr, t] * m.proj_startup_fuel[pr] / m.tp_duration_hrs[t] +
             intercept * m.CommitProject[pr, t] +
@@ -189,7 +180,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     The following files are optional. If no representative data is
     provided for a generation technology, it will default to a single
     line segment with an intercept of 0 and a slope equal to the full
-    load heat rate. If no specific data is provided for a project, it
+    load heat22 rate. If no specific data is provided for a project, it
     will default to its generation technology.
 
     gen_inc_heat_rates.tab
@@ -201,41 +192,6 @@ def load_inputs(mod, switch_data, inputs_dir):
         incremental_heat_rate_mbtu_per_mwhr, fuel_use_rate_mmbtu_per_h
 
     """
-    path = os.path.join(inputs_dir, 'gen_inc_heat_rates.tab')
-    if os.path.isfile(path):
-        (fuel_rate_segments, min_load, full_hr) = _parse_inc_heat_rate_file(
-            path, id_column="generation_technology")
-        # Check implied minimum loading level for consistency with
-        # g_min_load_fraction if g_min_load_fraction was provided. If
-        # g_min_load_fraction wasn't provided, set it to implied minimum
-        # loading level.
-        for g in min_load:
-            if 'g_min_load_fraction' not in switch_data.data():
-                switch_data.data()['g_min_load_fraction'] = {}
-            if g in switch_data.data(name='g_min_load_fraction'):
-                min_load_dat = switch_data.data(name='g_min_load_fraction')[g]
-                if not approx_equal(min_load[g], min_load_dat):
-                    raise ValueError((
-                        "g_min_load_fraction is inconsistant with " +
-                        "incremental heat rate data for generation " +
-                        "technology {}.").format(g))
-            else:
-                switch_data.data(name='g_min_load_fraction')[g] = min_load[g]
-        # Same thing, but for full load heat rate.
-        for g in full_hr:
-            if 'g_full_load_heat_rate' not in switch_data.data():
-                switch_data.data()['g_full_load_heat_rate'] = {}
-            if g in switch_data.data(name='g_full_load_heat_rate'):
-                full_hr_dat = switch_data.data(name='g_full_load_heat_rate')[g]
-                if abs((full_hr[g] - full_hr_dat) / full_hr_dat) > 0.01:
-                    raise ValueError((
-                        "g_full_load_heat_rate is inconsistent with " +
-                        "incremental heat rate data for generation " +
-                        "technology {}.").format(g))
-            else:
-                switch_data.data(name='g_full_load_heat_rate')[g] = full_hr[g]
-        # Copy parsed data into the data portal.
-        switch_data.data()['GEN_FUEL_USE_SEGMENTS'] = fuel_rate_segments
 
     path = os.path.join(inputs_dir, 'proj_inc_heat_rates.tab')
     if os.path.isfile(path):

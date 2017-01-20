@@ -18,14 +18,12 @@ core modules instead of having to refer to them individually. This means that
 the module list can be specified as:
 
 switch_modules = (
-    'timescales', 'financials', 'load_zones', 'fuels', 'gen_tech',
-    'investment')
+    'timescales', 'financials', 'load_zones', 'fuels', 'investment')
 
 or as
 
 switch_modules = (
-    'timescales', 'financials', 'load_zones', 'fuels', 'gen_tech',
-    'investment.proj_build')
+    'timescales', 'financials', 'load_zones', 'fuels', 'investment.proj_build')
 
 You will get an error if you include both the package and the core modules,
 because they are redundant.

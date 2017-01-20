@@ -12,7 +12,7 @@ SYNOPSIS
 >>> from switch_mod.utilities import define_AbstractModel
 >>> model = define_AbstractModel(
 ...     'timescales', 'financials', 'load_zones', 'fuels',
-...     'gen_tech', 'investment.proj_build', 'operations.proj_dispatch')
+...     'investment.proj_build', 'operations.proj_dispatch')
 >>> instance = model.load_inputs(inputs_dir='test_dat')
 
 """
@@ -174,63 +174,13 @@ def define_components(mod):
     # Register net dispatch as contributing to a load zone's energy
     mod.LZ_Energy_Components_Produce.append('LZ_NetDispatch')
 
-    # The next few parameters can be set to project-specific values if
-    # they were given and otherwise will default to generic technology-
-    # specific values if those were given. Throw an error if no data
-    # source was provided.
-    def proj_full_load_heat_rate_default_rule(m, pr):
-        g = m.proj_gen_tech[pr]
-        if g in m.g_full_load_heat_rate:
-            return m.g_full_load_heat_rate[g]
-        else:
-            raise ValueError(
-                ("Project {} uses a fuel, but there is no heat rate " +
-                 "specified for this project or its generation technology " +
-                 "{}.").format(pr, m.proj_gen_tech[pr]))
-    mod.proj_full_load_heat_rate = Param(
-        mod.FUEL_BASED_PROJECTS,
-        within=PositiveReals,
-        default=proj_full_load_heat_rate_default_rule)
-
-    def proj_forced_outage_rate_default_rule(m, pr):
-        g = m.proj_gen_tech[pr]
-        if g in m.g_forced_outage_rate:
-            return m.g_forced_outage_rate[g]
-        else:
-            raise ValueError(
-                ("No data found for proj_forced_outage_rate for project {}" +
-                 "; neither project-specific data nor technology-specific " +
-                 "data was provided (tech={})."
-                 ).format(pr, m.proj_gen_tech[pr]))
-    mod.proj_forced_outage_rate = Param(
-        mod.PROJECTS,
-        within=PercentFraction,
-        default=proj_forced_outage_rate_default_rule)
-
-    def proj_scheduled_outage_rate_default_rule(m, pr):
-        g = m.proj_gen_tech[pr]
-        if g in m.g_scheduled_outage_rate:
-            return m.g_scheduled_outage_rate[g]
-        else:
-            raise ValueError(
-                ("No data found for proj_scheduled_outage_rate for project " +
-                 "{}; neither project-specific data nor technology-specific " +
-                 "data was provided (tech={})."
-                 ).format(pr, m.proj_gen_tech[pr]))
-    mod.proj_scheduled_outage_rate = Param(
-        mod.PROJECTS,
-        within=PercentFraction,
-        default=proj_scheduled_outage_rate_default_rule)
-
-    def init_proj_availability(model, proj):
-        tech = model.proj_gen_tech[proj]
-        if(model.g_is_baseload[tech] or
-           model.g_is_flexible_baseload[tech]):
+    def init_proj_availability(m, proj):
+        if m.proj_is_baseload[proj]:
             return (
-                (1 - model.proj_forced_outage_rate[proj]) *
-                (1 - model.proj_scheduled_outage_rate[proj]))
+                (1 - m.proj_forced_outage_rate[proj]) *
+                (1 - m.proj_scheduled_outage_rate[proj]))
         else:
-            return (1 - model.proj_forced_outage_rate[proj])
+            return (1 - m.proj_forced_outage_rate[proj])
     mod.proj_availability = Param(
         mod.PROJECTS,
         within=PositiveReals,
@@ -245,12 +195,6 @@ def define_components(mod):
         validate=lambda m, val, proj, t: -1 < val < 2)
     mod.min_data_check('proj_max_capacity_factor')
 
-    mod.proj_variable_om = Param(
-        mod.PROJECTS,
-        within=NonNegativeReals,
-        default=lambda m, proj: (
-            m.g_variable_o_m[m.proj_gen_tech[proj]] *
-            m.lz_cost_multipliers[m.proj_load_zone[proj]]))
     mod.PROJ_WITH_FUEL_DISPATCH_POINTS = Set(
         dimen=2,
         initialize=lambda m: 
@@ -263,20 +207,19 @@ def define_components(mod):
     mod.PROJ_FUEL_DISPATCH_POINTS = Set(
         dimen=3,
         initialize=lambda m: (
-            (p, t, f) for (p, t) in m.PROJ_WITH_FUEL_DISPATCH_POINTS 
-                    for f in m.G_FUELS[m.proj_gen_tech[p]]))
+            (proj, t, f) for (proj, t) in m.PROJ_WITH_FUEL_DISPATCH_POINTS 
+                    for f in m.PROJ_FUELS[proj]))
     mod.ProjFuelUseRate = Var(
         mod.PROJ_FUEL_DISPATCH_POINTS,
         within=NonNegativeReals)
 
     def DispatchEmissions_rule(m, proj, t, f):
-        g = m.proj_gen_tech[proj]
-        if g not in m.GEN_TECH_CCS:
+        if proj not in m.PROJECTS_WITH_CCS:
             return (
                 m.ProjFuelUseRate[proj, t, f] *
                 (m.f_co2_intensity[f] - m.f_upstream_co2_intensity[f]))
         else:
-            ccs_emission_frac = 1 - m.g_ccs_capture_efficiency[g]
+            ccs_emission_frac = 1 - m.proj_ccs_capture_efficiency[proj]
             return (
                 m.ProjFuelUseRate[proj, t, f] *
                 (m.f_co2_intensity[f] * ccs_emission_frac -
@@ -312,19 +255,6 @@ def load_inputs(mod, switch_data, inputs_dir):
     variable_capacity_factors.tab
         PROJECT, timepoint, proj_max_capacity_factor
 
-    project_info.tab is used by project.build and project.dispatch. The
-    columns listed here are optional because they override values given
-    by descriptions of generation technologies. Every project needs to
-    have this data provided, but you get to decide what to specify by
-    technology and what to specify by project. You may either drop data
-    columns or put a dot . to mark "no data" for certain rows. Note:
-    Load-zone cost adjustments will not be applied to any project-
-    specific costs.
-
-    project_info.tab
-        PROJECT, proj_variable_om, proj_full_load_heat_rate,
-        proj_forced_outage_rate, proj_scheduled_outage_rate
-
     """
 
     switch_data.load_aug(
@@ -332,12 +262,6 @@ def load_inputs(mod, switch_data, inputs_dir):
         filename=os.path.join(inputs_dir, 'variable_capacity_factors.tab'),
         select=('PROJECT', 'timepoint', 'proj_max_capacity_factor'),
         param=(mod.proj_max_capacity_factor))
-    switch_data.load_aug(
-        optional=True,
-        filename=os.path.join(inputs_dir, 'project_info.tab'),
-        auto_select=True,
-        param=(mod.proj_variable_om, mod.proj_full_load_heat_rate,
-               mod.proj_forced_outage_rate, mod.proj_scheduled_outage_rate))
 
 
 def post_solve(instance, outdir):

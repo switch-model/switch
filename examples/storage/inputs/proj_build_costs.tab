@@ -1,3 +1,6 @@
-PROJECT	build_year	proj_overnight_cost	proj_fixed_om
-S-Central_PV-1	2000	2334300	41850
-S-Geothermal	1998	5524200	0
+PROJECT	build_year	proj_overnight_cost	proj_fixed_om	proj_storage_energy_overnight_cost
+S-Central_PV-1	2000	2334300	41850	.
+S-Central_PV-1	2020	2334300	41850	.
+S-Geothermal	1998	5524200	0	.
+S-Geothermal	2020	5524200	0	.
+Battery_Storage	2020	10000	100	1000
