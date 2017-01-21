@@ -5,8 +5,8 @@ import switch_mod.utilities as utilities
 from util import get
 
 def define_arguments(argparser):
-    argparser.add_argument('--biofuel-limit', type=float, default=0.05, 
-        help="Maximum fraction of power that can be obtained from biofuel in any period (default=0.05)")
+    argparser.add_argument('--biofuel-limit', type=float, default=1.0, 
+        help="Maximum fraction of power that can be obtained from biofuel in any period (default=1.0)")
     argparser.add_argument('--rps-activate', default='activate',
         dest='rps_level', action='store_const', const='activate', 
         help="Activate RPS (on by default).")
@@ -15,9 +15,19 @@ def define_arguments(argparser):
         help="Dectivate RPS.")
     argparser.add_argument('--rps-no-renewables', 
         dest='rps_level', action='store_const', const='no_renewables', 
-        help="Dectivate RPS and don't allow any new renewables.")
-    argparser.add_argument('--rps-quadratic-allocation', action='store_true', default=False, 
-        help="Use quadratic formulation to allocate power output among fuels.")
+        help="Deactivate RPS and don't allow any new renewables.")
+    argparser.add_argument(
+        '--rps-allocation', default=None, 
+        choices=[
+            'quadratic', 
+            'fuel_switch_by_period', 'fuel_switch_by_timeseries', 
+            'full_load_heat_rate', 
+            'split_commit',
+            'relaxed_split_commit',
+        ],
+        help="Method to use to allocate power output among fuels. Default is fuel_switch_by_period for models "
+            + "with unit commitment, full_load_heat_rate for models without."
+    )
     
 def define_components(m):
     """
@@ -46,9 +56,19 @@ def define_components(m):
     # m.rps_fuel_limit = Param(default=float("inf"), mutable=True)
     m.rps_fuel_limit = Param(initialize=m.options.biofuel_limit, mutable=True)
 
-    # Define DispatchProjByFuel, which shows the amount of power produced 
+    # Define DispatchProjRenewableMW, which shows the amount of power produced 
     # by each project from each fuel during each time step.
-    define_DispatchProjByFuel(m)
+    define_DispatchProjRenewableMW(m)
+
+    # calculate amount of power produced from renewable fuels during each period
+    m.RPSFuelPower = Expression(m.PERIODS, rule=lambda m, per:
+        sum(
+            m.DispatchProjRenewableMW[p, tp] * m.tp_weight[tp]
+                for p in m.FUEL_BASED_PROJECTS 
+                    if (p, m.PERIOD_TPS[per].first()) in m.PROJ_DISPATCH_POINTS
+                        for tp in m.PERIOD_TPS[per]
+        )
+    )
 
     # Note: this rule ignores pumped hydro and batteries, so it could be gamed by producing extra 
     # RPS-eligible power and burning it off in storage losses; on the other hand, 
@@ -58,25 +78,14 @@ def define_components(m):
 
     # power production that can be counted toward the RPS each period
     m.RPSEligiblePower = Expression(m.PERIODS, rule=lambda m, per:
-        # sum(
-        #     m.DispatchProjByFuel[p, tp, f] * m.tp_weight[tp]
-        #         for f in m.FUELS if f in m.RPS_ENERGY_SOURCES
-        #             for p in m.PROJECTS_BY_FUEL[f]
-        #                 # could be accelerated a bit if we had m.ACTIVE_PERIODS_FOR_PROJECT[p]
-        #                 for tp in m.PERIOD_TPS[per]
-        #                     if (p, tp) in m.PROJ_DISPATCH_POINTS
-        # )
-        sum(
-            m.DispatchProjRenewableMW[p, tp] * m.tp_weight[tp] 
-                for p, tp in m.PROJ_WITH_FUEL_DISPATCH_POINTS
-        )
+        m.RPSFuelPower[per]
         +
         sum(
             m.DispatchProj[p, tp] * m.tp_weight[tp]
                 for f in m.NON_FUEL_ENERGY_SOURCES if f in m.RPS_ENERGY_SOURCES
                     for p in m.PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[f]
-                        for tp in m.PERIOD_TPS[per]
-                            if (p, tp) in m.PROJ_DISPATCH_POINTS
+                        if (p, m.PERIOD_TPS[per].first()) in m.PROJ_DISPATCH_POINTS
+                            for tp in m.PERIOD_TPS[per]
         )
         -
         # assume DumpPower is curtailed renewable energy
@@ -88,9 +97,8 @@ def define_components(m):
     m.RPSTotalPower = Expression(m.PERIODS, rule=lambda m, per:
         sum(
             m.DispatchProj[p, tp] * m.tp_weight[tp]
-                for p in m.PROJECTS 
+                for p in m.PROJECTS if (p, m.PERIOD_TPS[per].first()) in m.PROJ_DISPATCH_POINTS
                     for tp in m.PERIOD_TPS[per] 
-                        if (p, tp) in m.PROJ_DISPATCH_POINTS
         )
         - sum(m.DumpPower[lz, tp] * m.tp_weight[tp] for lz in m.LOAD_ZONES for tp in m.PERIOD_TPS[per])
     )
@@ -133,47 +141,42 @@ def define_components(m):
     # transmission losses, the cycling costs for batteries are too high and pumped storage is only
     # adopted on a small scale.
     
-    m.RPSFuelPower = Expression(m.PERIODS, rule=lambda m, per:
-        sum(
-        #     m.DispatchProjByFuel[p, tp, f] * m.tp_weight[tp]
-        #         for f in m.FUELS if m.f_rps_eligible[f]
-        #             for p in m.PROJECTS_BY_FUEL[f]
-        #                 # could be accelerated a bit if we had m.ACTIVE_PERIODS_FOR_PROJECT[p]
-        #                 for tp in m.PERIOD_TPS[per]
-        #                     if (p, tp) in m.PROJ_DISPATCH_POINTS
-            m.DispatchProjRenewableMW[p, tp] * m.tp_weight[tp] 
-                for p, tp in m.PROJ_WITH_FUEL_DISPATCH_POINTS
-        )
-    )
     m.RPS_Fuel_Cap = Constraint(m.PERIODS, rule = lambda m, per:
         m.RPSFuelPower[per] <= m.rps_fuel_limit * m.RPSTotalPower[per]
     )
 
-
-def define_DispatchProjByFuel(m):
-    # Define DispatchProjByFuel, which shows the amount of power produced 
+def define_DispatchProjRenewableMW(m):
+    # Define DispatchProjRenewableMW, which shows the amount of power produced 
     # by each project from each fuel during each time step.
     # This must be linear, because it may be used in RPS calculations.
     # This can get complex when a project uses multiple fuels and incremental
     # heat rate curves. 
-    if m.options.rps_quadratic_allocation:
+    if m.options.rps_allocation is None:
+        if hasattr(m, 'PROJ_FUEL_USE_SEGMENTS'):
+            # using heat rate curves and possibly startup fuel; 
+            # have to do more advanced allocation of power to fuels
+            m.options.rps_allocation = 'fuel_switch_by_period'
+        else:
+            # only using full load heat rate; use simpler allocation strategy
+            m.options.rps_allocation = 'full_load_heat_rate'
         if m.options.verbose:
-            print "Using quadratic formulation to allocate DispatchProjByFuel."
-        quadratic_DispatchProjByFuel(m)
-    elif hasattr(m, 'PROJ_FUEL_USE_SEGMENTS'):
-        # using heat rate curves and possibly startup fuel; 
-        # have to do more advanced allocation of power to fuels
-        if m.options.verbose:
-            print "Using binary variables to allocate DispatchProjByFuel"
-        advanced_DispatchProjByFuel(m)
-    else:
-        # only using full load heat rate; use simpler allocation strategy
-        if m.options.verbose:
-            print "Using simple ratio to allocate DispatchProjByFuel"
-        simple_DispatchProjByFuel(m)
+            print "Using {} method to allocate DispatchProjRenewableMW".format(m.options.rps_allocation)
+    
+    if m.options.rps_allocation == 'full_load_heat_rate':
+        simple_DispatchProjRenewableMW(m)
+    elif m.options.rps_allocation == 'quadratic':
+        quadratic_DispatchProjRenewableMW(m)
+    elif m.options.rps_allocation == 'fuel_switch_by_period':
+        binary_by_period_DispatchProjRenewableMW(m)
+    elif m.options.rps_allocation == 'fuel_switch_by_timeseries':
+        binary_by_timeseries_DispatchProjRenewableMW(m)
+    elif m.options.rps_allocation == 'split_commit':
+        split_commit_DispatchProjRenewableMW(m)
+    elif m.options.rps_allocation == 'relaxed_split_commit':
+        relaxed_split_commit_DispatchProjRenewableMW(m)
 
 
-def simple_DispatchProjByFuel(m):
+def simple_DispatchProjRenewableMW(m):
     # Allocate the power produced during each timepoint among the fuels.
     # When not using heat rate curves, this can be calculated directly from
     # fuel usage and the full load heat rate. This also allows use of 
@@ -184,23 +187,181 @@ def simple_DispatchProjByFuel(m):
             sum(
                 m.ProjFuelUseRate[proj, t, f] 
                     for f in m.G_FUELS[m.proj_gen_tech[proj]]
-                        if f in m.RPS_ENERGY_SOURCES
+                        if m.f_rps_eligible[f]
             )
             / m.proj_full_load_heat_rate[proj]
     )
 
-def simple1_DispatchProjByFuel(m):
-    # Allocate the power produced during each timepoint among the fuels.
-    # When not using heat rate curves, this can be calculated directly from
-    # fuel usage and the full load heat rate. This also allows use of 
-    # multiple fuels in the same project at the same time.
-    m.DispatchProjByFuel = Expression(
-        m.PROJ_FUEL_DISPATCH_POINTS,
-        rule=lambda m, proj, t, f:
-            m.ProjFuelUseRate[proj, t, f] / m.proj_full_load_heat_rate[proj]
+
+def split_commit_DispatchProjRenewableMW(m):
+    # This approach requires the utility to designate part of their capacity for
+    # renewable production and part for non-renewable, and show how they commit
+    # and dispatch each part. The current version allows fractional commitment to
+    # each mode, but we could use integer commitment variables to force full units 
+    # into each mode (more physically meaningful, but unnecessarily restrictive and
+    # harder to calculate; the current version may serve as a reasonable accounting
+    # method for multi-fuel projects in a partial-RPS environment).
+    
+    # TODO: limit this to projects that can use both renewable and non-renewable fuel
+    # TODO: force CommitProjectRenewable == CommitProject when there's 100% RPS  
+    # TODO: force DispatchProjRenewableMW == DispatchProj when there's 100% RPS  
+    # TODO: force CommitProjectRenewable == 0 when there's 0% RPS
+    # (these may not be needed: single-category projects will get dispatch forced to zero
+    # in one category and forced up to total dispatch in another; non-renewable capacity
+    # can't get committed in the 100% RPS due to non-zero min loads)
+    
+    # count amount of renewable power produced from project
+    m.DispatchProjRenewableMW = Var(m.PROJ_WITH_FUEL_DISPATCH_POINTS, within=NonNegativeReals)
+    m.DispatchProjRenewableMW_Cap = Constraint(m.PROJ_WITH_FUEL_DISPATCH_POINTS, 
+        rule = lambda m, pr, tp:
+            m.DispatchProjRenewableMW[pr, tp] <= m.DispatchProj[pr, tp]
+    )
+    # a portion of every startup and shutdown must be designated as renewable
+    m.CommitProjectRenewable = Var(m.PROJ_WITH_FUEL_DISPATCH_POINTS, within=NonNegativeReals)
+    m.CommitProjectRenewable_Cap = Constraint(m.PROJ_WITH_FUEL_DISPATCH_POINTS, 
+        rule = lambda m, pr, tp:
+            m.CommitProjectRenewable[pr, tp] <= m.CommitProject[pr, tp]
+    )
+    m.StartupRenewable = Var(m.PROJ_WITH_FUEL_DISPATCH_POINTS, within=NonNegativeReals)
+    m.StartupRenewable_Cap = Constraint(m.PROJ_WITH_FUEL_DISPATCH_POINTS, 
+        rule = lambda m, pr, tp:
+            m.StartupRenewable[pr, tp] <= m.Startup[pr, tp]
+    )
+    m.ShutdownRenewable = Var(m.PROJ_WITH_FUEL_DISPATCH_POINTS, within=NonNegativeReals)
+    m.ShutdownRenewable_Cap = Constraint(m.PROJ_WITH_FUEL_DISPATCH_POINTS, 
+        rule = lambda m, pr, tp:
+            m.ShutdownRenewable[pr, tp] <= m.Shutdown[pr, tp]
+    )
+    # chain commitments, startup and shutdown for renewables
+    m.Commit_Startup_Shutdown_Consistency_Renewable = Constraint(
+        m.PROJ_WITH_FUEL_DISPATCH_POINTS,
+        rule=lambda m, pr, tp: 
+            m.CommitProjectRenewable[pr, m.tp_previous[tp]]
+            + m.StartupRenewable[pr, tp] 
+            - m.ShutdownRenewable[pr, tp] 
+            == m.CommitProjectRenewable[pr, tp]
+    )
+    # must use committed capacity for renewable production
+    m.Enforce_Dispatch_Upper_Limit_Renewable = Constraint(
+        m.PROJ_WITH_FUEL_DISPATCH_POINTS,
+        rule=lambda m, pr, tp: 
+            m.DispatchProjRenewableMW[pr, tp] <= m.CommitProjectRenewable[pr, tp]
+    )
+    # can't dispatch non-renewable capacity below its lower limit
+    m.Enforce_Dispatch_Lower_Limit_Non_Renewable = Constraint(
+        m.PROJ_WITH_FUEL_DISPATCH_POINTS,
+        rule=lambda m, pr, tp: 
+            (m.DispatchProj[pr, tp] - m.DispatchProjRenewableMW[pr, tp])
+            >= 
+            (m.CommitProject[pr, tp] - m.CommitProjectRenewable[pr, tp]) * m.proj_min_load_fraction[pr, tp]
+    )
+    # use standard heat rate calculations for renewable and non-renewable parts
+    m.ProjRenewableFuelUseRate_Calculate = Constraint(
+        m.PROJ_DISP_FUEL_PIECEWISE_CONS_SET,
+        rule=lambda m, pr, tp, intercept, incremental_heat_rate: 
+            sum(
+                m.ProjFuelUseRate[pr, tp, f] 
+                    for f in m.G_FUELS[m.proj_gen_tech[pr]]
+                        if f in m.RPS_ENERGY_SOURCES
+            ) 
+            >=
+            m.StartupRenewable[pr, tp] * m.proj_startup_fuel[pr] / m.tp_duration_hrs[tp]
+            + intercept * m.CommitProjectRenewable[pr, tp]
+            + incremental_heat_rate * m.DispatchProjRenewableMW[pr, tp]
+    )
+    m.ProjNonRenewableFuelUseRate_Calculate = Constraint(
+        m.PROJ_DISP_FUEL_PIECEWISE_CONS_SET,
+        rule=lambda m, pr, tp, intercept, incremental_heat_rate: 
+            sum(
+                m.ProjFuelUseRate[pr, tp, f] 
+                    for f in m.G_FUELS[m.proj_gen_tech[pr]]
+                        if f not in m.RPS_ENERGY_SOURCES
+            ) 
+            >=
+            (m.Startup[pr, tp] - m.StartupRenewable[pr, tp]) * m.proj_startup_fuel[pr] / m.tp_duration_hrs[tp]
+            + intercept * (m.CommitProject[pr, tp] - m.CommitProjectRenewable[pr, tp])
+            + incremental_heat_rate * (m.DispatchProj[pr, tp] - m.DispatchProjRenewableMW[pr, tp])
     )
 
-def advanced_DispatchProjByFuel(m):
+def relaxed_split_commit_DispatchProjRenewableMW(m):
+    # This is similar to the split_commit approach, but allows startup fuel
+    # to be freely allocated between renewable and non-renewable fuels.
+    # This eliminates the need for m.CommitProjectRenewable variables, which are
+    # then replaced by m.DispatchProjRenewableMW.
+    # This means all startup fuel can be non-renewable, except when the RPS
+    # is 100%.
+        
+    # count amount of renewable power produced from project
+    m.DispatchProjRenewableMW = Var(m.PROJ_WITH_FUEL_DISPATCH_POINTS, within=NonNegativeReals)
+    m.DispatchProjRenewableMW_Cap = Constraint(m.PROJ_WITH_FUEL_DISPATCH_POINTS, 
+        rule = lambda m, pr, tp:
+            m.DispatchProjRenewableMW[pr, tp] <= m.DispatchProj[pr, tp]
+    )
+    m.StartupRenewable = Var(m.PROJ_WITH_FUEL_DISPATCH_POINTS, within=NonNegativeReals)
+    m.StartupRenewable_Cap = Constraint(m.PROJ_WITH_FUEL_DISPATCH_POINTS, 
+        rule = lambda m, pr, tp:
+            m.StartupRenewable[pr, tp] <= m.Startup[pr, tp]
+    )
+
+    # can't dispatch non-renewable capacity below its lower limit
+    m.Enforce_Dispatch_Lower_Limit_Non_Renewable = Constraint(
+        m.PROJ_WITH_FUEL_DISPATCH_POINTS,
+        rule=lambda m, pr, tp: 
+            (m.DispatchProj[pr, tp] - m.DispatchProjRenewableMW[pr, tp])
+            >= 
+            (m.CommitProject[pr, tp] - m.DispatchProjRenewableMW[pr, tp]) 
+            * m.proj_min_load_fraction[pr, tp]
+    )
+    
+    # use standard heat rate calculations for renewable and non-renewable parts
+    m.ProjRenewableFuelUseRate_Calculate = Constraint(
+        m.PROJ_DISP_FUEL_PIECEWISE_CONS_SET,
+        rule=lambda m, pr, tp, intercept, incremental_heat_rate: 
+            sum(
+                m.ProjFuelUseRate[pr, tp, f] 
+                    for f in m.G_FUELS[m.proj_gen_tech[pr]]
+                        if f in m.RPS_ENERGY_SOURCES
+            ) 
+            >=
+            m.StartupRenewable[pr, tp] * m.proj_startup_fuel[pr] / m.tp_duration_hrs[tp]
+            + intercept * m.DispatchProjRenewableMW[pr, tp]
+            + incremental_heat_rate * m.DispatchProjRenewableMW[pr, tp]
+    )
+    m.ProjNonRenewableFuelUseRate_Calculate = Constraint(
+        m.PROJ_DISP_FUEL_PIECEWISE_CONS_SET,
+        rule=lambda m, pr, tp, intercept, incremental_heat_rate: 
+            sum(
+                m.ProjFuelUseRate[pr, tp, f] 
+                    for f in m.G_FUELS[m.proj_gen_tech[pr]]
+                        if f not in m.RPS_ENERGY_SOURCES
+            ) 
+            >=
+            (m.Startup[pr, tp] - m.StartupRenewable[pr, tp]) * m.proj_startup_fuel[pr] / m.tp_duration_hrs[tp]
+            + intercept * (m.CommitProject[pr, tp] - m.DispatchProjRenewableMW[pr, tp])
+            + incremental_heat_rate * (m.DispatchProj[pr, tp] - m.DispatchProjRenewableMW[pr, tp])
+    )
+
+    # don't allow any non-renewable fuel if RPS is 100%
+    if m.options.rps_level == 'activate':
+        # find all dispatch points for non-renewable fuels during periods with 100% RPS
+        m.FULL_RPS_PROJ_FOSSIL_FUEL_DISPATCH_POINTS = Set(
+            dimen=3,
+            initialize=lambda m: [
+                (pr, tp, f) 
+                    for per in m.PERIODS if m.rps_target_for_period[per] == 1.0
+                        for pr in m.FUEL_BASED_PROJECTS 
+                            if (pr, m.PERIOD_TPS[per].first()) in m.PROJ_DISPATCH_POINTS
+                                for f in m.G_FUELS[m.proj_gen_tech[pr]] if not m.f_rps_eligible[f]
+                                    for tp in m.PERIOD_TPS[per]
+            ]
+        )
+        m.No_Fossil_Fuel_With_Full_RPS = Constraint(
+            m.FULL_RPS_PROJ_FOSSIL_FUEL_DISPATCH_POINTS,
+            rule=lambda m, pr, tp, f: m.ProjFuelUseRate[pr, tp, f] == 0.0
+        )
+
+
+def binary_by_period_DispatchProjRenewableMW(m):
     # NOTE: this could be extended to handle fuel blends (e.g., 50% biomass/50% coal)
     # by assigning an RPS eligibility level to each fuel (e.g., 50%), then
     # setting binary variables for whether to use each fuel during each period
@@ -253,7 +414,7 @@ def advanced_DispatchProjByFuel(m):
     
     # prevent use of non-renewable fuels during renewable timepoints
     def Enforce_DispatchRenewableFlag_rule(m, pr, tp, f):
-        if f in m.RPS_ENERGY_SOURCES:
+        if m.f_rps_eligible[f]:
             return Constraint.Skip
         else:
             # harder to read like this, but having all numerical values on the right hand side
@@ -271,7 +432,7 @@ def advanced_DispatchProjByFuel(m):
         m.PROJ_FUEL_DISPATCH_POINTS, rule=Enforce_DispatchRenewableFlag_rule
     )
 
-def advanced_by_timeseries_DispatchProjByFuel(m):
+def binary_by_timeseries_DispatchProjRenewableMW(m):
     m.PROJ_WITH_FUEL_ACTIVE_TIMESERIES = Set(dimen=2, initialize=lambda m: {
         (pr, ts) 
             for pr in m.FUEL_BASED_PROJECTS for ts in m.TIMESERIES
@@ -314,7 +475,7 @@ def advanced_by_timeseries_DispatchProjByFuel(m):
     m.Enforce_DispatchRenewableFlag = Constraint(
         m.PROJ_FUEL_DISPATCH_POINTS, 
         rule=lambda m, pr, tp, f: 
-            Constraint.Skip if f in m.RPS_ENERGY_SOURCES
+            Constraint.Skip if m.f_rps_eligible[f]
             else (
                 # original code, rewritten to get numerical parts on rhs
                 # m.ProjFuelUseRate[pr, tp, f]
@@ -329,7 +490,7 @@ def advanced_by_timeseries_DispatchProjByFuel(m):
 
 
 
-def advanced2_DispatchProjByFuel(m):
+def advanced2_DispatchProjRenewableMW(m):
     # choose whether to run (only) on renewable fuels during each timepoint
     m.DispatchRenewableFlag = Var(m.PROJ_WITH_FUEL_DISPATCH_POINTS, within=Binary)
     
@@ -354,7 +515,7 @@ def advanced2_DispatchProjByFuel(m):
     m.Enforce_DispatchRenewableFlag = Constraint(
         m.PROJ_FUEL_DISPATCH_POINTS, 
         rule=lambda m, pr, tp, f: 
-            Constraint.Skip if f in m.RPS_ENERGY_SOURCES
+            Constraint.Skip if m.f_rps_eligible[f]
             else (
                 m.ProjFuelUseRate[pr, tp, f] 
                 <= 
@@ -363,15 +524,15 @@ def advanced2_DispatchProjByFuel(m):
     )
 
 
-def advanced1_DispatchProjByFuel(m):
+def advanced1_DispatchProjRenewableMW(m):
     # Allocate the power produced during each timepoint among the fuels.
 
-    m.DispatchProjByFuel = Var(m.PROJ_FUEL_DISPATCH_POINTS, within=NonNegativeReals)
+    m.DispatchProjRenewableMW = Var(m.PROJ_FUEL_DISPATCH_POINTS, within=NonNegativeReals)
     # make sure this matches total production
-    m.DispatchProjByFuel_Total = Constraint(
+    m.DispatchProjRenewableMW_Total = Constraint(
         m.PROJ_WITH_FUEL_DISPATCH_POINTS, 
         rule=lambda m, pr, tp: 
-            sum(m.DispatchProjByFuel[pr, tp, f] for f in m.G_FUELS[m.proj_gen_tech[pr]])
+            sum(m.DispatchProjRenewableMW[pr, tp, f] for f in m.G_FUELS[m.proj_gen_tech[pr]])
             ==
             m.DispatchProj[pr, tp]
     )
@@ -390,7 +551,7 @@ def advanced1_DispatchProjByFuel(m):
     m.Allocate_Dispatch_Output = Constraint(
         m.PROJ_FUEL_DISPATCH_POINTS, 
         rule=lambda m, pr, tp, f: 
-            m.DispatchProjByFuel[pr, tp, f] 
+            m.DispatchProjRenewableMW[pr, tp, f] 
             <= 
             m.DispatchFuelFlag[pr, tp, f] * m.proj_capacity_limit_mw[pr]
     )
@@ -403,7 +564,7 @@ def advanced1_DispatchProjByFuel(m):
     )
     
     # note: in cases where a project has a single fuel, the presolver should force  
-    # DispatchProjByFuel for that fuel to match DispatchProj, and possibly
+    # DispatchProjRenewableMW for that fuel to match DispatchProj, and possibly
     # eliminate the allocation constraints
     
     # possible simplifications:
@@ -419,21 +580,21 @@ def advanced1_DispatchProjByFuel(m):
     #   sum(m.ProjFuelUseRate[pr, t, f] for f in m.G_FUELS[m.proj_gen_tech[pr]])
     #   in Allocate_Dispatch_Fuel (define this as an Expression in dispatch.py)
     # - replace <= with == in the allocation constraints
-    # - drop the DispatchProjByFuel_Total constraint
+    # - drop the DispatchProjRenewableMW_Total constraint
     
     # or this would also work:
-    # m.DispatchProjByFuel = Var(m.PROJ_FUEL_DISPATCH_POINTS)
-    # m.DispatchProjByFuel_Allocate = Constraint(
+    # m.DispatchProjRenewableMW = Var(m.PROJ_FUEL_DISPATCH_POINTS)
+    # m.DispatchProjRenewableMW_Allocate = Constraint(
     #     m.PROJ_FUEL_DISPATCH_POINTS,
     #     rule = lambda m, proj, t, f:
-    #         m.DispatchProjByFuel[proj, t, f]
+    #         m.DispatchProjRenewableMW[proj, t, f]
     #         * sum(m.ProjFuelUseRate[proj, t, _f] for _f in m.G_FUELS[m.proj_gen_tech[proj]])
     #         ==
     #         DispatchProj[proj, t]
     #         * m.ProjFuelUseRate[proj, t, f]
     # )
 
-def quadratic_DispatchProjByFuel(m):
+def quadratic_DispatchProjRenewableMW(m):
     # choose how much power to obtain from renewables during each timepoint
     m.DispatchRenewableFraction = Var(m.PROJ_WITH_FUEL_DISPATCH_POINTS, within=PercentFraction)
     
@@ -454,7 +615,7 @@ def quadratic_DispatchProjByFuel(m):
             sum(
                 m.ProjFuelUseRate[pr, tp, f] 
                     for f in m.G_FUELS[m.proj_gen_tech[pr]] 
-                        if f in m.RPS_ENERGY_SOURCES
+                        if m.f_rps_eligible[f]
             )
             >=
             m.DispatchRenewableFraction[pr, tp] *
@@ -464,23 +625,23 @@ def quadratic_DispatchProjByFuel(m):
             )
     )
 
-def quadratic1_DispatchProjByFuel(m):
+def quadratic1_DispatchProjRenewableMW(m):
     # Allocate the power produced during each timepoint among the fuels.
-    m.DispatchProjByFuel = Var(m.PROJ_FUEL_DISPATCH_POINTS, within=NonNegativeReals)
+    m.DispatchProjRenewableMW = Var(m.PROJ_FUEL_DISPATCH_POINTS, within=NonNegativeReals)
 
     # make sure this matches total production
-    m.DispatchProjByFuel_Total = Constraint(
+    m.DispatchProjRenewableMW_Total = Constraint(
         m.PROJ_WITH_FUEL_DISPATCH_POINTS, 
         rule=lambda m, pr, tp: 
-            sum(m.DispatchProjByFuel[pr, tp, f] for f in m.G_FUELS[m.proj_gen_tech[pr]])
+            sum(m.DispatchProjRenewableMW[pr, tp, f] for f in m.G_FUELS[m.proj_gen_tech[pr]])
             ==
             m.DispatchProj[pr, tp]
     )
     
-    m.DispatchProjByFuel_Allocate = Constraint(
+    m.DispatchProjRenewableMW_Allocate = Constraint(
         m.PROJ_FUEL_DISPATCH_POINTS,
         rule = lambda m, proj, t, f:
-            m.DispatchProjByFuel[proj, t, f]
+            m.DispatchProjRenewableMW[proj, t, f]
             * sum(m.ProjFuelUseRate[proj, t, _f] for _f in m.G_FUELS[m.proj_gen_tech[proj]])
             <=
             m.DispatchProj[proj, t]
