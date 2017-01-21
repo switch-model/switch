@@ -1,0 +1,66 @@
+This document specifies the standard Git workflow required to submit
+contributions to the SWITCH model repository.
+
+1) If you are already a trusted collaborator:
+
+First, create a new branch in your local copy of the repository and commit
+your changes there. Once you are finished editing, you have to run the
+standard set of Switch tests to check that nothing has been broken. To test
+the entire codebase, run this command from the root directory of your repo:
+
+>>> python run_tests.py
+
+If the code passes all tests, you may then push that branch into the main
+Switch GitHub repo so that you can initiate a Pull Request to merge those
+changes into the master branch. Then, a review process must take place where
+other collaborators check and comment the code. Once you recieve confirmation
+from at least one other administrator that the review process is finished, you
+may proceed to merge the changes(*). To do that, there are 2 prefered options
+available on the GitHub interface.
+
+    If the new features/editions involve heavy changes that will be easier to
+    understand with more than 1 commit in the log, then you may Rebase and
+    Merge to keep the individual commits in the history. The commits in your
+    Pull Request will be incorporated into the master branch obeying
+    chronological order.
+    
+    In most other cases, where new features/editions can be understood with
+    only one commit in the history, then Squash and Merge is the option to
+    use. This squashes all the commits in your Pull Request into a single
+    commit and incorporates it into the master branch after the HEAD commit.
+    
+    The Create a Merge Commit option is not recommended in any case, since it
+    creates a new commit just to state that a merge was performed. In
+    addition, the Git history gets messier.
+
+(*) There is an exception to this rule. If the changes are being applied only
+to a regional part of the repository (such as the 'hawaii' directory), and you
+are a manager for that region, then you may merge them at your convenience
+(assuming the automated tests still pass). In this case, a cleaner option is
+to directly push a commit from your local repository into the master branch at
+the main Switch repo.
+
+2) If you are a new collaborator:
+ 
+You must first create a fork of the main Switch repo into your personal GitHub
+account. That fork may be cloned into your local machine, so you can edit the
+copy locally. You should first create a new branch in that local copy of the
+repository and commit your changes there. Once you are finished editing, you
+have to run the standard set of Switch tests to check that nothing has been
+broken. To test the entire codebase, run this command from the root directory
+of your repo:
+
+>>> python run_tests.py
+
+After you have finished editing changes in your local copy and the code passes
+all the tests, you should push the new branch into the forked Switch repo in
+your GitHub account. Then, you may initiate a Pull Request from the main
+Switch repo to merge your own branch in. The GitHub GUI allows these kind of
+requests from forked repos. Afterwards, the review process must take place,
+where other collaborators will check and comment your code. Once an
+administrator gives you a thumbs up on the proposed changes, he will proceed
+to accept the Pull Request by either Rebasing and Merging or Squashing and
+Merging, depending on the nature of the request.
+
+If you have any questions regarding the process, don't hesitate to contact the
+Switch community.

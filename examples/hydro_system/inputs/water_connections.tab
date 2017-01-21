@@ -1,0 +1,4 @@
+WATER_CONNECTIONS	water_node_from	water_node_to	wc_capacity	wc_is_a_filtration
+Dam_1_to_Node_1	Dam_1	Node_1	20	0
+Node_1_to_Sink_1	Node_1	Sink_1	20	0
+Dam_2_to_Sink_2	Dam_2	Sink_2	20	0
