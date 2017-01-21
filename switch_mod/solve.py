@@ -119,6 +119,19 @@ def main(args=None, return_model=False, return_instance=False):
     # return stdout to original
     sys.stdout = stdout_copy
 
+    if pre_module_options.interact:
+        m = instance  # present the solved model as 'm' for convenience
+        banner = (
+            "\n"
+            "=================================================================================\n"
+            "Entering interactive Python shell.\n"
+            "Abstract model is in 'model' variable; \n"
+            "Solved instance is in 'instance' and 'm' variables.\n"
+            "Type ctrl-d or exit() to exit shell.\n"
+            "=================================================================================\n"
+        )
+        import code
+        code.interact(banner=banner, local=dict(globals().items() + locals().items()))
 
 
 patched_pyomo = False
@@ -165,7 +178,7 @@ def iterate(m, iterate_modules, depth=0):
     
     # create or truncate the iteration tree
     if depth == 0:
-        m.iteration_node = []
+        m.iteration_node = tuple()
 
     if depth == len(iterate_modules):
         # asked to converge at the deepest level
@@ -181,8 +194,6 @@ def iterate(m, iterate_modules, depth=0):
         current_modules = [
             sys.modules[module_name if module_name in sys.modules else 'switch_mod.' + module_name] 
             for module_name in iterate_modules[depth]]
-        # truncate the iteration tree at the current level
-        m.iteration_node = m.iteration_node[:depth] + [0]
 
         j = 0
         converged = False
@@ -191,13 +202,11 @@ def iterate(m, iterate_modules, depth=0):
             if m.options.max_iter is not None and j >= m.options.max_iter:
                 break
 
-            # record the current iteration number and node for use by modules 
-            # (e.g., to name files or reset/index params)
-            m.iteration_number = j
-            m.iteration_node[-1] = j
-
             converged = True
+
             # pre-iterate modules at this level
+            m.iteration_number = j
+            m.iteration_node = m.iteration_node[:depth] + (j,)
             for module in current_modules:
                 converged = iterate_module_func(m, module, 'pre_iterate', converged)
 
@@ -205,6 +214,8 @@ def iterate(m, iterate_modules, depth=0):
             iterate(m, iterate_modules, depth=depth+1)
             
             # post-iterate modules at this level
+            m.iteration_number = j      # may have been changed during iterate()
+            m.iteration_node = m.iteration_node[:depth] + (j,)
             for module in current_modules:
                 converged = iterate_module_func(m, module, 'post_iterate', converged)
 
@@ -331,6 +342,8 @@ def add_pre_module_args(parser):
                         help='Directory containing log files (default is "logs"')
     parser.add_argument("--debug", action="store_true", default=False,
                         help='Automatically start pdb debugger on exceptions')
+    parser.add_argument("--interact", action="store_true", default=False,
+                        help='Enter interactive shell after solving model (to inspect finished model).')
 
 def parse_pre_module_options(args):
     """
@@ -410,6 +423,9 @@ def get_iteration_list(m):
     else:
         with open(iterate_list_file) as f:
             iterate_rows = f.read().splitlines()
+            iterate_rows = [r.strip() for r in iterate_rows]
+            iterate_rows = [r for r in iterate_rows if r and not r.startswith("#")]
+        # delimit modules at the same level with space(s), tab(s) or comma(s)
         iterate_modules = [re.sub("[ \t,]+", " ", r).split(" ") for r in iterate_rows]
     return iterate_modules
 
