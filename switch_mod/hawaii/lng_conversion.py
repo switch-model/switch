@@ -34,6 +34,17 @@ def define_components(m):
         initialize=lambda m: {tier for rfm, per, tier in m.LNG_RFM_SUPPLY_TIERS}
     )
     
+    # force LNG to be deactivated when RPS is 100%; 
+    # this forces recovery of all costs before the 100% RPS takes effect
+    # (otherwise the model sometimes tries to postpone recovery beyond the end of the study)
+    if hasattr(m, 'RPS_Enforce'):
+        m.No_LNG_In_100_RPS = Constraint(m.LNG_RFM_SUPPLY_TIERS, 
+            rule=lambda m, rfm, per, tier:
+                (m.RFMSupplyTierActivate[rfm, per, tier] == 0) 
+                    if m.rps_target_for_period[per] >= 1.0 
+                        else Constraint.Skip
+        )
+    
     # user can study different LNG durations by specifying a tier to activate and 
     # a start and end date. Both the capital recovery and fixed costs for this tier are
     # bundled into the market's fixed cost, which means a different fuel_supply_curves.tab
@@ -52,6 +63,10 @@ def define_components(m):
     # capital cost and project life for LNG upgrades, and allow deactivation (avoiding
     # fixed O&M) after a certain period of time. Then PSIP module could force longer
     # activation if needed.
+    
+    # In the end, this was resolved by having the user specify multiple tiers with
+    # different lifetimes and corresponding fixed costs per year; then the model
+    # (or user) can choose a tier with a particular lifetime.
     
     # force use of a particular LNG tier in particular periods
     def Force_LNG_Tier_rule(m, rfm, per, tier):
@@ -77,8 +92,8 @@ def define_components(m):
                 # specified a valid tier, but not the current one or not the current period
                 action = 0
         if action == Constraint.Skip:
-            if m.options.verbose:
-                print "Model will optimize activation of tier {}.".format((rfm, per, tier))
+            # if m.options.verbose:
+            #     print "Model will optimize activation of tier {}.".format((rfm, per, tier))
             result = action
         else:
             if m.options.verbose:
@@ -104,7 +119,9 @@ def define_components(m):
     # are included in the LNG supply tiers, so we don't need to worry about that.
     m.LNG_CONVERTED_PLANTS = Set(
         initialize=[
-            'Oahu_Kahe_K5', 'Oahu_Kahe_K6', 'Oahu_Kalaeloa_CC1_CC2', 
+            'Oahu_Kahe_K5', 'Oahu_Kahe_K6', 
+            'Oahu_Kalaeloa_CC1_CC2', # used in some older models
+            'Oahu_Kalaeloa_CC1', 'Oahu_Kalaeloa_CC2', 'Oahu_Kalaeloa_CC3',
             'Oahu_CC_383', 'Oahu_CC_152', 'Oahu_CT_100'
         ]
     )

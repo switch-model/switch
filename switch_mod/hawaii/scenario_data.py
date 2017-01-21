@@ -28,39 +28,50 @@ import psycopg2
 
 def write_tables(**args):
 
+    # TODO: any arguments that are defined with default values below (args.get()) could 
+    # have those default values assigned here. Then they can be used directly in queries
+    # instead of using them to create snippets that are used in the queries. This would
+    # also document the available arguments a little better.
+    
     # catch obsolete arguments (otherwise they would be silently ignored)
     if 'ev_scen_id' in args:
         raise ValueError("ev_scen_id argument is no longer supported; use ev_scenario instead.")
         
     #########################
     # timescales
-    
+        
+    # reusable clause to calculate the length of each period
+    # If this is within 1% of an integer number of years, it rounds to the integer,
+    # to allow for weights that add up to 365 or 365.25 days per year
     with_period_length = """
         WITH period_length as (
             SELECT 
-                CASE WHEN max(period) = min(period) 
+                period,
+                -- note: for some reason modulo doesn't work on real values in postgresql
+                CASE WHEN mod((sum(ts_scale_to_period)/365.25)::numeric, 1) BETWEEN -0.01 and 0.01
                     THEN
-                        -- one-period model; assume length = number of days provided
-                        sum(ts_scale_to_period) / 365
+                        -- integer number of years
+                        round(sum(ts_scale_to_period)/365.25)
                     ELSE
-                        -- multi-period model; count number of years between periods
-                        (max(period)-min(period)) / (count(distinct period)-1)
-                END as length 
+                        -- make a decent guess about number of years
+                        sum(ts_scale_to_period)/365.25
+                END as period_length
                 FROM study_date WHERE time_sample = %(time_sample)s
+                GROUP BY 1
         )
     """
     
+    # note: in contrast to earlier versions, this makes period_end
+    # point to the exact moment when the period finishes 
+    # (switch_mod.timescales can handle that now),
+    # and it lets period_end be a floating point number 
+    # (postgresql will export it with a .0 in this case)
     write_table('periods.tab', 
         with_period_length + """
-        SELECT period AS "INVESTMENT_PERIOD",
-                period as period_start,
-                round(period + length - 1)::int as period_end
-                -- note: period_end is forced to nearest year before next period
-                -- it would probably be better to count directly to some fractional year
-                -- but that's not how the core switch code works
-                -- (this code also converts period to an int, since postgresql started
-                -- appending .0 to int-valued floats at some point around 9.4)
-            FROM study_periods, period_length
+        SELECT p.period AS "INVESTMENT_PERIOD",
+                p.period as period_start,
+                round(p.period + period_length) as period_end
+            FROM study_periods p JOIN period_length l USING (period)
             WHERE time_sample = %(time_sample)s
             ORDER by 1;
     """, args)
@@ -82,6 +93,50 @@ def write_tables(**args):
             WHERE h.time_sample = %(time_sample)s
             ORDER BY period, extract(doy from date), study_hour;
     """, args)
+
+    #########################
+    # create temporary tables that can be referenced by other queries 
+    # to identify available projects and technologies
+    db_cursor().execute("""
+        DROP TABLE IF EXISTS study_length;
+        CREATE TEMPORARY TABLE study_length AS
+            {}
+            SELECT min(period) as study_start, max(period+period_length) AS study_end
+            FROM period_length;
+
+        DROP TABLE IF EXISTS study_projects;
+        CREATE TEMPORARY TABLE study_projects AS
+            SELECT DISTINCT 
+                CONCAT_WS('_', load_zone, p.technology, nullif(site, 'na'), nullif(orientation, 'na'))
+                    AS "PROJECT",
+                p.* 
+            FROM project p
+                JOIN generator_info g USING (technology)
+                CROSS JOIN study_length
+                -- existing projects still in use during the study
+                LEFT JOIN proj_existing_builds e ON (
+                    e.project_id = p.project_id
+                    AND e.build_year + g.max_age_years > study_start 
+                    AND e.build_year < study_end
+                )
+                -- projects that could be built during the study
+                LEFT JOIN generator_costs_by_year c ON (
+                    c.cap_cost_scen_id = %(cap_cost_scen_id)s
+                    AND c.technology = g.technology 
+                    AND (g.min_vintage_year IS NULL OR c.year >= g.min_vintage_year) 
+                    AND c.year >= study_start 
+                    AND c.year < study_end
+                )
+            WHERE (e.project_id IS NOT NULL OR c.technology IS NOT NULL)
+                AND p.load_zone in %(load_zones)s
+                AND g.technology NOT IN %(exclude_technologies)s;
+
+        DROP TABLE IF EXISTS study_generator_info;
+        CREATE TEMPORARY TABLE study_generator_info AS
+            SELECT DISTINCT g.* 
+            FROM generator_info g JOIN study_projects p USING (technology);
+    """.format(with_period_length), args)    
+
 
     #########################
     # financials
@@ -129,19 +184,11 @@ def write_tables(**args):
 
     #########################
     # fuels
-
+    
     write_table('non_fuel_energy_sources.tab', """
         SELECT DISTINCT fuel AS "NON_FUEL_ENERGY_SOURCES"
-            FROM generator_info 
-            WHERE fuel NOT IN (SELECT fuel_type FROM fuel_costs)
-                AND min_vintage_year <= (SELECT MAX(period) FROM study_periods WHERE time_sample = %(time_sample)s)
-        UNION DISTINCT 
-            SELECT aer_fuel_code AS "NON_FUEL_ENERGY_SOURCES" 
-            FROM existing_plants 
-            WHERE aer_fuel_code NOT IN (SELECT fuel_type FROM fuel_costs)
-                AND load_zone in %(load_zones)s
-                AND insvyear <= (SELECT MAX(period) FROM study_periods WHERE time_sample = %(time_sample)s)
-                AND technology NOT IN %(exclude_technologies)s;
+            FROM study_generator_info
+            WHERE fuel NOT IN (SELECT fuel_type FROM fuel_costs);
     """, args)
 
     # gather info on fuels
@@ -174,39 +221,32 @@ def write_tables(**args):
     else:
         inflator = 'power(1.0+%(inflation_rate)s, %(base_financial_year)s-c.base_year)'
 
-    period_bounds_clause = """
-        WITH period_bounds as (
-            SELECT 
-                a.period, 
-                (   
-                    SELECT COALESCE(MIN(b.period), a.period+1) 
-                        FROM study_periods b 
-                        WHERE b.time_sample = a.time_sample AND b.period > a.period
-                ) AS next_period
-                FROM study_periods a WHERE time_sample = %(time_sample)s
-        )
-    """
-
     if args.get("use_simple_fuel_costs", False):
-        # simple fuel markets with no bulk LNG expansion option
-        # (use fuel_cost module)
+        # simple fuel markets with no bulk LNG expansion option (use fuel_cost module)
         # TODO: get monthly fuel costs from Karl Jandoc spreadsheet
-        if args.get("use_bulk_lng_for_simple_fuel_costs", False):
-            lng_selector = "tier = 'bulk'"
+        if "use_bulk_lng_for_simple_fuel_costs" in args:
+            raise ValueError(
+                "use_bulk_lng_for_simple_fuel_costs argument is no longer supported; "
+                "use simple_fuel_costs_lng_tier instead (or omit to prevent use of LNG)."
+            )
+        if args.get("simple_fuel_costs_lng_tier", None):
+            # note: this will let the model use this tier, but it will not force it to
+            # pay the full fixed cost for all _available_ LNG, so results will be wrong
+            # if fixed_cost > 0
+            lng_selector = "tier = %(simple_fuel_costs_lng_tier)s"
         else:
-            lng_selector = "tier != 'bulk'"
+            lng_selector = "false"
+
         write_table('fuel_cost.tab', 
             with_period_length + """
-            SELECT load_zone, fuel_type as fuel, period,
-                avg(price_mmbtu * {inflator}
-                + CASE WHEN (fuel_type='LNG' AND tier='bulk') THEN %(bulk_lng_fixed_cost)s ELSE 0.0 END)
-                    as fuel_cost
-            FROM fuel_costs c, study_periods p, period_length l
+            SELECT load_zone, fuel_type as fuel, p.period,
+                avg(price_mmbtu * {inflator} + COALESCE(fixed_cost, 0.00)) as fuel_cost
+            FROM fuel_costs c, study_periods p JOIN period_length l USING (period)
             WHERE load_zone in %(load_zones)s
                 AND fuel_scen_id = %(fuel_scen_id)s
                 AND p.time_sample = %(time_sample)s
                 AND (fuel_type != 'LNG' OR {lng_selector})
-                AND c.year >= p.period AND c.year < p.period + l.length
+                AND c.year >= p.period AND c.year < p.period + l.period_length
             GROUP BY 1, 2, 3
             ORDER BY 1, 2, 3;
         """.format(inflator=inflator, lng_selector=lng_selector), args)
@@ -224,15 +264,16 @@ def write_tables(**args):
             SELECT concat('Hawaii_', fuel_type) as regional_fuel_market, 
                 fuel_type as fuel, 
                 tier, 
-                period, 
+                p.period, 
                 avg(price_mmbtu * {inflator}) as unit_cost, 
                 avg(max_avail_at_cost) as max_avail_at_cost, 
-                avg(fixed_cost) as fixed_cost
-            FROM fuel_costs c, period_length l, study_periods p 
+                avg(fixed_cost) as fixed_cost,
+                avg(max_age) as max_age
+            FROM fuel_costs c, study_periods p JOIN period_length l USING (period)
             WHERE load_zone in %(load_zones)s
                 AND fuel_scen_id = %(fuel_scen_id)s
                 AND p.time_sample = %(time_sample)s
-                AND (c.year >= p.period AND c.year < p.period + l.length)
+                AND (c.year >= p.period AND c.year < p.period + l.period_length)
             GROUP BY 1, 2, 3, 4
             ORDER BY 1, 2, 3, 4;
         """.format(inflator=inflator), args)
@@ -249,18 +290,9 @@ def write_tables(**args):
     #########################
     # gen_tech
 
-    # TODO: provide reasonable retirement ages for existing plants (not 100+base age)
-    # note: this zeroes out variable_o_m for renewable projects
-    # TODO: find out where variable_o_m came from for renewable projects and put it in the right place
-    # TODO: fix baseload flag in the database
-    # TODO: account for multiple fuel sources for a single plant in the upstream database
-    # and propagate that to this table.
     # TODO: make sure the heat rates are null for non-fuel projects in the upstream database, 
     # and remove the correction code from here
-    # TODO: create heat_rate and fuel columns in the existing_plants_gen_tech table and simplify the query below.
-    # TODO: add unit sizes for new projects to the generator_info table (new projects) from
-    # Switch-Hawaii/data/HECO\ IRP\ Report/IRP-2013-App-K-Supply-Side-Resource-Assessment-062813-Filed.pdf
-    # and then incorporate those into unit_sizes.tab below.
+
     # NOTE: this converts variable o&m from $/kWh to $/MWh
     # NOTE: we don't provide the following in this version:
     # g_min_build_capacity
@@ -274,49 +306,84 @@ def write_tables(**args):
     
     # TODO: maybe replace "fuel IN ('SUN', 'WND', 'MSW')" with "fuel not in (SELECT fuel FROM fuel_cost)"
     # TODO: convert 'MSW' to a proper fuel, possibly with a negative cost, instead of ignoring it
-            
-    write_table('generator_info.tab', """
-        SELECT  technology as generation_technology, 
-                technology as g_dbid,
-                unit_size as g_unit_size,
-                max_age_years as g_max_age, 
-                scheduled_outage_rate as g_scheduled_outage_rate, 
-                forced_outage_rate as g_forced_outage_rate,
-                intermittent as g_is_variable, 
-                0 as g_is_baseload,
-                0 as g_is_flexible_baseload, 
-                0 as g_is_cogen,
-                variable_o_m * 1000.0 AS g_variable_o_m,
-                CASE WHEN fuel IN ('SUN', 'WND', 'MSW') THEN fuel ELSE 'multiple' END AS g_energy_source,
-                CASE WHEN fuel IN ('SUN', 'WND', 'MSW') THEN null ELSE 0.001*heat_rate END AS g_full_load_heat_rate
-            FROM generator_info
-            WHERE technology NOT IN %(exclude_technologies)s
-                AND min_vintage_year <= (SELECT MAX(period) FROM study_periods WHERE time_sample = %(time_sample)s)
-        UNION SELECT
-                g.technology as generation_technology, 
-                g.technology as g_dbid, 
-                avg(peak_mw) AS g_unit_size,    -- minimum block size for unit commitment
-                g.max_age as g_max_age,         -- formerly g.max_age + 100 as g_max_age
-                g.scheduled_outage_rate as g_scheduled_outage_rate, 
-                g.forced_outage_rate as g_forced_outage_rate,
-                g.variable as g_is_variable, 
-                g.baseload as g_is_baseload,
-                0 as g_is_flexible_baseload, 
-                g.cogen as g_is_cogen,
-                CASE WHEN MIN(p.aer_fuel_code) IN ('SUN', 'WND') THEN 0.0 ELSE AVG(g.variable_o_m) * 1000.0 END 
-                    AS g_variable_o_m,
-                CASE WHEN MIN(p.aer_fuel_code) IN ('SUN', 'WND', 'MSW') THEN MIN(p.aer_fuel_code) ELSE 'multiple' END AS g_energy_source,
-                CASE WHEN MIN(p.aer_fuel_code) IN ('SUN', 'WND', 'MSW') THEN null 
-                    ELSE 0.001*SUM(p.heat_rate*p.avg_mw)/SUM(p.avg_mw) 
-                    END AS g_full_load_heat_rate
-            FROM existing_plants_gen_tech g JOIN existing_plants p USING (technology)
-            WHERE p.load_zone in %(load_zones)s
-                AND p.insvyear <= (SELECT MAX(period) FROM study_periods WHERE time_sample = %(time_sample)s)
-                AND g.technology NOT IN %(exclude_technologies)s
-            GROUP BY 1, 2, 4, 5, 6, 7, 8, 9, 10, 11
-        ORDER BY 1;
-    """, args)
+    
+    
+    # Omit full load heat rates if we are providing heat rate curves instead
+    if args.get('use_incremental_heat_rates', False):
+        full_load_heat_rate = 'null'
+    else:
+        full_load_heat_rate = '0.001*heat_rate'
 
+    if args.get('report_forced_outage_rates', False):
+        forced_outage_rate = 'forced_outage_rate'
+    else:
+        forced_outage_rate = '0'
+
+    # NOTE: we divide heat rate by 1000 to convert from Btu/kWh to MBtu/MWh
+    write_table('generator_info.tab', """
+        SELECT technology as generation_technology, 
+            technology as g_dbid,
+            unit_size as g_unit_size,
+            max_age_years as g_max_age, 
+            scheduled_outage_rate as g_scheduled_outage_rate, 
+            {fo} as g_forced_outage_rate,
+            intermittent as g_is_variable, 
+            baseload as g_is_baseload, 
+            0 as g_is_flexible_baseload, 
+            cogen as g_is_cogen,
+            0 as g_competes_for_space, 
+            non_cycling as g_non_cycling,
+            variable_o_m * 1000.0 AS g_variable_o_m,
+            CASE WHEN fuel IN ('SUN', 'WND', 'MSW') THEN fuel ELSE 'multiple' END AS g_energy_source,
+            CASE WHEN fuel IN ('SUN', 'WND', 'MSW') THEN null ELSE {flhr} END AS g_full_load_heat_rate
+        FROM study_generator_info
+        ORDER BY 1;
+    """.format(fo=forced_outage_rate, flhr=full_load_heat_rate), args)
+
+    # get part load heat rate curves if requested
+    # note: we sort lexicographically by power output and fuel consumption, in case
+    # there are segments where power or fuel consumption steps up while the other stays constant
+    # That is nonconvex and not currently supported by SWITCH, but could potentially be used 
+    # in the future by assigning binary variables for activating each segment.
+    # note: for sqlite, you could use "CONCAT(technology, ' ', output_mw, ' ', fuel_consumption_mmbtu_per_h) AS key"
+    # TODO: rename fuel_consumption_mmbtu_per_h to fuel_use_mmbtu_per_h here and in import_data.py
+
+    if args.get('use_incremental_heat_rates', False):
+        write_table('gen_inc_heat_rates.tab', """
+            WITH part_load AS (
+                SELECT 
+                    row_number() OVER (ORDER BY technology, output_mw, fuel_consumption_mmbtu_per_h) AS key,
+                    technology AS generation_technology, 
+                    output_mw, 
+                    fuel_consumption_mmbtu_per_h
+                FROM part_load_fuel_consumption JOIN study_generator_info USING (technology)
+            ), prior AS (
+                SELECT a.key, MAX(b.key) AS prior_key
+                FROM part_load a JOIN part_load b ON b.generation_technology=a.generation_technology AND b.key < a.key
+                GROUP BY 1
+            ), curves AS (
+                SELECT -- first step in each curve
+                    key, generation_technology, 
+                    output_mw AS power_start_mw, 
+                    NULL::real AS power_end_mw, 
+                    NULL::real AS incremental_heat_rate_mbtu_per_mwhr,
+                    fuel_consumption_mmbtu_per_h AS fuel_use_rate_mmbtu_per_h
+                FROM part_load LEFT JOIN prior USING (key) WHERE prior_key IS NULL
+                UNION
+                SELECT -- additional steps
+                    high.key AS key, high.generation_technology, 
+                    low.output_mw AS power_start_mw, 
+                    high.output_mw AS power_end_mw,
+                    (high.fuel_consumption_mmbtu_per_h - low.fuel_consumption_mmbtu_per_h) 
+                        / (high.output_mw - low.output_mw) AS incremental_heat_rate_mbtu_per_mwhr,
+                    NULL::real AS fuel_use_rate_mmbtu_per_h
+                FROM part_load high JOIN prior USING (key) JOIN part_load low ON (low.key = prior.prior_key)
+                ORDER BY 1
+            )
+            SELECT generation_technology, power_start_mw, power_end_mw, incremental_heat_rate_mbtu_per_mwhr, fuel_use_rate_mmbtu_per_h
+            FROM curves ORDER BY key; 
+        """, args)
+    
     # This gets a list of all the fueled projects (listed as "multiple" energy sources above),
     # and lists them as accepting any equivalent or lighter fuel. (However, cogen plants and plants 
     # using fuels with rank 0 are not changed.) Fuels are also filtered against the list of fuels with
@@ -330,19 +397,8 @@ def write_tables(**args):
             SELECT
                 technology as generation_technology,
                 fuel as orig_fuel,
-                0 as cogen
-            FROM generator_info c
-            WHERE min_vintage_year <= (SELECT MAX(period) FROM study_periods WHERE time_sample = %(time_sample)s)
-                AND technology NOT IN %(exclude_technologies)s
-            UNION DISTINCT
-            SELECT DISTINCT
-                g.technology as generation_technology, 
-                p.aer_fuel_code as orig_fuel,
-                g.cogen
-            FROM existing_plants_gen_tech g JOIN existing_plants p USING (technology)
-            WHERE p.load_zone in %(load_zones)s
-                AND p.insvyear <= (SELECT MAX(period) FROM study_periods WHERE time_sample = %(time_sample)s)
-                AND g.technology NOT IN %(exclude_technologies)s
+                cogen
+            FROM study_generator_info
         ), all_fueled_techs AS (
             SELECT * from all_techs WHERE orig_fuel NOT IN ('SUN', 'WND', 'MSW')
         )
@@ -355,162 +411,106 @@ def write_tables(**args):
     """, args)
 
 
-    # TODO: write code in project.unitcommit.commit to load part-load heat rates
-    # TODO: get part-load heat rates for new plant technologies and report them in 
-    # project.unit.commit instead of full-load heat rates here.
-    # TODO: report part-load heat rates for existing plants in project.unitcommit.commit
-    # (maybe on a project-specific basis instead of generalized for each technology)
-    # NOTE: we divide heat rate by 1000 to convert from Btu/kWh to MBtu/MWh
-
-
     if args.get('wind_capital_cost_escalator', 0.0) or args.get('pv_capital_cost_escalator', 0.0):
         # user supplied a non-zero escalator
         raise ValueError(
             'wind_capital_cost_escalator and pv_capital_cost_escalator arguments are '
             'no longer supported by scenario_data.write_tables(); '
-            'assign variable costs in the generator_costs_by_year table instead.'
+            'assign time-varying costs in the generator_costs_by_year table instead.'
+        )
+    if args.get('generator_costs_base_year', 0):
+        # user supplied a generator_costs_base_year
+        raise ValueError(
+            'generator_costs_base_year is no longer supported by scenario_data.write_tables(); '
+            'assign base_year in the generator_costs_by_year table instead.'
         )
 
     # note: this table can only hold costs for technologies with future build years,
     # so costs for existing technologies are specified in proj_build_costs.tab
     # NOTE: costs in this version of switch are expressed in $/MW, $/MW-year, etc., not per kW.
-    # TODO: store generator costs base year in a table, not an argument
     write_table('gen_new_build_costs.tab', """
         SELECT  
             i.technology as generation_technology, 
             period AS investment_period,
-            capital_cost_per_kw * 1000.0 
-                * power(1.0+%(inflation_rate)s, %(base_financial_year)s-%(generator_costs_base_year)s)
+            c.capital_cost_per_kw * 1000.0 
+                * power(1.0+%(inflation_rate)s, %(base_financial_year)s-c.base_year)
                 AS g_overnight_cost, 
-            fixed_o_m*1000.0 AS g_fixed_o_m
-        FROM generator_info i
+            i.fixed_o_m * 1000.0 * power(1.0+%(inflation_rate)s, %(base_financial_year)s-i.base_year)
+                AS g_fixed_o_m
+        FROM study_generator_info i
             JOIN generator_costs_by_year c USING (technology)
             JOIN study_periods p ON p.period = c.year
-        WHERE i.technology NOT IN %(exclude_technologies)s
-            AND time_sample = %(time_sample)s
-            AND min_vintage_year <= (SELECT MAX(period) FROM study_periods WHERE time_sample = %(time_sample)s)
+        WHERE time_sample = %(time_sample)s 
+            AND (i.min_vintage_year IS NULL OR c.year >= i.min_vintage_year)
+            AND c.cap_cost_scen_id = %(cap_cost_scen_id)s
         ORDER BY 1, 2;
     """, args)
-
 
 
     #########################
     # project.build
 
-    # TODO: find connection costs and add them to the switch database (currently all zeroes)
-    # TODO: find out why existing wind and solar projects have non-zero variable O&M in the switch 
-    # database, and zero them out there instead of here.
-    # NOTE: if a generator technology in the generator_info table doesn't have a match in the project
-    # table, we use the generic_cost_per_kw from the generator_info table. If that is also null,
-    # then the connection cost will be given whatever default value is specified in the SWITCH code
-    # (probably zero).
-    # If individual projects are identified in the project table, we use those;
-    # then we also add generic projects in each load_zone for any technologies that are not
-    # marked as resource_limited in generator_info.
-    # NOTE: if a technology ever appears in the project table, then
-    # every possible project of that type should be recorded in that table. 
-    # Technologies that don't appear in this table are deemed generic projects,
-    # which can be added once in each load zone.
+    # NOTE: this uses all projects in the project table (generally renewable energy
+    # projects and existing plants).
+    # Then it creates additional project definitions for any technologies that are 
+    # listed with resource_limited = 0 (e.g., new thermal plants).
+    # If there are existing instances of non-resource-limited technologies, then
+    # the model could potentially end up with multiple projects with the same
+    # technology in the same load zone (one existing, one new/generic), but that
+    # shouldn't cause any real problems. This possibility can be avoided by using
+    # different technologies for existing projects, and not specifying new-build
+    # costs for those in future years. Alternatively, you can set 
+    # project.max_capacity = proj_existing_builds.proj_existing_cap. However,
+    # then it will still be possible to rebuild on the existing site after 
+    # existing capacity is retired.
+    
     # NOTE: we don't provide the following, because they are specified in generator_info.tab instead:
-    # proj_full_load_heat_rate, proj_forced_outage_rate, proj_scheduled_outage_rate
+    # proj_full_load_heat_rate, proj_forced_outage_rate, proj_scheduled_outage_rate, proj_variable_om
     # (the project-specific data would only be for otherwise-similar projects that have degraded and 
-    # now have different heat rates)
-    # NOTE: variable costs for existing plants could alternatively be added to the generator_info.tab 
-    # table (aggregated by technology instead of project). That is where we put the variable costs 
-    # for new projects.
-    # NOTE: we convert costs from $/kWh to $/MWh
+    # now have different properties)
 
     if args.get('connect_cost_per_mw_km', 0):
         print(
-            "WARNING: ignoring connect_cost_per_mw_km specified in arguments; "
-            "using project.connect_cost_per_mw instead."
+            "WARNING: ignoring connect_cost_per_mw_km specified in arguments; using"
+            "project.connect_cost_per_mw and generator_info.connect_cost_per_kw_generic instead."
         )
+    # if needed, add 'null as proj_dbid' in queries below
+    # if needed, follow the query below with another one that specifies 
+    # COALESCE(proj_connect_cost_per_mw, 0.0) AS proj_connect_cost_per_mw
     write_table('project_info.tab', """
-            -- make a list of all projects with detailed definitions (and gather the available data)
-            DROP TABLE IF EXISTS t_specific_projects;
-            CREATE TEMPORARY TABLE t_specific_projects AS
-                SELECT 
-                    concat_ws('_', load_zone, technology, site, orientation) AS "PROJECT",
-                    load_zone as proj_load_zone,
-                    technology AS proj_gen_tech,
-                    connect_cost_per_mw AS proj_connect_cost_per_mw,
-                    max_capacity as proj_capacity_limit_mw
-                FROM project;
-
-            -- make a list of generic projects (for which no detailed definitions are available)
-            DROP TABLE IF EXISTS t_generic_projects;
-            CREATE TEMPORARY TABLE t_generic_projects AS
-                SELECT 
-                    concat_ws('_', load_zone, technology) AS "PROJECT",
-                    load_zone as proj_load_zone,
-                    technology AS proj_gen_tech,
-                    cast(null as float) AS proj_connect_cost_per_mw,
-                    cast(null as float) AS proj_capacity_limit_mw
-                FROM generator_info g
-                    CROSS JOIN (SELECT DISTINCT load_zone FROM system_load) z
-                WHERE g.technology NOT IN (SELECT proj_gen_tech FROM t_specific_projects);
-        
-            -- merge the specific and generic projects
-            DROP TABLE IF EXISTS t_all_projects;
-            CREATE TEMPORARY TABLE t_all_projects AS
-            SELECT * FROM t_specific_projects UNION SELECT * from t_generic_projects;
-        
-            -- collect extra data from the generator_info table and filter out disallowed projects
-            SELECT
-                a."PROJECT", 
-                null as proj_dbid,
-                a.proj_gen_tech, 
-                a.proj_load_zone, 
-                COALESCE(a.proj_connect_cost_per_mw, 1000.0*g.connect_cost_per_kw_generic, 0.0) AS proj_connect_cost_per_mw,
-                a.proj_capacity_limit_mw,
-                cast(null as float) AS proj_variable_om    -- this is supplied in generator_info.tab for new projects
-            FROM t_all_projects a JOIN generator_info g on g.technology=a.proj_gen_tech
-            WHERE a.proj_load_zone IN %(load_zones)s
-                AND g.min_vintage_year <= (SELECT MAX(period) FROM study_periods WHERE time_sample = %(time_sample)s)
-                AND g.technology NOT IN %(exclude_technologies)s
-            UNION
-            -- collect data on existing projects
-            SELECT DISTINCT 
-                project_id AS "PROJECT",
-                null AS dbid,
-                technology AS proj_gen_tech, 
-                load_zone AS proj_load_zone, 
-                0.0 AS proj_connect_cost_per_mw,
-                cast(null as float) AS proj_capacity_limit_mw,
-                sum(CASE WHEN aer_fuel_code IN ('SUN', 'WND') THEN 0.0 ELSE variable_o_m END * 1000.0 * avg_mw)
-                   / sum(avg_mw) AS proj_variable_om
-            FROM existing_plants
-            WHERE load_zone IN %(load_zones)s
-                AND insvyear <= (SELECT MAX(period) FROM study_periods WHERE time_sample = %(time_sample)s)
-                AND technology NOT IN %(exclude_technologies)s
-            GROUP BY 1, 2, 3, 4, 5, 6
-            ORDER BY 4, 3, 1;
+        SELECT 
+            -- site-specific projects (existing or resource-limited)
+            "PROJECT",
+            load_zone AS proj_load_zone,
+            technology AS proj_gen_tech,
+            connect_cost_per_mw AS proj_connect_cost_per_mw,
+            max_capacity AS proj_capacity_limit_mw
+        FROM study_projects
+        ORDER BY 2, 3, 1;
     """, args)
 
-
     write_table('proj_existing_builds.tab', """
-        SELECT project_id AS "PROJECT", 
-                insvyear AS build_year, 
-                sum(peak_mw) as proj_existing_cap
-        FROM existing_plants
-        WHERE load_zone in %(load_zones)s
-            AND insvyear <= (SELECT MAX(period) FROM study_periods WHERE time_sample = %(time_sample)s)
-            AND technology NOT IN %(exclude_technologies)s
-        GROUP BY 1, 2;
+        SELECT 
+            "PROJECT", 
+            build_year, 
+            SUM(proj_existing_cap) as proj_existing_cap
+        FROM study_projects JOIN proj_existing_builds USING (project_id)
+        GROUP BY 1, 2
+        ORDER BY 1, 2;
     """, args)
 
     # note: we have to put cost data for existing projects in proj_build_costs.tab
     # because gen_new_build_costs only covers future investment periods.
     # NOTE: these costs must be expressed per MW, not per kW
     write_table('proj_build_costs.tab', """
-        SELECT project_id AS "PROJECT", 
-                insvyear AS build_year, 
-                sum(overnight_cost * 1000.0 * peak_mw) / sum(peak_mw) as proj_overnight_cost,
-                sum(fixed_o_m * 1000.0 * peak_mw) / sum(peak_mw) as proj_fixed_om
-        FROM existing_plants
-        WHERE load_zone in %(load_zones)s
-            AND insvyear <= (SELECT MAX(period) FROM study_periods WHERE time_sample = %(time_sample)s)
-            AND technology NOT IN %(exclude_technologies)s
+        SELECT 
+            "PROJECT", 
+            build_year, 
+            sum(proj_overnight_cost * 1000.0 * proj_existing_cap) / sum(proj_existing_cap) 
+                AS proj_overnight_cost,
+            sum(proj_fixed_om * 1000.0 * proj_existing_cap) / sum(proj_existing_cap) 
+                AS proj_fixed_om
+        FROM study_projects JOIN proj_existing_builds USING (project_id)
         GROUP BY 1, 2;
     """, args)
 
@@ -524,28 +524,14 @@ def write_tables(**args):
     else:
         write_table('variable_capacity_factors.tab', """
             SELECT 
-                concat_ws('_', load_zone, technology, site, orientation) as "PROJECT",
+                "PROJECT",
                 study_hour as timepoint,
                 cap_factor as proj_max_capacity_factor
-            FROM generator_info g 
-                JOIN project p USING (technology)
+            FROM study_generator_info g 
+                JOIN study_projects p USING (technology)
                 JOIN cap_factor c USING (project_id)
                 JOIN study_hour h using (date_time)
-            WHERE load_zone in %(load_zones)s and time_sample = %(time_sample)s
-                AND min_vintage_year <= (SELECT MAX(period) FROM study_periods WHERE time_sample = %(time_sample)s)
-                AND g.technology NOT IN %(exclude_technologies)s
-            UNION 
-            SELECT 
-                c.project_id as "PROJECT", 
-                study_hour as timepoint, 
-                cap_factor as proj_max_capacity_factor
-            FROM existing_plants p JOIN existing_plants_cap_factor c USING (project_id)
-                JOIN study_hour h USING (date_time)
-            WHERE h.date_time = c.date_time 
-                AND c.load_zone in %(load_zones)s
-                AND h.time_sample = %(time_sample)s
-                AND insvyear <= (SELECT MAX(period) FROM study_periods WHERE time_sample = %(time_sample)s)
-                AND p.technology NOT IN %(exclude_technologies)s
+            WHERE time_sample = %(time_sample)s
             ORDER BY 1, 2
         """, args)
 
@@ -569,18 +555,19 @@ def write_tables(**args):
 
     write_table('proj_commit_bounds_timeseries.tab', """
         SELECT * FROM (
-            SELECT project_id as "PROJECT",
+            SELECT "PROJECT",
                 study_hour AS "TIMEPOINT",
-                case when %(enable_must_run)s = 1 and must_run = 1 then 1.0 else null end as proj_min_commit_fraction, 
-                null as proj_max_commit_fraction,
-                null as proj_min_load_fraction
-            FROM existing_plants, study_hour
-            WHERE load_zone in %(load_zones)s
-                AND time_sample = %(time_sample)s
-                AND insvyear <= (SELECT MAX(period) FROM study_periods WHERE time_sample = %(time_sample)s)
-                AND technology NOT IN %(exclude_technologies)s
+                CASE WHEN %(enable_must_run)s = 1 AND must_run = 1 THEN 1.0 ELSE null END 
+                    AS proj_min_commit_fraction, 
+                null AS proj_max_commit_fraction,
+                null AS proj_min_load_fraction
+            FROM study_projects JOIN study_generator_info USING (technology)
+                CROSS JOIN study_hour
+            WHERE time_sample = %(time_sample)s
         ) AS the_data
-        WHERE proj_min_commit_fraction IS NOT NULL OR proj_max_commit_fraction IS NOT NULL OR proj_min_load_fraction IS NOT NULL;
+        WHERE proj_min_commit_fraction IS NOT NULL 
+            OR proj_max_commit_fraction IS NOT NULL 
+            OR proj_min_load_fraction IS NOT NULL;
     """, args)
 
     # TODO: get minimum loads for new and existing power plants and then activate the query below

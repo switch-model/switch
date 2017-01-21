@@ -4,7 +4,14 @@ smooth out demand response and EV charging as much as possible."""
 from pyomo.environ import *
 
 def define_components(m):
-    m.options.smooth_dispatch = (m.options.solver == "cplex")
+    if m.options.solver in ('cplex', 'cplexamp', 'gurobi'):
+        m.options.smooth_dispatch = True
+    else:
+        # glpk and cbc can't handle quadratic problem used for smoothing
+        m.options.smooth_dispatch = False
+        if m.options.verbose:
+            print "Not smoothing dispatch because {} cannot solve a quadratic model.".format(m.options.solver)
+            print "Remove hawaii.smooth_dispatch from modules.txt and iterate.txt to avoid this message."
 
     # add an alternative objective function that smoothes out various non-cost variables
     if m.options.smooth_dispatch:
@@ -15,14 +22,17 @@ def define_components(m):
                     for lz in m.LOAD_ZONES 
                         for t in m.TIMEPOINTS 
                             for component in m.LZ_Energy_Components_Produce)
-            # also minimize the magnitude of demand adjustments
-            if hasattr(m, "DemandResponse"):
-                print "Will smooth DemandResponse."
-                obj = obj + sum(m.DemandResponse[z, t]*m.DemandResponse[z, t] for z in m.LOAD_ZONES for t in m.TIMEPOINTS)
-            # also minimize the magnitude of EV charging
-            if hasattr(m, "ChargeEVs"):
-                print "Will smooth EV charging."
-                obj = obj + sum(m.ChargeEVs[z, t]*m.ChargeEVs[z, t] for z in m.LOAD_ZONES for t in m.TIMEPOINTS)
+            # minimize the variability of various slack responses
+            adjustable_components = [
+                'DemandResponse', 'ChargeBattery', 'DischargeBattery', 'ChargeEVs', 
+                'RunElectrolyzerMW', 'LiquifyHydrogenMW', 'DispatchFuelCellMW'
+            ]
+            for var in adjustable_components:
+                if hasattr(m, var):
+                    if m.options.verbose:
+                        print "Will smooth {}.".format(var)
+                    comp = getattr(m, var)
+                    obj += sum(comp[z, t]*comp[z, t] for z in m.LOAD_ZONES for t in m.TIMEPOINTS)
             return obj
         m.Smooth_Free_Variables = Objective(rule=Smooth_Free_Variables_obj_rule, sense=minimize)
 
@@ -41,8 +51,7 @@ def pre_iterate(m):
         else:
             raise RuntimeError("Reached unexpected iteration number {} in module {}.".format(m.iteration_number, __name__))
 
-    # don't block convergence based on anything that happened in this function
-    return True 
+    return None  # no comment on convergence
     
 def post_iterate(m):
     if hasattr(m, "ChargeBattery"):
@@ -79,8 +88,9 @@ def post_iterate(m):
 
         # setup model for next iteration
         if m.iteration_number == 0:
-            done = False # we'll have to run again for more smoothing
+            done = False # we'll have to run again to do the smoothing
         elif m.iteration_number == 1:
+            # finished smoothing the model
             # restore the standard objective
             m.Smooth_Free_Variables.deactivate()
             m.Minimize_System_Cost.activate()
