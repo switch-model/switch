@@ -396,7 +396,7 @@ def pre_iterate(m):
     # TODO: index this to the direct costs, rather than the direct costs minus benefits
     # as it stands, it converges with about $50,000,000 optimality gap, which is about 
     # 3% of direct costs.
-    converged = (m.iteration_number > 0 and (prev_cost - best_cost)/abs(best_cost) <= 0.0001)
+    converged = (m.iteration_number > 0 and (prev_cost - best_cost)/abs(best_cost) <= 0.0000001)
     
     return converged
 
@@ -858,24 +858,26 @@ def summary_values(m):
     ])
     
     # payments by customers ([expected demand] * [price offered for that demand])
-    # TODO: this uses the price from just _before_ the final solution.
-    # eventually this should be changed to reflect our expected pricing strategy 
-    # (final constructed load * last offered price or final ex post price?)
+    # note: this uses the final MC to set the final price, rather than using the
+    # final price offered to customers. This creates consistency between the final
+    # quantities and prices. Otherwise, we would use prices that differ from the
+    # final cost by some random amount, and the split between PS and CS would 
+    # jump around randomly.
+    # note: if switching to using the offered prices, then you may have to use None
+    # as the customer payment during iteration 0, since m.dr_price[last_bid, lz, tp, prod]
+    # may not be defined yet.
     last_bid = m.DR_BID_LIST.last()
-    if m.iteration_number == 0:
-        values.extend([None for p in m.PERIODS])
-    else:
-        values.extend([
-            sum(
-                # electricity_demand(m, lz, tp, prod) * m.dr_price[last_bid, lz, tp, prod] * m.tp_weight_in_year[tp]
-                # here we assume customers pay final marginal cost, so we don't artificially
-                # shift surplus between consumers and producers
-                electricity_demand(m, lz, tp, prod) * electricity_marginal_cost(m, lz, tp, prod) 
-                    * m.tp_weight_in_year[tp]
-                for lz in m.LOAD_ZONES for tp in m.PERIOD_TPS[p] for prod in m.DR_PRODUCTS
-            )
-            for p in m.PERIODS
-        ])
+    values.extend([
+        sum(
+            # electricity_demand(m, lz, tp, prod) * m.dr_price[last_bid, lz, tp, prod] * m.tp_weight_in_year[tp]
+            # here we assume customers pay final marginal cost, so we don't artificially
+            # shift surplus between consumers and producers
+            electricity_demand(m, lz, tp, prod) * electricity_marginal_cost(m, lz, tp, prod) 
+                * m.tp_weight_in_year[tp]
+            for lz in m.LOAD_ZONES for tp in m.PERIOD_TPS[p] for prod in m.DR_PRODUCTS
+        )
+        for p in m.PERIODS
+    ])
     
     # total quantities bought (or sold) by customers each year
     values.extend([
@@ -989,22 +991,24 @@ def write_dual_costs(m):
     for comp in m.component_objects(ctype=Var):
         for idx in comp:
             var = comp[idx]
-            if var.is_integer() or var.is_binary():
-                # integrality constraint sets upper and lower bounds
-                add_dual(var, value(var), value(var), m.rc, prefix='integer: ')
-            else:
-                add_dual(var, var.lb, var.ub, m.rc)
+            if var.value is not None:  # ignore vars that weren't used in the model
+                if var.is_integer() or var.is_binary():
+                    # integrality constraint sets upper and lower bounds
+                    add_dual(var, value(var), value(var), m.rc, prefix='integer: ')
+                else:
+                    add_dual(var, var.lb, var.ub, m.rc)
     for comp in m.component_objects(ctype=Constraint):
         for idx in comp:
             constr = comp[idx]
-            offset = 0.0
-            # cancel out any constants that were stored in the body instead of the bounds
-            # (see https://groups.google.com/d/msg/pyomo-forum/-loinAh0Wx4/IIkxdfqxAQAJ)
-            # (might be faster to do this once during model setup instead of every time)
-            canonical_constraint = pyomo.repn.canonical_repn.generate_canonical_repn(constr.body)
-            if canonical_constraint.constant is not None:
-                offset = -canonical_constraint.constant
-            add_dual(constr, value(constr.lower), value(constr.upper), m.dual, offset=offset)
+            if constr.active:
+                offset = 0.0
+                # cancel out any constants that were stored in the body instead of the bounds
+                # (see https://groups.google.com/d/msg/pyomo-forum/-loinAh0Wx4/IIkxdfqxAQAJ)
+                # (might be faster to do this once during model setup instead of every time)
+                canonical_constraint = pyomo.repn.canonical_repn.generate_canonical_repn(constr.body)
+                if canonical_constraint.constant is not None:
+                    offset = -canonical_constraint.constant
+                add_dual(constr, value(constr.lower), value(constr.upper), m.dual, offset=offset)
 
     dual_data.sort(key=lambda r: (not r[0].startswith('DR_Convex_'), r[3] >= 0)+r)
 

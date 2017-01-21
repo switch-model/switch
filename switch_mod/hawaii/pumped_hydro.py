@@ -67,9 +67,9 @@ def define_components(m):
     m.Pumped_Hydro_Build_All_Or_None = Constraint(m.PH_PROJECTS, m.PERIODS, rule=lambda m, pr, pe:
         m.BuildPumpedHydroMW[pr, pe] == m.BuildAnyPumpedHydro[pr, pe] * m.ph_max_capacity_mw[pr]
     )
-    m.Deactivate_Pumped_Hydro_Build_All_Or_None = BuildAction(rule=lambda m:
-        m.Pumped_Hydro_Build_All_Or_None.deactivate()
-    )
+    # m.Deactivate_Pumped_Hydro_Build_All_Or_None = BuildAction(rule=lambda m:
+    #     m.Pumped_Hydro_Build_All_Or_None.deactivate()
+    # )
     
     # limits on pumping and generation
     m.Pumped_Hydro_Max_Generate_Rate = Constraint(m.PH_PROJECTS, m.TIMEPOINTS, rule=lambda m, pr, t:

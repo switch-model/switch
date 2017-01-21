@@ -37,19 +37,24 @@ def define_components(m):
     # Calculate spinning reserve requirements.
 
     # these parameters were found by regressing the reserve requirements from the GE RPS Study
-    # against wind and solar conditions each hour
+    # against wind and solar conditions each hour 
+    # (see Dropbox/Research/Shared/Switch-Hawaii/ge_validation/source_data/reserve_requirements_oahu_scenarios charts.xlsx
+    # and Dropbox/Research/Shared/Switch-Hawaii/ge_validation/fit_renewable_reserves.ipynb )
+    # TODO: supply these parameters in input files
 
     # regulating reserves required, as fraction of potential output (up to limit)
-    m.regulating_reserve_fraction = Param(['CentralTrackingPV', 'DistPV', 'Wind'], initialize={
+    m.regulating_reserve_fraction = Param(['CentralTrackingPV', 'DistPV', 'OnshoreWind', 'OffshoreWind'], initialize={
         'CentralTrackingPV': 1.0,
-        'DistPV': 0.81270193,
-        'Wind': 1.0
+        'DistPV': 1.0, # 0.81270193,
+        'OnshoreWind': 1.0,
+        'OffshoreWind': 1.0, # assumed equal to OnshoreWind
     })
     # maximum regulating reserves required, as fraction of installed capacity
-    m.regulating_reserve_limit = Param(['CentralTrackingPV', 'DistPV', 'Wind'], initialize={
+    m.regulating_reserve_limit = Param(['CentralTrackingPV', 'DistPV', 'OnshoreWind', 'OffshoreWind'], initialize={
         'CentralTrackingPV': 0.21288916,
-        'DistPV': 0.14153171,
-        'Wind': 0.21624407
+        'DistPV': 0.21288916, # 0.14153171,
+        'OnshoreWind': 0.21624407,
+        'OffshoreWind': 0.21624407, # assumed equal to OnshoreWind
     })
     # more conservative values (found by giving 10x weight to times when we provide less reserves than GE):
     # [1., 1., 1., 0.25760558, 0.18027923, 0.49123101]
@@ -120,6 +125,16 @@ def define_dynamic_components(m):
             if hasattr(m, 'DemandUpReserves') 
             else 0.0
         )
+        + (
+            sum(m.DemandResponse[lz, tp] -  m.DemandResponse[lz, tp].lb for lz in m.LOAD_ZONES) 
+            if hasattr(m, 'DemandResponse') 
+            else 0.0
+        )
+        + (
+            sum(m.ChargeEVs[lz, tp] for lz in m.LOAD_ZONES) 
+            if hasattr(m, 'ChargeEVs') and hasattr(m.options, 'ev_timing') and m.options.ev_timing=='optimal'
+            else 0.0
+        )
     )
     m.SpinningReservesDownAvailable = Expression(m.TIMEPOINTS, rule=lambda m, tp:
         sum(m.DispatchSlackDown[p, tp] for p in m.FIRM_PROJECTS if (p, tp) in m.PROJ_DISPATCH_POINTS)
@@ -138,6 +153,8 @@ def define_dynamic_components(m):
             if hasattr(m, 'DemandDownReserves') 
             else 0.0
         )
+        # note: we currently ignore down-reserves (option of increasing consumption) 
+        # from EVs and simple demand response, since it's not clear how high they could go
     )
 
     # Meet the reserve requirements

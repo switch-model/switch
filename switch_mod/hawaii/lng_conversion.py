@@ -64,6 +64,10 @@ def define_components(m):
     # fixed O&M) after a certain period of time. Then PSIP module could force longer
     # activation if needed.
     
+    # In the end, this was resolved by having the user specify multiple tiers with
+    # different lifetimes and corresponding fixed costs per year; then the model
+    # (or user) can choose a tier with a particular lifetime.
+    
     # force use of a particular LNG tier in particular periods
     def Force_LNG_Tier_rule(m, rfm, per, tier):
         if m.options.force_lng_tier is None:
@@ -88,8 +92,8 @@ def define_components(m):
                 # specified a valid tier, but not the current one or not the current period
                 action = 0
         if action == Constraint.Skip:
-            if m.options.verbose:
-                print "Model will optimize activation of tier {}.".format((rfm, per, tier))
+            # if m.options.verbose:
+            #     print "Model will optimize activation of tier {}.".format((rfm, per, tier))
             result = action
         else:
             if m.options.verbose:
@@ -115,7 +119,9 @@ def define_components(m):
     # are included in the LNG supply tiers, so we don't need to worry about that.
     m.LNG_CONVERTED_PLANTS = Set(
         initialize=[
-            'Oahu_Kahe_K5', 'Oahu_Kahe_K6', 'Oahu_Kalaeloa_CC1_CC2', 
+            'Oahu_Kahe_K5', 'Oahu_Kahe_K6', 
+            'Oahu_Kalaeloa_CC1_CC2', # used in some older models
+            'Oahu_Kalaeloa_CC1', 'Oahu_Kalaeloa_CC2', 'Oahu_Kalaeloa_CC3',
             'Oahu_CC_383', 'Oahu_CC_152', 'Oahu_CT_100'
         ]
     )

@@ -3,13 +3,6 @@ from pyomo.environ import *
 from switch_mod.financials import capital_recovery_factor as crf
 
 def define_components(m):
-    
-    # make helper set identifying all timeseries in each period
-    if hasattr(m, "PERIOD_TS"):
-        print "DEPRECATION NOTE: PERIOD_TS is defined in hydrogen.py, but it already exists, so this can be removed."
-    else:
-        m.PERIOD_TS = Set(m.PERIODS, ordered=True, within=m.TIMESERIES, initialize=lambda m, p:
-            [ts for ts in m.TIMESERIES if m.ts_period[ts] == p])
 
     # electrolyzer details
     m.hydrogen_electrolyzer_capital_cost_per_mw = Param()
@@ -45,6 +38,7 @@ def define_components(m):
     
     # storage tank details
     m.liquid_hydrogen_tank_capital_cost_per_kg = Param()
+    m.liquid_hydrogen_tank_minimum_size_kg = Param(default=0.0)
     m.liquid_hydrogen_tank_life_years = Param()
     m.BuildLiquidHydrogenTankKg = Var(m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals) # in kg
     m.LiquidHydrogenTankCapacityKg = Expression(m.LOAD_ZONES, m.PERIODS, rule=lambda m, z, p:
@@ -96,11 +90,52 @@ def define_components(m):
     m.Max_Run_Liquifier = Constraint(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
         m.LiquifyHydrogenKgPerHour[z, t] <= m.LiquifierCapacityKgPerHour[z, m.tp_period[t]])
 
-    # how much extra power could hydrogen equipment produce or absorb on short notice
+    # minimum size for hydrogen tank
+    m.BuildAnyLiquidHydrogenTank = Var(m.LOAD_ZONES, m.PERIODS, within=Binary)
+    m.Set_BuildAnyLiquidHydrogenTank_Flag = Constraint(m.LOAD_ZONES, m.PERIODS, rule=lambda m, z, p:
+        Constraint.Skip if m.liquid_hydrogen_tank_minimum_size_kg == 0.0
+        else (
+            m.BuildLiquidHydrogenTankKg[z, p] 
+            <= 
+            1000 * m.BuildAnyLiquidHydrogenTank[z, p] * m.liquid_hydrogen_tank_minimum_size_kg
+        )
+    )
+    m.Build_Minimum_Liquid_Hydrogen_Tank = Constraint(m.LOAD_ZONES, m.PERIODS, rule=lambda m, z, p:
+        Constraint.Skip if m.liquid_hydrogen_tank_minimum_size_kg == 0.0
+        else (
+            m.BuildLiquidHydrogenTankKg[z, p] 
+            >= 
+            m.BuildAnyLiquidHydrogenTank[z, p] * m.liquid_hydrogen_tank_minimum_size_kg
+        )
+    )
+
+    # maximum amount that hydrogen fuel cells can contribute to system reserves
+    # Note: we assume we can't use fuel cells for reserves unless we've also built at least half 
+    # as much electrolyzer capacity and a tank that can provide the reserves for 12 hours
+    # (this is pretty arbitrary, but avoids just installing a fuel cell as a "free" source of reserves)
+    m.HydrogenFuelCellMaxReservePower = Var(m.LOAD_ZONES, m.TIMEPOINTS)
+    m.Hydrogen_FC_Reserve_Capacity_Limit = Constraint(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
+        m.HydrogenFuelCellMaxReservePower[z, t]
+        <=
+        m.FuelCellCapacityMW[z, m.tp_period[t]]
+    )
+    m.Hydrogen_FC_Reserve_Storage_Limit = Constraint(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
+        m.HydrogenFuelCellMaxReservePower[z, t]
+        <=
+        m.LiquidHydrogenTankCapacityKg[z, m.tp_period[t]] * m.hydrogen_fuel_cell_mwh_per_kg / 12.0
+    )
+    m.Hydrogen_FC_Reserve_Electrolyzer_Limit = Constraint(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
+        m.HydrogenFuelCellMaxReservePower[z, t]
+        <=
+        2.0 * m.ElectrolyzerCapacityMW[z, m.tp_period[t]]
+    )
+
+    # how much extra power could hydrogen equipment produce or absorb on short notice (for reserves)
     m.HydrogenSlackUp = Expression(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
         m.RunElectrolyzerMW[z, t] 
         + m.LiquifyHydrogenMW[z, t]
-        + m.FuelCellCapacityMW[z, m.tp_period[t]] - m.DispatchFuelCellMW[z, t]
+        + m.HydrogenFuelCellMaxReservePower[z, t]
+        - m.DispatchFuelCellMW[z, t]
     )
     m.HydrogenSlackDown = Expression(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
         m.ElectrolyzerCapacityMW[z, m.tp_period[t]] - m.RunElectrolyzerMW[z, t] 

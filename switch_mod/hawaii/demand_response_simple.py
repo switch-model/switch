@@ -13,11 +13,11 @@ def define_components(m):
     m.demand_response_max_share = Param(default=m.options.demand_response_share, mutable=True)
 
     # adjustment to demand during each hour (positive = higher demand)
-    m.DemandResponse = Var(m.LOAD_ZONES, m.TIMEPOINTS, within=Reals)
-    
-    # don't reduce demand by more than 30% in any hour
-    m.Demand_Response_Max_Reduction = Constraint(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
-        m.DemandResponse[z, t] >= (-1.0) * m.demand_response_max_share * m.lz_demand_mw[z, t]
+    m.DemandResponse = Var(m.LOAD_ZONES, m.TIMEPOINTS, within=Reals, bounds=lambda m, z, t: 
+        (
+            (-1.0) * m.demand_response_max_share * m.lz_demand_mw[z, t],
+            None
+        )
     )
     
     # all changes to demand must balance out over the course of the day
