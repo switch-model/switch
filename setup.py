@@ -17,7 +17,7 @@ packages = ['switch_mod']
 
 setup(
     name='SWITCH',
-    version='2.0.b0',
+    version='2.0b0',
     maintainer='Matthias Fripp',
     maintainer_email='mfripp@hawaii.edu',
     url='http://switch-model.org',
