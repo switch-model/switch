@@ -65,6 +65,11 @@ def define_components(mod):
 
     Derived parameters:
 
+    lz_peak_demand_mw[z,p] describes the peak demand in each load zone z
+    and each investment period p. This optional parameter defaults to
+    the highest load in the lz_demand_mw timeseries for the given load
+    zone & period.
+
     lz_total_demand_in_period_mwh[z,p] describes the total energy demand
     of each load zone in each period in Megawatt hours.
 
@@ -87,6 +92,11 @@ def define_components(mod):
         default=lambda m, lz: lz)
     # Verify that mandatory data exists before using it.
     mod.min_data_check('LOAD_ZONES', 'lz_demand_mw')
+    mod.lz_peak_demand_mw = Param(
+        mod.LOAD_ZONES, mod.PERIODS,
+        within=NonNegativeReals,
+        default=lambda m, lz, p: max(
+            m.lz_demand_mw[lz, t] for t in m.PERIOD_TPS[p]))
     mod.lz_total_demand_in_period_mwh = Param(
         mod.LOAD_ZONES, mod.PERIODS,
         within=NonNegativeReals,
@@ -147,6 +157,9 @@ def load_inputs(mod, switch_data, inputs_dir):
     loads.tab
         LOAD_ZONE, TIMEPOINT, lz_demand_mw
 
+    lz_peak_loads.tab is optional.
+        LOAD_ZONE, PERIOD, peak_demand_mw
+
     """
     # Include select in each load() function so that it will check out
     # column names, be indifferent to column order, and throw an error
@@ -161,6 +174,11 @@ def load_inputs(mod, switch_data, inputs_dir):
         filename=os.path.join(inputs_dir, 'loads.tab'),
         auto_select=True,
         param=(mod.lz_demand_mw))
+    switch_data.load_aug(
+        optional=True,
+        filename=os.path.join(inputs_dir, 'lz_peak_loads.tab'),
+        select=('LOAD_ZONE', 'PERIOD', 'peak_demand_mw'),
+        param=(mod.lz_peak_demand_mw))
 
 
 def post_solve(instance, outdir):

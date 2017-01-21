@@ -322,21 +322,21 @@ def write_tables(**args):
     # NOTE: we divide heat rate by 1000 to convert from Btu/kWh to MBtu/MWh
     write_table('generator_info.tab', """
         SELECT technology as generation_technology, 
-                technology as g_dbid,
-                unit_size as g_unit_size,
-                max_age_years as g_max_age, 
-                scheduled_outage_rate as g_scheduled_outage_rate, 
-                {fo} as g_forced_outage_rate,
-                intermittent as g_is_variable, 
-                baseload as g_is_baseload, 
-                0 as g_is_flexible_baseload, 
-                cogen as g_is_cogen,
-                0 as g_competes_for_space, 
-                non_cycling as g_non_cycling,
-                variable_o_m * 1000.0 AS g_variable_o_m,
-                CASE WHEN fuel IN ('SUN', 'WND', 'MSW') THEN fuel ELSE 'multiple' END AS g_energy_source,
-                CASE WHEN fuel IN ('SUN', 'WND', 'MSW') THEN null ELSE {flhr} END AS g_full_load_heat_rate
-            FROM study_generator_info
+            technology as g_dbid,
+            unit_size as g_unit_size,
+            max_age_years as g_max_age, 
+            scheduled_outage_rate as g_scheduled_outage_rate, 
+            {fo} as g_forced_outage_rate,
+            intermittent as g_is_variable, 
+            baseload as g_is_baseload, 
+            0 as g_is_flexible_baseload, 
+            cogen as g_is_cogen,
+            0 as g_competes_for_space, 
+            non_cycling as g_non_cycling,
+            variable_o_m * 1000.0 AS g_variable_o_m,
+            CASE WHEN fuel IN ('SUN', 'WND', 'MSW') THEN fuel ELSE 'multiple' END AS g_energy_source,
+            CASE WHEN fuel IN ('SUN', 'WND', 'MSW') THEN null ELSE {flhr} END AS g_full_load_heat_rate
+        FROM study_generator_info
         ORDER BY 1;
     """.format(fo=forced_outage_rate, flhr=full_load_heat_rate), args)
 

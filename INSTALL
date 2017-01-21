@@ -52,6 +52,27 @@ pip install --user -r pip_requirements.txt
 # Install glpk & glpsol
 sudo yum install -y glpk glpk-utils
 
+--------------------------------
+Instructions on ArchLinux
+
+# Check python version is set to 2.7.x. If you are currently using Python 3 or higher you can set a virtual environment using virtualenv
+python --version
+
+# Install pip through AUR.
+yaourt pip
+
+# Only if you're currently using Python 3:
+pip install virtualenv
+cd <switch folder>
+virtualenv -p  /usr/bin/python2.7 <virtual environment name>
+export VIRTUALENV_PYTHON=/usr/bin/python2.7
+source <virtual environment name>/bin/activate
+
+# Install the required packages
+pip install -r pip_requirements.txt
+
+# Install GLPK v4.55: https://ftp.gnu.org/gnu/glpk/ follow the instructions in the 'INSTALL' file inside the tar.
+
 ---------------------------------
 Instructions for Mac OS X 10.11 (El Capitan)
 

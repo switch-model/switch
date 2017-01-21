@@ -5,3 +5,4 @@ ply==3.8
 six==1.10.0
 testfixtures==4.8.0
 sympy==1.0
+numpy==1.11.2
