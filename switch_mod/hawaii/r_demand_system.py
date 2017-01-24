@@ -9,24 +9,6 @@ An alternative approach would be to store calibration data in a particular
 environment or object in R, and return that to Python. Then that could be
 returned by the python calibrate() function and attached to the model.
 """
-# print "loading r_demand_system.py"
-
-import numpy as np
-import rpy2.robjects as robjects
-
-# turn on automatic numpy <-> r conversion
-import rpy2.robjects.numpy2ri
-rpy2.robjects.numpy2ri.activate()
-
-# alternatively, we could use numpy2ri(np.array(...)), but it's easier
-# to use the automatic conversions. 
-# If we wanted to be more explicit about conversions, it would probably 
-# be best to switch to using the rpy2.rinterface to build up the r objects
-# from a low level, e.g., rinterface.StrSexpVector(load_zones) to get a 
-# string vector, other tools to get an array and add dimnames, etc.
-
-# initialize the R environment
-r = robjects.r
 
 def define_arguments(argparser):
     argparser.add_argument("--dr-elasticity-scenario", type=int, default=3,
@@ -37,6 +19,38 @@ def define_arguments(argparser):
         "This script should provide calibrate() and bid() functions. ")
 
 def define_components(m):
+    # load modules for use later (import is delayed to avoid interfering with unit tests)
+    try:
+        global np
+        import numpy as np
+    except ImportError:
+        print "="*80
+        print "Unable to load numpy package, which is used by the r_demand_system module."
+        print "Please install this via 'conda install numpy' or 'pip install numpy'."
+        print "="*80
+        raise
+    try:
+        global rpy2  # not actually needed outside this function
+        import rpy2.robjects
+        import rpy2.robjects.numpy2ri
+    except ImportError:
+        print "="*80
+        print "Unable to load rpy2 package, which is used by the r_demand_system module."
+        print "Please install this via 'conda install rpy2' or 'pip install rpy2'."
+        print "="*80
+        raise
+    # initialize the R environment
+    global r
+    r = rpy2.robjects.r
+    # turn on automatic numpy <-> r conversion
+    rpy2.robjects.numpy2ri.activate()
+    # alternatively, we could use numpy2ri(np.array(...)), but it's easier
+    # to use the automatic conversions. 
+    # If we wanted to be more explicit about conversions, it would probably 
+    # be best to switch to using the rpy2.rinterface to build up the r objects
+    # from a low level, e.g., rinterface.StrSexpVector(load_zones) to get a 
+    # string vector, other tools to get an array and add dimnames, etc.
+
     # load the R script specified by the user (must have calibrate() and bid() functions)
     if m.options.dr_r_script is None:
         raise RuntimeError(
