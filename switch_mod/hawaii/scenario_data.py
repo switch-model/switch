@@ -1,6 +1,5 @@
 import time, sys, collections, os
 from textwrap import dedent
-import psycopg2
 
 # NOTE: instead of using the python csv writer, this directly writes tables to 
 # file in the pyomo .tab format. This uses tabs between columns and the standard
@@ -747,6 +746,19 @@ con = None
 def db_cursor():
     global con
     if con is None:
+        try:
+            # note: we don't import until here to avoid interfering with unit tests on systems that don't have
+            # (or need) psycopg2
+            global psycopg2
+            import psycopg2
+        except ImportError:
+            print dedent("""
+                ############################################################################################
+                Unable to import psycopg2 module to access database server.
+                Please install this module via 'conda install psycopg2' or 'pip install psycopg2'.
+                ############################################################################################
+                """)
+            raise
         try:
             pghost='redr.eng.hawaii.edu'
             # note: the connection gets created when the module loads and never gets closed (until presumably python exits)
