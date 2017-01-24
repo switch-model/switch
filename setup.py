@@ -1,6 +1,20 @@
 """Setup script for SWITCH. 
-Use "python setup.py install" to install a copy in the site packages directory.
-Use "python setup.py develop" to activate SWITCH while preserving its current location.
+
+Use "pip install --upgrade ." to install a copy in the site packages directory.
+
+Use "pip install --upgrade --editable ." to install SWITCH to be run from its 
+current location.
+
+Optional dependencies can be added during the initial install by running a 
+command like this: 
+pip install --upgrade .[advanced,database_access]
+
+Optional dependencies can be installed later by running a command like this:
+pip install switch[advanced]
+
+Use "python setup.py test" to test the package before installing.
+
+Use "pip uninstall switch" to uninstall the package.
 """
 
 import os
@@ -8,6 +22,24 @@ from setuptools import setup
 
 def read(*rnames):
     return open(os.path.join(os.path.dirname(__file__), *rnames)).read()
+
+required = [
+    'Pyomo>=4.4.1', # We need a version that works with glpk 4.60+
+    'testfixtures'  # used for standard tests
+]
+ 
+extras = {
+    # packages used for advanced demand response and progressive hedging
+    'advanced': ['numpy', 'scipy', 'rpy2', 'sympy'],
+    'database_access': ['psycopg2']
+}
+
+packages = ['switch_mod']
+
+entry_points = """
+    [console_scripts]
+    switch=switch_mod.main:main
+"""
 
 setup(
     name='SWITCH',
@@ -35,27 +67,13 @@ setup(
     'Topic :: Scientific/Engineering',
     'Topic :: Software Development :: Libraries :: Python Modules'
     ],
-    packages=['switch_mod'],
+    packages=packages,
     keywords=[
         'renewable', 'power', 'energy', 'electricity', 
         'production cost', 'capacity expansion', 
         'planning', 'optimization'
     ],
-    install_requires=[
-        'PyUtilib',
-        'Pyomo>=4.3.11377', # We minimally need the glpk bugfix version
-        'nose',
-        'ply',
-        'six',
-        'testfixtures',
-        'sympy',
-        'numpy'
-    ],
-    extras_require={
-        'r': ['rpy2'],
-        'psql': ['psycopg2']
-    },
-    entry_points={
-        'console_scripts': ['switch = switch_mod.main:main']
-    }
+    install_requires=required,
+    extras_require=extras,
+    entry_points=entry_points,
 )
