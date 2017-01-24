@@ -5,14 +5,11 @@ Use "pip install --upgrade ." to install a copy in the site packages directory.
 Use "pip install --upgrade --editable ." to install SWITCH to be run from its 
 current location.
 
-Optional dependencies can be added during the initial install by running a 
-command like this: 
-pip install --upgrade .[advanced,database_access]
+Optional dependencies can be added during the initial install or later by 
+running a command like this: 
+pip install --upgrade --editable .[advanced,database_access]
 
-Optional dependencies can be installed later by running a command like this:
-pip install switch[advanced]
-
-Use "pip uninstall switch" to uninstall the package.
+Use "pip uninstall switch" to uninstall switch from your system.
 """
 
 import os
