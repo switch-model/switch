@@ -18,7 +18,7 @@ required = [
 # then use 'pip install --user switch[run_tests,demand_response]' to install optional dependencies
 extras = {
     'run_tests': ['testfixtures'],
-    'demand_response': ['numpy', 'scipy']
+    'demand_response': ['numpy', 'scipy', 'rpy2']
 }
 
 packages = ['switch_mod']
