@@ -12,8 +12,6 @@ pip install --upgrade .[advanced,database_access]
 Optional dependencies can be installed later by running a command like this:
 pip install switch[advanced]
 
-Use "python setup.py test" to test the package before installing.
-
 Use "pip uninstall switch" to uninstall the package.
 """
 
