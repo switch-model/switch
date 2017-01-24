@@ -21,24 +21,6 @@ from setuptools import setup
 def read(*rnames):
     return open(os.path.join(os.path.dirname(__file__), *rnames)).read()
 
-required = [
-    'Pyomo>=4.4.1', # We need a version that works with glpk 4.60+
-    'testfixtures'  # used for standard tests
-]
- 
-extras = {
-    # packages used for advanced demand response and progressive hedging
-    'advanced': ['numpy', 'scipy', 'rpy2', 'sympy'],
-    'database_access': ['psycopg2']
-}
-
-packages = ['switch_mod']
-
-entry_points = """
-    [console_scripts]
-    switch=switch_mod.main:main
-"""
-
 setup(
     name='SWITCH',
     version='2.0.0b0',
@@ -65,13 +47,22 @@ setup(
     'Topic :: Scientific/Engineering',
     'Topic :: Software Development :: Libraries :: Python Modules'
     ],
-    packages=packages,
+    packages=['switch_mod'],
     keywords=[
         'renewable', 'power', 'energy', 'electricity', 
         'production cost', 'capacity expansion', 
         'planning', 'optimization'
     ],
-    install_requires=required,
-    extras_require=extras,
-    entry_points=entry_points,
+    install_requires=[
+        'Pyomo>=4.4.1', # We need a version that works with glpk 4.60+
+        'testfixtures'  # used for standard tests
+    ],
+    extras_require={
+        # packages used for advanced demand response and progressive hedging
+        'advanced': ['numpy', 'scipy', 'rpy2', 'sympy'],
+        'database_access': ['psycopg2']
+    },
+    entry_points={
+        'console_scripts': ['switch = switch_mod.main:main']
+    },
 )
