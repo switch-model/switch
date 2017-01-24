@@ -1,5 +1,5 @@
 SYNOPSIS
-    python -m switch_mod.solve
+	switch solve --verbose --log-run
 
 This example illustrates the use of Switch to construct and run a toy
 model with three load zones and two investment periods where the first

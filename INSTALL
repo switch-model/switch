@@ -5,19 +5,7 @@ Python v2.7
     to do so. We have verified our code works with v2.7.9 and 2.7.10. We
     had some difficulties with our testing framework on v2.7.3.
 
-Pyomo
-    To install Pyomo, you can run this command:
-
-        pip install --user -r pip_requirements.txt
-
-    The pip_requirements.txt file records the versions of Pyomo and other
-    Python libraries that Switch is tested against.
-
-    Alternatively, you can see Pyomo's instructions for installing Pyomo
-    and its dependencies at:
-    https://software.sandia.gov/downloads/pub/pyomo/PyomoInstallGuide.html#_installing_pyomo
-
-A solver such as GLPK, Cbc https://projects.coin-or.org/Cbc or cplex.
+A solver such as GLPK, Cbc [https://projects.coin-or.org/Cbc] or cplex.
     GLPK is an established open source solver that is easy to install 
     on most platforms. We have andecdotal reports that Cbc tends to
     be significantly faster, but have had difficulties installing it
@@ -25,74 +13,13 @@ A solver such as GLPK, Cbc https://projects.coin-or.org/Cbc or cplex.
     expensive for non-academics. It is free for registered academics who
     use it for teaching or research.
 
-To use this model, either install this to a standard python library
-location or set the environment variable PYTHONPATH to include this
-directory. The latter option is probably more useful for developers. On
-mac or linux systems, you can do this by adding the following line to
-your login script ~/.profile and updating it to the actual path to your
-switch_py directory. This won't work if you use a relative path to
-specify your home directory. For example, "~/src/switch_py" will not
-work, but "/home/username/src/switch_py" will work.
+After installing prerequisites, you may install Switch by running the
+following command from the switch directory:
+	pip install --upgrade .
 
-export PYTHONPATH="${PYTHONPATH}:/absolute/path/to/switch_py"
+To install Switch in developer mode, run this command:
+	pip install --editable .
 
----------------------------------
-Instructions on CentOS on version 7.1.1503
-
-# Check python version is higher than 2.7.3. Update python version if
-# needed. 
-python --version
-
-# Install pip.
-sudo yum install -y python-pip
-
-# Install Pyomo
-pip install --user -r pip_requirements.txt
-
-# Install glpk & glpsol
-sudo yum install -y glpk glpk-utils
-
---------------------------------
-Instructions on ArchLinux
-
-# Check python version is set to 2.7.x. If you are currently using Python 3 or higher you can set a virtual environment using virtualenv
-python --version
-
-# Install pip through AUR.
-yaourt pip
-
-# Only if you're currently using Python 3:
-pip install virtualenv
-cd <switch folder>
-virtualenv -p  /usr/bin/python2.7 <virtual environment name>
-export VIRTUALENV_PYTHON=/usr/bin/python2.7
-source <virtual environment name>/bin/activate
-
-# Install the required packages
-pip install -r pip_requirements.txt
-
-# Install GLPK v4.55: https://ftp.gnu.org/gnu/glpk/ follow the instructions in the 'INSTALL' file inside the tar.
-
----------------------------------
-Instructions for Mac OS X 10.11 (El Capitan)
-
-Install Xcode via the App Store. Open it, accept the license agreement, and say yes if it asks about installing additional required components. Close it when finished.
-
-Install Homebrew, a package manager that ports open source projects to mac os x. For full instructions see http://brew.sh/ The quick instructions are to copy and paste the following command in a terminal.
-  ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
-
-Use brew to install python and glpk
-  brew install python
-  brew install homebrew/science/glpk
-
-Install pip:
-  sudo easy_install pip
-
-Download Switch:
-  mkdir -p ~/src
-  cd ~/src
-  git clone https://github.com/switch-model/switch.git
-
-Install Pyomo and other python libraries that Switch depends on
-  cd ~/src/switch
-  pip install --user -r pip_requirements.txt
+To install "extras", optional modules that interfaces with R or psql, run these commands:
+	sudo pip install --upgrade .[r]
+	sudo pip install --upgrade .[psql]

@@ -1,5 +1,5 @@
 SYNOPSIS
-    python -m switch_mod.solve
+	switch solve --verbose --log-run
 
 This example illustrates the use of using the hydro_simple module. 
 

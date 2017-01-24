@@ -14,14 +14,8 @@ components they define, and what input files they expect.
 
 TESTING
 To test the entire codebase, run this command from the root directory:
-
-./run_tests.py
-
+	./run_tests.py
 
 EXAMPLES
-To run an example, first update the python path to include the source directory.
-If you downloaded the project to ~/src/switch, the commands are:
-    cd ~/src/switch
-    export PYTHONPATH=$(pwd)":"$PYTHONPATH
-    cd examples/copperplate0
-    python -m switch_mod.solve --verbose
+To run an example, navigate to an example directory and run the command:
+	switch solve --verbose --log-run
