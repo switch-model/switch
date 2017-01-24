@@ -65,7 +65,7 @@ def create_model(module_list, args=sys.argv[1:]):
     SYNOPSIS:
     >>> from switch_mod.utilities import define_AbstractModel
     >>> model = define_AbstractModel(
-    ...     'switch_mod', 'operations.no_commit', 'fuel_cost')
+    ...     'switch_mod', 'operations.no_commit', 'financials.fuel_flat_costs')
 
     """
     # Load modules
@@ -102,7 +102,7 @@ def load_inputs(model, inputs_dir=None, attachDataPortal=True):
     SYNOPSIS:
     >>> from switch_mod.utilities import define_AbstractModel
     >>> model = define_AbstractModel(
-    ...     'switch_mod', 'operations.no_commit', 'fuel_cost')
+    ...     'switch_mod', 'operations.no_commit', 'financials.fuel_flat_costs')
     >>> instance = model.load_inputs(inputs_dir='test_dat')
 
     """
@@ -139,7 +139,7 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
     SYNOPSIS:
     >>> from switch_mod.utilities import define_AbstractModel
     >>> model = define_AbstractModel(
-    ...     'switch_mod', 'operations.no_commit', 'fuel_cost')
+    ...     'switch_mod', 'operations.no_commit', 'financials.fuel_flat_costs')
     >>> instance = model.load_inputs(inputs_dir='test_dat')
     >>> save_inputs_as_dat(
     ...     model, instance, save_path="test_dat/complete_inputs.dat")
@@ -399,7 +399,8 @@ def _load_modules(module_list):
     SYNOPSIS:
     >>> from switch_mod.utilities import _load_modules
     >>> full_module_names = _load_modules([
-    ...     'switch_mod', 'operations.no_commit', 'fuel_cost'])
+    ...     'switch_mod', 'operations.no_commit',
+    ...     'financials.fuel_flat_costs'])
 
     This will first attempt to load each listed module from the
     switch_mod package, and will look for them in the broader system

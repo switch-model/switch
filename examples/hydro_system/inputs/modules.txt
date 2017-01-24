@@ -1,3 +1,3 @@
 operations.no_commit
-fuel_cost
+financials.fuel_flat_costs
 generators.hydro_system
