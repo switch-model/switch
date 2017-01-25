@@ -79,7 +79,8 @@ def define_components(mod):
     decisions are made for each project/invest period combination. This
     set is derived from other parameters for all new construction. This
     set also includes entries for existing projects that have already
-    been built; information for legacy projects come from other files
+    been built and planned projects whose capacity buildouts have already been
+    decided; information for legacy projects come from other files
     and their build years will usually not correspond to the set of
     investment periods. There are two recommended options for
     abbreviating this set for denoting indexes: typically this should be
@@ -91,12 +92,13 @@ def define_components(mod):
     derived by joining the set of PROJECTS with the set of
     NEW_GENERATION_BUILDYEARS using generation technology.
 
-    EXISTING_PROJ_BUILDYEARS is a subset of PROJECT_BUILDYEARS that
-    only includes existing projects.
+    PREDETERMINED_PROJ_BUILDYEARS is a subset of PROJECT_BUILDYEARS that
+    only includes existing or planned projects that are not subject to
+    optimization.
 
-    proj_existing_cap[(proj, build_year) in EXISTING_PROJ_BUILDYEARS] is
+    proj_predetermined_cap[(proj, build_year) in PREDETERMINED_PROJ_BUILDYEARS] is
     a parameter that describes how much capacity was built in the past
-    for existing projects.
+    for existing projects, or is planned to be built for future projects.
 
     BuildProj[proj, build_year] is a decision variable that describes
     how much capacity of a project to install in a given period. This also
@@ -260,6 +262,7 @@ def define_components(mod):
     mod.proj_max_age = Param (mod.PROJECTS, within=PositiveIntegers)
     mod.proj_is_variable = Param (mod.PROJECTS, within=Boolean)
     mod.proj_is_baseload = Param (mod.PROJECTS, within=Boolean)
+    mod.proj_is_cogen = Param(mod.PROJECTS, within=Boolean, default=False)
     mod.proj_scheduled_outage_rate = Param (mod.PROJECTS,
         within=PercentFraction, default=0)
     mod.proj_forced_outage_rate = Param (mod.PROJECTS,
@@ -314,20 +317,20 @@ def define_components(mod):
             if proj in m.PROJECTS_WITH_MULTI_FUEL 
                 else [m.proj_energy_source[proj]]))
 
-    mod.EXISTING_PROJ_BUILDYEARS = Set(
+    mod.PREDETERMINED_PROJ_BUILDYEARS = Set(
         dimen=2)
     mod.PROJECT_BUILDYEARS = Set(
         dimen=2,
         validate=lambda m, proj, bld_yr: (
-            (proj, bld_yr) in m.EXISTING_PROJ_BUILDYEARS or
+            (proj, bld_yr) in m.PREDETERMINED_PROJ_BUILDYEARS or
             (proj, bld_yr) in m.PROJECTS * m.PERIODS))
     mod.NEW_PROJ_BUILDYEARS = Set(
         dimen=2,
-        initialize=lambda m: m.PROJECT_BUILDYEARS - m.EXISTING_PROJ_BUILDYEARS)
-    mod.proj_existing_cap = Param(
-        mod.EXISTING_PROJ_BUILDYEARS,
+        initialize=lambda m: m.PROJECT_BUILDYEARS - m.PREDETERMINED_PROJ_BUILDYEARS)
+    mod.proj_predetermined_cap = Param(
+        mod.PREDETERMINED_PROJ_BUILDYEARS,
         within=NonNegativeReals)
-    mod.min_data_check('proj_existing_cap')
+    mod.min_data_check('proj_predetermined_cap')
     
 
     def init_proj_final_period(m, proj, build_year):
@@ -362,9 +365,9 @@ def define_components(mod):
             if prj == proj and bld_yr <= p <= m.proj_final_period[proj, bld_yr]))
 
     def bounds_BuildProj(model, proj, bld_yr):
-        if((proj, bld_yr) in model.EXISTING_PROJ_BUILDYEARS):
-            return (model.proj_existing_cap[proj, bld_yr],
-                    model.proj_existing_cap[proj, bld_yr])
+        if((proj, bld_yr) in model.PREDETERMINED_PROJ_BUILDYEARS):
+            return (model.proj_predetermined_cap[proj, bld_yr],
+                    model.proj_predetermined_cap[proj, bld_yr])
         elif(proj in model.PROJECTS_CAP_LIMITED):
             # This does not replace Max_Build_Potential because
             # Max_Build_Potential applies across all build years.
@@ -384,9 +387,9 @@ def define_components(mod):
     # starting point we assign an appropriate value to all the existing 
     # projects here.
     def BuildProj_assign_default_value(m, proj, bld_yr):
-        m.BuildProj[proj, bld_yr] = m.proj_existing_cap[proj, bld_yr]
+        m.BuildProj[proj, bld_yr] = m.proj_predetermined_cap[proj, bld_yr]
     mod.BuildProj_assign_default_value = BuildAction(
-        mod.EXISTING_PROJ_BUILDYEARS,
+        mod.PREDETERMINED_PROJ_BUILDYEARS,
         rule=BuildProj_assign_default_value)
 
     mod.ProjCapacity = Expression(
@@ -488,13 +491,13 @@ def load_inputs(mod, switch_data, inputs_dir):
     Optional columns are:
         proj_dbid, proj_scheduled_outage_rate, proj_forced_outage_rate,
         proj_capacity_limit_mw, proj_unit_size, proj_ccs_energy_load,
-        proj_ccs_capture_efficiency, proj_min_build_capacity
+        proj_ccs_capture_efficiency, proj_min_build_capacity, proj_is_cogen
 
     The following file lists existing builds of projects, and is
     optional for simulations where there is no existing capacity:
 
-    proj_existing_builds.tab
-        PROJECT, build_year, proj_existing_cap
+    proj_build_predetermined.tab
+        PROJECT, build_year, proj_predetermined_cap
 
     The following file is mandatory, because it sets cost parameters for
     both existing and new project buildouts:
@@ -509,7 +512,7 @@ def load_inputs(mod, switch_data, inputs_dir):
         optional_params=['proj_dbid', 'proj_scheduled_outage_rate',
         'proj_forced_outage_rate', 'proj_capacity_limit_mw', 'proj_unit_size',
         'proj_ccs_energy_load', 'proj_ccs_capture_efficiency', 
-        'proj_min_build_capacity'],
+        'proj_min_build_capacity', 'proj_is_cogen'],
         index=mod.PROJECTS,
         param=(mod.proj_dbid, mod.proj_gen_tech, mod.proj_energy_source,
                mod.proj_load_zone, mod.proj_max_age, mod.proj_is_variable,
@@ -518,7 +521,7 @@ def load_inputs(mod, switch_data, inputs_dir):
                mod.proj_unit_size, mod.proj_ccs_energy_load,
                mod.proj_ccs_capture_efficiency, mod.proj_full_load_heat_rate, 
                mod.proj_variable_om, mod.proj_min_build_capacity,
-               mod.proj_connect_cost_per_mw))
+               mod.proj_connect_cost_per_mw, mod.proj_is_cogen))
     # Construct sets of capacity-limited, ccs-capable and unit-size-specified
     # projects. These sets include projects for which these parameters have
     # a value
@@ -533,10 +536,10 @@ def load_inputs(mod, switch_data, inputs_dir):
             None: switch_data.data(name='proj_ccs_capture_efficiency').keys()}
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'proj_existing_builds.tab'),
+        filename=os.path.join(inputs_dir, 'proj_build_predetermined.tab'),
         auto_select=True,
-        index=mod.EXISTING_PROJ_BUILDYEARS,
-        param=(mod.proj_existing_cap))
+        index=mod.PREDETERMINED_PROJ_BUILDYEARS,
+        param=(mod.proj_predetermined_cap))
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'proj_build_costs.tab'),
         auto_select=True,

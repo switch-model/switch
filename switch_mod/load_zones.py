@@ -36,13 +36,6 @@ def define_components(mod):
     is optional and defaults to the name of the load zone. It will be
     printed out when results are exported.
 
-    lz_cost_multipliers[z] is an zone-specific economic multiplier that
-    modifies all costs incurred in each load zone. This could reflect
-    differential costs of labor, regional inflation, etc. This is an
-    optional parameter with a default of 1. mod-WECC uses values
-    from the Army Corps of Engineers Civil Works Construction Cost Index
-    System with values ranging from 0.92 to 1.20.
-
     lz_ccs_distance_km[z] describes the length of a pipeline in
     kilometers that would need to be built to transport CO2 from a load
     zones central bus to the nearest viable CCS reservoir. This
