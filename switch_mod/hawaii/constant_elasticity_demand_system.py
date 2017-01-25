@@ -1,13 +1,11 @@
-import numpy as np
-
-base_load_dict = None
-base_price_dict = None
-elasticity_scenario = None
-
 def calibrate(base_data, dr_elasticity_scenario=3):
     """Accept a list of tuples showing [base hourly loads], and [base hourly prices] for each 
     location (load_zone) and date (time_series). Store these for later reference by bid().
     """
+    # import numpy; we delay till here to avoid interfering with unit tests 
+    global np
+    import numpy as np
+
     global base_load_dict, base_price_dict, elasticity_scenario
     # build dictionaries (indexed lists) of base loads and prices
     # store the load and price vectors as numpy arrays (vectors) for faste calculation later

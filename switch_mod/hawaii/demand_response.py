@@ -24,7 +24,6 @@ from pprint import pprint
 from pyomo.environ import *
 import pyomo.repn.canonical_repn
 
-import scipy.optimize
 import switch_mod.utilities as utilities
 from save_results import DispatchProjByFuel
 
@@ -87,6 +86,17 @@ def define_components(m):
             .format(mod=m.options.dr_demand_module)
         )
     demand_module = sys.modules[m.options.dr_demand_module]
+    
+    # load scipy.optimize for use later
+    try:
+        global scipy
+        import scipy.optimize
+    except ImportError:
+        print "="*80
+        print "Unable to load scipy package, which is used by the demand response system."
+        print "Please install this via 'conda install scipy' or 'pip install scipy'."
+        print "="*80
+        raise
     
     # Make sure the model has dual and rc suffixes
     if not hasattr(m, "dual"):
