@@ -9,7 +9,7 @@ generation technologies that have g_unit_size specified.
 from pyomo.environ import *
 
 dependencies = 'switch_mod.timescales', 'switch_mod.load_zones',\
-    'switch_mod.financials.minimize_cost', 'switch_mod.fuels',\
+    'switch_mod.financials.minimize_cost', 'switch_mod.energy_sources',\
     'switch_mod.investment.proj_build', 'switch_mod.investment.proj_discrete_build',\
     'switch_mod.operations.proj_dispatch', 'switch_mod.operations.unitcommit'
 

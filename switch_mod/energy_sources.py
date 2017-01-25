@@ -2,8 +2,8 @@
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
-Defines model components to describe fuels and other energy sources for
-the SWITCH-Pyomo model.
+Defines model components to describe both fuels and non-fuel energy sources
+for the SWITCH-Pyomo model.
 
 """
 

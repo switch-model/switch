@@ -31,7 +31,8 @@ rename_modules = {
     'project.discrete_build': 'investment.proj_discrete_build',
     'project.unitcommit.discrete': 'operations.unitcommit.discrete',
     'fuel_cost': 'switch_mod.financials.fuel_flat_costs',
-    'fuel_markets': 'switch_mod.financials.fuel_markets'
+    'fuel_markets': 'switch_mod.financials.fuel_markets',
+    'fuels': 'switch_mod.energy_sources'
 }
 module_prefix = 'switch_mod.'
 expand_modules = {
@@ -50,7 +51,7 @@ core_modules = [
     'switch_mod.financials',
     'switch_mod.financials.minimize_cost',
     'switch_mod.load_zones',
-    'switch_mod.fuels',
+    'switch_mod.energy_sources',
     'switch_mod.investment.proj_build',
     'switch_mod.operations.proj_dispatch',
     'switch_mod.export'

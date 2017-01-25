@@ -10,7 +10,7 @@ module which constrains dispatch to unit commitment decisions.
 from pyomo.environ import *
 
 dependencies = 'switch_mod.timescales', 'switch_mod.load_zones',\
-    'switch_mod.financials.minimize_cost', 'switch_mod.fuels', \
+    'switch_mod.financials.minimize_cost', 'switch_mod.energy_sources', \
     'switch_mod.investment.proj_build', 'switch_mod.operations.proj_dispatch'
 
 def define_components(mod):
