@@ -19,7 +19,7 @@ Most applications of Switch will also benefit from optional modules such as
 transmission, local_td, reserves, etc.
 
 """
-
+__version__='2.0.0b1'
 core_modules = [
     'switch_mod.timescales',
     'switch_mod.financials',

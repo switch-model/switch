@@ -8,6 +8,7 @@ from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
 import pyomo.version
 
 from switch_mod.utilities import create_model, _ArgumentParser, Logging
+from switch_mod.upgrade import inputs_need_upgrade, upgrade_inputs
 
 
 def main(args=None, return_model=False, return_instance=False):
@@ -40,6 +41,23 @@ def main(args=None, return_model=False, return_instance=False):
         sys.stdout = logging  # assign private class to sys.stdout
     else:
         pass
+
+    # Look out for outdated inputs. This has to happen before modules.txt is
+    # parsed to avoid errors from incompatible files.
+    parser = _ArgumentParser(allow_abbrev=False, add_help=False)
+    add_module_args(parser)
+    module_options = parser.parse_known_args(args=args)[0]
+    if inputs_need_upgrade(module_options.inputs_dir):
+        do_upgrade = query_yes_no(
+            ("Warning! Your inputs directory needs to be upgraded. "
+             "Do you want to auto-upgrade now? We'll keep a backup of "
+             "this current version."))
+        if do_upgrade:
+            upgrade_inputs(module_options.inputs_dir)
+        else:
+            print "Inputs need upgrade. Consider `switch upgrade --help`. Exiting."
+            sys.stdout = stdout_copy
+            return -1
 
     # build a module list based on configuration options, and add
     # the current module (to register define_arguments callback)
@@ -375,14 +393,6 @@ def get_module_list(args):
         if os.path.exists(test_path):
             module_list_file = test_path
     if module_list_file is None:
-        test_path = os.path.join(module_options.inputs_dir, "modules")
-        if os.path.exists(test_path):
-            module_list_file = test_path
-            print ""
-            print "DEPRECATION WARNING: using module list from {}. This should be renamed to {}".format(
-                test_path, test_path + '.txt')
-            print ""
-    if module_list_file is None:
         # note: this could be a RuntimeError, but then users can't do "switch solve --help" in a random directory
         # (alternatively, we could provide no warning at all, since the user can specify --include-modules in the arguments)
         print "WARNING: No module list found. Please create a modules.txt file with a list of modules to use for the model."
@@ -398,11 +408,6 @@ def get_module_list(args):
 
     # add additional modules requested by the user
     modules.extend(module_options.include_modules)
-
-    # switch_mod should always be loaded, so we place it at the start if the user hasn't
-    # specified it somewhere else in the list.
-    if "switch_mod" not in modules:
-        modules.insert(0, "switch_mod")
 
     # remove modules requested by the user
     for module_name in module_options.exclude_modules:
@@ -553,6 +558,38 @@ def _options_string_to_dict(istr):
         ans[token[:index]] = val
     return ans
 
+
+def query_yes_no(question, default="yes"):
+    """Ask a yes/no question via raw_input() and return their answer.
+
+    "question" is a string that is presented to the user.
+    "default" is the presumed answer if the user just hits <Enter>.
+        It must be "yes" (the default), "no" or None (meaning
+        an answer is required of the user).
+
+    The "answer" return value is True for "yes" or False for "no".
+    """
+    valid = {"yes": True, "y": True, "ye": True,
+             "no": False, "n": False}
+    if default is None:
+        prompt = " [y/n] "
+    elif default == "yes":
+        prompt = " [Y/n] "
+    elif default == "no":
+        prompt = " [y/N] "
+    else:
+        raise ValueError("invalid default answer: '%s'" % default)
+
+    while True:
+        sys.stdout.write(question + prompt)
+        choice = raw_input().lower()
+        if default is not None and choice == '':
+            return valid[default]
+        elif choice in valid:
+            return valid[choice]
+        else:
+            sys.stdout.write("Please respond with 'yes' or 'no' "
+                             "(or 'y' or 'n').\n")
 
 
 

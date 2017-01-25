@@ -179,10 +179,6 @@ def load_inputs(mod, switch_data, inputs_dir):
     load heat22 rate. If no specific data is provided for a project, it
     will default to its generation technology.
 
-    gen_inc_heat_rates.tab
-        generation_technology, power_start_mw, power_end_mw,
-        incremental_heat_rate_mbtu_per_mwhr, fuel_use_rate_mmbtu_per_h
-
     proj_inc_heat_rates.tab
         project, power_start_mw, power_end_mw,
         incremental_heat_rate_mbtu_per_mwhr, fuel_use_rate_mmbtu_per_h
@@ -203,7 +199,7 @@ def load_inputs(mod, switch_data, inputs_dir):
             dp_dict = switch_data.data(name='proj_min_load_fraction')
             if pr in dp_dict:
                 min_load_dat = dp_dict[pr]
-                if abs((min_load[pr] - min_load_dat) / min_load_dat) > 0.01:
+                if not approx_equal(min_load[pr], min_load_dat):
                     raise ValueError((
                         "proj_min_load_fraction is inconsistant with " +
                         "incremental heat rate data for project " +
@@ -246,7 +242,7 @@ def _parse_inc_heat_rate_file(path, id_column):
     # Scan the file and stuff the data into dictionaries for easy access.
     # Parse the file and stuff data into dictionaries indexed by units.
     with open(path, 'rb') as hr_file:
-        dat = list(csv.DictReader(hr_file, delimiter='  '))
+        dat = list(csv.DictReader(hr_file, delimiter='\t'))
         for row in dat:
             u = row[id_column]
             p1 = float(row['power_start_mw'])

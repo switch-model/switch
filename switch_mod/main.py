@@ -8,7 +8,7 @@ import sys, os
 # print "running {} as {}.".format(__file__, __name__)
 
 def main():
-    cmds = ["solve", "solve-scenarios", "test"]
+    cmds = ["solve", "solve-scenarios", "test", "upgrade"]
     if len(sys.argv) >= 2 and sys.argv[1] in cmds:
         # If users run a script from the command line, the location of the script
         # gets added to the start of sys.path; if they call a module from the 
@@ -29,6 +29,8 @@ def main():
             from .solve_scenarios import main
         elif cmd == "test":
             from .test import main
+        elif cmd == "upgrade":
+            from switch_mod.upgrade import main
         main()
     else:
         print "Usage: {} {{{}}} ...".format(os.path.basename(sys.argv[0]), ", ".join(cmds))

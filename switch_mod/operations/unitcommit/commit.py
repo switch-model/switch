@@ -125,8 +125,8 @@ def define_components(mod):
 
     -- Dispatch limits based on committed capacity --
 
-    g_min_load_fraction[g] describes the minimum loading level of a
-    generation technology as a fraction of committed capacity. Many
+    proj_min_load_fraction[g] describes the minimum loading level of a
+    project as a fraction of committed capacity. Many
     fossil plants - especially baseload - have a minimum run level which
     should be stored here. Note that this is only applied to committed
     capacity. This is an optional parameter that defaults to 1 for
@@ -137,7 +137,7 @@ def define_components(mod):
     proj_min_cap_factor[(proj, t) in PROJ_DISPATCH_POINTS] describes the
     minimum loadding level for each project and timepoint as a fraction
     of committed capacity. This is an optional parameter that defaults
-    to g_min_load_fraction, which in turn defaults to 0. You may wish to
+    to proj_min_load_fraction. You may wish to
     vary this by timepoint to establish minimum flow rates for
     hydropower, to specify thermal demand for a cogeneration project, or
     specify must-run reliability constraints in a geographically or
