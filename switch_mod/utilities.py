@@ -15,10 +15,6 @@ from pyomo.environ import *
 import pyomo.opt
 import datetime
 
-# This stores full names of modules that are dynamically loaded to
-# define a Switch model.
-_full_module_names = {}
-
 # Check whether this is an interactive session (determined by whether
 # __main__ has a __file__ attribute). Scripts can check this value to
 # determine what level of output to display.
@@ -62,34 +58,44 @@ def create_model(module_list, args=sys.argv[1:]):
     avoided calling this function with an empty list for args:
     create_model(module_list, args=[])
 
-    SYNOPSIS:
-    >>> from switch_mod.utilities import define_AbstractModel
-    >>> model = define_AbstractModel(
-    ...     'switch_mod', 'operations.no_commit', 'financials.fuel_flat_costs')
-
     """
-    # Load modules
-    module_list_full_names = _load_modules(module_list)
     model = AbstractModel()
-    # Add the list of modules to the model
-    model.module_list = module_list_full_names
 
-    # Define and parse model configuration options
-    argparser = _ArgumentParser(allow_abbrev=False)
-    _define_arguments(model, argparser)
-    model.options = argparser.parse_args(args)
-    
-    # Bind some utility functions to the model as class objects
+    # Load modules
+    model.module_list = module_list
+    for m in module_list:
+        importlib.import_module(m)
+
+    # Bind utility functions to the model as class objects
+    # Should we be formally extending their class instead?
     _add_min_data_check(model)
+    model.get_modules = types.MethodType(get_modules, model)
     model.load_inputs = types.MethodType(load_inputs, model)
     model.pre_solve = types.MethodType(pre_solve, model)
     model.post_solve = types.MethodType(post_solve, model)
 
-    # Define the model components
-    _define_components(model, model.module_list)
-    _define_dynamic_components(model, model.module_list)
+    # Define and parse model configuration options
+    argparser = _ArgumentParser(allow_abbrev=False)
+    for module in model.get_modules():
+        if hasattr(module, 'define_arguments'):
+            module.define_arguments(argparser)
+    model.options = argparser.parse_args(args)
+    
+    # Define model components
+    for module in model.get_modules():
+        if hasattr(module, 'define_components'):
+            module.define_components(model)
+    for module in model.get_modules():
+        if hasattr(module, 'define_dynamic_components'):
+            module.define_dynamic_components(model)
 
     return model
+
+
+def get_modules(model):
+    """ Return a list of loaded module objects for this model. """
+    for m in model.module_list:
+        yield sys.modules[m]
 
 
 def load_inputs(model, inputs_dir=None, attachDataPortal=True):
@@ -99,19 +105,16 @@ def load_inputs(model, inputs_dir=None, attachDataPortal=True):
     list and return a model instance. This is implemented as calling the
     load_inputs() function of each module, if the module has that function.
 
-    SYNOPSIS:
-    >>> from switch_mod.utilities import define_AbstractModel
-    >>> model = define_AbstractModel(
-    ...     'switch_mod', 'operations.no_commit', 'financials.fuel_flat_costs')
-    >>> instance = model.load_inputs(inputs_dir='test_dat')
-
     """
     if inputs_dir is None:
         inputs_dir = getattr(model.options, "inputs_dir", "inputs")
+
+    # Load data; add a fancier load function to the data portal
     data = DataPortal(model=model)
-    # Attach an augmented load data function to the data portal object
     data.load_aug = types.MethodType(load_aug, data)
-    _load_inputs(model, inputs_dir, model.module_list, data)
+    for module in model.get_modules():
+        if hasattr(module, 'load_inputs'):
+            module.load_inputs(model, data, inputs_dir)
 
     # At some point, pyomo deprecated 'create' in favor of
     # 'create_instance'. Determine which option is available
@@ -131,21 +134,8 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
     """
     Save input data to a .dat file for use with PySP or other command line
     tools that have not been fully integrated with DataPortal.
-
-    I wrote a test for this in tests.utilites_test.test_save_inputs_as_dat()
-    that calls this function, imports the dat file, and verifies it matches
-    the original data.
-
     SYNOPSIS:
-    >>> from switch_mod.utilities import define_AbstractModel
-    >>> model = define_AbstractModel(
-    ...     'switch_mod', 'operations.no_commit', 'financials.fuel_flat_costs')
-    >>> instance = model.load_inputs(inputs_dir='test_dat')
-    >>> save_inputs_as_dat(
-    ...     model, instance, save_path="test_dat/complete_inputs.dat")
-    >>> # Clean up...
-    >>> import os
-    >>> os.remove("test_dat/complete_inputs.dat")
+        save_inputs_as_dat(model, instance, save_path)
     
 
     """
@@ -202,7 +192,7 @@ def pre_solve(instance, outputs_dir=None):
     Call pre-solve function (if present) in all modules used to compose this model.
     This function can be used to adjust the instance after it is created and before it is solved.
     """
-    for module in get_module_list(instance):
+    for module in instance.get_modules():
         if hasattr(module, 'pre_solve'):
             module.pre_solve(instance)
 
@@ -220,7 +210,7 @@ def post_solve(instance, outputs_dir=None):
     # solver termination condition is not 'infeasible' or 'unknown'
     # (the latter may occur when there are problems with licenses, etc)
     
-    for module in get_module_list(instance):
+    for module in instance.get_modules():
         if hasattr(module, 'post_solve'):
             module.post_solve(instance, outputs_dir)
 
@@ -354,7 +344,7 @@ def check_mandatory_components(model, *mandatory_model_components):
         ...
     ValueError: Value not provided for mandatory parameter 'paramD'
 
-    # Demonstration of incorporating this funciton into Pyomo's BuildCheck()
+    # Demonstration of incorporating this function into Pyomo's BuildCheck()
     >>> mod.min_dat_pass = BuildCheck(\
             rule=lambda m: utilities.check_mandatory_components(\
                 m, 'set_A', 'paramA_full','paramB_empty', 'paramC'))
@@ -388,127 +378,6 @@ def check_mandatory_components(model, *mandatory_model_components):
                 "Error! Object type {} not recognized for model element '{}'.".
                 format(o_class, component_name))
     return True
-
-
-def _load_modules(module_list):
-    """
-
-    An internal function to recursively load switch modules that define
-    components of an abstract model.
-
-    SYNOPSIS:
-    >>> from switch_mod.utilities import _load_modules
-    >>> full_module_names = _load_modules([
-    ...     'switch_mod', 'operations.no_commit',
-    ...     'financials.fuel_flat_costs'])
-
-    This will first attempt to load each listed module from the
-    switch_mod package, and will look for them in the broader system
-    path if the first attempt fails. If any listed module is a package
-    that includes a list named core_modules in __init__.py that contains
-    full formed module names, those modules will be loaded recursively
-    by this function.
-
-    This function returns the full names of each loaded modules,
-    including the "switch_mod." package prefix. After this function
-    is called, each loaded module will be accessible via sys.modules
-
-    """
-    # Traverse the list of switch modules and load each one.
-    full_names = []
-    for m in module_list:
-        # Skip loading if it was already loaded
-        if m in _full_module_names:
-            full_names.append(_full_module_names[m])
-            continue
-        if m in sys.modules:
-            # If the module is already loaded, use that.
-            # (this is helpful if the model is created by a custom module
-            # named "solve" which wants to register its own callbacks or 
-            # reporting [and not be replaced by switch_mod.solve])
-            module = sys.modules[m]
-        else:
-            try:
-                # First try to load this module from the switch package
-                module = importlib.import_module('.' + m, package='switch_mod')
-            except ImportError:
-                # If that doesn't work, try from the general python path
-                module = importlib.import_module(m)
-        full_names.append(module.__name__)
-        # If this has a list of core_modules, load them.
-        if hasattr(module, 'core_modules'):
-            _load_modules(module.core_modules)
-        # Add this to the list of known loaded modules
-        _full_module_names[m] = module.__name__
-    return full_names
-
-
-def get_module_list(model, module_list=None):
-    """
-    Generator function to yield every module in the module_list (or model.module_list),
-    also recursing through the core_modules attribute specified within any of these.
-    """
-    # TODO: modify _load_modules to return a flattened list (like this does),
-    # possibly of modules instead of module names.
-    # Then just iterate directly through that in all the later functions.
-    if module_list is None:
-        module_list = model.module_list
-    for module_name in module_list:
-        module = sys.modules[module_name]
-        yield module
-        if hasattr(module, 'core_modules'):
-            for cm in get_module_list(model, module.core_modules):
-                yield cm
-
-def _define_arguments(model, argparser):
-    """
-    Call define_arguments() (if present) in all modules that make up the model.
-    These functions usually call argparser.add_argument() to define a 
-    command-line option used to configure that module. The value of that argument
-    will be placed in model.options.xxxx before define_components() is called
-    """
-    for module in get_module_list(model):
-        if hasattr(module, 'define_arguments'):
-            module.define_arguments(argparser)
-
-
-def _define_components(model, module_list):
-    """
-    A private function to allow recurve calling of defining standard
-    components from modules or packages.
-    """
-    for m in module_list:
-        module = sys.modules[m]
-        if hasattr(module, 'define_components'):
-            module.define_components(model)
-        if hasattr(module, 'core_modules'):
-            _define_components(model, module.core_modules)
-
-
-def _define_dynamic_components(model, module_list):
-    """
-    A private function to allow recurve calling of defining dynamic
-    components from modules or packages.
-    """
-    for m in module_list:
-        module = sys.modules[m]
-        if hasattr(module, 'define_dynamic_components'):
-            module.define_dynamic_components(model)
-        if hasattr(module, 'core_modules'):
-            _define_dynamic_components(model, module.core_modules)
-
-
-def _load_inputs(model, inputs_dir, module_list, data):
-    """
-    A private function to allow recurve calling of loading data from
-    modules or packages.
-    """
-    for m in module_list:
-        module = sys.modules[m]
-        if hasattr(module, 'load_inputs'):
-            module.load_inputs(model, data, inputs_dir)
-        if hasattr(module, 'core_modules'):
-            _load_inputs(model, inputs_dir, module.core_modules, data)
 
 
 class InputError(Exception):

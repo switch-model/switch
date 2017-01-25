@@ -4,16 +4,12 @@
 """
 Defines financial parameters for the SWITCH-Pyomo model.
 
-SYNOPSIS
->>> from switch_mod.utilities import define_AbstractModel
->>> model = define_AbstractModel('timescales', 'financials')
->>> instance = model.load_inputs(inputs_dir='test_dat')
-
 """
 from pyomo.environ import *
 import switch_mod.financials as financials
 import os
 
+dependencies = 'switch_mod.timescales', 'switch_mod.financials'
 
 def define_components(mod):
     """
@@ -243,20 +239,5 @@ def load_inputs(mod, switch_data, inputs_dir):
     Import base financial data from a .dat file. The inputs_dir should
     contain the file financials.dat that gives parameter values for
     base_financial_year, interest_rate and optionally discount_rate.
-
-    EXAMPLE:
-    >>> from switch_mod.utilities import define_AbstractModel
-    >>> model = define_AbstractModel('timescales', 'financials')
-    >>> instance = model.load_inputs(inputs_dir='test_dat')
-    >>> instance.bring_timepoint_costs_to_base_year.pprint()
-    bring_timepoint_costs_to_base_year : Size=7, Index=TIMEPOINTS, Domain=PositiveReals, Default=None, Mutable=False
-        Key : Value
-          1 :   7674.416978
-          2 :   7674.416978
-          3 :   7674.416978
-          4 :   7674.416978
-          5 : 15348.9180021
-          6 : 15348.9180021
-          7 :  37691.616756
     """
     switch_data.load(filename=os.path.join(inputs_dir, 'financials.dat'))

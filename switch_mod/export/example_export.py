@@ -10,6 +10,8 @@ This module has prerequisites of timescales and load_zones.
 """
 import os
 
+dependencies = 'switch_mod.timescales', 'switch_mod.load_zones'
+
 def post_solve(instance, outdir):
     """
     Export results to standard files.

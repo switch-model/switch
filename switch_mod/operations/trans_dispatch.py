@@ -2,21 +2,14 @@
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
-
 Defines model components to describe transmission dispatch for the
 SWITCH-Pyomo model.
-
-SYNOPSIS
->>> from switch_mod.utilities import define_AbstractModel
->>> model = define_AbstractModel(
-...     'timescales', 'financials', 'load_zones',
-...     'investment.trans_build', 'operations.trans_dispatch')
->>> instance = model.load_inputs(inputs_dir='test_dat')
-
 """
 
 from pyomo.environ import *
 
+dependencies = 'switch_mod.timescales', 'switch_mod.load_zones',\
+    'switch_mod.financials.minimize_cost', 'switch_mod.investment.trans_build'
 
 def define_components(mod):
     """

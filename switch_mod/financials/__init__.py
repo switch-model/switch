@@ -11,8 +11,7 @@ The default objective function is to minimize total discounted costs.
 
 """
 
-core_modules = [
-    'switch_mod.financials.minimize_cost']
+core_modules = ['switch_mod.financials.minimize_cost']
 
 def capital_recovery_factor(ir, t):
     """

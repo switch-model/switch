@@ -7,18 +7,13 @@ A simple description of flat fuel costs for the SWITCH-Pyomo model that
 serves as an alternative to the more complex fuel_markets with tiered
 supply curves. This is mutually exclusive with the fuel_markets module.
 
-SYNOPSIS
->>> from switch_mod.utilities import define_AbstractModel
->>> model = define_AbstractModel(
-...     'timescales', 'load_zones', 'financials', 'fuels',
-...     'investment.proj_build', 'operations.proj_dispatch', 'fuel_cost')
->>> instance = model.load_inputs(inputs_dir='test_dat')
-
 """
-
 import os
 from pyomo.environ import *
 
+dependencies = 'switch_mod.timescales', 'switch_mod.load_zones',\
+    'switch_mod.fuels', 'switch_mod.investment.proj_build',\
+    'switch_mod.operations.proj_dispatch'
 
 def define_components(mod):
     """

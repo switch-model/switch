@@ -7,6 +7,9 @@ import tempfile
 import unittest
 
 import switch_mod.utilities as utilities
+import switch_mod.solve
+from pyomo.environ import DataPortal
+from testfixtures import compare
 
 class UtilitiesTest(unittest.TestCase):
 
@@ -17,11 +20,9 @@ class UtilitiesTest(unittest.TestCase):
         assert utilities.approx_equal(1, 1)
 
     def test_save_inputs_as_dat(self):
-        import switch_mod.solve
-        from pyomo.environ import DataPortal
-        from testfixtures import compare
         (model, instance) = switch_mod.solve.main(
-            args=["--inputs-dir", "test_dat"], return_model=True, return_instance=True
+            args=["--inputs-dir", os.path.join('examples', '3zone_toy', 'inputs')],
+            return_model=True, return_instance=True
         )
         temp_dir = tempfile.mkdtemp(prefix="switch_test_")
         try:

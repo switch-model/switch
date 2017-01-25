@@ -3,12 +3,6 @@
 
 """
 Defines timescales for investment and dispatch for the SWITCH-Pyomo model.
-
-SYNOPSIS
->>> from switch_mod.utilities import define_AbstractModel
->>> model = define_AbstractModel('timescales')
->>> instance = model.load_inputs(inputs_dir='test_dat')
-
 """
 
 import os
@@ -220,21 +214,6 @@ def define_components(mod):
     * tp_weight[t] = 203.3 hr/period
         = 1 hr/tp * 1 tp/ts * 203.3 ts/period
 
-    EXAMPLE
-    >>> from switch_mod.utilities import define_AbstractModel
-    >>> model = define_AbstractModel('timescales')
-    >>> if hasattr(model, 'create_instance'):
-    ...     instance = model.create_instance('test_dat/timescales.dat')
-    ... else:
-    ...     instance = model.create('test_dat/timescales.dat')
-    >>> if hasattr(model, 'create_instance'):
-    ...     instance = model.create_instance('test_dat/timescales_bad_weights.dat')
-    ... else:
-    ...     instance = model.create('test_dat/timescales_bad_weights.dat')
-    Traceback (most recent call last):
-        ...
-    ValueError: BuildCheck 'validate_time_weights' identified error with index '2020'
-
     """
 
     mod.PERIODS = Set(ordered=True)
@@ -398,21 +377,6 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     timepoints.tab
         timepoint_id, timestamp, timeseries
-
-    EXAMPLE:
-    >>> from switch_mod.utilities import define_AbstractModel
-    >>> model = define_AbstractModel('timescales')
-    >>> instance = model.load_inputs(inputs_dir='test_dat')
-    >>> instance.tp_weight_in_year.pprint()
-    tp_weight_in_year : Size=7, Index=TIMEPOINTS, Domain=PositiveReals, Default=None, Mutable=False
-        Key : Value
-          1 : 1095.744
-          2 : 1095.744
-          3 : 1095.744
-          4 : 1095.744
-          5 :   2191.5
-          6 :   2191.5
-          7 :   8766.0
 
     """
     # Include select in each load() function so that it will check out column

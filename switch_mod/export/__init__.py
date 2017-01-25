@@ -18,6 +18,8 @@ dependency on load_zones.
 
 
 """
+dependencies = 'switch_mod.financials.minimize_cost'
+
 
 import os
 import csv

@@ -18,21 +18,6 @@ either operations.no_commit or operations.unitcommit.
 Most applications of Switch will also benefit from optional modules such as 
 transmission, local_td, reserves, etc.
 
-This package can be treated as a module that includes all of the mentioned 
-core modules instead of having to refer to them individually. This means that
-the module list can be specified, for example, as:
-
-switch_modules = ('switch_mod', 'operations.no_commit', 'fuel_markets')
-
-or as
-
-switch_modules = (
-    'timescales', 'financials', 'load_zones', 'fuels', 'investment',
-    'operations', 'operations.no_commit', 'fuel_markets')
-
-You will get an error if you include both the package and the core modules,
-because they are redundant.
-
 """
 
 core_modules = [

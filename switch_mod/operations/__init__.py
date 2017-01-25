@@ -15,23 +15,5 @@ If transmission wants to be included in the model, then the
 operations.trans_dispatch module should be loaded. If this is the case,
 investment.trans_build must also be included.
 
-This package can be treated as a module that includes all of the mentioned 
-core modules instead of having to refer to them individually. This means that
-the module list can be specified as:
-
-switch_modules = (
-    'timescales', 'financials', 'load_zones', 'fuels', 'operations')
-
-or as
-
-switch_modules = (
-    'timescales', 'financials', 'load_zones', 'fuels',
-    'operations.proj_dispatch')
-
-You will get an error if you include both the package and the core modules,
-because they are redundant.
-
 """
-
-core_modules = [
-    'switch_mod.operations.proj_dispatch']
+core_modules = ['switch_mod.operations.proj_dispatch']

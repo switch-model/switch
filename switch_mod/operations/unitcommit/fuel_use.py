@@ -59,14 +59,6 @@ This method also requires that incremental heat rates increase with
 energy production so that the lines collectively form a convex boundary
 for fuel use.
 
-SYNOPSIS
->>> from switch_mod.utilities import define_AbstractModel
->>> model = define_AbstractModel(
-...     'timescales', 'financials', 'load_zones', 'fuels',
-...     'investment.proj_build', 'operations.proj_dispatch', 
-...     'operations.unitcommit')
->>> instance = model.load_inputs(inputs_dir='test_dat')
-
 """
 
 import os
@@ -74,6 +66,10 @@ from pyomo.environ import *
 import csv
 from switch_mod.utilities import approx_equal
 
+dependencies = 'switch_mod.timescales', 'switch_mod.load_zones',\
+    'switch_mod.financials.minimize_cost', 'switch_mod.fuels', \
+    'switch_mod.investment.proj_build', 'switch_mod.operations.proj_dispatch',\
+    'switch_mod.operations.unitcommit.commit'
 
 def define_components(mod):
     """
@@ -236,19 +232,6 @@ def _parse_inc_heat_rate_file(path, id_column):
     """
     Parse tabular incremental heat rate data, calculate a series of
     lines that describe each segment, and perform various error checks.
-
-    SYNOPSIS:
-    >>> import switch_mod.operations.unitcommit.fuel_use as f
-    >>> (fuel_rate_segments, min_load, full_hr) = f._parse_inc_heat_rate_file(
-    ...     'test_dat/inc_heat_rates.tab', 'project')
-    >>> fuel_rate_segments
-    {'H8': [(0.6083951310861414, 10.579), (0.5587921348314604, 10.667), (0.4963352059925083, 10.755), (0.4211891385767775, 10.843)], 'foo': [(0.0, 5.0), (-6.666666666666667, 15.0)], 'AES': [(1.220351351351352, 15.805), (1.0633432432432417, 16.106), (0.8583378378378379, 16.407), (0.605335135135138, 16.708)]}
-    >>> min_load
-    {'H8': 0.41760299625468167, 'foo': 0.3333333333333333, 'AES': 0.3621621621621622}
-    >>> full_hr
-    {'H8': 11.264189138576777, 'foo': 8.333333333333334, 'AES': 17.313335135135137}
-
-
     """
     # fuel_rate_points[unit] = {min_power: fuel_use_rate}
     fuel_rate_points = {}
@@ -263,7 +246,7 @@ def _parse_inc_heat_rate_file(path, id_column):
     # Scan the file and stuff the data into dictionaries for easy access.
     # Parse the file and stuff data into dictionaries indexed by units.
     with open(path, 'rb') as hr_file:
-        dat = list(csv.DictReader(hr_file, delimiter='	'))
+        dat = list(csv.DictReader(hr_file, delimiter='  '))
         for row in dat:
             u = row[id_column]
             p1 = float(row['power_start_mw'])

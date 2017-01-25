@@ -2,21 +2,15 @@
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
-
 Defines model components to describe local transmission & distribution
 build-outs for the SWITCH-Pyomo model.
-
-SYNOPSIS
->>> from switch_mod.utilities import define_AbstractModel
->>> model = define_AbstractModel(
-...     'timescales', 'financials', 'load_zones', 'local_td')
->>> instance = model.load_inputs(inputs_dir='test_dat')
-
 """
 
 import os
 from pyomo.environ import *
 
+dependencies = 'switch_mod.timescales', 'switch_mod.load_zones',\
+    'switch_mod.financials.minimize_cost'
 
 def define_components(mod):
     """

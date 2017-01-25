@@ -1,5 +1,0 @@
-local_td
-operations.no_commit
-financials.fuel_markets
-investment.trans_build
-operations.trans_dispatch

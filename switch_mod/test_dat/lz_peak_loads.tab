@@ -1,7 +1,0 @@
-LOAD_ZONE	PERIOD	peak_demand_mw
-North	2020	6
-Central	2020	4
-South	2020	10
-North	2030	8
-Central	2030	6
-South	2030	12

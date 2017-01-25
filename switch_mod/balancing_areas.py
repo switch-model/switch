@@ -4,16 +4,11 @@
 """
 Defines balacing area components for the SWITCH-Pyomo model.
 
-SYNOPSIS
->>> from switch_mod.utilities import define_AbstractModel
->>> model = define_AbstractModel(
-...     'timescales', 'load_zones', 'balancing_areas')
->>> instance = model.load_inputs(inputs_dir='test_dat')
-
 """
 import os
 from pyomo.environ import *
 
+dependencies = 'switch_mod.timescales', 'switch_mod.load_zones'
 
 def define_components(mod):
     """

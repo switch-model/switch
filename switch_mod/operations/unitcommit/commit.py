@@ -2,27 +2,20 @@
 # Licensed under the Apache License, Version 2, which is in the LICENSE file.
 
 """
-
 Defines model components to describe unit commitment of projects for the
 SWITCH-Pyomo model. This module is mutually exclusive with the
 operations.no_commit module which specifies simplified dispatch
 constraints. If you want to use this module directly in a list of switch
 modules (instead of including the package operations.unitcommit), you will also
 need to include the module operations.unitcommit.fuel_use.
-
-SYNOPSIS
->>> from switch_mod.utilities import define_AbstractModel
->>> model = define_AbstractModel(
-...     'timescales', 'financials', 'load_zones', 'fuels',
-...     'investment.proj_build', 'operations.proj_dispatch',
-...     'operations.unitcommit')
->>> instance = model.load_inputs(inputs_dir='test_dat')
-
 """
 
 import os
 from pyomo.environ import *
 
+dependencies = 'switch_mod.timescales', 'switch_mod.load_zones',\
+    'switch_mod.financials.minimize_cost', 'switch_mod.fuels', \
+    'switch_mod.investment.proj_build', 'switch_mod.operations.proj_dispatch'
 
 def define_components(mod):
     """

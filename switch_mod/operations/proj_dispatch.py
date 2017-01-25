@@ -2,24 +2,18 @@
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
-
 Defines model components to describe generation projects build-outs for
 the SWITCH-Pyomo model. This module requires either operations.unitcommit or
 operations.no_commit to constrain project dispatch to either committed or
 installed capacity.
-
-SYNOPSIS
->>> from switch_mod.utilities import define_AbstractModel
->>> model = define_AbstractModel(
-...     'timescales', 'financials', 'load_zones', 'fuels',
-...     'investment.proj_build', 'operations.proj_dispatch')
->>> instance = model.load_inputs(inputs_dir='test_dat')
-
 """
 
 import os
 from pyomo.environ import *
 
+dependencies = 'switch_mod.timescales', 'switch_mod.load_zones',\
+    'switch_mod.financials.minimize_cost', 'switch_mod.fuels', \
+    'switch_mod.investment.proj_build'
 
 def define_components(mod):
     """

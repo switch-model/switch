@@ -3,16 +3,11 @@
 
 """
 Defines load zone parameters for the SWITCH-Pyomo model.
-
-SYNOPSIS
->>> from switch_mod.utilities import define_AbstractModel
->>> model = define_AbstractModel('timescales', 'load_zones')
->>> instance = model.load_inputs(inputs_dir='test_dat')
-
 """
 import os
 from pyomo.environ import *
 
+dependencies = 'switch_mod.timescales'
 
 def define_components(mod):
     """

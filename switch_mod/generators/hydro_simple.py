@@ -3,7 +3,6 @@
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
-
 Defines a simple hydro electric model that ensures minimum and average
 water dispatch levels that can vary by timepoint. Most people use this
 as a starting point for working with hydro because it's simple, fairly
@@ -21,25 +20,19 @@ and ground infiltration. It should be possible to describe a simple system
 using the advanced framework, but the advanced framework would take longer to
 read and understand. To really take advantage of it, you'll also need more
 data than we usually have available.
-
-After the Chilean model is merged into the main branch, I plan to refactor
-this code to move the core components into a switch_mod.hydro.core module,
-the simplisit components into switch_mod.hydro.simple, and the advanced
-components into switch_mod.hydro.water_network. That should set a good example
-for other people who want to do other custom handling of hydro.
-
-SYNOPSIS
->>> from switch_mod.utilities import define_AbstractModel
->>> model = define_AbstractModel(
-...     'timescales', 'financials', 'load_zones', 'fuels',
-...     'investment.proj_build', 'operations.proj_dispatch',
-...     'operations.no_commit', 'generators.hydro_simple')
->>> instance = model.load_inputs(inputs_dir='test_dat')
-
 """
+# ToDo: Refactor this code to move the core components into a
+# switch_mod.hydro.core module, the simplist components into
+# switch_mod.hydro.simple, and the advanced components into
+# switch_mod.hydro.water_network. That should set a good example
+# for other people who want to do other custom handling of hydro.
 
 from pyomo.environ import *
 import os
+
+dependencies = 'switch_mod.timescales', 'switch_mod.load_zones',\
+    'switch_mod.financials.minimize_cost', 'switch_mod.fuels', \
+    'switch_mod.investment.proj_build', 'switch_mod.operations.proj_dispatch'
 
 def define_components(mod):
     """

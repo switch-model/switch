@@ -2,24 +2,18 @@
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
-
 This module defines storage technologies. It builds on top of generic
 generators, adding components for deciding how much energy to build into
 storage, when to charge, energy accounting, etc.
-
-SYNOPSIS
->>> from switch_mod.utilities import define_AbstractModel
->>> model = define_AbstractModel(
-...     'timescales', 'financials', 'load_zones', 'fuels',
-...     'investment.proj_build', 'operations.proj_dispatch', 
-...     'operations.no_commit', 'generators.storage')
->>> instance = model.load_inputs(inputs_dir='test_dat')
-
 """
 
 from pyomo.environ import *
 import os
 from switch_mod.financials import capital_recovery_factor as crf
+
+dependencies = 'switch_mod.timescales', 'switch_mod.load_zones',\
+    'switch_mod.financials.minimize_cost', 'switch_mod.fuels', \
+    'switch_mod.investment.proj_build', 'switch_mod.operations.proj_dispatch'
 
 def define_components(mod):
     """

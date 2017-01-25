@@ -2,22 +2,15 @@
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
-
-Defines model components to describe transmission build-outs for the
-SWITCH-Pyomo model.
-
-SYNOPSIS
->>> from switch_mod.utilities import define_AbstractModel
->>> model = define_AbstractModel(
-...     'timescales', 'financials', 'load_zones', 'investment.trans_build')
->>> instance = model.load_inputs(inputs_dir='test_dat')
-
+Defines transmission build-outs.
 """
 
 import os
 from pyomo.environ import *
 from switch_mod.financials import capital_recovery_factor as crf
 
+dependencies = 'switch_mod.timescales', 'switch_mod.load_zones',\
+    'switch_mod.financials.minimize_cost'
 
 def define_components(mod):
     """

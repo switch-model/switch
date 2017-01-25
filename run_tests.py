@@ -47,11 +47,6 @@ class TestLoader(unittest.TestLoader):
 
 def main():
     script_dir = os.path.join(os.getcwd(), os.path.dirname(__file__))
-
-    # The doctests expect to be run from the "switch_mod" directory in
-    # order to find test_dat.
-    os.chdir(os.path.join(script_dir, 'switch_mod'))
-
     argv = [sys.argv[0],
             'discover',
             '--top-level-dir', script_dir,
