@@ -1,3 +1,14 @@
-operations.no_commit
-financials.fuel_flat_costs
-generators.hydro_simple
+# Core Modules
+switch_mod
+switch_mod.timescales
+switch_mod.financials
+switch_mod.financials.minimize_cost
+switch_mod.load_zones
+switch_mod.fuels
+switch_mod.investment.proj_build
+switch_mod.operations.proj_dispatch
+switch_mod.export
+# Custom Modules
+switch_mod.operations.no_commit
+switch_mod.financials.fuel_flat_costs
+switch_mod.generators.hydro_simple

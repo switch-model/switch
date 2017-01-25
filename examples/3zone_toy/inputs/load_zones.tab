@@ -1,4 +1,4 @@
-LOAD_ZONE	lz_cost_multipliers	dbid	existing_local_td	local_td_annual_cost_per_mw
-North	1	1	5.5	66406.5
-Central	0.8	2	3.5	61663.4
-South	1.2	3	9.5	128040
+LOAD_ZONE	dbid	existing_local_td	local_td_annual_cost_per_mw
+North	1	5.5	66406.5
+Central	2	3.5	61663.4
+South	3	9.5	128040.0

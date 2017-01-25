@@ -1,5 +1,5 @@
-PROJECT	proj_dbid	proj_gen_tech	proj_energy_source	proj_load_zone	proj_max_age	proj_is_variable	proj_is_baseload	proj_scheduled_outage_rate	proj_forced_outage_rate	proj_capacity_limit_mw	proj_unit_size	proj_full_load_heat_rate	proj_variable_om	proj_connect_cost_per_mw	proj_min_load_fraction	proj_startup_fuel	proj_startup_om
-S-Geothermal	33	Geothermal	Geothermal	South	30	0	1	0.0075	0.0241	3	.	.	28.83	134222	.	.	.
-S-NG_CC	34	NG_CC	NaturalGas	South	20	0	0	0.04	0.06	.	1	6.705	3.4131	57566.6	0.4	9.16	10.3
-S-NG_GT	36	NG_GT	NaturalGas	South	20	0	0	0.04	0.06	5	.	10.39	27.807	57566.6	.	0.22	0.86
-S-Central_PV-1	41	Central_PV	Solar	South	20	1	0	0	0.02	4	.	.	0.0	74881.9	.	.	.
+PROJECT	proj_dbid	proj_gen_tech	proj_load_zone	proj_connect_cost_per_mw	proj_capacity_limit_mw	proj_max_age	proj_min_build_capacity	proj_scheduled_outage_rate	proj_forced_outage_rate	proj_is_variable	proj_is_baseload	proj_is_cogen	proj_variable_om	proj_energy_source	proj_full_load_heat_rate	proj_unit_size	proj_min_load_fraction	proj_startup_fuel	proj_startup_om
+S-Geothermal	33	Geothermal	South	134222.0	3.0	30	0	0.0075	0.0241	0	1	0	28.83	Geothermal	.	.	.	.	.
+S-NG_CC	34	NG_CC	South	57566.6	.	20	0	0.04	0.06	0	0	0	3.4131	NaturalGas	6.705	1.0	0.4	9.16	10.3
+S-NG_GT	36	NG_GT	South	57566.6	5.0	20	0	0.04	0.06	0	0	0	27.807	NaturalGas	10.39	.	0.0	0.22	0.86
+S-Central_PV-1	41	Central_PV	South	74881.9	4.0	20	0	0.0	0.02	1	0	0	0.0	Solar	.	.	0.0	.	0.0

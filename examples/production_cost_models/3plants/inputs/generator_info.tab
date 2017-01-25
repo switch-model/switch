@@ -1,4 +1,0 @@
-generation_technology	g_max_age	g_min_build_capacity	g_scheduled_outage_rate	g_forced_outage_rate	g_is_resource_limited	g_is_variable	g_is_baseload	g_is_flexible_baseload	g_is_cogen	g_variable_o_m	g_energy_source	g_full_load_heat_rate
-Geothermal	30	0	0.0075	0.0241	1	0	1	0	0	28.83	Geothermal	.
-NG_CC	20	0	0.04	0.06	0	0	0	0	0	3.4131	NaturalGas	6.705
-NG_GT	20	0	0.04	0.06	0	0	0	0	0	27.807	NaturalGas	10.39

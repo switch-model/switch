@@ -1,4 +1,16 @@
-local_td
-operations.unitcommit
-operations.unitcommit.discrete
-financials.fuel_flat_costs
+# Core Modules
+switch_mod
+switch_mod.timescales
+switch_mod.financials
+switch_mod.financials.minimize_cost
+switch_mod.load_zones
+switch_mod.fuels
+switch_mod.investment.proj_build
+switch_mod.operations.proj_dispatch
+switch_mod.export
+# Custom Modules
+switch_mod.local_td
+switch_mod.operations.unitcommit.commit
+switch_mod.operations.unitcommit.fuel_use
+switch_mod.operations.unitcommit.discrete
+switch_mod.financials.fuel_flat_costs

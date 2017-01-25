@@ -1,39 +1,39 @@
-PROJECT	proj_gen_tech	proj_load_zone	proj_connect_cost_per_mw	proj_capacity_limit_mw	proj_full_load_heat_rate	proj_variable_om	proj_capacity_limit_mw
-N-Geothermal	Geothermal	North	163081.1	1.5	.	.	1.5
-N-Coal_IGCC	Coal_IGCC	North	57566.6	.	.	.	.
-N-Coal_IGCC_CCS	Coal_IGCC_CCS	North	57566.6	.	.	.	.
-N-Coal_ST	Coal_ST	North	57566.6	.	9	3.4	.
-N-NG_CC	NG_CC	North	57566.6	.	.	.	.
-N-NG_CC_CCS	NG_CC_CCS	North	57566.6	.	.	.	.
-N-NG_GT	NG_GT	North	57566.6	.	.	.	.
-N-Nuclear	Nuclear	North	57566.6	.	.	.	.
-N-Biomass_IGCC	Biomass_IGCC	North	57566.6	.	.	.	.
-N-Biomass_IGCC_CCS	Biomass_IGCC_CCS	North	57566.6	.	.	.	.
-N-Residential_PV	Residential_PV	North	0	1.5	.	.	1.5
-N-Commercial_PV	Commercial_PV	North	0	2	.	.	2
-N-Central_PV-1	Central_PV	North	51272	3	.	.	3
-N-Central_PV-2	Central_PV	North	101661	2	.	.	2
-N-Wind-1	Wind	North	71602	4	.	.	4
-N-Wind-2	Wind	North	80259	1	.	.	1
-C-Coal_IGCC	Coal_IGCC	Central	57566.6	.	.	.	.
-C-Coal_ST	Coal_ST	Central	57566.6	.	9.5	3.6	.
-C-NG_CC	NG_CC	Central	57566.6	.	.	.	.
-C-NG_GT	NG_GT	Central	57566.6	.	.	.	.
-C-Nuclear	Nuclear	Central	57566.6	.	.	.	.
-C-Biomass_IGCC	Biomass_IGCC	Central	57566.6	.	.	.	.
-C-Residential_PV	Residential_PV	Central	0	0.5	.	.	0.5
-C-Commercial_PV	Commercial_PV	Central	0	0.7	.	.	0.7
-C-Central_PV-1	Central_PV	Central	122526.8	2	.	.	2
-C-Central_PV-2	Central_PV	Central	45197.2	3	.	.	3
-C-Wind-1	Wind	Central	72541.5	4	.	.	4
-C-Wind-2	Wind	Central	77892.2	3	.	.	3
-S-Geothermal	Geothermal	South	134222	3	.	.	3
-S-NG_CC	NG_CC	South	57566.6	.	.	.	.
-S-NG_CC_CCS	NG_CC_CCS	South	57566.6	.	.	.	.
-S-NG_GT	NG_GT	South	57566.6	5	.	.	5
-S-Biomass_IGCC	Biomass_IGCC	South	57566.6	.	.	.	.
-S-Biomass_IGCC_CCS	Biomass_IGCC_CCS	South	57566.6	.	.	.	.
-S-Residential_PV	Residential_PV	South	0	3	.	.	3
-S-Commercial_PV	Commercial_PV	South	0	3.3	.	.	3.3
-S-Central_PV-1	Central_PV	South	74881.9	0.8	.	.	0.8
-S-Central_PV-2	Central_PV	South	65370.3	0.4	.	.	0.4
+PROJECT	proj_gen_tech	proj_load_zone	proj_connect_cost_per_mw	proj_capacity_limit_mw	proj_full_load_heat_rate	proj_variable_om	proj_capacity_limit_mw.1	proj_max_age	proj_min_build_capacity	proj_scheduled_outage_rate	proj_forced_outage_rate	proj_is_variable	proj_is_baseload	proj_is_cogen	proj_energy_source	proj_unit_size	proj_storage_efficiency	proj_store_to_release_ratio
+N-Geothermal	Geothermal	North	163081.1	1.5	.	28.83	1.5	30	0	0.0075	0.0241	0	1	0	Geothermal	.	.	.
+N-Coal_IGCC	Coal_IGCC	North	57566.6	.	7.95	6.0822	.	40	0	0.08	0.12	0	0	0	Coal	10.0	.	.
+N-Coal_IGCC_CCS	Coal_IGCC_CCS	North	57566.6	.	10.38	9.858	.	40	0	0.08	0.12	0	0	0	Coal	.	.	.
+N-Coal_ST	Coal_ST	North	57566.6	.	9.0	3.4	.	40	0	0.06	0.1	0	0	0	Coal	.	.	.
+N-NG_CC	NG_CC	North	57566.6	.	6.705	3.4131	.	20	0	0.04	0.06	0	0	0	NaturalGas	.	.	.
+N-NG_CC_CCS	NG_CC_CCS	North	57566.6	.	10.08	9.3	.	20	0	0.04	0.06	0	0	0	NaturalGas	.	.	.
+N-NG_GT	NG_GT	North	57566.6	.	10.39	27.807	.	20	0	0.04	0.06	0	0	0	NaturalGas	.	.	.
+N-Nuclear	Nuclear	North	57566.6	.	9.72	0.0	.	40	1000	0.04	0.06	0	1	0	Uranium	.	.	.
+N-Biomass_IGCC	Biomass_IGCC	North	57566.6	.	12.5	13.95	.	40	0	0.09	0.076	0	1	0	BioSolid	.	.	.
+N-Biomass_IGCC_CCS	Biomass_IGCC_CCS	North	57566.6	.	16.3208	20.1307	.	40	0	0.09	0.076	0	1	0	BioSolid	.	.	.
+N-Residential_PV	Residential_PV	North	0.0	1.5	.	0.0	1.5	20	0	0.0	0.02	1	0	0	Solar	.	.	.
+N-Commercial_PV	Commercial_PV	North	0.0	2.0	.	0.0	2.0	20	0	0.0	0.02	1	0	0	Solar	.	.	.
+N-Central_PV-1	Central_PV	North	51272.0	3.0	.	0.0	3.0	20	0	0.0	0.02	1	0	0	Solar	.	.	.
+N-Central_PV-2	Central_PV	North	101661.0	2.0	.	0.0	2.0	20	0	0.0	0.02	1	0	0	Solar	.	.	.
+N-Wind-1	Wind	North	71602.0	4.0	.	0.0	4.0	30	0	0.05	0.006	1	0	0	Wind	.	.	.
+N-Wind-2	Wind	North	80259.0	1.0	.	0.0	1.0	30	0	0.05	0.006	1	0	0	Wind	.	.	.
+C-Coal_IGCC	Coal_IGCC	Central	57566.6	.	7.95	6.0822	.	40	0	0.08	0.12	0	0	0	Coal	10.0	.	.
+C-Coal_ST	Coal_ST	Central	57566.6	.	9.5	3.6	.	40	0	0.06	0.1	0	0	0	Coal	.	.	.
+C-NG_CC	NG_CC	Central	57566.6	.	6.705	3.4131	.	20	0	0.04	0.06	0	0	0	NaturalGas	.	.	.
+C-NG_GT	NG_GT	Central	57566.6	.	10.39	27.807	.	20	0	0.04	0.06	0	0	0	NaturalGas	.	.	.
+C-Nuclear	Nuclear	Central	57566.6	.	9.72	0.0	.	40	1000	0.04	0.06	0	1	0	Uranium	.	.	.
+C-Biomass_IGCC	Biomass_IGCC	Central	57566.6	.	12.5	13.95	.	40	0	0.09	0.076	0	1	0	BioSolid	.	.	.
+C-Residential_PV	Residential_PV	Central	0.0	0.5	.	0.0	0.5	20	0	0.0	0.02	1	0	0	Solar	.	.	.
+C-Commercial_PV	Commercial_PV	Central	0.0	0.7	.	0.0	0.7	20	0	0.0	0.02	1	0	0	Solar	.	.	.
+C-Central_PV-1	Central_PV	Central	122526.8	2.0	.	0.0	2.0	20	0	0.0	0.02	1	0	0	Solar	.	.	.
+C-Central_PV-2	Central_PV	Central	45197.2	3.0	.	0.0	3.0	20	0	0.0	0.02	1	0	0	Solar	.	.	.
+C-Wind-1	Wind	Central	72541.5	4.0	.	0.0	4.0	30	0	0.05	0.006	1	0	0	Wind	.	.	.
+C-Wind-2	Wind	Central	77892.2	3.0	.	0.0	3.0	30	0	0.05	0.006	1	0	0	Wind	.	.	.
+S-Geothermal	Geothermal	South	134222.0	3.0	.	28.83	3.0	30	0	0.0075	0.0241	0	1	0	Geothermal	.	.	.
+S-NG_CC	NG_CC	South	57566.6	.	6.705	3.4131	.	20	0	0.04	0.06	0	0	0	NaturalGas	.	.	.
+S-NG_CC_CCS	NG_CC_CCS	South	57566.6	.	10.08	9.3	.	20	0	0.04	0.06	0	0	0	NaturalGas	.	.	.
+S-NG_GT	NG_GT	South	57566.6	5.0	10.39	27.807	5.0	20	0	0.04	0.06	0	0	0	NaturalGas	.	.	.
+S-Biomass_IGCC	Biomass_IGCC	South	57566.6	.	12.5	13.95	.	40	0	0.09	0.076	0	1	0	BioSolid	.	.	.
+S-Biomass_IGCC_CCS	Biomass_IGCC_CCS	South	57566.6	.	16.3208	20.1307	.	40	0	0.09	0.076	0	1	0	BioSolid	.	.	.
+S-Residential_PV	Residential_PV	South	0.0	3.0	.	0.0	3.0	20	0	0.0	0.02	1	0	0	Solar	.	.	.
+S-Commercial_PV	Commercial_PV	South	0.0	3.3	.	0.0	3.3	20	0	0.0	0.02	1	0	0	Solar	.	.	.
+S-Central_PV-1	Central_PV	South	74881.9	0.8	.	0.0	0.8	20	0	0.0	0.02	1	0	0	Solar	.	.	.
+S-Central_PV-2	Central_PV	South	65370.3	0.4	.	0.0	0.4	20	0	0.0	0.02	1	0	0	Solar	.	.	.
