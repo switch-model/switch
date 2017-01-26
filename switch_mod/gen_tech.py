@@ -125,14 +125,6 @@ def define_components(mod):
     with electricity. A related parameter cogen_thermal_demand[p] can be
     defined for projects of this type.
 
-    g_competes_for_space[g] is a binary flag indicating whether a
-    generation technology competes for space with other generation
-    technologies. A driving example is that one plot of land can only
-    support so many solar panels or solar-powered steam generators.
-    Projects that compete for space have additional parameters defined
-    in the projects module. This is an optional parameter with a default
-    of False.
-
     GEN_TECH_WITH_UNIT_SIZES is a subset of GENERATION_TECHNOLOGIES for
     which the size of individual units, or generators, is specified.
 
@@ -250,9 +242,6 @@ def define_components(mod):
     mod.g_min_build_capacity = Param(
         mod.GENERATION_TECHNOLOGIES, within=NonNegativeReals,
         default=0)
-    mod.g_competes_for_space = Param(
-        mod.GENERATION_TECHNOLOGIES, within=Boolean,
-        default=0)
 
     mod.GEN_TECH_WITH_UNIT_SIZES = Set(
         within=mod.GENERATION_TECHNOLOGIES)
@@ -334,7 +323,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     The optional columns are:
         g_dbid, g_variable_o_m, g_scheduled_outage_rate, g_forced_outage_rate,
         g_min_build_capacity, g_full_load_heat_rate, g_unit_size,
-        g_competes_for_space, g_ccs_capture_efficiency, g_ccs_energy_load
+        g_ccs_capture_efficiency, g_ccs_energy_load
 
     Note: The model does not fully support CCS; it is mostly written,
     but untested.
@@ -354,18 +343,16 @@ def load_inputs(mod, switch_data, inputs_dir):
         auto_select=True,
         optional_params=[
             'g_unit_size', 'g_scheduled_outage_rate', 'g_forced_outage_rate',
-            'g_competes_for_space', 'g_variable_o_m',
-            'g_ccs_capture_efficiency', 'g_ccs_energy_load'],
+            'g_variable_o_m', 'g_ccs_capture_efficiency', 'g_ccs_energy_load'],
         index=mod.GENERATION_TECHNOLOGIES,
         param=(
             mod.g_dbid, mod.g_max_age, mod.g_min_build_capacity,
             mod.g_scheduled_outage_rate, mod.g_forced_outage_rate,
             mod.g_is_variable, mod.g_is_baseload,
             mod.g_is_flexible_baseload, mod.g_is_cogen,
-            mod.g_competes_for_space, mod.g_variable_o_m,
-            mod.g_energy_source, mod.g_full_load_heat_rate,
-            mod.g_unit_size, mod.g_ccs_capture_efficiency,
-            mod.g_ccs_energy_load))
+            mod.g_variable_o_m, mod.g_energy_source,
+            mod.g_full_load_heat_rate, mod.g_unit_size,
+            mod.g_ccs_capture_efficiency, mod.g_ccs_energy_load))
     # Construct sets of CCS technologies as well as technologies with
     # discrete unit sizes.
     if 'g_unit_size' in switch_data.data():

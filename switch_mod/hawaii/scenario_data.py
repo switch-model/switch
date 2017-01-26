@@ -35,7 +35,7 @@ def write_tables(**args):
     #########################
     # timescales
     
-    write_table('periods.tab', """
+    with_period_length = """
         WITH period_length as (
             SELECT 
                 CASE WHEN max(period) = min(period) 
@@ -48,6 +48,10 @@ def write_tables(**args):
                 END as length 
                 FROM study_date WHERE time_sample = %(time_sample)s
         )
+    """
+    
+    write_table('periods.tab', 
+        with_period_length + """
         SELECT period AS "INVESTMENT_PERIOD",
                 period as period_start,
                 round(period + length - 1)::int as period_end
@@ -165,11 +169,23 @@ def write_tables(**args):
     # TODO: add a flag to fuel_costs indicating whether forecasts are real or nominal, 
     # and base year, and possibly inflation rate.
     if args['fuel_scen_id'] in ('1', '2', '3'):
+        # no base_year specified; these are in nominal dollars
         inflator = 'power(1.0+%(inflation_rate)s, %(base_financial_year)s-c.year)'
-    elif args['fuel_scen_id'].startswith('EIA'):
-        inflator = 'power(1.0+%(inflation_rate)s, %(base_financial_year)s-2013)'
     else:
-        inflator = '1.0'
+        inflator = 'power(1.0+%(inflation_rate)s, %(base_financial_year)s-c.base_year)'
+
+    period_bounds_clause = """
+        WITH period_bounds as (
+            SELECT 
+                a.period, 
+                (   
+                    SELECT COALESCE(MIN(b.period), a.period+1) 
+                        FROM study_periods b 
+                        WHERE b.time_sample = a.time_sample AND b.period > a.period
+                ) AS next_period
+                FROM study_periods a WHERE time_sample = %(time_sample)s
+        )
+    """
 
     if args.get("use_simple_fuel_costs", False):
         # simple fuel markets with no bulk LNG expansion option
@@ -179,16 +195,19 @@ def write_tables(**args):
             lng_selector = "tier = 'bulk'"
         else:
             lng_selector = "tier != 'bulk'"
-        write_table('fuel_cost.tab', """
+        write_table('fuel_cost.tab', 
+            with_period_length + """
             SELECT load_zone, fuel_type as fuel, period,
-                price_mmbtu * {inflator} 
-                + CASE WHEN (fuel_type='LNG' AND tier='bulk') THEN %(bulk_lng_fixed_cost)s ELSE 0.0 END
+                avg(price_mmbtu * {inflator}
+                + CASE WHEN (fuel_type='LNG' AND tier='bulk') THEN %(bulk_lng_fixed_cost)s ELSE 0.0 END)
                     as fuel_cost
-            FROM fuel_costs c JOIN study_periods p ON (c.year=p.period)
+            FROM fuel_costs c, study_periods p, period_length l
             WHERE load_zone in %(load_zones)s
                 AND fuel_scen_id = %(fuel_scen_id)s
                 AND p.time_sample = %(time_sample)s
                 AND (fuel_type != 'LNG' OR {lng_selector})
+                AND c.year >= p.period AND c.year < p.period + l.length
+            GROUP BY 1, 2, 3
             ORDER BY 1, 2, 3;
         """.format(inflator=inflator, lng_selector=lng_selector), args)
     else:
@@ -200,14 +219,22 @@ def write_tables(**args):
             WHERE load_zone in %(load_zones)s AND fuel_scen_id = %(fuel_scen_id)s;
         """, args)
 
-        write_table('fuel_supply_curves.tab', """
-            SELECT concat('Hawaii_', fuel_type) as regional_fuel_market, fuel_type as fuel, 
-                period, tier, price_mmbtu * {inflator} as unit_cost, max_avail_at_cost, fixed_cost
-            FROM fuel_costs c JOIN study_periods p ON (c.year=p.period)
+        write_table('fuel_supply_curves.tab', 
+            with_period_length + """
+            SELECT concat('Hawaii_', fuel_type) as regional_fuel_market, 
+                fuel_type as fuel, 
+                tier, 
+                period, 
+                avg(price_mmbtu * {inflator}) as unit_cost, 
+                avg(max_avail_at_cost) as max_avail_at_cost, 
+                avg(fixed_cost) as fixed_cost
+            FROM fuel_costs c, period_length l, study_periods p 
             WHERE load_zone in %(load_zones)s
                 AND fuel_scen_id = %(fuel_scen_id)s
                 AND p.time_sample = %(time_sample)s
-            ORDER BY 1, 2, 4, 3;
+                AND (c.year >= p.period AND c.year < p.period + l.length)
+            GROUP BY 1, 2, 3, 4
+            ORDER BY 1, 2, 3, 4;
         """.format(inflator=inflator), args)
 
         write_table('lz_to_regional_fuel_market.tab', """
@@ -259,7 +286,6 @@ def write_tables(**args):
                 0 as g_is_baseload,
                 0 as g_is_flexible_baseload, 
                 0 as g_is_cogen,
-                0 as g_competes_for_space, 
                 variable_o_m * 1000.0 AS g_variable_o_m,
                 CASE WHEN fuel IN ('SUN', 'WND', 'MSW') THEN fuel ELSE 'multiple' END AS g_energy_source,
                 CASE WHEN fuel IN ('SUN', 'WND', 'MSW') THEN null ELSE 0.001*heat_rate END AS g_full_load_heat_rate
@@ -277,7 +303,6 @@ def write_tables(**args):
                 g.baseload as g_is_baseload,
                 0 as g_is_flexible_baseload, 
                 g.cogen as g_is_cogen,
-                g.competes_for_space as g_competes_for_space, 
                 CASE WHEN MIN(p.aer_fuel_code) IN ('SUN', 'WND') THEN 0.0 ELSE AVG(g.variable_o_m) * 1000.0 END 
                     AS g_variable_o_m,
                 CASE WHEN MIN(p.aer_fuel_code) IN ('SUN', 'WND', 'MSW') THEN MIN(p.aer_fuel_code) ELSE 'multiple' END AS g_energy_source,
