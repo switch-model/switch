@@ -129,12 +129,44 @@ def define_components(mod):
     Total_Startup_OM_Costs[t in TIMEPOINTS] is an expression for passing
     total startup O&M costs to the sys_cost module.
 
-    g_min_uptime[g] and g_min_downtime[g] show the minimum time that a 
-    generator can be committed (turned on) or uncommitted (turned off),
-    in hours. These usually reflect rules intended to limit thermal 
-    stress on generator units. They default to 0 (free to turn on or
-    off at any point) if not provided.
+    g_min_uptime[g] and g_min_downtime[g] show the minimum time that a
+    generator can be committed (turned on) or uncommitted (turned off), in
+    hours. These usually reflect rules intended to limit thermal stress on
+    generator units. They default to 0 (free to turn on or off at any
+    point) if not provided. Note: in practice, these will be rounded to
+    the nearest integer number of timepoints, so a project will be off for
+    1 timepoint if g_min_downtime is 4 and ts_duration_of_tp is 3. If more
+    conservative behavior is needed, g_min_uptime or g_min_downtime should
+    be raised to the desired multiple of ts_duration_of_tp.
 
+    PROJ_MIN_UPTIME_DISPATCH_POINTS and PROJ_MIN_DOWNTIME_DISPATCH_POINTS
+    are sets of (project, timepoint) tuples when minimum uptime or
+    downtime constraints are active. These are the indexing sets for the
+    Enforce_Min_Uptime and Enforce_Min_Downtime constraints, and are
+    probably not useful elsewhere.
+    
+    Enforce_Min_Uptime[(proj, tp) in PROJ_MIN_UPTIME_DISPATCH_POINTS] and
+    Enforce_Min_Downtime[(proj, tp) in PROJ_MIN_DOWNTIME_DISPATCH_POINTS]
+    are constraints that ensure that unit commitment respects the minimum
+    uptime and downtime for each project. These are enforced on an
+    aggregate basis for each project rather than tracking individual
+    units: the amount of generation capacity that can be committed in each
+    timepoint is equal to the amount of capacity that has been offline for
+    longer than the minimum downtime; the amount that can be decommitted
+    is equal to the amount that has been online for longer than the
+    minimum uptime. These rules are expressed by requiring that all
+    capacity that was started up during a lookback window (equal to
+    minimum uptime) is still online, and all capacity that was shutdown
+    during the downtime lookback window is still offline. Note: if a slice
+    of capacity has been forced off for the entire downtime lookback
+    window (e.g., on maintenance outage), the Enforce_Min_Downtime
+    constraint requires that capacity to stay offline during the current
+    timepoint. i.e., it is not possible to shutdown some units and then
+    startup units in the forced-off band to satisfy the min-downtime
+    rules. On the other hand any capacity that could have been committed
+    at some point in the lookback window can be startup now, possibly
+    replacing other units that were shutdown recently.
+    
     -- Dispatch limits based on committed capacity --
 
     g_min_load_fraction[g] describes the minimum loading level of a
@@ -233,9 +265,10 @@ def define_components(mod):
         within=NonNegativeReals)
     mod.Commit_Startup_Shutdown_Consistency = Constraint(
         mod.PROJ_DISPATCH_POINTS,
-        rule=lambda m, pr, t: (
-            m.CommitProject[pr, m.tp_previous[t]] +
-            m.Startup[pr, t] - m.Shutdown[pr, t] == m.CommitProject[pr, t]))
+        rule=lambda m, pr, t: 
+            m.CommitProject[pr, m.tp_previous[t]] 
+            + m.Startup[pr, t] - m.Shutdown[pr, t] 
+            == m.CommitProject[pr, t])
     mod.g_startup_fuel = Param(mod.GEN_TECH_WITH_FUEL, default=0.0)
     mod.g_startup_om = Param(mod.GENERATION_TECHNOLOGIES, default=0.0)
     mod.proj_startup_fuel = Param(
@@ -263,7 +296,6 @@ def define_components(mod):
         mod.GENERATION_TECHNOLOGIES,
         within=NonNegativeReals,
         default=0.0)
-    # timepoints when projects with uptime or downtime constraints are active
     mod.PROJ_MIN_UPTIME_DISPATCH_POINTS = Set(dimen=2, initialize=lambda m: [
         (pr, tp) 
             for pr in m.PROJECTS if m.g_min_uptime[m.proj_gen_tech[pr]] > 0.0
@@ -280,38 +312,52 @@ def define_components(mod):
         return m.TS_TPS[m.tp_ts[tp]].prevw(tp, n)
     # min_time_projects = set()
     def min_time_rule(m, pr, tp, up):
-        # if (pr, up) not in min_time_projects:
-        #     min_time_projects.add((pr, up))
-        #     print "creating min {}time constraint for {}".format('up' if up else 'down', pr)
-        # note: this enforces a simple rule: all capacity turned on in the last x hours must 
-        # still be on now (or all capacity recently turned off must still be off).
-        # If there is a slice of capacity that is supposed to be forced out of service all day, 
-        # this could assume that some other capacity was turned off in the last x hours, but then 
-        # it is now turning on part of the forced-off capacity.
-        # This could be resolved by adding a term reflecting the minimum forced-off capacity over
-        # the last x hours, or by modeling each unit separately (so capacity is either 100% 
-        # available or 100% unavailable).
-
-        # how many timepoints must the project stay on/off once it's started/shutdown?
-        # note: we round to the nearest integer, so a project will be off for 1 timepoint if 
-        # g_min_downtime is 4 and ts_duration_of_tp is 3; if more conservative behavior is needed,
-        # the user should raise g_min_downtime to the desired multiple of ts_duration_of_tp
-        n_tp = int(round(m.g_min_downtime[m.proj_gen_tech[pr]] / m.ts_duration_of_tp[m.tp_ts[tp]]))
+        """ This uses a simple rule: all capacity turned on in the last x
+        hours must still be on now (or all capacity recently turned off
+        must still be off)."""
+        
+        # how many timepoints must the project stay on/off once it's
+        # started/shutdown?
+        n_tp = int(round(
+            m.g_min_downtime[m.proj_gen_tech[pr]] 
+            / m.ts_duration_of_tp[m.tp_ts[tp]]
+        ))
         if n_tp == 1:
             # project can be shutdown and restarted in the same timepoint
             rule = Constraint.Skip
         else:
-            # note: this rule stops one short of n_tp steps back (normal behavior of range()), because 
-            # the current timepoint is included in the duration when the capacity will be on/off.
+            # note: this rule stops one short of n_tp steps back (normal
+            # behavior of range()), because the current timepoint is
+            # included in the duration when the capacity will be on/off.
             if up:
-                rule = (    # online capacity >= recent startups (all recent startups are still online)
+                rule = (    
+                    # online capacity >= recent startups 
+                    # (all recent startups are still online)
                     m.CommitProject[pr, tp] 
-                    >= sum(m.Startup[pr, tp_prev(m, tp, i)] for i in range(1, n_tp))
+                    >= 
+                    sum(m.Startup[pr, tp_prev(m, tp, i)] for i in range(1, n_tp))
                 )
             else:
-                rule = (    # offline capacity >= recent shutdowns (all recent shutdowns are still offline)
-                    m.ProjCapacityTP[pr, tp] * m.proj_availability[pr] - m.CommitProject[pr, tp] 
-                    >= sum(m.Shutdown[pr, tp_prev(m, tp, i)] for i in range(1, n_tp))
+                # Find the largest fraction of capacity that could have
+                # been committed in the last x hours, including the
+                # current hour. We assume that everything above this band
+                # must remain turned off (e.g., on maintenance outage). 
+                committable_fraction = m.proj_availability[pr] * max(
+                    m.proj_max_commit_fraction[pr, tp_prev(m, tp, i)] 
+                        for i in range(0, n_tp)
+                )
+                rule = (    
+                    # offline capacity >= forced-off + recent shutdowns 
+                    # (all recent shutdowns are still offline)
+                    # This is 
+                    # capacity - committed >=
+                    # (1-committable)*capacity + shutdowns
+                    # which becomes
+                    # committable * capacity - committed >= shutdowns
+                    m.ProjCapacityTP[pr, tp] * committable_fraction
+                    - m.CommitProject[pr, tp] 
+                    >= 
+                    sum(m.Shutdown[pr, tp_prev(m, tp, i)] for i in range(1, n_tp))
                 )
         return rule
     mod.Enforce_Min_Uptime = Constraint(

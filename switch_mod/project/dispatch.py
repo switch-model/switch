@@ -17,7 +17,7 @@ SYNOPSIS
 
 """
 
-import os
+import os, collections
 from pyomo.environ import *
 
 
@@ -33,6 +33,16 @@ def define_components(mod):
     they can be dispatched. A dispatch decisions is made for each member
     of this set. Members of this set can be abbreviated as (proj, t) or
     (prj, t).
+    
+    PROJ_ACTIVE_PERIODS is a set array showing all periods when each 
+    project is active (within the build -> retire window for existing or 
+    new capacity). This is an efficient way to find active periods for an 
+    individual project.
+    
+    PROJ_ACTIVE_TIMEPOINTS is a set array showing all timepoints when a 
+    project is active. These are the timepoints corresponding to 
+    PROJ_ACTIVE_PERIODS. This is the same data as PROJ_DISPATCH_POINTS, 
+    but split into separate sets for each project.
 
     ProjCapacityTP[(proj, t) in PROJ_DISPATCH_POINTS] is the same as
     ProjCapacity but indexed by timepoint rather than period to allow
@@ -160,22 +170,23 @@ def define_components(mod):
     mod.PROJ_DISPATCH_POINTS = Set(
         dimen=2,
         initialize=init_dispatch_timepoints)
-    # make set array showing all timepoints when each project is active
-    # note: it might be cleaner to first define PROJ_ACTIVE_PERIODS, then use that
-    # to define PROJ_ACTIVE_TIMEPOINTS, PROJ_DISPATCH_POINTS, etc.
-    def proj_active_timepoints_rule(m, p):
-        if not hasattr(m, 'proj_active_timepoints_dict'):
-            d = m.proj_active_timepoints_dict = dict()
-            for p, t in m.PROJ_DISPATCH_POINTS:
-                if p not in d:
-                    d[p] = []
-                d[p].append(t)
-        # note: we could use pop(p) here to reduce memory use, but for some reason pyomo does 
-        # one extra call at the start, so that doesn't work.
-        # note: we return an empty list if a project has no active timepoints, usually 
-        # for projects that retire before the study
-        return m.proj_active_timepoints_dict.get(p, [])
-    mod.PROJ_ACTIVE_TIMEPOINTS = Set(mod.PROJECTS, initialize=proj_active_timepoints_rule)
+
+    def proj_active_periods_rule(m, pr):
+        if not hasattr(m, 'proj_active_periods_dict'):
+            d = m.proj_active_periods_dict = collections.defaultdict(set)
+            for (proj, bld_yr) in m.PROJECT_BUILDYEARS:
+                for period in m.PROJECT_BUILDS_OPERATIONAL_PERIODS[proj, bld_yr]:
+                    d[proj].add(period)
+        active_periods = m.proj_active_periods_dict.pop(pr)
+        if len(m.proj_active_periods_dict) == 0:
+            delattr(m, 'proj_active_periods_dict')
+        return active_periods
+    mod.PROJ_ACTIVE_PERIODS = Set(
+        mod.PROJECTS, 
+        initialize=proj_active_periods_rule)
+    mod.PROJ_ACTIVE_TIMEPOINTS = Set(mod.PROJECTS, initialize=lambda m, proj: (
+        tp for per in m.PROJ_ACTIVE_PERIODS[proj] for tp in m.PERIOD_TPS[per]))
+    
     mod.ProjCapacityTP = Expression(
         mod.PROJ_DISPATCH_POINTS,
         rule=lambda m, proj, t: m.ProjCapacity[proj, m.tp_period[t]])
