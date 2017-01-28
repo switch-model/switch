@@ -167,8 +167,9 @@ def upgrade_input_dir(inputs_dir, verbose=False):
 
     new_module_list=[]
     for module in module_list:
-        # add prefix if needed (standardizes names for further processing)
-        if module not in old_modules and module_prefix + module in old_modules:
+        # add prefix if appropriate 
+        # (standardizes names for further processing)
+        if module_prefix + module in old_modules:
             module = module_prefix + module
         if module in rename_modules:
             module = rename_modules[module]

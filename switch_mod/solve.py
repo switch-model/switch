@@ -495,7 +495,9 @@ def solve(model):
         solver_args={}
 
     # Automatically send all defined suffixes to the solver
-    solver_args["suffixes"] = [c.cname() for c in model.component_objects() if isinstance(c, Suffix)]
+    solver_args["suffixes"] = [
+        c.name for c in model.component_objects(ctype=Suffix)
+    ]
     # note: the next few lines are faster than the line above, but seem risky:
     # i = m._ctypes.get(Suffix, [None])[0]
     # solver_args["suffixes"] = []

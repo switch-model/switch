@@ -966,13 +966,13 @@ def write_dual_costs(m):
     #         const = m.Max_Build_Potential[proj, per]
     #         surplus = const.upper() * m.dual[const]
     #         if surplus != 0.0:
-    #             f.write('\t'.join([const.cname(), str(surplus)]) + '\n')
+    #             f.write('\t'.join([const.name, str(surplus)]) + '\n')
     #     # import pdb; pdb.set_trace()
     #     for proj, year in m.BuildProj:
     #         var = m.BuildProj[proj, year]
     #         if var.ub is not None and var.ub > 0.0 and value(var) > 0.0 and var in m.rc and m.rc[var] != 0.0:
     #             surplus = var.ub * m.rc[var]
-    #             f.write('\t'.join([var.cname(), str(surplus)]) + '\n')
+    #             f.write('\t'.join([var.name, str(surplus)]) + '\n')
 
     outfile = os.path.join(outputs_dir, "dual_costs{t}.tsv".format(t=tag))
     dual_data = []
@@ -992,11 +992,11 @@ def write_dual_costs(m):
                 # Variable is unbounded; dual should be 0.0 or possibly a tiny non-zero value.
                 if not (-1e-5 < dual < 1e-5):
                     raise ValueError("{} has no {} bound but has a non-zero dual value {}.".format(
-                        const.cname(), "lower" if dual > 0 else "upper", dual))
+                        const.name, "lower" if dual > 0 else "upper", dual))
             else:
                 total_cost = dual * (bound + offset)
                 if total_cost != 0.0:
-                    dual_data.append((prefix+const.cname(), direction, (bound+offset), dual, total_cost))
+                    dual_data.append((prefix+const.name, direction, (bound+offset), dual, total_cost))
 
     for comp in m.component_objects(ctype=Var):
         for idx in comp:
