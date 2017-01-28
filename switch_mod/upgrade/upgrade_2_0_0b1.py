@@ -23,39 +23,103 @@ import switch_mod.upgrade
 upgrades_from = '2.0.0b0'
 upgrades_to = '2.0.0b1'
 
+old_modules = {
+    'switch_mod.balancing_areas',
+    'switch_mod.export.__init__',
+    'switch_mod.export.dump',
+    'switch_mod.export.example_export',
+    'switch_mod.financials',
+    'switch_mod.fuel_cost',
+    'switch_mod.fuel_markets',
+    'switch_mod.fuels',
+    'switch_mod.gen_tech',
+    'switch_mod.generators.hydro_simple',
+    'switch_mod.generators.hydro_system',
+    'switch_mod.generators.storage',
+    'switch_mod.hawaii.batteries',
+    'switch_mod.hawaii.batteries_fixed_calendar_life',
+    'switch_mod.hawaii.constant_elasticity_demand_system',
+    'switch_mod.hawaii.demand_response',
+    'switch_mod.hawaii.demand_response_no_reserves',
+    'switch_mod.hawaii.demand_response_simple',
+    'switch_mod.hawaii.emission_rules',
+    'switch_mod.hawaii.ev',
+    'switch_mod.hawaii.fed_subsidies',
+    'switch_mod.hawaii.fuel_markets_expansion',
+    'switch_mod.hawaii.hydrogen',
+    'switch_mod.hawaii.kalaeloa',
+    'switch_mod.hawaii.lng_conversion',
+    'switch_mod.hawaii.no_central_pv',
+    'switch_mod.hawaii.no_onshore_wind',
+    'switch_mod.hawaii.no_renewables',
+    'switch_mod.hawaii.no_wind',
+    'switch_mod.hawaii.psip',
+    'switch_mod.hawaii.pumped_hydro',
+    'switch_mod.hawaii.r_demand_system',
+    'switch_mod.hawaii.reserves',
+    'switch_mod.hawaii.rps',
+    'switch_mod.hawaii.save_results',
+    'switch_mod.hawaii.scenario_data',
+    'switch_mod.hawaii.scenarios',
+    'switch_mod.hawaii.smooth_dispatch',
+    'switch_mod.hawaii.switch_patch',
+    'switch_mod.hawaii.unserved_load',
+    'switch_mod.hawaii.util',
+    'switch_mod.load_zones',
+    'switch_mod.local_td',
+    'switch_mod.main',
+    'switch_mod.project.build',
+    'switch_mod.project.discrete_build',
+    'switch_mod.project.dispatch',
+    'switch_mod.project.no_commit',
+    'switch_mod.project.unitcommit.commit',
+    'switch_mod.project.unitcommit.discrete',
+    'switch_mod.project.unitcommit.fuel_use',
+    'switch_mod.solve',
+    'switch_mod.solve_scenarios',
+    'switch_mod.test',
+    'switch_mod.timescales',
+    'switch_mod.trans_build',
+    'switch_mod.trans_dispatch',
+    'switch_mod.utilities',
+    'switch_mod.project',
+    'switch_mod.project.unitcommit',
+}
+# also check for module file locally
 rename_modules = {
-    'project.no_commit': 'operations.no_commit',
-    'project.unitcommit': 'operations.unitcommit',
-    'trans_build': 'investment.trans_build',
-    'trans_dispatch': 'operations.trans_dispatch',
-    'project.discrete_build': 'investment.proj_discrete_build',
-    'project.unitcommit.discrete': 'operations.unitcommit.discrete',
-    'fuel_cost': 'switch_mod.financials.fuel_flat_costs',
-    'fuel_markets': 'switch_mod.financials.fuel_markets',
-    'fuels': 'switch_mod.energy_sources'
+    'switch_mod.project.no_commit': 'switch_mod.operations.no_commit',
+    'switch_mod.trans_build': 'switch_mod.investment.trans_build',
+    'switch_mod.trans_dispatch': 'switch_mod.operations.trans_dispatch',
+    'switch_mod.project.discrete_build': 'switch_mod.investment.proj_discrete_build',
+    'switch_mod.project.unitcommit.discrete': 'switch_mod.operations.unitcommit.discrete',
+    'switch_mod.fuel_cost': 'switch_mod.financials.fuel_flat_costs',
+    'switch_mod.fuel_markets': 'switch_mod.financials.fuel_markets',
+    'switch_mod.fuels': 'switch_mod.energy_sources'
 }
 module_prefix = 'switch_mod.'
 expand_modules = {
-    'switch_mod.operations.unitcommit': [
-        'switch_mod.operations.unitcommit.commit',
-        'switch_mod.operations.unitcommit.fuel_use'
+    'switch_mod': [
+        '### begin core modules ###',
+        'switch_mod',
+        'switch_mod.timescales',
+        'switch_mod.financials',
+        'switch_mod.financials.minimize_cost',
+        'switch_mod.load_zones',
+        'switch_mod.energy_sources',
+        'switch_mod.investment.proj_build',
+        'switch_mod.operations.proj_dispatch',
+        'switch_mod.export',
+        '### end core modules ###'
     ],
     'switch_mod.project': [
         'switch_mod.investment.proj_build',
         'switch_mod.operations.proj_dispatch'
-    ]
+    ],
+    'switch_mod.project.unitcommit': [
+        'switch_mod.operations.unitcommit.commit',
+        'switch_mod.operations.unitcommit.fuel_use'
+    ],
 }
-core_modules = [
-    'switch_mod',
-    'switch_mod.timescales',
-    'switch_mod.financials',
-    'switch_mod.financials.minimize_cost',
-    'switch_mod.load_zones',
-    'switch_mod.energy_sources',
-    'switch_mod.investment.proj_build',
-    'switch_mod.operations.proj_dispatch',
-    'switch_mod.export'
-]
 
 def can_upgrade_inputs_dir(inputs_dir):
     """
@@ -86,24 +150,33 @@ def upgrade_input_dir(inputs_dir, verbose=False):
     if os.path.isfile(modules_path_old):
         shutil.move(modules_path_old, modules_path)
 
+    if not os.path.isfile(modules_path):
+        modules_path = os.path.join(inputs_dir, '..', 'modules.txt')
+    if not os.path.isfile(modules_path):
+        raise RuntimeError(
+            "Unable to find modules or modules.txt file for input directory '{}'. "
+            "This file should be located in the input directory or its parent."
+            .format(inputs_dir)
+        )
+
     ###
     # Upgrade module listings
-    with open(modules_path, 'rb') as f:
-        module_list = [line for line in f.read().split('\n') if line and line[0] != '#']
-    module_list_orig = [m for m in module_list]
+    with open(modules_path) as f:
+        module_list = [line.strip() for line in f.read().splitlines()]
+    # note: some of these may be comments, which should be retained
+
     new_module_list=[]
-    for i, module in enumerate(module_list):
+    for module in module_list:
+        # add prefix if needed (standardizes names for further processing)
+        if module not in old_modules and module_prefix + module in old_modules:
+            module = module_prefix + module
         if module in rename_modules:
             module = rename_modules[module]
-        if module_prefix not in module:
-            module = module_prefix + module
-        if module not in expand_modules:
-            new_module_list.append(module)
+        if module in expand_modules:
+            new_module_list.extend(expand_modules[module])
         else:
-            new_module_list += expand_modules[module]
-    if new_module_list[0] != core_modules[0]:
-        new_module_list = ['# Core Modules'] + core_modules + \
-                          ['# Custom Modules'] + new_module_list
+            new_module_list.append(module)
+
     with open(modules_path, 'w') as f:
        for module in new_module_list:
             f.write(module + "\n")
