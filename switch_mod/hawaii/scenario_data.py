@@ -287,129 +287,21 @@ def write_tables(**args):
 
 
     #########################
-    # gen_tech
-
-    # TODO: make sure the heat rates are null for non-fuel projects in the upstream database, 
-    # and remove the correction code from here
+    # investment.proj_build and part of operation.unitcommit.commit
 
     # NOTE: this converts variable o&m from $/kWh to $/MWh
-    # NOTE: we don't provide the following in this version:
-    # g_min_build_capacity
-    # g_ccs_capture_efficiency, g_ccs_energy_load,
-    # g_storage_efficiency, g_store_to_release_ratio
-
+    # and heat rate from Btu/kWh to MBtu/MWh
+    
     # NOTE: for all energy sources other than 'SUN' and 'WND' (i.e., all fuels),
-    # We report the fuel as 'multiple' and then provide data in a multi-fuel table.
+    # we report the fuel as 'multiple' and then provide data in a multi-fuel table.
     # Some of these are actually single-fuel, but this approach is simpler than sorting
     # them out within each query, and it doesn't add any complexity to the model.
     
-    # TODO: maybe replace "fuel IN ('SUN', 'WND', 'MSW')" with "fuel not in (SELECT fuel FROM fuel_cost)"
-    # TODO: convert 'MSW' to a proper fuel, possibly with a negative cost, instead of ignoring it
-    
-    
-    # Omit full load heat rates if we are providing heat rate curves instead
-    if args.get('use_incremental_heat_rates', False):
-        full_load_heat_rate = 'null'
-    else:
-        full_load_heat_rate = '0.001*heat_rate'
-
-    if args.get('report_forced_outage_rates', False):
-        forced_outage_rate = 'forced_outage_rate'
-    else:
-        forced_outage_rate = '0'
-
-    # NOTE: we divide heat rate by 1000 to convert from Btu/kWh to MBtu/MWh
-    write_table('generator_info.tab', """
-        SELECT technology as generation_technology, 
-            technology as g_dbid,
-            unit_size as g_unit_size,
-            max_age_years as g_max_age, 
-            scheduled_outage_rate as g_scheduled_outage_rate, 
-            {fo} as g_forced_outage_rate,
-            intermittent as g_is_variable, 
-            baseload as g_is_baseload, 
-            0 as g_is_flexible_baseload, 
-            cogen as g_is_cogen,
-            0 as g_competes_for_space, 
-            non_cycling as g_non_cycling,
-            variable_o_m * 1000.0 AS g_variable_o_m,
-            CASE WHEN fuel IN ('SUN', 'WND', 'MSW') THEN fuel ELSE 'multiple' END AS g_energy_source,
-            CASE WHEN fuel IN ('SUN', 'WND', 'MSW') THEN null ELSE {flhr} END AS g_full_load_heat_rate
-        FROM study_generator_info
-        ORDER BY 1;
-    """.format(fo=forced_outage_rate, flhr=full_load_heat_rate), args)
-
-    # get part load heat rate curves if requested
-    # note: we sort lexicographically by power output and fuel consumption, in case
-    # there are segments where power or fuel consumption steps up while the other stays constant
-    # That is nonconvex and not currently supported by SWITCH, but could potentially be used 
-    # in the future by assigning binary variables for activating each segment.
-    # note: for sqlite, you could use "CONCAT(technology, ' ', output_mw, ' ', fuel_consumption_mmbtu_per_h) AS key"
-    # TODO: rename fuel_consumption_mmbtu_per_h to fuel_use_mmbtu_per_h here and in import_data.py
-
-    if args.get('use_incremental_heat_rates', False):
-        write_table('gen_inc_heat_rates.tab', """
-            WITH part_load AS (
-                SELECT 
-                    row_number() OVER (ORDER BY technology, output_mw, fuel_consumption_mmbtu_per_h) AS key,
-                    technology AS generation_technology, 
-                    output_mw, 
-                    fuel_consumption_mmbtu_per_h
-                FROM part_load_fuel_consumption JOIN study_generator_info USING (technology)
-            ), prior AS (
-                SELECT a.key, MAX(b.key) AS prior_key
-                FROM part_load a JOIN part_load b ON b.generation_technology=a.generation_technology AND b.key < a.key
-                GROUP BY 1
-            ), curves AS (
-                SELECT -- first step in each curve
-                    key, generation_technology, 
-                    output_mw AS power_start_mw, 
-                    NULL::real AS power_end_mw, 
-                    NULL::real AS incremental_heat_rate_mbtu_per_mwhr,
-                    fuel_consumption_mmbtu_per_h AS fuel_use_rate_mmbtu_per_h
-                FROM part_load LEFT JOIN prior USING (key) WHERE prior_key IS NULL
-                UNION
-                SELECT -- additional steps
-                    high.key AS key, high.generation_technology, 
-                    low.output_mw AS power_start_mw, 
-                    high.output_mw AS power_end_mw,
-                    (high.fuel_consumption_mmbtu_per_h - low.fuel_consumption_mmbtu_per_h) 
-                        / (high.output_mw - low.output_mw) AS incremental_heat_rate_mbtu_per_mwhr,
-                    NULL::real AS fuel_use_rate_mmbtu_per_h
-                FROM part_load high JOIN prior USING (key) JOIN part_load low ON (low.key = prior.prior_key)
-                ORDER BY 1
-            )
-            SELECT generation_technology, power_start_mw, power_end_mw, incremental_heat_rate_mbtu_per_mwhr, fuel_use_rate_mmbtu_per_h
-            FROM curves ORDER BY key; 
-        """, args)
-    
-    # This gets a list of all the fueled projects (listed as "multiple" energy sources above),
-    # and lists them as accepting any equivalent or lighter fuel. (However, cogen plants and plants 
-    # using fuels with rank 0 are not changed.) Fuels are also filtered against the list of fuels with
-    # costs reported for the current scenario, so this can end up re-mapping one fuel in the database
-    # (e.g., LSFO) to a similar fuel in the scenario (e.g., LSFO-Diesel-Blend), even if the original fuel
-    # doesn't exist in the fuel_costs table. This can also be used to remap different names for the same
-    # fuel (e.g., "COL" in the plant definition and "Coal" in the fuel_costs table, both with the same
-    # fuel_rank).
-    write_indexed_set_dat_file('gen_multiple_fuels.dat', 'G_MULTI_FUELS', """
-        WITH all_techs AS (
-            SELECT
-                technology as generation_technology,
-                fuel as orig_fuel,
-                cogen
-            FROM study_generator_info
-        ), all_fueled_techs AS (
-            SELECT * from all_techs WHERE orig_fuel NOT IN ('SUN', 'WND', 'MSW')
+    if args.get('connect_cost_per_mw_km', 0):
+        print(
+            "WARNING: ignoring connect_cost_per_mw_km specified in arguments; using"
+            "project.connect_cost_per_mw and generator_info.connect_cost_per_kw_generic instead."
         )
-        SELECT DISTINCT generation_technology, b.energy_source as fuel
-        FROM all_fueled_techs t 
-            JOIN energy_source_properties a ON a.energy_source = t.orig_fuel
-            JOIN energy_source_properties b ON b.fuel_rank >= a.fuel_rank AND
-                (a.fuel_rank > 0 OR a.energy_source = b.energy_source)    -- 0-rank can't change fuels
-            WHERE b.energy_source IN (SELECT fuel_type FROM fuel_costs WHERE fuel_scen_id = %(fuel_scen_id)s);
-    """, args)
-
-
     if args.get('wind_capital_cost_escalator', 0.0) or args.get('pv_capital_cost_escalator', 0.0):
         # user supplied a non-zero escalator
         raise ValueError(
@@ -424,84 +316,79 @@ def write_tables(**args):
             'assign base_year in the generator_costs_by_year table instead.'
         )
 
-    # note: this table can only hold costs for technologies with future build years,
-    # so costs for existing technologies are specified in proj_build_costs.tab
-    # NOTE: costs in this version of switch are expressed in $/MW, $/MW-year, etc., not per kW.
-    write_table('gen_new_build_costs.tab', """
-        SELECT  
-            i.technology as generation_technology, 
-            period AS investment_period,
-            c.capital_cost_per_kw * 1000.0 
-                * power(1.0+%(inflation_rate)s, %(base_financial_year)s-c.base_year)
-                AS g_overnight_cost, 
-            i.fixed_o_m * 1000.0 * power(1.0+%(inflation_rate)s, %(base_financial_year)s-i.base_year)
-                AS g_fixed_o_m
-        FROM study_generator_info i
-            JOIN generator_costs_by_year c USING (technology)
-            JOIN study_periods p ON p.period = c.year
-        WHERE time_sample = %(time_sample)s 
-            AND (i.min_vintage_year IS NULL OR c.year >= i.min_vintage_year)
-            AND c.cap_cost_scen_id = %(cap_cost_scen_id)s
-        ORDER BY 1, 2;
-    """, args)
 
-
-    #########################
-    # project.build
-
-    # NOTE: this uses all projects in the project table (generally renewable energy
-    # projects and existing plants).
-    # Then it creates additional project definitions for any technologies that are 
-    # listed with resource_limited = 0 (e.g., new thermal plants).
-    # If there are existing instances of non-resource-limited technologies, then
-    # the model could potentially end up with multiple projects with the same
-    # technology in the same load zone (one existing, one new/generic), but that
-    # shouldn't cause any real problems. This possibility can be avoided by using
-    # different technologies for existing projects, and not specifying new-build
-    # costs for those in future years. Alternatively, you can set 
-    # project.max_capacity = proj_existing_builds.proj_existing_cap. However,
-    # then it will still be possible to rebuild on the existing site after 
-    # existing capacity is retired.
+    # TODO: make sure the heat rates are null for non-fuel projects in the upstream database, 
+    # and remove the correction code from here
     
-    # NOTE: we don't provide the following, because they are specified in generator_info.tab instead:
-    # proj_full_load_heat_rate, proj_forced_outage_rate, proj_scheduled_outage_rate, proj_variable_om
-    # (the project-specific data would only be for otherwise-similar projects that have degraded and 
-    # now have different properties)
+    # TODO: maybe replace "fuel IN ('SUN', 'WND', 'MSW')" with "fuel not in (SELECT fuel FROM fuel_cost)"
+    # TODO: convert 'MSW' to a proper fuel, possibly with a negative cost, instead of ignoring it
+    
+    # Omit full load heat rates if we are providing heat rate curves instead
+    if args.get('use_incremental_heat_rates', False):
+        full_load_heat_rate = 'null'
+    else:
+        full_load_heat_rate = '0.001*heat_rate'
 
-    if args.get('connect_cost_per_mw_km', 0):
-        print(
-            "WARNING: ignoring connect_cost_per_mw_km specified in arguments; using"
-            "project.connect_cost_per_mw and generator_info.connect_cost_per_kw_generic instead."
-        )
-    # if needed, add 'null as proj_dbid' in queries below
+    if args.get('report_forced_outage_rates', False):
+        forced_outage_rate = 'forced_outage_rate'
+    else:
+        forced_outage_rate = '0'
+
     # if needed, follow the query below with another one that specifies 
     # COALESCE(proj_connect_cost_per_mw, 0.0) AS proj_connect_cost_per_mw
     write_table('project_info.tab', """
         SELECT 
-            -- site-specific projects (existing or resource-limited)
             "PROJECT",
             load_zone AS proj_load_zone,
             technology AS proj_gen_tech,
             connect_cost_per_mw AS proj_connect_cost_per_mw,
-            max_capacity AS proj_capacity_limit_mw
-        FROM study_projects
+            max_capacity AS proj_capacity_limit_mw,
+            unit_size as proj_unit_size,
+            max_age_years as proj_max_age, 
+            scheduled_outage_rate as proj_scheduled_outage_rate, 
+            {fo} as proj_forced_outage_rate,
+            intermittent as proj_is_variable, 
+            baseload as proj_is_baseload, 
+            -- 0 as proj_is_flexible_baseload, 
+            cogen as proj_is_cogen,
+            non_cycling as proj_non_cycling,
+            variable_o_m * 1000.0 AS proj_variable_om,
+            CASE WHEN fuel IN ('SUN', 'WND', 'MSW') THEN fuel ELSE 'multiple' END AS proj_energy_source,
+            CASE WHEN fuel IN ('SUN', 'WND', 'MSW') THEN null ELSE {flhr} END AS proj_full_load_heat_rate
+        FROM study_projects JOIN study_generator_info USING (technology)
         ORDER BY 2, 3, 1;
-    """, args)
+    """.format(fo=forced_outage_rate, flhr=full_load_heat_rate), args)
 
-    write_table('proj_existing_builds.tab', """
+    write_table('proj_build_predetermined.tab', """
         SELECT 
             "PROJECT", 
             build_year, 
-            SUM(proj_existing_cap) as proj_existing_cap
+            SUM(proj_existing_cap) as proj_predetermined_cap
         FROM study_projects JOIN proj_existing_builds USING (project_id)
         GROUP BY 1, 2
         ORDER BY 1, 2;
     """, args)
 
-    # note: we have to put cost data for existing projects in proj_build_costs.tab
-    # because gen_new_build_costs only covers future investment periods.
-    # NOTE: these costs must be expressed per MW, not per kW
+    # NOTE: these costs must be expressed in $/MW, $/MWh or $/MW-year, 
+    # not $/kW, $/kWh or $/kW-year.
     write_table('proj_build_costs.tab', """
+        WITH gen_build_costs AS (
+            SELECT  
+                i.technology, 
+                c.year AS build_year,
+                c.capital_cost_per_kw * 1000.0 
+                    * power(1.0+%(inflation_rate)s, %(base_financial_year)s-c.base_year)
+                    AS proj_overnight_cost, 
+                i.fixed_o_m * 1000.0 * power(1.0+%(inflation_rate)s, %(base_financial_year)s-i.base_year)
+                    AS proj_fixed_o_m
+            FROM study_generator_info i
+                JOIN generator_costs_by_year c USING (technology)
+                JOIN study_periods p ON p.period = c.year
+            WHERE time_sample = %(time_sample)s 
+                AND (i.min_vintage_year IS NULL OR c.year >= i.min_vintage_year)
+                AND c.cap_cost_scen_id = %(cap_cost_scen_id)s
+            ORDER BY 1, 2
+        )
         SELECT 
             "PROJECT", 
             build_year, 
@@ -510,12 +397,97 @@ def write_tables(**args):
             sum(proj_fixed_om * 1000.0 * proj_existing_cap) / sum(proj_existing_cap) 
                 AS proj_fixed_om
         FROM study_projects JOIN proj_existing_builds USING (project_id)
-        GROUP BY 1, 2;
+        GROUP BY 1, 2
+        UNION
+        SELECT "PROJECT", build_year, proj_overnight_cost, proj_fixed_o_m
+        FROM gen_build_costs JOIN study_projects USING (technology)
+        ORDER BY 1, 2;
+    """, args)
+
+    #########################
+    # operation.unitcommit.fuel_use
+
+    # get part load heat rate curves if requested
+    # note: we sort lexicographically by power output and fuel consumption, in case
+    # there are segments where power or fuel consumption steps up while the other stays constant
+    # That is nonconvex and not currently supported by SWITCH, but could potentially be used 
+    # in the future by assigning binary variables for activating each segment.
+    # note: for sqlite, you could use "CONCAT(technology, ' ', output_mw, ' ', fuel_consumption_mmbtu_per_h) AS key"
+    # TODO: rename fuel_consumption_mmbtu_per_h to fuel_use_mmbtu_per_h here and in import_data.py
+
+    if args.get('use_incremental_heat_rates', False):
+        write_table('proj_inc_heat_rates.tab', """
+            WITH part_load AS (
+                SELECT 
+                    row_number() OVER (ORDER BY technology, output_mw, fuel_consumption_mmbtu_per_h) AS key,
+                    technology, 
+                    output_mw, 
+                    fuel_consumption_mmbtu_per_h
+                FROM part_load_fuel_consumption JOIN study_generator_info USING (technology)
+            ), prior AS (
+                SELECT a.key, MAX(b.key) AS prior_key
+                FROM part_load a JOIN part_load b ON b.technology=a.technology AND b.key < a.key
+                GROUP BY 1
+            ), curves AS (
+                SELECT -- first step in each curve
+                    key, technology, 
+                    output_mw AS power_start_mw, 
+                    NULL::real AS power_end_mw, 
+                    NULL::real AS incremental_heat_rate_mbtu_per_mwhr,
+                    fuel_consumption_mmbtu_per_h AS fuel_use_rate_mmbtu_per_h
+                FROM part_load LEFT JOIN prior USING (key) WHERE prior_key IS NULL
+                UNION
+                SELECT -- additional steps
+                    high.key AS key, high.technology, 
+                    low.output_mw AS power_start_mw, 
+                    high.output_mw AS power_end_mw,
+                    (high.fuel_consumption_mmbtu_per_h - low.fuel_consumption_mmbtu_per_h) 
+                        / (high.output_mw - low.output_mw) AS incremental_heat_rate_mbtu_per_mwhr,
+                    NULL::real AS fuel_use_rate_mmbtu_per_h
+                FROM part_load high JOIN prior USING (key) JOIN part_load low ON (low.key = prior.prior_key)
+                ORDER BY 1
+            )
+            SELECT 
+                "PROJECT" as project, 
+                power_start_mw, power_end_mw, 
+                incremental_heat_rate_mbtu_per_mwhr, fuel_use_rate_mmbtu_per_h
+            FROM curves c JOIN study_projects p using (technology)
+            ORDER BY c.technology, c.key, p."PROJECT";
+        """, args)
+    
+    # This gets a list of all the fueled projects (listed as "multiple" energy sources above),
+    # and lists them as accepting any equivalent or lighter fuel. (However, cogen plants and plants 
+    # using fuels with rank 0 are not changed.) Fuels are also filtered against the list of fuels with
+    # costs reported for the current scenario, so this can end up re-mapping one fuel in the database
+    # (e.g., LSFO) to a similar fuel in the scenario (e.g., LSFO-Diesel-Blend), even if the original fuel
+    # doesn't exist in the fuel_costs table. This can also be used to remap different names for the same
+    # fuel (e.g., "COL" in the plant definition and "Coal" in the fuel_costs table, both with the same
+    # fuel_rank).
+    write_indexed_set_dat_file('proj_multiple_fuels.dat', 'PROJ_MULTI_FUELS', """
+        WITH all_techs AS (
+            SELECT
+                technology,
+                fuel as orig_fuel,
+                cogen
+            FROM study_generator_info
+        ), all_fueled_techs AS (
+            SELECT * from all_techs WHERE orig_fuel NOT IN ('SUN', 'WND', 'MSW')
+        ), gen_multiple_fuels AS (
+            SELECT DISTINCT technology, b.energy_source as fuel
+            FROM all_fueled_techs t 
+                JOIN energy_source_properties a ON a.energy_source = t.orig_fuel
+                JOIN energy_source_properties b ON b.fuel_rank >= a.fuel_rank AND
+                    (a.fuel_rank > 0 OR a.energy_source = b.energy_source)    -- 0-rank can't change fuels
+                WHERE b.energy_source IN (SELECT fuel_type FROM fuel_costs WHERE fuel_scen_id = %(fuel_scen_id)s)
+        ) 
+        SELECT "PROJECT", fuel 
+            FROM gen_multiple_fuels g JOIN study_projects p USING (technology)
+            ORDER BY p.technology, p."PROJECT", g.fuel
     """, args)
 
 
     #########################
-    # project.dispatch
+    # operation.proj_dispatch
 
     # skip this step if the user specifies "skip_cf" in the arguments (to speed up execution)
     if args.get("skip_cf", False):
@@ -542,15 +514,14 @@ def write_tables(**args):
 
 
     #########################
-    # project.unitcommit.commit
+    # operation.unitcommit.commit
 
     # minimum commitment levels for existing projects
 
     # TODO: set proj_max_commit_fraction based on maintenance outage schedules
     # (needed for comparing switch marginal costs to FERC 715 data in 2007-08)
 
-    # TODO: eventually add code to only provide these values for the timepoints before 
-    # each project retires (providing them after retirement will cause an error).
+    # TODO: create data files showing reserve rules
 
     write_table('proj_commit_bounds_timeseries.tab', """
         SELECT * FROM (
@@ -559,53 +530,21 @@ def write_tables(**args):
                 CASE WHEN %(enable_must_run)s = 1 AND must_run = 1 THEN 1.0 ELSE null END 
                     AS proj_min_commit_fraction, 
                 null AS proj_max_commit_fraction,
-                null AS proj_min_load_fraction
+                null AS proj_min_load_fraction_TP
             FROM study_projects JOIN study_generator_info USING (technology)
                 CROSS JOIN study_hour
             WHERE time_sample = %(time_sample)s
         ) AS the_data
         WHERE proj_min_commit_fraction IS NOT NULL 
             OR proj_max_commit_fraction IS NOT NULL 
-            OR proj_min_load_fraction IS NOT NULL;
+            OR proj_min_load_fraction_TP IS NOT NULL;
     """, args)
 
-    # TODO: get minimum loads for new and existing power plants and then activate the query below
-
-    # write_table('gen_unit_commit.tab', """
-    #     SELECT 
-    #         technology AS generation_technology, 
-    #         min_load / unit_size AS g_min_load_fraction, 
-    #         null AS g_startup_fuel,
-    #         null AS g_startup_om
-    #     FROM generator_info
-    #     UNION SELECT DISTINCT
-    #         technology AS generation_technology, 
-    #         sum(min_load) / sum(peak_mw) AS g_min_load_fraction, 
-    #         null AS g_startup_fuel,
-    #         null AS g_startup_om
-    #     FROM existing_plants
-    #     WHERE load_zone in %(load_zones)s
-    #        AND insvyear <= (SELECT MAX(period) FROM study_periods WHERE time_sample = %(time_sample)s)
-    #        AND technology NOT IN %(exclude_technologies)s
-    #     GROUP BY 1
-    #     ORDER by 1;
-    # """, args)
-
-
-    #########################
-    # project.unitcommit.fuel_use
-
-    # TODO: heat rate curves for new projects
-    # TODO: heat rate curves for existing plants
 
     #########################
     # project.unitcommit.discrete
 
     # include this module, but it doesn't need any additional data.
-
-
-    # TODO: write reserves code
-    # TODO: create data files showing reserve rules
 
 
     #########################
