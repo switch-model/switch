@@ -19,10 +19,10 @@ def define_components(m):
     # create lists of projects by energy source
     # we sort these to help with display, but that may not actually have any effect
     m.PROJECTS_BY_FUEL = Set(m.FUELS, initialize=lambda m, f:
-        sorted([p for p in m.FUEL_BASED_PROJECTS if f in m.G_FUELS[m.proj_gen_tech[p]]])
+        sorted([p for p in m.FUEL_BASED_PROJECTS if f in m.PROJ_FUELS[p]])
     )
     m.PROJECTS_BY_NON_FUEL_ENERGY_SOURCE = Set(m.NON_FUEL_ENERGY_SOURCES, initialize=lambda m, s:
-        sorted([p for p in m.NON_FUEL_BASED_PROJECTS if m.g_energy_source[m.proj_gen_tech[p]] == s])
+        sorted([p for p in m.NON_FUEL_BASED_PROJECTS if m.proj_energy_source[p] == s])
     )
 
     # constrain DumpPower to zero, so we can track curtailment better

@@ -87,21 +87,16 @@ def define_components(mod):
     level. Data is read in in that format, then processed to describe
     the individual line segments.
 
-    GEN_FUEL_USE_SEGMENTS[g in GEN_TECH_WITH_FUEL] is a set of line segments
-    that collectively describe fuel requirements for a given generation
-    technology. Each element of this set is a tuple of (y-intercept,
-    slope) where the y-intercept is in units of MMBTU/(hr * MW-capacity)
-    and slope is incremental heat rate in units of MMBTU / MWh-energy.
-    We normalize the y-intercept by capacity so that we can scale it to
+    PROJ_FUEL_USE_SEGMENTS[proj in FUEL_BASED_PROJECTS] is a set of line
+    segments that collectively describe fuel requirements for a given
+    project. Each element of this set is a tuple of (y-intercept, slope)
+    where the y-intercept is in units of MMBTU/(hr * MW-capacity) and
+    slope is incremental heat rate in units of MMBTU / MWh-energy. We
+    normalize the y-intercept by capacity so that we can scale it to
     arbitrary sizes of generation, or stacks of individual generation
     units. This code can be used in conjunction with discrete unit sizes
-    but it not dependent on that. This set is optional.
-
-    PROJ_FUEL_USE_SEGMENTS[proj in FUEL_BASED_PROJECTS] is the same as
-    GEN_FUEL_USE_SEGMENTS but scoped to projects. This set is optional
-    and will default to GEN_FUEL_USE_SEGMENTS if that is available;
-    otherwise it will default to an intercept of 0 and a slope of its
-    full load heat rate.
+    but it not dependent on that. This set is optional. It will default to
+    an intercept of 0 and a slope equal to its full load heat rate.
 
     """
 

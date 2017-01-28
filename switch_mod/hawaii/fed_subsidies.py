@@ -44,5 +44,5 @@ def define_components(m):
     #         m.BuildProj[pr, bld_yr] * m.proj_capital_cost_annual[pr, bld_yr]
     #             for (pr, bld_yr) in m.NEW_PROJECT_BUILDYEARS
     #                 if (pe in m.PROJECT_BUILDS_OPERATIONAL_PERIODS[pr, bld_yr]
-    #                     and m.g_energy_source[m.p_gen_tech[pr]] == solar_energy_source)))
+    #                     and m.proj_energy_source[pr] == solar_energy_source)))
     m.cost_components_annual.append('Solar_Credit_Annual')

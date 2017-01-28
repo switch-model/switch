@@ -1,3 +1,4 @@
+from __future__ import division
 import os
 from pyomo.environ import *
 
@@ -45,8 +46,9 @@ def define_components(m):
     # TODO: allow either CentralFixedPV or CentralTrackingPV for utility-scale solar
     # (not urgent now, since CentralFixedPV is not currently in the model)
 
-    # projects that are definitely being built (we assume near-term are underway
-    # and military projects are being built for their own reasons)
+    # technologies that are definitely being built (we assume near-term
+    # are underway and military projects are being built for their own 
+    # reasons)
     technology_targets_definite = [ 
         (2016, 'CentralTrackingPV', 27.6),  # Waianae Solar by Eurus Energy America
         (2018, 'IC_Schofield', 54.0),
@@ -58,7 +60,8 @@ def define_components(m):
         (2018, 'DistPV',  27.278236032368),
         (2019, 'DistPV',  26.188129564885),
     ]
-    # projects proposed in PSIP but which may not be built if a better plan is found
+    # technologies proposed in PSIP but which may not be built if a 
+    # better plan is found
     technology_targets_psip = [     
         (2018, 'OnshoreWind', 24),      # NPM wind
         (2018, 'CentralTrackingPV', 109.6),  # replacement for canceled SunEdison projects
@@ -130,17 +133,27 @@ def define_components(m):
     # without PSIP: BuildProj is >= definite targets
     def Enforce_Technology_Target_rule(m, per, tech):
         """Enforce targets for each technology; exact target for PSIP cases, minimum target for non-PSIP."""
-        build = sum(
-            m.BuildProj[proj, per] 
-                for proj in m.PROJECTS 
-                    if m.proj_gen_tech[proj] == tech and (proj, per) in m.PROJECT_BUILDYEARS
-        )
+                
+        def adjust_psip_credit(proj, target): 
+            if proj in m.PROJECTS_WITH_UNIT_SIZES and target > 0.0:
+                # Rescale so that the n integral units that come closest 
+                # to the target gets counted as the n.n fractional units
+                # needed to exactly meet the target.
+                # This is needed because some of the targets are based on
+                # nominal unit sizes rather than actual max output.
+                return (target / m.proj_unit_size[proj]) / round(target / m.proj_unit_size[proj])
+            else:
+                return 1.0
+        
         target = m.technology_target[per, tech]
-        if tech in m.GEN_TECH_WITH_UNIT_SIZES:
-            # round to the nearest full unit, since some of the targets are based on
-            # nominal unit sizes rather than actual max output
-            target = round(target / m.g_unit_size[tech]) * m.g_unit_size[tech]
-        if type(build) is int and build == 0:    # no matching projects found
+        build = sum(
+            m.BuildProj[proj, per] * adjust_psip_credit(proj, target)
+            for proj in m.PROJECTS 
+            if m.proj_gen_tech[proj] == tech and (proj, per) in m.PROJECT_BUILDYEARS
+        )
+
+        if type(build) is int and build == 0:    
+            # no matching projects found
             if target == 0:
                 return Constraint.Skip
             else:
@@ -151,7 +164,7 @@ def define_components(m):
                 return Constraint.Infeasible
         elif psip:
             return (build == target)
-        elif m.options.psip_minimal_renewables and m.g_energy_source[tech] in ['WND', 'SUN']:
+        elif m.options.psip_minimal_renewables and any(txt in tech for txt in ["PV", "Wind", "Solar"]):
             # only build the specified amount of renewables, no more
             return (build == target)
         else:
@@ -161,7 +174,7 @@ def define_components(m):
         m.PERIODS, m.GENERATION_TECHNOLOGIES, rule=Enforce_Technology_Target_rule
     )
 
-    aes_proj = 'Oahu_AES_GEN1'
+    aes_proj = 'Oahu_AES'
     aes_size = 180
     aes_bld_year = 1992
     m.AES_OPERABLE_PERIODS = Set(initialize = lambda m:

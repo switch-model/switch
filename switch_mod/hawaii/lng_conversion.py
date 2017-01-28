@@ -188,7 +188,7 @@ def define_components(m):
     #     # otherwise force non-LNG fuel to zero if there's LNG available
     #     non_lng_fuel = sum(
     #         m.ProjFuelUseRate[proj, tp, f]
-    #             for f in m.G_FUELS[m.proj_gen_tech[proj]]
+    #             for f in m.PROJ_FUELS[proj]
     #                 if f != 'LNG'
     #     )
     #     rfm = m.lz_rfm[m.proj_load_zone[proj], 'LNG']

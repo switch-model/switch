@@ -19,7 +19,7 @@ def define_components(m):
     # TODO: add batteries, hydrogen and pumped storage to this
     m.FIRM_PROJECTS = Set(
         initialize=m.PROJECTS, 
-        #filter=lambda m, p: m.g_energy_source[m.proj_gen_tech[p]] not in ['Wind', 'Solar']
+        #filter=lambda m, p: m.proj_energy_source[p] not in ['Wind', 'Solar']
     )
     m.FIRM_PROJ_DISPATCH_POINTS = Set(
         initialize=m.PROJ_DISPATCH_POINTS, 
@@ -27,7 +27,7 @@ def define_components(m):
     )
     m.CONTINGENCY_PROJECTS = Set(
         initialize=m.PROJECTS, 
-        filter=lambda m, p: m.proj_gen_tech[p] in m.GEN_TECH_WITH_UNIT_SIZES
+        filter=lambda m, p: p in m.PROJECTS_WITH_UNIT_SIZES
     )
     m.CONTINGENCY_PROJ_DISPATCH_POINTS = Set(
         initialize=m.PROJ_DISPATCH_POINTS, 
@@ -79,7 +79,7 @@ def define_components(m):
     # TODO: convert this to a big-m constraint with the following elements:
     # binary on/off flag for each pr, tp in CONTINGENCY_PROJ_DISPATCH_POINTS
     # constraint that ProjDispatch[pr, tp] <= binary * proj_max_capacity[pr]
-    # constraint that m.ContingencyReserveUpRequirement[tp] >= binary * m.g_unit_size[m.proj_gen_tech[pr]]
+    # constraint that m.ContingencyReserveUpRequirement[tp] >= binary * m.proj_unit_size[pr]
     # (but this may make the model too slow to solve!)
     m.CommitProjectFlag = Var(m.CONTINGENCY_PROJ_DISPATCH_POINTS, within=Binary)
     m.Set_CommitProjectFlag = Constraint(
@@ -91,7 +91,7 @@ def define_components(m):
         m.CONTINGENCY_PROJ_DISPATCH_POINTS, 
         rule=lambda m, pr, tp: 
             # m.ContingencyReserveUpRequirement[tp] >= m.CommitProject[pr, tp]
-            m.ContingencyReserveUpRequirement[tp] >= m.CommitProjectFlag[pr, tp] * m.g_unit_size[m.proj_gen_tech[pr]]
+            m.ContingencyReserveUpRequirement[tp] >= m.CommitProjectFlag[pr, tp] * m.proj_unit_size[pr]
     )
     
     # Calculate total spinning reserve requirement

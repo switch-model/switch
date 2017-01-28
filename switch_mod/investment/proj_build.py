@@ -245,6 +245,9 @@ def define_components(mod):
     mod.PROJECTS = Set()
     mod.proj_dbid = Param(mod.PROJECTS, default=lambda m, proj: proj)
     mod.proj_gen_tech = Param(mod.PROJECTS)
+    mod.GENERATION_TECHNOLOGIES = Set(initialize=lambda m:
+        {m.proj_gen_tech[proj] for proj in m.PROJECTS}
+    )
     mod.proj_energy_source = Param(mod.PROJECTS, 
         validate=lambda m,val,g: val in m.ENERGY_SOURCES or val == "multiple")
     mod.proj_load_zone = Param(mod.PROJECTS, within=mod.LOAD_ZONES)

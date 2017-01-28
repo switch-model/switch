@@ -115,7 +115,7 @@ def DispatchProjByFuel(m, proj, tp, fuel):
     it can only be defined as a quadratically constrained variable, which we don't
     want to force on all users."""
     dispatch = value(m.DispatchProj[proj, tp]) if (proj, tp) in m.DispatchProj else 0.0
-    total_fuel = value(sum(m.ProjFuelUseRate[proj, tp, f] for f in m.G_FUELS[m.proj_gen_tech[proj]]))
+    total_fuel = value(sum(m.ProjFuelUseRate[proj, tp, f] for f in m.PROJ_FUELS[proj]))
     if dispatch == 0.0:
         result = 0.0
     elif total_fuel == 0.0:
@@ -123,7 +123,7 @@ def DispatchProjByFuel(m, proj, tp, fuel):
         # allocate evenly between fuels that could be used (should really be allocated the 
         # same as the upstream generator, e.g., CT in combined-cycle plant, but we don't
         # know that allocation here).
-        result = dispatch / len(m.G_FUELS[m.proj_gen_tech[proj]])
+        result = dispatch / len(m.PROJ_FUELS[proj])
     else:
         # allocate power production proportional to amount of each fuel used
         result = value(m.ProjFuelUseRate[proj, tp, fuel]) * dispatch / total_fuel
@@ -187,7 +187,9 @@ def write_results(m, outputs_dir):
     )
     
     # installed capacity information
-    g_energy_source = lambda t: '/'.join(sorted(m.G_FUELS[t])) if m.g_uses_fuel[t] else m.g_energy_source[t]
+    proj_energy_source = lambda pr: \
+            '/'.join(sorted(m.PROJ_FUELS[pr])) if m.proj_uses_fuel[pr] \
+            else m.proj_energy_source[pr]
     built_proj = tuple(set(
         pr for pe in m.PERIODS for pr in m.PROJECTS if value(m.ProjCapacity[pr, pe]) > 0.001
     ))
@@ -196,9 +198,8 @@ def write_results(m, outputs_dir):
             for pr, tp in m.PROJ_DISPATCH_POINTS if value(m.DispatchProj[pr, tp]) > 0.001
     ))
     built_tech = tuple(set(m.proj_gen_tech[p] for p in built_proj))
-    built_energy_source = tuple(set(g_energy_source(t) for t in built_tech))
-    # print "missing energy_source: "+str([t for t in built_tech if g_energy_source(t)==''])
-
+    built_energy_source = tuple(set(proj_energy_source(pr) for pr in built_proj))
+ 
     battery_capacity_mw = lambda m, z, pe: (
         (m.Battery_Capacity[z, pe] * m.battery_max_discharge / m.battery_min_discharge_time)
             if hasattr(m, "Battery_Capacity") else 0.0
@@ -227,7 +228,7 @@ def write_results(m, outputs_dir):
             sum(
                 (m.ProjCapacity[pr, pe] if ((pr, pe) in operate_proj_in_period) else 0.0)
                     for pr in built_proj 
-                        if g_energy_source(m.proj_gen_tech[pr]) == s and m.proj_load_zone[pr] == z
+                        if proj_energy_source(pr) == s and m.proj_load_zone[pr] == z
             )
             for s in built_energy_source
         ) + (

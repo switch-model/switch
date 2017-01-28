@@ -117,7 +117,7 @@ def define_components(m):
         # but that could be done with --biofuel-limit 0)
         m.No_Renewables = Constraint(m.NEW_PROJ_BUILDYEARS, rule=lambda m, proj, bld_yr:
             (m.BuildProj[proj, bld_yr] == 0)
-            if m.g_energy_source[m.proj_gen_tech[proj]] in m.RPS_ENERGY_SOURCES else
+            if m.proj_energy_source[proj] in m.RPS_ENERGY_SOURCES else
             Constraint.Skip
         )
 
@@ -186,7 +186,7 @@ def simple_DispatchProjRenewableMW(m):
         rule=lambda m, proj, t:
             sum(
                 m.ProjFuelUseRate[proj, t, f] 
-                    for f in m.G_FUELS[m.proj_gen_tech[proj]]
+                    for f in m.PROJ_FUELS[proj]
                         if m.f_rps_eligible[f]
             )
             / m.proj_full_load_heat_rate[proj]
@@ -253,7 +253,8 @@ def split_commit_DispatchProjRenewableMW(m):
         rule=lambda m, pr, tp: 
             (m.DispatchProj[pr, tp] - m.DispatchProjRenewableMW[pr, tp])
             >= 
-            (m.CommitProject[pr, tp] - m.CommitProjectRenewable[pr, tp]) * m.proj_min_load_fraction[pr, tp]
+            (m.CommitProject[pr, tp] - m.CommitProjectRenewable[pr, tp]) 
+            * m.proj_min_load_fraction_TP[pr, tp]
     )
     # use standard heat rate calculations for renewable and non-renewable parts
     m.ProjRenewableFuelUseRate_Calculate = Constraint(
@@ -261,7 +262,7 @@ def split_commit_DispatchProjRenewableMW(m):
         rule=lambda m, pr, tp, intercept, incremental_heat_rate: 
             sum(
                 m.ProjFuelUseRate[pr, tp, f] 
-                    for f in m.G_FUELS[m.proj_gen_tech[pr]]
+                    for f in m.PROJ_FUELS[pr]
                         if f in m.RPS_ENERGY_SOURCES
             ) 
             >=
@@ -274,7 +275,7 @@ def split_commit_DispatchProjRenewableMW(m):
         rule=lambda m, pr, tp, intercept, incremental_heat_rate: 
             sum(
                 m.ProjFuelUseRate[pr, tp, f] 
-                    for f in m.G_FUELS[m.proj_gen_tech[pr]]
+                    for f in m.PROJ_FUELS[pr]
                         if f not in m.RPS_ENERGY_SOURCES
             ) 
             >=
@@ -310,7 +311,7 @@ def relaxed_split_commit_DispatchProjRenewableMW(m):
             (m.DispatchProj[pr, tp] - m.DispatchProjRenewableMW[pr, tp])
             >= 
             (m.CommitProject[pr, tp] - m.DispatchProjRenewableMW[pr, tp]) 
-            * m.proj_min_load_fraction[pr, tp]
+            * m.proj_min_load_fraction_TP[pr, tp]
     )
     
     # use standard heat rate calculations for renewable and non-renewable parts
@@ -319,7 +320,7 @@ def relaxed_split_commit_DispatchProjRenewableMW(m):
         rule=lambda m, pr, tp, intercept, incremental_heat_rate: 
             sum(
                 m.ProjFuelUseRate[pr, tp, f] 
-                    for f in m.G_FUELS[m.proj_gen_tech[pr]]
+                    for f in m.PROJ_FUELS[pr]
                         if f in m.RPS_ENERGY_SOURCES
             ) 
             >=
@@ -332,7 +333,7 @@ def relaxed_split_commit_DispatchProjRenewableMW(m):
         rule=lambda m, pr, tp, intercept, incremental_heat_rate: 
             sum(
                 m.ProjFuelUseRate[pr, tp, f] 
-                    for f in m.G_FUELS[m.proj_gen_tech[pr]]
+                    for f in m.PROJ_FUELS[pr]
                         if f not in m.RPS_ENERGY_SOURCES
             ) 
             >=
@@ -351,7 +352,7 @@ def relaxed_split_commit_DispatchProjRenewableMW(m):
                     for per in m.PERIODS if m.rps_target_for_period[per] == 1.0
                         for pr in m.FUEL_BASED_PROJECTS 
                             if (pr, m.PERIOD_TPS[per].first()) in m.PROJ_DISPATCH_POINTS
-                                for f in m.G_FUELS[m.proj_gen_tech[pr]] if not m.f_rps_eligible[f]
+                                for f in m.PROJ_FUELS[pr] if not m.f_rps_eligible[f]
                                     for tp in m.PERIOD_TPS[per]
             ]
         )
@@ -532,7 +533,7 @@ def advanced1_DispatchProjRenewableMW(m):
     m.DispatchProjRenewableMW_Total = Constraint(
         m.PROJ_WITH_FUEL_DISPATCH_POINTS, 
         rule=lambda m, pr, tp: 
-            sum(m.DispatchProjRenewableMW[pr, tp, f] for f in m.G_FUELS[m.proj_gen_tech[pr]])
+            sum(m.DispatchProjRenewableMW[pr, tp, f] for f in m.PROJ_FUELS[pr])
             ==
             m.DispatchProj[pr, tp]
     )
@@ -542,7 +543,7 @@ def advanced1_DispatchProjRenewableMW(m):
     m.DispatchFuelFlag_Total = Constraint(
         m.PROJ_WITH_FUEL_DISPATCH_POINTS, 
         rule=lambda m, pr, tp: 
-            sum(m.DispatchFuelFlag[pr, tp, f] for f in m.G_FUELS[m.proj_gen_tech[pr]])
+            sum(m.DispatchFuelFlag[pr, tp, f] for f in m.PROJ_FUELS[pr])
             ==
             1
     )
@@ -568,7 +569,7 @@ def advanced1_DispatchProjRenewableMW(m):
     # eliminate the allocation constraints
     
     # possible simplifications:
-    # omit binary variables and big-m constraints if len(m.G_FUELS[m.proj_gen_tech[p]]) == 1 
+    # omit binary variables and big-m constraints if len(m.PROJ_FUELS[p]) == 1 
     #   (assign all production to the single fuel)
     # use m.ProjFuelUseRate[proj, t, f] / m.proj_full_load_heat_rate[proj]
     #    for projects with no heat rate curve and no startup fuel
@@ -577,7 +578,7 @@ def advanced1_DispatchProjRenewableMW(m):
     # - make DispatchFuelFlag a PercentFraction instead of Binary
     # - replace proj_capacity_limit_mw with ProjCapacity in Allocate_Dispatch_Output
     # - replace m.proj_capacity_limit_mw * m.proj_full_load_heat_rate with 
-    #   sum(m.ProjFuelUseRate[pr, t, f] for f in m.G_FUELS[m.proj_gen_tech[pr]])
+    #   sum(m.ProjFuelUseRate[pr, t, f] for f in m.PROJ_FUELS[pr])
     #   in Allocate_Dispatch_Fuel (define this as an Expression in dispatch.py)
     # - replace <= with == in the allocation constraints
     # - drop the DispatchProjRenewableMW_Total constraint
@@ -588,7 +589,7 @@ def advanced1_DispatchProjRenewableMW(m):
     #     m.PROJ_FUEL_DISPATCH_POINTS,
     #     rule = lambda m, proj, t, f:
     #         m.DispatchProjRenewableMW[proj, t, f]
-    #         * sum(m.ProjFuelUseRate[proj, t, _f] for _f in m.G_FUELS[m.proj_gen_tech[proj]])
+    #         * sum(m.ProjFuelUseRate[proj, t, _f] for _f in m.PROJ_FUELS[proj])
     #         ==
     #         DispatchProj[proj, t]
     #         * m.ProjFuelUseRate[proj, t, f]
@@ -614,14 +615,14 @@ def quadratic_DispatchProjRenewableMW(m):
         rule=lambda m, pr, tp: 
             sum(
                 m.ProjFuelUseRate[pr, tp, f] 
-                    for f in m.G_FUELS[m.proj_gen_tech[pr]] 
+                    for f in m.PROJ_FUELS[pr] 
                         if m.f_rps_eligible[f]
             )
             >=
             m.DispatchRenewableFraction[pr, tp] *
             sum(
                 m.ProjFuelUseRate[pr, tp, f] 
-                    for f in m.G_FUELS[m.proj_gen_tech[pr]]
+                    for f in m.PROJ_FUELS[pr]
             )
     )
 
@@ -633,7 +634,7 @@ def quadratic1_DispatchProjRenewableMW(m):
     m.DispatchProjRenewableMW_Total = Constraint(
         m.PROJ_WITH_FUEL_DISPATCH_POINTS, 
         rule=lambda m, pr, tp: 
-            sum(m.DispatchProjRenewableMW[pr, tp, f] for f in m.G_FUELS[m.proj_gen_tech[pr]])
+            sum(m.DispatchProjRenewableMW[pr, tp, f] for f in m.PROJ_FUELS[pr])
             ==
             m.DispatchProj[pr, tp]
     )
@@ -642,7 +643,7 @@ def quadratic1_DispatchProjRenewableMW(m):
         m.PROJ_FUEL_DISPATCH_POINTS,
         rule = lambda m, proj, t, f:
             m.DispatchProjRenewableMW[proj, t, f]
-            * sum(m.ProjFuelUseRate[proj, t, _f] for _f in m.G_FUELS[m.proj_gen_tech[proj]])
+            * sum(m.ProjFuelUseRate[proj, t, _f] for _f in m.PROJ_FUELS[proj])
             <=
             m.DispatchProj[proj, t]
             * m.ProjFuelUseRate[proj, t, f]

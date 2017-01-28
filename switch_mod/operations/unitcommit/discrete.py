@@ -3,7 +3,7 @@
 
 """
 Defines model components to force discrete unit commitment for
-generation technologies that have g_unit_size specified.
+generation technologies that have proj_unit_size specified.
 """
 
 from pyomo.environ import *
@@ -17,13 +17,12 @@ def define_components(mod):
     """
 
     Adds components to a Pyomo abstract model object to force discrete
-    builds for generation technologies that have g_unit_size specified.
+    builds for generation technologies that have proj_unit_size specified.
     Unless otherwise stated, all power capacity is specified in units of
     MW and all sets and parameters are mandatory.
 
     PROJ_DISPATCH_POINTS_DISCRETE is a subset of PROJ_DISPATCH_POINTS
-    that only includes projects that have g_unit_size defined for their
-    technology.
+    that only includes projects that have proj_unit_size defined.
 
     CommitUnits[(proj, bld_yr) in PROJECT_BUILDYEARS_DISCRETE] is an
     integer decision variable of how many units to commit.
@@ -31,7 +30,7 @@ def define_components(mod):
     Commit_Units_Consistency[(proj, bld_yr) in
     PROJECT_BUILDYEARS_DISCRETE] is a constraint that forces the
     continous decision variable CommitProject to be equal to CommitUnits
-    * g_unit_size * proj_availability. The use of proj_availability here
+    * proj_unit_size * proj_availability. The use of proj_availability here
     is a rough estimation to approximate forced or scheduled outages as
     a linear derating factor.
 

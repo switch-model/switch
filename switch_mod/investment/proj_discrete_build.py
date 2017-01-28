@@ -21,8 +21,7 @@ def define_components(mod):
     MW and all sets and parameters are mandatory.
 
     NEW_PROJ_BUILDYEARS_DISCRETE is a subset of NEW_PROJ_BUILDYEARS that
-    only includes projects that have proj_unit_size defined for their
-    technology.
+    only includes projects that have proj_unit_size defined.
 
     BuildUnits[(proj, bld_yr) in NEW_PROJ_BUILDYEARS_DISCRETE] is an
     integer decision variable of how many units to build.

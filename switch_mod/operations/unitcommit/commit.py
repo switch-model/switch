@@ -101,14 +101,10 @@ def define_components(mod):
     between commitment decision from one hour to the next with startup
     and shutdown.
 
-    g_startup_fuel[g in GEN_TECH_WITH_FUEL] describes fuel
-    requirements of starting up additional generation capacity expressed
+    proj_startup_fuel[proj in FUEL_BASED_PROJECTS] describes fuel
+    requirements for starting up additional generation capacity, expressed
     in units of MMBTU / MW. This optional parameter has a default value
     of 0.
-
-    proj_startup_fuel[proj in FUEL_BASED_PROJECTS] is the same as
-    g_startup_fuel except on a project basis. This optional parameter
-    defaults to g_startup_fuel.
 
     g_startup_om[g in GENERATION_TECHNOLOGIES] describes operations and
     maintenance costs incured from starting up additional generation
@@ -163,15 +159,20 @@ def define_components(mod):
     
     -- Dispatch limits based on committed capacity --
 
-    proj_min_load_fraction[g] describes the minimum loading level of a
-    project as a fraction of committed capacity. Many
-    fossil plants - especially baseload - have a minimum run level which
-    should be stored here. Note that this is only applied to committed
-    capacity. This is an optional parameter that defaults to 1 for
-    generation technologies marked baseload and 0 for all other
-    generators. This parameter is only relevant when considering unit
-    commitment so it is defined here rather than the gen_tech module.
+    proj_min_load_fraction[proj] describes the minimum loading level of a
+    project as a fraction of committed capacity. Many fossil plants -
+    especially baseload - have a minimum run level which should be stored
+    here. Note that this is only applied to committed capacity. This is an
+    optional parameter that defaults to 1 for generation technologies
+    marked baseload and 0 for all other generators. This parameter is only
+    relevant when considering unit commitment so it is defined here rather
+    than in the proj_dispatch module.
 
+    proj_min_load_fraction_TP[proj, tp] is the same as
+    proj_min_load_fraction, but has separate entries for each timepoint.
+    This could be used, for example, for non-curtailable renewable energy
+    projects. This defaults to the value of proj_min_load_fraction[proj].
+    
     proj_min_cap_factor[(proj, t) in PROJ_DISPATCH_POINTS] describes the
     minimum loadding level for each project and timepoint as a fraction
     of committed capacity. This is an optional parameter that defaults

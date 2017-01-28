@@ -224,7 +224,7 @@ def define_components(mod):
     # NOTE: below is another way to build PROJ_WITH_FUEL_DISPATCH_POINTS:
     # mod.PROJ_WITH_FUEL_DISPATCH_POINTS = Set(
     #     initialize=mod.PROJ_DISPATCH_POINTS,
-    #     filter=lambda m, p, t: m.g_uses_fuel[m.proj_gen_tech[p]])
+    #     filter=lambda m, p, t: m.proj_uses_fuel[p])
     mod.PROJ_FUEL_DISPATCH_POINTS = Set(
         dimen=3,
         initialize=lambda m: (
