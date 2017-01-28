@@ -55,8 +55,9 @@ setup(
         'testfixtures'  # used for standard tests
     ],
     extras_require={
-        # packages used for advanced demand response and progressive hedging
-        'advanced': ['numpy', 'scipy', 'rpy2', 'sympy'],
+        # packages used for advanced demand response, progressive hedging
+        # and input-file upgrades
+        'advanced': ['numpy', 'scipy', 'rpy2', 'sympy', 'pandas'],
         'database_access': ['psycopg2']
     },
     entry_points={
