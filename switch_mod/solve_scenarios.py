@@ -92,16 +92,16 @@ running_scenarios_file = os.path.join(scenario_queue_dir, job_id+"_running.txt")
 # list of scenarios currently being run by this job (always just one with the current code)
 running_scenarios = []
 
-# make sure the scenario_queue_dir exists (marginally better to do this once
-# rather than every time we need to write a file there)
-try:
-    os.makedirs(scenario_queue_dir)
-except OSError:
-    pass    # directory probably exists already
-
 #import pdb; pdb.set_trace()
 
 def main(args=None):
+    # make sure the scenario_queue_dir exists (marginally better to do this once
+    # rather than every time we need to write a file there)
+    try:
+        os.makedirs(scenario_queue_dir)
+    except OSError:
+        pass    # directory probably exists already
+    
     # remove lock directories for any scenarios that were
     # previously being solved by this job but were interrupted
     unlock_running_scenarios()
