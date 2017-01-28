@@ -176,9 +176,16 @@ def upgrade_input_dir(inputs_dir, verbose=False):
             new_module_list.extend(expand_modules[module])
         else:
             new_module_list.append(module)
+    # remove duplicates (e.g., repeated expansion of switch_mod)
+    # This mimics old switch behavior if a module was expanded
+    # and also added separately.
+    final_module_list = []
+    for module in new_module_list:
+        if module not in final_module_list:
+            final_module_list.append(module)
 
     with open(modules_path, 'w') as f:
-       for module in new_module_list:
+       for module in final_module_list:
             f.write(module + "\n")
 
     ###
