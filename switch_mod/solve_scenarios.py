@@ -53,10 +53,17 @@ scenario_list_file = scenario_manager_args.scenario_list
 scenario_queue_dir = scenario_manager_args.scenario_queue
 job_id = scenario_manager_args.job_id
 
-# note: we make a best effort to get a unique, persistent job_id for each job.
-# this is used to clear the queue of running jobs if a job is stopped and
+# Make a best effort to get a unique, persistent job_id for each job.
+# This is used to clear the queue of running tasks if a task is stopped and
 # restarted. (would be better if other jobs could do this when this job dies
 # but it's hard to see how they can detect when this job fails.)
+# (The idea is that the user will run multiple jobs in parallel, with one 
+# thread per job, to process all the scenarios. These might be run in separate
+# terminal windows, or in separate instances of gnu screen, or as numbered
+# jobs on an HPC system. Sometimes a job will get interrupted, e.g., if the
+# user presses ctrl-c in a terminal window or if the job is launched on an 
+# interruptible queue. This script attempts to detect when that job gets 
+# relaunched, and re-run the interrupted scenario.)
 if job_id is None:
     job_id = os.environ.get('JOB_ID') # could be set by user
 if job_id is None:
@@ -74,7 +81,11 @@ if job_id is None:
     # when running multiple jobs in parallel. Without that, all 
     # jobs will think they have the same ID, and at startup they will 
     # try to re-run the scenario currently being run by some other job.)
-    job_id = socket.gethostname() + '_' + str(os.getppid())
+    if hasattr(os, 'getppid'):
+        job_id = socket.gethostname() + '_' + str(os.getppid())
+    else:
+        # won't be able to automatically clear previously interrupted job
+        job_id = socket.gethostname() + '_' + str(os.getpid())
 
 running_scenarios_file = os.path.join(scenario_queue_dir, job_id+"_running.txt")
 

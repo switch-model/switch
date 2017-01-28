@@ -1,5 +1,5 @@
 SYNOPSIS
-    python -m switch_mod.solve
+	switch solve --verbose --log-run
 
 This example illustrates the use of the hydro_system module. The input set does not consider new investments; this is only a production costing example.
 
