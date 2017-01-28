@@ -123,14 +123,14 @@ def define_components(mod):
     Total_Startup_OM_Costs[t in TIMEPOINTS] is an expression for passing
     total startup O&M costs to the sys_cost module.
 
-    g_min_uptime[g] and g_min_downtime[g] show the minimum time that a
+    proj_min_uptime[g] and proj_min_downtime[g] show the minimum time that a
     generator can be committed (turned on) or uncommitted (turned off), in
     hours. These usually reflect rules intended to limit thermal stress on
     generator units. They default to 0 (free to turn on or off at any
     point) if not provided. Note: in practice, these will be rounded to
     the nearest integer number of timepoints, so a project will be off for
-    1 timepoint if g_min_downtime is 4 and ts_duration_of_tp is 3. If more
-    conservative behavior is needed, g_min_uptime or g_min_downtime should
+    1 timepoint if proj_min_downtime is 4 and ts_duration_of_tp is 3. If more
+    conservative behavior is needed, proj_min_uptime or proj_min_downtime should
     be raised to the desired multiple of ts_duration_of_tp.
 
     PROJ_MIN_UPTIME_DISPATCH_POINTS and PROJ_MIN_DOWNTIME_DISPATCH_POINTS
@@ -278,22 +278,22 @@ def define_components(mod):
             if t == t2))
     mod.cost_components_tp.append('Total_Startup_OM_Costs')
 
-    mod.g_min_uptime = Param(
-        mod.GENERATION_TECHNOLOGIES,
+    mod.proj_min_uptime = Param(
+        mod.PROJECTS,
         within=NonNegativeReals,
         default=0.0)
-    mod.g_min_downtime = Param(
-        mod.GENERATION_TECHNOLOGIES,
+    mod.proj_min_downtime = Param(
+        mod.PROJECTS,
         within=NonNegativeReals,
         default=0.0)
     mod.PROJ_MIN_UPTIME_DISPATCH_POINTS = Set(dimen=2, initialize=lambda m: [
         (pr, tp) 
-            for pr in m.PROJECTS if m.g_min_uptime[m.proj_gen_tech[pr]] > 0.0
+            for pr in m.PROJECTS if m.proj_min_uptime[pr] > 0.0
                 for tp in m.PROJ_ACTIVE_TIMEPOINTS[pr] 
     ])
     mod.PROJ_MIN_DOWNTIME_DISPATCH_POINTS = Set(dimen=2, initialize=lambda m: [
         (pr, tp) 
-            for pr in m.PROJECTS if m.g_min_downtime[m.proj_gen_tech[pr]] > 0.0
+            for pr in m.PROJECTS if m.proj_min_downtime[pr] > 0.0
                 for tp in m.PROJ_ACTIVE_TIMEPOINTS[pr] 
     ])
     
@@ -309,7 +309,7 @@ def define_components(mod):
         # how many timepoints must the project stay on/off once it's
         # started/shutdown?
         n_tp = int(round(
-            m.g_min_downtime[m.proj_gen_tech[pr]] 
+            m.proj_min_downtime[pr] 
             / m.ts_duration_of_tp[m.tp_ts[tp]]
         ))
         if n_tp == 1:
@@ -421,13 +421,8 @@ def load_inputs(mod, switch_data, inputs_dir):
         optional=True,
         filename=os.path.join(inputs_dir, 'project_info.tab'),
         auto_select=True,
-<<<<<<< HEAD:switch_mod/operations/unitcommit/commit.py
         param=(mod.proj_min_load_fraction, mod.proj_startup_fuel,
-               mod.proj_startup_om))
-=======
-        param=(mod.g_min_load_fraction, mod.g_startup_fuel,
-               mod.g_startup_om, mod.g_min_uptime, mod.g_min_downtime))
->>>>>>> master:switch_mod/project/unitcommit/commit.py
+               mod.proj_startup_om, mod.proj_min_uptime, mod.proj_min_downtime))
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, 'proj_commit_bounds_timepoints.tab'),

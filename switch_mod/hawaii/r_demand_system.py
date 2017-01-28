@@ -146,5 +146,3 @@ def make_r_value_array(base_value_dict, hours_of_day, time_series, load_zones):
         )
     )
     return r_array
-    
-print "finished loading r_demand_system.py"
