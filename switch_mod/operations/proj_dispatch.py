@@ -138,49 +138,66 @@ def define_components(mod):
 
     """
 
-    # I might be able to simplify this, but the current formulation
-    # should exclude any timepoints in periods in which a project will
-    # definitely be retired.
-    def init_projects_active_in_timepoints(m,t):
-        active_projects = set()
-        for proj in m.PROJECTS:
-            if len(m.PROJECT_PERIOD_ONLINE_BUILD_YRS[proj, m.tp_period[t]]) > 0:
-                active_projects.add(proj)
-        return active_projects
-    mod.PROJECTS_ACTIVE_IN_TIMEPOINT = Set(
-        mod.TIMEPOINTS,
-        within=mod.PROJECTS,
-        initialize=init_projects_active_in_timepoints)
-    def init_dispatch_timepoints(m):
-        dispatch_timepoints = set() # could technically be a list
-        proj_op_periods = set()     # used to avoid duplicating effort
-        for (proj, bld_yr) in m.PROJECT_BUILDYEARS:
-            for period in m.PROJECT_BUILDS_OPERATIONAL_PERIODS[proj, bld_yr]:
-                if (proj, period) not in proj_op_periods:
-                    proj_op_periods.add((proj, period))
-                    for t in m.PERIOD_TPS[period]:
-                        dispatch_timepoints.add((proj, t))
-        return dispatch_timepoints
-    mod.PROJ_DISPATCH_POINTS = Set(
-        dimen=2,
-        initialize=init_dispatch_timepoints)
+    mod.ACTIVE_PROJ_PERIODS = Set(dimen=2, initialize=lambda m: {
+        (proj, per)
+            for proj, bld_yr in m.PROJECT_BUILDYEARS
+                for per in m.PROJECT_BUILDS_OPERATIONAL_PERIODS[proj, bld_yr]
+    })
 
-    def proj_active_periods_rule(m, pr):
+    def period_active_proj_rule(m, per):
+        if not hasattr(m, 'period_active_proj_dict'):
+            m.period_active_proj_dict = collections.defaultdict(set)
+            for (_proj, _per) in m.ACTIVE_PROJ_PERIODS:
+                m.period_active_proj_dict[_per].add(_proj)
+        result = m.period_active_proj_dict.pop(per)
+        if len(m.period_active_proj_dict) == 0:
+            delattr(m, 'period_active_proj_dict')
+        return result
+    mod.PERIOD_ACTIVE_PROJ = Set(
+        mod.PERIODS, 
+        initialize=period_active_proj_rule)
+    
+    def proj_active_periods_rule(m, proj):
         if not hasattr(m, 'proj_active_periods_dict'):
-            d = m.proj_active_periods_dict = collections.defaultdict(set)
-            for (proj, bld_yr) in m.PROJECT_BUILDYEARS:
-                for period in m.PROJECT_BUILDS_OPERATIONAL_PERIODS[proj, bld_yr]:
-                    d[proj].add(period)
-        active_periods = m.proj_active_periods_dict.pop(pr)
+            m.proj_active_periods_dict = collections.defaultdict(set)
+            for (_proj, _per) in m.ACTIVE_PROJ_PERIODS:
+                m.proj_active_periods_dict[_proj].add(_per)
+        result = m.proj_active_periods_dict.pop(proj)
         if len(m.proj_active_periods_dict) == 0:
             delattr(m, 'proj_active_periods_dict')
-        return active_periods
+        return result
     mod.PROJ_ACTIVE_PERIODS = Set(
         mod.PROJECTS, 
         initialize=proj_active_periods_rule)
+
     mod.PROJ_ACTIVE_TIMEPOINTS = Set(mod.PROJECTS, initialize=lambda m, proj: (
         tp for per in m.PROJ_ACTIVE_PERIODS[proj] for tp in m.PERIOD_TPS[per]))
-    
+
+    mod.PROJ_DISPATCH_POINTS = Set(
+        dimen=2,
+        initialize=lambda m: (
+            (proj, tp) 
+                for proj in m.PROJECTS 
+                    for tp in m.PROJ_ACTIVE_TIMEPOINTS[proj]))
+    mod.VAR_DISPATCH_POINTS = Set(
+        dimen=2,
+        initialize=lambda m: (
+            (proj, tp) 
+                for proj in m.VARIABLE_PROJECTS
+                    for tp in m.PROJ_ACTIVE_TIMEPOINTS[proj]))
+    mod.PROJ_WITH_FUEL_DISPATCH_POINTS = Set(
+        dimen=2,
+        initialize=lambda m: (
+            (proj, tp) 
+                for proj in m.FUEL_BASED_PROJECTS
+                    for tp in m.PROJ_ACTIVE_TIMEPOINTS[proj]))
+    mod.PROJ_FUEL_DISPATCH_POINTS = Set(
+        dimen=3,
+        initialize=lambda m: (
+            (proj, t, f) 
+                for (proj, t) in m.PROJ_WITH_FUEL_DISPATCH_POINTS 
+                    for f in m.PROJ_FUELS[proj]))
+
     mod.ProjCapacityTP = Expression(
         mod.PROJ_DISPATCH_POINTS,
         rule=lambda m, proj, t: m.ProjCapacity[proj, m.tp_period[t]])
@@ -207,29 +224,12 @@ def define_components(mod):
         within=PositiveReals,
         initialize=init_proj_availability)
 
-    mod.VAR_DISPATCH_POINTS = Set(
-        initialize=mod.PROJ_DISPATCH_POINTS,
-        filter=lambda m, proj, t: proj in m.VARIABLE_PROJECTS)
     mod.proj_max_capacity_factor = Param(
         mod.VAR_DISPATCH_POINTS,
         within=Reals,
         validate=lambda m, val, proj, t: -1 < val < 2)
     mod.min_data_check('proj_max_capacity_factor')
 
-    mod.PROJ_WITH_FUEL_DISPATCH_POINTS = Set(
-        dimen=2,
-        initialize=lambda m: 
-            ((p, t) for p in m.FUEL_BASED_PROJECTS for t in m.TIMEPOINTS 
-                if (p, t) in m.PROJ_DISPATCH_POINTS))
-    # NOTE: below is another way to build PROJ_WITH_FUEL_DISPATCH_POINTS:
-    # mod.PROJ_WITH_FUEL_DISPATCH_POINTS = Set(
-    #     initialize=mod.PROJ_DISPATCH_POINTS,
-    #     filter=lambda m, p, t: m.proj_uses_fuel[p])
-    mod.PROJ_FUEL_DISPATCH_POINTS = Set(
-        dimen=3,
-        initialize=lambda m: (
-            (proj, t, f) for (proj, t) in m.PROJ_WITH_FUEL_DISPATCH_POINTS 
-                    for f in m.PROJ_FUELS[proj]))
     mod.ProjFuelUseRate = Var(
         mod.PROJ_FUEL_DISPATCH_POINTS,
         within=NonNegativeReals)
@@ -261,7 +261,7 @@ def define_components(mod):
         mod.TIMEPOINTS,
         rule=lambda m, t: sum(
             m.Proj_Var_Costs_Hourly[proj, t]
-            for proj in m.PROJECTS_ACTIVE_IN_TIMEPOINT[t]))
+            for proj in m.PERIOD_ACTIVE_PROJ[m.tp_period[t]]))
     mod.cost_components_tp.append('Total_Proj_Var_Costs_Hourly')
 
 

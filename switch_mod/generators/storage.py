@@ -8,7 +8,7 @@ storage, when to charge, energy accounting, etc.
 """
 
 from pyomo.environ import *
-import os
+import os, collections
 from switch_mod.financials import capital_recovery_factor as crf
 
 dependencies = 'switch_mod.timescales', 'switch_mod.load_zones',\
@@ -133,8 +133,11 @@ def define_components(mod):
             for bld_yr in m.PROJECT_PERIOD_ONLINE_BUILD_YRS[proj, period]))
 
     mod.STORAGE_PROJ_DISPATCH_POINTS = Set(
-        initialize=mod.PROJ_DISPATCH_POINTS,
-        filter=lambda m, proj, t: proj in m.STORAGE_PROJECTS)
+        dimen=2,
+        initialize=lambda m: (
+            (proj, tp) 
+                for proj in m.STORAGE_PROJECTS
+                    for tp in m.PROJ_ACTIVE_TIMEPOINTS[proj]))
 
     mod.ChargeStorage = Var(
         mod.STORAGE_PROJ_DISPATCH_POINTS,
@@ -144,14 +147,10 @@ def define_components(mod):
     def LZ_NetCharge_rule(m, lz, t):
         # Construct and cache a set for summation as needed
         if not hasattr(m, 'Storage_Charge_Summation_dict'):
-            m.Storage_Charge_Summation_dict = {}
-            for (lz2, t2) in m.LOAD_ZONES * m.TIMEPOINTS:
-                m.Storage_Charge_Summation_dict[lz2, t2] = set()
-                for proj in m.PROJECTS_ACTIVE_IN_TIMEPOINT[t]:
-                    if (proj not in m.STORAGE_PROJECTS or
-                        m.proj_load_zone[proj] != lz2):
-                        continue
-                    m.Storage_Charge_Summation_dict[lz2, t2].add(proj)
+            m.Storage_Charge_Summation_dict = collections.defaultdict(set)
+            for proj, t2 in m.STORAGE_PROJ_DISPATCH_POINTS:
+                lz2 = m.proj_load_zone[proj]
+                m.Storage_Charge_Summation_dict[lz2, t2].add(proj)
         # Use pop to free memory
         relevant_projects = m.Storage_Charge_Summation_dict.pop((lz, t))
         return sum(m.ChargeStorage[proj, t] for proj in relevant_projects)

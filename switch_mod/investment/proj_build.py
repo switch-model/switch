@@ -225,6 +225,9 @@ def define_components(mod):
     ccs_pipeline_cost_per_mw[proj, build_year] is the normalize cost of
     a ccs pipeline sized relative to a project's emissions intensity.
 
+    TODO:
+    - Allow capacity retirements
+    
     Decommission[proj, build_year, period] is a decision variable that
     allows early retirement of portions of projects. Any portion of a
     project that is decomisssioned early will not incur fixed O&M
@@ -236,9 +239,6 @@ def define_components(mod):
     that occured.
 
         NameplateCapacity = BuildProj - sum(Decommission)
-    
-    TODO:
-    - Allow capacity retirements
     
     """
 
