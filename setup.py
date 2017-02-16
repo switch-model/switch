@@ -20,7 +20,7 @@ def read(*rnames):
 
 setup(
     name='SWITCH',
-    version='2.0.0b0',
+    version='2.0.0b1',
     maintainer='Matthias Fripp',
     maintainer_email='mfripp@hawaii.edu',
     url='http://switch-model.org',
