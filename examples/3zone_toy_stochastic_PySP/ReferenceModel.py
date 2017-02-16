@@ -28,18 +28,19 @@ inputs_dir = "inputs"
 
 import switch_mod.utilities as utilities
 import switch_mod.financials as financials
+import switch_mod.solve
 import sys, os
 from pyomo.environ import *
 
 print "loading model..."
 
-try:
-    module_fh = open(os.path.join(inputs_dir, 'modules.txt'), 'r')
-except IOError, exc:
-    sys.exit('Failed to open input file: {}'.format(exc))
-module_list = [line.rstrip('\n') for line in module_fh]
-module_list.insert(0,'switch_mod')
+# Ideally, we would use the main codebase to generate the model, but the
+# mandatory switch argument parser is interferring with pysp's command line tools
+#model = switch_mod.solve.main(return_model=True)
+
+module_list = switch_mod.solve.get_module_list(args=None)
 model = utilities.create_model(module_list, args=[])
+
 # The following code augments the model object with Expressions for the 
 # Stage costs, which both runef and runph scripts need in order to build 
 # the stochastic objective function. In this particular example, only

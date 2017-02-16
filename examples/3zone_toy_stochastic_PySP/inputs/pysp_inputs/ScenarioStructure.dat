@@ -44,7 +44,7 @@ set StageVariables[Operation] :=
     ProjFuelUseRate[*,*,*]
 ;
 
-param StageCostVariable := 
+param StageCost := 
     Investment InvestmentCost
     Operation OperationCost
 ;

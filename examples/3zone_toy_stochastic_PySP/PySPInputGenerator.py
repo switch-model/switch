@@ -66,19 +66,13 @@ scenario_list = [
 ###########################################################
 
 import switch_mod.utilities as utilities
+import switch_mod.solve
 import sys, os
 from pyomo.environ import *
 
 print "creating model for scenario input generation..."
 
-try:
-    module_fh = open(os.path.join(inputs_dir, 'modules.txt'), 'r')
-except IOError, exc:
-    sys.exit('Failed to open input file: {}'.format(exc))
-
-module_list = [line.rstrip('\n') for line in module_fh]
-module_list.insert(0,'switch_mod')
-
+module_list = switch_mod.solve.get_module_list(args=None)
 model = utilities.create_model(module_list)
 
 print "model successfully created..."
@@ -171,7 +165,7 @@ def save_dat_files():
             f.write(";\n\n")
 
         # The InvestmentCost and OperationCost components are defined in ReferenceModel.py
-        f.write("param StageCostVariable := \n")
+        f.write("param StageCost := \n")
         f.write("    Investment InvestmentCost\n")
         f.write("    Operation OperationCost\n")
         f.write(";")

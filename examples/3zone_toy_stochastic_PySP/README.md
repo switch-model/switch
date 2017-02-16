@@ -112,8 +112,8 @@ The runef script has multiple options. Refer to PySP documentation for more
 specifications. A simple and effective way of solving this example problem is to 
 execute the following command from the /3zone_toy_stochastic_PySP directory:
 
-    >>>runef --model-directory=. --instance-directory=inputs/pysp_inputs --solve 
-        --solver=glpk --output-solver-log --output-times --traceback 
+    >>>runef --model-directory=. --instance-directory=inputs/pysp_inputs --solve \
+        --solver=glpk --output-solver-log --output-times --traceback \
         --solution-writer=pyomo.pysp.plugins.csvsolutionwriter
 
 The model directory needs to contain the ReferenceModel.py file; in this example
@@ -145,9 +145,9 @@ to .nl format as well). The user could then later apply a solver and obtain solu
 The runph script has multiple options. Refer to PySP documentation for more
 specifications. One way of solving a problem is to execute the following command:
 
-    >>>runph --model-directory=. --instance-directory=inputs/pysp_inputs 
-        --solver=gurobi --default-rho=1000.0 --traceback --rho-cfgfile=rhosetter.py 
-        --solution-writer=pyomo.pysp.plugins.csvsolutionwriter 
+    >>>runph --model-directory=. --instance-directory=inputs/pysp_inputs \
+        --solver=gurobi --default-rho=1000.0 --traceback --rho-cfgfile=rhosetter.py \
+        --solution-writer=pyomo.pysp.plugins.csvsolutionwriter \
         --output-scenario-tree-solution
 
 Note: In this command, the solver must be able to solve problems with non-linear
@@ -165,11 +165,11 @@ lower bounds set in the core mathematical model, bounds can be added in a
 configuration file which is named pha_bounds_cfg.py in this example. To run
 progressive hedging with a linear solver such as glpk, use the following command:
 
-    >>>runph --model-directory=. --instance-directory=inputs/pysp_inputs
-        --solver=glpk --default-rho=1000.0 --traceback
-        --rho-cfgfile=rhosetter.py
-        --solution-writer=pyomo.pysp.plugins.csvsolutionwriter
-        --output-scenario-tree-solution --linearize-nonbinary-penalty-terms=5
+    >>>runph --model-directory=. --instance-directory=inputs/pysp_inputs \
+        --solver=glpk --default-rho=1000.0 --traceback \
+        --rho-cfgfile=rhosetter.py \
+        --solution-writer=pyomo.pysp.plugins.csvsolutionwriter \
+        --output-scenario-tree-solution --linearize-nonbinary-penalty-terms=5 \
         --bounds-cfgfile=pha_bounds_cfg.py
 
 Note that the solutions from a linearized approximation will not be numerically
@@ -180,10 +180,10 @@ decisions were similar but slightly different.
 
 Another equivalent way of solving this example is to run the command:
 
-    >>>runph --model-directory=. --instance-directory=inputs/pysp_inputs 
-        --solver=gurobi --default-rho=1000.0 --traceback 
-        --rho-cfgfile=rhosetter-FS-only.py 
-        --solution-writer=pyomo.pysp.plugins.csvsolutionwriter 
+    >>>runph --model-directory=. --instance-directory=inputs/pysp_inputs \
+        --solver=gurobi --default-rho=1000.0 --traceback \
+        --rho-cfgfile=rhosetter-FS-only.py \
+        --solution-writer=pyomo.pysp.plugins.csvsolutionwriter \
         --output-scenario-tree-solution
 
 This will set Rho values only for first stage variables, thus decreasing the
