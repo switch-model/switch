@@ -295,6 +295,8 @@ def define_arguments(argparser):
     # These are a subset of the arguments offered by "pyomo solve --solver=cplex --help"
     argparser.add_argument("--solver", default="glpk", 
         help='Name of Pyomo solver to use for the model (default is "glpk")')
+    argparser.add_argument("--solver-manager", default="serial",
+        help='Name of Pyomo solver manager to use for the model ("neos" to use remote NEOS server)')
     argparser.add_argument("--solver-io", default=None, help="Method for Pyomo to use to communicate with solver")
     # note: pyomo has a --solver-options option but it is not clear
     # whether that does the same thing as --solver-options-string so we don't reuse the same name.
@@ -481,7 +483,10 @@ def solve(model):
         if model.options.solver_options_string and not hasattr(model.solver, "_options_string_to_dict"):
             for k, v in _options_string_to_dict(model.options.solver_options_string).items():
                 model.solver.options[k] = v
-    
+
+        # import pdb; pdb.set_trace()
+        model.solver_manager = SolverManagerFactory(model.options.solver_manager)
+
     # get solver arguments (if any)
     if hasattr(model, "options"):
         solver_args = dict(
@@ -499,6 +504,7 @@ def solve(model):
     solver_args["suffixes"] = [
         c.name for c in model.component_objects(ctype=Suffix)
     ]
+
     # note: the next few lines are faster than the line above, but seem risky:
     # i = m._ctypes.get(Suffix, [None])[0]
     # solver_args["suffixes"] = []
@@ -520,16 +526,16 @@ def solve(model):
         from pyutilib.services import TempfileManager
         TempfileManager.tempdir = model.options.tempdir
 
-    results = model.solver.solve(model, **solver_args)
+    results = model.solver_manager.solve(model, opt=model.solver, **solver_args)
 
     if model.options.verbose:
         solve_end_time = time.time()
         print "Solved model. Total time spent in solver: {:2f} s.".format(solve_end_time - solve_start_time)
-    
+
     model.solutions.load_from(results)
 
     # Only return if the model solved correctly, otherwise throw a useful error
-    if(results.solver.status == SolverStatus.ok and 
+    if(results.solver.status == SolverStatus.ok and
        results.solver.termination_condition == TerminationCondition.optimal):
         return results
     elif (results.solver.termination_condition == TerminationCondition.infeasible):
