@@ -841,7 +841,7 @@ def summary_headers(m):
         ("tag", "iteration", "total_cost")
         +tuple('total_direct_costs_per_year_'+str(p) for p in m.PERIODS)
         +tuple('DR_Welfare_Cost_'+str(p) for p in m.PERIODS)
-        +tuple('customer_payments_'+str(p) for p in m.PERIODS)
+        +tuple(prod + ' payment ' + str(p) for prod in m.DR_PRODUCTS for p in m.PERIODS)
         +tuple(prod + ' sold ' + str(p) for prod in m.DR_PRODUCTS for p in m.PERIODS)
     )
     
@@ -879,14 +879,14 @@ def summary_values(m):
     last_bid = m.DR_BID_LIST.last()
     values.extend([
         sum(
-            # electricity_demand(m, lz, tp, prod) * m.dr_price[last_bid, lz, tp, prod] * m.tp_weight_in_year[tp]
-            # here we assume customers pay final marginal cost, so we don't artificially
+            # we assume customers pay final marginal cost, so we don't artificially
             # shift surplus between consumers and producers
-            electricity_demand(m, lz, tp, prod) * electricity_marginal_cost(m, lz, tp, prod) 
-                * m.tp_weight_in_year[tp]
-            for lz in m.LOAD_ZONES for tp in m.PERIOD_TPS[p] for prod in m.DR_PRODUCTS
+            electricity_demand(m, lz, tp, prod) 
+            * electricity_marginal_cost(m, lz, tp, prod) 
+            * m.tp_weight_in_year[tp]
+            for lz in m.LOAD_ZONES for tp in m.PERIOD_TPS[p]
         )
-        for p in m.PERIODS
+        for prod in m.DR_PRODUCTS for p in m.PERIODS
     ])
     
     # total quantities bought (or sold) by customers each year
@@ -907,6 +907,23 @@ def write_results(m):
     avg_ts_scale = float(sum(m.ts_scale_to_year[ts] for ts in m.TIMESERIES))/len(m.TIMESERIES)
     last_bid = m.DR_BID_LIST.last()
     
+    # get flattened version of final marginal cost for further analysis
+    # (code similar to get_bids())
+    marginal_costs = {
+        (lz, ts): {
+            prod: [electricity_marginal_cost(m, lz, tp, prod) for tp in m.TS_TPS[ts]]
+            for prod in m.DR_PRODUCTS
+        }
+        for lz in m.LOAD_ZONES for ts in m.TIMESERIES
+    }
+    flat_prices = find_flat_prices(m, marginal_costs)
+    flattened_marginal_costs = dict()
+    for lz in m.LOAD_ZONES:
+        for ts in m.TIMESERIES:
+            for i, tp in enumerate(m.TS_TPS):
+                for prod in m.DR_PRODUCTS:
+                    flattened_marginal_costs[lz, tp, prod] = flat_prices[lz, ts][prod][i]
+    
     util.write_table(
         m, m.LOAD_ZONES, m.TIMEPOINTS,
         output_file=os.path.join(outputs_dir, "energy_sources{t}.tsv".format(t=tag)), 
@@ -919,6 +936,7 @@ def write_results(m):
             +tuple(m.LZ_Energy_Components_Consume)
             +tuple("marginal cost "+prod for prod in m.DR_PRODUCTS)
             +tuple("final mc "+prod for prod in m.DR_PRODUCTS)
+            +tuple("flattened final mc "+prod for prod in m.DR_PRODUCTS)
             +tuple("price "+prod for prod in m.DR_PRODUCTS)
             +tuple("bid q "+prod for prod in m.DR_PRODUCTS)
             +("peak_day", "base_load", "base_price"),
@@ -943,6 +961,7 @@ def write_results(m):
             +tuple(getattr(m, component)[z, t] for component in m.LZ_Energy_Components_Consume)
             +tuple(m.prev_marginal_cost[z, t, prod] for prod in m.DR_PRODUCTS)
             +tuple(electricity_marginal_cost(m, z, t, prod) for prod in m.DR_PRODUCTS)
+            +tuple(flattened_marginal_costs[z, t, prod] for prod in m.DR_PRODUCTS)
             +tuple(m.dr_price[last_bid, z, t, prod] for prod in m.DR_PRODUCTS)
             +tuple(m.dr_bid[last_bid, z, t, prod] for prod in m.DR_PRODUCTS)
             +(
