@@ -619,15 +619,10 @@ def calibrate_model(m):
     # calibrate the demand module
     demand_module.calibrate(m, m.base_data)
 
-
-def get_bids(m):
-    """Get bids from the demand system showing quantities at the current prices and willingness-to-pay for those quantities
-    call bid() with dictionary of prices for different products
+def get_prices(m, flat_revenue_neutral=True):
+    """Calculate appropriate prices for each day, based on the current state
+    of the model."""
     
-    Each bid is a tuple of (load_zone, timeseries, {prod: [hourly prices]}, {prod: [hourly quantities]}, wtp)
-    quantity will be positive for consumption, negative if customer will supply product
-    """
-
     # construct dictionaries of marginal cost vectors for each product for each load zone and time series
     if m.iteration_number == 0:
         # use base prices on the first pass ($0 for everything other than energy)
@@ -655,10 +650,22 @@ def get_bids(m):
         # find flat price for the whole period that is revenue neutral with the marginal costs
         # (e.g., an aggregator could buy at dynamic marginal cost and sell to the customer at
         # a flat price; the aggregator must find the correct flat price so they break even)
-        prices = find_flat_prices(m, marginal_costs)
+        prices = find_flat_prices(m, marginal_costs, flat_revenue_neutral)
     else:
         prices = marginal_costs
     
+    return prices
+    
+def get_bids(m):
+    """Get bids from the demand system showing quantities at the current prices and willingness-to-pay for those quantities
+    call bid() with dictionary of prices for different products
+    
+    Each bid is a tuple of (load_zone, timeseries, {prod: [hourly prices]}, {prod: [hourly quantities]}, wtp)
+    quantity will be positive for consumption, negative if customer will supply product
+    """
+    
+    prices = get_prices(m)
+
     # get bids for all load zones and timeseries
     bids = []
     for lz in m.LOAD_ZONES:
@@ -674,13 +681,31 @@ def get_bids(m):
             bids.append((lz, ts, prices[lz, ts], demand, wtp))
 
     return bids
+
+# def zone_period_average_marginal_cost(m, load_zone, period):
+#     avg_cost = value(
+#         sum(
+#             electricity_marginal_cost(m, load_zone, tp, 'energy')
+#             * electricity_demand(m, load_zone, tp, 'energy')
+#             * m.tp_weight_in_year[tp]
+#             for tp in m.PERIOD_TPS[period]
+#         )
+#         /
+#         sum(
+#             electricity_demand(m, load_zone, tp, 'energy')
+#             * m.tp_weight_in_year[tp]
+#             for tp in m.PERIOD_TPS[period]
+#         )
+#     )
+#     return avg_cost
+    
             
-def find_flat_prices(m, marginal_costs):
-    # calculate flat prices for an imaginary load-serving entity (LSE) who must break even
-    # in each load zone and period
+def find_flat_prices(m, marginal_costs, revenue_neutral):
+    # calculate flat prices for an imaginary load-serving entity (LSE) who 
+    # must break even in each load zone and period.
     # LSE buys at marginal cost, sells at flat prices
-    # this is like a transformation on the demand function, where we are now
-    # selling to the LSE rather than directly to the customers
+    # this is like a transformation on the demand function, where we are
+    # now  selling to the LSE rather than directly to the customers
     #
     # LSE iterates in sub-loop (scipy.optimize.newton) to find flat price:
         # set price (e.g., simple average of MC or avg weighted by expected demand)
@@ -693,7 +718,6 @@ def find_flat_prices(m, marginal_costs):
     flat_prices = dict()
     for lz in m.LOAD_ZONES:
         for p in m.PERIODS:
-            # find a flat price that produces revenue equal to marginal costs
             price_guess = value(
                 sum(
                     marginal_costs[lz, ts]['energy'][i] 
@@ -705,11 +729,19 @@ def find_flat_prices(m, marginal_costs):
                 sum(electricity_demand(m, lz, tp, 'energy') * m.tp_weight_in_year[tp] 
                     for tp in m.PERIOD_TPS[p])
             )
-            flat_prices[lz, p] = scipy.optimize.newton(
-                revenue_imbalance, 
-                price_guess, 
-                args=(m, lz, p, marginal_costs)
-            )
+
+            if revenue_neutral:
+                # find a flat price that produces revenue equal to marginal costs
+                flat_prices[lz, p] = scipy.optimize.newton(
+                    revenue_imbalance, 
+                    price_guess, 
+                    args=(m, lz, p, marginal_costs)
+                )
+            else:
+                # used in final round, when LSE is considered to have
+                # bought the final constructed quantity at the final
+                # marginal cost
+                flat_prices[lz, p] = price_guess
     
     # construct a collection of flat prices with the right structure
     final_prices = {
@@ -907,22 +939,54 @@ def write_results(m):
     avg_ts_scale = float(sum(m.ts_scale_to_year[ts] for ts in m.TIMESERIES))/len(m.TIMESERIES)
     last_bid = m.DR_BID_LIST.last()
     
-    # get flattened version of final marginal cost for further analysis
-    # (code similar to get_bids())
-    marginal_costs = {
-        (lz, ts): {
-            prod: [electricity_marginal_cost(m, lz, tp, prod) for tp in m.TS_TPS[ts]]
-            for prod in m.DR_PRODUCTS
-        }
-        for lz in m.LOAD_ZONES for ts in m.TIMESERIES
+    # get final prices that will be charged to customers (not necessarily
+    # the same as the final prices they were offered, if iteration was
+    # stopped before complete convergence) 
+    final_prices_by_timeseries = get_prices(m, flat_revenue_neutral=False)
+    final_prices = {
+        (lz, tp, prod): final_prices_by_timeseries[lz, ts][prod][i]
+        for lz in m.LOAD_ZONES
+        for ts in m.TIMESERIES
+        for i, tp in enumerate(m.TS_TPS[ts])
+        for prod in m.DR_PRODUCTS
     }
-    flat_prices = find_flat_prices(m, marginal_costs)
-    flattened_marginal_costs = dict()
-    for lz in m.LOAD_ZONES:
-        for ts in m.TIMESERIES:
-            for i, tp in enumerate(m.TS_TPS):
-                for prod in m.DR_PRODUCTS:
-                    flattened_marginal_costs[lz, tp, prod] = flat_prices[lz, ts][prod][i]
+    final_quantities = {
+        (lz, tp, prod): value(sum(
+            m.DRBidWeight[b, lz, ts] * m.dr_bid[b, lz, tp, prod] 
+            for b in m.DR_BID_LIST
+        ))
+        for lz in m.LOAD_ZONES
+        for ts in m.TIMESERIES
+        for tp in m.TS_TPS[ts]
+        for prod in m.DR_PRODUCTS
+    }
+    
+    # final_prices_by_timepoint = dict()
+    # for lz in m.LOAD_ZONES:
+    #     for ts in m.TIMESERIES:
+    #         for prod in m.DR_PRODUCTS:
+    #             for i, tp in enumerate(m.TS_TPS[ts]):
+    #                 final_prices_by_timepoint[lz, ts, prod] = \
+    #                     final_prices[lz, ts][prod][i]
+    
+    # if m.options.dr_flat_pricing:
+    #     final_prices = dict()
+    #     for lz in m.LOAD_ZONES:
+    #         for p in m.PERIODS:
+    #             # calculate average marginal cost of power for each period,
+    #             # assuming customers will consume the currently-specified amount of power (not react to pricing)
+    #             flat_price = zone_period_average_marginal_cost(m, lz, p)
+    #             for tp in m.PERIOD_TPS[p]:
+    #                 for prod in m.DR_PRODUCTS:
+    #                     final_prices[lz, tp, prod] = \
+    #                         flat_price if prod=='energy' else 0.0
+    # else:
+    #     final_prices = {
+    #         (lz, tp, prod): electricity_marginal_cost(m, lz, tp, prod)
+    #         for lz in m.LOAD_ZONES
+    #         for tp in m.TIMEPOINTS
+    #         for prod in m.DR_PRODUCTS
+    #     }
     
     util.write_table(
         m, m.LOAD_ZONES, m.TIMEPOINTS,
@@ -934,11 +998,11 @@ def write_results(m):
             +tuple("curtail_"+s for s in m.NON_FUEL_ENERGY_SOURCES)
             +tuple(m.LZ_Energy_Components_Produce)
             +tuple(m.LZ_Energy_Components_Consume)
-            +tuple("marginal cost "+prod for prod in m.DR_PRODUCTS)
-            +tuple("final mc "+prod for prod in m.DR_PRODUCTS)
-            +tuple("flattened final mc "+prod for prod in m.DR_PRODUCTS)
-            +tuple("price "+prod for prod in m.DR_PRODUCTS)
+            +tuple("offered price "+prod for prod in m.DR_PRODUCTS)
             +tuple("bid q "+prod for prod in m.DR_PRODUCTS)
+            +tuple("final mc "+prod for prod in m.DR_PRODUCTS)
+            +tuple("final price "+prod for prod in m.DR_PRODUCTS)
+            +tuple("final q "+prod for prod in m.DR_PRODUCTS)
             +("peak_day", "base_load", "base_price"),
         values=lambda m, z, t: 
             (z, m.tp_period[t], m.tp_timestamp[t]) 
@@ -959,11 +1023,11 @@ def write_results(m):
             )
             +tuple(getattr(m, component)[z, t] for component in m.LZ_Energy_Components_Produce)
             +tuple(getattr(m, component)[z, t] for component in m.LZ_Energy_Components_Consume)
-            +tuple(m.prev_marginal_cost[z, t, prod] for prod in m.DR_PRODUCTS)
-            +tuple(electricity_marginal_cost(m, z, t, prod) for prod in m.DR_PRODUCTS)
-            +tuple(flattened_marginal_costs[z, t, prod] for prod in m.DR_PRODUCTS)
             +tuple(m.dr_price[last_bid, z, t, prod] for prod in m.DR_PRODUCTS)
             +tuple(m.dr_bid[last_bid, z, t, prod] for prod in m.DR_PRODUCTS)
+            +tuple(electricity_marginal_cost(m, z, t, prod) for prod in m.DR_PRODUCTS)
+            +tuple(final_prices[z, t, prod] for prod in m.DR_PRODUCTS)
+            +tuple(final_quantities[z, t, prod] for prod in m.DR_PRODUCTS)
             +(
                 'peak' if m.ts_scale_to_year[m.tp_ts[t]] < 0.5*avg_ts_scale else 'typical',
                 m.base_data_dict[z, t][0],
