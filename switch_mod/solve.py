@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
-import sys, os, time, traceback, shlex, re
+import sys, os, time, shlex, re
 
 from pyomo.environ import *
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
@@ -26,10 +26,11 @@ def main(args=None, return_model=False, return_instance=False):
     # turn on post-mortem debugging mode if requested
     # (from http://stackoverflow.com/a/1237407 ; more options available there)
     if pre_module_options.debug:
-        def info(type, value, tb):
+        def debug(type, value, tb):
+            import traceback, pdb
             traceback.print_exception(type, value, tb)
             pdb.pm()
-        sys.excepthook = info
+        sys.excepthook = debug
 
     # Write output to a log file if logging option is specified
     stdout_copy = sys.stdout  # make a copy of current sys.stdout to return to eventually
