@@ -25,11 +25,11 @@ def main(args=None, return_model=False, return_instance=False):
     # turn on post-mortem debugging mode if requested
     # (from http://stackoverflow.com/a/1237407 ; more options available there)
     if pre_module_options.debug:
-        import traceback, pdb
-        def info(type, value, tb):
+        def debug(type, value, tb):
+            import traceback, pdb
             traceback.print_exception(type, value, tb)
             pdb.pm()
-        sys.excepthook = info
+        sys.excepthook = debug
 
     # Write output to a log file if logging option is specified
     stdout_copy = sys.stdout  # make a copy of current sys.stdout to return to eventually
