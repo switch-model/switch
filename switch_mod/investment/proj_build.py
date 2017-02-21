@@ -103,11 +103,6 @@ def define_components(mod):
 
         ProjCapacity <= proj_capacity_limit_mw
 
-    proj_final_period[(proj, build_year) in PROJECT_BUILDYEARS] is the last
-    investment period in the simulation that a given project build will
-    be operated. It can either indicate retirement or the end of the
-    simulation. This is derived from g_max_age.
-
     NEW_PROJ_WITH_MIN_BUILD_YEARS is the subset of NEW_PROJ_BUILDYEARS for
     which minimum capacity build-out constraints will be enforced.
 
@@ -325,36 +320,33 @@ def define_components(mod):
     mod.min_data_check('proj_predetermined_cap')
     
 
-    def init_proj_final_period(m, proj, build_year):
-        max_age = m.proj_max_age[proj]
-        earliest_study_year = m.period_start[m.PERIODS.first()]
-        if build_year + max_age < earliest_study_year:
-            return build_year + max_age
-        for p in m.PERIODS:
-            if build_year + max_age <= m.period_start[p] + m.period_length_years[p]:
-                break
-        return p
-    mod.proj_final_period = Param(
-        mod.PROJECT_BUILDYEARS,
-        initialize=init_proj_final_period)
-    mod.min_data_check('proj_final_period')
+    def _proj_build_can_operate_in_period(m, proj, build_year, period):
+        if build_year in m.PERIODS:
+            online = m.period_start[build_year]
+        else:
+            online = build_year
+        retirement = online + m.proj_max_age[proj]
+        return online <= m.period_start[period] <= retirement
+        # This is probably more correct, but is a different behavior
+        # mid_period = m.period_start[period] + m.period_length_years[period] / 2.0
+        # return online <= m.period_start[period] and mid_period <= retirement
     
-    # The set of periods when a given project will be online for a given
-    # build year
+    # The set of periods when a project built in a certain year will be online
     mod.PROJECT_BUILDS_OPERATIONAL_PERIODS = Set(
         mod.PROJECT_BUILDYEARS,
         within=mod.PERIODS,
         ordered=True,
         initialize=lambda m, proj, bld_yr: set(
-            p for p in m.PERIODS
-            if bld_yr <= p <= m.proj_final_period[proj, bld_yr]))
+            period for period in m.PERIODS
+            if _proj_build_can_operate_in_period(m, proj, bld_yr, period)))
     # The set of build years that could be online in the given period
     # for the given project.
     mod.PROJECT_PERIOD_ONLINE_BUILD_YRS = Set(
         mod.PROJECTS, mod.PERIODS,
-        initialize=lambda m, proj, p: set(
+        initialize=lambda m, proj, period: set(
             bld_yr for (prj, bld_yr) in m.PROJECT_BUILDYEARS
-            if prj == proj and bld_yr <= p <= m.proj_final_period[proj, bld_yr]))
+            if prj == proj and 
+               _proj_build_can_operate_in_period(m, proj, bld_yr, period)))
 
     def bounds_BuildProj(model, proj, bld_yr):
         if((proj, bld_yr) in model.PREDETERMINED_PROJ_BUILDYEARS):
