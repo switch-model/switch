@@ -285,7 +285,7 @@ def define_components(mod):
     mod.node_spillage_cost = Param(
         mod.WATER_NODES,
         within=NonNegativeReals,
-        initialize=lambda m, wn: (1 - m.wn_is_sink[wn]) * 10000)
+        initialize=lambda m, wn: (1 - m.wn_is_sink[wn]) * 100)
     mod.NodeSpillage = Var(
         mod.WATER_NODES_BALANCE_POINTS,
         within=NonNegativeReals)
@@ -403,8 +403,8 @@ def define_components(mod):
     
     mod.Nodes_Spillage_Costs = Expression(
         mod.TIMEPOINTS,
-        rule=lambda m, t: sum(m.NodeSpillage[wn,t] * m.node_spillage_cost[wn]
-            for wn in m.WATER_NODES))
+        rule=lambda m, t: sum(m.NodeSpillage[wn,t] * 3600 *
+            m.node_spillage_cost[wn] for wn in m.WATER_NODES))
     mod.cost_components_tp.append('Nodes_Spillage_Costs')
 
     ################
