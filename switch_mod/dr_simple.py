@@ -23,8 +23,8 @@ def define_components(mod):
     that describe the maximum demand curtailment in MW allowed in a load
     zone at a specific timepoint. Its default value is 0.
 
-    dr_max_increase_in_MW[lz, t] is a parameter that describes the maximum
-    demand increase in MW allowed in a load zone at a specific timepoint.
+    dr_max_increment_in_MW[lz, t] is a parameter that describes the maximum
+    demand increment in MW allowed in a load zone at a specific timepoint.
     Its default value is infinity.
 
     DemandResponse[lz,t] is a decision variable describing how much load
@@ -37,8 +37,8 @@ def define_components(mod):
     DR_Curtail_Allowed[lz,t] is a constraint that prevents curtailment
     to be more than the local demand at each timepoint.
 
-    DR_Max_Increase[lz,t] is a constraint that describes the maximum increase
-    of demand allowed in MW for a load zone at a specific timepoint.
+    DR_Max_Increment[lz,t] is a constraint that describes the maximum
+    increment of demand allowed in MW for a load zone at a specific timepoint.
 
     DR_Net_Zero[lz,ts in TIMESERIES] is a constraint that forces all the
     changes in the demand to balance out over the course of each timeseries.
@@ -55,7 +55,7 @@ def define_components(mod):
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         default= 0.0,
         within=NonNegativeReals)
-    mod.dr_max_increase_in_MW = Param(
+    mod.dr_max_increment_in_MW = Param(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         default= float('inf'),
         within=NonNegativeReals)
@@ -73,10 +73,10 @@ def define_components(mod):
         rule=lambda m, z, t:
         m.DemandResponse[z, t] >= (-1.0) * m.lz_demand_mw[z,t])
 
-    mod.DR_Max_Increase = Constraint(
+    mod.DR_Max_Increment = Constraint(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         rule=lambda m, z, t:
-        m.DemandResponse[z, t] <= m.dr_max_increase_in_MW[z,t])
+        m.DemandResponse[z, t] <= m.dr_max_increment_in_MW[z,t])
 
     mod.DR_Net_Zero = Constraint(
         mod.LOAD_ZONES, mod.TIMESERIES,
@@ -92,7 +92,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     Import demand response-specific data from an input directory.
 
     dr_data.tab
-        LOAD_ZONE, TIMEPOINT, dr_max_curtail_in_MW, dr_max_increase_in_MW
+        LOAD_ZONE, TIMEPOINT, dr_max_curtail_in_MW, dr_max_increment_in_MW
 
     """
 
@@ -100,4 +100,4 @@ def load_inputs(mod, switch_data, inputs_dir):
         optional=True,
         filename=os.path.join(inputs_dir, 'dr_data.tab'),
         autoselect=True,
-        param=(mod.dr_max_curtail_in_MW, mod.dr_max_increase_in_MW))
+        param=(mod.dr_max_curtail_in_MW, mod.dr_max_increment_in_MW))
