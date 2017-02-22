@@ -1,0 +1,3 @@
+LOAD_ZONE	TIMEPOINT	dr_max_curtail_in_MW	dr_max_increase_in_MW
+South	1	2	2
+South	2	0.5	2
