@@ -1,3 +1,0 @@
-load_zone	timestamp	LZ_NetDispatch	lz_demand_mw	DumpPower	DemandResponse
-South	2025011512	6.0	8	0.0	-2.0
-South	2025011600	2.5	0.5	0.0	2.0
