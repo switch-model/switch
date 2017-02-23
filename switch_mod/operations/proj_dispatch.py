@@ -206,9 +206,13 @@ def define_components(mod):
         within=NonNegativeReals)
     mod.LZ_NetDispatch = Expression(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
-        rule=lambda m, lz, t: sum(
-            m.DispatchProj[p, t] for p in m.LZ_PROJECTS[lz]
-            if (p, t) in m.PROJ_DISPATCH_POINTS))
+        rule=lambda m, lz, t: \
+            sum(m.DispatchProj[p, t]
+                for p in m.LZ_PROJECTS[lz]
+                if (p, t) in m.PROJ_DISPATCH_POINTS) -
+            sum(m.DispatchProj[p, t] * m.proj_ccs_energy_load[p]
+                for p in m.LZ_PROJECTS[lz]
+                if (p, t) in m.PROJ_DISPATCH_POINTS and p in m.PROJECTS_WITH_CCS))
     # Register net dispatch as contributing to a load zone's energy
     mod.LZ_Energy_Components_Produce.append('LZ_NetDispatch')
 
