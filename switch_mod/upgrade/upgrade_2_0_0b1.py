@@ -65,7 +65,7 @@ old_modules = {
     'switch_mod.hawaii.switch_patch',
     'switch_mod.hawaii.unserved_load',
     'switch_mod.hawaii.util',
-    'switch_mod.load_zones',
+    'switch_mod.balancing.load_zones',
     'switch_mod.local_td',
     'switch_mod.main',
     'switch_mod.project.build',
@@ -88,13 +88,13 @@ old_modules = {
 # also check for module file locally
 rename_modules = {
     'switch_mod.project.no_commit': 'switch_mod.operations.no_commit',
-    'switch_mod.trans_build': 'switch_mod.investment.trans_build',
-    'switch_mod.trans_dispatch': 'switch_mod.operations.trans_dispatch',
+    'switch_mod.trans_build': 'switch_mod.transmission.transport.build',
+    'switch_mod.trans_dispatch': 'switch_mod.transmission.transport.dispatch',
     'switch_mod.project.discrete_build': 'switch_mod.investment.proj_discrete_build',
     'switch_mod.project.unitcommit.discrete': 'switch_mod.operations.unitcommit.discrete',
     'switch_mod.fuel_cost': 'switch_mod.financials.fuel_flat_costs',
     'switch_mod.fuel_markets': 'switch_mod.financials.fuel_markets',
-    'switch_mod.fuels': 'switch_mod.energy_sources'
+    'switch_mod.fuels': 'switch_mod.energy_sources.properties'
 }
 module_prefix = 'switch_mod.'
 expand_modules = {
@@ -103,17 +103,17 @@ expand_modules = {
         'switch_mod',
         'switch_mod.timescales',
         'switch_mod.financials',
-        'switch_mod.financials.minimize_cost',
-        'switch_mod.load_zones',
-        'switch_mod.energy_sources',
-        'switch_mod.investment.proj_build',
-        'switch_mod.operations.proj_dispatch',
+        'switch_mod.financials',
+        'switch_mod.balancing.load_zones',
+        'switch_mod.energy_sources.properties',
+        'switch_mod.generators.core.build',
+        'switch_mod.generators.core.dispatch',
         'switch_mod.export',
         '### end core modules ###'
     ],
     'switch_mod.project': [
-        'switch_mod.investment.proj_build',
-        'switch_mod.operations.proj_dispatch'
+        'switch_mod.generators.core.build',
+        'switch_mod.generators.core.dispatch'
     ],
     'switch_mod.project.unitcommit': [
         'switch_mod.operations.unitcommit.commit',

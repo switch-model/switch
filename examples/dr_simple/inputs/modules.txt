@@ -2,13 +2,12 @@
 switch_mod
 switch_mod.timescales
 switch_mod.financials
-switch_mod.financials.minimize_cost
-switch_mod.load_zones
-switch_mod.energy_sources
-switch_mod.investment.proj_build
-switch_mod.operations.proj_dispatch
-switch_mod.export
+switch_mod.balancing.load_zones
+switch_mod.energy_sources.properties
+switch_mod.generators.core.build
+switch_mod.generators.core.dispatch
+switch_mod.reporting
 # Custom Modules
-switch_mod.dr_simple
-switch_mod.operations.no_commit
-switch_mod.financials.fuel_flat_costs
+switch_mod.balancing.demand_response.simple
+switch_mod.generators.core.no_commit
+switch_mod.energy_sources.fuel_costs.simple

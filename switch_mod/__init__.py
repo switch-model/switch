@@ -23,8 +23,8 @@ __version__='2.0.0b1'
 core_modules = [
     'switch_mod.timescales',
     'switch_mod.financials',
-    'switch_mod.load_zones',
-    'switch_mod.energy_sources',
-    'switch_mod.investment',
-    'switch_mod.operations',
-    'switch_mod.export']
+    'switch_mod.balancing.load_zones',
+    'switch_mod.energy_sources.properties',
+    'switch_mod.generators.core',
+    'switch_mod.transmission.transport',
+    'switch_mod.reporting']
