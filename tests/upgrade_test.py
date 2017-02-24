@@ -1,7 +1,9 @@
 # Copyright 2016 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2, which is in the LICENSE file.
 
+import filecmp
 import os
+import os.path
 import shutil
 import sys
 import tempfile
@@ -9,56 +11,37 @@ import unittest
 
 import switch_mod.solve
 import switch_mod.utilities
-
-# This runs all the Switch examples (in the 'examples' directory) as
-# test cases.
-
-
-TOP_DIR = os.path.dirname(os.path.dirname(__file__))
+from switch_mod.upgrade import upgrade_inputs
+from .examples_test import get_expectation_path, read_file, write_file, TOP_DIR
+import switch_mod.upgrade.upgrade_2_0_0b1 as upgrade_2_0_0b1
 
 UPDATE_EXPECTATIONS = False
 
-
-def read_file(filename):
-    with open(filename, "r") as fh:
-        return fh.read()
-
-
-def write_file(filename, data):
-    with open(filename, "w") as fh:
-        fh.write(data)
-
-
-def find_example_dirs():
-    examples_dir = os.path.join(TOP_DIR, 'examples')
-    for dirpath, dirnames, filenames in os.walk(examples_dir):
+def find_example_dirs(path):
+    for dirpath, dirnames, filenames in os.walk(path):
         for dirname in dirnames:
             path = os.path.join(dirpath, dirname)
             if os.path.exists(os.path.join(path, 'inputs', 'modules.txt')):
                 yield path
 
-
-def get_expectation_path(example_dir):
-    expectation_file = os.path.join(example_dir, 'outputs',
-                                        'total_cost.txt')
-    if not os.path.isfile( expectation_file ):
-        return False
-    else:
-        return expectation_file
-
-
 def make_test(example_dir):
-    def test_example():
+    def test_upgrade():
         temp_dir = tempfile.mkdtemp(prefix='switch_test_')
+        example_name = os.path.basename(os.path.normpath(example_dir))
+        upgrade_dir = os.path.join(temp_dir, example_name)
+        shutil.copytree(example_dir, upgrade_dir, ignore=shutil.ignore_patterns('outputs'))
+        upgrade_dir_inputs = os.path.join(upgrade_dir, 'inputs')
+        upgrade_dir_outputs = os.path.join(upgrade_dir, 'outputs')
+        upgrade_inputs(upgrade_dir_inputs)
         try:
             # Custom python modules may be in the example's working directory
-            sys.path.append(example_dir)
+            sys.path.append(upgrade_dir)
             switch_mod.solve.main([
-                '--inputs-dir', os.path.join(example_dir, 'inputs'),
-                '--outputs-dir', temp_dir])
-            total_cost = read_file(os.path.join(temp_dir, 'total_cost.txt'))
+                '--inputs-dir', upgrade_dir_inputs,
+                '--outputs-dir', upgrade_dir_outputs])
+            total_cost = read_file(os.path.join(upgrade_dir_outputs, 'total_cost.txt'))
         finally:
-            sys.path.remove(example_dir)
+            sys.path.remove(upgrade_dir)
             shutil.rmtree(temp_dir)
         expectation_file = get_expectation_path(example_dir)
         if UPDATE_EXPECTATIONS:
@@ -72,18 +55,17 @@ def make_test(example_dir):
                     'Mismatch for total_cost (the objective function value):\n'
                     'Expected value:  {}\n'
                     'Actual value:    {}\n'
-                    'Run "tests/examples_test.py --update" to update the '
+                    'Run "tests/upgrade_test.py --update" to update the '
                     'expectations if this change is expected.'
                     .format(expected, actual))
 
-    name = os.path.relpath(example_dir, TOP_DIR)
+    name = os.path.basename(os.path.normpath(example_dir))
     return unittest.FunctionTestCase(
-        test_example, description='Example: %s' % name)
-
+        test_upgrade, description='Test Upgrade Example: %s' % name)
 
 def load_tests(loader, tests, pattern):
     suite = unittest.TestSuite()
-    for example_dir in find_example_dirs():
+    for example_dir in find_example_dirs(os.path.join(TOP_DIR, 'tests', 'upgrade_dat')):
         if get_expectation_path(example_dir):
             suite.addTest(make_test(example_dir))
     return suite

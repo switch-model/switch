@@ -25,6 +25,7 @@ upgrades_to = '2.0.0b1'
 
 old_modules = {
     'switch_mod.balancing_areas',
+    'switch_mod.export',
     'switch_mod.export.__init__',
     'switch_mod.export.dump',
     'switch_mod.export.example_export',
@@ -65,7 +66,7 @@ old_modules = {
     'switch_mod.hawaii.switch_patch',
     'switch_mod.hawaii.unserved_load',
     'switch_mod.hawaii.util',
-    'switch_mod.balancing.load_zones',
+    'switch_mod.load_zones',
     'switch_mod.local_td',
     'switch_mod.main',
     'switch_mod.project.build',
@@ -85,30 +86,43 @@ old_modules = {
     'switch_mod.project',
     'switch_mod.project.unitcommit',
 }
-# also check for module file locally
 rename_modules = {
-    'switch_mod.project.no_commit': 'switch_mod.operations.no_commit',
+    'switch_mod.load_zones': 'switch_mod.balancing.load_zones',
+    'switch_mod.fuels': 'switch_mod.energy_sources.properties',
     'switch_mod.trans_build': 'switch_mod.transmission.transport.build',
     'switch_mod.trans_dispatch': 'switch_mod.transmission.transport.dispatch',
-    'switch_mod.project.discrete_build': 'switch_mod.investment.proj_discrete_build',
-    'switch_mod.project.unitcommit.discrete': 'switch_mod.operations.unitcommit.discrete',
-    'switch_mod.fuel_cost': 'switch_mod.financials.fuel_flat_costs',
-    'switch_mod.fuel_markets': 'switch_mod.financials.fuel_markets',
-    'switch_mod.fuels': 'switch_mod.energy_sources.properties'
+    'switch_mod.project.build': 'switch_mod.generators.core.build',
+    'switch_mod.project.discrete_build': 'switch_mod.generators.core.proj_discrete_build',
+    'switch_mod.project.dispatch': 'switch_mod.generators.core.dispatch',
+    'switch_mod.project.no_commit': 'switch_mod.generators.core.no_commit',
+    'switch_mod.project.unitcommit.commit': 'switch_mod.generators.core.commit.operate',
+    'switch_mod.project.unitcommit.fuel_use': 'switch_mod.generators.core.commit.fuel_use',
+    'switch_mod.project.unitcommit.discrete': 'switch_mod.generators.core.commit.discrete',
+    'switch_mod.fuel_cost': 'switch_mod.energy_sources.fuel_costs.simple',
+    'switch_mod.fuel_markets': 'switch_mod.energy_sources.fuel_costs.markets',
+    'switch_mod.export': 'switch_mod.reporting',
+    'switch_mod.local_td': 'switch_mod.transmission.local_td',
+    'switch_mod.balancing_areas': 'switch_mod.balancing.operating_reserves.areas',
+    'switch_mod.export.dump': 'switch_mod.reporting.dump',
+    'switch_mod.generators.hydro_simple': 
+        'switch_mod.generators.extensions.hydro_simple',
+    'switch_mod.generators.hydro_system':
+        'switch_mod.generators.extensions.hydro_system',
+    'switch_mod.generators.storage':
+        'switch_mod.generators.extensions.storage',
 }
 module_prefix = 'switch_mod.'
-expand_modules = {
+expand_modules = { # Old module name: [new module names]
     'switch_mod': [
         '### begin core modules ###',
         'switch_mod',
         'switch_mod.timescales',
         'switch_mod.financials',
-        'switch_mod.financials',
         'switch_mod.balancing.load_zones',
         'switch_mod.energy_sources.properties',
         'switch_mod.generators.core.build',
         'switch_mod.generators.core.dispatch',
-        'switch_mod.export',
+        'switch_mod.reporting',
         '### end core modules ###'
     ],
     'switch_mod.project': [
@@ -116,8 +130,8 @@ expand_modules = {
         'switch_mod.generators.core.dispatch'
     ],
     'switch_mod.project.unitcommit': [
-        'switch_mod.operations.unitcommit.commit',
-        'switch_mod.operations.unitcommit.fuel_use'
+        'switch_mod.generators.core.commit.operate',
+        'switch_mod.generators.core.commit.fuel_use'
     ],
 }
 
@@ -165,6 +179,13 @@ def upgrade_input_dir(inputs_dir, verbose=False):
         module_list = [line.strip() for line in f.read().splitlines()]
     # note: some of these may be comments, which should be retained
 
+    # If the original file didn't specify either switch_mod
+    # or the list of core modules, we need to insert switch_mod.
+    if not('switch_mod' in module_list or
+           'timescales' in module_list or
+           'switch_mod.timescales' in module_list):
+        module_list.insert(0, 'switch_mod')
+    
     new_module_list=[]
     for module in module_list:
         # add prefix if appropriate 

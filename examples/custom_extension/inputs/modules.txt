@@ -10,4 +10,4 @@ switch_mod.reporting
 # Custom Modules
 switch_mod.generators.core.no_commit
 switch_mod.energy_sources.fuel_costs.simple
-switch_mod.sunk_costs
+sunk_costs
