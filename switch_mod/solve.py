@@ -8,7 +8,7 @@ from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
 import pyomo.version
 
 from switch_mod.utilities import create_model, _ArgumentParser, Logging
-from switch_mod.upgrade import inputs_need_upgrade, upgrade_inputs
+from switch_mod.upgrade import do_inputs_need_upgrade, upgrade_inputs
 
 
 def main(args=None, return_model=False, return_instance=False):
@@ -48,7 +48,7 @@ def main(args=None, return_model=False, return_instance=False):
     parser = _ArgumentParser(allow_abbrev=False, add_help=False)
     add_module_args(parser)
     module_options = parser.parse_known_args(args=args)[0]
-    if inputs_need_upgrade(module_options.inputs_dir):
+    if do_inputs_need_upgrade(module_options.inputs_dir):
         do_upgrade = query_yes_no(
             ("Warning! Your inputs directory needs to be upgraded. "
              "Do you want to auto-upgrade now? We'll keep a backup of "

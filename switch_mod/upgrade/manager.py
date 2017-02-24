@@ -1,0 +1,103 @@
+# Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
+# Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
+
+import argparse
+import os
+import shutil
+from distutils.version import StrictVersion
+
+import switch_mod
+
+import upgrade_2_0_0b1
+
+code_version = StrictVersion(switch_mod.__version__)
+version_file = 'switch_inputs_version.txt'
+
+def scan_and_upgrade(top_dir, input_dir_name = 'inputs'):
+    for dirpath, dirnames, filenames in os.walk(top_dir):
+        for dirname in dirnames:
+            path = os.path.join(dirpath, dirname)
+            if os.path.exists(os.path.join(path, input_dir_name, 'modules.txt')):
+                upgrade_inputs(os.path.join(path, input_dir_name))
+
+
+def get_input_version(inputs_dir):
+    """
+    Scan the inputs directory and take a best-guess at version number.
+    In the simple case, this will be in the stored in switch_inputs_version.txt
+    Args: 
+        inputs_dir (str) path to inputs folder
+    Returns:
+        version (str) of inputs folder
+    Note: Raises an ValueError if the inputs directory has an unrecognized format.
+    """
+    version = None
+    version_path = os.path.join(inputs_dir, version_file)
+    if os.path.isfile(version_path):
+        with open(version_path, 'r') as f:
+            version = f.readline().strip()
+    elif os.path.isfile(os.path.join(inputs_dir, 'generator_info.tab')):
+        version = '2.0.0b0'
+    else:
+        raise ValueError((
+            "Input directory {} is not recognized as a valid Switch input folder. "
+            "An input directory needs to contain a file named '{}' that stores the "
+            "version number of Switch that it was intended for. ").format(
+                inputs_dir, version_file))
+    return version
+
+
+def _write_input_version(inputs_dir, new_version):
+    version_path = os.path.join(inputs_dir, version_file)
+    with open(version_path, 'w') as f:
+        f.write(new_version + "\n")
+    
+
+def do_inputs_need_upgrade(inputs_dir):
+    """
+    Determine if input directory can be upgraded with this script.
+    Args: 
+        inputs_dir (str) path to inputs folder
+    Returns:
+        (boolean)
+    """
+    # Not every code revision requires an update, so just hard-code the last
+    # revision that required an update.
+    inputs_version = get_input_version(inputs_dir)
+    last_required_update = '2.0.0b1'
+    return StrictVersion(inputs_version) < StrictVersion(last_required_update)
+
+
+def _backup(inputs_dir):
+    # Make a backup of the inputs_dir into a zip file, unless that already exists
+    inputs_version = get_input_version(inputs_dir)
+    if inputs_version is None:
+        inputs_version = 'Unknown'
+    inputs_backup = inputs_dir + '_v' + inputs_version
+    inputs_backup_path = inputs_backup + ".zip"
+    if not os.path.isfile(inputs_backup_path):
+        shutil.make_archive(inputs_backup, 'zip', inputs_dir)
+
+def upgrade_inputs(inputs_dir, backup=True):
+    # This logic will grow over time as complexity evolves.. Don't overengineer
+    if do_inputs_need_upgrade(inputs_dir):
+        upgrade_2_0_0b1.upgrade_input_dir(inputs_dir, backup)
+
+
+def main(args=None):
+    if args is None:
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--path", type=str, default="inputs", 
+            help='Input directory path (default is "inputs")')
+        parser.add_argument("--recursive", dest="recusive", 
+            default=False, action='store_true',
+            help=('Recursively scan the provided path for inputs directories '
+                  'named "inputs", and upgrade each dirctory found.'))
+        args = parser.parse_args()
+    if args.recusive:
+        scan_and_upgrade(args.path)
+    else:
+        if not os.path.isdir(args.path):
+            print "Error: Input directory {} does not exist.".format(args.path)
+            return -1    
+        upgrade_inputs(args.path)

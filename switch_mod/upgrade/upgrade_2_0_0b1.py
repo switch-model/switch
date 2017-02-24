@@ -1,3 +1,6 @@
+# Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
+# Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
+
 """
 Upgrade input directories from 2.0.0b0 to 2.0.0b1.
 Major changes are:
@@ -6,12 +9,7 @@ Major changes are:
 * modules.txt explicitly lists each module by its full name
 * lz_economic_multiplier is dropped from load_zones
 * proj_existing_builds is renamed to proj_existing_and_planned_builds
-
-API Synopsis:
-    import switch_mod.upgrade.upgrade_2_0_0b1 as upgrade_2_0_0b1
-    if upgrade_2_0_0b1.can_upgrade_inputs_dir(inputs_dir):
-        upgrade_2_0_0b1.upgrade_input_dir(inputs_dir):
-
+* Several modules were renamed and reorganized
 """
 
 import os
@@ -145,7 +143,7 @@ def can_upgrade_inputs_dir(inputs_dir):
         return False
     return version == upgrades_from
 
-def upgrade_input_dir(inputs_dir, verbose=False):
+def upgrade_input_dir(inputs_dir, verbose=False, backup=True):
     """
     Upgrade an input directory. If the directory has already 
     been upgraded, this will have no effect.
@@ -156,7 +154,8 @@ def upgrade_input_dir(inputs_dir, verbose=False):
         return False
 
     # Make a zip file backup before proceeding
-    switch_mod.upgrade.backup(inputs_dir)
+    if backup:
+        switch_mod.upgrade._backup(inputs_dir)
 
     # Does 'modules' need to get renamed to 'modules.txt'?
     modules_path_old = os.path.join(inputs_dir, 'modules')
@@ -373,4 +372,4 @@ def upgrade_input_dir(inputs_dir, verbose=False):
     
 
     # Write a new version text file.
-    switch_mod.upgrade.write_input_version(inputs_dir, upgrades_to)
+    switch_mod.upgrade._write_input_version(inputs_dir, upgrades_to)
