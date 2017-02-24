@@ -575,9 +575,11 @@ def electricity_demand(m, lz, tp, prod):
         else:
             demand = m.FlexibleDemand[lz, tp]
     elif prod == 'energy up':
-        demand = value(m.DemandUpReserves[lz, tp])
+        # note: reserves have positive sign when provided by demand side, 
+        # but that should be shown as negative demand
+        demand = -value(m.DemandUpReserves[lz, tp])
     elif prod == 'energy down':
-        demand = value(m.DemandDownReserves[lz, tp])
+        demand = -value(m.DemandDownReserves[lz, tp])
     else:
         raise ValueError('Unrecognized electricity product: {}.'.format(prod))
     return demand
@@ -920,6 +922,7 @@ def summary_values(m):
         )
         for prod in m.DR_PRODUCTS for p in m.PERIODS
     ])
+    # import pdb; pdb.set_trace()
     
     # total quantities bought (or sold) by customers each year
     values.extend([
