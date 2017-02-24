@@ -510,7 +510,7 @@ def solve(model):
     # solver_args["suffixes"] = []
     # while i is not None:
     #     c, i = m._decl_order[i]
-    #     solver_args[suffixes].append(c.cname())
+    #     solver_args[suffixes].append(c.name)
     
     # patch for Pyomo < 4.2
     if not hasattr(model.solver, "_options_string_to_dict"):
@@ -541,7 +541,7 @@ def solve(model):
     elif (results.solver.termination_condition == TerminationCondition.infeasible):
         if hasattr(model, "iis"):
             print "Model was infeasible; irreducible infeasible set (IIS) returned by solver:"
-            print "\n".join(c.cname() for c in model.iis)
+            print "\n".join(c.name for c in model.iis)
         else:
             print "Model was infeasible; if the solver can generate an irreducible infeasible set,"
             print "more information may be available by calling this script with --suffixes iis ..."
