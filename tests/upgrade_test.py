@@ -55,8 +55,8 @@ def make_test(example_dir):
                     'Mismatch for total_cost (the objective function value):\n'
                     'Expected value:  {}\n'
                     'Actual value:    {}\n'
-                    'Run "tests/upgrade_test.py --update" to update the '
-                    'expectations if this change is expected.'
+                    'Run "python -m tests.upgrade_test.py --update" to'
+                    'update the expectations if this change is expected.'
                     .format(expected, actual))
 
     name = os.path.basename(os.path.normpath(example_dir))

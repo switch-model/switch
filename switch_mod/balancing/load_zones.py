@@ -36,12 +36,6 @@ def define_components(mod):
     zones central bus to the nearest viable CCS reservoir. This
     parameter is optional and defaults to 0.
 
-    DumpPower[load_zone, timepoint] is a decision variable that allows
-    overproduction of energy in every load zone and timepoint.
-    This may be interpretted either as the aggregate curtailment needed,
-    or as a literal dump load. In the language of linear programming,
-    this is a "slack variable" for an energy balancing constraint.
-
     LZ_Energy_Components_Produce and LZ_Energy_Components_Consume are
     lists of components that contribute to load-zone level energy
     balance equations. Other modules may add elements to either list.
@@ -87,12 +81,8 @@ def define_components(mod):
         initialize=lambda m, z, p: (
             sum(m.lz_demand_mw[z, t] * m.tp_weight[t]
                 for t in m.PERIOD_TPS[p])))
-    mod.DumpPower = Var(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
-        within=NonNegativeReals)
     mod.LZ_Energy_Components_Produce = []
-    mod.LZ_Energy_Components_Consume = [
-        'lz_demand_mw', 'DumpPower']
+    mod.LZ_Energy_Components_Consume = ['lz_demand_mw']
 
 
 def define_dynamic_components(mod):
