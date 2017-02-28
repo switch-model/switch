@@ -8,6 +8,7 @@ Utility functions for SWITCH-pyomo.
 import os
 import types
 import importlib
+import re
 import sys
 import argparse
 import __main__ as main
@@ -69,6 +70,7 @@ def create_model(module_list, args=sys.argv[1:]):
     # Bind utility functions to the model as class objects
     # Should we be formally extending their class instead?
     _add_min_data_check(model)
+    model.has_discrete_variables = types.MethodType(has_discrete_variables, model)
     model.get_modules = types.MethodType(get_modules, model)
     model.load_inputs = types.MethodType(load_inputs, model)
     model.pre_solve = types.MethodType(pre_solve, model)
@@ -289,6 +291,18 @@ def _add_min_data_check(model):
     if getattr(model, 'min_data_check', None) is None:
         model.__num_min_data_checks = 0
         model.min_data_check = types.MethodType(min_data_check, model)
+
+
+def has_discrete_variables(model):
+    for variable in model.component_objects(Var, active=True):
+        if variable.is_indexed():
+            for v in variable.itervalues():
+                if v.is_binary() or v.is_integer():
+                    return True
+        else:
+            if v.is_binary() or v.is_integer():
+                return True
+    return False
 
 
 def check_mandatory_components(model, *mandatory_model_components):

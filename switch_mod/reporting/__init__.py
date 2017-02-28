@@ -48,6 +48,7 @@ def write_table(instance, *indexes, **kwargs):
     output_file = kwargs["output_file"]
     headings = kwargs["headings"]
     values = kwargs["values"]
+    digits = kwargs.get('digits', 6)
     # create a master indexing set
     # this is a list of lists, even if only one list was specified
     idx = itertools.product(*indexes)
@@ -56,8 +57,18 @@ def write_table(instance, *indexes, **kwargs):
         # write header row
         w.writerow(list(headings))
         # write the data
+        def format_row(row):
+            row = [value(v) for v in row]
+            sig_digits = "{0:." + str(digits) + "g}"
+            for (i, v) in enumerate(row):
+                if isinstance(v, float):
+                    if abs(v) < 1e-10:
+                        row[i] = 0
+                    else:
+                        row[i] = sig_digits.format(v)
+            return tuple(row)
         w.writerows(
-            tuple(value(v) for v in values(instance, *x))
+            format_row(row=values(instance, *x))
             for x in idx
         )
 

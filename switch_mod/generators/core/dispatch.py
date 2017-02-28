@@ -243,12 +243,12 @@ def define_components(mod):
         if proj not in m.PROJECTS_WITH_CCS:
             return (
                 m.ProjFuelUseRate[proj, t, f] *
-                (m.f_co2_intensity[f] - m.f_upstream_co2_intensity[f]))
+                (m.f_co2_intensity[f] + m.f_upstream_co2_intensity[f]))
         else:
             ccs_emission_frac = 1 - m.proj_ccs_capture_efficiency[proj]
             return (
                 m.ProjFuelUseRate[proj, t, f] *
-                (m.f_co2_intensity[f] * ccs_emission_frac -
+                (m.f_co2_intensity[f] * ccs_emission_frac +
                  m.f_upstream_co2_intensity[f]))
     mod.DispatchEmissions = Expression(
         mod.PROJ_FUEL_DISPATCH_POINTS,
