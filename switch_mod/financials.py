@@ -284,12 +284,8 @@ def define_dynamic_components(mod):
                 calc_annual_costs_in_period(m, p) +
                 sum(calc_tp_costs_in_period(m, t) for t in m.PERIOD_TPS[p])
             ) *
-            # Conversion to lump sum at beginning of period
-            uniform_series_to_present_value(
-                m.discount_rate, m.period_length_years[p]) *
-            # Conversion to base year
-            future_to_present_value(
-                m.discount_rate, (m.period_start[p] - m.base_financial_year))
+            # Conversion from annual costs to base year
+            m.bring_annual_costs_to_base_year[p]
         )
 
     mod.SystemCostPerPeriod = Expression(

@@ -13,4 +13,4 @@ switch_mod.generators.core.no_commit
 switch_mod.energy_sources.fuel_costs.markets
 switch_mod.transmission.transport.build
 switch_mod.transmission.transport.dispatch
-switch_mod.policies.carbon_cap
+switch_mod.policies.carbon_policies

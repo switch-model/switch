@@ -122,6 +122,9 @@ def define_components(mod):
     fuel's upstream emissions, as well as Carbon Capture efficiency for
     generators that implement Carbon Capture and Sequestration. This does
     not yet support multi-fuel generators.
+    
+    AnnualEmissions[p in PERIODS]:The system's annual emissions, in metric
+    tonnes of CO2 per year.
 
     --- Delayed implementation, possibly relegated to other modules. ---
 
@@ -253,6 +256,12 @@ def define_components(mod):
     mod.DispatchEmissions = Expression(
         mod.PROJ_FUEL_DISPATCH_POINTS,
         rule=DispatchEmissions_rule)
+    mod.AnnualEmissions = Expression(mod.PERIODS,
+        rule=lambda m, period: sum(
+            m.DispatchEmissions[g, t, f] * m.tp_weight_in_year[t]
+            for (g, t, f) in m.PROJ_FUEL_DISPATCH_POINTS
+            if m.tp_period[t] == period),
+        doc="The system's annual emissions, in metric tonnes of CO2 per year.")
 
     mod.Proj_Var_Costs_Hourly = Expression(
         mod.PROJ_DISPATCH_POINTS,
