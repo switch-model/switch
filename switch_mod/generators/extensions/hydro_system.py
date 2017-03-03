@@ -50,14 +50,6 @@ def define_components(mod):
     to allow for addition and removal of water nodes in intermediate
     timepoints of the simulation horizon.
     
-    WATER_SINKS_BALANCE_POINTS is a set showing all the combinations of
-    water sinks and timepoints, in which water "spilling" is allowed when
-    enforcing the conservation of mass law. They usually represent water
-    intakes in a river (where water that is not extracted just keeps on
-    flowing through the river) and actual sinks, such as an ocean or 
-    lake (or any point after which the modeling of the hydraulic system
-    is irrelevant for the power system).
-    
     wnode_constant_inflow[wn] is the value of constant inflow of 
     water at each node of the hydraulic system throughout the whole 
     simulation. Inflow refers to an external source of water that comes 
@@ -90,15 +82,14 @@ def define_components(mod):
     node is a sink. These nodes need not obey the law of conservation of 
     mass, so that water flows that go into them may be greater than the
     ones that flow out. The main use case for these is to be the end of a
-    water basin (such as the ocen or a lake).
+    water basin (such as the ocean or a lake).
     
-    node_spillage_cost[WATER_NODES] is a derived parameter that sets
-    the cost in US$/(cubic meters) of spilling water out of the water
-    network. This is equivalent to disobeying the conservation of mass
-    law when balancing flows in each node and timepoint, so cost is
-    set to a high default value. This parameter lets the model spill
-    water freely in sink nodes, but relaxes the equality constraint
-    for mass balance. This aids the solver into obtaining optimal
+    node_spillage_cost is the parameter that sets the cost in $/(cubic meters)
+    of spilling water out of the water network. This is equivalent to relaxing
+    the conservation of mass law when balancing flows in each node and
+    timepoint, so cost is set to a high default value. This parameter lets the
+    model spill water freely in sink nodes, but relaxes the equality
+    constraint for mass balance. This aids the solver in obtaining optimal
     solutions significantly faster and with small water spillages.
     
     NodeSpillage[WATER_NODES_BALANCE_POINTS] are  the decisions of
@@ -286,10 +277,9 @@ def define_components(mod):
         mod.WATER_NODES,
         within=Boolean)
     mod.min_data_check('wn_is_sink')
-    mod.node_spillage_cost = Param(
-        mod.WATER_NODES,
+    mod.spillage_penalty = Param(
         within=NonNegativeReals,
-        initialize=lambda m, wn: (1 - m.wn_is_sink[wn]) * 100)
+        default=100)
     mod.NodeSpillage = Var(
         mod.WATER_NODES_BALANCE_POINTS,
         within=NonNegativeReals)
@@ -408,7 +398,8 @@ def define_components(mod):
     mod.Nodes_Spillage_Costs = Expression(
         mod.TIMEPOINTS,
         rule=lambda m, t: sum(m.NodeSpillage[wn,t] * 3600 *
-            m.node_spillage_cost[wn] for wn in m.WATER_NODES))
+            m.spillage_penalty for wn in m.WATER_NODES
+                if not m.wn_is_sink[wn]))
     mod.cost_components_tp.append('Nodes_Spillage_Costs')
 
     ################
@@ -503,4 +494,6 @@ def load_inputs(mod, switch_data, inputs_dir):
         auto_select=True,
         index=mod.HYDRO_PROJECTS,
         param=(mod.hydro_efficiency, mod.hydraulic_location))
-
+    spillage_penalty_path = os.path.join(inputs_dir, 'spillage_penalty.dat')
+    if os.path.isfile(spillage_penalty_path):
+        switch_data.load(filename=spillage_penalty_path)
