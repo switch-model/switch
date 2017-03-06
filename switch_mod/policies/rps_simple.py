@@ -94,17 +94,24 @@ def define_components(mod):
             for proj in m.NON_FUEL_BASED_PROJECTS 
                 if (proj, p) in m.ACTIVE_PROJ_PERIODS
                     for t in m.PERIOD_TPS[p]))
-    mod.TotalGenerationInPeriod = Expression(
-        mod.RPS_PERIODS,
-        rule=lambda m, p: sum(m.DispatchProj[proj, t] * m.tp_weight[t]
-            for proj in m.PROJECTS 
-                if (proj, p) in m.ACTIVE_PROJ_PERIODS
-                    for t in m.PERIOD_TPS[p]))
 
     mod.RPS_Enforce_Target = Constraint(
         mod.RPS_PERIODS,
         rule=lambda m, p: (m.RPSFuelEnergy[p] + m.RPSNonFuelEnergy[p] >=
-            m.rps_target[p] * m.TotalGenerationInPeriod[p]))
+            m.rps_target[p] * total_demand_in_period(m, p)))
+
+
+def total_generation_in_period(model, period):
+    return sum(
+        model.DispatchProj[g, t] * model.tp_weight[t]
+        for g in model.PROJECTS if (g, period) in model.ACTIVE_PROJ_PERIODS
+        for t in model.PERIOD_TPS[period])
+
+
+def total_demand_in_period(model, period):
+    return sum(model.lz_total_demand_in_period_mwh[zone, period]
+               for zone in model.LOAD_ZONES)
+
 
 def load_inputs(mod, switch_data, inputs_dir):
     """
@@ -134,6 +141,7 @@ def load_inputs(mod, switch_data, inputs_dir):
         index=mod.RPS_PERIODS,
         param=(mod.rps_target,))
 
+
 def post_solve(instance, outdir):
     """
     Export energy statistics relevant to RPS studies.
@@ -145,13 +153,17 @@ def post_solve(instance, outdir):
         row = (p,)
         row += (m.RPSFuelEnergy[p] / 1000,)
         row += (m.RPSNonFuelEnergy[p] / 1000,)
-        row += (m.TotalGenerationInPeriod[p] / 1000,)
+        row += (total_generation_in_period(m,p) / 1000,)
         row += ((m.RPSFuelEnergy[p] + m.RPSNonFuelEnergy[p]) / 
-            m.TotalGenerationInPeriod[p],)
+            total_generation_in_period(m,p),)
+        row += (total_demand_in_period(m, p),)
+        row += ((m.RPSFuelEnergy[p] + m.RPSNonFuelEnergy[p]) / 
+            total_demand_in_period(m, p),)
         return row
     reporting.write_table(
         instance, instance.RPS_PERIODS,
         output_file=os.path.join(outdir, "rps_energy.txt"),
         headings=("PERIOD", "RPSFuelEnergyGWh", "RPSNonFuelEnergyGWh",
-            "TotalGenerationInPeriodGWh", "ActualRPSFraction"),
+            "TotalGenerationInPeriodGWh", "RPSGenFraction",
+            "TotalSalesInPeriodGWh", "RPSSalesFraction"),
         values=get_row)   
