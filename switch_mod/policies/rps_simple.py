@@ -84,16 +84,14 @@ def define_components(mod):
 
     mod.RPSFuelEnergy = Expression(
         mod.RPS_PERIODS,
-        rule=lambda m, p: sum(m.RPSProjFuelPower[proj, t] * m.tp_weight[t]
-            for proj in m.FUEL_BASED_PROJECTS 
-                if (proj, p) in m.ACTIVE_PROJ_PERIODS
-                    for t in m.PERIOD_TPS[p]))
+        rule=lambda m, p: sum(m.RPSProjFuelPower[g, t] * m.tp_weight[t]
+            for g in m.FUEL_BASED_PROJECTS 
+                for t in m.PROJ_ACTIVE_TIMEPOINTS_IN_PERIOD[g, p]))
     mod.RPSNonFuelEnergy = Expression(
         mod.RPS_PERIODS,
-        rule=lambda m, p: sum(m.DispatchProj[proj, t] * m.tp_weight[t]
-            for proj in m.NON_FUEL_BASED_PROJECTS 
-                if (proj, p) in m.ACTIVE_PROJ_PERIODS
-                    for t in m.PERIOD_TPS[p]))
+        rule=lambda m, p: sum(m.DispatchProj[g, t] * m.tp_weight[t]
+            for g in m.NON_FUEL_BASED_PROJECTS 
+                for t in m.PROJ_ACTIVE_TIMEPOINTS_IN_PERIOD[g, p]))
 
     mod.RPS_Enforce_Target = Constraint(
         mod.RPS_PERIODS,
@@ -104,8 +102,8 @@ def define_components(mod):
 def total_generation_in_period(model, period):
     return sum(
         model.DispatchProj[g, t] * model.tp_weight[t]
-        for g in model.PROJECTS if (g, period) in model.ACTIVE_PROJ_PERIODS
-        for t in model.PERIOD_TPS[period])
+        for g in model.PROJECTS 
+            for t in model.PROJ_ACTIVE_TIMEPOINTS_IN_PERIOD[g, period])
 
 
 def total_demand_in_period(model, period):

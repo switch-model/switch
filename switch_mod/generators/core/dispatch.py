@@ -29,15 +29,14 @@ def define_components(mod):
     of this set. Members of this set can be abbreviated as (proj, t) or
     (prj, t).
     
-    PROJ_ACTIVE_PERIODS is a set array showing all periods when each 
-    project is active (within the build -> retire window for existing or 
-    new capacity). This is an efficient way to find active periods for an 
-    individual project.
-    
-    PROJ_ACTIVE_TIMEPOINTS is a set array showing all timepoints when a 
+    PROJ_ACTIVE_TIMEPOINTS[proj] is a set array showing all timepoints when a 
     project is active. These are the timepoints corresponding to 
     PROJ_ACTIVE_PERIODS. This is the same data as PROJ_DISPATCH_POINTS, 
     but split into separate sets for each project.
+
+    PROJ_ACTIVE_TIMEPOINTS_IN_PERIOD[proj, period] is the same as 
+    PROJ_ACTIVE_TIMEPOINTS, but broken down by period. Periods when
+    the project is inactive will yield an empty set.
 
     ProjCapacityTP[(proj, t) in PROJ_DISPATCH_POINTS] is the same as
     ProjCapacity but indexed by timepoint rather than period to allow
@@ -142,40 +141,52 @@ def define_components(mod):
 
     """
 
-    mod.ACTIVE_PROJ_PERIODS = Set(dimen=2, initialize=lambda m: {
-        (proj, per)
+    def _ACTIVE_PROJ_PERIODS(m):
+        return set((proj, period)
             for proj, bld_yr in m.PROJECT_BUILDYEARS
-                for per in m.PROJECT_BUILDS_OPERATIONAL_PERIODS[proj, bld_yr]
-    })
+                for period in m.PROJECT_BUILDS_OPERATIONAL_PERIODS[proj, bld_yr])
 
-    def period_active_proj_rule(m, per):
+    def period_active_proj_rule(m, period):
         if not hasattr(m, 'period_active_proj_dict'):
             m.period_active_proj_dict = collections.defaultdict(set)
-            for (_proj, _per) in m.ACTIVE_PROJ_PERIODS:
-                m.period_active_proj_dict[_per].add(_proj)
-        result = m.period_active_proj_dict.pop(per)
+            for (_proj, _period) in _ACTIVE_PROJ_PERIODS(m):
+                m.period_active_proj_dict[_period].add(_proj)
+        result = m.period_active_proj_dict.pop(period)
         if len(m.period_active_proj_dict) == 0:
             delattr(m, 'period_active_proj_dict')
         return result
-    mod.PERIOD_ACTIVE_PROJ = Set(
-        mod.PERIODS, 
-        initialize=period_active_proj_rule)
-    
-    def proj_active_periods_rule(m, proj):
-        if not hasattr(m, 'proj_active_periods_dict'):
-            m.proj_active_periods_dict = collections.defaultdict(set)
-            for (_proj, _per) in m.ACTIVE_PROJ_PERIODS:
-                m.proj_active_periods_dict[_proj].add(_per)
-        result = m.proj_active_periods_dict.pop(proj)
-        if len(m.proj_active_periods_dict) == 0:
-            delattr(m, 'proj_active_periods_dict')
-        return result
-    mod.PROJ_ACTIVE_PERIODS = Set(
-        mod.PROJECTS, 
-        initialize=proj_active_periods_rule)
+    mod.PERIOD_ACTIVE_PROJ = Set(mod.PERIODS, initialize=period_active_proj_rule,
+        doc="The set of projects active in a given period.")
 
-    mod.PROJ_ACTIVE_TIMEPOINTS = Set(mod.PROJECTS, initialize=lambda m, proj: (
-        tp for per in m.PROJ_ACTIVE_PERIODS[proj] for tp in m.PERIOD_TPS[per]))
+    def PROJ_ACTIVE_TIMEPOINTS_rule(m, gen):
+        if not hasattr(m, '_PROJ_ACTIVE_TIMEPOINTS_dict'):
+            m._PROJ_ACTIVE_TIMEPOINTS_dict = collections.defaultdict(set)
+            for (_gen, period) in _ACTIVE_PROJ_PERIODS(m):
+                for t in m.PERIOD_TPS[period]:
+                    m._PROJ_ACTIVE_TIMEPOINTS_dict[_gen].add(t)
+        result = m._PROJ_ACTIVE_TIMEPOINTS_dict.pop(gen)
+        if len(m._PROJ_ACTIVE_TIMEPOINTS_dict) == 0:
+            delattr(m, '_PROJ_ACTIVE_TIMEPOINTS_dict')
+        return result        
+    mod.PROJ_ACTIVE_TIMEPOINTS = Set(
+        mod.PROJECTS, within=mod.TIMEPOINTS,
+        rule=PROJ_ACTIVE_TIMEPOINTS_rule)
+
+    def PROJ_ACTIVE_TIMEPOINTS_IN_PERIOD_rule(m, gen, period):
+        if not hasattr(m, '_PROJ_ACTIVE_TIMEPOINTS_IN_PERIOD_dict'):
+            m._PROJ_ACTIVE_TIMEPOINTS_IN_PERIOD_dict = collections.defaultdict(set)
+            for _gen in m.PROJECTS:
+                for t in m.PROJ_ACTIVE_TIMEPOINTS[_gen]:
+                    m._PROJ_ACTIVE_TIMEPOINTS_IN_PERIOD_dict[(_gen, m.tp_period[t])].add(t)
+        if (gen, period) not in m._PROJ_ACTIVE_TIMEPOINTS_IN_PERIOD_dict:
+            return ()
+        result = m._PROJ_ACTIVE_TIMEPOINTS_IN_PERIOD_dict.pop((gen, period))
+        if len(m._PROJ_ACTIVE_TIMEPOINTS_IN_PERIOD_dict) == 0:
+            delattr(m, '_PROJ_ACTIVE_TIMEPOINTS_IN_PERIOD_dict')
+        return result
+    mod.PROJ_ACTIVE_TIMEPOINTS_IN_PERIOD = Set(mod.PROJECTS, mod.PERIODS, 
+        within=mod.TIMEPOINTS,
+        rule=PROJ_ACTIVE_TIMEPOINTS_IN_PERIOD_rule)
 
     mod.PROJ_DISPATCH_POINTS = Set(
         dimen=2,
