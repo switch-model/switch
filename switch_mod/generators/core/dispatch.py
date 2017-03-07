@@ -141,15 +141,10 @@ def define_components(mod):
 
     """
 
-    def _ACTIVE_PROJ_PERIODS(m):
-        return set((proj, period)
-            for proj, bld_yr in m.PROJECT_BUILDYEARS
-                for period in m.PROJECT_BUILDS_OPERATIONAL_PERIODS[proj, bld_yr])
-
     def period_active_proj_rule(m, period):
         if not hasattr(m, 'period_active_proj_dict'):
             m.period_active_proj_dict = collections.defaultdict(set)
-            for (_proj, _period) in _ACTIVE_PROJ_PERIODS(m):
+            for (_proj, _period) in m.PROJECT_OPERATIONAL_PERIODS:
                 m.period_active_proj_dict[_period].add(_proj)
         result = m.period_active_proj_dict.pop(period)
         if len(m.period_active_proj_dict) == 0:
@@ -161,7 +156,7 @@ def define_components(mod):
     def PROJ_ACTIVE_TIMEPOINTS_rule(m, gen):
         if not hasattr(m, '_PROJ_ACTIVE_TIMEPOINTS_dict'):
             m._PROJ_ACTIVE_TIMEPOINTS_dict = collections.defaultdict(set)
-            for (_gen, period) in _ACTIVE_PROJ_PERIODS(m):
+            for (_gen, period) in m.PROJECT_OPERATIONAL_PERIODS:
                 for t in m.PERIOD_TPS[period]:
                     m._PROJ_ACTIVE_TIMEPOINTS_dict[_gen].add(t)
         result = m._PROJ_ACTIVE_TIMEPOINTS_dict.pop(gen)
