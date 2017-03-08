@@ -153,16 +153,27 @@ def upgrade_input_dir(inputs_dir, verbose=False, backup=True):
             print "Skipping upgrade for inputs directory {}.".format(inputs_dir)
         return False
 
+    def rename_file(old_name, new_name, optional_file=True):
+        old_path = os.path.join(inputs_dir, old_name)
+        new_path = os.path.join(inputs_dir, new_name)
+        if optional_file and not os.path.isfile(old_path):
+            return
+        shutil.move(old_path, new_path)
+    
+    def rename_column(file_name, old_col_name, new_col_name, optional_file=True):
+        path = os.path.join(inputs_dir, file_name)
+        if optional_file and not os.path.isfile(path):
+            return
+        df = pandas.read_csv(path, na_values=['.'], sep='\t')
+        df.rename(columns={old_col_name: new_col_name}, inplace=True)
+        df.to_csv(path, sep='\t', na_rep='.', index=False)        
+    
     # Make a zip file backup before proceeding
     if backup:
         switch_mod.upgrade._backup(inputs_dir)
 
-    # Does 'modules' need to get renamed to 'modules.txt'?
-    modules_path_old = os.path.join(inputs_dir, 'modules')
+    rename_file('modules', 'modules.txt')
     modules_path = os.path.join(inputs_dir, 'modules.txt')
-    if os.path.isfile(modules_path_old):
-        shutil.move(modules_path_old, modules_path)
-
     if not os.path.isfile(modules_path):
         modules_path = os.path.join(inputs_dir, '..', 'modules.txt')
     if not os.path.isfile(modules_path):
@@ -174,12 +185,12 @@ def upgrade_input_dir(inputs_dir, verbose=False, backup=True):
 
     ###
     # Upgrade module listings
+    # Each line of the original file is either a module identifier or a comment
     with open(modules_path) as f:
         module_list = [line.strip() for line in f.read().splitlines()]
-    # note: some of these may be comments, which should be retained
 
-    # If the original file didn't specify either switch_mod
-    # or the list of core modules, we need to insert switch_mod.
+    # If the original file didn't specify either switch_mod or the list of
+    # core modules, we need to insert switch_mod.
     if not('switch_mod' in module_list or
            'timescales' in module_list or
            'switch_mod.timescales' in module_list):
@@ -328,18 +339,15 @@ def upgrade_input_dir(inputs_dir, verbose=False, backup=True):
         project_build_df.to_csv(project_build_path, sep='\t', na_rep='.', index=False)
         os.remove(gen_build_path)
     
-    # Rename proj_existing_builds.tab to proj_existing_planned_builds.tab
-    proj_constrained_path_old = os.path.join(inputs_dir, 'proj_existing_builds.tab')
-    proj_constrained_path = os.path.join(inputs_dir, 'proj_build_predetermined.tab')
-    if os.path.isfile(proj_constrained_path_old):
-        shutil.move(proj_constrained_path_old, proj_constrained_path)
-    
-    # Rename the proj_existing_cap column to proj_predetermined_cap
-    if os.path.isfile(proj_constrained_path):
-        project_cons_df = pandas.read_csv(proj_constrained_path, na_values=['.'], sep='\t')
-        project_cons_df.rename(columns={'proj_existing_cap': 'proj_predetermined_cap'},
-                               inplace=True)
-        project_cons_df.to_csv(proj_constrained_path, sep='\t', na_rep='.', index=False)
+    rename_file('proj_existing_builds.tab', 'proj_build_predetermined.tab')
+    rename_column('proj_build_predetermined.tab', 
+                  old_col_name='proj_existing_cap', 
+                  new_col_name='proj_predetermined_cap')
+
+    rename_file('lz_peak_loads.tab', 'lz_coincident_peak_demand.tab')
+    rename_column('lz_coincident_peak_demand.tab', 
+                  old_col_name='peak_demand_mw', 
+                  new_col_name='lz_expected_coincident_peak_demand')
 
     # Merge gen_inc_heat_rates.tab into proj_inc_heat_rates.tab
     g_hr_path = os.path.join(inputs_dir, 'gen_inc_heat_rates.tab')

@@ -49,12 +49,18 @@ def define_components(mod):
     components, I advise writing an Expression object indexed by [lz,t]
     that contains logic to access or summarize native model components.
 
-    Derived parameters:
+    EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS is a set of load zones and
+    periods (z,p) that have lz_expected_coincident_peak_demand specified.
 
-    lz_peak_demand_mw[z,p] describes the peak demand in each load zone z
-    and each investment period p. This optional parameter defaults to
-    the highest load in the lz_demand_mw timeseries for the given load
-    zone & period.
+    lz_expected_coincident_peak_demand[z,p] is an optional parameter than can
+    be used to externally specify peak load planning requirements in MW.
+    Currently local_td and planning_reserves determine capacity requirements
+    use lz_expected_coincident_peak_demand as well as load timeseries. Do not
+    specify this parameter if you wish for the model to endogenously determine
+    capacity requirements after accounting for both load and Distributed
+    Energy Resources (DER). 
+
+    Derived parameters:
 
     lz_total_demand_in_period_mwh[z,p] describes the total energy demand
     of each load zone in each period in Megawatt hours.
@@ -77,11 +83,13 @@ def define_components(mod):
         default=lambda m, lz: lz)
     # Verify that mandatory data exists before using it.
     mod.min_data_check('LOAD_ZONES', 'lz_demand_mw')
-    mod.lz_peak_demand_mw = Param(
-        mod.LOAD_ZONES, mod.PERIODS,
-        within=NonNegativeReals,
-        default=lambda m, lz, p: max(
-            m.lz_demand_mw[lz, t] for t in m.PERIOD_TPS[p]))
+
+    mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS = Set(
+        dimen=2, within=mod.LOAD_ZONES * mod.PERIODS,
+        doc="Zone-Period combinations with lz_expected_coincident_peak_demand data.")
+    mod.lz_expected_coincident_peak_demand = Param(
+        mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS,
+        within=NonNegativeReals)
     mod.lz_total_demand_in_period_mwh = Param(
         mod.LOAD_ZONES, mod.PERIODS,
         within=NonNegativeReals,
@@ -128,17 +136,17 @@ def load_inputs(mod, switch_data, inputs_dir):
     will be ignored during import, and optional columns can be dropped.
     Other modules (such as local_td) may look for additional columns in
     some of these files. If you don't want to specify data for any
-    optional parameter, use a dot . for its value. All columns in
-    load_zones.tab except for the name of the load zone are optional.
+    optional parameter, use a dot . for its value. Optional columns and
+    files are noted with a *.
 
     load_zones.tab
-        LOAD_ZONE, lz_ccs_distance_km, lz_dbid
+        LOAD_ZONE, lz_ccs_distance_km*, lz_dbid*
 
     loads.tab
         LOAD_ZONE, TIMEPOINT, lz_demand_mw
 
-    lz_peak_loads.tab is optional.
-        LOAD_ZONE, PERIOD, peak_demand_mw
+    lz_coincident_peak_demand.tab*
+        LOAD_ZONE, PERIOD, lz_expected_coincident_peak_demand
 
     """
     # Include select in each load() function so that it will check out
@@ -155,9 +163,10 @@ def load_inputs(mod, switch_data, inputs_dir):
         param=(mod.lz_demand_mw))
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'lz_peak_loads.tab'),
-        select=('LOAD_ZONE', 'PERIOD', 'peak_demand_mw'),
-        param=(mod.lz_peak_demand_mw))
+        filename=os.path.join(inputs_dir, 'lz_coincident_peak_demand.tab'),
+        index=mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS,
+        select=('LOAD_ZONE', 'PERIOD', 'lz_expected_coincident_peak_demand'),
+        param=(mod.lz_expected_coincident_peak_demand))
 
 
 def post_solve(instance, outdir):

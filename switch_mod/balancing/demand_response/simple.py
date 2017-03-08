@@ -22,22 +22,28 @@ def define_components(mod):
     Adds components to a Pyomo abstract model object to describe a demand
     response shift service.
 
-    dr_shift_down_limit_MW[(lz in LOAD_ZONES, t in TIMEPOINTS)] is a parameter
+    dr_shift_down_limit_MW[(z,t in ZONE_TIMEPOINTS)] is a parameter
     that describes the maximum reduction in demand for load-shifting demand
     response (in MW) that is allowed in a load zone at a specific timepoint.
     Its default value is 0, and it may not exceed the load.
 
-    dr_shift_up_limit_MW[lz, t] is a parameter that describes the maximum
+    dr_shift_up_limit_MW[z,t] is a parameter that describes the maximum
     increase in demand for load-shifting demand response (in MW) that is
     allowed in a load zone at a specific timepoint. Its default value is
     infinity.
 
-    DemandResponse[lz,t] is a decision variable describing how much load
+    DemandResponse[z,t] is a decision variable describing how much load
     in MW is reduced (if its value is negative) or increased (if
     its value is positive). This variable is bounded by dr_shift_down_limit_MW
     and dr_shift_up_limit_MW.
     
-    DR_Shift_Net_Zero[lz,ts in TIMESERIES] is a constraint that forces all the
+    If the local_td module is included, DemandResponse[z,t] will be registered
+    with local_td's distributed node for energy balancing purposes. If
+    local_td is not included, it will be registered with load zone's central
+    node.
+    
+    
+    DR_Shift_Net_Zero[z,ts in TIMESERIES] is a constraint that forces all the
     changes in the demand to balance out over the course of each timeseries.
     
     """
@@ -64,8 +70,11 @@ def define_components(mod):
         mod.LOAD_ZONES, mod.TIMESERIES,
         rule=lambda m, z, ts:
         sum(m.DemandResponse[z, t] for t in m.TS_TPS[ts]) == 0.0)
-
-    mod.LZ_Energy_Components_Consume.append('DemandResponse')
+    
+    if 'Distributed_Injections' in dir(mod):
+        mod.Distributed_Injections.append('DemandResponse')
+    else:
+        mod.LZ_Energy_Components_Consume.append('DemandResponse')
 
 
 def load_inputs(mod, switch_data, inputs_dir):

@@ -406,11 +406,16 @@ def define_components(mod):
         rule=lambda m, proj, p: (
             m.ProjCommitToMinBuild[proj, p] * m.proj_min_build_capacity[proj] 
             <= m.BuildProj[proj, p]))
+    # Enforce the upper limit of the min build binary variables by using
+    # coefficient larger than any expected build size: 100 GW (10^5 MW). For
+    # perspective, the world's largest electric power plant (Three Gorges Dam)
+    # is 22.5 GW. I tried using 1TW, but CBC had numerical stability problems
+    # with that value and chose a suboptimal solution for the
+    # discrete_and_min_build example which is installing capacity of 3-5 MW.
     mod.Enforce_Min_Build_Upper = Constraint(
         mod.NEW_PROJ_WITH_MIN_BUILD_YEARS,
         rule=lambda m, proj, p: (
-            m.BuildProj[proj, p] <= m.ProjCommitToMinBuild[proj, p] 
-            * 10 * sum(m.lz_peak_demand_mw[lz, p] for lz in m.LOAD_ZONES)))
+            m.BuildProj[proj, p] <= m.ProjCommitToMinBuild[proj, p] * 10**5))
 
     # Costs
     mod.proj_variable_om = Param (mod.PROJECTS, within=NonNegativeReals)

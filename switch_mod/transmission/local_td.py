@@ -74,11 +74,11 @@ def define_components(mod):
     most datasets the build year is unknown, so is it always set to
     'Legacy'.
 
-    existing_local_td[lz in LOAD_ZONES] is the amount of local
+    existing_local_td[z in LOAD_ZONES] is the amount of local
     transmission and distribution capacity in MW that has already been
     built.
 
-    BuildLocalTD[(lz, bld_yr) in LOCAL_TD_BUILD_YEARS] is a decision
+    BuildLocalTD[(z, bld_yr) in LOCAL_TD_BUILD_YEARS] is a decision
     variable describing how much local transmission and distribution to
     build in a load zone. For existing builds, this variable is locked
     to existing capacity. Without demand response, the optimal value of
@@ -88,7 +88,7 @@ def define_components(mod):
     some demand from evening into afternoon to coincide with the solar
     peak.
 
-    LocalTDCapacity[lz, period] is an expression that describes how much
+    LocalTDCapacity[z, period] is an expression that describes how much
     local transmission and distribution has been built to date in each
     load zone.
 
@@ -98,11 +98,11 @@ def define_components(mod):
     based on ReEDS Solar Vision documentation:
     http://www1.eere.energy.gov/solar/pdfs/svs_appendix_a_model_descriptions_data.pdf
 
-    Meet_Local_TD[lz, period] is a constraint that enforces minimal
+    Meet_Local_TD[z, period] is a constraint that enforces minimal
     local T&D requirements.
         LocalTDCapacity >= max_local_demand
 
-    local_td_annual_cost_per_mw[lz in LOAD_ZONES] describes the total
+    local_td_annual_cost_per_mw[z in LOAD_ZONES] describes the total
     annual costs for each MW of local transmission & distribution. This
     value should include the annualized capital costs as well as fixed
     operations & maintenance costs. These costs will be applied to
@@ -114,7 +114,7 @@ def define_components(mod):
     describes which local transmission & distribution builds will be
     operational in a given period. Currently, local T & D lines are kept
     online indefinitely, with parts being replaced as they wear out.
-    PERIOD_RELEVANT_LOCAL_TD_BUILDS[p] will return a subset of (lz,
+    PERIOD_RELEVANT_LOCAL_TD_BUILDS[p] will return a subset of (z,
     bld_yr) in LOCAL_TD_BUILD_YEARS. Same idea as
     PERIOD_RELEVANT_TRANS_BUILDS, but with a different scope.
 
@@ -133,7 +133,7 @@ def define_components(mod):
     # Local T&D
     mod.EXISTING_LOCAL_TD_BLD_YRS = Set(
         dimen=2,
-        initialize=lambda m: set((lz, 'Legacy') for lz in m.LOAD_ZONES))
+        initialize=lambda m: set((z, 'Legacy') for z in m.LOAD_ZONES))
     mod.existing_local_td = Param(mod.LOAD_ZONES, within=NonNegativeReals)
     mod.min_data_check('existing_local_td')
     mod.LOCAL_TD_BUILD_YEARS = Set(
@@ -144,13 +144,13 @@ def define_components(mod):
         mod.PERIODS,
         within=mod.LOCAL_TD_BUILD_YEARS,
         initialize=lambda m, p: set(
-            (lz, bld_yr) for (lz, bld_yr) in m.LOCAL_TD_BUILD_YEARS
+            (z, bld_yr) for (z, bld_yr) in m.LOCAL_TD_BUILD_YEARS
             if bld_yr <= p))
 
-    def bounds_BuildLocalTD(model, lz, bld_yr):
-        if((lz, bld_yr) in model.EXISTING_LOCAL_TD_BLD_YRS):
-            return (model.existing_local_td[lz],
-                    model.existing_local_td[lz])
+    def bounds_BuildLocalTD(model, z, bld_yr):
+        if((z, bld_yr) in model.EXISTING_LOCAL_TD_BLD_YRS):
+            return (model.existing_local_td[z],
+                    model.existing_local_td[z])
         else:
             return (0, None)
     mod.BuildLocalTD = Var(
@@ -159,17 +159,17 @@ def define_components(mod):
         bounds=bounds_BuildLocalTD)
     mod.LocalTDCapacity = Expression(
         mod.LOAD_ZONES, mod.PERIODS,
-        rule=lambda m, lz, period: sum(
-            m.BuildLocalTD[lz, bld_yr]
-            for (lz2, bld_yr) in m.LOCAL_TD_BUILD_YEARS
-            if lz2 == lz and (bld_yr == 'Legacy' or bld_yr <= period)))
+        rule=lambda m, z, period: sum(
+            m.BuildLocalTD[z, bld_yr]
+            for (z2, bld_yr) in m.LOCAL_TD_BUILD_YEARS
+            if z2 == z and (bld_yr == 'Legacy' or bld_yr <= period)))
     mod.distribution_loss_rate = Param(default=0.053)
-#    mod.distribution_loss_rate = Param(default=0.053/(1+0.053))
 
     mod.Meet_Local_TD = Constraint(
-        mod.LOAD_ZONES, mod.PERIODS,
-        rule=lambda m, lz, period: (
-            m.LocalTDCapacity[lz, period] >= m.lz_peak_demand_mw[lz, period]))
+        mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS,
+        rule=lambda m, z, period: (
+            m.LocalTDCapacity[z, period] >= 
+                m.lz_expected_coincident_peak_demand[z, period]/(1-m.distribution_loss_rate)))
     mod.local_td_annual_cost_per_mw = Param(
         mod.LOAD_ZONES,
         within=PositiveReals)
@@ -178,8 +178,8 @@ def define_components(mod):
         mod.PERIODS,
         doc="Summarize annual local T&D costs for the objective function.",
         rule=lambda m, p: sum(
-            m.BuildLocalTD[lz, bld_yr] * m.local_td_annual_cost_per_mw[lz]
-            for (lz, bld_yr) in m.PERIOD_RELEVANT_LOCAL_TD_BUILDS[p]))
+            m.BuildLocalTD[z, bld_yr] * m.local_td_annual_cost_per_mw[z]
+            for (z, bld_yr) in m.PERIOD_RELEVANT_LOCAL_TD_BUILDS[p]))
     mod.cost_components_annual.append('LocalTD_Fixed_Costs_Annual')
 
 
