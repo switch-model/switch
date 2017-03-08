@@ -239,7 +239,6 @@ def define_components(mod):
         NameplateCapacity = BuildProj - sum(Decommission)
     
     """
-
     mod.PROJECTS = Set()
     mod.proj_dbid = Param(mod.PROJECTS, default=lambda m, proj: proj)
     mod.proj_gen_tech = Param(mod.PROJECTS)
@@ -249,13 +248,14 @@ def define_components(mod):
     mod.proj_energy_source = Param(mod.PROJECTS, 
         validate=lambda m,val,g: val in m.ENERGY_SOURCES or val == "multiple")
     mod.proj_load_zone = Param(mod.PROJECTS, within=mod.LOAD_ZONES)
-    mod.proj_max_age = Param (mod.PROJECTS, within=PositiveIntegers)
-    mod.proj_is_variable = Param (mod.PROJECTS, within=Boolean)
-    mod.proj_is_baseload = Param (mod.PROJECTS, within=Boolean)
+    mod.proj_max_age = Param(mod.PROJECTS, within=PositiveIntegers)
+    mod.proj_is_variable = Param(mod.PROJECTS, within=Boolean)
+    mod.proj_is_baseload = Param(mod.PROJECTS, within=Boolean)
     mod.proj_is_cogen = Param(mod.PROJECTS, within=Boolean, default=False)
-    mod.proj_scheduled_outage_rate = Param (mod.PROJECTS,
+    mod.proj_is_distributed = Param(mod.PROJECTS, within=Boolean, default=False)
+    mod.proj_scheduled_outage_rate = Param(mod.PROJECTS,
         within=PercentFraction, default=0)
-    mod.proj_forced_outage_rate = Param (mod.PROJECTS,
+    mod.proj_forced_outage_rate = Param(mod.PROJECTS,
         within=PercentFraction, default=0)
     mod.min_data_check('PROJECTS', 'proj_gen_tech', 'proj_energy_source',
         'proj_load_zone', 'proj_max_age', 'proj_is_variable', 
@@ -478,7 +478,8 @@ def load_inputs(mod, switch_data, inputs_dir):
     Optional columns are:
         proj_dbid, proj_scheduled_outage_rate, proj_forced_outage_rate,
         proj_capacity_limit_mw, proj_unit_size, proj_ccs_energy_load,
-        proj_ccs_capture_efficiency, proj_min_build_capacity, proj_is_cogen
+        proj_ccs_capture_efficiency, proj_min_build_capacity, proj_is_cogen,
+        proj_is_distributed
 
     The following file lists existing builds of projects, and is
     optional for simulations where there is no existing capacity:
@@ -499,7 +500,7 @@ def load_inputs(mod, switch_data, inputs_dir):
         optional_params=['proj_dbid', 'proj_scheduled_outage_rate',
         'proj_forced_outage_rate', 'proj_capacity_limit_mw', 'proj_unit_size',
         'proj_ccs_energy_load', 'proj_ccs_capture_efficiency', 
-        'proj_min_build_capacity', 'proj_is_cogen'],
+        'proj_min_build_capacity', 'proj_is_cogen', 'proj_is_distributed'],
         index=mod.PROJECTS,
         param=(mod.proj_dbid, mod.proj_gen_tech, mod.proj_energy_source,
                mod.proj_load_zone, mod.proj_max_age, mod.proj_is_variable,
@@ -508,7 +509,8 @@ def load_inputs(mod, switch_data, inputs_dir):
                mod.proj_unit_size, mod.proj_ccs_energy_load,
                mod.proj_ccs_capture_efficiency, mod.proj_full_load_heat_rate, 
                mod.proj_variable_om, mod.proj_min_build_capacity,
-               mod.proj_connect_cost_per_mw, mod.proj_is_cogen))
+               mod.proj_connect_cost_per_mw, mod.proj_is_cogen,
+               mod.proj_is_distributed))
     # Construct sets of capacity-limited, ccs-capable and unit-size-specified
     # projects. These sets include projects for which these parameters have
     # a value

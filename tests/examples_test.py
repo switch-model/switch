@@ -72,7 +72,7 @@ def make_test(example_dir):
                     'Mismatch for total_cost (the objective function value):\n'
                     'Expected value:  {}\n'
                     'Actual value:    {}\n'
-                    'Run "python -m tests.examples_test.py --update" to'
+                    'Run "python -m tests.examples_test --update" to '
                     'update the expectations if this change is expected.'
                     .format(expected, actual))
 

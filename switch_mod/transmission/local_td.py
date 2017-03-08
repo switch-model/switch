@@ -15,11 +15,51 @@ dependencies = 'switch_mod.timescales', 'switch_mod.balancing.load_zones',\
 def define_components(mod):
     """
 
-    Adds components to a Pyomo abstract model object to describe local
-    transmission and distribution portions of an electric grid. This
-    includes parameters, build decisions and constraints. Unless
-    otherwise stated, all power capacity is specified in units of MW and
+    Define local transmission and distribution portions of an electric grid.
+    This models load zones as two nodes: the central grid node described in
+    the load_zones module, and a distributed (virtual) node that is connected
+    to the central bus via a local_td pathway with losses described by
+    distribution_loss_rate. Distributed Energy Resources (DER) such as
+    distributed solar, demand response, efficiency programs, etc will need to
+    register with the Distributed_Withdrawals and Distributed_Injections lists
+    which are used for power balance equations. This module is divided into
+    two sections: the distribution node and the local_td pathway that connects
+    it to the central grid.
+    
+    Note: This module interprets the parameter lz_demand_mw[z,t] as the end-
+    use sales rather than the withdrawals from the central grid, and moves
+    lz_demand_mw from the LZ_Energy_Components_Consume list to the
+    Distributed_Withdrawals list so that distribution losses can be accounted
+    for.
+    
+    Unless otherwise stated, all power capacity is specified in units of MW and
     all sets and parameters are mandatory.
+
+    DISTRIBUTED NODE
+
+    WithdrawFromCentralGrid[z, t] is a decision variable that describes the
+    power exchanges between the central grid and the distributed network, from
+    the perspective of the central grid. We currently prohibit injections into
+    the central grid because it would create a mathematical loophole for
+    "spilling power" and we currently lack use cases that need this. We cannot
+    use a single unsigned varaible for this without introducing errrors in
+    calculating Local T&D line losses. WithdrawFromCentralGrid is added to the
+    load_zone power balance, and has a corresponding expression from the
+    perspective of the distributed node:
+    
+    InjectIntoDistributedGrid[z,t] = WithdrawFromCentralGrid[z,t] * (1-distribution_loss_rate)
+        
+    Distributed_Injections and Distributed_Withdrawals are lists of DER model
+    components that inject and withdraw from a load zone's distributed node.
+    Distributed_Injections is initially set to InjectIntoDistributedGrid, and
+    Distributed_Withdrawals is initial set to lz_demand_mw. Each component in
+    either of these lists will need to be indexed by (z,t) across all
+    LOAD_ZONES and TIMEPOINTS.
+
+    The Distributed_Energy_Balance constraint is defined in define_dynamic_components.
+
+
+    LOCAL_TD PATHWAY
 
     LOCAL_TD_BUILD_YEARS is the set of load zones with local
     transmission and distribution and years in which construction has or
@@ -52,26 +92,18 @@ def define_components(mod):
     local transmission and distribution has been built to date in each
     load zone.
 
-    distribution_loss_rate is the proportion of energy that is lost in the
-    local transmission & distribution system before delivery. This value
-    is relative to delivered energy, so the total energy needed is load
+    distribution_loss_rate is the ratio of average losses for local T&D. This
+    value is relative to delivered energy, so the total energy needed is load
     * (1 + distribution_loss_rate). This optional value defaults to 0.053
     based on ReEDS Solar Vision documentation:
     http://www1.eere.energy.gov/solar/pdfs/svs_appendix_a_model_descriptions_data.pdf
 
-    distribution_losses[lz, t] is a derived parameter describing the
-    energy that is lost in the distribution network in each timepoint
-    while delivering energy to load. For the moment, this equals
-    load[lz, t] multiplied by distribution_loss_rate.
-
     Meet_Local_TD[lz, period] is a constraint that enforces minimal
-    local T&D requirements. Demand response may specify a more complex
-    constraint.
-
+    local T&D requirements.
         LocalTDCapacity >= max_local_demand
 
     local_td_annual_cost_per_mw[lz in LOAD_ZONES] describes the total
-    annual costs for each MW of local transmission & distributino. This
+    annual costs for each MW of local transmission & distribution. This
     value should include the annualized capital costs as well as fixed
     operations & maintenance costs. These costs will be applied to
     existing and new infrastructure. We assume that existing capacity
@@ -86,32 +118,6 @@ def define_components(mod):
     bld_yr) in LOCAL_TD_BUILD_YEARS. Same idea as
     PERIOD_RELEVANT_TRANS_BUILDS, but with a different scope.
 
-    --- Delayed implementation ---
-
-    # I implemented this in trans_params.dat, but wasn't using it
-    # so I commented it out.
-    # local_td_lifetime_yrs is a parameter describing the physical and
-    # financial lifetime of local transmission & distribution. This
-    # parameter is optional and defaults to 20 years.
-
-    distributed PV don't incur distribution_loss_rate..
-
-    local_td_sunk_annual_payment[lz in LOAD_ZONES] .. this was in the
-    old model. It would be cleaner if I could copy the pattern for
-    project.build where existing projects have the same data structure
-    as new projects which includes both an installation date and
-    retirement date. For that to work, I would need to knew (or
-    estimate) the installation date of existing infrastructure so we
-    could know when it needed to be replaced. The old implementation
-    assumed a different annual cost of new and existing local T&D. The
-    existing infrastructure was expected to remain online indefinitely
-    at those costs. The new infrastructure was expected to be retired
-    after 20 years, after which new infrastructure would be installed
-    via the InstallLocalTD decision variable. The annual costs for
-    existing infrastructure were 22-99 percent higher that for new
-    infrastructure in the standard WECC datasets, but I don't know the
-    reason for the discrepancy.
-
     --- NOTES ---
 
     SWITCH-Pyomo treats all transmission and distribution (long-
@@ -124,6 +130,7 @@ def define_components(mod):
 
     """
 
+    # Local T&D
     mod.EXISTING_LOCAL_TD_BLD_YRS = Set(
         dimen=2,
         initialize=lambda m: set((lz, 'Legacy') for lz in m.LOAD_ZONES))
@@ -157,30 +164,68 @@ def define_components(mod):
             for (lz2, bld_yr) in m.LOCAL_TD_BUILD_YEARS
             if lz2 == lz and (bld_yr == 'Legacy' or bld_yr <= period)))
     mod.distribution_loss_rate = Param(default=0.053)
-    mod.distribution_losses = Param(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
-        initialize=lambda m, lz, t: (
-            m.lz_demand_mw[lz, t] * m.distribution_loss_rate))
-    mod.LZ_Energy_Components_Consume.append('distribution_losses')
+#    mod.distribution_loss_rate = Param(default=0.053/(1+0.053))
+
     mod.Meet_Local_TD = Constraint(
         mod.LOAD_ZONES, mod.PERIODS,
         rule=lambda m, lz, period: (
             m.LocalTDCapacity[lz, period] >= m.lz_peak_demand_mw[lz, period]))
-    # mod.local_td_lifetime_yrs = Param(default=20)
     mod.local_td_annual_cost_per_mw = Param(
         mod.LOAD_ZONES,
         within=PositiveReals)
     mod.min_data_check('local_td_annual_cost_per_mw')
-    # An expression to summarize annual costs for the objective
-    # function. Units should be total annual future costs in $base_year
-    # real dollars. The objective function will convert these to
-    # base_year Net Present Value in $base_year real dollars.
     mod.LocalTD_Fixed_Costs_Annual = Expression(
         mod.PERIODS,
+        doc="Summarize annual local T&D costs for the objective function.",
         rule=lambda m, p: sum(
             m.BuildLocalTD[lz, bld_yr] * m.local_td_annual_cost_per_mw[lz]
             for (lz, bld_yr) in m.PERIOD_RELEVANT_LOCAL_TD_BUILDS[p]))
     mod.cost_components_annual.append('LocalTD_Fixed_Costs_Annual')
+
+
+    # DISTRIBUTED NODE
+    mod.WithdrawFromCentralGrid = Var(
+        mod.ZONE_TIMEPOINTS,
+        within=NonNegativeReals,
+        doc="Power withdrawn from a zone's central node sent over local T&D.")
+    mod.Enforce_Local_TD_Capacity_Limit = Constraint(
+        mod.ZONE_TIMEPOINTS,
+        rule=lambda m, z, t:
+            m.WithdrawFromCentralGrid[z,t] <= m.LocalTDCapacity[z,m.tp_period[t]])
+    mod.InjectIntoDistributedGrid = Expression(
+        mod.ZONE_TIMEPOINTS,
+        doc="Describes WithdrawFromCentralGrid after line losses.",
+        rule=lambda m, z, t: m.WithdrawFromCentralGrid[z,t] * (1-m.distribution_loss_rate))
+    mod.LZ_Energy_Components_Consume.append('WithdrawFromCentralGrid')
+    mod.LZ_Energy_Components_Produce.remove('LZ_NetDistributedInjections')
+    mod.Distributed_Injections = ['InjectIntoDistributedGrid', 'LZ_NetDistributedInjections']
+    mod.LZ_Energy_Components_Consume.remove('lz_demand_mw')
+    mod.Distributed_Withdrawals = ['lz_demand_mw']
+
+
+def define_dynamic_components(mod):
+    """
+
+    Adds components to a Pyomo abstract model object to enforce the
+    first law of thermodynamics at the level of distibuted nodes. Unless
+    otherwise stated, all terms describing power are in units of MW and
+    all terms describing energy are in units of MWh.
+
+    Distributed_Energy_Balance[z, t] is a constraint that sets the sums of
+    Distributed_Injections and Distributed_Withdrawals equal to each other in
+    every zone and timepoint. 
+
+    """
+
+    mod.Distributed_Energy_Balance = Constraint(
+        mod.ZONE_TIMEPOINTS,
+        rule=lambda m, z, t: (
+            sum(
+                getattr(m, component)[z, t]
+                for component in m.Distributed_Injections
+            ) == sum(
+                getattr(m, component)[z, t]
+                for component in m.Distributed_Withdrawals)))
 
 
 def load_inputs(mod, switch_data, inputs_dir):

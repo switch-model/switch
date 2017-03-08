@@ -24,8 +24,12 @@ def define_components(mod):
     time to always meet peak demand. Load zones are abbreviated as lz in
     parameter names and as z for indexes.
 
-    lz_demand_mw[z,t] describes the average power demand in each load
-    zone z and timepoint t. This is a non negative value.
+    lz_demand_mw[z,t] describes the power demand from the high voltage
+    transmission grid each load zone z and timepoint t. If the local_td module
+    is excluded, this value should be the total withdrawals from the central
+    grid and should include any distribution losses. If the local_td module is
+    included, this should be set to total end-use demand (aka sales) and should
+    not include distribution losses. This is a non negative value.
 
     lz_dbid[z] stores an external database id for each load zone. This
     is optional and defaults to the name of the load zone. It will be
@@ -58,8 +62,11 @@ def define_components(mod):
     """
 
     mod.LOAD_ZONES = Set()
+    mod.ZONE_TIMEPOINTS = Set(dimen=2,
+        initialize=lambda m: m.LOAD_ZONES * m.TIMEPOINTS,
+        doc="The cross product of load zones and timepoints, used for indexing.")
     mod.lz_demand_mw = Param(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
+        mod.ZONE_TIMEPOINTS,
         within=NonNegativeReals)
     mod.lz_ccs_distance_km = Param(
         mod.LOAD_ZONES,
@@ -102,8 +109,7 @@ def define_dynamic_components(mod):
     """
 
     mod.Energy_Balance = Constraint(
-        mod.LOAD_ZONES,
-        mod.TIMEPOINTS,
+        mod.ZONE_TIMEPOINTS,
         rule=lambda m, lz, t: (
             sum(
                 getattr(m, component)[lz, t]
