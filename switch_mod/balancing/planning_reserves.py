@@ -31,7 +31,6 @@ References:
 http://www.nerc.com/pa/RAPA/ri/Pages/PlanningReserveMargin.aspx
 https://www.caiso.com/Documents/RenewableResourcesandCaliforniaElectricPowerIndustry-SystemOperations_WholesaleMarketsandGridPlanning.pdf
 https://www.caiso.com/Documents/Jan29_2016_Comments_2017Track1Proposals_ResourceAdequacyProgram_R14-10-010.pdf
-https://www.spp.org/documents/23549/resource%20adequacy%20in%20spp%20part%201%20blog.pdf
 
 """
 
@@ -108,7 +107,7 @@ def define_components(model):
             # If local_td is included with DER modeling, avoid allocating
             # distributed generation to central grid capacity because it will
             # be credited with adjusting load at the distribution node.
-            elif 'local_td' not in m.module_list or not m.proj_is_distributed[proj]:
+            elif 'Distributed_Injections' not in dir(m) or not m.proj_is_distributed[proj]:
                 reserve_cap += m.capacity_value[proj, t] * m.ProjCapacityTP[proj, t]
         return reserve_cap
 
