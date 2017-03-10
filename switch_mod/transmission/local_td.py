@@ -12,6 +12,20 @@ from pyomo.environ import *
 dependencies = 'switch_mod.timescales', 'switch_mod.balancing.load_zones',\
     'switch_mod.financials'
 
+def define_dynamic_lists(mod):
+    """
+    Distributed_Injections and Distributed_Withdrawals are lists of DER model
+    components that inject and withdraw from a load zone's distributed node.
+    Distributed_Injections is initially set to InjectIntoDistributedGrid, and
+    Distributed_Withdrawals is initial set to lz_demand_mw. Each component in
+    either of these lists will need to be indexed by (z,t) across all
+    LOAD_ZONES and TIMEPOINTS.
+
+    """
+    mod.Distributed_Injections = []
+    mod.Distributed_Withdrawals = []
+
+
 def define_components(mod):
     """
 
@@ -49,15 +63,7 @@ def define_components(mod):
     
     InjectIntoDistributedGrid[z,t] = WithdrawFromCentralGrid[z,t] * (1-distribution_loss_rate)
         
-    Distributed_Injections and Distributed_Withdrawals are lists of DER model
-    components that inject and withdraw from a load zone's distributed node.
-    Distributed_Injections is initially set to InjectIntoDistributedGrid, and
-    Distributed_Withdrawals is initial set to lz_demand_mw. Each component in
-    either of these lists will need to be indexed by (z,t) across all
-    LOAD_ZONES and TIMEPOINTS.
-
     The Distributed_Energy_Balance constraint is defined in define_dynamic_components.
-
 
     LOCAL_TD PATHWAY
 
@@ -196,11 +202,10 @@ def define_components(mod):
         mod.ZONE_TIMEPOINTS,
         doc="Describes WithdrawFromCentralGrid after line losses.",
         rule=lambda m, z, t: m.WithdrawFromCentralGrid[z,t] * (1-m.distribution_loss_rate))
+
+    # Register energy injections & withdrawals
     mod.LZ_Energy_Components_Consume.append('WithdrawFromCentralGrid')
-    mod.LZ_Energy_Components_Produce.remove('LZ_NetDistributedInjections')
-    mod.Distributed_Injections = ['InjectIntoDistributedGrid', 'LZ_NetDistributedInjections']
-    mod.LZ_Energy_Components_Consume.remove('lz_demand_mw')
-    mod.Distributed_Withdrawals = ['lz_demand_mw']
+    mod.Distributed_Injections.append('InjectIntoDistributedGrid')
 
 
 def define_dynamic_components(mod):

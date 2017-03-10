@@ -34,21 +34,22 @@ def create_model(module_list, args=sys.argv[1:]):
     are attached to the model as class methods to simplify their use:
     min_data_check(), load_inputs(), pre_solve(), post_solve().
 
-    This is implemented as calling define_components() for each module that
-    has that function defined, then calling define_dynamic_components() for
-    each module that has that function defined. This division into two stages
-    give some modules an opportunity to have dynamic constraints or objective
-    functions. For example, financials.define_components() defines empty lists
-    that will be used to calculate overall system costs. Other modules such as
-    investment.trans_build and investment.proj_build that have components that
-    contribute to system costs insert the names of those components into these
-    lists. The total system costs equation is defined in
-    financials.define_dynamic_components() as the sum of elements in those
-    lists. This division into multiple stages allows a user of Switch to
-    include additional modules such as demand response or storage without
-    rewriting the core equations for system costs. The two primary use cases
-    for dynamic components so far are load-zone level energy balancing and
-    overall system costs.
+    This is implemented as calling the following functions for each module
+    that has them defined:
+    
+    define_dynamic_lists(model): Add lists to the model that other modules can
+    register with. Used for power balance equations, cost components of the
+    objective function, etc.
+
+    define_components(model): Add components to the model object (parameters,
+    sets, decisions variables, expressions, and/or constraints). Also register
+    with relevant dynamic_lists.
+    
+    define_dynamic_components(model): Add dynamic components to the model that
+    depend on the contents of dyanmics lists. Power balance constraints and
+    the objective function are defined in this manner.
+    
+    See financials and balancing.load_zones for examples of dynamic definitions.
     
     All modules can request access to command line parameters and set their
     default values for those options. If this codebase is being used more like
@@ -84,6 +85,9 @@ def create_model(module_list, args=sys.argv[1:]):
     model.options = argparser.parse_args(args)
     
     # Define model components
+    for module in model.get_modules():
+        if hasattr(module, 'define_dynamic_lists'):
+            module.define_dynamic_lists(model)
     for module in model.get_modules():
         if hasattr(module, 'define_components'):
             module.define_components(model)

@@ -224,6 +224,11 @@ def define_components(mod):
                 for p in m.LZ_PROJECTS[lz]
                 if (p, t) in m.PROJ_DISPATCH_POINTS and p in m.PROJECTS_WITH_CCS),
         doc="Net power from grid-tied generation projects.")
+    mod.LZ_Energy_Components_Produce.append('LZ_NetDispatch')
+
+    # Divide distributed generation into a separate expression so that we can
+    # put it in the distributed node's power balance equations if local_td is
+    # included.
     mod.LZ_NetDistributedInjections = Expression(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         rule=lambda m, lz, t: \
@@ -232,10 +237,10 @@ def define_components(mod):
                 if (g, t) in m.PROJ_DISPATCH_POINTS and m.proj_is_distributed[g]),
         doc="Total power from distributed generation projects."
     )
-    # Register net dispatch as contributing to a load zone's energy
-    # Divide distributed generation into a separate expression so that local T&D
-    # modules can move it to a different energy balance equation.
-    mod.LZ_Energy_Components_Produce.extend(('LZ_NetDispatch', 'LZ_NetDistributedInjections'))
+    if 'Distributed_Injections' in dir(mod):
+        mod.Distributed_Injections.append('LZ_NetDistributedInjections')
+    else:
+        mod.LZ_Energy_Components_Produce.append('LZ_NetDistributedInjections')
 
     def init_proj_availability(m, proj):
         if m.proj_is_baseload[proj]:

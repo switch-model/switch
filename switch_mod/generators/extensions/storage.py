@@ -18,11 +18,12 @@ dependencies = 'switch_mod.timescales', 'switch_mod.balancing.load_zones',\
 def define_components(mod):
     """
     
-    STORAGE_TECH is a subset of GENERATION_TECHNOLOGIES that can
-    store electricity for later discharge. Members of this set can
-    be abbreviated as storage or s.
+    STORAGE_PROJECTS is the subset of projects that can provide energy storage.
 
-    g_storage_efficiency[STORAGE_TECH] describes the round trip
+    STORAGE_PROJECT_BUILDYEARS is the subset of PROJECT_BUILDYEARS, restricted
+    to storage projects.
+
+    proj_storage_efficiency[STORAGE_PROJECTS] describes the round trip
     efficiency of a storage technology. A storage technology that is 75
     percent efficient would have a storage_efficiency of .75. If 1 MWh
     was stored in such a storage project, 750 kWh would be available for
@@ -34,30 +35,19 @@ def define_components(mod):
     for extended time perios, then those behaviors will need to be
     modeled in more detail.
 
-    g_store_to_release_ratio[STORAGE_TECH] describes the maximum rate
+    proj_store_to_release_ratio[STORAGE_PROJECTS] describes the maximum rate
     that energy can be stored, expressed as a ratio of discharge power
     capacity. This is an optional parameter and will default to 1. If a
     storage project has 1 MW of dischage capacity and a max_store_rate
     of 1.2, then it can consume up to 1.2 MW of power while charging.
 
-    g_storage_energy_overnight_cost[storage, period] is the overnight
-    capital cost per MWh of energy capacity for building the given
-    storage technology installed in the given investment period. This is
-    only defined for storage technologies. Note that this describes the
-    energy component and the overnight_cost describes the power
-    component.
+    proj_storage_energy_overnight_cost[(proj, bld_yr) in
+    STORAGE_PROJECT_BUILDYEARS] is the overnight capital cost per MWh of
+    energy capacity for building the given storage technology installed in the
+    given investment period. This is only defined for storage technologies.
+    Note that this describes the energy component and the overnight_cost
+    describes the power component.
     
-    The previous three parameters provide default values for projects
-    that implement that technology. These parameters may be overridden
-    on a project-specific basis via proj_storage_efficiency[STORAGE_PROJECTS],
-    proj_store_to_release_ratio[STORAGE_PROJECTS], and
-    proj_storage_energy_overnight_cost[(proj, bld_yr) in STORAGE_PROJECT_BUILDYEARS]
-
-    STORAGE_PROJECTS is the set of projects that use storage technologies.
-
-    STORAGE_PROJECT_BUILDYEARS is the subset of PROJECT_BUILDYEARS, restricted
-    to storage projects.
-
     BuildStorageEnergyMWh[(proj, bld_yr) in STORAGE_PROJECT_BUILDYEARS]
     is a decision of how much energy capacity to build onto a storage
     project. This is analogous to BuildProj, but for energy rather than power.
@@ -191,34 +181,11 @@ def define_components(mod):
 def load_inputs(mod, switch_data, inputs_dir):
     """
 
-    Import storage parameters. These parameters can be defined per
-    generation technology, via extra columns in generator_info.tab and
-    gen_new_build_costs.tab. Those files are primarily used by
-    switch_mod.gen_tech, and are documented in that module.
-    g_storage_efficiency is mandatory and is used to determine which
-    generation technologies are storage. g_store_to_release_ratio and
-    g_storage_energy_overnight_cost are optional parameters. Each project
-    needs the storage_energy_overnight_cost defined, but it can either be
-    defined on a per-technology basis or a per-project basis.
-    
-    generator_info.tab
-        generation_technology, ...
-        g_storage_efficiency, g_store_to_release_ratio
-
-    gen_new_build_costs.tab
-        generation_technology, investment_period, ...
-        g_storage_energy_overnight_cost
-
-    The above parameters provide default costs and efficiencies for all
-    projects of that type. Those can be overridden for individual
-    projects via optional columns in project_info.tab and
-    proj_build_costs.tab. Those files are primarily used by
-    switch_mod.project.build and switch_mod.project.dispatch
-    respectively. All of these project-specific parameters are optional.
+    Import storage parameters. Optional columns are noted with a *.
 
     project_info.tab
         PROJECT, ...
-        proj_storage_efficiency, proj_store_to_release_ratio
+        proj_storage_efficiency, proj_store_to_release_ratio*
 
     proj_build_costs.tab
         PROJECT, build_year, ...
@@ -231,8 +198,7 @@ def load_inputs(mod, switch_data, inputs_dir):
         auto_select=True,
         optional_params=['proj_store_to_release_ratio'],
         param=(mod.proj_storage_efficiency, mod.proj_store_to_release_ratio))
-    # Construct the set of storage technologies based on which
-    # technologies have g_storage_efficiency defined.
+    # Base the set of storage projects on storage efficiency being specified.
     switch_data.data()['STORAGE_PROJECTS'] = {
         None: switch_data.data(name='proj_storage_efficiency').keys()}
     switch_data.load_aug(

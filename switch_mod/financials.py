@@ -82,6 +82,36 @@ def present_to_future_value(ir, t):
     """
     return (1+ir)**t
 
+def define_dynamic_lists(mod):
+    """
+    There are two lists of costs components that form the cost-minimization
+    objective function. Other modules may add elements to these lists.
+
+    cost_components_tp is a list of components that contribute to
+    overall system costs in each timepoint. Each component in this list
+    needs to be indexed by timepoint and specified in non-discounted
+    real dollars per hour. The objective function will apply weights and
+    discounting to these terms. If this indexing is not convenient for
+    native model components, I advise writing an Expression object
+    indexed by [t] that contains logic to access or summarize native
+    model components.
+
+    cost_components_annual is a list of components that contribute to
+    overall system costs on an annual basis. Each component in this list
+    needs to be indexed by period and specified in non-discounted real
+    dollars over a typical year in the period. The objective function
+    will apply discounting to these terms. If this indexing is not
+    convenient for native model components, I advise writing an
+    Expression object indexed by [p] that contains logic to access or
+    summarize native model components.
+
+    """
+    # TODO: rename cost_components_tp to cost_components_hourly to reflect the fact that it 
+    # should show hourly costs (not costs per timepoint); this would also be more similar 
+    # to cost_components_annual
+    mod.cost_components_tp = []
+    mod.cost_components_annual = []
+
 def define_components(mod):
     """
 
@@ -183,30 +213,6 @@ def define_components(mod):
     calculated by multiplying hourly unit costs by this coefficient and
     the dispatch decision.
 
-    The next two elements are lists of costs components rather than
-    Pyomo components. Other modules may add elements to these lists. The
-    system_cost module will use these to construct an overall cost
-    expression for the objective function.
-
-    cost_components_tp is a list of components that contribute to
-    overall system costs in each timepoint. Each component in this list
-    needs to be indexed by timepoint and specified in non-discounted
-    real dollars per hour. The objective function will apply weights and
-    discounting to these terms. If this indexing is not convenient for
-    native model components, I advise writing an Expression object
-    indexed by [t] that contains logic to access or summarize native
-    model components.
-
-    cost_components_annual is a list of components that contribute to
-    overall system costs on an annual basis. Each component in this list
-    needs to be indexed by period and specified in non-discounted real
-    dollars over a typical year in the period. The objective function
-    will apply discounting to these terms. If this indexing is not
-    convenient for native model components, I advise writing an
-    Expression object indexed by [p] that contains logic to access or
-    summarize native model components.
-
-
     """
 
     mod.base_financial_year = Param(within=PositiveIntegers)
@@ -229,11 +235,6 @@ def define_components(mod):
         initialize=lambda m, t: (
             m.bring_annual_costs_to_base_year[m.tp_period[t]] *
             m.tp_weight_in_year[t]))
-    # TODO: rename cost_components_tp to cost_components_hourly to reflect the fact that it 
-    # should show hourly costs (not costs per timepoint); this would also be more similar 
-    # to cost_components_annual
-    mod.cost_components_tp = []
-    mod.cost_components_annual = []
 
 
 def define_dynamic_components(mod):
