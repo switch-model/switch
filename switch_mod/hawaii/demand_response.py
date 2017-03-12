@@ -209,6 +209,23 @@ def define_components(m):
             for b in m.DR_BID_LIST
         )
     )
+    # Register with spinning reserves if it is available
+    if 'Spinning_Reserve_Up_Provisions' in dir(m):
+        m.DemandSpinningReserveUp = Expression(
+            m.BALANCING_AREA_TIMEPOINTS, 
+            rule=lambda m, b, t:
+                sum(m.DemandUpReserves[z, t]
+                    for z in m.ZONES_IN_BALANCING_AREA[b])
+        )
+        m.Spinning_Reserve_Up_Provisions.append('DemandSpinningReserveUp')
+
+        m.DemandSpinningReserveDown = Expression(
+            m.BALANCING_AREA_TIMEPOINTS, 
+            rule=lambda m, b, t: \
+                sum(m.DemandDownReserves[g, t] 
+                    for z in m.ZONES_IN_BALANCING_AREA[b])
+        )
+        m.Spinning_Reserve_Down_Provisions.append('DemandSpinningReserveDown')
 
     # replace zone_demand_mw with FlexibleDemand in the energy balance constraint
     # note: the first two lines are simpler than the method I use, but my approach

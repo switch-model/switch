@@ -184,6 +184,23 @@ def define_components(m):
     m.Cost_Components_Per_TP.append('HydrogenVariableCost')
     m.Cost_Components_Per_Period.append('HydrogenFixedCostAnnual')
     
+    # Register with spinning reserves if it is available
+    if 'Spinning_Reserve_Up_Provisions' in dir(m):
+        m.HydrogenSpinningReserveUp = Expression(
+            m.BALANCING_AREA_TIMEPOINTS, 
+            rule=lambda m, b, t:
+                sum(m.HydrogenSlackUp[z, t]
+                    for z in m.ZONES_IN_BALANCING_AREA[b])
+        )
+        m.Spinning_Reserve_Up_Provisions.append('HydrogenSpinningReserveUp')
+
+        m.HydrogenSpinningReserveDown = Expression(
+            m.BALANCING_AREA_TIMEPOINTS, 
+            rule=lambda m, b, t: \
+                sum(m.HydrogenSlackDown[g, t] 
+                    for z in m.ZONES_IN_BALANCING_AREA[b])
+        )
+        m.Spinning_Reserve_Down_Provisions.append('HydrogenSpinningReserveDown')
 
 
 def load_inputs(mod, switch_data, inputs_dir):
