@@ -355,16 +355,19 @@ def define_components(mod):
         rule=lambda m, g, p: (
             m.BuildMinGenCap[g, p] * m.gen_min_build_capacity[g] 
             <= m.BuildGen[g, p]))
-    # Enforce the upper limit of the min build binary variables by using
-    # coefficient larger than any expected build size: 100 GW (10^5 MW). For
+    
+    # Define a constant for enforcing binary constraints on project capacity
+    # The value of 100 GW should be larger than any expected build size. For
     # perspective, the world's largest electric power plant (Three Gorges Dam)
-    # is 22.5 GW. I tried using 1TW, but CBC had numerical stability problems
+    # is 22.5 GW. I tried using 1 TW, but CBC had numerical stability problems
     # with that value and chose a suboptimal solution for the
     # discrete_and_min_build example which is installing capacity of 3-5 MW.
+    mod._gen_max_cap_for_binary_constraints = 10**5
     mod.Enforce_Min_Build_Upper = Constraint(
         mod.NEW_GEN_WITH_MIN_BUILD_YEARS,
         rule=lambda m, g, p: (
-            m.BuildGen[g, p] <= m.BuildMinGenCap[g, p] * 10**5))
+            m.BuildGen[g, p] <= m.BuildMinGenCap[g, p] *
+                mod._gen_max_cap_for_binary_constraints))
 
     # Costs
     mod.gen_variable_om = Param (mod.GENERATION_PROJECTS, within=NonNegativeReals)

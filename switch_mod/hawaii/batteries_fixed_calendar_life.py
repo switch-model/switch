@@ -113,6 +113,24 @@ def define_components(m):
         <= 
         m.Battery_Capacity[z, p] * m.battery_max_discharge * m.period_length_hours[p]
     )
+    
+    # Register with spinning reserves if it is available
+    if 'Spinning_Reserve_Up_Provisions' in dir(m):
+        m.BatterySpinningReserveUp = Expression(
+            m.BALANCING_AREA_TIMEPOINTS, 
+            rule=lambda m, b, t:
+                sum(m.BatterySlackUp[z, t]
+                    for z in m.ZONES_IN_BALANCING_AREA[b])
+        )
+        m.Spinning_Reserve_Up_Provisions.append('BatterySpinningReserveUp')
+
+        m.BatterySpinningReserveDown = Expression(
+            m.BALANCING_AREA_TIMEPOINTS, 
+            rule=lambda m, b, t: \
+                sum(m.BatterySlackDown[g, t] 
+                    for z in m.ZONES_IN_BALANCING_AREA[b])
+        )
+        m.Spinning_Reserve_Down_Provisions.append('BatterySpinningReserveDown')
 
 
 def load_inputs(m, switch_data, inputs_dir):

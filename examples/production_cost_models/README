@@ -5,3 +5,4 @@ This directory includes examples of gradually increasing complexity.
 4plants - Adds a solar plant and three more timepoints
 unit_commit - Adds unit commitment
 discrete_commit - Makes unit commitment discrete
+spinning_reserves - Adds spinning reserve requirements to unit_commit

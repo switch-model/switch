@@ -2,8 +2,7 @@
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
-Defines balacing area components for the SWITCH-Pyomo model.
-
+Defines balancing areas for operational reserves.
 """
 import os
 from pyomo.environ import *
@@ -12,106 +11,49 @@ dependencies = 'switch_mod.timescales', 'switch_mod.balancing.load_zones'
 
 def define_components(mod):
     """
-
     Augments a Pyomo abstract model object with sets and parameters that
     describe balancing areas. Unless otherwise stated, each set and
     parameter is mandatory.
 
-    zone_balancing_area[z] describes which balancing area each load zone
-    belongs to.
+    lz_balancing_area[z] describes which balancing area each load zone
+    belongs to. This defaults to "system_wide_balancing_area".
 
-    BALANCING_AREAS describes the set of balancing areas in which
-    operational reserves must be met. These are the unique names
-    specified in the zone_balancing_area[z] parameter. You can override
-    the default operational reserve requirements (described below) by
-    including an additional file in the input directory. See
-    load_inputs() documentation for more details. Balancing areas
-    are abbreviated as b for the purposed of indexing.
-
-    quickstart_res_load_frac[b] describes the quickstart reserve
-    requirements as a fraction of total load in the balancing area in
-    each hour. This defaults to 0.03.
-
-    quickstart_res_wind_frac[b] describes the quickstart reserve
-    requirements as a fraction of wind energy produced in the balancing
-    area in each hour. This defaults to 0.05.
-
-    quickstart_res_solar_frac[b] describes the quickstart reserve
-    requirements as a fraction of solar energy produced in the balancing
-    area in each hour. This defaults to 0.05.
-
-    spinning_res_load_frac[b] describes the spinning reserve
-    requirements as a fraction of total load in the balancing area in
-    each hour. This defaults to 0.03.
-
-    spinning_res_wind_frac[b] describes the spinning reserve
-    requirements as a fraction of wind energy produced in the balancing
-    area in each hour. This defaults to 0.05.
-
-    spinning_res_solar_frac[b] describes the spinning reserve
-    requirements as a fraction of solar energy produced in the balancing
-    area in each hour. This defaults to 0.05.
+    BALANCING_AREAS is the set of balancing areas in which operational
+    reserves must be met. These are the unique names specified in the
+    lz_balancing_area[z] parameter. This can be abbreviated as b for indexed.
+    
+    ZONES_IN_BALANCING_AREA[b] is the set of load zones in a given balancing
+    area.
+    
+    BALANCING_AREA_TIMEPOINTS is the cross product of BALANCING_AREAS and 
+    TIMEPOINTS.
 
     """
 
-    mod.zone_balancing_area = Param(mod.LOAD_ZONES)
-    mod.min_data_check('zone_balancing_area')
+    mod.lz_balancing_area = Param(mod.LOAD_ZONES, default='system_wide_balancing_area')
     mod.BALANCING_AREAS = Set(initialize=lambda m: set(
-        m.zone_balancing_area[z] for z in m.LOAD_ZONES))
-    mod.quickstart_res_load_frac = Param(
-        mod.BALANCING_AREAS, within=PositiveReals, default=0.03,
-        validate=lambda m, val, b: val < 1)
-    mod.quickstart_res_wind_frac = Param(
-        mod.BALANCING_AREAS, within=PositiveReals, default=0.05,
-        validate=lambda m, val, b: val < 1)
-    mod.quickstart_res_solar_frac = Param(
-        mod.BALANCING_AREAS, within=PositiveReals, default=0.05,
-        validate=lambda m, val, b: val < 1)
-    mod.spinning_res_load_frac = Param(
-        mod.BALANCING_AREAS, within=PositiveReals, default=0.03,
-        validate=lambda m, val, b: val < 1)
-    mod.spinning_res_wind_frac = Param(
-        mod.BALANCING_AREAS, within=PositiveReals, default=0.05,
-        validate=lambda m, val, b: val < 1)
-    mod.spinning_res_solar_frac = Param(
-        mod.BALANCING_AREAS, within=PositiveReals, default=0.05,
-        validate=lambda m, val, b: val < 1)
+        m.lz_balancing_area[z] for z in m.LOAD_ZONES))
+    mod.ZONES_IN_BALANCING_AREA = Set(
+        mod.BALANCING_AREAS,
+        initialize=lambda m, b: (
+            z for z in m.LOAD_ZONES if m.lz_balancing_area[z] == b))
+    mod.BALANCING_AREA_TIMEPOINTS = Set(
+        initialize=mod.BALANCING_AREAS * mod.TIMEPOINTS)        
 
 
 def load_inputs(mod, switch_data, inputs_dir):
     """
-
     Import balancing_area data. The following files are expected in the input
     directory:
 
-    zone_balancing_areas.tab should be a tab-separated file with the columns:
-        LOAD_ZONE, balancing_area
-
-    balancing_areas.tab is optional and should be specified if you want
-    to override the default values for operational reserves. If
-    provided, it needs to be formatted as a tab-separated file with the
-    columns:
-        BALANCING_AREAS, quickstart_res_load_frac,
-        quickstart_res_wind_frac, quickstart_res_solar_frac,
-        spinning_res_load_frac, spinning_res_wind_frac,
-        spinning_res_solar_frac
+    load_zones.tab 
+        LOAD_ZONE, ..., lz_balancing_area
 
     """
     # Include select in each load() function so that it will check out
     # column names, be indifferent to column order, and throw an error
     # message if some columns are not found.
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'zone_balancing_areas.tab'),
-        select=('LOAD_ZONE', 'balancing_area'),
-        param=(mod.zone_balancing_area))
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'balancing_areas.tab'),
-        optional=True,
-        select=(
-            'BALANCING_AREAS', 'quickstart_res_load_frac',
-            'quickstart_res_wind_frac', 'quickstart_res_solar_frac',
-            'spinning_res_load_frac', 'spinning_res_wind_frac',
-            'spinning_res_solar_frac'),
-        param=(mod.quickstart_res_load_frac, mod.quickstart_res_wind_frac,
-               mod.quickstart_res_solar_frac, mod.spinning_res_load_frac,
-               mod.spinning_res_wind_frac, mod.spinning_res_solar_frac))
+        filename=os.path.join(inputs_dir, 'load_zones.tab'),
+        auto_select=True,
+        param=(mod.lz_balancing_area))

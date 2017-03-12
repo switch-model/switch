@@ -14,7 +14,7 @@ from pyomo.environ import *
 from switch_mod.reporting import write_table
 
 dependencies = 'switch_mod.timescales', 'switch_mod.balancing.load_zones',\
-    'switch_mod.financials', 'switch_mod.energy_sources.properties.properties', \
+    'switch_mod.financials', 'switch_mod.energy_sources.properties', \
     'switch_mod.generators.core.build'
 
 def define_components(mod):

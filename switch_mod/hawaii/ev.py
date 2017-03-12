@@ -82,9 +82,21 @@ def define_components(m):
         # should never happen
         raise ValueError("Invalid value specified for --ev-timing: {}".format(str(m.options.ev_timing)))
 
-    # add the EV load to the zonal energy balance
+    # add the EV load to the model's energy balance
     m.Zone_Power_Withdrawals.append('ChargeEVs')
-    
+
+    # Register with spinning reserves if it is available and optimal EV
+    # charging is enabled.
+    if('Spinning_Reserve_Up_Provisions' in dir(m) and 
+       m.options.ev_timing == "optimal"):
+        m.EVSpinningReserveUp = Expression(
+            m.BALANCING_AREA_TIMEPOINTS, 
+            rule=lambda m, b, t:
+                sum(m.ChargeEVs[z, t]
+                    for z in m.ZONES_IN_BALANCING_AREA[b])
+        )
+        m.Spinning_Reserve_Up_Provisions.append('EVSpinningReserveUp')
+
 
 def load_inputs(m, switch_data, inputs_dir):
     """

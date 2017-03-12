@@ -19,7 +19,16 @@ def define_components(m):
             None
         )
     )
-    
+    # Register with spinning reserves if it is available
+    if 'Spinning_Reserve_Up_Provisions' in dir(m):
+        m.HIDemandResponseSimpleSpinningReserveUp = Expression(
+            m.BALANCING_AREA_TIMEPOINTS, 
+            rule=lambda m, b, t:
+                sum(m.DemandResponse[z, t] -  m.DemandResponse[z, t].lb
+                    for z in m.ZONES_IN_BALANCING_AREA[b])
+        )
+        m.Spinning_Reserve_Up_Provisions.append('HIDemandResponseSimpleSpinningReserveUp')
+
     # all changes to demand must balance out over the course of the day
     m.Demand_Response_Net_Zero = Constraint(m.LOAD_ZONES, m.TIMESERIES, rule=lambda m, z, ts:
         sum(m.ShiftDemand[z, tp] for tp in m.TPS_IN_TS[ts]) == 0.0
