@@ -151,7 +151,7 @@ def write_tables(**args):
     # load_zones
 
     # note: we don't provide the following fields in this version:
-    # zone_cost_multipliers, zone_ccs_distance_km, zone_dbid, 
+    # zone_cost_multipliers, zone_ccs_distance_km, zone_dbid,
     # existing_local_td, local_td_annual_cost_per_mw
     write_table('load_zones.tab', """
         SELECT load_zone as "LOAD_ZONE"
@@ -291,7 +291,7 @@ def write_tables(**args):
 
     # NOTE: this converts variable o&m from $/kWh to $/MWh
     # and heat rate from Btu/kWh to MBtu/MWh
-    
+
     # NOTE: for all energy sources other than 'SUN' and 'WND' (i.e., all fuels),
     # we report the fuel as 'multiple' and then provide data in a multi-fuel table.
     # Some of these are actually single-fuel, but this approach is simpler than sorting
@@ -317,12 +317,12 @@ def write_tables(**args):
         )
 
 
-    # TODO: make sure the heat rates are null for non-fuel projects in the upstream database, 
+    # TODO: make sure the heat rates are null for non-fuel projects in the upstream database,
     # and remove the correction code from here
-    
+
     # TODO: maybe replace "fuel IN ('SUN', 'WND', 'MSW')" with "fuel not in (SELECT fuel FROM fuel_cost)"
     # TODO: convert 'MSW' to a proper fuel, possibly with a negative cost, instead of ignoring it
-    
+
     # Omit full load heat rates if we are providing heat rate curves instead
     if args.get('use_incremental_heat_rates', False):
         full_load_heat_rate = 'null'
@@ -334,22 +334,22 @@ def write_tables(**args):
     else:
         forced_outage_rate = '0'
 
-    # if needed, follow the query below with another one that specifies 
+    # if needed, follow the query below with another one that specifies
     # COALESCE(gen_connect_cost_per_mw, 0.0) AS gen_connect_cost_per_mw
     write_table('generation_projects_info.tab', """
-        SELECT 
+        SELECT
             "GENERATION_PROJECT",
             load_zone AS gen_load_zone,
             technology AS gen_tech,
             connect_cost_per_mw AS gen_connect_cost_per_mw,
             max_capacity AS gen_capacity_limit_mw,
             unit_size as gen_unit_size,
-            max_age_years as gen_max_age, 
-            scheduled_outage_rate as gen_scheduled_outage_rate, 
+            max_age_years as gen_max_age,
+            scheduled_outage_rate as gen_scheduled_outage_rate,
             {fo} as gen_forced_outage_rate,
-            intermittent as gen_is_variable, 
-            baseload as gen_is_baseload, 
-            -- 0 as gen_is_flexible_baseload, 
+            intermittent as gen_is_variable,
+            baseload as gen_is_baseload,
+            -- 0 as gen_is_flexible_baseload,
             cogen as gen_is_cogen,
             non_cycling as gen_non_cycling,
             variable_o_m * 1000.0 AS gen_variable_om,
@@ -360,41 +360,41 @@ def write_tables(**args):
     """.format(fo=forced_outage_rate, flhr=full_load_heat_rate), args)
 
     write_table('gen_build_predetermined.tab', """
-        SELECT 
-            "GENERATION_PROJECT", 
-            build_year, 
+        SELECT
+            "GENERATION_PROJECT",
+            build_year,
             SUM(gen_existing_cap) as gen_predetermined_cap
         FROM study_projects JOIN gen_existing_builds USING (project_id)
         GROUP BY 1, 2
         ORDER BY 1, 2;
     """, args)
 
-    # NOTE: these costs must be expressed in $/MW, $/MWh or $/MW-year, 
+    # NOTE: these costs must be expressed in $/MW, $/MWh or $/MW-year,
     # not $/kW, $/kWh or $/kW-year.
     write_table('gen_build_costs.tab', """
         WITH gen_build_costs AS (
-            SELECT  
-                i.technology, 
+            SELECT
+                i.technology,
                 c.year AS build_year,
-                c.capital_cost_per_kw * 1000.0 
+                c.capital_cost_per_kw * 1000.0
                     * power(1.0+%(inflation_rate)s, %(base_financial_year)s-c.base_year)
-                    AS gen_overnight_cost, 
+                    AS gen_overnight_cost,
                 i.fixed_o_m * 1000.0 * power(1.0+%(inflation_rate)s, %(base_financial_year)s-i.base_year)
                     AS gen_fixed_o_m
             FROM study_generator_info i
                 JOIN generator_costs_by_year c USING (technology)
                 JOIN study_periods p ON p.period = c.year
-            WHERE time_sample = %(time_sample)s 
+            WHERE time_sample = %(time_sample)s
                 AND (i.min_vintage_year IS NULL OR c.year >= i.min_vintage_year)
                 AND c.cap_cost_scen_id = %(cap_cost_scen_id)s
             ORDER BY 1, 2
         )
-        SELECT 
-            "GENERATION_PROJECT", 
-            build_year, 
-            sum(gen_overnight_cost * 1000.0 * gen_existing_cap) / sum(gen_existing_cap) 
+        SELECT
+            "GENERATION_PROJECT",
+            build_year,
+            sum(gen_overnight_cost * 1000.0 * gen_existing_cap) / sum(gen_existing_cap)
                 AS gen_overnight_cost,
-            sum(gen_fixed_om * 1000.0 * gen_existing_cap) / sum(gen_existing_cap) 
+            sum(gen_fixed_om * 1000.0 * gen_existing_cap) / sum(gen_existing_cap)
                 AS gen_fixed_om
         FROM study_projects JOIN gen_existing_builds USING (project_id)
         GROUP BY 1, 2
@@ -420,7 +420,7 @@ def write_tables(**args):
             WITH part_load AS (
                 SELECT 
                     row_number() OVER (ORDER BY technology, output_mw, fuel_consumption_mmbtu_per_h) AS key,
-                    technology, 
+                    technology,
                     output_mw, 
                     fuel_consumption_mmbtu_per_h
                 FROM part_load_fuel_consumption JOIN study_generator_info USING (technology)
@@ -430,7 +430,7 @@ def write_tables(**args):
                 GROUP BY 1
             ), curves AS (
                 SELECT -- first step in each curve
-                    key, technology, 
+                    key, technology,
                     output_mw AS power_start_mw, 
                     NULL::real AS power_end_mw, 
                     NULL::real AS incremental_heat_rate_mbtu_per_mwhr,
@@ -438,7 +438,7 @@ def write_tables(**args):
                 FROM part_load LEFT JOIN prior USING (key) WHERE prior_key IS NULL
                 UNION
                 SELECT -- additional steps
-                    high.key AS key, high.technology, 
+                    high.key AS key, high.technology,
                     low.output_mw AS power_start_mw, 
                     high.output_mw AS power_end_mw,
                     (high.fuel_consumption_mmbtu_per_h - low.fuel_consumption_mmbtu_per_h) 
@@ -447,9 +447,9 @@ def write_tables(**args):
                 FROM part_load high JOIN prior USING (key) JOIN part_load low ON (low.key = prior.prior_key)
                 ORDER BY 1
             )
-            SELECT 
-                "GENERATION_PROJECT" as project, 
-                power_start_mw, power_end_mw, 
+            SELECT
+                "GENERATION_PROJECT" as project,
+                power_start_mw, power_end_mw,
                 incremental_heat_rate_mbtu_per_mwhr, fuel_use_rate_mmbtu_per_h
             FROM curves c JOIN study_projects p using (technology)
             ORDER BY c.technology, c.key, p."GENERATION_PROJECT";
@@ -474,13 +474,13 @@ def write_tables(**args):
             SELECT * from all_techs WHERE orig_fuel NOT IN ('SUN', 'WND', 'MSW')
         ), gen_multiple_fuels AS (
             SELECT DISTINCT technology, b.energy_source as fuel
-            FROM all_fueled_techs t 
+            FROM all_fueled_techs t
                 JOIN energy_source_properties a ON a.energy_source = t.orig_fuel
                 JOIN energy_source_properties b ON b.fuel_rank >= a.fuel_rank AND
                     (a.fuel_rank > 0 OR a.energy_source = b.energy_source)    -- 0-rank can't change fuels
                 WHERE b.energy_source IN (SELECT fuel_type FROM fuel_costs WHERE fuel_scen_id = %(fuel_scen_id)s)
-        ) 
-        SELECT "GENERATION_PROJECT", fuel 
+        )
+        SELECT "GENERATION_PROJECT", fuel
             FROM gen_multiple_fuels g JOIN study_projects p USING (technology)
             ORDER BY p.technology, p."GENERATION_PROJECT", g.fuel
     """, args)
@@ -523,20 +523,20 @@ def write_tables(**args):
 
     # TODO: create data files showing reserve rules
 
-    write_table('gen_commit_bounds_timeseries.tab', """
+    write_table('gen_timepoint_commit_bounds.tab', """
         SELECT * FROM (
             SELECT "GENERATION_PROJECT",
                 study_hour AS "TIMEPOINT",
                 CASE WHEN %(enable_must_run)s = 1 AND must_run = 1 THEN 1.0 ELSE null END 
-                    AS gen_min_commit_fraction, 
+                    AS gen_min_commit_fraction,
                 null AS gen_max_commit_fraction,
                 null AS gen_min_load_fraction_TP
             FROM study_projects JOIN study_generator_info USING (technology)
                 CROSS JOIN study_hour
             WHERE time_sample = %(time_sample)s
         ) AS the_data
-        WHERE gen_min_commit_fraction IS NOT NULL 
-            OR gen_max_commit_fraction IS NOT NULL 
+        WHERE gen_min_commit_fraction IS NOT NULL
+            OR gen_max_commit_fraction IS NOT NULL
             OR gen_min_load_fraction_TP IS NOT NULL;
     """, args)
 
