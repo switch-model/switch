@@ -922,7 +922,7 @@ def summary_values(m):
         )
         for prod in m.DR_PRODUCTS for p in m.PERIODS
     ])
-    import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
     
     # total quantities bought (or sold) by customers each year
     values.extend([
