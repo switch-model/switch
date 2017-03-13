@@ -256,7 +256,7 @@ def define_components(mod):
         mod.PROJ_DISPATCH_POINTS,
         rule=lambda m, proj, t: (
             m.CommitProject[proj, t] - m.CommitLowerLimit[proj, t]))
-    # Startup & Shutdown
+    # Startup & Shutdown (at start of each timepoint)
     mod.Startup = Var(
         mod.PROJ_DISPATCH_POINTS,
         within=NonNegativeReals)
@@ -318,11 +318,13 @@ def define_components(mod):
         
         # how many timepoints must the project stay on/off once it's
         # started/shutdown?
+        # note: Startup and Shutdown are assumed to occur at the start of 
+        # the timepoint
         n_tp = int(round(
-            m.g_min_downtime[m.proj_gen_tech[pr]] 
+            (m.g_min_uptime[m.proj_gen_tech[pr]] if up else m.g_min_downtime[m.proj_gen_tech[pr]])
             / m.ts_duration_of_tp[m.tp_ts[tp]]
         ))
-        if n_tp == 1:
+        if n_tp == 0:
             # project can be shutdown and restarted in the same timepoint
             rule = Constraint.Skip
         else:
@@ -335,18 +337,24 @@ def define_components(mod):
                     # (all recent startups are still online)
                     m.CommitProject[pr, tp] 
                     >= 
-                    sum(m.Startup[pr, tp_prev(m, tp, i)] for i in range(1, n_tp))
+                    sum(m.Startup[pr, tp_prev(m, tp, i)] for i in range(n_tp))
                 )
             else:
                 # Find the largest fraction of capacity that could have
                 # been committed in the last x hours, including the
                 # current hour. We assume that everything above this band
                 # must remain turned off (e.g., on maintenance outage). 
+                # Note: this band extends one step prior to the first
+                # relevant shutdown, since that capacity could have been
+                # online in the prior step.
                 committable_fraction = m.proj_availability[pr] * max(
                     m.proj_max_commit_fraction[pr, tp_prev(m, tp, i)] 
-                        for i in range(0, n_tp)
+                        for i in range(n_tp+1)
                 )
-                rule = (    
+                rule = (
+                    # committable capacity - committed >= recent shutdowns
+                    # committable * capacity - committed >= shutdowns
+                    
                     # offline capacity >= forced-off + recent shutdowns 
                     # (all recent shutdowns are still offline)
                     # This is 
@@ -357,7 +365,7 @@ def define_components(mod):
                     m.ProjCapacityTP[pr, tp] * committable_fraction
                     - m.CommitProject[pr, tp] 
                     >= 
-                    sum(m.Shutdown[pr, tp_prev(m, tp, i)] for i in range(1, n_tp))
+                    sum(m.Shutdown[pr, tp_prev(m, tp, i)] for i in range(n_tp))
                 )
         return rule
     mod.Enforce_Min_Uptime = Constraint(
@@ -423,7 +431,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     costs for a non-fuel based generator, you must put a dot . in the
     g_startup_fuel column to avoid an error.
 
-    proj_commit_bounds_timeseries.tab
+    proj_timepoint_commit_bounds.tab
         PROJECT, TIMEPOINT, proj_min_commit_fraction, proj_max_commit_fraction,
         proj_min_load_fraction
 
@@ -436,7 +444,7 @@ def load_inputs(mod, switch_data, inputs_dir):
                mod.g_startup_om, mod.g_min_uptime, mod.g_min_downtime))
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'proj_commit_bounds_timeseries.tab'),
+        filename=os.path.join(inputs_dir, 'proj_timepoint_commit_bounds.tab'),
         auto_select=True,
         param=(mod.proj_min_commit_fraction, mod.proj_max_commit_fraction,
                mod.proj_min_load_fraction))

@@ -552,7 +552,7 @@ def write_tables(**args):
     # TODO: eventually add code to only provide these values for the timepoints before 
     # each project retires (providing them after retirement will cause an error).
 
-    write_table('proj_commit_bounds_timeseries.tab', """
+    write_table('proj_timepoint_commit_bounds.tab', """
         SELECT * FROM (
             SELECT "PROJECT",
                 study_hour AS "TIMEPOINT",
