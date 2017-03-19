@@ -250,15 +250,11 @@ def define_components(mod):
     # behavior for now. The simple bounds that works with some other
     # solvers is: 0, m.rfm_supply_tier_limit[rfm, p, st]))
 
-    mod.FuelConsumptionInMarket = Var(
+    mod.FuelConsumptionInMarket = Expression(
         mod.REGIONAL_FUEL_MARKET, mod.PERIODS,
-        domain=NonNegativeReals)
-    mod.Enforce_Fuel_Consumption_By_Tier = Constraint(
-        mod.REGIONAL_FUEL_MARKET, mod.PERIODS,
-        rule=lambda m, rfm, p: (
-            m.FuelConsumptionInMarket[rfm, p] == sum(
-                m.FuelConsumptionByTier[rfm_supply_tier]
-                for rfm_supply_tier in m.RFM_P_SUPPLY_TIERS[rfm, p])))
+        rule=lambda m, rfm, p: sum(
+            m.FuelConsumptionByTier[rfm_supply_tier]
+                for rfm_supply_tier in m.RFM_P_SUPPLY_TIERS[rfm, p]))
 
     # Ensure that adjusted fuel costs of unbounded supply tiers are not
     # negative because that would create an unbounded optimization
@@ -297,7 +293,6 @@ def define_components(mod):
             m.proj_load_zone[proj] in m.RFM_LOAD_ZONES[rfm] and
             m.tp_period[t] == p])
 
-    # could FuelConsumptionInMarket be an Expression instead of a constrained var?
     def Enforce_Fuel_Consumption_rule(m, rfm, p):
         return m.FuelConsumptionInMarket[rfm, p] == sum(
             m.ProjFuelUseRate[proj, t, f] * m.tp_weight_in_year[t]

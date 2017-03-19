@@ -285,10 +285,6 @@ def define_components(mod):
             if m.tp_period[t] == period),
         doc="The system's annual emissions, in metric tonnes of CO2 per year.")
 
-    mod.Proj_Var_Costs_Hourly = Expression(
-        mod.PROJ_DISPATCH_POINTS,
-        rule=lambda m, proj, t: (
-            m.DispatchProj[proj, t] * m.proj_variable_om[proj]))
     # An expression to summarize costs for the objective function. Units
     # should be total future costs in $base_year real dollars. The
     # objective function will convert these to base_year Net Present
@@ -296,7 +292,7 @@ def define_components(mod):
     mod.Total_Proj_Var_Costs_Hourly = Expression(
         mod.TIMEPOINTS,
         rule=lambda m, t: sum(
-            m.Proj_Var_Costs_Hourly[proj, t]
+            m.DispatchProj[proj, t] * m.proj_variable_om[proj]
             for proj in m.PERIOD_ACTIVE_PROJ[m.tp_period[t]]))
     mod.cost_components_tp.append('Total_Proj_Var_Costs_Hourly')
 

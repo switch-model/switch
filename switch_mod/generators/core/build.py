@@ -460,9 +460,11 @@ def define_components(mod):
     mod.Total_Proj_Fixed_Costs_Annual = Expression(
         mod.PERIODS,
         rule=lambda m, p: sum(
-            m.Proj_Fixed_Costs_Annual[proj, p]
-            for (proj, period) in m.PROJECT_OPERATIONAL_PERIODS
-            if p == period))
+            m.BuildProj[proj, bld_yr] *
+            (m.proj_capital_cost_annual[proj, bld_yr] +
+             m.proj_fixed_om[proj, bld_yr])
+            for proj in m.PROJECTS
+            for bld_yr in m.PROJECT_PERIOD_ONLINE_BUILD_YRS[proj, p]))
     mod.cost_components_annual.append('Total_Proj_Fixed_Costs_Annual')
 
 

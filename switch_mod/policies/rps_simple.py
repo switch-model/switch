@@ -76,17 +76,14 @@ def define_components(mod):
         within=NonNegativeReals,
         validate=lambda m, val, p: val <= 1.0)
 
-    mod.RPSProjFuelPower = Expression(
-        mod.PROJ_WITH_FUEL_DISPATCH_POINTS,
-        rule=lambda m, proj, t: sum(m.ProjFuelUseRate[proj, t, f] 
-            for f in m.PROJ_FUELS[proj]
-                if m.f_rps_eligible[f]) / m.proj_full_load_heat_rate[proj])
-
     mod.RPSFuelEnergy = Expression(
         mod.RPS_PERIODS,
-        rule=lambda m, p: sum(m.RPSProjFuelPower[g, t] * m.tp_weight[t]
-            for g in m.FUEL_BASED_PROJECTS 
-                for t in m.PROJ_ACTIVE_TIMEPOINTS_IN_PERIOD[g, p]))
+        rule=lambda m, p: sum(
+            sum(m.ProjFuelUseRate[g, t, f] for f in m.PROJ_FUELS[g]
+                if m.f_rps_eligible[f]) / m.proj_full_load_heat_rate[g] *
+                m.tp_weight[t]
+                    for g in m.FUEL_BASED_PROJECTS 
+                        for t in m.PROJ_ACTIVE_TIMEPOINTS_IN_PERIOD[g, p]))
     mod.RPSNonFuelEnergy = Expression(
         mod.RPS_PERIODS,
         rule=lambda m, p: sum(m.DispatchProj[g, t] * m.tp_weight[t]
