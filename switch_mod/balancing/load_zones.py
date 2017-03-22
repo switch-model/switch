@@ -35,10 +35,10 @@ def define_components(mod):
     modeled as a single bus connected to the inter-zonal transmission
     network, and connected to loads via local transmission and
     distribution that incurs efficiency losses and must be upgraded over
-    time to always meet peak demand. Load zones are abbreviated as lz in
+    time to always meet peak demand. Load zones are abbreviated as z in
     parameter names and as z for indexes.
 
-    lz_demand_mw[z,t] describes the power demand from the high voltage
+    zone_demand_mw[z,t] describes the power demand from the high voltage
     transmission grid each load zone z and timepoint t. This will either go
     into the LZ_Energy_Components_Consume or the Distributed_Withdrawals power
     balance equations, depending on whether the local_td module is included
@@ -46,32 +46,32 @@ def define_components(mod):
     module is excluded, this value should be the total withdrawals from the
     central grid and should include any distribution losses. If the local_td
     module is included, this should be set to total end-use demand (aka sales)
-    and should not include distribution losses. lz_demand_mw must be
+    and should not include distribution losses. zone_demand_mw must be
     non-negative.
 
-    lz_dbid[z] stores an external database id for each load zone. This
+    zone_dbid[z] stores an external database id for each load zone. This
     is optional and defaults to the name of the load zone. It will be
     printed out when results are exported.
 
-    lz_ccs_distance_km[z] describes the length of a pipeline in
+    zone_ccs_distance_km[z] describes the length of a pipeline in
     kilometers that would need to be built to transport CO2 from a load
     zones central bus to the nearest viable CCS reservoir. This
     parameter is optional and defaults to 0.
 
     EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS is a set of load zones and
-    periods (z,p) that have lz_expected_coincident_peak_demand specified.
+    periods (z,p) that have zone_expected_coincident_peak_demand specified.
 
-    lz_expected_coincident_peak_demand[z,p] is an optional parameter than can
+    zone_expected_coincident_peak_demand[z,p] is an optional parameter than can
     be used to externally specify peak load planning requirements in MW.
     Currently local_td and planning_reserves determine capacity requirements
-    use lz_expected_coincident_peak_demand as well as load timeseries. Do not
+    use zone_expected_coincident_peak_demand as well as load timeseries. Do not
     specify this parameter if you wish for the model to endogenously determine
     capacity requirements after accounting for both load and Distributed
     Energy Resources (DER). 
 
     Derived parameters:
 
-    lz_total_demand_in_period_mwh[z,p] describes the total energy demand
+    zone_total_demand_in_period_mwh[z,p] describes the total energy demand
     of each load zone in each period in Megawatt hours.
 
     """
@@ -80,34 +80,34 @@ def define_components(mod):
     mod.ZONE_TIMEPOINTS = Set(dimen=2,
         initialize=lambda m: m.LOAD_ZONES * m.TIMEPOINTS,
         doc="The cross product of load zones and timepoints, used for indexing.")
-    mod.lz_demand_mw = Param(
+    mod.zone_demand_mw = Param(
         mod.ZONE_TIMEPOINTS,
         within=NonNegativeReals)
-    mod.lz_ccs_distance_km = Param(
+    mod.zone_ccs_distance_km = Param(
         mod.LOAD_ZONES,
         within=NonNegativeReals,
         default=0.0)
-    mod.lz_dbid = Param(
+    mod.zone_dbid = Param(
         mod.LOAD_ZONES,
-        default=lambda m, lz: lz)
-    mod.min_data_check('LOAD_ZONES', 'lz_demand_mw')
+        default=lambda m, lz: z)
+    mod.min_data_check('LOAD_ZONES', 'zone_demand_mw')
     if 'Distributed_Withdrawals' in dir(mod):
-        mod.Distributed_Withdrawals.append('lz_demand_mw')
+        mod.Distributed_Withdrawals.append('zone_demand_mw')
     else:
-        mod.LZ_Energy_Components_Consume.append('lz_demand_mw')
+        mod.LZ_Energy_Components_Consume.append('zone_demand_mw')
 
     mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS = Set(
         dimen=2, within=mod.LOAD_ZONES * mod.PERIODS,
-        doc="Zone-Period combinations with lz_expected_coincident_peak_demand data.")
-    mod.lz_expected_coincident_peak_demand = Param(
+        doc="Zone-Period combinations with zone_expected_coincident_peak_demand data.")
+    mod.zone_expected_coincident_peak_demand = Param(
         mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS,
         within=NonNegativeReals)
-    mod.lz_total_demand_in_period_mwh = Param(
+    mod.zone_total_demand_in_period_mwh = Param(
         mod.LOAD_ZONES, mod.PERIODS,
         within=NonNegativeReals,
         initialize=lambda m, z, p: (
-            sum(m.lz_demand_mw[z, t] * m.tp_weight[t]
-                for t in m.PERIOD_TPS[p])))
+            sum(m.zone_demand_mw[z, t] * m.tp_weight[t]
+                for t in m.TPS_IN_PERIOD[p])))
 
 
 def define_dynamic_components(mod):
@@ -150,13 +150,13 @@ def load_inputs(mod, switch_data, inputs_dir):
     files are noted with a *.
 
     load_zones.tab
-        LOAD_ZONE, lz_ccs_distance_km*, lz_dbid*
+        LOAD_ZONE, zone_ccs_distance_km*, zone_dbid*
 
     loads.tab
-        LOAD_ZONE, TIMEPOINT, lz_demand_mw
+        LOAD_ZONE, TIMEPOINT, zone_demand_mw
 
-    lz_coincident_peak_demand.tab*
-        LOAD_ZONE, PERIOD, lz_expected_coincident_peak_demand
+    zone_coincident_peak_demand.tab*
+        LOAD_ZONE, PERIOD, zone_expected_coincident_peak_demand
 
     """
     # Include select in each load() function so that it will check out
@@ -166,17 +166,17 @@ def load_inputs(mod, switch_data, inputs_dir):
         filename=os.path.join(inputs_dir, 'load_zones.tab'),
         auto_select=True,
         index=mod.LOAD_ZONES,
-        param=(mod.lz_ccs_distance_km, mod.lz_dbid))
+        param=(mod.zone_ccs_distance_km, mod.zone_dbid))
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'loads.tab'),
         auto_select=True,
-        param=(mod.lz_demand_mw))
+        param=(mod.zone_demand_mw))
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'lz_coincident_peak_demand.tab'),
+        filename=os.path.join(inputs_dir, 'zone_coincident_peak_demand.tab'),
         index=mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS,
-        select=('LOAD_ZONE', 'PERIOD', 'lz_expected_coincident_peak_demand'),
-        param=(mod.lz_expected_coincident_peak_demand))
+        select=('LOAD_ZONE', 'PERIOD', 'zone_expected_coincident_peak_demand'),
+        param=(mod.zone_expected_coincident_peak_demand))
 
 
 def post_solve(instance, outdir):

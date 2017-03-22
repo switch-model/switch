@@ -1,4 +1,4 @@
-LOAD_ZONE	TIMEPOINT	lz_demand_mw
+LOAD_ZONE	TIMEPOINT	zone_demand_mw
 Unique	1	10
 Unique	2	8
 Unique	3	8

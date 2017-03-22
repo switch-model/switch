@@ -23,26 +23,26 @@ def define_components(mod):
 
     TRANS_TIMEPOINTS describes the scope that transmission dispatch
     decisions must be made over. It is defined as the set of
-    TRANS_DIRECTIONAL crossed with TIMEPOINTS. It is indexed as
+    DIRECTIONAL_TX crossed with TIMEPOINTS. It is indexed as
     (load_zone_from, load_zone_to, timepoint) and may be abbreviated as
-    [lz_from, lz_to, tp] for brevity.
+    [z_from, zone_to, tp] for brevity.
 
-    DispatchTrans[lz_from, lz_to, tp] is the decision of how much power
+    DispatchTx[z_from, zone_to, tp] is the decision of how much power
     to send along each transmission line in a particular direction in
     each timepoint.
 
-    Maximum_DispatchTrans is a constraint that forces DispatchTrans to
+    Maximum_DispatchTx is a constraint that forces DispatchTx to
     stay below the bounds of installed capacity.
 
-    TxPowerSent[lz_from, lz_to, tp] is an expression that describes the
+    TxPowerSent[z_from, zone_to, tp] is an expression that describes the
     power sent down a transmission line. This is completely determined by
-    DispatchTrans[lz_from, lz_to, tp].
+    DispatchTx[z_from, zone_to, tp].
 
-    TxPowerReceived[lz_from, lz_to, tp] is an expression that describes the
+    TxPowerReceived[z_from, zone_to, tp] is an expression that describes the
     power sent down a transmission line. This is completely determined by
-    DispatchTrans[lz_from, lz_to, tp] and trans_efficiency[tx].
+    DispatchTx[z_from, zone_to, tp] and trans_efficiency[tx].
 
-    LZ_TXNet[lz, tp] is an expression that returns the net power from
+    TXPowerNet[z, tp] is an expression that returns the net power from
     transmission for a load zone. This is the sum of TxPowerReceived by
     the load zone minus the sum of TxPowerSent by the load zone.
 
@@ -50,35 +50,35 @@ def define_components(mod):
 
     mod.TRANS_TIMEPOINTS = Set(
         dimen=3,
-        initialize=lambda m: m.TRANS_DIRECTIONAL * m.TIMEPOINTS
+        initialize=lambda m: m.DIRECTIONAL_TX * m.TIMEPOINTS
     )
-    mod.DispatchTrans = Var(mod.TRANS_TIMEPOINTS, within=NonNegativeReals)
+    mod.DispatchTx = Var(mod.TRANS_TIMEPOINTS, within=NonNegativeReals)
 
-    mod.Maximum_DispatchTrans = Constraint(
+    mod.Maximum_DispatchTx = Constraint(
         mod.TRANS_TIMEPOINTS,
-        rule=lambda m, lz_from, lz_to, tp: (
-            m.DispatchTrans[lz_from, lz_to, tp] <=
-            m.TransCapacityAvailable[m.trans_d_line[lz_from, lz_to],
+        rule=lambda m, zone_from, zone_to, tp: (
+            m.DispatchTx[zone_from, zone_to, tp] <=
+            m.TxCapacityNameplateAvailable[m.trans_d_line[zone_from, zone_to],
                                      m.tp_period[tp]]))
 
     mod.TxPowerSent = Expression(
         mod.TRANS_TIMEPOINTS,
-        rule=lambda m, lz_from, lz_to, tp: (
-            m.DispatchTrans[lz_from, lz_to, tp]))
+        rule=lambda m, zone_from, zone_to, tp: (
+            m.DispatchTx[zone_from, zone_to, tp]))
     mod.TxPowerReceived = Expression(
         mod.TRANS_TIMEPOINTS,
-        rule=lambda m, lz_from, lz_to, tp: (
-            m.DispatchTrans[lz_from, lz_to, tp] *
-            m.trans_efficiency[m.trans_d_line[lz_from, lz_to]]))
+        rule=lambda m, zone_from, zone_to, tp: (
+            m.DispatchTx[zone_from, zone_to, tp] *
+            m.trans_efficiency[m.trans_d_line[zone_from, zone_to]]))
 
-    def LZ_TXNet_calculation(m, lz, tp):
+    def TXPowerNet_calculation(m, z, tp):
         return (
-            sum(m.TxPowerReceived[lz_from, lz, tp] 
-                for lz_from in m.CONNECTED_LOAD_ZONES[lz]) -
-            sum(m.TxPowerSent[lz, lz_to, tp] 
-                for lz_to in m.CONNECTED_LOAD_ZONES[lz]))
-    mod.LZ_TXNet = Expression(
+            sum(m.TxPowerReceived[zone_from, z, tp] 
+                for zone_from in m.TX_CONNECTIONS_TO_ZONE[z]) -
+            sum(m.TxPowerSent[z, zone_to, tp] 
+                for zone_to in m.TX_CONNECTIONS_TO_ZONE[z]))
+    mod.TXPowerNet = Expression(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
-        rule=LZ_TXNet_calculation)
+        rule=TXPowerNet_calculation)
     # Register net transmission as contributing to a load zone's energy
-    mod.LZ_Energy_Components_Produce.append('LZ_TXNet')
+    mod.LZ_Energy_Components_Produce.append('TXPowerNet')

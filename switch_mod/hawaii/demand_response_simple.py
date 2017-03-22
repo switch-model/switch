@@ -13,17 +13,17 @@ def define_components(m):
     m.demand_response_max_share = Param(default=m.options.demand_response_share, mutable=True)
 
     # adjustment to demand during each hour (positive = higher demand)
-    m.DemandResponse = Var(m.LOAD_ZONES, m.TIMEPOINTS, within=Reals, bounds=lambda m, z, t: 
+    m.ShiftDemand = Var(m.LOAD_ZONES, m.TIMEPOINTS, within=Reals, bounds=lambda m, z, t: 
         (
-            (-1.0) * m.demand_response_max_share * m.lz_demand_mw[z, t],
+            (-1.0) * m.demand_response_max_share * m.zone_demand_mw[z, t],
             None
         )
     )
     
     # all changes to demand must balance out over the course of the day
     m.Demand_Response_Net_Zero = Constraint(m.LOAD_ZONES, m.TIMESERIES, rule=lambda m, z, ts:
-        sum(m.DemandResponse[z, tp] for tp in m.TS_TPS[ts]) == 0.0
+        sum(m.ShiftDemand[z, tp] for tp in m.TPS_IN_TS[ts]) == 0.0
     )
 
     # add the demand response to the model's energy balance
-    m.LZ_Energy_Components_Consume.append('DemandResponse')
+    m.LZ_Energy_Components_Consume.append('ShiftDemand')

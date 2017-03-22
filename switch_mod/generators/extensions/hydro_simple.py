@@ -37,63 +37,63 @@ dependencies = 'switch_mod.timescales', 'switch_mod.balancing.load_zones',\
 def define_components(mod):
     """
     
-    HYDRO_PROJECTS is the set of dispatchable hydro projects. This is a subet
-    of PROJECTS, and is determined by the inputs file hydro_timeseries.tab.
-    Members of this set can be called either proj, or hydro_proj.
+    HYDRO_GENS is the set of dispatchable hydro projects. This is a subet
+    of GENERATION_PROJECTS, and is determined by the inputs file hydro_timeseries.tab.
+    Members of this set can be called either g, or hydro_g.
     
-    HYDRO_TIMESERIES is the set of Hydro projects and timeseries for which
+    HYDRO_GEN_TS is the set of Hydro projects and timeseries for which
     minimum and average flow are specified. Members of this set can be 
-    abbreviated as (project, timeseries) or (proj, ts).
+    abbreviated as (project, timeseries) or (g, ts).
     
-    HYDRO_PROJ_DISPATCH_POINTS is the set of Hydro projects and available
-    dispatch points. This is a filtered version of PROJ_DISPATCH_POINTS that
+    HYDRO_GEN_TPS is the set of Hydro projects and available
+    dispatch points. This is a filtered version of GEN_TPS that
     only includes hydro projects.
 
-    hydro_min_flow_mw[(proj, ts) in HYDRO_TIMESERIES] is a parameter that
+    hydro_min_flow_mw[(g, ts) in HYDRO_GEN_TS] is a parameter that
     determines minimum flow levels, specified in units of MW dispatch. 
     
-    hydro_avg_flow_mw[(proj, ts) in HYDRO_TIMESERIES] is a parameter that
+    hydro_avg_flow_mw[(g, ts) in HYDRO_GEN_TS] is a parameter that
     determines average flow levels, specified in units of MW dispatch.
 
-    Enforce_Hydro_Min_Flow[(proj, t) in HYDRO_PROJ_DISPATCH_POINTS] is a
+    Enforce_Hydro_Min_Flow[(g, t) in HYDRO_GEN_TPS] is a
     constraint that enforces minimum flow levels for each timepoint.
     
-    Enforce_Hydro_Avg_Flow[(proj, ts) in HYDRO_TIMESERIES] is a constraint
+    Enforce_Hydro_Avg_Flow[(g, ts) in HYDRO_GEN_TS] is a constraint
     that enforces average flow levels across each timeseries.
     
     """
 
-    mod.HYDRO_TIMESERIES = Set(
+    mod.HYDRO_GEN_TS = Set(
         dimen=2,
-        validate=lambda m, proj, ts: (proj in m.PROJECTS) & (ts in m.TIMESERIES))
-    mod.HYDRO_PROJECTS = Set(
-        initialize=lambda m: set(proj for (proj, ts) in m.HYDRO_TIMESERIES),
+        validate=lambda m, g, ts: (g in m.GENERATION_PROJECTS) & (ts in m.TIMESERIES))
+    mod.HYDRO_GENS = Set(
+        initialize=lambda m: set(g for (g, ts) in m.HYDRO_GEN_TS),
         doc="Dispatchable hydro projects")
-    mod.HYDRO_PROJ_DISPATCH_POINTS = Set(
-        initialize=mod.PROJ_DISPATCH_POINTS,
-        filter=lambda m, proj, t: proj in m.HYDRO_PROJECTS)
+    mod.HYDRO_GEN_TPS = Set(
+        initialize=mod.GEN_TPS,
+        filter=lambda m, g, t: g in m.HYDRO_GENS)
 
     # To do: Add validation check that timeseries data are specified for every
     # valid timepoint.
 
     mod.hydro_min_flow_mw = Param(
-        mod.HYDRO_TIMESERIES,
+        mod.HYDRO_GEN_TS,
         within=NonNegativeReals,
         default=0.0)
     mod.Enforce_Hydro_Min_Flow = Constraint(
-        mod.HYDRO_PROJ_DISPATCH_POINTS,
-        rule=lambda m, proj, t: (
-            m.DispatchProj[proj, t] >= m.hydro_min_flow_mw[proj, m.tp_ts[t]]))
+        mod.HYDRO_GEN_TPS,
+        rule=lambda m, g, t: (
+            m.DispatchGen[g, t] >= m.hydro_min_flow_mw[g, m.tp_ts[t]]))
 
     mod.hydro_avg_flow_mw = Param(
-        mod.HYDRO_TIMESERIES,
+        mod.HYDRO_GEN_TS,
         within=NonNegativeReals,
         default=0.0)
     mod.Enforce_Hydro_Avg_Flow = Constraint(
-        mod.HYDRO_TIMESERIES,
-        rule=lambda m, proj, ts: (
-            sum(m.DispatchProj[proj, t] for t in m.TS_TPS[ts]) / m.ts_num_tps[ts]
-            == m.hydro_avg_flow_mw[proj, ts]))
+        mod.HYDRO_GEN_TS,
+        rule=lambda m, g, ts: (
+            sum(m.DispatchGen[g, t] for t in m.TPS_IN_TS[ts]) / m.ts_num_tps[ts]
+            == m.hydro_avg_flow_mw[g, ts]))
 
     mod.min_data_check('hydro_min_flow_mw', 'hydro_avg_flow_mw')
 
@@ -111,7 +111,8 @@ def load_inputs(mod, switch_data, inputs_dir):
     which expects data in variable_capacity_factors.tab.
 
     hydro_timeseries.tab
-        hydro_project, timeseries, hydro_min_flow_mw, hydro_avg_flow_mw
+        hydro_generation_project, timeseries, hydro_min_flow_mw,
+        hydro_avg_flow_mw
 
     """
     # Include select in each load() function so that it will check out
@@ -121,7 +122,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, 'hydro_timeseries.tab'),
-        select=('hydro_project', 'timeseries', 'hydro_min_flow_mw', 'hydro_avg_flow_mw'),
-        index=mod.HYDRO_TIMESERIES,
+        autoselect=True,
+        index=mod.HYDRO_GEN_TS,
         param=(mod.hydro_min_flow_mw, mod.hydro_avg_flow_mw)
     )

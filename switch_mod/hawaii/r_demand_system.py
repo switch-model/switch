@@ -67,15 +67,15 @@ def calibrate(m, base_data):
     Also accept an allocation among different elasticity classes (defined in the R module.)
     """
     base_load_dict = {
-        (lz, ts): base_loads
-        for (lz, ts, base_loads, base_prices) in base_data
+        (z, ts): base_loads
+        for (z, ts, base_loads, base_prices) in base_data
     }
     base_price_dict = {
-        (lz, ts): base_prices
-        for (lz, ts, base_loads, base_prices) in base_data
+        (z, ts): base_prices
+        for (z, ts, base_loads, base_prices) in base_data
     }
-    load_zones = unique_list(lz for (lz, ts, base_loads, base_prices) in base_data)
-    time_series = unique_list(ts for (lz, ts, base_loads, base_prices) in base_data)
+    load_zones = unique_list(z for (z, ts, base_loads, base_prices) in base_data)
+    time_series = unique_list(ts for (z, ts, base_loads, base_prices) in base_data)
     # maybe this should use the hour of day from the model, but this is good enough for now
     hours_of_day = range(1, 1+len(base_data[0][2]))
     
@@ -128,7 +128,7 @@ def unique_list(seq):
 def make_r_value_array(base_value_dict, hours_of_day, time_series, load_zones):
     # create a numpy array with indices = (hour of day, time series, load zone)
     arr = np.array(
-        [ [base_value_dict[(lz, ts)] for ts in time_series] for lz in load_zones],
+        [ [base_value_dict[(z, ts)] for ts in time_series] for z in load_zones],
         dtype=float
     ).transpose()
     # convert to an r array with dimnames, using R's standard array function

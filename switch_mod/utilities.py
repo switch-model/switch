@@ -456,7 +456,7 @@ def load_aug(switch_data, optional=False, auto_select=False,
             optional_params[i] = p.name
     # Expand the list optional parameters to include any parameter that
     # has default() defined. I need to allow an explicit list of default
-    # parameters to support optional parameters like proj_unit_size which
+    # parameters to support optional parameters like gen_unit_size which
     # don't have default value because it is undefined for generators
     # for which it does not apply.
     for p in params:

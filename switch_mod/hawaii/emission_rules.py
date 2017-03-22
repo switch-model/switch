@@ -9,13 +9,13 @@ def define_components(m):
     m.FUEL_BANS = Set(dimen=2, initialize=[('LSFO', 2017)])
     
     m.BANNED_FUEL_DISPATCH_POINTS = Set(dimen=3, initialize=lambda m: 
-        [(pr, tp, f) 
+        [(g, tp, f) 
             for (f, y) in m.FUEL_BANS
-                for pr in m.PROJECTS_BY_FUEL[f] # if not m.proj_is_cogen[pr]
+                for g in m.GENERATION_PROJECTS_BY_FUEL[f] # if not m.gen_is_cogen[g]
                     for pe in m.PERIODS if m.period_end[pe] >= y
-                        for tp in m.PERIOD_TPS[pe] if (pr, tp) in m.PROJ_DISPATCH_POINTS
+                        for tp in m.TPS_IN_PERIOD[pe] if (g, tp) in m.GEN_TPS
         ]
     )
-    m.ENFORCE_FUEL_BANS = Constraint(m.BANNED_FUEL_DISPATCH_POINTS, rule = lambda m, pr, tp, f:
-        m.DispatchProjByFuel[pr, tp, f] == 0
+    m.ENFORCE_FUEL_BANS = Constraint(m.BANNED_FUEL_DISPATCH_POINTS, rule = lambda m, g, tp, f:
+        m.DispatchGenByFuel[g, tp, f] == 0
     )

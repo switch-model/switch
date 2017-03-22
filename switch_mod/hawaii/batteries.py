@@ -67,8 +67,8 @@ def define_components(m):
     m.Battery_Fixed_Cost_Annual = Expression(m.PERIODS, rule=lambda m, p:
         sum(m.battery_fixed_cost_per_year * m.Battery_Capacity[z, p] for z in m.LOAD_ZONES)
     )
-    m.cost_components_tp.append('Battery_Variable_Cost')
-    m.cost_components_annual.append('Battery_Fixed_Cost_Annual')
+    m.Cost_Components_Per_TP.append('Battery_Variable_Cost')
+    m.Cost_Components_Per_Period.append('Battery_Fixed_Cost_Annual')
 
     # Calculate the state of charge based on conservation of energy
     # NOTE: this is circular for each day

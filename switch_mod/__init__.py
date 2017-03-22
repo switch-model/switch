@@ -6,7 +6,7 @@
 This package defines the Switch model for Pyomo.
 
 The core modules in this package are timescales, financials, load_zones,
-energy_sources, gen_tech, investment and operations.
+energy_sources, tech, investment and operations.
 
 An additional module is required to describe fuel costs - either
 fuel_cost which specifies a simple flat fuel cost that can vary by load

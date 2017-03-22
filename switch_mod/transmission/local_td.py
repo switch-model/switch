@@ -17,7 +17,7 @@ def define_dynamic_lists(mod):
     Distributed_Injections and Distributed_Withdrawals are lists of DER model
     components that inject and withdraw from a load zone's distributed node.
     Distributed_Injections is initially set to InjectIntoDistributedGrid, and
-    Distributed_Withdrawals is initial set to lz_demand_mw. Each component in
+    Distributed_Withdrawals is initial set to zone_demand_mw. Each component in
     either of these lists will need to be indexed by (z,t) across all
     LOAD_ZONES and TIMEPOINTS.
 
@@ -40,9 +40,9 @@ def define_components(mod):
     two sections: the distribution node and the local_td pathway that connects
     it to the central grid.
     
-    Note: This module interprets the parameter lz_demand_mw[z,t] as the end-
+    Note: This module interprets the parameter zone_demand_mw[z,t] as the end-
     use sales rather than the withdrawals from the central grid, and moves
-    lz_demand_mw from the LZ_Energy_Components_Consume list to the
+    zone_demand_mw from the LZ_Energy_Components_Consume list to the
     Distributed_Withdrawals list so that distribution losses can be accounted
     for.
     
@@ -67,7 +67,7 @@ def define_components(mod):
 
     LOCAL_TD PATHWAY
 
-    LOCAL_TD_BUILD_YEARS is the set of load zones with local
+    LOCAL_TD_BLD_YRS is the set of load zones with local
     transmission and distribution and years in which construction has or
     could occur. This set includes past and potential future builds. All
     future builds must come online in the first year of an investment
@@ -75,7 +75,7 @@ def define_components(mod):
     (load_zone, build_year). For existing capacity where the build year
     is unknown or spread out over time, build_year is set to 'Legacy'.
 
-    EXISTING_LOCAL_TD_BLD_YRS is a subset of LOCAL_TD_BUILD_YEARS that
+    EXISTING_LOCAL_TD_BLD_YRS is a subset of LOCAL_TD_BLD_YRS that
     lists builds that happened before the first investment period. For
     most datasets the build year is unknown, so is it always set to
     'Legacy'.
@@ -84,7 +84,7 @@ def define_components(mod):
     transmission and distribution capacity in MW that has already been
     built.
 
-    BuildLocalTD[(z, bld_yr) in LOCAL_TD_BUILD_YEARS] is a decision
+    BuildLocalTD[(z, bld_yr) in LOCAL_TD_BLD_YRS] is a decision
     variable describing how much local transmission and distribution to
     build in a load zone. For existing builds, this variable is locked
     to existing capacity. Without demand response, the optimal value of
@@ -116,13 +116,13 @@ def define_components(mod):
     will be replaced at the end of its life, so these costs will
     continue indefinitely.
 
-    PERIOD_RELEVANT_LOCAL_TD_BUILDS[p in PERIODS] is an indexed set that
+    LOCAL_TD_BUILDS_IN_PERIOD[p in PERIODS] is an indexed set that
     describes which local transmission & distribution builds will be
     operational in a given period. Currently, local T & D lines are kept
     online indefinitely, with parts being replaced as they wear out.
-    PERIOD_RELEVANT_LOCAL_TD_BUILDS[p] will return a subset of (z,
-    bld_yr) in LOCAL_TD_BUILD_YEARS. Same idea as
-    PERIOD_RELEVANT_TRANS_BUILDS, but with a different scope.
+    LOCAL_TD_BUILDS_IN_PERIOD[p] will return a subset of (z,
+    bld_yr) in LOCAL_TD_BLD_YRS. Same idea as
+    TX_BUILDS_IN_PERIOD, but with a different scope.
 
     --- NOTES ---
 
@@ -142,15 +142,15 @@ def define_components(mod):
         initialize=lambda m: set((z, 'Legacy') for z in m.LOAD_ZONES))
     mod.existing_local_td = Param(mod.LOAD_ZONES, within=NonNegativeReals)
     mod.min_data_check('existing_local_td')
-    mod.LOCAL_TD_BUILD_YEARS = Set(
+    mod.LOCAL_TD_BLD_YRS = Set(
         dimen=2,
         initialize=lambda m: set(
             (m.LOAD_ZONES * m.PERIODS) | m.EXISTING_LOCAL_TD_BLD_YRS))
-    mod.PERIOD_RELEVANT_LOCAL_TD_BUILDS = Set(
+    mod.LOCAL_TD_BUILDS_IN_PERIOD = Set(
         mod.PERIODS,
-        within=mod.LOCAL_TD_BUILD_YEARS,
+        within=mod.LOCAL_TD_BLD_YRS,
         initialize=lambda m, p: set(
-            (z, bld_yr) for (z, bld_yr) in m.LOCAL_TD_BUILD_YEARS
+            (z, bld_yr) for (z, bld_yr) in m.LOCAL_TD_BLD_YRS
             if bld_yr <= p))
 
     def bounds_BuildLocalTD(model, z, bld_yr):
@@ -160,14 +160,14 @@ def define_components(mod):
         else:
             return (0, None)
     mod.BuildLocalTD = Var(
-        mod.LOCAL_TD_BUILD_YEARS,
+        mod.LOCAL_TD_BLD_YRS,
         within=NonNegativeReals,
         bounds=bounds_BuildLocalTD)
     mod.LocalTDCapacity = Expression(
         mod.LOAD_ZONES, mod.PERIODS,
         rule=lambda m, z, period: sum(
             m.BuildLocalTD[z, bld_yr]
-            for (z2, bld_yr) in m.LOCAL_TD_BUILD_YEARS
+            for (z2, bld_yr) in m.LOCAL_TD_BLD_YRS
             if z2 == z and (bld_yr == 'Legacy' or bld_yr <= period)))
     mod.distribution_loss_rate = Param(default=0.053)
 
@@ -175,18 +175,18 @@ def define_components(mod):
         mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS,
         rule=lambda m, z, period: (
             m.LocalTDCapacity[z, period] >= 
-                m.lz_expected_coincident_peak_demand[z, period]/(1-m.distribution_loss_rate)))
+                m.zone_expected_coincident_peak_demand[z, period]/(1-m.distribution_loss_rate)))
     mod.local_td_annual_cost_per_mw = Param(
         mod.LOAD_ZONES,
         within=PositiveReals)
     mod.min_data_check('local_td_annual_cost_per_mw')
-    mod.LocalTD_Fixed_Costs_Annual = Expression(
+    mod.LocalTDFixedCosts = Expression(
         mod.PERIODS,
         doc="Summarize annual local T&D costs for the objective function.",
         rule=lambda m, p: sum(
             m.BuildLocalTD[z, bld_yr] * m.local_td_annual_cost_per_mw[z]
-            for (z, bld_yr) in m.PERIOD_RELEVANT_LOCAL_TD_BUILDS[p]))
-    mod.cost_components_annual.append('LocalTD_Fixed_Costs_Annual')
+            for (z, bld_yr) in m.LOCAL_TD_BUILDS_IN_PERIOD[p]))
+    mod.Cost_Components_Per_Period.append('LocalTDFixedCosts')
 
 
     # DISTRIBUTED NODE

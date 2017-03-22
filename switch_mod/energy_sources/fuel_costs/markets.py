@@ -23,7 +23,7 @@ def define_components(mod):
     and parameter is mandatory. Unless otherwise specified, all dollar
     values are real dollars in BASE_YEAR.
 
-    REGIONAL_FUEL_MARKET is the set of all regional fuel markets. This
+    REGIONAL_FUEL_MARKETS is the set of all regional fuel markets. This
     may be may be abbreviated as rfm in parameter names and indexes, and
     may occasionally be referred to as a fuel region. In the current
     implementation, the names of each regional fuel market need to be
@@ -41,7 +41,7 @@ def define_components(mod):
     LZ_FUELS is the set of fuels available in load zones. It is specified
     as set of 2-member tuples of (load_zone, fuel).
 
-    lz_rfm[z, f] is the regional fuel market that supplies a a given load
+    zone_rfm[z, f] is the regional fuel market that supplies a a given load
     zone. Regional fuel markets may be referred to as fuel regions for
     brevity. A regional fuel market could be as small as a single load
     zone or as large as the entire study region. In general, each fuel
@@ -51,15 +51,15 @@ def define_components(mod):
     that define different regional markets.
 
     LZ_RFM is the set of all load-zone regional fuel market combinations.
-    It is the input data from which lz_rfm[z,f] is derived.
+    It is the input data from which zone_rfm[z,f] is derived.
 
-    RFM_LOAD_ZONES[rfm] is an indexed set that lists the load zones
+    ZONES_IN_RFM[rfm] is an indexed set that lists the load zones
     within each regional fuel market.
 
     RFM_SUPPLY_TIERS is a set of 3-part tuples that stores:
     regional_fuel_market, period, supply_tier
 
-    RFM_P_SUPPLY_TIERS[rfm, period] is an indexed set of supply tiers
+    SUPPLY_TIERS_FOR_RFM_PERIOD[rfm, period] is an indexed set of supply tiers
     for a given regional fuel market and period. Supply tiers are an
     ordered set typically labeled 1 to n. Each tier of a supply curve
     have a cost and limit.
@@ -73,7 +73,7 @@ def define_components(mod):
     particular regional fuel market and period. The default value of
     this parameter is infinity, indicating no limit. The units are MMBTU.
 
-    FuelConsumptionByTier[rfm, period, tier] is a decision variable that
+    ConsumeFuelTier[rfm, period, tier] is a decision variable that
     denotes the amount of fuel consumed in each tier of a supply curve
     in a particular regional fuel market and period. It has an upper bound
     of rfm_supply_tier_limit.
@@ -88,16 +88,16 @@ def define_components(mod):
     Enforce_Fuel_Consumption_By_Tier[rfm, period] is a constraint that
     forces the total fuel consumption FuelConsumptionInMarket to be
     divided into distinct supply tiers.
-        FuelConsumptionInMarket = sum(FuelConsumptionByTier)
+        FuelConsumptionInMarket = sum(ConsumeFuelTier)
 
-    lz_fuel_cost_adder[z, f, p] is an optional parameter that describes
+    zone_fuel_cost_adder[z, f, p] is an optional parameter that describes
     a localized flat cost adder for fuels. This could reflect local
     markup from a longer supply chain or more costly distribution
     infrastructure. The units are $ / MMBTU and the default value is 0.
 
     The total cost of of a given type of fuel is calculated as:
-        sum(FuelConsumptionByTier * rfm_supply_tier_cost) +
-        sum(fuel_consumption_in_load_zone * lz_fuel_cost_adder)
+        sum(ConsumeFuelTier * rfm_supply_tier_cost) +
+        sum(fuel_consumption_in_load_zone * zone_fuel_cost_adder)
 
     Each regional fuel market has a supply curve with discrete tiers
     of escalating costs. Tiered supply curves are flexible format that
@@ -124,7 +124,7 @@ def define_components(mod):
     zones within the region based on different costs of infrastructure
     or number of middlemen in the supply chain, but all costs are based
     on an underlying commodity supply curve. Load-zone level price
-    adjustments are specified with the lz_fuel_cost_adder parameter,
+    adjustments are specified with the zone_fuel_cost_adder parameter,
     based on fuel regions used by the National Energy Modeling System.
 
     For tiers of a supply curve with upper limits, the total volume on
@@ -180,8 +180,8 @@ def define_components(mod):
     with the fuel are a much larger driver of consumption than the fuel
     costs.
 
-    RFM_DISPATCH_POINTS[regional_fuel_market, period] is an indexed set
-    of PROJ_FUEL_DISPATCH_POINTS that contribute to a given regional
+    GEN_TPS_FOR_RFM_PERIOD[regional_fuel_market, period] is an indexed set
+    of GEN_TP_FUELS that contribute to a given regional
     fuel market's activity in a given period.
 
     Enforce_Fuel_Consumption is a constraint that ties the aggregate
@@ -196,52 +196,52 @@ def define_components(mod):
 
     """
 
-    mod.REGIONAL_FUEL_MARKET = Set()
-    mod.rfm_fuel = Param(mod.REGIONAL_FUEL_MARKET, within=mod.FUELS)
+    mod.REGIONAL_FUEL_MARKETS = Set()
+    mod.rfm_fuel = Param(mod.REGIONAL_FUEL_MARKETS, within=mod.FUELS)
     mod.LZ_RFM = Set(
-        dimen=2, validate=lambda m, lz, rfm: (
-            rfm in m.REGIONAL_FUEL_MARKET and lz in m.LOAD_ZONES))
+        dimen=2, validate=lambda m, z, rfm: (
+            rfm in m.REGIONAL_FUEL_MARKETS and z in m.LOAD_ZONES))
     mod.LZ_FUELS = Set(
         dimen=2, initialize=lambda m: set(
-            (lz, m.rfm_fuel[rfm]) for (lz, rfm) in m.LZ_RFM))
+            (z, m.rfm_fuel[rfm]) for (z, rfm) in m.LZ_RFM))
 
-    def lz_rfm_init(m, load_zone, fuel):
-        for (lz, rfm) in m.LZ_RFM:
-            if(lz == load_zone and fuel == m.rfm_fuel[rfm]):
+    def zone_rfm_init(m, load_zone, fuel):
+        for (z, rfm) in m.LZ_RFM:
+            if(z == load_zone and fuel == m.rfm_fuel[rfm]):
                 return rfm
-    mod.lz_rfm = Param(
-        mod.LZ_FUELS, within=mod.REGIONAL_FUEL_MARKET,
-        initialize=lz_rfm_init)
-    mod.min_data_check('REGIONAL_FUEL_MARKET', 'rfm_fuel', 'lz_rfm')
-    mod.RFM_LOAD_ZONES = Set(
-        mod.REGIONAL_FUEL_MARKET,
+    mod.zone_rfm = Param(
+        mod.LZ_FUELS, within=mod.REGIONAL_FUEL_MARKETS,
+        initialize=zone_rfm_init)
+    mod.min_data_check('REGIONAL_FUEL_MARKETS', 'rfm_fuel', 'zone_rfm')
+    mod.ZONES_IN_RFM = Set(
+        mod.REGIONAL_FUEL_MARKETS,
         initialize=lambda m, rfm: set(
-            lz for (lz, r) in m.LZ_RFM if r == rfm))
+            z for (z, r) in m.LZ_RFM if r == rfm))
 
     # RFM_SUPPLY_TIERS = [(regional_fuel_market, period, supply_tier_index)...]
     mod.RFM_SUPPLY_TIERS = Set(
         dimen=3, validate=lambda m, r, p, st: (
-            r in m.REGIONAL_FUEL_MARKET and p in m.PERIODS))
+            r in m.REGIONAL_FUEL_MARKETS and p in m.PERIODS))
     mod.rfm_supply_tier_cost = Param(
         mod.RFM_SUPPLY_TIERS, within=Reals)
     mod.rfm_supply_tier_limit = Param(
         mod.RFM_SUPPLY_TIERS, within=PositiveReals, default=float('inf'))
     mod.min_data_check(
         'RFM_SUPPLY_TIERS', 'rfm_supply_tier_cost', 'rfm_supply_tier_limit')
-    mod.RFM_P_SUPPLY_TIERS = Set(
-        mod.REGIONAL_FUEL_MARKET, mod.PERIODS, dimen=3,
+    mod.SUPPLY_TIERS_FOR_RFM_PERIOD = Set(
+        mod.REGIONAL_FUEL_MARKETS, mod.PERIODS, dimen=3,
         initialize=lambda m, rfm, ip: set(
             (r, p, st) for (r, p, st) in m.RFM_SUPPLY_TIERS
             if r == rfm and p == ip))
 
-    mod.FuelConsumptionByTier = Var(
+    mod.ConsumeFuelTier = Var(
         mod.RFM_SUPPLY_TIERS,
         domain=NonNegativeReals,
         bounds=lambda m, rfm, p, st: (
             0, (m.rfm_supply_tier_limit[rfm, p, st]
                 if value(m.rfm_supply_tier_limit[rfm, p, st]) != float('inf')
                 else None)))
-    # The if statement in the upper bound of FuelConsumptionByTier is a
+    # The if statement in the upper bound of ConsumeFuelTier is a
     # work-around for a Pyomo bug in writing a cpxlp problem file for
     # glpk. Lines 771-774 of pyomo/repn/plugins/cpxlp.py prints '<= inf'
     # instead of '<= +inf' when the upper bound is infinity, but glpk
@@ -251,64 +251,64 @@ def define_components(mod):
     # solvers is: 0, m.rfm_supply_tier_limit[rfm, p, st]))
 
     mod.FuelConsumptionInMarket = Expression(
-        mod.REGIONAL_FUEL_MARKET, mod.PERIODS,
+        mod.REGIONAL_FUEL_MARKETS, mod.PERIODS,
         rule=lambda m, rfm, p: sum(
-            m.FuelConsumptionByTier[rfm_supply_tier]
-                for rfm_supply_tier in m.RFM_P_SUPPLY_TIERS[rfm, p]))
+            m.ConsumeFuelTier[rfm_supply_tier]
+                for rfm_supply_tier in m.SUPPLY_TIERS_FOR_RFM_PERIOD[rfm, p]))
 
     # Ensure that adjusted fuel costs of unbounded supply tiers are not
     # negative because that would create an unbounded optimization
     # problem.
-    def lz_fuel_cost_adder_validate(model, val, lz, fuel, p):
-        rfm = model.lz_rfm[lz, fuel]
-        for rfm_supply_tier in model.RFM_P_SUPPLY_TIERS[rfm, p]:
+    def zone_fuel_cost_adder_validate(model, val, z, fuel, p):
+        rfm = model.zone_rfm[z, fuel]
+        for rfm_supply_tier in model.SUPPLY_TIERS_FOR_RFM_PERIOD[rfm, p]:
             if(val + model.rfm_supply_tier_cost[rfm_supply_tier] < 0 and
                model.rfm_supply_tier_limit[rfm_supply_tier] == float('inf')):
                 return False
         return True
-    mod.lz_fuel_cost_adder = Param(
+    mod.zone_fuel_cost_adder = Param(
         mod.LZ_FUELS, mod.PERIODS,
-        within=Reals, default=0, validate=lz_fuel_cost_adder_validate)
+        within=Reals, default=0, validate=zone_fuel_cost_adder_validate)
 
     # Summarize annual fuel costs for the objective function
     def rfm_annual_costs(m, rfm, p):
         return sum(
-            m.FuelConsumptionByTier[rfm_st] * m.rfm_supply_tier_cost[rfm_st]
-            for rfm_st in m.RFM_P_SUPPLY_TIERS[rfm, p])
-    mod.Fuel_Costs_Annual = Expression(
+            m.ConsumeFuelTier[rfm_st] * m.rfm_supply_tier_cost[rfm_st]
+            for rfm_st in m.SUPPLY_TIERS_FOR_RFM_PERIOD[rfm, p])
+    mod.FuelCostsPerPeriod = Expression(
         mod.PERIODS,
         rule=lambda m, p: sum(
             rfm_annual_costs(m, rfm, p)
-            for rfm in m.REGIONAL_FUEL_MARKET))
-    mod.cost_components_annual.append('Fuel_Costs_Annual')
+            for rfm in m.REGIONAL_FUEL_MARKETS))
+    mod.Cost_Components_Per_Period.append('FuelCostsPerPeriod')
 
     # Components to link aggregate fuel consumption from project
     # dispatch into market framework
-    mod.RFM_DISPATCH_POINTS = Set(
-        mod.REGIONAL_FUEL_MARKET, mod.PERIODS,
-        within=mod.PROJ_FUEL_DISPATCH_POINTS,
+    mod.GEN_TPS_FOR_RFM_PERIOD = Set(
+        mod.REGIONAL_FUEL_MARKETS, mod.PERIODS,
+        within=mod.GEN_TP_FUELS,
         initialize=lambda m, rfm, p: [
-            (proj, t, f) for (proj, t, f) in m.PROJ_FUEL_DISPATCH_POINTS
+            (g, t, f) for (g, t, f) in m.GEN_TP_FUELS
             if f == m.rfm_fuel[rfm] and
-            m.proj_load_zone[proj] in m.RFM_LOAD_ZONES[rfm] and
+            m.gen_load_zone[g] in m.ZONES_IN_RFM[rfm] and
             m.tp_period[t] == p])
 
     def Enforce_Fuel_Consumption_rule(m, rfm, p):
         return m.FuelConsumptionInMarket[rfm, p] == sum(
-            m.ProjFuelUseRate[proj, t, f] * m.tp_weight_in_year[t]
-            for (proj, t, f) in m.RFM_DISPATCH_POINTS[rfm, p])
+            m.GenFuelUseRate[g, t, f] * m.tp_weight_in_year[t]
+            for (g, t, f) in m.GEN_TPS_FOR_RFM_PERIOD[rfm, p])
     mod.Enforce_Fuel_Consumption = Constraint(
-        mod.REGIONAL_FUEL_MARKET, mod.PERIODS,
+        mod.REGIONAL_FUEL_MARKETS, mod.PERIODS,
         rule=Enforce_Fuel_Consumption_rule)
 
     # Calculate average fuel costs to allow post-optimization inspection
     # and cost allocation.
     mod.AverageFuelCosts = Expression(
-        mod.REGIONAL_FUEL_MARKET, mod.PERIODS,
+        mod.REGIONAL_FUEL_MARKETS, mod.PERIODS,
         rule=lambda m, rfm, p: (
             rfm_annual_costs(m, rfm, p) /
-            sum(m.FuelConsumptionByTier[rfm_st]
-                for rfm_st in m.RFM_P_SUPPLY_TIERS[rfm, p])))
+            sum(m.ConsumeFuelTier[rfm_st]
+                for rfm_st in m.SUPPLY_TIERS_FOR_RFM_PERIOD[rfm, p])))
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -323,13 +323,13 @@ def load_inputs(mod, switch_data, inputs_dir):
     fuel_supply_curves.tab
         regional_fuel_market, period, tier, unit_cost, max_avail_at_cost
 
-    lz_to_regional_fuel_market.tab
+    zone_to_regional_fuel_market.tab
         load_zone, regional_fuel_market
 
-    The next file is optional. If unspecified, lz_fuel_cost_adder will
+    The next file is optional. If unspecified, zone_fuel_cost_adder will
     default to 0 for all load zones and periods.
 
-    lz_fuel_cost_diff.tab
+    zone_fuel_cost_diff.tab
         load_zone, fuel, period, fuel_cost_adder
 
     The next file is also optional. This file allows simple
@@ -351,7 +351,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'regional_fuel_markets.tab'),
         select=('regional_fuel_market', 'fuel'),
-        index=mod.REGIONAL_FUEL_MARKET,
+        index=mod.REGIONAL_FUEL_MARKETS,
         param=(mod.rfm_fuel))
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'fuel_supply_curves.tab'),
@@ -360,13 +360,13 @@ def load_inputs(mod, switch_data, inputs_dir):
         index=mod.RFM_SUPPLY_TIERS,
         param=(mod.rfm_supply_tier_cost, mod.rfm_supply_tier_limit))
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'lz_to_regional_fuel_market.tab'),
+        filename=os.path.join(inputs_dir, 'zone_to_regional_fuel_market.tab'),
         set=mod.LZ_RFM)
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'lz_fuel_cost_diff.tab'),
+        filename=os.path.join(inputs_dir, 'zone_fuel_cost_diff.tab'),
         optional=True,
         select=('load_zone', 'fuel', 'period', 'fuel_cost_adder'),
-        param=(mod.lz_fuel_cost_adder))
+        param=(mod.zone_fuel_cost_adder))
 
     # Load a simple specifications of costs if the file exists. The
     # actual loading, error checking, and casting into a supply curve is
@@ -381,56 +381,56 @@ def _load_simple_cost_data(mod, switch_data, path):
         simple_cost_dat = list(csv.DictReader(simple_cost_file, delimiter='	'))
         # Scan once for error checking
         for row in simple_cost_dat:
-            lz = row['load_zone']
+            z = row['load_zone']
             f = row['fuel']
             p = int(row['period'])
             f_cost = float(row['fuel_cost'])
             # Basic data validity checks
-            if lz not in switch_data.data(name='LOAD_ZONES'):
+            if z not in switch_data.data(name='LOAD_ZONES'):
                 raise ValueError(
-                    "Load zone " + lz + " in lz_simple_fuel_cost.tab is not " +
+                    "Load zone " + z + " in zone_simple_fuel_cost.tab is not " +
                     "a known load zone from load_zones.tab.")
             if f not in switch_data.data(name='FUELS'):
                 raise ValueError(
-                    "Fuel " + f + " in lz_simple_fuel_cost.tab is not " +
+                    "Fuel " + f + " in zone_simple_fuel_cost.tab is not " +
                     "a known fuel from fuels.tab.")
             if p not in switch_data.data(name='PERIODS'):
                 raise ValueError(
-                    "Period " + p + " in lz_simple_fuel_cost.tab is not " +
+                    "Period " + p + " in zone_simple_fuel_cost.tab is not " +
                     "a known investment period.")
             # Make sure they aren't overriding a supply curve or
             # regional fuel market defined in previous files.
             for (z, rfm) in switch_data.data(name='LZ_RFM'):
-                if(z == lz and
+                if(z == z and
                    switch_data.data(name='rfm_fuel')[rfm] == f):
                     raise ValueError(
-                        "The supply for fuel '" + f + "' for load_zone '" + lz +
+                        "The supply for fuel '" + f + "' for load_zone '" + z +
                         "' was already registered with the regional fuel " +
                         "market '" + rfm + "', so you cannot " +
                         "specify a simple fuel cost for it in " +
-                        "lz_simple_fuel_cost.tab. You either need to delete " +
-                        "that entry from lz_to_regional_fuel_market.tab, or " +
-                        "remove those entries in lz_simple_fuel_cost.tab.")
+                        "zone_simple_fuel_cost.tab. You either need to delete " +
+                        "that entry from zone_to_regional_fuel_market.tab, or " +
+                        "remove those entries in zone_simple_fuel_cost.tab.")
             # Make a new single-load zone regional fuel market.
-            rfm = lz + "_" + f
-            if rfm in switch_data.data(name='REGIONAL_FUEL_MARKET'):
+            rfm = z + "_" + f
+            if rfm in switch_data.data(name='REGIONAL_FUEL_MARKETS'):
                 raise ValueError(
                     "Trying to construct a simple Regional Fuel Market " +
-                    "called " + rfm + " from data in lz_simple_fuel_cost.tab" +
+                    "called " + rfm + " from data in zone_simple_fuel_cost.tab" +
                     ", but an RFM of that name already exists. Bailing out!")
         # Scan again and actually import the data
         for row in simple_cost_dat:
-            lz = row['load_zone']
+            z = row['load_zone']
             f = row['fuel']
             p = int(row['period'])
             f_cost = float(row['fuel_cost'])
             # Make a new single-load zone regional fuel market unless we
             # already defined one in this loop for a different period.
-            rfm = lz + "_" + f
-            if(rfm not in switch_data.data(name='REGIONAL_FUEL_MARKET')):
-                switch_data.data(name='REGIONAL_FUEL_MARKET').append(rfm)
+            rfm = z + "_" + f
+            if(rfm not in switch_data.data(name='REGIONAL_FUEL_MARKETS')):
+                switch_data.data(name='REGIONAL_FUEL_MARKETS').append(rfm)
                 switch_data.data(name='rfm_fuel')[rfm] = f
-                switch_data.data(name='LZ_RFM').append((lz, rfm))
+                switch_data.data(name='LZ_RFM').append((z, rfm))
             # Make a single supply tier for this RFM and period
             st = 0
             switch_data.data(name='RFM_SUPPLY_TIERS').append((rfm, p, st))

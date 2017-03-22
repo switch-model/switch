@@ -44,7 +44,7 @@ def define_components(m):
     m.LiquidHydrogenTankCapacityKg = Expression(m.LOAD_ZONES, m.PERIODS, rule=lambda m, z, p:
         sum(m.BuildLiquidHydrogenTankKg[z, p_] for p_ in m.CURRENT_AND_PRIOR_PERIODS[p]))
     m.StoreLiquidHydrogenKg = Expression(m.LOAD_ZONES, m.TIMESERIES, rule=lambda m, z, ts:
-        m.ts_duration_of_tp[ts] * sum(m.LiquifyHydrogenKgPerHour[z, tp] for tp in m.TS_TPS[ts])
+        m.ts_duration_of_tp[ts] * sum(m.LiquifyHydrogenKgPerHour[z, tp] for tp in m.TPS_IN_TS[ts])
     )
     m.WithdrawLiquidHydrogenKg = Var(m.LOAD_ZONES, m.TIMESERIES, within=NonNegativeReals)
     # note: we assume the system will be large enough to neglect boil-off
@@ -71,14 +71,14 @@ def define_components(m):
         == 
         m.ts_duration_of_tp[ts] * sum(
             m.ProduceHydrogenKgPerHour[z, tp] - m.ConsumeHydrogenKgPerHour[z, tp] 
-            for tp in m.TS_TPS[ts]
+            for tp in m.TPS_IN_TS[ts]
         )
     )
     m.Hydrogen_Conservation_of_Mass_Annual = Constraint(m.LOAD_ZONES, m.PERIODS, rule=lambda m, z, p:
         sum(
             (m.StoreLiquidHydrogenKg[z, ts] - m.WithdrawLiquidHydrogenKg[z, ts]) 
                 * m.ts_scale_to_year[ts]
-            for ts in m.PERIOD_TS[p]
+            for ts in m.TS_IN_PERIOD[p]
         ) == 0
     )
 
@@ -147,7 +147,7 @@ def define_components(m):
     # note: this assumes we cycle the system only once per year (store all energy, then release all energy)
     # alternatives: allow monthly or seasonal cycling, or directly model the whole year with inter-day linkages
     m.Max_Store_Liquid_Hydrogen = Constraint(m.LOAD_ZONES, m.PERIODS, rule=lambda m, z, p:
-        sum(m.StoreLiquidHydrogenKg[z, ts] * m.ts_scale_to_year[ts] for ts in m.PERIOD_TS[p])
+        sum(m.StoreLiquidHydrogenKg[z, ts] * m.ts_scale_to_year[ts] for ts in m.TS_IN_PERIOD[p])
         <= m.LiquidHydrogenTankCapacityKg[z, p]
     )
     
@@ -181,8 +181,8 @@ def define_components(m):
             for z in m.LOAD_ZONES
         )
     )
-    m.cost_components_tp.append('HydrogenVariableCost')
-    m.cost_components_annual.append('HydrogenFixedCostAnnual')
+    m.Cost_Components_Per_TP.append('HydrogenVariableCost')
+    m.Cost_Components_Per_Period.append('HydrogenFixedCostAnnual')
     
 
 

@@ -43,7 +43,7 @@ def define_components(mod):
     of different water flows. Members of this set can be abbreviated as 
     wn or wnode.
     
-    WATER_NODES_BALANCE_POINTS is a set showing all the combinations of
+    WNODE_TPS is a set showing all the combinations of
     water nodes and timepoints, in which the conservation of mass law 
     must be enforced. For now it is initialized as the cross product of
     the WATER_NODES and TIMEPOINTS sets, but it should be flexibilized 
@@ -92,7 +92,7 @@ def define_components(mod):
     constraint for mass balance. This aids the solver in obtaining optimal
     solutions significantly faster and with small water spillages.
     
-    NodeSpillage[WATER_NODES_BALANCE_POINTS] are  the decisions of
+    SpillWaterAtNode[WNODE_TPS] are  the decisions of
     water spillage out of the water network at each node and timepoint
     in  cubic meters per second.
     
@@ -114,7 +114,7 @@ def define_components(mod):
     spillage may occur to mantain the mass balance. This parameter is
     determined by the physical characteristics of the reservoir.
     
-    RESERVOIRS_BALANCE_POINTS is a set showing all the combinations of
+    RESERVOIR_TPS is a set showing all the combinations of
     reservoirs and timepoints, in which the conservation of mass law 
     must be enforced. For now it is initialized as the cross product of
     the RESERVOIRS and TIMEPOINTS sets, but it should be flexibilized 
@@ -161,11 +161,11 @@ def define_components(mod):
     may only flow in one direction, so "to" and "from" parameters must be
     inputted. Members of this set may be abbreviated by wc or wcon.
     
-    WCONS_DISPATCH_POINTS is the set of the cross product between 
+    WCON_TPS is the set of the cross product between 
     TIMEPOINTS and WATER_CONNECTIONS. In the future, this should be 
     flexibilized to allow for new water connections to be created within 
-    the simulation horizon (as with WATER_NODES_BALANCE_POINTS and 
-    RESERVOIRS_BALANCE_POINTS).
+    the simulation horizon (as with WNODE_TPS and 
+    RESERVOIR_TPS).
     
     water_node_from[wc] is a parameter that specifies the water body from
     which the connection extracts water.
@@ -191,19 +191,19 @@ def define_components(mod):
     flowing through each water connection at each timepoint. The lower bound is
     m.min_eco_flow[wc, t] and the upper bound is m.wc_capacity[wc].
     
-    Enforce_Wnode_Balance[(wn, t) for (wn, t) in WATER_NODES_BALANCE_POINTS]
+    Enforce_Wnode_Balance[(wn, t) for (wn, t) in WNODE_TPS]
     is a constraint that enforces conservation of mass at water nodes. This
     accounts for any spills at sink nodes, or any change in reservoir volume
     between one timepoint and the next. This also links the reservoir volumes
     between timepoints, and enforces the final reservoir volume constraint.
     
-    HYDRO_PROJECTS is a subset of PROJECTS which are to be linked with the
+    HYDRO_GENS is a subset of GENERATION_PROJECTS which are to be linked with the
     hydraulic system. Both reservoir generators as well as hydroelectric
-    projects in series must be specified as HYDRO_PROJECTS and will be
+    projects in series must be specified as HYDRO_GENS and will be
     treated the same. Members of this set may be abbreviated as hproj.
     
-    HYDRO_PROJ_DISPATCH_POINTS is a subset of PROJ_DISPATCH_POINTS only with
-    projects that belong to the HYDRO_PROJECTS set. This set is used to
+    HYDRO_GEN_TPS is a subset of GEN_TPS only with
+    projects that belong to the HYDRO_GENS set. This set is used to
     index the electricity generation decisions.
     
     hydro_efficiency[hproj] is a parameter that specifies the hydraulic
@@ -219,22 +219,22 @@ def define_components(mod):
     may be located at the same connection, which allows modeling of
     cascading generation.
     
-    TurbinatedFlow[hproj, t] is a variable that represents the water flow, 
+    TurbinateFlow[hg, t] is a variable that represents the water flow, 
     in cubic meters per second, that is passed through the turbines of each 
     project at each timepoint. This is the flow that is used to generate
     electricity.
     
-    SpilledFlow[hproj, t] is a variable that represents the water flow, 
+    SpillFlow[hg, t] is a variable that represents the water flow, 
     in cubic meters per second, that is spilled by each project at each
     timepoint. All spilled water is considered to be returned to the same
     water connection from which it was originally extracted. 
     
-    Enforce_Hydro_Generation[hproj, t] is the constraint that forces power
+    Enforce_Hydro_Generation[hg, t] is the constraint that forces power
     generation at each hydro project to be equal to the flow of water that
     goes through its turbines, times its hydro efficiency. This relation
     is observed at each timepoint.
     
-    Enforce_Hydro_Extraction[hproj, t] is the constraint that mantains the
+    Enforce_Hydro_Extraction[hg, t] is the constraint that mantains the
     conservation of mass at each project's water extraction point, so that
     the sum of the flows that go through its turbines and the one that is
     spilled are equal to the water that is flowing at each timepoint through
@@ -254,7 +254,7 @@ def define_components(mod):
     #################
     # Nodes of the water network
     mod.WATER_NODES = Set()
-    mod.WATER_NODES_BALANCE_POINTS = Set(
+    mod.WNODE_TPS = Set(
         dimen=2,
         initialize=lambda m: m.WATER_NODES * m.TIMEPOINTS)
     mod.wnode_constant_inflow = Param(
@@ -266,11 +266,11 @@ def define_components(mod):
         within=NonNegativeReals,
         default=0.0)
     mod.wnode_tp_inflow = Param(
-        mod.WATER_NODES_BALANCE_POINTS,
+        mod.WNODE_TPS,
         within=NonNegativeReals,
         default=lambda m, wn, t: m.wnode_constant_inflow[wn])
     mod.wnode_tp_consumption = Param(
-        mod.WATER_NODES_BALANCE_POINTS,
+        mod.WNODE_TPS,
         within=NonNegativeReals,
         default=lambda m, wn, t: m.wnode_constant_consumption[wn])
     mod.wn_is_sink = Param(
@@ -280,15 +280,15 @@ def define_components(mod):
     mod.spillage_penalty = Param(
         within=NonNegativeReals,
         default=100)
-    mod.NodeSpillage = Var(
-        mod.WATER_NODES_BALANCE_POINTS,
+    mod.SpillWaterAtNode = Var(
+        mod.WNODE_TPS,
         within=NonNegativeReals)
 
     #################
     # Reservoir nodes
     mod.RESERVOIRS = Set(
         within=mod.WATER_NODES)
-    mod.RESERVOIRS_BALANCE_POINTS = Set(
+    mod.RESERVOIR_TPS = Set(
         dimen=2,
         initialize=lambda m: m.RESERVOIRS * m.TIMEPOINTS)
     mod.res_min_vol = Param(
@@ -299,11 +299,11 @@ def define_components(mod):
         within=PositiveReals,
         validate=lambda m, val, r: val >= m.res_min_vol[r])
     mod.res_min_vol_tp = Param(
-        mod.RESERVOIRS_BALANCE_POINTS,
+        mod.RESERVOIR_TPS,
         within=NonNegativeReals,
         default=lambda m, r, t: m.res_min_vol[r])
     mod.res_max_vol_tp = Param(
-        mod.RESERVOIRS_BALANCE_POINTS,
+        mod.RESERVOIR_TPS,
         within=NonNegativeReals,
         default=lambda m, r, t: m.res_max_vol[r])
     mod.initial_res_vol = Param(
@@ -320,13 +320,13 @@ def define_components(mod):
         'final_res_vol')
     def ReservoirVol_bounds(m, r, t):
         # In the first timepoint of each period, this is externally defined
-        if t == m.PERIOD_TPS[m.tp_period[t]].first():
+        if t == m.TPS_IN_PERIOD[m.tp_period[t]].first():
             return(m.initial_res_vol[r], m.initial_res_vol[r])
         # In all other timepoints, this is constrained by min & max params
         else:
             return(m.res_min_vol[r], m.res_max_vol[r])
     mod.ReservoirVol = Var(
-        mod.RESERVOIRS_BALANCE_POINTS,
+        mod.RESERVOIR_TPS,
         within=NonNegativeReals,
         bounds=ReservoirVol_bounds)
     mod.ReservoirSurplus = Var(
@@ -336,7 +336,7 @@ def define_components(mod):
     ################
     # Edges of the water network
     mod.WATER_CONNECTIONS = Set()
-    mod.WCONS_DISPATCH_POINTS = Set(
+    mod.WCON_TPS = Set(
         dimen=2,
         initialize=lambda m: m.WATER_CONNECTIONS * m.TIMEPOINTS)    
     mod.water_node_from = Param(
@@ -350,36 +350,36 @@ def define_components(mod):
         within=PositiveReals,
         default=float('inf'))
     mod.min_eco_flow = Param(
-        mod.WCONS_DISPATCH_POINTS,
+        mod.WCON_TPS,
         within=NonNegativeReals,
         default=0.0)    
     mod.min_data_check('water_node_from', 'water_node_to')
-    mod.CONNECTIONS_DIRECTED_INTO_WN = Set(
+    mod.INWARD_WCONS_TO_WNODE = Set(
         mod.WATER_NODES,
         initialize=lambda m, wn: set(wc for wc in m.WATER_CONNECTIONS 
             if m.water_node_to[wc] == wn))
-    mod.CONNECTIONS_DIRECTED_OUT_OF_WN = Set(
+    mod.OUTWARD_WCONS_FROM_WNODE = Set(
         mod.WATER_NODES,
         initialize=lambda m, wn: set(wc for wc in m.WATER_CONNECTIONS 
             if m.water_node_from[wc] == wn))
     mod.DispatchWater = Var(
-        mod.WCONS_DISPATCH_POINTS,
+        mod.WCON_TPS,
         within=NonNegativeReals,
         bounds=lambda m, wc, t: (m.min_eco_flow[wc, t], m.wc_capacity[wc]))
 
     def Enforce_Wnode_Balance_rule(m, wn, t):
         # Sum inflows and outflows from and to other nodes
         dispatch_inflow = sum(m.DispatchWater[wc, t] 
-            for wc in m.CONNECTIONS_DIRECTED_INTO_WN[wn])
+            for wc in m.INWARD_WCONS_TO_WNODE[wn])
         dispatch_outflow = sum(m.DispatchWater[wc, t] 
-            for wc in m.CONNECTIONS_DIRECTED_OUT_OF_WN[wn])
+            for wc in m.OUTWARD_WCONS_FROM_WNODE[wn])
         # Reservoir flows: 0 for non-reservoirs
         reservoir_fill_rate = 0.0
         if wn in m.RESERVOIRS:
             p = m.tp_period[t]
             end_volume = 0.0
-            if t != m.PERIOD_TPS[p].last():
-                t_next = m.PERIOD_TPS[p].next(t)
+            if t != m.TPS_IN_PERIOD[p].last():
+                t_next = m.TPS_IN_PERIOD[p].next(t)
                 end_volume = m.ReservoirVol[wn, t_next]
             else:
                 end_volume = m.final_res_vol[wn] + m.ReservoirSurplus[wn, p]
@@ -390,47 +390,47 @@ def define_components(mod):
         return (
             m.wnode_tp_inflow[wn, t] + dispatch_inflow == \
             m.wnode_tp_consumption[wn, t] + dispatch_outflow \
-            + m.NodeSpillage[wn, t] + reservoir_fill_rate)
+            + m.SpillWaterAtNode[wn, t] + reservoir_fill_rate)
     mod.Enforce_Wnode_Balance = Constraint(
-        mod.WATER_NODES_BALANCE_POINTS,
+        mod.WNODE_TPS,
         rule=Enforce_Wnode_Balance_rule)
     
-    mod.Nodes_Spillage_Costs = Expression(
+    mod.NodeSpillageCosts = Expression(
         mod.TIMEPOINTS,
-        rule=lambda m, t: sum(m.NodeSpillage[wn,t] * 3600 *
+        rule=lambda m, t: sum(m.SpillWaterAtNode[wn,t] * 3600 *
             m.spillage_penalty for wn in m.WATER_NODES
                 if not m.wn_is_sink[wn]))
-    mod.cost_components_tp.append('Nodes_Spillage_Costs')
+    mod.Cost_Components_Per_TP.append('NodeSpillageCosts')
 
     ################
     # Hydro projects
-    mod.HYDRO_PROJECTS = Set(
-        validate=lambda m, val: val in m.PROJECTS)
-    mod.HYDRO_PROJ_DISPATCH_POINTS = Set(
-        initialize=mod.PROJ_DISPATCH_POINTS,
-        filter=lambda m, proj, t: proj in m.HYDRO_PROJECTS)
+    mod.HYDRO_GENS = Set(
+        validate=lambda m, val: val in m.GENERATION_PROJECTS)
+    mod.HYDRO_GEN_TPS = Set(
+        initialize=mod.GEN_TPS,
+        filter=lambda m, g, t: g in m.HYDRO_GENS)
     mod.hydro_efficiency = Param(
-        mod.HYDRO_PROJECTS,
+        mod.HYDRO_GENS,
         within=PositiveReals,
-        validate=lambda m, val, proj: val <= 10)
+        validate=lambda m, val, g: val <= 10)
     mod.hydraulic_location = Param(
-        mod.HYDRO_PROJECTS,
-        validate=lambda m, val, proj: val in m.WATER_CONNECTIONS)
-    mod.TurbinatedFlow = Var(
-        mod.HYDRO_PROJ_DISPATCH_POINTS,
+        mod.HYDRO_GENS,
+        validate=lambda m, val, g: val in m.WATER_CONNECTIONS)
+    mod.TurbinateFlow = Var(
+        mod.HYDRO_GEN_TPS,
         within=NonNegativeReals)
-    mod.SpilledFlow = Var(
-        mod.HYDRO_PROJ_DISPATCH_POINTS,
+    mod.SpillFlow = Var(
+        mod.HYDRO_GEN_TPS,
         within=NonNegativeReals)
     mod.Enforce_Hydro_Generation = Constraint(
-        mod.HYDRO_PROJ_DISPATCH_POINTS,
-        rule=lambda m, proj, t: (m.DispatchProj[proj, t] ==
-            m.hydro_efficiency[proj] * m.TurbinatedFlow[proj, t]))
+        mod.HYDRO_GEN_TPS,
+        rule=lambda m, g, t: (m.DispatchGen[g, t] ==
+            m.hydro_efficiency[g] * m.TurbinateFlow[g, t]))
     mod.Enforce_Hydro_Extraction = Constraint(
-        mod.HYDRO_PROJ_DISPATCH_POINTS,
-        rule=lambda m, proj, t: (m.TurbinatedFlow[proj, t] +
-            m.SpilledFlow[proj, t] == 
-            m.DispatchWater[m.hydraulic_location[proj], t]))
+        mod.HYDRO_GEN_TPS,
+        rule=lambda m, g, t: (m.TurbinateFlow[g, t] +
+            m.SpillFlow[g, t] == 
+            m.DispatchWater[m.hydraulic_location[g], t]))
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -440,7 +440,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     in series.
     
     The files water_nodes.tab, reservoirs.tab, water_connections.tab and 
-    hydro_projects.tab are mandatory, since they specify the hydraulic 
+    hydro_generation_projects.tab are mandatory, since they specify the hydraulic 
     system's topology and basic characterization. 
     
     Files water_node_tp_flows, reservoir_tp_data.tab and min_eco_flows.tab
@@ -490,9 +490,9 @@ def load_inputs(mod, switch_data, inputs_dir):
         auto_select=True,
         param=(mod.min_eco_flow))
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'hydro_projects.tab'),
+        filename=os.path.join(inputs_dir, 'hydro_generation_projects.tab'),
         auto_select=True,
-        index=mod.HYDRO_PROJECTS,
+        index=mod.HYDRO_GENS,
         param=(mod.hydro_efficiency, mod.hydraulic_location))
     spillage_penalty_path = os.path.join(inputs_dir, 'spillage_penalty.dat')
     if os.path.isfile(spillage_penalty_path):

@@ -50,14 +50,14 @@ def define_components(mod):
     indicating whether new transmission build-outs are allowed along a
     transmission line. This optional parameter defaults to True.
 
-    TRANS_BUILD_YEARS is the set of transmission lines and years in
+    BLD_YRS_FOR_TX is the set of transmission lines and years in
     which they have been or could be built. This set includes past and
     potential future builds. All future builds must come online in the
     first year of an investment period. This set is composed of two
     elements with members: (tx, build_year). For existing transmission
     where the build years are not known, build_year is set to 'Legacy'.
 
-    EXISTING_TRANS_BLD_YRS is a subset of TRANS_BUILD_YEARS that lists
+    BLD_YRS_FOR_EXISTING_TX is a subset of BLD_YRS_FOR_TX that lists
     builds that happened before the first investment period. For most
     datasets the build year is unknown, so is it always set to 'Legacy'.
 
@@ -65,15 +65,15 @@ def define_components(mod):
     describes how many MW of capacity has been installed before the
     start of the study.
 
-    NEW_TRANS_BLD_YRS is a subset of TRANS_BUILD_YEARS that describes
+    NEW_TRANS_BLD_YRS is a subset of BLD_YRS_FOR_TX that describes
     potential builds.
 
-    BuildTrans[(tx, bld_yr) in TRANS_BUILD_YEARS] is a decision variable
+    BuildTx[(tx, bld_yr) in BLD_YRS_FOR_TX] is a decision variable
     that describes the transfer capacity in MW installed on a cooridor
     in a given build year. For existing builds, this variable is locked
     to the existing capacity.
 
-    TransCapacity[(tx, bld_yr) in TRANS_BUILD_YEARS] is an expression
+    TxCapacityNameplate[(tx, bld_yr) in BLD_YRS_FOR_TX] is an expression
     that returns the total nameplate transfer capacity of a transmission
     line in a given period. This is the sum of existing and newly-build
     capacity.
@@ -84,7 +84,7 @@ def define_components(mod):
     is optional and defaults to 1. This parameter should be in the
     range of 0 to 1, being 0 a value that disables the line completely.
 
-    TransCapacityAvailable[(tx, bld_yr) in TRANS_BUILD_YEARS] is an
+    TxCapacityNameplateAvailable[(tx, bld_yr) in BLD_YRS_FOR_TX] is an
     expression that returns the available transfer capacity of a
     transmission line in a given period, taking into account the
     nameplate capacity and derating factor.
@@ -117,7 +117,7 @@ def define_components(mod):
     capital and fixed O&M costs, then divides that by hours per year to
     determine the portion of costs incurred hourly.
 
-    TRANS_DIRECTIONAL is a derived set of directional paths that
+    DIRECTIONAL_TX is a derived set of directional paths that
     electricity can flow along transmission lines. Each element of this
     set is a two-dimensional entry that describes the origin and
     destination of the flow: (load_zone_from, load_zone_to). Every
@@ -129,13 +129,13 @@ def define_components(mod):
     trans_d_line[trans_d] is the transmission line associated with this
     directional path.
 
-    PERIOD_RELEVANT_TRANS_BUILDS[p in PERIODS] is an indexed set that
+    TX_BUILDS_IN_PERIOD[p in PERIODS] is an indexed set that
     describes which transmission builds will be operational in a given
     period. Currently, transmission lines are kept online indefinitely,
     with parts being replaced as they wear out.
     
-    PERIOD_RELEVANT_TRANS_BUILDS[p] will return a subset of (tx, bld_yr)
-    in TRANS_BUILD_YEARS.
+    TX_BUILDS_IN_PERIOD[p] will return a subset of (tx, bld_yr)
+    in BLD_YRS_FOR_TX.
 
     --- Delayed implementation ---
 
@@ -181,7 +181,7 @@ def define_components(mod):
         mod.TRANSMISSION_LINES,
         within=PositiveReals,
         validate=lambda m, val, tx: val <= 1)
-    mod.EXISTING_TRANS_BLD_YRS = Set(
+    mod.BLD_YRS_FOR_EXISTING_TX = Set(
         dimen=2,
         initialize=lambda m: set(
             (tx, 'Legacy') for tx in m.TRANSMISSION_LINES))
@@ -189,7 +189,7 @@ def define_components(mod):
         mod.TRANSMISSION_LINES,
         within=NonNegativeReals)
     mod.min_data_check(
-        'trans_length_km', 'trans_efficiency', 'EXISTING_TRANS_BLD_YRS',
+        'trans_length_km', 'trans_efficiency', 'BLD_YRS_FOR_EXISTING_TX',
         'existing_trans_cap')
     mod.trans_new_build_allowed = Param(
         mod.TRANSMISSION_LINES, within=Boolean, default=True)
@@ -197,41 +197,41 @@ def define_components(mod):
         dimen=2,
         initialize=lambda m: m.TRANSMISSION_LINES * m.PERIODS,
         filter=lambda m, tx, p: m.trans_new_build_allowed[tx])
-    mod.TRANS_BUILD_YEARS = Set(
+    mod.BLD_YRS_FOR_TX = Set(
         dimen=2,
-        initialize=lambda m: m.EXISTING_TRANS_BLD_YRS | m.NEW_TRANS_BLD_YRS)
-    mod.PERIOD_RELEVANT_TRANS_BUILDS = Set(
+        initialize=lambda m: m.BLD_YRS_FOR_EXISTING_TX | m.NEW_TRANS_BLD_YRS)
+    mod.TX_BUILDS_IN_PERIOD = Set(
         mod.PERIODS,
-        within=mod.TRANS_BUILD_YEARS,
+        within=mod.BLD_YRS_FOR_TX,
         initialize=lambda m, p: set(
-            (tx, bld_yr) for (tx, bld_yr) in m.TRANS_BUILD_YEARS
+            (tx, bld_yr) for (tx, bld_yr) in m.BLD_YRS_FOR_TX
             if bld_yr <= p))
 
-    def bounds_BuildTrans(model, tx, bld_yr):
-        if((tx, bld_yr) in model.EXISTING_TRANS_BLD_YRS):
+    def bounds_BuildTx(model, tx, bld_yr):
+        if((tx, bld_yr) in model.BLD_YRS_FOR_EXISTING_TX):
             return (model.existing_trans_cap[tx],
                     model.existing_trans_cap[tx])
         else:
             return (0, None)
-    mod.BuildTrans = Var(
-        mod.TRANS_BUILD_YEARS,
+    mod.BuildTx = Var(
+        mod.BLD_YRS_FOR_TX,
         within=NonNegativeReals,
-        bounds=bounds_BuildTrans)
-    mod.TransCapacity = Expression(
+        bounds=bounds_BuildTx)
+    mod.TxCapacityNameplate = Expression(
         mod.TRANSMISSION_LINES, mod.PERIODS,
         rule=lambda m, tx, period: sum(
-            m.BuildTrans[tx, bld_yr]
-            for (tx2, bld_yr) in m.TRANS_BUILD_YEARS
+            m.BuildTx[tx, bld_yr]
+            for (tx2, bld_yr) in m.BLD_YRS_FOR_TX
             if tx2 == tx and (bld_yr == 'Legacy' or bld_yr <= period)))
     mod.trans_derating_factor = Param(
         mod.TRANSMISSION_LINES,
         within=NonNegativeReals,
         default=1,
         validate=lambda m, val, tx: val <= 1)
-    mod.TransCapacityAvailable = Expression(
+    mod.TxCapacityNameplateAvailable = Expression(
         mod.TRANSMISSION_LINES, mod.PERIODS,
         rule=lambda m, tx, period: (
-            m.TransCapacity[tx, period] * m.trans_derating_factor[tx]))
+            m.TxCapacityNameplate[tx, period] * m.trans_derating_factor[tx]))
     mod.trans_terrain_multiplier = Param(
         mod.TRANSMISSION_LINES,
         within=Reals,
@@ -261,34 +261,34 @@ def define_components(mod):
     # function. Units should be total annual future costs in $base_year
     # real dollars. The objective function will convert these to
     # base_year Net Present Value in $base_year real dollars.
-    mod.Trans_Fixed_Costs_Annual = Expression(
+    mod.TxFixedCosts = Expression(
         mod.PERIODS,
         rule=lambda m, p: sum(
-            m.BuildTrans[tx, bld_yr] * m.trans_cost_annual[tx]
-            for (tx, bld_yr) in m.PERIOD_RELEVANT_TRANS_BUILDS[p]))
-    mod.cost_components_annual.append('Trans_Fixed_Costs_Annual')
+            m.BuildTx[tx, bld_yr] * m.trans_cost_annual[tx]
+            for (tx, bld_yr) in m.TX_BUILDS_IN_PERIOD[p]))
+    mod.Cost_Components_Per_Period.append('TxFixedCosts')
 
-    def init_TRANS_DIRECTIONAL(model):
+    def init_DIRECTIONAL_TX(model):
         tx_dir = set()
         for tx in model.TRANSMISSION_LINES:
             tx_dir.add((model.trans_lz1[tx], model.trans_lz2[tx]))
             tx_dir.add((model.trans_lz2[tx], model.trans_lz1[tx]))
         return tx_dir
-    mod.TRANS_DIRECTIONAL = Set(
+    mod.DIRECTIONAL_TX = Set(
         dimen=2,
-        initialize=init_TRANS_DIRECTIONAL)
-    mod.CONNECTED_LOAD_ZONES = Set(
+        initialize=init_DIRECTIONAL_TX)
+    mod.TX_CONNECTIONS_TO_ZONE = Set(
         mod.LOAD_ZONES,
         initialize=lambda m, lz: set(
-            z for z in m.LOAD_ZONES if (lz,z) in m.TRANS_DIRECTIONAL))
+            z for z in m.LOAD_ZONES if (z,lz) in m.DIRECTIONAL_TX))
 
-    def init_trans_d_line(m, lz_from, lz_to):
+    def init_trans_d_line(m, zone_from, zone_to):
         for tx in m.TRANSMISSION_LINES:
-            if((m.trans_lz1[tx] == lz_from and m.trans_lz2[tx] == lz_to) or
-               (m.trans_lz2[tx] == lz_from and m.trans_lz1[tx] == lz_to)):
+            if((m.trans_lz1[tx] == zone_from and m.trans_lz2[tx] == zone_to) or
+               (m.trans_lz2[tx] == zone_from and m.trans_lz1[tx] == zone_to)):
                 return tx
     mod.trans_d_line = Param(
-        mod.TRANS_DIRECTIONAL,
+        mod.DIRECTIONAL_TX,
         within=mod.TRANSMISSION_LINES,
         initialize=init_trans_d_line)
 
