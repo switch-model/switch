@@ -54,14 +54,13 @@ def define_components(mod):
         within=PositiveReals)
     mod.min_data_check('FUEL_AVAILABILITY', 'fuel_cost')
 
-    mod.PROJ_FUEL_DISPATCH_POINTS_UNAVAILABLE = Set(
-        initialize=mod.PROJ_FUEL_DISPATCH_POINTS,
-        filter=lambda m, pr, t, f: (
-            (m.proj_load_zone[pr], f, m.tp_period[t])
-            not in m.FUEL_AVAILABILITY))
+    def Enforce_Fuel_Availability_rule(m, g, t, f):
+        if (m.proj_load_zone[g], f, m.tp_period[t]) in m.FUEL_AVAILABILITY:
+            return Constraint.Skip
+        return m.ProjFuelUseRate[g, t, f] == 0
     mod.Enforce_Fuel_Availability = Constraint(
-        mod.PROJ_FUEL_DISPATCH_POINTS_UNAVAILABLE,
-        rule=lambda m, pr, t, f: m.ProjFuelUseRate[pr, t, f] == 0)
+        mod.PROJ_FUEL_DISPATCH_POINTS,
+        rule=Enforce_Fuel_Availability_rule)
 
     # Summarize total fuel costs in each timepoint for the objective function
     def Fuel_Costs_TP_rule(m, t):
