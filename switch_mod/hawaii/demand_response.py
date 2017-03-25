@@ -288,19 +288,7 @@ def pre_iterate(m):
         # different solution that would be much better than the one we have now. 
         # This ignores other solutions far away, where an integer variable is flipped,
         # but that's OK. (?)
-        prev_cost = value(sum(
-            (
-                sum(
-                    m.prev_marginal_cost[lz, tp, prod] * m.prev_demand[lz, tp, prod]
-                    for lz in m.LOAD_ZONES for prod in m.DR_PRODUCTS
-                ) + m.DR_Welfare_Cost[tp]
-            ) * m.bring_timepoint_costs_to_base_year[tp]
-            for ts in m.TIMESERIES
-            for tp in m.TS_TPS[ts]
-        ))
-
-        print ""
-        print 'previous direct cost: ${:,.0f}'.format(value(sum(
+        prev_direct_cost = value(sum(
             (
                 sum(
                     m.prev_marginal_cost[lz, tp, prod] * m.prev_demand[lz, tp, prod]
@@ -309,14 +297,30 @@ def pre_iterate(m):
             ) * m.bring_timepoint_costs_to_base_year[tp]
             for ts in m.TIMESERIES
             for tp in m.TS_TPS[ts]
-        )))
-        print 'previous welfare cost: ${:,.0f}'.format(value(sum(
+        ))
+        prev_welfare_cost = value(sum(
             (
                 m.DR_Welfare_Cost[tp]
             ) * m.bring_timepoint_costs_to_base_year[tp]
             for ts in m.TIMESERIES
             for tp in m.TS_TPS[ts]
-        )))
+        ))
+        prev_cost = prev_direct_cost + prev_welfare_cost
+
+        # prev_cost = value(sum(
+        #     (
+        #         sum(
+        #             m.prev_marginal_cost[lz, tp, prod] * m.prev_demand[lz, tp, prod]
+        #             for lz in m.LOAD_ZONES for prod in m.DR_PRODUCTS
+        #         ) + m.DR_Welfare_Cost[tp]
+        #     ) * m.bring_timepoint_costs_to_base_year[tp]
+        #     for ts in m.TIMESERIES
+        #     for tp in m.TS_TPS[ts]
+        # ))
+
+        print ""
+        print 'previous direct cost: ${:,.0f}'.format(prev_direct_cost)
+        print 'previous welfare cost: ${:,.0f}'.format(prev_welfare_cost)
         print ""
     
     # get the next bid and attach it to the model
@@ -327,42 +331,53 @@ def pre_iterate(m):
         # (if we could completely serve the last bid at the prices we quoted,
         # that would be an optimum; the actual cost may be higher but never lower)
         b = m.DR_BID_LIST.last()    # current bid number
-        best_cost = value(sum(
-            (
+        best_direct_cost = value(
+            sum(
                 sum(
                     m.prev_marginal_cost[lz, tp, prod] * m.dr_bid[b, lz, tp, prod] 
                     for lz in m.LOAD_ZONES for prod in m.DR_PRODUCTS
-                ) 
-                - sum(m.dr_bid_benefit[b, lz, ts] for lz in m.LOAD_ZONES)
-                * m.tp_duration_hrs[tp] / m.ts_num_tps[ts]
-            ) * m.bring_timepoint_costs_to_base_year[tp]
-            for ts in m.TIMESERIES
-            for tp in m.TS_TPS[ts]
-        ))
+                ) * m.bring_timepoint_costs_to_base_year[tp]
+                for ts in m.TIMESERIES
+                for tp in m.TS_TPS[ts]
+            )
+        )
+        best_bid_benefit = value(
+            sum(
+                (
+                    - sum(m.dr_bid_benefit[b, lz, ts] for lz in m.LOAD_ZONES)
+                    * m.tp_duration_hrs[tp] / m.ts_num_tps[ts]
+                ) * m.bring_timepoint_costs_to_base_year[tp]
+                for ts in m.TIMESERIES
+                for tp in m.TS_TPS[ts]
+            )
+        )
+        best_cost = best_direct_cost + best_bid_benefit
+        
+        # best_cost = value(sum(
+        #     (
+        #         sum(
+        #             m.prev_marginal_cost[lz, tp, prod] * m.dr_bid[b, lz, tp, prod]
+        #             for lz in m.LOAD_ZONES for prod in m.DR_PRODUCTS
+        #         )
+        #         - sum(m.dr_bid_benefit[b, lz, ts] for lz in m.LOAD_ZONES)
+        #         * m.tp_duration_hrs[tp] / m.ts_num_tps[ts]
+        #     ) * m.bring_timepoint_costs_to_base_year[tp]
+        #     for ts in m.TIMESERIES
+        #     for tp in m.TS_TPS[ts]
+        # ))
         
         print ""
-        print 'best direct cost: ${:,.0f}'.format(value(sum(
-            (
-                sum(
-                    m.prev_marginal_cost[lz, tp, prod] * m.dr_bid[b, lz, tp, prod] 
-                    for lz in m.LOAD_ZONES for prod in m.DR_PRODUCTS
-                ) 
-            ) * m.bring_timepoint_costs_to_base_year[tp]
-            for ts in m.TIMESERIES
-            for tp in m.TS_TPS[ts]
-        )))
-        print 'best bid benefit: ${:,.0f}'.format(value(sum(
-            (
-                - sum(m.dr_bid_benefit[b, lz, ts] for lz in m.LOAD_ZONES)
-                * m.tp_duration_hrs[tp] / m.ts_num_tps[ts]
-            ) * m.bring_timepoint_costs_to_base_year[tp]
-            for ts in m.TIMESERIES
-            for tp in m.TS_TPS[ts]
-        )))
+        print 'best direct cost: ${:,.0f}'.format(best_direct_cost)
+        print 'best bid benefit: ${:,.0f}'.format(best_bid_benefit)
         print ""
         
-        print "lower bound=${:,.0f}, previous cost=${:,.0f}, ratio={}" \
-            .format(best_cost, prev_cost, prev_cost/best_cost)
+        print "lower bound=${:,.0f}, previous cost=${:,.0f}, optimality gap (vs direct cost)={}" \
+            .format(best_cost, prev_cost, (prev_cost-best_cost)/abs(prev_direct_cost))
+        if prev_cost < best_cost:
+            print (
+                "WARNING: final cost is below reported lower bound; "
+                "there is probably a problem with the demand system."
+            )
 
         # import pdb; pdb.set_trace()
 
@@ -406,7 +421,7 @@ def pre_iterate(m):
     # TODO: index this to the direct costs, rather than the direct costs minus benefits
     # as it stands, it converges with about $50,000,000 optimality gap, which is about 
     # 3% of direct costs.
-    converged = (m.iteration_number > 0 and (prev_cost - best_cost)/abs(best_cost) <= 0.0000001)
+    converged = (m.iteration_number > 0 and (prev_cost - best_cost)/abs(prev_direct_cost) <= 0.0001)
     
     return converged
 
