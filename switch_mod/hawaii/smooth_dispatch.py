@@ -2,6 +2,7 @@
 smooth out demand response and EV charging as much as possible."""
 
 from pyomo.environ import *
+import switch_mod.solve
 
 def define_components(m):
     if m.options.solver in ('cplex', 'cplexamp', 'gurobi'):
@@ -35,14 +36,26 @@ def define_components(m):
                     obj += sum(comp[z, t]*comp[z, t] for z in m.LOAD_ZONES for t in m.TIMEPOINTS)
             return obj
         m.Smooth_Free_Variables = Objective(rule=Smooth_Free_Variables_obj_rule, sense=minimize)
+        # leave standard objective in effect for now
+        m.Smooth_Free_Variables.deactivate()
+        
+        # def Fix_Obj_rule(m):
+        #     # import pdb; pdb.set_trace()
+        #     # make sure the minimum-cost objective is in effect
+        #     # not sure if this is needed, and not sure
+        #     m.Smooth_Free_Variables.deactivate()
+        #     m.Minimize_System_Cost.activate()
+        # m.Fix_Obj = BuildAction(rule=Fix_Obj_rule)
 
 def pre_iterate(m):
     if m.options.smooth_dispatch:
         if m.iteration_number == 0:
-            # make sure the minimum-cost objective is in effect
-            m.Smooth_Free_Variables.deactivate()
-            m.Minimize_System_Cost.activate()
+            # indicate that this was run in iterated mode, so no need for post-solve
+            m.iterated_smooth_dispatch = True
         elif m.iteration_number == 1:
+            # save any dual values for later use (solving with a different objective
+            # will alter them in an undesirable way)
+            save_duals(m)
             # switch to the smoothing objective
             fix_obj_expression(m.Minimize_System_Cost)
             m.Minimize_System_Cost.deactivate()
@@ -77,15 +90,6 @@ def post_iterate(m):
                 )
             
     if m.options.smooth_dispatch:
-        if hasattr(m, "dual"):
-            if m.iteration_number == 0:
-                # save dual values  for later use (solving with a different objective
-                # will alter them in an undesirable way)
-                m.old_dual_dict = m.dual._dict.copy()
-            else:
-                # restore duals from the original solution
-                m.dual._dict = m.old_dual_dict
-
         # setup model for next iteration
         if m.iteration_number == 0:
             done = False # we'll have to run again to do the smoothing
@@ -96,6 +100,8 @@ def post_iterate(m):
             m.Minimize_System_Cost.activate()
             # unfix the variables
             fix_obj_expression(m.Minimize_System_Cost, False)
+            # restore any duals from the original solution
+            restore_duals(m)
             # now we're done
             done = True
         else:
@@ -105,6 +111,38 @@ def post_iterate(m):
         done = True
 
     return done
+
+def post_solve(m, outputs_dir):
+    if m.options.smooth_dispatch and not getattr(m, 'iterated_smooth_dispatch', False):
+
+        # store model state and prepare for smoothing
+        save_duals(m)
+        fix_obj_expression(m.Minimize_System_Cost)
+        m.Minimize_System_Cost.deactivate()
+        m.Smooth_Free_Variables.activate()
+        
+        # re-solve and load results
+        print "smoothing free variables..."
+        m.preprocess()
+        switch_mod.solve.solve(m)
+        
+        # restore original model state
+        m.Smooth_Free_Variables.deactivate()
+        m.Minimize_System_Cost.activate()
+        fix_obj_expression(m.Minimize_System_Cost, False)
+        restore_duals(m)
+        
+def save_duals(m):
+    if hasattr(m, 'dual'):
+        m.old_dual_dict = m.dual._dict.copy()
+    if hasattr(m, 'rc'):
+        m.old_rc_dict = m.rc._dict.copy()
+    
+def restore_duals(m):
+    if hasattr(m, 'dual'):
+        m.dual._dict = m.old_dual_dict
+    if hasattr(m, 'rc'):
+        m.rc._dict = m.old_rc_dict
 
 def fix_obj_expression(e, status=True):
     """Recursively fix all variables included in an objective expression."""
@@ -120,8 +158,9 @@ def fix_obj_expression(e, status=True):
             fix_obj_expression(e2, status)
     elif hasattr(e, 'expr'):
         fix_obj_expression(e.expr, status)
-    elif hasattr(e, 'is_constant') and e.is_constant():
-        pass    # numeric constant
+    elif hasattr(e, 'is_constant'):
+        # parameter; we don't actually care if it's mutable or not
+        pass
     else:
         raise ValueError(
             'Expression {e} does not have an expr, fixed or _args property, ' +
