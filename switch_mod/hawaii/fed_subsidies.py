@@ -18,31 +18,31 @@ def define_components(m):
     
     # note: here we assume that existing projects and new (unbuilt) projects
     # are defined separately
-    m.NEW_PROJECTS = Set(initialize=lambda m: set(p for (p, y) in m.NEW_PROJ_BUILDYEARS))
+    m.NEW_GENECTS = Set(initialize=lambda m: set(p for (p, y) in m.NEW_GEN_BLD_YRS))
     
     # model the wind production tax credit 
     m.Wind_Subsidy_Hourly = Expression(
         m.TIMEPOINTS,
         rule=lambda m, t: -wind_prod_tax_credit * sum(
-            m.DispatchProj[p, t] 
-                for p in m.PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[wind_energy_source]
-                    if p in m.NEW_PROJECTS and (p, t) in m.PROJ_DISPATCH_POINTS
+            m.DispatchGen[p, t] 
+                for p in m.GENERATION_PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[wind_energy_source]
+                    if p in m.NEW_GENECTS and (p, t) in m.GEN_TPS
         )
     )
-    m.cost_components_tp.append('Wind_Subsidy_Hourly')
+    m.Cost_Components_Per_TP.append('Wind_Subsidy_Hourly')
     
     # model the solar tax credit as simply prorating the annual capital cost
     m.Solar_Credit_Annual = Expression(m.PERIODS, rule=lambda m, pe: 
         -solar_invest_tax_credit * sum(
-            m.BuildProj[pr, bld_yr] * m.proj_capital_cost_annual[pr, bld_yr]
-                for pr in m.PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[solar_energy_source]
-                    if pr in m.NEW_PROJECTS
-                        for bld_yr in m.PROJECT_PERIOD_ONLINE_BUILD_YRS[pr, pe]))
+            m.BuildGen[g, bld_yr] * m.gen_capital_cost_annual[g, bld_yr]
+                for g in m.GENERATION_PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[solar_energy_source]
+                    if g in m.NEW_GENECTS
+                        for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, pe]))
     # # another version:
     # m.Solar_Credit_Annual = Expression(m.PERIODS, rule=lambda m, pe:
     #     -solar_invest_tax_credit * sum(
-    #         m.BuildProj[pr, bld_yr] * m.proj_capital_cost_annual[pr, bld_yr]
-    #             for (pr, bld_yr) in m.NEW_PROJECT_BUILDYEARS
-    #                 if (pe in m.PROJECT_BUILDS_OPERATIONAL_PERIODS[pr, bld_yr]
-    #                     and m.proj_energy_source[pr] == solar_energy_source)))
-    m.cost_components_annual.append('Solar_Credit_Annual')
+    #         m.BuildGen[g, bld_yr] * m.gen_capital_cost_annual[g, bld_yr]
+    #             for (g, bld_yr) in m.NEW_GEN_BLD_YRS
+    #                 if (pe in m.PERIODS_FOR_GEN_BLD_YR[g, bld_yr]
+    #                     and m.gen_energy_source[g] == solar_energy_source)))
+    m.Cost_Components_Per_Period.append('Solar_Credit_Annual')

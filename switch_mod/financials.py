@@ -87,7 +87,7 @@ def define_dynamic_lists(mod):
     There are two lists of costs components that form the cost-minimization
     objective function. Other modules may add elements to these lists.
 
-    cost_components_tp is a list of components that contribute to
+    Cost_Components_Per_TP is a list of components that contribute to
     overall system costs in each timepoint. Each component in this list
     needs to be indexed by timepoint and specified in non-discounted
     real dollars per hour. The objective function will apply weights and
@@ -96,7 +96,7 @@ def define_dynamic_lists(mod):
     indexed by [t] that contains logic to access or summarize native
     model components.
 
-    cost_components_annual is a list of components that contribute to
+    Cost_Components_Per_Period is a list of components that contribute to
     overall system costs on an annual basis. Each component in this list
     needs to be indexed by period and specified in non-discounted real
     dollars over a typical year in the period. The objective function
@@ -106,11 +106,11 @@ def define_dynamic_lists(mod):
     summarize native model components.
 
     """
-    # TODO: rename cost_components_tp to cost_components_hourly to reflect the fact that it 
+    # TODO: rename Cost_Components_Per_TP to cost_components_hourly to reflect the fact that it 
     # should show hourly costs (not costs per timepoint); this would also be more similar 
-    # to cost_components_annual
-    mod.cost_components_tp = []
-    mod.cost_components_annual = []
+    # to Cost_Components_Per_Period
+    mod.Cost_Components_Per_TP = []
+    mod.Cost_Components_Per_Period = []
 
 def define_components(mod):
     """
@@ -255,7 +255,7 @@ def define_dynamic_components(mod):
 
     SystemCostPerPeriod[p in PERIODS] is an expression that sums
     total system costs in each period based on the two lists
-    cost_components_tp and cost_components_annual. Components in the
+    Cost_Components_Per_TP and Cost_Components_Per_Period. Components in the
     first list are indexed by timepoint and components in the second are
     indexed by period.
 
@@ -267,7 +267,7 @@ def define_dynamic_components(mod):
     def calc_tp_costs_in_period(m, t):
         return sum(
             getattr(m, tp_cost)[t] * m.tp_weight_in_year[t]
-            for tp_cost in m.cost_components_tp)
+            for tp_cost in m.Cost_Components_Per_TP)
 
     # Note: multiply annual costs by a conversion factor if running this
     # model on an intentional subset of annual data whose weights do not
@@ -276,14 +276,14 @@ def define_dynamic_components(mod):
     def calc_annual_costs_in_period(m, p):
         return sum(
             getattr(m, annual_cost)[p]
-            for annual_cost in m.cost_components_annual)
+            for annual_cost in m.Cost_Components_Per_Period)
 
     def calc_sys_costs_per_period(m, p):
         return (
             # All annual payments in the period
             (
                 calc_annual_costs_in_period(m, p) +
-                sum(calc_tp_costs_in_period(m, t) for t in m.PERIOD_TPS[p])
+                sum(calc_tp_costs_in_period(m, t) for t in m.TPS_IN_PERIOD[p])
             ) *
             # Conversion from annual costs to base year
             m.bring_annual_costs_to_base_year[p]

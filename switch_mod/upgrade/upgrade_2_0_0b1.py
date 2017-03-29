@@ -308,46 +308,36 @@ def upgrade_input_dir(inputs_dir, verbose=False, backup=True):
             'g_storage_energy_overnight_cost': 'proj_storage_energy_overnight_cost.default',
             'g_fixed_o_m': 'proj_fixed_om.default'}
         gen_build_df.rename(columns=new_col_names, inplace=True)
-        new_proj_builds = pandas.merge(
+        new_g_builds = pandas.merge(
             gen_build_df, proj_info_df[['PROJECT', 'proj_gen_tech', 'proj_load_zone']],
             on='proj_gen_tech')
         # Factor in the load zone cost multipliers
-        new_proj_builds = pandas.merge(
-            load_zone_df[['LOAD_ZONE', 'lz_cost_multipliers']], new_proj_builds,
+        new_g_builds = pandas.merge(
+            load_zone_df[['LOAD_ZONE', 'lz_cost_multipliers']], new_g_builds,
             left_on='LOAD_ZONE', right_on='proj_load_zone', how='right')
-        new_proj_builds['proj_overnight_cost.default'] *= new_proj_builds['lz_cost_multipliers']
-        new_proj_builds['proj_fixed_om.default'] *= new_proj_builds['lz_cost_multipliers']
+        new_g_builds['proj_overnight_cost.default'] *= new_g_builds['lz_cost_multipliers']
+        new_g_builds['proj_fixed_om.default'] *= new_g_builds['lz_cost_multipliers']
         # Clean up
         for drop_col in ['LOAD_ZONE', 'proj_gen_tech', 'proj_load_zone', 'lz_cost_multipliers']:
-            del new_proj_builds[drop_col]
+            del new_g_builds[drop_col]
 
         # Merge the expanded gen_new_build_costs data into proj_build_costs
         project_build_path = os.path.join(inputs_dir, 'proj_build_costs.tab')
         if os.path.isfile(project_build_path):
             project_build_df = pandas.read_csv(project_build_path, na_values=['.'], sep='\t')
-            project_build_df = pandas.merge(project_build_df, new_proj_builds,
+            project_build_df = pandas.merge(project_build_df, new_g_builds,
                                              on=['PROJECT', 'build_year'], how='outer')
         else:
             # Make sure the order of the columns is ok since merge won't ensuring that.
             idx_cols = ['PROJECT', 'build_year']
-            dat_cols = [c for c in new_proj_builds if c not in idx_cols]
+            dat_cols = [c for c in new_g_builds if c not in idx_cols]
             col_order = idx_cols + dat_cols
-            project_build_df = new_proj_builds[col_order]
+            project_build_df = new_g_builds[col_order]
         columns_with_defaults = ['proj_overnight_cost', 'proj_fixed_om', 
                                  'proj_storage_energy_overnight_cost']
         update_cols_with_defaults(project_build_df, columns_with_defaults)
         project_build_df.to_csv(project_build_path, sep='\t', na_rep='.', index=False)
         os.remove(gen_build_path)
-    
-    rename_file('proj_existing_builds.tab', 'proj_build_predetermined.tab')
-    rename_column('proj_build_predetermined.tab', 
-                  old_col_name='proj_existing_cap', 
-                  new_col_name='proj_predetermined_cap')
-
-    rename_file('lz_peak_loads.tab', 'lz_coincident_peak_demand.tab')
-    rename_column('lz_coincident_peak_demand.tab', 
-                  old_col_name='peak_demand_mw', 
-                  new_col_name='lz_expected_coincident_peak_demand')
 
     # Merge gen_inc_heat_rates.tab into proj_inc_heat_rates.tab
     g_hr_path = os.path.join(inputs_dir, 'gen_inc_heat_rates.tab')
@@ -378,6 +368,70 @@ def upgrade_input_dir(inputs_dir, verbose=False, backup=True):
         proj_hr_df.to_csv(proj_hr_path, sep='\t', na_rep='.', index=False, columns=cols)
         os.remove(g_hr_path)
     
+    # Done with restructuring. Now apply component renaming.
+    
+    old_new_file_names = {
+        'proj_existing_builds.tab':'gen_build_predetermined.tab',
+        'project_info.tab':'generation_projects_info.tab',
+        'proj_build_costs.tab':'gen_build_costs.tab',
+        'proj_inc_heat_rates.tab':'gen_inc_heat_rates.tab',
+        'hydro_projects.tab':'hydro_generation_projects.tab',
+        'lz_peak_loads.tab':'zone_coincident_peak_demand.tab',
+        'lz_to_regional_fuel_market.tab':'zone_to_regional_fuel_market.tab'
+    }
+    
+    for old, new in old_new_file_names.iteritems():
+        rename_file(old, new)
+    
+    old_new_column_names_in_file = {
+        'gen_build_predetermined.tab':[
+        ('proj_existing_cap','gen_predetermined_cap')
+        ],
+        'gen_build_costs.tab':[
+        ('proj_overnight_cost','gen_overnight_cost'),
+        ('proj_fixed_om','gen_fixed_om'),
+        ('proj_storage_energy_overnight_cost','gen_storage_energy_overnight_cost')
+        ],
+        'generation_projects_info.tab':[
+        ('proj_dbid','gen_dbid'),('proj_gen_tech','gen_tech'),
+        ('proj_load_zone','gen_load_zone'),
+        ('proj_connect_cost_per_mw','gen_connect_cost_per_mw'),
+        ('proj_capacity_limit_mw','gen_capacity_limit_mw'),
+        ('proj_variable_om','gen_variable_om'),
+        ('proj_max_age','gen_max_age'),
+        ('proj_min_build_capacity','gen_min_build_capacity'),
+        ('proj_scheduled_outage_rate','gen_scheduled_outage_rate'),
+        ('proj_forced_outage_rate','gen_forced_outage_rate'),
+        ('proj_is_variable','gen_is_variable'),
+        ('proj_is_baseload','gen_is_baseload'),
+        ('proj_is_cogen','gen_is_cogen'),
+        ('proj_energy_source','gen_energy_source'),
+        ('proj_full_load_heat_rate','gen_full_load_heat_rate'),
+        ('proj_storage_efficiency','gen_storage_efficiency'),
+        ('proj_min_load_fraction','gen_min_load_fraction'),
+        ('proj_startup_fuel','gen_startup_fuel'),
+        ('proj_startup_om','gen_startup_om'),
+        ('proj_min_uptime','gen_min_uptime'),
+        ('proj_min_downtime','gen_min_downtime'),
+        ('proj_min_commit_fraction','gen_min_commit_fraction'),
+        ('proj_max_commit_fraction','gen_max_commit_fraction'),
+        ('proj_min_load_fraction_TP','gen_min_load_fraction_TP'),
+        ('proj_unit_size','gen_unit_size')
+        ],
+        'loads.tab':[
+        ('lz_demand_mw','zone_demand_mw')
+        ],
+        'zone_coincident_peak_demand.tab':[
+        ('peak_demand_mw','zone_expected_coincident_peak_demand')
+        ]
+    }
+    
+    for fname, old_new_pairs in old_new_column_names_in_file.iteritems():
+        for old_new_pair in old_new_pairs:
+            old = old_new_pair[0]
+            new = old_new_pair[1]
+            rename_column(fname, old_col_name=old, new_col_name=new)
+
 
     # Write a new version text file.
     switch_mod.upgrade._write_input_version(inputs_dir, upgrades_to)

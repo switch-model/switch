@@ -22,22 +22,22 @@ def define_components(mod):
     Adds components to a Pyomo abstract model object to describe a demand
     response shift service.
 
-    dr_shift_down_limit_MW[(z,t in ZONE_TIMEPOINTS)] is a parameter
+    dr_shift_down_limit[(z,t in ZONE_TIMEPOINTS)] is a parameter
     that describes the maximum reduction in demand for load-shifting demand
     response (in MW) that is allowed in a load zone at a specific timepoint.
     Its default value is 0, and it may not exceed the load.
 
-    dr_shift_up_limit_MW[z,t] is a parameter that describes the maximum
+    dr_shift_up_limit[z,t] is a parameter that describes the maximum
     increase in demand for load-shifting demand response (in MW) that is
     allowed in a load zone at a specific timepoint. Its default value is
     infinity.
 
-    DemandResponse[z,t] is a decision variable describing how much load
+    ShiftDemand[z,t] is a decision variable describing how much load
     in MW is reduced (if its value is negative) or increased (if
-    its value is positive). This variable is bounded by dr_shift_down_limit_MW
-    and dr_shift_up_limit_MW.
+    its value is positive). This variable is bounded by dr_shift_down_limit
+    and dr_shift_up_limit.
     
-    If the local_td module is included, DemandResponse[z,t] will be registered
+    If the local_td module is included, ShiftDemand[z,t] will be registered
     with local_td's distributed node for energy balancing purposes. If
     local_td is not included, it will be registered with load zone's central
     node.
@@ -48,33 +48,33 @@ def define_components(mod):
     
     """
     
-    mod.dr_shift_down_limit_MW = Param(
+    mod.dr_shift_down_limit = Param(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         default= 0.0,
         within=NonNegativeReals,
-        validate=lambda m, value, z, t: value <= m.lz_demand_mw[z, t])
-    mod.dr_shift_up_limit_MW = Param(
+        validate=lambda m, value, z, t: value <= m.zone_demand_mw[z, t])
+    mod.dr_shift_up_limit = Param(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         default= float('inf'),
         within=NonNegativeReals)
-    mod.DemandResponse = Var(
+    mod.ShiftDemand = Var(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         within=Reals,
         bounds=lambda m, z, t: 
         (
-            (-1.0) * m.dr_shift_down_limit_MW[z,t],
-            m.dr_shift_up_limit_MW[z,t]
+            (-1.0) * m.dr_shift_down_limit[z,t],
+            m.dr_shift_up_limit[z,t]
         ))
 
     mod.DR_Shift_Net_Zero = Constraint(
         mod.LOAD_ZONES, mod.TIMESERIES,
         rule=lambda m, z, ts:
-        sum(m.DemandResponse[z, t] for t in m.TS_TPS[ts]) == 0.0)
+        sum(m.ShiftDemand[z, t] for t in m.TPS_IN_TS[ts]) == 0.0)
     
     if 'Distributed_Injections' in dir(mod):
-        mod.Distributed_Injections.append('DemandResponse')
+        mod.Distributed_Injections.append('ShiftDemand')
     else:
-        mod.LZ_Energy_Components_Consume.append('DemandResponse')
+        mod.LZ_Energy_Components_Consume.append('ShiftDemand')
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -83,7 +83,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     Import demand response-specific data from an input directory.
 
     dr_data.tab
-        LOAD_ZONE, TIMEPOINT, dr_shift_down_limit_MW, dr_shift_up_limit_MW
+        LOAD_ZONE, TIMEPOINT, dr_shift_down_limit, dr_shift_up_limit
 
     """
 
@@ -91,4 +91,4 @@ def load_inputs(mod, switch_data, inputs_dir):
         optional=True,
         filename=os.path.join(inputs_dir, 'dr_data.tab'),
         autoselect=True,
-        param=(mod.dr_shift_down_limit_MW, mod.dr_shift_up_limit_MW))
+        param=(mod.dr_shift_down_limit, mod.dr_shift_up_limit))

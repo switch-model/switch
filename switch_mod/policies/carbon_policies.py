@@ -34,11 +34,11 @@ def define_components(model):
 
     model.carbon_cost_dollar_per_tco2 = Param(model.PERIODS, default=0.0,
         doc="The cost adder applied to emissions, in future dollars per metric tonne of CO2.")
-    model.EmissionsCost = Expression(model.PERIODS,
+    model.EmissionsCosts = Expression(model.PERIODS,
         rule=lambda model, period: \
             model.AnnualEmissions[period] * model.carbon_cost_dollar_per_tco2[period],
         doc=("Enforces the carbon cap for generation-related emissions."))
-    model.cost_components_annual.append('EmissionsCost')
+    model.Cost_Components_Per_Period.append('EmissionsCosts')
 
 
 def load_inputs(model, switch_data, inputs_dir):

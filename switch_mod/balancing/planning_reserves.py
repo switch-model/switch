@@ -92,12 +92,12 @@ def define_components(model):
     requirement and requirements for transmission-constrained "load pockets".
     This set is abbreviates as PRR.    
     
-    prr_reserve_margin[prr] is the capacity reserve margin for each PRR which
+    prr_reserve_margin[gr] is the capacity reserve margin for each PRR which
     defaults to 0.15
     
-    prr_enforcement_timescale[prr] Determines whether planning reserve
+    prr_enforcement_timescale[gr] Determines whether planning reserve
     requirements are enforced in each timepoint, or just timepoints with peak
-    load (lz_demand_mw). Allowed values are 'all_timepoints' and 'peak_load'.
+    load (zone_demand_mw). Allowed values are 'all_timepoints' and 'peak_load'.
     
     PRR_ZONES is a set of (prr, zone) that describes which zones contribute to a
     given planning reserve requirement. Zones may belong to more than one PRR.
@@ -106,16 +106,16 @@ def define_components(model):
     
     gen_capacity_value[g, t] is a ratio of how much of a generator's installed
     capacity should be credited towards capacity reserve requirements. This
-    defaults to proj_max_capacity_factor for renewable projects with variable
+    defaults to gen_max_capacity_factor for renewable projects with variable
     output and 1.0 for other plants.
     
-    AvailableReserveCapacity[prr,t] summarizes the available generation
+    AvailableReserveCapacity[gr,t] summarizes the available generation
     capacity across each planning reserve area, taking into account
     capacity_value. If storage projects are being modeled, they are credited
     with their scheduled net deliveries (dispatch - charging). This is added
     to the CAPACITY_FOR_RESERVES list.
     
-    If LZ_TXNet is defined in the model, it will be added to the
+    If TXPowerNet is defined in the model, it will be added to the
     CAPACITY_FOR_RESERVES list.
 
     CapacityRequirements[z,t] is an expression that defines capacity reserve
@@ -123,7 +123,7 @@ def define_components(model):
     If the local_td module has been included, load will be set to
     WithdrawFromCentralGrid, which accounts for Distributed Energy Resources
     reducing (or increasing) net load to the central grid.
-    If the local_td module is not include, load is set to lz_demand_mw and
+    If the local_td module is not include, load is set to zone_demand_mw and
     will not reflect any DER activities.
     """
     model.PLANNING_RESERVE_REQUIREMENTS = Set(
@@ -145,21 +145,21 @@ def define_components(model):
         validate=lambda m, value, prr: 
             value in ('all_timepoints', 'peak_load'),
         doc=("Determines whether planning reserve requirements are enforced in "
-             "each timepoint, or just timepoints with peak load (lz_demand_mw).")
+             "each timepoint, or just timepoints with peak load (zone_demand_mw).")
     )
     def get_peak_timepoints(m, prr):
         """
         Return the set of timepoints with peak load within a planning reserve
         requirement area for each period. For this calculation, load is defined
-        statically (lz_demand_mw), ignoring the impact of all distributed 
+        statically (zone_demand_mw), ignoring the impact of all distributed 
         energy resources.
         """
         peak_timepoint_list = set()
         ZONES = [z for (_prr, z) in m.PRR_ZONES if _prr == prr]
         for p in m.PERIODS:
             peak_load = 0.0
-            for t in m.PERIOD_TPS[p]:
-                load = sum(m.lz_demand_mw[z, t] for z in ZONES)
+            for t in m.TPS_IN_PERIOD[p]:
+                load = sum(m.zone_demand_mw[z, t] for z in ZONES)
                 if load > peak_load:
                     peak_timepoint = t
                     peak_load = load
@@ -185,7 +185,7 @@ def define_components(model):
     )
 
     model.gen_can_provide_cap_reserves = Param(
-        model.PROJECTS,
+        model.GENERATION_PROJECTS,
         within=Boolean,
         default=True,
         doc="Indicates whether a generator can provide capacity reserves."
@@ -193,12 +193,12 @@ def define_components(model):
     def gen_capacity_value_default(m, g, t):
         if not m.gen_can_provide_cap_reserves[g]:
             return 0.0
-        elif g in m.VARIABLE_PROJECTS:
-            return m.proj_max_capacity_factor[g, t]
+        elif g in m.VARIABLE_GENS:
+            return m.gen_max_capacity_factor[g, t]
         else:
             return 1.0
     model.gen_capacity_value = Param(
-        model.PROJ_DISPATCH_POINTS,
+        model.GEN_TPS,
         within=PercentFraction,
         default=gen_capacity_value_default,
         validate=lambda m, value, g, t: (
@@ -214,32 +214,32 @@ def define_components(model):
         reserve_cap = 0.0
         ZONES = zones_for_prr(m, prr)
         # Apply net power from storage if available
-        if 'LZ_NetCharge' in dir(m):
-            reserve_cap -= sum(m.LZ_NetCharge[z,t] for z in ZONES)
+        if 'StorageNetCharge' in dir(m):
+            reserve_cap -= sum(m.StorageNetCharge[z,t] for z in ZONES)
         GENS = [g 
                 for z in ZONES 
-                for g in m.LZ_PROJECTS[z] 
-                if (g, t) in m.PROJ_DISPATCH_POINTS and 
+                for g in m.GENS_IN_ZONE[z] 
+                if (g, t) in m.GEN_TPS and 
                    m.gen_can_provide_cap_reserves[g]]
         for g in GENS:
             # Storage is only credited with its expected output
-            if 'STORAGE_PROJECTS' in dir(m) and g in m.STORAGE_PROJECTS:
-                reserve_cap += DispatchProj[g, t]
+            if 'STORAGE_GENS' in dir(m) and g in m.STORAGE_GENS:
+                reserve_cap += DispatchGen[g, t]
             # If local_td is included with DER modeling, avoid allocating
             # distributed generation to central grid capacity because it will
             # be credited with adjusting load at the distribution node.
-            elif 'Distributed_Injections' in dir(m) and m.proj_is_distributed[g]:
+            elif 'Distributed_Injections' in dir(m) and m.gen_is_distributed[g]:
                 pass
             else:
-                reserve_cap += m.gen_capacity_value[g, t] * m.ProjCapacityTP[g, t]
+                reserve_cap += m.gen_capacity_value[g, t] * m.GenCapacityPerTP[g, t]
         return reserve_cap
     model.AvailableReserveCapacity = Expression(
         model.PRR_TIMEPOINTS, rule=AvailableReserveCapacity_rule
     )
     model.CAPACITY_FOR_RESERVES.append('AvailableReserveCapacity')
 
-    if 'LZ_TXNet' in model:
-        model.CAPACITY_FOR_RESERVES.append('LZ_TXNet')
+    if 'TXPowerNet' in model:
+        model.CAPACITY_FOR_RESERVES.append('TXPowerNet')
 
     def CapacityRequirements_rule(m, prr, t):
         ZONES = zones_for_prr(m, prr)
@@ -250,7 +250,7 @@ def define_components(model):
             )
         else:
             return sum(
-                (1 + m.prr_cap_reserve_margin[prr]) * m.lz_demand_mw[z,t]
+                (1 + m.prr_cap_reserve_margin[prr]) * m.zone_demand_mw[z,t]
                 for z in ZONES
             )
     model.CapacityRequirements = Expression(
@@ -281,7 +281,7 @@ def load_inputs(model, switch_data, inputs_dir):
     planning_reserve_requirement_zones.tab
         PLANNING_RESERVE_REQUIREMENTS, prr_cap_reserve_margin, prr_enforcement_timescale
     
-    project_info.tab
+    generation_projects_info.tab
         ..., gen_can_provide_cap_reserves
     
     planning_reserve_requirement_zones.tab
@@ -301,7 +301,7 @@ def load_inputs(model, switch_data, inputs_dir):
         param=(model.prr_cap_reserve_margin, model.prr_enforcement_timescale)
     )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'project_info.tab'),
+        filename=os.path.join(inputs_dir, 'generation_projects_info.tab'),
         auto_select=True,
         optional_params=['gen_can_provide_cap_reserves'],
         param=(model.gen_can_provide_cap_reserves)

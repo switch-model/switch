@@ -1,0 +1,6 @@
+GENERATION_PROJECT	gen_dbid	gen_energy_source	gen_load_zone	gen_connect_cost_per_mw	gen_capacity_limit_mw	gen_variable_om	gen_max_age	gen_min_build_capacity	gen_scheduled_outage_rate	gen_forced_outage_rate	gen_is_variable	gen_is_baseload	gen_is_cogen	gen_full_load_heat_rate	gen_tech
+Unique-NG_CC	1	NaturalGas	Unique	0	10	3.5	40	0	0.04	0.06	0	0	0	6.705	NG_CC
+Unique-Central_PV	2	Solar	Unique	0	6	0	25	0	0	0.02	1	0	0	.	Central_PV
+Unique-Hydro_Dam_1	3	Water	Unique	0	8	0	50	.	0.07	0.02	0	0	0	.	Hydro_Dam
+Unique-Hydro_Dam_2	4	Water	Unique	0	6	0	50	.	0.07	0.02	0	0	0	.	Hydro_Dam
+Unique-Hydro_Series	5	Water	Unique	0	10	0	50	.	0.07	0.02	0	0	0	.	Hydro_Series

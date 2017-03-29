@@ -1,3 +1,3 @@
-LOAD_ZONE	TIMEPOINT	dr_shift_down_limit_MW	dr_shift_up_limit_MW
+LOAD_ZONE	TIMEPOINT	dr_shift_down_limit	dr_shift_up_limit
 South	1	2	2
 South	2	0.5	2

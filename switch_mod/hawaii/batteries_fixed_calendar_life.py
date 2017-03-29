@@ -57,7 +57,7 @@ def define_components(m):
                     for z in m.LOAD_ZONES 
         )
     )
-    m.cost_components_annual.append('BatteryAnnualCost')
+    m.Cost_Components_Per_Period.append('BatteryAnnualCost')
 
     # Calculate the state of charge based on conservation of energy
     # NOTE: this is circular for each day
@@ -109,7 +109,7 @@ def define_components(m):
     # assume batteries can only complete one full cycle (charged to max discharge)
     # per day, averaged over each period
     m.Battery_Cycle_Limit = Constraint(m.LOAD_ZONES, m.PERIODS, rule=lambda m, z, p:
-        sum(m.DischargeBattery[z, tp] * m.tp_duration_hrs[tp] for tp in m.PERIOD_TPS[p])
+        sum(m.DischargeBattery[z, tp] * m.tp_duration_hrs[tp] for tp in m.TPS_IN_PERIOD[p])
         <= 
         m.Battery_Capacity[z, p] * m.battery_max_discharge * m.period_length_hours[p]
     )

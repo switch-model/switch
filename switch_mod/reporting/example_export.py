@@ -24,8 +24,8 @@ def post_solve(instance, outdir):
         headings=("load_zone", "timestamp",) + tuple(
             instance.LZ_Energy_Components_Produce +
             instance.LZ_Energy_Components_Consume),
-        values=lambda m, lz, t: (lz, m.tp_timestamp[t],) + tuple(
-            getattr(m, component)[lz, t]
+        values=lambda m, z, t: (z, m.tp_timestamp[t],) + tuple(
+            getattr(m, component)[z, t]
             for component in (
                 m.LZ_Energy_Components_Produce +
                 m.LZ_Energy_Components_Consume)))

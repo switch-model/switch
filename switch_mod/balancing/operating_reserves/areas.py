@@ -17,12 +17,12 @@ def define_components(mod):
     describe balancing areas. Unless otherwise stated, each set and
     parameter is mandatory.
 
-    lz_balancing_area[z] describes which balancing area each load zone
+    zone_balancing_area[z] describes which balancing area each load zone
     belongs to.
 
     BALANCING_AREAS describes the set of balancing areas in which
     operational reserves must be met. These are the unique names
-    specified in the lz_balancing_area[z] parameter. You can override
+    specified in the zone_balancing_area[z] parameter. You can override
     the default operational reserve requirements (described below) by
     including an additional file in the input directory. See
     load_inputs() documentation for more details. Balancing areas
@@ -54,10 +54,10 @@ def define_components(mod):
 
     """
 
-    mod.lz_balancing_area = Param(mod.LOAD_ZONES)
-    mod.min_data_check('lz_balancing_area')
+    mod.zone_balancing_area = Param(mod.LOAD_ZONES)
+    mod.min_data_check('zone_balancing_area')
     mod.BALANCING_AREAS = Set(initialize=lambda m: set(
-        m.lz_balancing_area[z] for z in m.LOAD_ZONES))
+        m.zone_balancing_area[z] for z in m.LOAD_ZONES))
     mod.quickstart_res_load_frac = Param(
         mod.BALANCING_AREAS, within=PositiveReals, default=0.03,
         validate=lambda m, val, b: val < 1)
@@ -84,7 +84,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     Import balancing_area data. The following files are expected in the input
     directory:
 
-    lz_balancing_areas.tab should be a tab-separated file with the columns:
+    zone_balancing_areas.tab should be a tab-separated file with the columns:
         LOAD_ZONE, balancing_area
 
     balancing_areas.tab is optional and should be specified if you want
@@ -101,9 +101,9 @@ def load_inputs(mod, switch_data, inputs_dir):
     # column names, be indifferent to column order, and throw an error
     # message if some columns are not found.
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'lz_balancing_areas.tab'),
+        filename=os.path.join(inputs_dir, 'zone_balancing_areas.tab'),
         select=('LOAD_ZONE', 'balancing_area'),
-        param=(mod.lz_balancing_area))
+        param=(mod.zone_balancing_area))
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'balancing_areas.tab'),
         optional=True,

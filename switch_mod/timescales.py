@@ -98,9 +98,9 @@ def define_components(mod):
     being None or invalid. In the degenerate case of a timeseries with a
     single timepoint, tp_previous[t] will be t.
 
-    PERIOD_TPS[period]: The set of timepoints in a period.
+    TPS_IN_PERIOD[period]: The set of timepoints in a period.
 
-    TS_TPS[timeseries]: The ordered set of timepoints in a timeseries.
+    TPS_IN_TS[timeseries]: The ordered set of timepoints in a timeseries.
 
     Data validity check:
     Currently, the sum of tp_weight for all timepoints in a period
@@ -245,7 +245,7 @@ def define_components(mod):
         initialize=lambda m, t: (
             m.ts_duration_of_tp[m.tp_ts[t]] *
             m.ts_scale_to_period[m.tp_ts[t]]))
-    mod.TS_TPS = Set(
+    mod.TPS_IN_TS = Set(
         mod.TIMESERIES,
         ordered=True,
         within=mod.TIMEPOINTS,
@@ -255,13 +255,13 @@ def define_components(mod):
         mod.TIMEPOINTS,
         within=mod.PERIODS,
         initialize=lambda m, t: m.ts_period[m.tp_ts[t]])
-    mod.PERIOD_TS = Set(
+    mod.TS_IN_PERIOD = Set(
         mod.PERIODS,
         ordered=True,
         within=mod.TIMESERIES,
         initialize=lambda m, p: [
             ts for ts in m.TIMESERIES if m.ts_period[ts] == p])
-    mod.PERIOD_TPS = Set(
+    mod.TPS_IN_PERIOD = Set(
         mod.PERIODS,
         ordered=True,
         within=mod.TIMEPOINTS,
@@ -275,7 +275,7 @@ def define_components(mod):
     # NOTE: we can't just check whether period_end[p] + 1 = period_start[p+1],
     # because that is undefined for single-period models.
     def add_one_to_period_end_rule(m):
-        hours_in_period = {p: sum(m.tp_weight[t] for t in m.PERIOD_TPS[p]) for p in m.PERIODS}
+        hours_in_period = {p: sum(m.tp_weight[t] for t in m.TPS_IN_PERIOD[p]) for p in m.PERIODS}
         err_plain = sum(
             (m.period_end[p] - m.period_start[p]) * hours_per_year - hours_in_period[p]
                 for p in m.PERIODS)
@@ -319,10 +319,10 @@ def define_components(mod):
     mod.tp_previous = Param(
         mod.TIMEPOINTS,
         within=mod.TIMEPOINTS,
-        initialize=lambda m, t: m.TS_TPS[m.tp_ts[t]].prevw(t))
+        initialize=lambda m, t: m.TPS_IN_TS[m.tp_ts[t]].prevw(t))
 
     def validate_time_weights_rule(m, p):
-        hours_in_period = sum(m.tp_weight[t] for t in m.PERIOD_TPS[p])
+        hours_in_period = sum(m.tp_weight[t] for t in m.TPS_IN_PERIOD[p])
         tol = 0.01
         if(hours_in_period > (1 + tol) * m.period_length_hours[p] or
            hours_in_period < (1 - tol) * m.period_length_hours[p]):

@@ -27,7 +27,7 @@ def define_components(m):
         initialize=m.RFM_SUPPLY_TIERS, 
         filter=lambda m, rfm, per, tier: m.rfm_fuel[rfm].upper() == 'LNG'
     )
-    m.LNG_REGIONAL_FUEL_MARKET = Set(
+    m.LNG_REGIONAL_FUEL_MARKETS = Set(
         initialize=lambda m: {rfm for rfm, per, tier in m.LNG_RFM_SUPPLY_TIERS}
     )
     m.LNG_TIERS = Set(
@@ -104,9 +104,9 @@ def define_components(m):
 
 
     # list of all projects and timepoints when LNG could potentially be used
-    m.LNG_PROJECT_TIMEPOINTS = Set(dimen=2, initialize = lambda m: 
-        ((p, t) for p in m.PROJECTS_BY_FUEL['LNG'] for t in m.TIMEPOINTS 
-            if (p, t) in m.PROJ_DISPATCH_POINTS)
+    m.LNG_GENECT_TIMEPOINTS = Set(dimen=2, initialize = lambda m: 
+        ((p, t) for p in m.GENERATION_PROJECTS_BY_FUEL['LNG'] for t in m.TIMEPOINTS 
+            if (p, t) in m.GEN_TPS)
     )
 
     # HECO PSIP 2016-04 has only Kahe 5, Kahe 6, Kalaeloa and CC_383 burning LNG,
@@ -125,10 +125,10 @@ def define_components(m):
             'Oahu_CC_383', 'Oahu_CC_152', 'Oahu_CT_100'
         ]
     )
-    m.LNG_In_Converted_Plants_Only = Constraint(m.LNG_PROJECT_TIMEPOINTS, 
-        rule=lambda m, proj, tp:
-            Constraint.Skip if proj in m.LNG_CONVERTED_PLANTS
-            else (m.ProjFuelUseRate[proj, tp, 'LNG'] == 0)
+    m.LNG_In_Converted_Plants_Only = Constraint(m.LNG_GENECT_TIMEPOINTS, 
+        rule=lambda m, g, tp:
+            Constraint.Skip if g in m.LNG_CONVERTED_PLANTS
+            else (m.GenFuelUseRate[g, tp, 'LNG'] == 0)
     )
     
     # CODE BELOW IS DISABLED because we have abandoned the 'container' tier which cost
@@ -153,11 +153,11 @@ def define_components(m):
     # # unless all available fuel is consumed.)
     # # note: if we create multiple LNG regional fuel markets, this will
     # # need to be changed, rather than naming the market directly.
-    # m.LNG_Has_Slack = Var(m.LNG_REGIONAL_FUEL_MARKET, m.PERIODS, within=Binary)
+    # m.LNG_Has_Slack = Var(m.LNG_REGIONAL_FUEL_MARKETS, m.PERIODS, within=Binary)
     # def LNG_Slack_Calculation_rule(m, rfm, per):
     #     if any(
     #         value(m.rfm_supply_tier_limit[r, p, tier]) == float('inf')
-    #             for r, p, tier in m.RFM_P_SUPPLY_TIERS[rfm, per]
+    #             for r, p, tier in m.SUPPLY_TIERS_FOR_RFM_PERIOD[rfm, per]
     #     ):
     #         # there's an infinite LNG tier in this market (which is activated by default)
     #         return m.LNG_Has_Slack[rfm, per] == 1
@@ -169,33 +169,33 @@ def define_components(m):
     #             >=
     #             sum(
     #                 m.RFMSupplyTierActivate[r, p, tier] * m.rfm_supply_tier_limit[r, p, tier]
-    #                     for r, p, tier in m.RFM_P_SUPPLY_TIERS[rfm, per]
+    #                     for r, p, tier in m.SUPPLY_TIERS_FOR_RFM_PERIOD[rfm, per]
     #             )
     #         )
     # m.LNG_Slack_Calculation = Constraint(
-    #     m.LNG_REGIONAL_FUEL_MARKET, m.PERIODS,
+    #     m.LNG_REGIONAL_FUEL_MARKETS, m.PERIODS,
     #     rule=LNG_Slack_Calculation_rule
     # )
 
     # # force LNG-capable plants to use only LNG until they exhaust all active tiers
     # # note: we assume no single project can produce more than
     # # 1500 MW from LNG at 10 MMBtu/MWh heat rate
-    # big_project_mw = 1500 # MW
-    # big_project_lng = big_project_mw * 10 # MMBtu/hour
-    # def Only_LNG_In_Converted_Plants_rule(m, proj, tp):
-    #     if proj not in m.LNG_CONVERTED_PLANTS:
+    # big_gect_mw = 1500 # MW
+    # big_gect_lng = big_gect_mw * 10 # MMBtu/hour
+    # def Only_LNG_In_Converted_Plants_rule(m, g, tp):
+    #     if g not in m.LNG_CONVERTED_PLANTS:
     #         return Constraint.Skip
     #     # otherwise force non-LNG fuel to zero if there's LNG available
     #     non_lng_fuel = sum(
-    #         m.ProjFuelUseRate[proj, tp, f]
-    #             for f in m.PROJ_FUELS[proj]
+    #         m.GenFuelUseRate[g, tp, f]
+    #             for f in m.FUELS_FOR_GEN[g]
     #                 if f != 'LNG'
     #     )
-    #     rfm = m.lz_rfm[m.proj_load_zone[proj], 'LNG']
+    #     rfm = m.zone_rfm[m.gen_load_zone[g], 'LNG']
     #     lng_market_exhausted = 1 - m.LNG_Has_Slack[rfm, m.tp_period[tp]]
-    #     return (non_lng_fuel <= big_project_lng * lng_market_exhausted)
+    #     return (non_lng_fuel <= big_gect_lng * lng_market_exhausted)
     # m.Only_LNG_In_Converted_Plants = Constraint(
-    #     m.LNG_PROJECT_TIMEPOINTS,
+    #     m.LNG_GENECT_TIMEPOINTS,
     #     rule=Only_LNG_In_Converted_Plants_rule
     # )
     
@@ -212,21 +212,21 @@ def define_components(m):
     # # to avoid curtailment.
     # if m.options.force_lng_tier == 'container':
     #     print "Forcing LNG-capable plants to use the full LNG supply if possible."
-    #     def Force_Converted_Plants_On_rule(m, proj, tp):
-    #         if proj in m.LNG_CONVERTED_PLANTS:
+    #     def Force_Converted_Plants_On_rule(m, g, tp):
+    #         if g in m.LNG_CONVERTED_PLANTS:
     #             return Constraint.Skip
     #         # otherwise force production up to the maximum if market has slack
-    #         rfm = m.lz_rfm[m.proj_load_zone[proj], 'LNG']
+    #         rfm = m.zone_rfm[m.gen_load_zone[g], 'LNG']
     #         lng_market_exhausted = 1 - m.LNG_Has_Slack[rfm, m.tp_period[tp]]
     #         rule = (
-    #             m.DispatchProj[proj, tp]
+    #             m.DispatchGen[g, tp]
     #             >=
-    #             m.DispatchUpperLimit[proj, tp]
-    #             - big_project_mw * lng_market_exhausted
+    #             m.DispatchUpperLimit[g, tp]
+    #             - big_gect_mw * lng_market_exhausted
     #         )
     #         return rule
     #     m.Force_Converted_Plants_On = Constraint(
-    #         m.LNG_PROJECT_TIMEPOINTS,
+    #         m.LNG_GENECT_TIMEPOINTS,
     #         rule=Force_Converted_Plants_On_rule
     #     )
             
@@ -236,12 +236,12 @@ def define_components(m):
     # # (not used because it would make the model infeasible if available plants
     # # can't consume the target quantity, e.g., if the CC_483 is not built)
     # m.LNG_Use_All_Containerized_LNG = Constraint(
-    #     m.LNG_REGIONAL_FUEL_MARKET, m.PERIODS
+    #     m.LNG_REGIONAL_FUEL_MARKETS, m.PERIODS
     #     rule = lambda rfm, per:
     #         m.FuelConsumptionInMarket[rfm, per]
     #         ==
     #         sum(
     #             m.RFMSupplyTierActivate[r, p, tier] * m.rfm_supply_tier_limit[r, p, tier]
-    #                 for r, p, tier in m.RFM_P_SUPPLY_TIERS[rfm, per]
+    #                 for r, p, tier in m.SUPPLY_TIERS_FOR_RFM_PERIOD[rfm, per]
     #         )
     # )

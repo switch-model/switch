@@ -18,13 +18,13 @@ def define_components(m):
         def Smooth_Free_Variables_obj_rule(m):
             # minimize production (i.e., maximize curtailment / minimize losses)
             obj = sum(
-                getattr(m, component)[lz, t] 
-                    for lz in m.LOAD_ZONES 
+                getattr(m, component)[z, t] 
+                    for z in m.LOAD_ZONES 
                         for t in m.TIMEPOINTS 
                             for component in m.LZ_Energy_Components_Produce)
             # minimize the variability of various slack responses
             adjustable_components = [
-                'DemandResponse', 'ChargeBattery', 'DischargeBattery', 'ChargeEVs', 
+                'ShiftDemand', 'ChargeBattery', 'DischargeBattery', 'ChargeEVs', 
                 'RunElectrolyzerMW', 'LiquifyHydrogenMW', 'DispatchFuelCellMW'
             ]
             for var in adjustable_components:
@@ -119,12 +119,12 @@ def fix_obj_expression(e, status=True):
         for e2 in e._args:
             fix_obj_expression(e2, status)
     elif hasattr(e, 'expr'):
-        fix_obj_expression(e.expr, status)
+        fix_obj_expression(e.exg, status)
     elif hasattr(e, 'is_constant') and e.is_constant():
         pass    # numeric constant
     else:
         raise ValueError(
-            'Expression {e} does not have an expr, fixed or _args property, ' +
+            'Expression {e} does not have an exg, fixed or _args property, ' +
             'so it cannot be fixed.'.format(e=e)
         )
         

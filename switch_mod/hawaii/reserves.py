@@ -17,21 +17,21 @@ def define_components(m):
 
     # projects that can provide reserves
     # TODO: add batteries, hydrogen and pumped storage to this
-    m.FIRM_PROJECTS = Set(
-        initialize=m.PROJECTS, 
-        #filter=lambda m, p: m.proj_energy_source[p] not in ['Wind', 'Solar']
+    m.FIRM_GENECTS = Set(
+        initialize=m.GENERATION_PROJECTS, 
+        #filter=lambda m, p: m.gen_energy_source[p] not in ['Wind', 'Solar']
     )
-    m.FIRM_PROJ_DISPATCH_POINTS = Set(
-        initialize=m.PROJ_DISPATCH_POINTS, 
-        filter=lambda m, p, tp: p in m.FIRM_PROJECTS
+    m.FIRM_GEN_TPS = Set(
+        initialize=m.GEN_TPS, 
+        filter=lambda m, p, tp: p in m.FIRM_GENECTS
     )
-    m.CONTINGENCY_PROJECTS = Set(
-        initialize=m.PROJECTS, 
-        filter=lambda m, p: p in m.PROJECTS_WITH_UNIT_SIZES
+    m.CONTINGENCY_GENECTS = Set(
+        initialize=m.GENERATION_PROJECTS, 
+        filter=lambda m, p: p in m.DISCRETELY_SIZED_GENS
     )
-    m.CONTINGENCY_PROJ_DISPATCH_POINTS = Set(
-        initialize=m.PROJ_DISPATCH_POINTS, 
-        filter=lambda m, p, tp: p in m.CONTINGENCY_PROJECTS
+    m.CONTINGENCY_GEN_TPS = Set(
+        initialize=m.GEN_TPS, 
+        filter=lambda m, p, tp: p in m.CONTINGENCY_GENECTS
     )
     
     # Calculate spinning reserve requirements.
@@ -60,13 +60,13 @@ def define_components(m):
     # [1., 1., 1., 0.25760558, 0.18027923, 0.49123101]
 
     m.regulating_reserve_requirement_mw = Expression(m.TIMEPOINTS, rule=lambda m, tp: sum(
-        m.ProjCapacity[pr, m.tp_period[tp]] 
+        m.GenCapacity[g, m.tp_period[tp]] 
         * min(
-            m.regulating_reserve_fraction[m.proj_gen_tech[pr]] * m.proj_max_capacity_factor[pr, tp], 
-            m.regulating_reserve_limit[m.proj_gen_tech[pr]]
+            m.regulating_reserve_fraction[m.gen_tech[g]] * m.gen_max_capacity_factor[g, tp], 
+            m.regulating_reserve_limit[m.gen_tech[g]]
         )
-            for pr in m.PROJECTS 
-                if m.proj_gen_tech[pr] in m.regulating_reserve_fraction and (pr, tp) in m.PROJ_DISPATCH_POINTS
+            for g in m.GENERATION_PROJECTS 
+                if m.gen_tech[g] in m.regulating_reserve_fraction and (g, tp) in m.GEN_TPS
     ))
     
     # Calculate contingency reserve requirements
@@ -77,21 +77,21 @@ def define_components(m):
     # if any of the capacity is being used for regulating reserves, that will be backed
     # up by contingency reserves.
     # TODO: convert this to a big-m constraint with the following elements:
-    # binary on/off flag for each pr, tp in CONTINGENCY_PROJ_DISPATCH_POINTS
-    # constraint that ProjDispatch[pr, tp] <= binary * proj_max_capacity[pr]
-    # constraint that m.ContingencyReserveUpRequirement[tp] >= binary * m.proj_unit_size[pr]
+    # binary on/off flag for each g, tp in CONTINGENCY_GEN_TPS
+    # constraint that ProjDispatch[g, tp] <= binary * gen_max_capacity[g]
+    # constraint that m.ContingencyReserveUpRequirement[tp] >= binary * m.gen_unit_size[g]
     # (but this may make the model too slow to solve!)
-    m.CommitProjectFlag = Var(m.CONTINGENCY_PROJ_DISPATCH_POINTS, within=Binary)
-    m.Set_CommitProjectFlag = Constraint(
-        m.CONTINGENCY_PROJ_DISPATCH_POINTS,
-        rule = lambda m, pr, tp: 
-            m.CommitProject[pr, tp] <= m.CommitProjectFlag[pr, tp] * m.proj_capacity_limit_mw[pr]
+    m.CommitGenFlag = Var(m.CONTINGENCY_GEN_TPS, within=Binary)
+    m.Set_CommitGenFlag = Constraint(
+        m.CONTINGENCY_GEN_TPS,
+        rule = lambda m, g, tp: 
+            m.CommitGen[g, tp] <= m.CommitGenFlag[g, tp] * m.gen_capacity_limit_mw[g]
     )
     m.ContingencyReserveUpRequirement_Calculate = Constraint(
-        m.CONTINGENCY_PROJ_DISPATCH_POINTS, 
-        rule=lambda m, pr, tp: 
-            # m.ContingencyReserveUpRequirement[tp] >= m.CommitProject[pr, tp]
-            m.ContingencyReserveUpRequirement[tp] >= m.CommitProjectFlag[pr, tp] * m.proj_unit_size[pr]
+        m.CONTINGENCY_GEN_TPS, 
+        rule=lambda m, g, tp: 
+            # m.ContingencyReserveUpRequirement[tp] >= m.CommitGen[g, tp]
+            m.ContingencyReserveUpRequirement[tp] >= m.CommitGenFlag[g, tp] * m.gen_unit_size[g]
     )
     
     # Calculate total spinning reserve requirement
@@ -100,7 +100,7 @@ def define_components(m):
     )
     # require 10% down reserves at all times
     m.SpinningReserveDownRequirement = Expression(m.TIMEPOINTS, rule=lambda m, tp:
-        0.10 * sum(m.lz_demand_mw[z, tp] for z in m.LOAD_ZONES)
+        0.10 * sum(m.zone_demand_mw[z, tp] for z in m.LOAD_ZONES)
     )
 
 def define_dynamic_components(m):
@@ -109,47 +109,47 @@ def define_dynamic_components(m):
 
     # Available reserves
     m.SpinningReservesUpAvailable = Expression(m.TIMEPOINTS, rule=lambda m, tp:
-        sum(m.DispatchSlackUp[p, tp] for p in m.FIRM_PROJECTS if (p, tp) in m.PROJ_DISPATCH_POINTS)
+        sum(m.DispatchSlackUp[p, tp] for p in m.FIRM_GENECTS if (p, tp) in m.GEN_TPS)
         + (
-            sum(m.BatterySlackUp[lz, tp] for lz in m.LOAD_ZONES)
+            sum(m.BatterySlackUp[z, tp] for z in m.LOAD_ZONES)
             if hasattr(m, 'BatterySlackDown')
             else 0.0
         )
         + (
-            sum(m.HydrogenSlackUp[lz, tp] for lz in m.LOAD_ZONES) 
+            sum(m.HydrogenSlackUp[z, tp] for z in m.LOAD_ZONES) 
             if hasattr(m, 'HydrogenSlackUp') 
             else 0.0
         )
         + (
-            sum(m.DemandUpReserves[lz, tp] for lz in m.LOAD_ZONES) 
+            sum(m.DemandUpReserves[z, tp] for z in m.LOAD_ZONES) 
             if hasattr(m, 'DemandUpReserves') 
             else 0.0
         )
         + (
-            sum(m.DemandResponse[lz, tp] -  m.DemandResponse[lz, tp].lb for lz in m.LOAD_ZONES) 
-            if hasattr(m, 'DemandResponse') 
+            sum(m.ShiftDemand[z, tp] -  m.ShiftDemand[z, tp].lb for z in m.LOAD_ZONES) 
+            if hasattr(m, 'ShiftDemand') 
             else 0.0
         )
         + (
-            sum(m.ChargeEVs[lz, tp] for lz in m.LOAD_ZONES) 
+            sum(m.ChargeEVs[z, tp] for z in m.LOAD_ZONES) 
             if hasattr(m, 'ChargeEVs') and hasattr(m.options, 'ev_timing') and m.options.ev_timing=='optimal'
             else 0.0
         )
     )
     m.SpinningReservesDownAvailable = Expression(m.TIMEPOINTS, rule=lambda m, tp:
-        sum(m.DispatchSlackDown[p, tp] for p in m.FIRM_PROJECTS if (p, tp) in m.PROJ_DISPATCH_POINTS)
+        sum(m.DispatchSlackDown[p, tp] for p in m.FIRM_GENECTS if (p, tp) in m.GEN_TPS)
         + (
-            sum(m.BatterySlackDown[lz, tp] for lz in m.LOAD_ZONES)
+            sum(m.BatterySlackDown[z, tp] for z in m.LOAD_ZONES)
             if hasattr(m, 'BatterySlackDown')
             else 0.0
         )
         + (
-            sum(m.HydrogenSlackDown[lz, tp] for lz in m.LOAD_ZONES) 
+            sum(m.HydrogenSlackDown[z, tp] for z in m.LOAD_ZONES) 
             if hasattr(m, 'HydrogenSlackDown') 
             else 0.0
         )
         + (
-            sum(m.DemandDownReserves[lz, tp] for lz in m.LOAD_ZONES) 
+            sum(m.DemandDownReserves[z, tp] for z in m.LOAD_ZONES) 
             if hasattr(m, 'DemandDownReserves') 
             else 0.0
         )
@@ -171,17 +171,17 @@ def define_dynamic_components(m):
     # to "Off" in "source_data/Hawaii RPS Study Generator Table OCR.xlsx" instead.
     
     # # shutdown Kahe_6
-    # m.KAHE_6_TIMEPOINTS = Set(initialize=lambda m: m.PROJ_ACTIVE_TIMEPOINTS['Kahe_6'])
-    # m.Shutdown_Kahe_6 = Constraint(m.KAHE_6_TIMEPOINTS, rule=lambda m, tp:
-    #     m.CommitProject['Kahe_6', tp] == 0
+    # m.KAHE_6_TIMEPOINTS = Set(initialize=lambda m: m.TPS_FOR_GENS['Kahe_6'])
+    # m.ShutdownGenCapacity_Kahe_6 = Constraint(m.KAHE_6_TIMEPOINTS, rule=lambda m, tp:
+    #     m.CommitGen['Kahe_6', tp] == 0
     # )
 
     # # shutdown Kahe_1 and Kahe_2
     # m.SHUTDOWN_TIMEPOINTS = Set(dimen=2, initialize=lambda m: [
-    #     (p, tp) for p in ['Kahe_1', 'Kahe_2'] for tp in m.PROJ_ACTIVE_TIMEPOINTS[p]
+    #     (p, tp) for p in ['Kahe_1', 'Kahe_2'] for tp in m.TPS_FOR_GENS[p]
     # ])
-    # m.Shutdown_Projects = Constraint(m.SHUTDOWN_TIMEPOINTS, rule=lambda m, p, tp:
-    #     m.CommitProject[p, tp] == 0
+    # m.ShutdownGenCapacity_Projects = Constraint(m.SHUTDOWN_TIMEPOINTS, rule=lambda m, p, tp:
+    #     m.CommitGen[p, tp] == 0
     # )
     
     # Force cycling plants to be online 0700-2000 and offline at other times
@@ -189,13 +189,13 @@ def define_dynamic_components(m):
     # project reporting types are defined in save_custom_results.py
     # Note: this assumes timepoints are evenly spaced, and timeseries begin at midnight
     # m.CYCLING_PLANTS_TIMEPOINTS = Set(dimen=2, initialize=lambda m: [
-    #     (pr, tp) for pr in m.REPORTING_TYPE_PROJECTS['Cycling']
-    #         for tp in m.PROJ_ACTIVE_TIMEPOINTS[pr]
+    #     (g, tp) for g in m.REPORTING_TYPE_GENECTS['Cycling']
+    #         for tp in m.TPS_FOR_GENS[g]
     # ])
-    # m.Cycle_Plants = Constraint(m.CYCLING_PLANTS_TIMEPOINTS, rule=lambda m, pr, tp:
-    #     m.CommitSlackUp[pr, tp] == 0
-    #         if (7 <= ((m.TS_TPS[m.tp_ts[tp]].ord(tp)-1) * m.tp_duration_hrs[tp]) % 24 <= 20)
-    #         else m.CommitProject[pr, tp] == 0
+    # m.Cycle_Plants = Constraint(m.CYCLING_PLANTS_TIMEPOINTS, rule=lambda m, g, tp:
+    #     m.CommitSlackUp[g, tp] == 0
+    #         if (7 <= ((m.TPS_IN_TS[m.tp_ts[tp]].ord(tp)-1) * m.tp_duration_hrs[tp]) % 24 <= 20)
+    #         else m.CommitGen[g, tp] == 0
     # )
     # def show_it(m):
     #     print "CYCLING_PLANTS_TIMEPOINTS:"

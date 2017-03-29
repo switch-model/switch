@@ -20,10 +20,10 @@ def define_components(mod):
     Augments the model with the capability of leaving some load unserved
     at a cost.
     
-    unserved_load_penalty[lz] is the cost penalty of not supplying 1 MWh of
+    unserved_load_penalty[z] is the cost penalty of not supplying 1 MWh of
     load in any load zone.
     
-    UnservedLoad[lz, tp] is a decision variable that describes how much
+    UnservedLoad[z, tp] is a decision variable that describes how much
     load in MWh is not supplied in a given load zone, at a given timepoint.
     
     UnservedLoadPenalty[tp] is an expression that summarizes the cost penalties
@@ -41,9 +41,9 @@ def define_components(mod):
 
     mod.UnservedLoadPenalty = Expression(
         mod.TIMEPOINTS,
-        rule=lambda m, tp: sum(m.UnservedLoad[lz, tp] *
-            m.unserved_load_penalty for lz in m.LOAD_ZONES))
-    mod.cost_components_tp.append('UnservedLoadPenalty')
+        rule=lambda m, tp: sum(m.UnservedLoad[z, tp] *
+            m.unserved_load_penalty for z in m.LOAD_ZONES))
+    mod.Cost_Components_Per_TP.append('UnservedLoadPenalty')
 
 def load_inputs(mod, switch_data, inputs_dir):
     """

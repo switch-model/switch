@@ -68,7 +68,7 @@ def define_components(m):
         m.RFM_SUPPLY_TIERS, 
         rule=lambda m, r, p, st:
             (
-                m.FuelConsumptionByTier[r, p, st]
+                m.ConsumeFuelTier[r, p, st]
                 <=
                 m.RFMSupplyTierActivate[r, p, st] * m.rfm_supply_tier_limit[r, p, st]
             ) if m.rfm_supply_tier_limit[r, p, st] < inf else Constraint.Skip
@@ -91,10 +91,10 @@ def define_components(m):
                 else m.rfm_supply_tier_fixed_cost[rfm_st]
                     * m.RFMSupplyTierActivate[rfm_st] * m.rfm_supply_tier_limit[rfm_st]
             )
-            for r in m.REGIONAL_FUEL_MARKET
-                for rfm_st in m.RFM_P_SUPPLY_TIERS[r, p]))
+            for r in m.REGIONAL_FUEL_MARKETS
+                for rfm_st in m.SUPPLY_TIERS_FOR_RFM_PERIOD[r, p]))
 
-    m.cost_components_annual.append('RFM_Fixed_Costs_Annual')
+    m.Cost_Components_Per_Period.append('RFM_Fixed_Costs_Annual')
 
 def load_inputs(m, switch_data, inputs_dir):
     switch_data.load_aug(

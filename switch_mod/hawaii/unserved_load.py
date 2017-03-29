@@ -24,9 +24,9 @@ def define_components(m):
     m.UnservedLoad = Var(m.LOAD_ZONES, m.TIMEPOINTS, within=NonNegativeReals)
     # total cost for unserved load
     m.UnservedLoadPenalty = Expression(m.TIMEPOINTS, rule=lambda m, tp:
-        sum(m.UnservedLoad[lz, tp] * m.unserved_load_penalty_per_mwh for lz in m.LOAD_ZONES)
+        sum(m.UnservedLoad[z, tp] * m.unserved_load_penalty_per_mwh for z in m.LOAD_ZONES)
     )
     # add the unserved load to the model's energy balance
     m.LZ_Energy_Components_Produce.append('UnservedLoad')
     # add the unserved load penalty to the model's objective function
-    m.cost_components_tp.append('UnservedLoadPenalty')
+    m.Cost_Components_Per_TP.append('UnservedLoadPenalty')

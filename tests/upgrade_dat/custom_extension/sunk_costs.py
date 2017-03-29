@@ -30,4 +30,4 @@ def define_components(mod):
     mod.administration_fees = Param(
         mod.PERIODS,
         initialize=lambda m, p: 1000000)
-    mod.cost_components_annual.append('administration_fees')
+    mod.Cost_Components_Per_Period.append('administration_fees')

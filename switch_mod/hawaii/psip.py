@@ -128,28 +128,28 @@ def define_components(m):
         return target
     m.technology_target = Param(m.PERIODS, m.GENERATION_TECHNOLOGIES, initialize=technology_target_init)
 
-    # with PSIP: BuildProj is zero except for technology_targets 
+    # with PSIP: BuildGen is zero except for technology_targets 
     #     (sum during each period or before first period)
-    # without PSIP: BuildProj is >= definite targets
+    # without PSIP: BuildGen is >= definite targets
     def Enforce_Technology_Target_rule(m, per, tech):
         """Enforce targets for each technology; exact target for PSIP cases, minimum target for non-PSIP."""
                 
-        def adjust_psip_credit(proj, target): 
-            if proj in m.PROJECTS_WITH_UNIT_SIZES and target > 0.0:
+        def adjust_psip_credit(g, target): 
+            if g in m.DISCRETELY_SIZED_GENS and target > 0.0:
                 # Rescale so that the n integral units that come closest 
                 # to the target gets counted as the n.n fractional units
                 # needed to exactly meet the target.
                 # This is needed because some of the targets are based on
                 # nominal unit sizes rather than actual max output.
-                return (target / m.proj_unit_size[proj]) / round(target / m.proj_unit_size[proj])
+                return (target / m.gen_unit_size[g]) / round(target / m.gen_unit_size[g])
             else:
                 return 1.0
         
         target = m.technology_target[per, tech]
         build = sum(
-            m.BuildProj[proj, per] * adjust_psip_credit(proj, target)
-            for proj in m.PROJECTS 
-            if m.proj_gen_tech[proj] == tech and (proj, per) in m.PROJECT_BUILDYEARS
+            m.BuildGen[g, per] * adjust_psip_credit(g, target)
+            for g in m.GENERATION_PROJECTS 
+            if m.gen_tech[g] == tech and (g, per) in m.GEN_BLD_YRS
         )
 
         if type(build) is int and build == 0:    
@@ -174,22 +174,22 @@ def define_components(m):
         m.PERIODS, m.GENERATION_TECHNOLOGIES, rule=Enforce_Technology_Target_rule
     )
 
-    aes_proj = 'Oahu_AES'
+    aes_g = 'Oahu_AES'
     aes_size = 180
     aes_bld_year = 1992
     m.AES_OPERABLE_PERIODS = Set(initialize = lambda m:
-        m.PROJECT_BUILDS_OPERATIONAL_PERIODS[aes_proj, aes_bld_year]
+        m.PERIODS_FOR_GEN_BLD_YR[aes_g, aes_bld_year]
     )
     m.OperateAES = Var(m.AES_OPERABLE_PERIODS, within=Binary)
     m.Enforce_AES_Deactivate = Constraint(m.TIMEPOINTS, rule=lambda m, tp:
-        Constraint.Skip if (aes_proj, tp) not in m.PROJ_DISPATCH_POINTS
-        else (m.DispatchProj[aes_proj, tp] <= m.OperateAES[m.tp_period[tp]] * aes_size)
+        Constraint.Skip if (aes_g, tp) not in m.GEN_TPS
+        else (m.DispatchGen[aes_g, tp] <= m.OperateAES[m.tp_period[tp]] * aes_size)
     )
     m.AESDeactivateFixedCost = Expression(m.PERIODS, rule=lambda m, per: 
         0.0 if per not in m.AES_OPERABLE_PERIODS
-        else - m.OperateAES[per] * aes_size * m.proj_fixed_om[aes_proj, aes_bld_year]
+        else - m.OperateAES[per] * aes_size * m.gen_fixed_om[aes_g, aes_bld_year]
     )
-    m.cost_components_annual.append('AESDeactivateFixedCost')
+    m.Cost_Components_Per_Period.append('AESDeactivateFixedCost')
     
     if psip:
         # keep AES active until 2022 or just before; deactivate after that
@@ -205,7 +205,7 @@ def define_components(m):
         m.EARLY_BIODIESEL_MARKETS = Set(dimen=2, initialize=lambda m: [
             (rfm, per) 
                 for per in m.PERIODS if per + m.period_length_years[per] <= 2040
-                    for rfm in m.REGIONAL_FUEL_MARKET if m.rfm_fuel == 'Biodiesel'
+                    for rfm in m.REGIONAL_FUEL_MARKETS if m.rfm_fuel == 'Biodiesel'
         ])
         m.NoEarlyBiodiesel = Constraint(m.EARLY_BIODIESEL_MARKETS, rule=lambda m, rfm, per:
             m.FuelConsumptionInMarket[rfm, per] == 0
@@ -219,10 +219,10 @@ def define_components(m):
         # )
         # m.OilProductionGWhPerYear = Expression(m.PERIODS, rule=lambda m, per:
         #     sum(
-        #         m.DispatchProjByFuel[proj, tp, f] * m.tp_weight_in_year[tp] * 0.001 # convert from MWh to GWh
+        #         m.DispatchGenByFuel[g, tp, f] * m.tp_weight_in_year[tp] * 0.001 # convert from MWh to GWh
         #             for f in ['Diesel', 'LSFO', 'LSFO-Diesel-Blend']
-        #                 for proj in m.PROJECTS_BY_FUEL[f]
-        #                     for tp in m.PERIOD_TPS[per] if (proj, tp) in m.PROJ_DISPATCH_POINTS
+        #                 for g in m.GENERATION_PROJECTS_BY_FUEL[f]
+        #                     for tp in m.TPS_IN_PERIOD[per] if (g, tp) in m.GEN_TPS
         #     )
         # )
         # m.Upper_Limit_Oil_Power = Constraint(m.PERIODS, rule=lambda m, per:
@@ -255,9 +255,9 @@ def define_components(m):
         # # This is not used because it creates a weird situation where HECO runs less-efficient non-LNG
         # # plants instead of more efficient LNG-capable plants on oil. 
         # # there may be a faster way to build this, but it's not clear what
-        # m.PSIP_Force_LNG_Use = Constraint(m.PROJ_FUEL_DISPATCH_POINTS, rule=lambda m, proj, tp, fuel:
-        #     (m.ProjFuelUseRate[proj, tp, fuel] == 0)
-        #         if proj in m.LNG_CONVERTED_PLANTS
+        # m.PSIP_Force_LNG_Use = Constraint(m.GEN_TP_FUELS, rule=lambda m, g, tp, fuel:
+        #     (m.GenFuelUseRate[g, tp, fuel] == 0)
+        #         if g in m.LNG_CONVERTED_PLANTS
         #             and fuel != 'LNG'
         #             and m.tp_period[tp] + m.period_length_years[m.tp_period[tp]] > 2021
         #     else

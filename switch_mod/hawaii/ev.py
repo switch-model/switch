@@ -38,12 +38,12 @@ def define_components(m):
 
     # add cost components to account for the vehicle miles traveled via EV or ICE
     # (not used because it interferes with calculation of cost per kWh for electricity)
-    # m.cost_components_annual.append('ev_extra_annual_cost')
-    # m.cost_components_annual.append('ice_annual_fuel_cost')
+    # m.Cost_Components_Per_Period.append('ev_extra_annual_cost')
+    # m.Cost_Components_Per_Period.append('ice_annual_fuel_cost')
 
     # calculate the amount of energy used during each timeseries under business-as-usual charging
     m.ev_mwh_ts = Param(m.LOAD_ZONES, m.TIMESERIES, initialize=lambda m, z, ts:
-        sum(m.ev_bau_mw[z, tp] for tp in m.TS_TPS[ts]) * m.ts_duration_of_tp[ts]
+        sum(m.ev_bau_mw[z, tp] for tp in m.TPS_IN_TS[ts]) * m.ts_duration_of_tp[ts]
     )
 
     # decide when to provide the EV energy
@@ -53,7 +53,7 @@ def define_components(m):
     # (they must always consume the same amount per day as under business-as-usual,
     # but there may be some room to reschedule it.)
     m.ChargeEVs_min = Constraint(m.LOAD_ZONES, m.TIMESERIES, rule=lambda m, z, ts:
-        sum(m.ChargeEVs[z, tp] for tp in m.TS_TPS[ts]) * m.ts_duration_of_tp[ts] 
+        sum(m.ChargeEVs[z, tp] for tp in m.TPS_IN_TS[ts]) * m.ts_duration_of_tp[ts] 
         == m.ev_mwh_ts[z, ts]
     )
 

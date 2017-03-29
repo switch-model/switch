@@ -43,7 +43,7 @@ def summary_headers(m):
     )
     
 def summary_values(m):
-    demand_components = [c for c in ('lz_demand_mw', 'DemandResponse', 'ChargeEVs') if hasattr(m, c)]
+    demand_components = [c for c in ('zone_demand_mw', 'ShiftDemand', 'ChargeEVs') if hasattr(m, c)]
     values = []
     
     # scenario name and looping variables
@@ -61,7 +61,7 @@ def summary_values(m):
         m.SystemCost
         / sum(
             m.bring_timepoint_costs_to_base_year[t] * 1000.0 *
-            sum(getattr(m, c)[lz, t] for c in demand_components for lz in m.LOAD_ZONES)
+            sum(getattr(m, c)[z, t] for c in demand_components for z in m.LOAD_ZONES)
             for t in m.TIMEPOINTS 
         )
     )
@@ -72,8 +72,8 @@ def summary_values(m):
         m.SystemCostPerPeriod[p]
         / sum(
             m.bring_timepoint_costs_to_base_year[t] * 1000.0 *
-            sum(getattr(m, c)[lz, t] for c in demand_components for lz in m.LOAD_ZONES)
-            for t in m.PERIOD_TPS[p]
+            sum(getattr(m, c)[z, t] for c in demand_components for z in m.LOAD_ZONES)
+            for t in m.TPS_IN_PERIOD[p]
         )
         for p in m.PERIODS
     ])
@@ -109,13 +109,13 @@ def annualize_present_value_period_cost(m, period, val):
     )
     return val / discount_factor
 
-def DispatchProjByFuel(m, proj, tp, fuel):
-    """This is a replacement for mod.DispatchProjByFuel, which is only defined in 
+def DispatchGenByFuel(m, g, tp, fuel):
+    """This is a replacement for mod.DispatchGenByFuel, which is only defined in 
     project.no_commit, not project.unitcommit.fuel_use. In the unit commitment version
     it can only be defined as a quadratically constrained variable, which we don't
     want to force on all users."""
-    dispatch = value(m.DispatchProj[proj, tp]) if (proj, tp) in m.DispatchProj else 0.0
-    total_fuel = value(sum(m.ProjFuelUseRate[proj, tp, f] for f in m.PROJ_FUELS[proj]))
+    dispatch = value(m.DispatchGen[g, tp]) if (g, tp) in m.DispatchGen else 0.0
+    total_fuel = value(sum(m.GenFuelUseRate[g, tp, f] for f in m.FUELS_FOR_GEN[g]))
     if dispatch == 0.0:
         result = 0.0
     elif total_fuel == 0.0:
@@ -123,10 +123,10 @@ def DispatchProjByFuel(m, proj, tp, fuel):
         # allocate evenly between fuels that could be used (should really be allocated the 
         # same as the upstream generator, e.g., CT in combined-cycle plant, but we don't
         # know that allocation here).
-        result = dispatch / len(m.PROJ_FUELS[proj])
+        result = dispatch / len(m.FUELS_FOR_GEN[g])
     else:
         # allocate power production proportional to amount of each fuel used
-        result = value(m.ProjFuelUseRate[proj, tp, fuel]) * dispatch / total_fuel
+        result = value(m.GenFuelUseRate[g, tp, fuel]) * dispatch / total_fuel
     return result
     
 def write_results(m, outputs_dir):
@@ -141,10 +141,10 @@ def write_results(m, outputs_dir):
     # # write out results
     # util.write_table(m, m.TIMEPOINTS,
     #     output_file=os.path.join(outputs_dir, "dispatch{t}.tsv".format(t=tag)),
-    #     headings=("timepoint_label",)+tuple(m.PROJECTS),
+    #     headings=("timepoint_label",)+tuple(m.GENERATION_PROJECTS),
     #     values=lambda m, t: (m.tp_timestamp[t],) + tuple(
-    #         util.get(m.DispatchProj, (p, t), 0.0)
-    #         for p in m.PROJECTS
+    #         util.get(m.DispatchGen, (p, t), 0.0)
+    #         for p in m.GENERATION_PROJECTS
     #     )
     # )
     avg_ts_scale = float(sum(m.ts_scale_to_year[ts] for ts in m.TIMESERIES))/len(m.TIMESERIES)
@@ -163,19 +163,19 @@ def write_results(m, outputs_dir):
             (z, m.tp_period[t], m.tp_timestamp[t]) 
             +tuple(
                 sum(
-                    DispatchProjByFuel(m, p, t, f) 
-                        for p in m.PROJECTS_BY_FUEL[f] if (p, t) in m.PROJ_DISPATCH_POINTS
+                    DispatchGenByFuel(m, p, t, f) 
+                        for p in m.GENERATION_PROJECTS_BY_FUEL[f] if (p, t) in m.GEN_TPS
                 )
                 for f in m.FUELS
             )
             +tuple(
-                sum(util.get(m.DispatchProj, (p, t), 0.0) for p in m.PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[s])
+                sum(util.get(m.DispatchGen, (p, t), 0.0) for p in m.GENERATION_PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[s])
                 for s in m.NON_FUEL_ENERGY_SOURCES
             )
             +tuple(
                 sum(
-                    util.get(m.DispatchUpperLimit, (p, t), 0.0) - util.get(m.DispatchProj, (p, t), 0.0) 
-                    for p in m.PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[s]
+                    util.get(m.DispatchUpperLimit, (p, t), 0.0) - util.get(m.DispatchGen, (p, t), 0.0) 
+                    for p in m.GENERATION_PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[s]
                 )
                 for s in m.NON_FUEL_ENERGY_SOURCES
             )
@@ -187,18 +187,18 @@ def write_results(m, outputs_dir):
     )
     
     # installed capacity information
-    proj_energy_source = lambda pr: \
-            '/'.join(sorted(m.PROJ_FUELS[pr])) if m.proj_uses_fuel[pr] \
-            else m.proj_energy_source[pr]
-    built_proj = tuple(set(
-        pr for pe in m.PERIODS for pr in m.PROJECTS if value(m.ProjCapacity[pr, pe]) > 0.001
+    gen_energy_source = lambda pr: \
+            '/'.join(sorted(m.FUELS_FOR_GEN[g])) if m.gen_uses_fuel[g] \
+            else m.gen_energy_source[g]
+    built_g = tuple(set(
+        g for pe in m.PERIODS for g in m.GENERATION_PROJECTS if value(m.GenCapacity[g, pe]) > 0.001
     ))
-    operate_proj_in_period = tuple(set(
-        (pr, m.tp_period[tp]) 
-            for pr, tp in m.PROJ_DISPATCH_POINTS if value(m.DispatchProj[pr, tp]) > 0.001
+    operate_gen_in_period = tuple(set(
+        (g, m.tp_period[tp]) 
+            for g, tp in m.GEN_TPS if value(m.DispatchGen[g, tp]) > 0.001
     ))
-    built_tech = tuple(set(m.proj_gen_tech[p] for p in built_proj))
-    built_energy_source = tuple(set(proj_energy_source(pr) for pr in built_proj))
+    built_tech = tuple(set(m.gen_tech[p] for p in built_g))
+    built_energy_source = tuple(set(gen_energy_source(pr) for g in built_g))
  
     battery_capacity_mw = lambda m, z, pe: (
         (m.Battery_Capacity[z, pe] * m.battery_max_discharge / m.battery_min_discharge_time)
@@ -210,9 +210,9 @@ def write_results(m, outputs_dir):
         headings=("load_zone", "period") + built_tech + ("hydro", "batteries", "fuel cells"),
         values=lambda m, z, pe: (z, pe,) + tuple(
             sum(
-                (m.ProjCapacity[pr, pe] if ((pr, pe) in operate_proj_in_period) else 0.0)
-                    for pr in built_proj 
-                        if m.proj_gen_tech[pr] == t and m.proj_load_zone[pr] == z
+                (m.GenCapacity[g, pe] if ((g, pe) in operate_gen_in_period) else 0.0)
+                    for g in built_g 
+                        if m.gen_tech[g] == t and m.gen_load_zone[g] == z
             )
             for t in built_tech
         ) + (
@@ -226,9 +226,9 @@ def write_results(m, outputs_dir):
         headings=("load_zone", "period") + built_energy_source + ("hydro", "batteries", "fuel cells"),
         values=lambda m, z, pe: (z, pe,) + tuple(
             sum(
-                (m.ProjCapacity[pr, pe] if ((pr, pe) in operate_proj_in_period) else 0.0)
-                    for pr in built_proj 
-                        if proj_energy_source(pr) == s and m.proj_load_zone[pr] == z
+                (m.GenCapacity[g, pe] if ((g, pe) in operate_gen_in_period) else 0.0)
+                    for g in built_g 
+                        if gen_energy_source(pr) == s and m.gen_load_zone[g] == z
             )
             for s in built_energy_source
         ) + (
@@ -244,9 +244,9 @@ def write_results(m, outputs_dir):
     
         values += [
             sum(
-                m.BuildProj[pr, pe] 
-                    for pr in built_proj 
-                        if m.proj_gen_tech[pr] == t and m.proj_load_zone[pr] == z and (pr, pe) in m.BuildProj
+                m.BuildGen[g, pe] 
+                    for g in built_g 
+                        if m.gen_tech[g] == t and m.gen_load_zone[g] == z and (g, pe) in m.BuildGen
             )
             for t in built_tech
         ]
@@ -261,8 +261,8 @@ def write_results(m, outputs_dir):
         # capacity built, hydro
         values.append(
             sum(
-                m.BuildPumpedHydroMW[pr, pe] 
-                    for pr in m.PH_PROJECTS if m.ph_load_zone[pr]==z
+                m.BuildPumpedHydroMW[g, pe] 
+                    for g in m.PH_GENECTS if m.ph_load_zone[g]==z
             ) if hasattr(m, "BuildPumpedHydroMW") else 0.0,
         )
         # capacity built, hydrogen
@@ -286,10 +286,10 @@ def write_results(m, outputs_dir):
         # regular projects
         values += [
             sum(
-                m.BuildProj[pr, pe] * (m.proj_overnight_cost[pr, pe] + m.proj_connect_cost_per_mw[pr])
-                    for pr in built_proj 
-                        if m.proj_gen_tech[pr] == t and m.proj_load_zone[pr] == z \
-                            and (pr, pe) in m.PROJECT_BUILDYEARS
+                m.BuildGen[g, pe] * (m.gen_overnight_cost[g, pe] + m.gen_connect_cost_per_mw[g])
+                    for g in built_g 
+                        if m.gen_tech[g] == t and m.gen_load_zone[g] == z \
+                            and (g, pe) in m.GEN_BLD_YRS
             )
             for t in built_tech
         ]
@@ -304,8 +304,8 @@ def write_results(m, outputs_dir):
         # hydro
         values.append(
             sum(
-                m.BuildPumpedHydroMW[pr, pe] * m.ph_capital_cost_per_mw[pr]
-                    for pr in m.PH_PROJECTS if m.ph_load_zone[pr]==z
+                m.BuildPumpedHydroMW[g, pe] * m.ph_capital_cost_per_mw[g]
+                    for g in m.PH_GENECTS if m.ph_load_zone[g]==z
             ) if hasattr(m, "BuildPumpedHydroMW") else 0.0,
         )
         # hydrogen
@@ -320,10 +320,10 @@ def write_results(m, outputs_dir):
             values.extend([0.0, 0.0, 0.0, 0.0])
 
         # _annual_ fuel expenditures
-        if hasattr(m, "REGIONAL_FUEL_MARKET"):
+        if hasattr(m, "REGIONAL_FUEL_MARKETS"):
             values.extend([
-                sum(m.FuelConsumptionByTier[rfm_st] * m.rfm_supply_tier_cost[rfm_st] for rfm_st in m.RFM_P_SUPPLY_TIERS[rfm, pe])
-                    for rfm in m.REGIONAL_FUEL_MARKET
+                sum(m.ConsumeFuelTier[rfm_st] * m.rfm_supply_tier_cost[rfm_st] for rfm_st in m.SUPPLY_TIERS_FOR_RFM_PERIOD[rfm, pe])
+                    for rfm in m.REGIONAL_FUEL_MARKETS
             ])
         # costs to expand fuel markets (this could later be disaggregated by market and tier)
         if hasattr(m, "RFM_Fixed_Costs_Annual"):
@@ -351,8 +351,8 @@ def write_results(m, outputs_dir):
             + ("batteries_overnight_cost", "hydro_overnight_cost")
             + ( "h2_electrolyzer_overnight_cost", "h2_liquifier_overnight_cost",
                 "liquid_h2_tank_overnight_cost", "fuel_cell_overnight_cost")
-            + (tuple(rfm+"_annual_cost" for rfm in m.REGIONAL_FUEL_MARKET) 
-                    if hasattr(m, "REGIONAL_FUEL_MARKET") else ())
+            + (tuple(rfm+"_annual_cost" for rfm in m.REGIONAL_FUEL_MARKETS) 
+                    if hasattr(m, "REGIONAL_FUEL_MARKETS") else ())
             + (("fuel_market_expansion_annual_cost",) 
                     if hasattr(m, "RFM_Fixed_Costs_Annual") else ())
             + ('total_electricity_cost',)
@@ -364,8 +364,8 @@ def write_results(m, outputs_dir):
     
     # util.write_table(m, m.PERIODS,
     #     output_file=os.path.join(outputs_dir, "capacity{t}.tsv".format(t=t)),
-    #     headings=("period",)+built_proj,
-    #     values=lambda m, pe: (pe,) + tuple(m.ProjCapacity[pr, pe] for pr in built_proj)
+    #     headings=("period",)+built_g,
+    #     values=lambda m, pe: (pe,) + tuple(m.GenCapacity[g, pe] for g in built_g)
     # )
 
 
@@ -378,6 +378,6 @@ def write_results(m, outputs_dir):
     
 
     # import pprint
-    # b=[(pr, pe, value(m.BuildProj[pr, pe]), m.proj_gen_tech[pr], m.proj_overnight_cost[pr, pe]) for (pr, pe) in m.BuildProj if value(m.BuildProj[pr, pe]) > 0]
+    # b=[(g, pe, value(m.BuildGen[g, pe]), m.gen_tech[g], m.gen_overnight_cost[g, pe]) for (g, pe) in m.BuildGen if value(m.BuildGen[g, pe]) > 0]
     # bt=set(x[3] for x in b) # technologies
     # pprint([(t, sum(x[2] for x in b if x[3]==t), sum(x[4] for x in b if x[3]==t)/sum(1.0 for x in b if x[3]==t)) for t in bt])

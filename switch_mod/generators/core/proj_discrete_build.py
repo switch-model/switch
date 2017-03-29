@@ -3,7 +3,7 @@
 
 """
 Defines model components to force discrete builds for generation technologies
-that have proj_unit_size specified.
+that have gen_unit_size specified.
 """
 
 from pyomo.environ import *
@@ -16,30 +16,30 @@ def define_components(mod):
     """
 
     Adds components to a Pyomo abstract model object to force discrete
-    builds for generation technologies that have proj_unit_size specified.
+    builds for generation technologies that have gen_unit_size specified.
     Unless otherwise stated, all power capacity is specified in units of
     MW and all sets and parameters are mandatory.
 
-    NEW_PROJ_BUILDYEARS_DISCRETE is a subset of NEW_PROJ_BUILDYEARS that
-    only includes projects that have proj_unit_size defined.
+    NEW_DISCRETE_GEN_BLD_YRS is a subset of NEW_GEN_BLD_YRS that
+    only includes projects that have gen_unit_size defined.
 
-    BuildUnits[(proj, bld_yr) in NEW_PROJ_BUILDYEARS_DISCRETE] is an
+    BuildUnits[(g, bld_yr) in NEW_DISCRETE_GEN_BLD_YRS] is an
     integer decision variable of how many units to build.
 
-    Build_Units_Consistency[(proj, bld_yr) in NEW_PROJ_BUILDYEARS_DISCRETE]
+    Build_Units_Consistency[(g, bld_yr) in NEW_DISCRETE_GEN_BLD_YRS]
     is a constraint that forces the continous decision variable
-    BuildProj to be equal to BuildUnits * proj_unit_size.
+    BuildGen to be equal to BuildUnits * gen_unit_size.
 
     """
 
-    mod.NEW_PROJ_BUILDYEARS_DISCRETE = Set(
-        initialize=mod.NEW_PROJ_BUILDYEARS,
-        filter=lambda m, proj, bld_yr: proj in m.PROJECTS_WITH_UNIT_SIZES)
+    mod.NEW_DISCRETE_GEN_BLD_YRS = Set(
+        initialize=mod.NEW_GEN_BLD_YRS,
+        filter=lambda m, g, bld_yr: g in m.DISCRETELY_SIZED_GENS)
     mod.BuildUnits = Var(
-        mod.NEW_PROJ_BUILDYEARS_DISCRETE,
+        mod.NEW_DISCRETE_GEN_BLD_YRS,
         within=NonNegativeIntegers)
     mod.Build_Units_Consistency = Constraint(
-        mod.NEW_PROJ_BUILDYEARS_DISCRETE,
-        rule=lambda m, proj, bld_yr: (
-            m.BuildProj[proj, bld_yr] ==
-            m.BuildUnits[proj, bld_yr] * m.proj_unit_size[proj]))
+        mod.NEW_DISCRETE_GEN_BLD_YRS,
+        rule=lambda m, g, bld_yr: (
+            m.BuildGen[g, bld_yr] ==
+            m.BuildUnits[g, bld_yr] * m.gen_unit_size[g]))

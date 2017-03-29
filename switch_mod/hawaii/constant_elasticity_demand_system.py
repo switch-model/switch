@@ -10,12 +10,12 @@ def calibrate(base_data, dr_elasticity_scenario=3):
     # build dictionaries (indexed lists) of base loads and prices
     # store the load and price vectors as numpy arrays (vectors) for faste calculation later
     base_load_dict = {
-        (lz, ts): np.array(base_loads, float)
-        for (lz, ts, base_loads, base_prices) in base_data
+        (z, ts): np.array(base_loads, float)
+        for (z, ts, base_loads, base_prices) in base_data
     }
     base_price_dict = {
-        (lz, ts): np.array(base_prices, float)
-        for (lz, ts, base_loads, base_prices) in base_data
+        (z, ts): np.array(base_prices, float)
+        for (z, ts, base_loads, base_prices) in base_data
     }
     elasticity_scenario = dr_elasticity_scenario
 
