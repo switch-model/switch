@@ -3,7 +3,11 @@
 
 """
 Defines model components to describe local transmission & distribution
-build-outs for the SWITCH-Pyomo model.
+build-outs for the SWITCH-Pyomo model. This adds a virtual "distribution node"
+to each load zone that is connected to the zone's central node via a
+distribution pathway that incurs distribution losses. Distributed Energy
+Resources (DER) impact the energy balance at the distribution node, avoiding
+losses from the distribution network. 
 """
 
 import os
@@ -14,16 +18,16 @@ dependencies = 'switch_mod.timescales', 'switch_mod.balancing.load_zones',\
 
 def define_dynamic_lists(mod):
     """
-    Distributed_Injections and Distributed_Withdrawals are lists of DER model
-    components that inject and withdraw from a load zone's distributed node.
-    Distributed_Injections is initially set to InjectIntoDistributedGrid, and
-    Distributed_Withdrawals is initial set to zone_demand_mw. Each component in
-    either of these lists will need to be indexed by (z,t) across all
-    LOAD_ZONES and TIMEPOINTS.
-
+    Distributed_Power_Injections and Distributed_Power_Withdrawals are lists
+    of Distributed Energy Resource (DER) model components that inject and
+    withdraw from a load zone's distributed node. Distributed_Power_Injections
+    is initially set to InjectIntoDistributedGrid, and
+    Distributed_Power_Withdrawals is initial set to zone_demand_mw. Each
+    component in either of these lists will need to be indexed by (z,t) across
+    all LOAD_ZONES and TIMEPOINTS, and needs to be in units of MW.
     """
-    mod.Distributed_Injections = []
-    mod.Distributed_Withdrawals = []
+    mod.Distributed_Power_Injections = []
+    mod.Distributed_Power_Withdrawals = []
 
 
 def define_components(mod):
@@ -35,15 +39,15 @@ def define_components(mod):
     to the central bus via a local_td pathway with losses described by
     distribution_loss_rate. Distributed Energy Resources (DER) such as
     distributed solar, demand response, efficiency programs, etc will need to
-    register with the Distributed_Withdrawals and Distributed_Injections lists
+    register with the Distributed_Power_Withdrawals and Distributed_Power_Injections lists
     which are used for power balance equations. This module is divided into
     two sections: the distribution node and the local_td pathway that connects
     it to the central grid.
     
     Note: This module interprets the parameter zone_demand_mw[z,t] as the end-
     use sales rather than the withdrawals from the central grid, and moves
-    zone_demand_mw from the LZ_Energy_Components_Consume list to the
-    Distributed_Withdrawals list so that distribution losses can be accounted
+    zone_demand_mw from the Zone_Power_Withdrawals list to the
+    Distributed_Power_Withdrawals list so that distribution losses can be accounted
     for.
     
     Unless otherwise stated, all power capacity is specified in units of MW and
@@ -204,8 +208,8 @@ def define_components(mod):
         rule=lambda m, z, t: m.WithdrawFromCentralGrid[z,t] * (1-m.distribution_loss_rate))
 
     # Register energy injections & withdrawals
-    mod.LZ_Energy_Components_Consume.append('WithdrawFromCentralGrid')
-    mod.Distributed_Injections.append('InjectIntoDistributedGrid')
+    mod.Zone_Power_Withdrawals.append('WithdrawFromCentralGrid')
+    mod.Distributed_Power_Injections.append('InjectIntoDistributedGrid')
 
 
 def define_dynamic_components(mod):
@@ -217,8 +221,9 @@ def define_dynamic_components(mod):
     all terms describing energy are in units of MWh.
 
     Distributed_Energy_Balance[z, t] is a constraint that sets the sums of
-    Distributed_Injections and Distributed_Withdrawals equal to each other in
-    every zone and timepoint. 
+    Distributed_Power_Injections and Distributed_Power_Withdrawals equal to
+    each other in every zone and timepoint. The term tp_duration_hrs is
+    factored out of the equation for brevity.
 
     """
 
@@ -227,10 +232,10 @@ def define_dynamic_components(mod):
         rule=lambda m, z, t: (
             sum(
                 getattr(m, component)[z, t]
-                for component in m.Distributed_Injections
+                for component in m.Distributed_Power_Injections
             ) == sum(
                 getattr(m, component)[z, t]
-                for component in m.Distributed_Withdrawals)))
+                for component in m.Distributed_Power_Withdrawals)))
 
 
 def load_inputs(mod, switch_data, inputs_dir):

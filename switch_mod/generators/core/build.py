@@ -8,6 +8,7 @@ Defines generation projects build-outs.
 import os
 from pyomo.environ import *
 from switch_mod.financials import capital_recovery_factor as crf
+from switch_mod.reporting import write_table
 
 dependencies = 'switch_mod.timescales', 'switch_mod.balancing.load_zones',\
     'switch_mod.financials', 'switch_mod.energy_sources.properties.properties'
@@ -20,22 +21,21 @@ def define_components(mod):
     capacity is specified in units of MW and all sets and parameters
     are mandatory.
 
-    GENERATION_PROJECTS is the set of generation and storage projects that have
-    been built or could potentially be built. A project is a combination
-    of generation technology, load zone and location. A particular
-    build-out of a project should also include the year in which
-    construction was complete and additional capacity came online.
-    Members of this set are abbreviated as g or g in parameter
-    names and indexes. Use of p instead of g is discouraged because p
-    is reserved for period.
+    GENERATION_PROJECTS is the set of generation and storage projects that
+    have been built or could potentially be built. A project is a combination
+    of generation technology, load zone and location. A particular build-out
+    of a project should also include the year in which construction was
+    complete and additional capacity came online. Members of this set are
+    abbreviated as gen in parameter names and g in indexes. Use of p instead
+    of g is discouraged because p is reserved for period.
 
-    gen_dbid[g] is an external database id for each project. This is
+    gen_dbid[g] is an external database id for each generation project. This is
     an optional parameter than defaults to the project index.
 
-    gen_tech[g] describes what kind of generation technology a
-    projects is using.
+    gen_tech[g] describes what kind of technology a generation project is
+    using.
 
-    gen_load_zone[g] is the load zone this project is built in.
+    gen_load_zone[g] is the load zone this generation project is built in.
 
     VARIABLE_GENS is a subset of GENERATION_PROJECTS that only includes
     variable generators such as wind or solar that have exogenous
@@ -45,23 +45,22 @@ def define_components(mod):
     baseload generators such as coal or geothermal.
 
     GENS_IN_ZONE[z in LOAD_ZONES] is an indexed set that lists all
-    projects within each load zone.
+    generation projects within each load zone.
 
-    CAPACITY_LIMITED_GENS is the subset of GENERATION_PROJECTS that are capacity
-    limited. Most of these will be generator types that are resource
-    limited like wind, solar or geothermal, but this can be specified
-    for any project. Some existing or proposed projects may have upper
-    bounds on increasing capacity or replacing capacity as it is retired
+    CAPACITY_LIMITED_GENS is the subset of GENERATION_PROJECTS that are
+    capacity limited. Most of these will be generator types that are resource
+    limited like wind, solar or geothermal, but this can be specified for any
+    generation project. Some existing or proposed generation projects may have
+    upper bounds on increasing capacity or replacing capacity as it is retired
     based on permits or local air quality regulations.
 
-    gen_capacity_limit_mw[g] is defined for generation technologies
-    that are resource limited and do not compete for land area. This
-    describes the maximum possible capacity of a project in units of
-    megawatts.
+    gen_capacity_limit_mw[g] is defined for generation technologies that are
+    resource limited and do not compete for land area. This describes the
+    maximum possible capacity of a generation project in units of megawatts.
 
     -- CONSTRUCTION --
 
-    GEN_BLD_YRS is a two-dimensional set of projects and the
+    GEN_BLD_YRS is a two-dimensional set of generation projects and the
     years in which construction or expansion occured or can occur. You
     can think of a project as a physical site that can be built out over
     time. BuildYear is the year in which construction is completed and
@@ -133,7 +132,7 @@ def define_components(mod):
     for the given project in the given period. For some project-period
     combinations, this will be an empty set.
 
-    GEN_PERIODS describes periods in which projects
+    GEN_PERIODS describes periods in which generation projects
     could be operational. Unlike the related sets above, it is not
     indexed. Instead it is specified as a set of (g, period)
     combinations useful for indexing other model components.
@@ -181,62 +180,8 @@ def define_components(mod):
     online in the target period. This aggregation is performed for the
     benefit of the objective function.
 
-    --- DELAYED IMPLEMENATION ---
-
-    The following components are not implemented at this time.
-
-    gen_energy_capacity_overnight_cost[g, period] defaults to the
-    generic costs of the energy component of a storage technology. It
-    can be overridden if different projects have different cost
-    components. For new CAES projects, this could easily be overridden
-    based on whether an empty gas well was nearby that could be reused,
-    whether the local geological conditions made it easy or difficult to
-    drill and construct underground storage, or whether an above-ground
-    pressurized vessel would be needed. For new battery projects, a
-    generic cost would be completely sufficient.
-
-    gen_replacement_id[g] is defined for gects that could replace
-    existing generators.
-
-    LOCATIONS_WITH_COMPETITION is the set of locations that have limited
-    land area where multiple projects can compete for space. Members of
-    this set are abbreviated as either loc or a lowercase L "l" in
-    parameter names and indexes.
-
-    loc_area_km2[l] describes the land area available for development
-    at a particular location in units of square kilometers.
-
-    gen_location[g] is only defined for gects that compete with each
-    other for limited land space at a given location. It refers to a
-    member of the set LOCATIONS_WITH_COMPETITION. For example, if solar
-    thermal and solar PV projects were competing for the same parcel of
-    land, they would need the same location id.
-
-    gen_land_footprint_mw_km2[g] describes the land footprint of a project
-    in units of megawatts per square kilometer.
-
-    Max_Build_Location[location] is a constraint defined for each project
-    that enforces maximum capacity limits for resource-limited locations.
-
-        sum(BuildGen/gen_land_footprint_mw_km2) <= loc_area_km2
-
-    ccs_pipeline_cost_per_mw[g, build_year] is the normalize cost of
-    a ccs pipeline sized relative to a project's emissions intensity.
-
     TODO:
-    - Allow capacity retirements
-    
-    Decommission[g, build_year, period] is a decision variable that
-    allows early retirement of portions of projects. Any portion of a
-    project that is decomisssioned early will not incur fixed O&M
-    costs and cannot be brought back into service in later periods.
-
-    NameplateCapacity[g, build_year, period] is an expression that
-    describes the amount of capacity available from a particular project
-    build in a given period. This takes into account any decomissioning
-    that occured.
-
-        NameplateCapacity = BuildGen - sum(Decommission)
+    - Allow early capacity retirements with savings on fixed O&M
     
     """
     mod.GENERATION_PROJECTS = Set()
@@ -379,8 +324,11 @@ def define_components(mod):
         mod.PREDETERMINED_GEN_BLD_YRS,
         rule=BuildGen_assign_default_value)
 
+    mod.GEN_PERIODS = Set(
+        dimen=2,
+        initialize=mod.GENERATION_PROJECTS * mod.PERIODS)
     mod.GenCapacity = Expression(
-        mod.GENERATION_PROJECTS, mod.PERIODS,
+        mod.GEN_PERIODS,
         rule=lambda m, g, period: sum(
             m.BuildGen[g, bld_yr]
             for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, period]))
@@ -438,34 +386,26 @@ def define_components(mod):
                 m.gen_connect_cost_per_mw[g]) *
             crf(m.interest_rate, m.gen_max_age[g])))
 
-    mod.GEN_PERIODS = Set(
-        dimen=2,
-        initialize=lambda m: set(
-            (g, p)
-            for (g, bld_yr) in m.GEN_BLD_YRS
-            for p in m.PERIODS_FOR_GEN_BLD_YR[g, bld_yr]))
-    mod.Proj_Fixed_Costs_Annual = Expression(
+    mod.GenCapitalCosts = Expression(
         mod.GEN_PERIODS,
         rule=lambda m, g, p: sum(
-            m.BuildGen[g, bld_yr] *
-            (m.gen_capital_cost_annual[g, bld_yr] +
-             m.gen_fixed_om[g, bld_yr])
-            for (g, bld_yr) in m.GEN_BLD_YRS
-            if (p in m.PERIODS_FOR_GEN_BLD_YR[g, bld_yr] and
-                g == g)))
+            m.BuildGen[g, bld_yr] * m.gen_capital_cost_annual[g, bld_yr]
+            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]))
+    mod.GenFixedOMCosts = Expression(
+        mod.GEN_PERIODS,
+        rule=lambda m, g, p: sum(
+            m.BuildGen[g, bld_yr] * m.gen_fixed_om[g, bld_yr]
+            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]))
     # Summarize costs for the objective function. Units should be total
     # annual future costs in $base_year real dollars. The objective
     # function will convert these to base_year Net Present Value in
     # $base_year real dollars.
-    mod.ProjFixedCosts = Expression(
+    mod.TotalGenFixedCosts = Expression(
         mod.PERIODS,
         rule=lambda m, p: sum(
-            m.BuildGen[g, bld_yr] *
-            (m.gen_capital_cost_annual[g, bld_yr] +
-             m.gen_fixed_om[g, bld_yr])
-            for g in m.GENERATION_PROJECTS
-            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]))
-    mod.Cost_Components_Per_Period.append('ProjFixedCosts')
+            m.GenCapitalCosts[g, p] + m.GenFixedOMCosts[g, p]
+            for g in m.GENERATION_PROJECTS))
+    mod.Cost_Components_Per_Period.append('TotalGenFixedCosts')
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -545,3 +485,15 @@ def load_inputs(mod, switch_data, inputs_dir):
     multi_fuels_path = os.path.join(inputs_dir, 'gen_multiple_fuels.dat')
     if os.path.isfile(multi_fuels_path):
         switch_data.load(filename=multi_fuels_path)
+
+
+def post_solve(instance, outdir):
+    # write_table returns a tuple instead of expanding the indexes, so use
+    # "gp" for the tuple instead of "g, p" for the components.
+    write_table(
+        instance, instance.GEN_PERIODS, 
+        output_file=os.path.join(outdir, "gen_cap.txt"),
+        headings=("GENERATION_PROJECT", "PERIOD", "GenCapacity",
+                  "GenCapitalCosts", "GenFixedOMCosts"),
+        values=lambda m, gp: gp + (m.GenCapacity[gp], m.GenCapitalCosts[gp],
+                                m.GenFixedOMCosts[gp]))

@@ -76,8 +76,8 @@ def define_components(m):
     m.DR_Unserved_Load_Penalty = Expression(m.TIMEPOINTS, rule=lambda m, tp:
         sum(m.DRUnservedLoad[z, tp] * m.dr_unserved_load_penalty_per_mwh for z in m.LOAD_ZONES)
     )
-    # add the unserved load to the model's energy balance
-    m.LZ_Energy_Components_Produce.append('DRUnservedLoad')
+    # add unserved load to the zonal energy balance
+    m.Zone_Power_Injections.append('DRUnservedLoad')
     # add the unserved load penalty to the model's objective function
     m.Cost_Components_Per_TP.append('DR_Unserved_Load_Penalty')
 
@@ -152,10 +152,10 @@ def define_components(m):
     # note: the first two lines are simpler than the method I use, but my approach
     # preserves the ordering of the list, which is nice for older spreadsheets that expect
     # a certain ordering.
-    # m.LZ_Energy_Components_Consume.remove('zone_demand_mw')
-    # m.LZ_Energy_Components_Consume.append('FlexibleDemand')
-    idx = m.LZ_Energy_Components_Consume.index('zone_demand_mw')
-    m.LZ_Energy_Components_Consume[idx] = 'FlexibleDemand'
+    # m.Zone_Power_Withdrawals.remove('zone_demand_mw')
+    # m.Zone_Power_Withdrawals.append('FlexibleDemand')
+    idx = m.Zone_Power_Withdrawals.index('zone_demand_mw')
+    m.Zone_Power_Withdrawals[idx] = 'FlexibleDemand'
 
     # private benefit of the electricity consumption 
     # (i.e., willingness to pay for the current electricity supply)
@@ -417,7 +417,7 @@ def electricity_demand(m, z, tp):
     return value(sum(
         getattr(m, component)[z, tp]
             for component in ('zone_demand_mw', 'FlexibleDemand')
-                if component in m.LZ_Energy_Components_Consume
+                if component in m.Zone_Power_Withdrawals
     ))
     
 def make_prices(m):
@@ -735,8 +735,8 @@ def write_results(m):
             +tuple(m.FUELS)
             +tuple(m.NON_FUEL_ENERGY_SOURCES)
             +tuple("curtail_"+s for s in m.NON_FUEL_ENERGY_SOURCES)
-            +tuple(m.LZ_Energy_Components_Produce)
-            +tuple(m.LZ_Energy_Components_Consume)
+            +tuple(m.Zone_Power_Injections)
+            +tuple(m.Zone_Power_Withdrawals)
             +("marginal_cost","final_marginal_cost","price","bid_load","peak_day","base_load","base_price"),
         values=lambda m, z, t: 
             (z, m.tp_period[t], m.tp_timestamp[t]) 
@@ -755,8 +755,8 @@ def write_results(m):
                 )
                 for s in m.NON_FUEL_ENERGY_SOURCES
             )
-            +tuple(getattr(m, component)[z, t] for component in m.LZ_Energy_Components_Produce)
-            +tuple(getattr(m, component)[z, t] for component in m.LZ_Energy_Components_Consume)
+            +tuple(getattr(m, component)[z, t] for component in m.Zone_Power_Injections)
+            +tuple(getattr(m, component)[z, t] for component in m.Zone_Power_Withdrawals)
             +(
                 m.prev_marginal_cost[z, t],
                 electricity_marginal_cost(m, z, t),

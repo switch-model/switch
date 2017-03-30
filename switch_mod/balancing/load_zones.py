@@ -6,41 +6,41 @@ Defines load zone parameters for the SWITCH-Pyomo model.
 """
 import os
 from pyomo.environ import *
+from switch_mod.reporting import write_table
 
 dependencies = 'switch_mod.timescales'
 
 def define_dynamic_lists(mod):
     """
-    LZ_Energy_Components_Produce and LZ_Energy_Components_Consume are lists of
+    Zone_Power_Injections and Zone_Power_Withdrawals are lists of
     components that contribute to load-zone level power balance equations.
-    sum(LZ_Energy_Components_Produce[z,t]) == sum(LZ_Energy_Components_Consume[z,t])
+    sum(Zone_Power_Injections[z,t]) == sum(Zone_Power_Withdrawals[z,t])
         for all z,t
     Other modules may append to either list, as long as the components they
     add are indexed by [zone, timepoint] and have units of MW. Other modules
     often include Expressions to summarize decision variables on a zonal basis.
     """
-    mod.LZ_Energy_Components_Produce = []
-    mod.LZ_Energy_Components_Consume = []
+    mod.Zone_Power_Injections = []
+    mod.Zone_Power_Withdrawals = []
 
 
 def define_components(mod):
     """
-
     Augments a Pyomo abstract model object with sets and parameters that
     describe load zones and associated power balance equations. Unless
     otherwise stated, each set and parameter is mandatory.
 
-    LOAD_ZONES is the set of load zones. mod uses a zonal
-    transport model to describe the power grid. Each zone is effectively
-    modeled as a single bus connected to the inter-zonal transmission
-    network, and connected to loads via local transmission and
-    distribution that incurs efficiency losses and must be upgraded over
-    time to always meet peak demand. Load zones are abbreviated as z in
+    LOAD_ZONES is the set of load zones. Each zone is effectively modeled as a
+    single bus connected to the inter-zonal transmission network (assuming
+    transmission is enabled). If local_td is included, the central zonal bus,
+    is connected to a "distributed bus" via local transmission and
+    distribution that incurs efficiency losses and must be upgraded over time
+    to always meet peak demand. Load zones are abbreviated as zone in
     parameter names and as z for indexes.
 
     zone_demand_mw[z,t] describes the power demand from the high voltage
     transmission grid each load zone z and timepoint t. This will either go
-    into the LZ_Energy_Components_Consume or the Distributed_Withdrawals power
+    into the Zone_Power_Withdrawals or the Distributed_Power_Withdrawals power
     balance equations, depending on whether the local_td module is included
     and has defined a distributed node for power balancing. If the local_td
     module is excluded, this value should be the total withdrawals from the
@@ -89,12 +89,12 @@ def define_components(mod):
         default=0.0)
     mod.zone_dbid = Param(
         mod.LOAD_ZONES,
-        default=lambda m, lz: z)
+        default=lambda m, z: z)
     mod.min_data_check('LOAD_ZONES', 'zone_demand_mw')
-    if 'Distributed_Withdrawals' in dir(mod):
-        mod.Distributed_Withdrawals.append('zone_demand_mw')
+    if 'Distributed_Power_Withdrawals' in dir(mod):
+        mod.Distributed_Power_Withdrawals.append('zone_demand_mw')
     else:
-        mod.LZ_Energy_Components_Consume.append('zone_demand_mw')
+        mod.Zone_Power_Withdrawals.append('zone_demand_mw')
 
     mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS = Set(
         dimen=2, within=mod.LOAD_ZONES * mod.PERIODS,
@@ -112,34 +112,32 @@ def define_components(mod):
 
 def define_dynamic_components(mod):
     """
-
     Adds components to a Pyomo abstract model object to enforce the
     first law of thermodynamics at the level of load zone busses. Unless
     otherwise stated, all terms describing power are in units of MW and
     all terms describing energy are in units of MWh.
 
-    Energy_Balance[load_zone, timepoint] is a constraint that mandates
-    conservation of energy in every load zone and timepoint. This
-    constraint sums the model components in the lists
-    LZ_Energy_Components_Produce and LZ_Energy_Components_Consume - each
-    of which is indexed by (z, t) - and ensures they are equal.
-
+    Zone_Energy_Balance[load_zone, timepoint] is a constraint that mandates
+    conservation of energy in every load zone and timepoint. This constraint
+    sums the model components in the lists Zone_Power_Injections and
+    Zone_Power_Withdrawals - each of which is indexed by (z, t) and
+    has units of MW - and ensures they are equal. The term tp_duration_hrs
+    is factored out of the equation for brevity.
     """
 
-    mod.Energy_Balance = Constraint(
+    mod.Zone_Energy_Balance = Constraint(
         mod.ZONE_TIMEPOINTS,
         rule=lambda m, z, t: (
             sum(
                 getattr(m, component)[z, t]
-                for component in m.LZ_Energy_Components_Produce
+                for component in m.Zone_Power_Injections
             ) == sum(
                 getattr(m, component)[z, t]
-                for component in m.LZ_Energy_Components_Consume)))
+                for component in m.Zone_Power_Withdrawals)))
 
 
 def load_inputs(mod, switch_data, inputs_dir):
     """
-
     Import load zone data. The following tab-separated files are
     expected in the input directory. Their index columns need to be on
     the left, but the data columns can be in any order. Extra columns
@@ -181,18 +179,22 @@ def load_inputs(mod, switch_data, inputs_dir):
 
 def post_solve(instance, outdir):
     """
-    Default export of power balance per node and timepoint in tabular format.
+    Export results.
+    
+    load_balance.txt is a wide table of energy balance components for every
+    zone and timepoint. Each component registered with
+    Zone_Power_Injections and Zone_Power_Withdrawals will
+    become a column.
 
     """
-    import switch_mod.reporting as reporting
-    reporting.write_table(
+    write_table(
         instance, instance.LOAD_ZONES, instance.TIMEPOINTS,
         output_file=os.path.join(outdir, "load_balance.txt"),
         headings=("load_zone", "timestamp",) + tuple(
-            instance.LZ_Energy_Components_Produce +
-            instance.LZ_Energy_Components_Consume),
+            instance.Zone_Power_Injections +
+            instance.Zone_Power_Withdrawals),
         values=lambda m, z, t: (z, m.tp_timestamp[t],) + tuple(
             getattr(m, component)[z, t]
             for component in (
-                m.LZ_Energy_Components_Produce +
-                m.LZ_Energy_Components_Consume)))
+                m.Zone_Power_Injections +
+                m.Zone_Power_Withdrawals)))

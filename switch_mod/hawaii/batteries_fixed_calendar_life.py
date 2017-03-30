@@ -40,9 +40,9 @@ def define_components(m):
     # storage level at start of each timepoint
     m.BatteryLevel = Var(m.LOAD_ZONES, m.TIMEPOINTS, within=NonNegativeReals)
 
-    # add the storage to the model's energy balance
-    m.LZ_Energy_Components_Produce.append('DischargeBattery')
-    m.LZ_Energy_Components_Consume.append('ChargeBattery')
+    # add storage dispatch to the zonal energy balance
+    m.Zone_Power_Injections.append('DischargeBattery')
+    m.Zone_Power_Withdrawals.append('ChargeBattery')
     
     # add the batteries to the objective function
 

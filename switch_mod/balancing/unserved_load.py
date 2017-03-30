@@ -37,7 +37,7 @@ def define_components(mod):
     mod.UnservedLoad = Var(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         within=NonNegativeReals)
-    mod.LZ_Energy_Components_Produce.append('UnservedLoad')
+    mod.Zone_Power_Injections.append('UnservedLoad')
 
     mod.UnservedLoadPenalty = Expression(
         mod.TIMEPOINTS,

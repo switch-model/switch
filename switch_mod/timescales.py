@@ -29,7 +29,7 @@ def define_components(mod):
     period; derived from period_start and period_end.
 
     period_length_hours[p]: The number of hours in an investment
-    period; derived from period_length_years with an average of   8766
+    period; derived from period_length_years with an average of 8766
     hours per year.
 
     TIMESERIES denote blocks of consecutive timepoints within a period.

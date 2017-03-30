@@ -151,10 +151,10 @@ def define_components(m):
         <= m.LiquidHydrogenTankCapacityKg[z, p]
     )
     
-    # add electricity consumption and production to the model
-    m.LZ_Energy_Components_Consume.append('RunElectrolyzerMW')
-    m.LZ_Energy_Components_Consume.append('LiquifyHydrogenMW')
-    m.LZ_Energy_Components_Produce.append('DispatchFuelCellMW')
+    # add electricity consumption and production to the zonal energy balance
+    m.Zone_Power_Withdrawals.append('RunElectrolyzerMW')
+    m.Zone_Power_Withdrawals.append('LiquifyHydrogenMW')
+    m.Zone_Power_Injections.append('DispatchFuelCellMW')
 
     # add costs to the model
     m.HydrogenVariableCost = Expression(m.TIMEPOINTS, rule=lambda m, t:

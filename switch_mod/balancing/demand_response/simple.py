@@ -40,8 +40,7 @@ def define_components(mod):
     If the local_td module is included, ShiftDemand[z,t] will be registered
     with local_td's distributed node for energy balancing purposes. If
     local_td is not included, it will be registered with load zone's central
-    node.
-    
+    node and will not reflect efficiency losses in the distribution network.
     
     DR_Shift_Net_Zero[z,ts in TIMESERIES] is a constraint that forces all the
     changes in the demand to balance out over the course of each timeseries.
@@ -71,10 +70,10 @@ def define_components(mod):
         rule=lambda m, z, ts:
         sum(m.ShiftDemand[z, t] for t in m.TPS_IN_TS[ts]) == 0.0)
     
-    if 'Distributed_Injections' in dir(mod):
-        mod.Distributed_Injections.append('ShiftDemand')
+    if 'Distributed_Power_Injections' in dir(mod):
+        mod.Distributed_Power_Injections.append('ShiftDemand')
     else:
-        mod.LZ_Energy_Components_Consume.append('ShiftDemand')
+        mod.Zone_Power_Withdrawals.append('ShiftDemand')
 
 
 def load_inputs(mod, switch_data, inputs_dir):

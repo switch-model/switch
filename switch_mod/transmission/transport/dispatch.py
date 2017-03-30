@@ -80,5 +80,5 @@ def define_components(mod):
     mod.TXPowerNet = Expression(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         rule=TXPowerNet_calculation)
-    # Register net transmission as contributing to a load zone's energy
-    mod.LZ_Energy_Components_Produce.append('TXPowerNet')
+    # Register net transmission as contributing to zonal energy balance
+    mod.Zone_Power_Injections.append('TXPowerNet')

@@ -147,8 +147,9 @@ def define_components(mod):
     mod.StorageNetCharge = Expression(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         rule=StorageNetCharge_rule)
-    # Register net dispatch as contributing to a load zone's energy
-    mod.LZ_Energy_Components_Consume.append('StorageNetCharge')
+    # Register net charging with zonal energy balance. Discharging is already
+    # covered by DispatchGen.
+    mod.Zone_Power_Withdrawals.append('StorageNetCharge')
 
     def Charge_Storage_Upper_Limit_rule(m, g, t):
         return m.ChargeStorage[g,t] <= \

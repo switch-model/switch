@@ -11,6 +11,7 @@ installed capacity.
 
 import os, collections
 from pyomo.environ import *
+from switch_mod.reporting import write_table
 
 dependencies = 'switch_mod.timescales', 'switch_mod.balancing.load_zones',\
     'switch_mod.financials', 'switch_mod.energy_sources.properties.properties', \
@@ -224,7 +225,7 @@ def define_components(mod):
                 for p in m.GENS_IN_ZONE[z]
                 if (p, t) in m.GEN_TPS and p in m.CCS_EQUIPPED_GENS),
         doc="Net power from grid-tied generation projects.")
-    mod.LZ_Energy_Components_Produce.append('StorageNetDispatch')
+    mod.Zone_Power_Injections.append('StorageNetDispatch')
 
     # Divide distributed generation into a separate expression so that we can
     # put it in the distributed node's power balance equations if local_td is
@@ -237,10 +238,10 @@ def define_components(mod):
                 if (g, t) in m.GEN_TPS and m.gen_is_distributed[g]),
         doc="Total power from distributed generation projects."
     )
-    if 'Distributed_Injections' in dir(mod):
-        mod.Distributed_Injections.append('LZ_NetDistributedInjections')
+    if 'Distributed_Power_Injections' in dir(mod):
+        mod.Distributed_Power_Injections.append('LZ_NetDistributedInjections')
     else:
-        mod.LZ_Energy_Components_Produce.append('LZ_NetDistributedInjections')
+        mod.Zone_Power_Injections.append('LZ_NetDistributedInjections')
 
     def init_gen_availability(m, g):
         if m.gen_is_baseload[g]:
@@ -262,7 +263,9 @@ def define_components(mod):
 
     mod.GenFuelUseRate = Var(
         mod.GEN_TP_FUELS,
-        within=NonNegativeReals)
+        within=NonNegativeReals,
+        doc=("Other modules constraint this variable based on DispatchGen and "
+             "module-specific formulations of unit commitment and heat rates."))
 
     def DispatchEmissions_rule(m, g, t, f):
         if g not in m.CCS_EQUIPPED_GENS:
@@ -285,15 +288,12 @@ def define_components(mod):
             if m.tp_period[t] == period),
         doc="The system's annual emissions, in metric tonnes of CO2 per year.")
 
-    # An expression to summarize costs for the objective function. Units
-    # should be total future costs in $base_year real dollars. The
-    # objective function will convert these to base_year Net Present
-    # Value in $base_year real dollars.
     mod.ProjVariableOMCosts = Expression(
         mod.TIMEPOINTS,
         rule=lambda m, t: sum(
             m.DispatchGen[g, t] * m.gen_variable_om[g]
-            for g in m.GENS_IN_PERIOD[m.tp_period[t]]))
+            for g in m.GENS_IN_PERIOD[m.tp_period[t]]),
+        doc="Summarize costs for the objective function")
     mod.Cost_Components_Per_TP.append('ProjVariableOMCosts')
 
 
@@ -319,11 +319,10 @@ def load_inputs(mod, switch_data, inputs_dir):
 
 def post_solve(instance, outdir):
     """
-    Default export of project dispatch per timepoint in tabular format.
+    Default export of project dispatch per timepoint in tabular "wide" format.
 
     """
-    import switch_mod.reporting as reporting
-    reporting.write_table(
+    write_table(
         instance, instance.TIMEPOINTS,
         output_file=os.path.join(outdir, "dispatch.txt"),
         headings=("timestamp",)+tuple(instance.GENERATION_PROJECTS),

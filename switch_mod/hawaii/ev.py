@@ -82,8 +82,8 @@ def define_components(m):
         # should never happen
         raise ValueError("Invalid value specified for --ev-timing: {}".format(str(m.options.ev_timing)))
 
-    # add the EV load to the model's energy balance
-    m.LZ_Energy_Components_Consume.append('ChargeEVs')
+    # add the EV load to the zonal energy balance
+    m.Zone_Power_Withdrawals.append('ChargeEVs')
     
 
 def load_inputs(m, switch_data, inputs_dir):

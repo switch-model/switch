@@ -29,9 +29,9 @@ def _print_output(instance):
 
 def post_solve(instance, outdir):
     """
-    Dump the model & solution to model_dump.txt using either instance.display()
-    or instance.pprint(), depending on the value of dump-level. Default is pprint().
-
+    Dump the model & solution to model_dump.txt using either
+    instance.display() or instance.pprint(), depending on the value of
+    dump-level. Default is pprint().
     """
     stdout_copy = sys.stdout  # make a copy of current sys.stdout to return to eventually
     out_path = os.path.join(outdir, "model_dump.txt")

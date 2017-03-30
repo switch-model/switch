@@ -25,5 +25,5 @@ def define_components(m):
         sum(m.ShiftDemand[z, tp] for tp in m.TPS_IN_TS[ts]) == 0.0
     )
 
-    # add the demand response to the model's energy balance
-    m.LZ_Energy_Components_Consume.append('ShiftDemand')
+    # add demand response to the zonal energy balance
+    m.Zone_Power_Withdrawals.append('ShiftDemand')

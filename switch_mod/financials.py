@@ -87,14 +87,13 @@ def define_dynamic_lists(mod):
     There are two lists of costs components that form the cost-minimization
     objective function. Other modules may add elements to these lists.
 
-    Cost_Components_Per_TP is a list of components that contribute to
-    overall system costs in each timepoint. Each component in this list
-    needs to be indexed by timepoint and specified in non-discounted
-    real dollars per hour. The objective function will apply weights and
-    discounting to these terms. If this indexing is not convenient for
-    native model components, I advise writing an Expression object
-    indexed by [t] that contains logic to access or summarize native
-    model components.
+    Cost_Components_Per_TP is a list of components that contribute to overall
+    system costs in each timepoint. Each component in this list needs to be
+    indexed by timepoint and specified in non-discounted real dollars per hour
+    (not $/timepoint). The objective function will apply weights and
+    discounting to these terms. If this indexing is not convenient for native
+    model components, I advise writing an Expression object indexed by [t]
+    that contains logic to access or summarize native model components.
 
     Cost_Components_Per_Period is a list of components that contribute to
     overall system costs on an annual basis. Each component in this list
@@ -106,9 +105,6 @@ def define_dynamic_lists(mod):
     summarize native model components.
 
     """
-    # TODO: rename Cost_Components_Per_TP to cost_components_hourly to reflect the fact that it 
-    # should show hourly costs (not costs per timepoint); this would also be more similar 
-    # to Cost_Components_Per_Period
     mod.Cost_Components_Per_TP = []
     mod.Cost_Components_Per_Period = []
 

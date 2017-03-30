@@ -107,9 +107,9 @@ def define_components(m):
     )
     m.Cost_Components_Per_Period.append('Pumped_Hydro_Fixed_Cost_Annual')
     
-    # add the pumped hydro to the model's energy balance
-    m.LZ_Energy_Components_Produce.append('GeneratePumpedHydro')
-    m.LZ_Energy_Components_Consume.append('StorePumpedHydro')
+    # add pumped hydro to zonal energy balance
+    m.Zone_Power_Injections.append('GeneratePumpedHydro')
+    m.Zone_Power_Withdrawals.append('StorePumpedHydro')
     
     # total pumped hydro capacity in each zone each period (for reporting)
     m.Pumped_Hydro_Capacity_MW = Expression(m.LOAD_ZONES, m.PERIODS, rule=lambda m, z, pe:

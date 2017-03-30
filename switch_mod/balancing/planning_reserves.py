@@ -90,12 +90,12 @@ def define_components(model):
     specifying one planning reserve requirement per load zone, one aggregate
     requirement for the entire system, or a combination of a system-wide
     requirement and requirements for transmission-constrained "load pockets".
-    This set is abbreviates as PRR.    
+    This set is abbreviated as PRR / prr.
     
-    prr_reserve_margin[gr] is the capacity reserve margin for each PRR which
+    prr_reserve_margin[prr] is the capacity reserve margin for each PRR which
     defaults to 0.15
     
-    prr_enforcement_timescale[gr] Determines whether planning reserve
+    prr_enforcement_timescale[prr] Determines whether planning reserve
     requirements are enforced in each timepoint, or just timepoints with peak
     load (zone_demand_mw). Allowed values are 'all_timepoints' and 'peak_load'.
     
@@ -109,7 +109,7 @@ def define_components(model):
     defaults to gen_max_capacity_factor for renewable projects with variable
     output and 1.0 for other plants.
     
-    AvailableReserveCapacity[gr,t] summarizes the available generation
+    AvailableReserveCapacity[prr,t] summarizes the available generation
     capacity across each planning reserve area, taking into account
     capacity_value. If storage projects are being modeled, they are credited
     with their scheduled net deliveries (dispatch - charging). This is added
@@ -228,7 +228,7 @@ def define_components(model):
             # If local_td is included with DER modeling, avoid allocating
             # distributed generation to central grid capacity because it will
             # be credited with adjusting load at the distribution node.
-            elif 'Distributed_Injections' in dir(m) and m.gen_is_distributed[g]:
+            elif 'Distributed_Power_Injections' in dir(m) and m.gen_is_distributed[g]:
                 pass
             else:
                 reserve_cap += m.gen_capacity_value[g, t] * m.GenCapacityPerTP[g, t]

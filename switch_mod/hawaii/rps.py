@@ -74,7 +74,7 @@ def define_components(m):
     # RPS-eligible power and burning it off in storage losses; on the other hand, 
     # it also neglects the (small) contribution from net flow of pumped hydro projects.
     # TODO: incorporate pumped hydro into this rule, maybe change the target to refer to 
-    # sum(getattr(m, component)[z, t] for z in m.LOAD_ZONES) for component in m.LZ_Energy_Components_Produce)
+    # sum(getattr(m, component)[z, t] for z in m.LOAD_ZONES) for component in m.Zone_Power_Injections)
 
     # power production that can be counted toward the RPS each period
     m.RPSEligiblePower = Expression(m.PERIODS, rule=lambda m, per:

@@ -21,7 +21,7 @@ def define_components(m):
                 getattr(m, component)[z, t] 
                     for z in m.LOAD_ZONES 
                         for t in m.TIMEPOINTS 
-                            for component in m.LZ_Energy_Components_Produce)
+                            for component in m.Zone_Power_Injections)
             # minimize the variability of various slack responses
             adjustable_components = [
                 'ShiftDemand', 'ChargeBattery', 'DischargeBattery', 'ChargeEVs', 
