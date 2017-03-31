@@ -30,13 +30,13 @@ def define_components(mod):
     of this set. Members of this set can be abbreviated as (g, t) or
     (g, t).
     
-    TPS_FOR_GENS[g] is a set array showing all timepoints when a 
+    TPS_FOR_GEN[g] is a set array showing all timepoints when a 
     project is active. These are the timepoints corresponding to 
     PERIODS_FOR_GEN. This is the same data as GEN_TPS, 
     but split into separate sets for each project.
 
-    TPS_FOR_GENS_IN_PERIOD[g, period] is the same as 
-    TPS_FOR_GENS, but broken down by period. Periods when
+    TPS_FOR_GEN_IN_PERIOD[g, period] is the same as 
+    TPS_FOR_GEN, but broken down by period. Periods when
     the project is inactive will yield an empty set.
 
     GenCapacityPerTP[(g, t) in GEN_TPS] is the same as
@@ -154,54 +154,54 @@ def define_components(mod):
     mod.GENS_IN_PERIOD = Set(mod.PERIODS, initialize=period_active_gen_rule,
         doc="The set of projects active in a given period.")
 
-    def TPS_FOR_GENS_rule(m, gen):
-        if not hasattr(m, '_TPS_FOR_GENS_dict'):
-            m._TPS_FOR_GENS_dict = collections.defaultdict(set)
+    def TPS_FOR_GEN_rule(m, gen):
+        if not hasattr(m, '_TPS_FOR_GEN_dict'):
+            m._TPS_FOR_GEN_dict = collections.defaultdict(set)
             for (_gen, period) in m.GEN_PERIODS:
                 for t in m.TPS_IN_PERIOD[period]:
-                    m._TPS_FOR_GENS_dict[_gen].add(t)
-        result = m._TPS_FOR_GENS_dict.pop(gen)
-        if len(m._TPS_FOR_GENS_dict) == 0:
-            delattr(m, '_TPS_FOR_GENS_dict')
+                    m._TPS_FOR_GEN_dict[_gen].add(t)
+        result = m._TPS_FOR_GEN_dict.pop(gen)
+        if len(m._TPS_FOR_GEN_dict) == 0:
+            delattr(m, '_TPS_FOR_GEN_dict')
         return result        
-    mod.TPS_FOR_GENS = Set(
+    mod.TPS_FOR_GEN = Set(
         mod.GENERATION_PROJECTS, within=mod.TIMEPOINTS,
-        rule=TPS_FOR_GENS_rule)
+        rule=TPS_FOR_GEN_rule)
 
-    def TPS_FOR_GENS_IN_PERIOD_rule(m, gen, period):
-        if not hasattr(m, '_TPS_FOR_GENS_IN_PERIOD_dict'):
-            m._TPS_FOR_GENS_IN_PERIOD_dict = collections.defaultdict(set)
+    def TPS_FOR_GEN_IN_PERIOD_rule(m, gen, period):
+        if not hasattr(m, '_TPS_FOR_GEN_IN_PERIOD_dict'):
+            m._TPS_FOR_GEN_IN_PERIOD_dict = collections.defaultdict(set)
             for _gen in m.GENERATION_PROJECTS:
-                for t in m.TPS_FOR_GENS[_gen]:
-                    m._TPS_FOR_GENS_IN_PERIOD_dict[(_gen, m.tp_period[t])].add(t)
-        if (gen, period) not in m._TPS_FOR_GENS_IN_PERIOD_dict:
+                for t in m.TPS_FOR_GEN[_gen]:
+                    m._TPS_FOR_GEN_IN_PERIOD_dict[(_gen, m.tp_period[t])].add(t)
+        if (gen, period) not in m._TPS_FOR_GEN_IN_PERIOD_dict:
             return ()
-        result = m._TPS_FOR_GENS_IN_PERIOD_dict.pop((gen, period))
-        if len(m._TPS_FOR_GENS_IN_PERIOD_dict) == 0:
-            delattr(m, '_TPS_FOR_GENS_IN_PERIOD_dict')
+        result = m._TPS_FOR_GEN_IN_PERIOD_dict.pop((gen, period))
+        if len(m._TPS_FOR_GEN_IN_PERIOD_dict) == 0:
+            delattr(m, '_TPS_FOR_GEN_IN_PERIOD_dict')
         return result
-    mod.TPS_FOR_GENS_IN_PERIOD = Set(mod.GENERATION_PROJECTS, mod.PERIODS, 
+    mod.TPS_FOR_GEN_IN_PERIOD = Set(mod.GENERATION_PROJECTS, mod.PERIODS, 
         within=mod.TIMEPOINTS,
-        rule=TPS_FOR_GENS_IN_PERIOD_rule)
+        rule=TPS_FOR_GEN_IN_PERIOD_rule)
 
     mod.GEN_TPS = Set(
         dimen=2,
         initialize=lambda m: (
             (g, tp) 
                 for g in m.GENERATION_PROJECTS 
-                    for tp in m.TPS_FOR_GENS[g]))
+                    for tp in m.TPS_FOR_GEN[g]))
     mod.VARIABLE_GEN_TPS = Set(
         dimen=2,
         initialize=lambda m: (
             (g, tp) 
                 for g in m.VARIABLE_GENS
-                    for tp in m.TPS_FOR_GENS[g]))
+                    for tp in m.TPS_FOR_GEN[g]))
     mod._FUEL_BASED_GEN_TPS = Set(
         dimen=2,
         initialize=lambda m: (
             (g, tp) 
                 for g in m.FUEL_BASED_GENS
-                    for tp in m.TPS_FOR_GENS[g]))
+                    for tp in m.TPS_FOR_GEN[g]))
     mod.GEN_TP_FUELS = Set(
         dimen=3,
         initialize=lambda m: (

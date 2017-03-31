@@ -127,7 +127,7 @@ def define_components(mod):
         initialize=lambda m: (
             (g, tp) 
                 for g in m.STORAGE_GENS
-                    for tp in m.TPS_FOR_GENS[g]))
+                    for tp in m.TPS_FOR_GEN[g]))
 
     mod.ChargeStorage = Var(
         mod.STORAGE_GEN_TPS,

@@ -290,12 +290,12 @@ def define_components(mod):
     mod.UPTIME_CONSTRAINED_GEN_TPS = Set(dimen=2, initialize=lambda m: [
         (g, tp) 
             for g in m.GENERATION_PROJECTS if m.gen_min_uptime[g] > 0.0
-                for tp in m.TPS_FOR_GENS[g] 
+                for tp in m.TPS_FOR_GEN[g] 
     ])
     mod.DOWNTIME_CONSTRAINED_GEN_TPS = Set(dimen=2, initialize=lambda m: [
         (g, tp) 
             for g in m.GENERATION_PROJECTS if m.gen_min_downtime[g] > 0.0
-                for tp in m.TPS_FOR_GENS[g] 
+                for tp in m.TPS_FOR_GEN[g] 
     ])
     
     def tp_prev(m, tp, n=1):

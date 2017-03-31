@@ -171,14 +171,14 @@ def define_dynamic_components(m):
     # to "Off" in "source_data/Hawaii RPS Study Generator Table OCR.xlsx" instead.
     
     # # shutdown Kahe_6
-    # m.KAHE_6_TIMEPOINTS = Set(initialize=lambda m: m.TPS_FOR_GENS['Kahe_6'])
+    # m.KAHE_6_TIMEPOINTS = Set(initialize=lambda m: m.TPS_FOR_GEN['Kahe_6'])
     # m.ShutdownGenCapacity_Kahe_6 = Constraint(m.KAHE_6_TIMEPOINTS, rule=lambda m, tp:
     #     m.CommitGen['Kahe_6', tp] == 0
     # )
 
     # # shutdown Kahe_1 and Kahe_2
     # m.SHUTDOWN_TIMEPOINTS = Set(dimen=2, initialize=lambda m: [
-    #     (p, tp) for p in ['Kahe_1', 'Kahe_2'] for tp in m.TPS_FOR_GENS[p]
+    #     (p, tp) for p in ['Kahe_1', 'Kahe_2'] for tp in m.TPS_FOR_GEN[p]
     # ])
     # m.ShutdownGenCapacity_Projects = Constraint(m.SHUTDOWN_TIMEPOINTS, rule=lambda m, p, tp:
     #     m.CommitGen[p, tp] == 0
@@ -190,7 +190,7 @@ def define_dynamic_components(m):
     # Note: this assumes timepoints are evenly spaced, and timeseries begin at midnight
     # m.CYCLING_PLANTS_TIMEPOINTS = Set(dimen=2, initialize=lambda m: [
     #     (g, tp) for g in m.REPORTING_TYPE_GENECTS['Cycling']
-    #         for tp in m.TPS_FOR_GENS[g]
+    #         for tp in m.TPS_FOR_GEN[g]
     # ])
     # m.Cycle_Plants = Constraint(m.CYCLING_PLANTS_TIMEPOINTS, rule=lambda m, g, tp:
     #     m.CommitSlackUp[g, tp] == 0

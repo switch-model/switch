@@ -83,12 +83,12 @@ def define_components(mod):
                 if m.f_rps_eligible[f]) / m.gen_full_load_heat_rate[g] *
                 m.tp_weight[t]
                     for g in m.FUEL_BASED_GENS 
-                        for t in m.TPS_FOR_GENS_IN_PERIOD[g, p]))
+                        for t in m.TPS_FOR_GEN_IN_PERIOD[g, p]))
     mod.RPSNonFuelEnergy = Expression(
         mod.RPS_PERIODS,
         rule=lambda m, p: sum(m.DispatchGen[g, t] * m.tp_weight[t]
             for g in m.NON_FUEL_BASED_GENS 
-                for t in m.TPS_FOR_GENS_IN_PERIOD[g, p]))
+                for t in m.TPS_FOR_GEN_IN_PERIOD[g, p]))
 
     mod.RPS_Enforce_Target = Constraint(
         mod.RPS_PERIODS,
@@ -100,7 +100,7 @@ def total_generation_in_period(model, period):
     return sum(
         model.DispatchGen[g, t] * model.tp_weight[t]
         for g in model.GENERATION_PROJECTS 
-            for t in model.TPS_FOR_GENS_IN_PERIOD[g, period])
+            for t in model.TPS_FOR_GEN_IN_PERIOD[g, period])
 
 
 def total_demand_in_period(model, period):
