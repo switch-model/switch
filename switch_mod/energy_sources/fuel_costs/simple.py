@@ -33,7 +33,7 @@ def define_components(mod):
     GEN_TP_FUELS that describes which points don't have fuel
     available.
 
-    Enforce_Fuel_Availability[(g, t) in
+    Enforce_Fuel_Unavailability[(g, t, f) in
     GEN_TP_FUELS_UNAVAILABLE] is a constraint that restricts
     GenFuelUseRate to 0 for in load zones and periods where the
     projects' fuel is unavailable.
@@ -59,7 +59,7 @@ def define_components(mod):
         filter=lambda m, g, t, f: (
             (m.gen_load_zone[g], f, m.tp_period[t])
             not in m.ZONE_FUEL_PERIODS))
-    mod.Enforce_Fuel_Availability = Constraint(
+    mod.Enforce_Fuel_Unavailability = Constraint(
         mod.GEN_TP_FUELS_UNAVAILABLE,
         rule=lambda m, g, t, f: m.GenFuelUseRate[g, t, f] == 0)
 

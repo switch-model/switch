@@ -1,5 +1,5 @@
-This directory includes examples of gradually increasing complexity. The order
-is:
+This directory includes examples of gradually increasing complexity.
+
 1plant - A single timepoint and one natural gas combined cycle plant
 3plants - Adds a baseload and a peaker plant
 4plants - Adds a solar plant and three more timepoints

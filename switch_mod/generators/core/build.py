@@ -248,9 +248,10 @@ def define_components(mod):
         filter=lambda m, g: m.gen_energy_source[g] == "multiple")
     mod.FUELS_FOR_MULTIFUEL_GEN = Set(mod.MULTIFUEL_GENS, within=mod.FUELS)
     mod.FUELS_FOR_GEN = Set(mod.FUEL_BASED_GENS, 
-        initialize=lambda m, g: (m.FUELS_FOR_MULTIFUEL_GEN[g] 
+        initialize=lambda m, g: (
+            m.FUELS_FOR_MULTIFUEL_GEN[g] 
             if g in m.MULTIFUEL_GENS 
-                else [m.gen_energy_source[g]]))
+            else [m.gen_energy_source[g]]))
 
     mod.PREDETERMINED_GEN_BLD_YRS = Set(
         dimen=2)

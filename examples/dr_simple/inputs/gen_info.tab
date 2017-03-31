@@ -1,9 +1,0 @@
-GENERATION_PROJECT	gen_dbid	gen_energy_source	gen_load_zone	gen_connect_cost_per_mw	gen_capacity_limit_mw	gen_max_age	gen_min_build_capacity	gen_scheduled_outage_rate	gen_forced_outage_rate	gen_is_variable	gen_is_baseload	gen_is_cogen	gen_is_distributed	gen_variable_om	gen_full_load_heat_rate	gen_tech
-S-Geothermal	33	Geothermal	South	134222	3	30	0	0.0075	0.0241	0	1	0	0	28.83	.	Geothermal
-S-NG_CC	34	NaturalGas	South	57566.6	.	20	0	0.04	0.06	0	0	0	0	3.4131	6.705	NG_CC
-S-NG_GT	36	NaturalGas	South	57566.6	5	20	0	0.04	0.06	0	0	0	0	27.807	10.39	NG_GT
-S-Biomass_IGCC	37	BioSolid	South	57566.6	.	40	0	0.09	0.076	0	1	0	0	13.95	12.5	Biomass_IGCC
-S-Residential_PV	39	Solar	South	0	0.5	20	0	0	0.02	1	0	0	1	0	.	Residential_PV
-S-Commercial_PV	40	Solar	South	0	0.5	20	0	0	0.02	1	0	0	1	0	.	Commercial_PV
-S-Central_PV-1	41	Solar	South	74881.9	0.8	20	0	0	0.02	1	0	0	0	0	.	Central_PV
-S-Central_PV-2	42	Solar	South	65370.3	0.4	20	0	0	0.02	1	0	0	0	0	.	Central_PV

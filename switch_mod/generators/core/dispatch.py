@@ -215,7 +215,7 @@ def define_components(mod):
     mod.DispatchGen = Var(
         mod.GEN_TPS,
         within=NonNegativeReals)
-    mod.StorageNetDispatch = Expression(
+    mod.ZoneTotalCentralDispatch = Expression(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         rule=lambda m, z, t: \
             sum(m.DispatchGen[p, t]
@@ -225,12 +225,12 @@ def define_components(mod):
                 for p in m.GENS_IN_ZONE[z]
                 if (p, t) in m.GEN_TPS and p in m.CCS_EQUIPPED_GENS),
         doc="Net power from grid-tied generation projects.")
-    mod.Zone_Power_Injections.append('StorageNetDispatch')
+    mod.Zone_Power_Injections.append('ZoneTotalCentralDispatch')
 
     # Divide distributed generation into a separate expression so that we can
     # put it in the distributed node's power balance equations if local_td is
     # included.
-    mod.LZ_NetDistributedInjections = Expression(
+    mod.ZoneTotalDistributedDispatch = Expression(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         rule=lambda m, z, t: \
             sum(m.DispatchGen[g, t]
@@ -239,9 +239,9 @@ def define_components(mod):
         doc="Total power from distributed generation projects."
     )
     if 'Distributed_Power_Injections' in dir(mod):
-        mod.Distributed_Power_Injections.append('LZ_NetDistributedInjections')
+        mod.Distributed_Power_Injections.append('ZoneTotalDistributedDispatch')
     else:
-        mod.Zone_Power_Injections.append('LZ_NetDistributedInjections')
+        mod.Zone_Power_Injections.append('ZoneTotalDistributedDispatch')
 
     def init_gen_availability(m, g):
         if m.gen_is_baseload[g]:
