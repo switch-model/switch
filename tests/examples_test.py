@@ -18,6 +18,13 @@ TOP_DIR = os.path.dirname(os.path.dirname(__file__))
 
 UPDATE_EXPECTATIONS = False
 
+def _remove_temp_dir(path):
+    for retry in range(100):
+        try:
+            shutil.rmtree(path)
+            break
+        except:
+            pass
 
 def read_file(filename):
     with open(filename, "r") as fh:
@@ -59,7 +66,7 @@ def make_test(example_dir):
             total_cost = read_file(os.path.join(temp_dir, 'total_cost.txt'))
         finally:
             sys.path.remove(example_dir)
-            shutil.rmtree(temp_dir)
+            _remove_temp_dir(temp_dir)
         expectation_file = get_expectation_path(example_dir)
         if UPDATE_EXPECTATIONS:
             write_file(expectation_file, total_cost)

@@ -17,6 +17,14 @@ import switch_mod.upgrade.upgrade_2_0_0b1 as upgrade_2_0_0b1
 
 UPDATE_EXPECTATIONS = False
 
+def _remove_temp_dir(path):
+    for retry in range(100):
+        try:
+            shutil.rmtree(path)
+            break
+        except:
+            pass
+
 def find_example_dirs(path):
     for dirpath, dirnames, filenames in os.walk(path):
         for dirname in dirnames:
@@ -42,7 +50,7 @@ def make_test(example_dir):
             total_cost = read_file(os.path.join(upgrade_dir_outputs, 'total_cost.txt'))
         finally:
             sys.path.remove(upgrade_dir)
-            shutil.rmtree(temp_dir)
+            _remove_temp_dir(temp_dir)
         expectation_file = get_expectation_path(example_dir)
         if UPDATE_EXPECTATIONS:
             write_file(expectation_file, total_cost)
