@@ -15,12 +15,12 @@ def define_components(mod):
     describe balancing areas. Unless otherwise stated, each set and
     parameter is mandatory.
 
-    lz_balancing_area[z] describes which balancing area each load zone
+    zone_balancing_area[z] describes which balancing area each load zone
     belongs to. This defaults to "system_wide_balancing_area".
 
     BALANCING_AREAS is the set of balancing areas in which operational
     reserves must be met. These are the unique names specified in the
-    lz_balancing_area[z] parameter. This can be abbreviated as b for indexed.
+    zone_balancing_area[z] parameter. This can be abbreviated as b for indexed.
     
     ZONES_IN_BALANCING_AREA[b] is the set of load zones in a given balancing
     area.
@@ -30,13 +30,13 @@ def define_components(mod):
 
     """
 
-    mod.lz_balancing_area = Param(mod.LOAD_ZONES, default='system_wide_balancing_area')
+    mod.zone_balancing_area = Param(mod.LOAD_ZONES, default='system_wide_balancing_area')
     mod.BALANCING_AREAS = Set(initialize=lambda m: set(
-        m.lz_balancing_area[z] for z in m.LOAD_ZONES))
+        m.zone_balancing_area[z] for z in m.LOAD_ZONES))
     mod.ZONES_IN_BALANCING_AREA = Set(
         mod.BALANCING_AREAS,
         initialize=lambda m, b: (
-            z for z in m.LOAD_ZONES if m.lz_balancing_area[z] == b))
+            z for z in m.LOAD_ZONES if m.zone_balancing_area[z] == b))
     mod.BALANCING_AREA_TIMEPOINTS = Set(
         initialize=mod.BALANCING_AREAS * mod.TIMEPOINTS)        
 
@@ -47,7 +47,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     directory:
 
     load_zones.tab 
-        LOAD_ZONE, ..., lz_balancing_area
+        LOAD_ZONE, ..., zone_balancing_area
 
     """
     # Include select in each load() function so that it will check out
@@ -56,4 +56,4 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'load_zones.tab'),
         auto_select=True,
-        param=(mod.lz_balancing_area))
+        param=(mod.zone_balancing_area))

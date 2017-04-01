@@ -167,7 +167,7 @@ def gen_unit_contigency(m):
         m.BALANCING_AREA_TIMEPOINTS,
         doc="Largest generating unit that could drop offline.")
     def Enforce_GenUnitLargestContingency_rule(m, g, t):
-        b = m.lz_balancing_area[m.gen_load_zone[g]]
+        b = m.zone_balancing_area[m.gen_load_zone[g]]
         return (m.GenUnitLargestContingency[b,t] >= 
                 m.GenIsCommitted[g, t] * m.gen_unit_size[g])
     m.Enforce_GenUnitLargestContingency = Constraint(
@@ -187,7 +187,7 @@ def gen_project_contigency(m):
         m.BALANCING_AREA_TIMEPOINTS,
         doc="Largest generating project that could drop offline.")
     def Enforce_GenProjectLargestContingency_rule(m, g, t):
-        b = m.lz_balancing_area[m.gen_load_zone[g]]
+        b = m.zone_balancing_area[m.gen_load_zone[g]]
         return m.GenProjectLargestContingency[b, t] >= m.CommitGen[g, t]
     m.Enforce_GenProjectLargestContingency = Constraint(
         m.GEN_TPS,
@@ -235,7 +235,7 @@ def hawaii_spinning_reserve_requirements(m):
                 m.var_gen_cap_reserve_limit[g]
             )
             for g in m.VARIABLE_GENS
-            if (g, t) in m.VARIABLE_GEN_TPS and b == m.lz_balancing_area[m.gen_load_zone[g]]),
+            if (g, t) in m.VARIABLE_GEN_TPS and b == m.zone_balancing_area[m.gen_load_zone[g]]),
         doc="The spinning reserves for backing up variable generation with Hawaii rules."
     )
     m.Spinning_Reserve_Up_Requirements.append('HawaiiVarGenUpSpinningReserveRequirement')
@@ -245,7 +245,7 @@ def hawaii_spinning_reserve_requirements(m):
             load = m.WithdrawFromCentralGrid
         else:
             load = m.lz_demand_mw
-        return 0.10 * sum(load[z, t] for z in m.LOAD_ZONES if b == m.lz_balancing_area[z])
+        return 0.10 * sum(load[z, t] for z in m.LOAD_ZONES if b == m.zone_balancing_area[z])
     m.HawaiiLoadDownSpinningReserveRequirement = Expression(
         m.BALANCING_AREA_TIMEPOINTS,
         rule=HawaiiLoadDownSpinningReserveRequirement_rule
@@ -270,10 +270,10 @@ def nrel_3_5_spinning_reserve_requirements(m):
         else:
             load = m.lz_demand_mw
         return (0.03 * sum(load[z, t] for z in m.LOAD_ZONES
-                           if b == m.lz_balancing_area[z])
+                           if b == m.zone_balancing_area[z])
               + 0.05 * sum(m.DispatchGen[g, t] for g in m.VARIABLE_GENS
                            if (g, t) in m.VARIABLE_GEN_TPS and 
-                              b == m.lz_balancing_area[m.gen_load_zone[g]]))
+                              b == m.zone_balancing_area[m.gen_load_zone[g]]))
     m.NREL35VarGenSpinningReserveRequirement = Expression(
         m.BALANCING_AREA_TIMEPOINTS, 
         rule=NREL35VarGenSpinningReserveRequirement_rule
@@ -355,11 +355,10 @@ def define_dynamic_components(m):
         m.BALANCING_AREA_TIMEPOINTS,
         doc="Maximum of the registered Spinning_Reserve_Contigencies")
     for contigency in m.Spinning_Reserve_Contigencies:
-        contigency_obj = getattr(m, contigency)
         constraint_name = "Enforce_Max_Contigency_" + contigency
         constraint = Constraint(
             m.BALANCING_AREA_TIMEPOINTS,
-            rule=lambda m, b, t: MaximumContigency[b, t] >= contigency_obj[b, t]
+            rule=lambda m, b, t: m.MaximumContigency[b, t] >= getattr(m, contigency)[b, t]
         )
         setattr(m, constraint_name, constraint)
     m.Spinning_Reserve_Up_Requirements.append('MaximumContigency')
