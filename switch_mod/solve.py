@@ -17,9 +17,7 @@ def main(args=None, return_model=False, return_instance=False):
     if args is None:
         # combine default arguments read from options.txt file with 
         # additional arguments specified on the command line
-        args = get_option_file_args()
-        # add any command-line arguments
-        args.extend(sys.argv[1:])
+        args = get_option_file_args(extra_args=sys.argv[1:])
 
     # Get options needed before any modules are loaded
     pre_module_options = parse_pre_module_options(args)
@@ -436,17 +434,20 @@ def get_iteration_list(m):
         iterate_modules = [re.sub("[ \t,]+", " ", r).split(" ") for r in iterate_rows]
     return iterate_modules
 
-def get_option_file_args():
+def get_option_file_args(dir='.', extra_args=[]):
+
     args = []
     # retrieve base arguments from options.txt (if present)
     # note: these can be on multiple lines to ease editing,
     # and lines can be commented out with #
-    if os.path.exists("options.txt"):
-        with open("options.txt") as f:
+    options_path = os.path.join(dir, "options.txt")
+    if os.path.exists(options_path):
+        with open(options_path) as f:
             base_options = f.read().splitlines()
         for r in base_options:
             if not r.lstrip().startswith("#"):
                 args.extend(shlex.split(r))
+    args.extend(extra_args)
     return args
 
 # Generic argument-related code; could potentially be moved to utilities.py
