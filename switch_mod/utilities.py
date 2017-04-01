@@ -426,6 +426,13 @@ def load_aug(switch_data, optional=False, auto_select=False,
     # Skip if the file is missing
     if optional and not os.path.isfile(path):
         return
+    # If this is a .dat file, then skip the rest of this fancy business; we'll
+    # only check if the file is missing and optional for .dat files.
+    filename, extension = os.path.splitext(path)
+    if extension == '.dat':
+        switch_data.load(**kwds)
+        return
+    
     # copy the optional_params to avoid side-effects when the list is altered below
     optional_params=list(optional_params)
     # Parse header and first row

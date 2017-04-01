@@ -12,15 +12,17 @@ following or longer-term recovery from contigencies are not included here.
 
 Most regions and countries use distinct terminology for reserves products and
 distinct procedures for determining reserve requirements. This module provides
-a simple approach to spinning reserve requirements. Detailed regional studies
-will need to write their own reserve modules to reflect regional reserve
+a simple approach to spinning reserve requirements, which can be extended
+by other module via registering with dynamic lists. Detailed regional studies
+may need to write their own reserve modules to reflect specific regional reserve
 definitions and policies. 
 
 Notes: 
 
 This formulation only considers ramping capacity, not duration. The lack of
 duration requirements could cause problems if a significant amount of capacity
-is energy limited such as demand response, storage, or hydro.
+is energy limited such as demand response, storage, or hydro. California now
+has a duration requirement of 3 hours for some classes of operating reserves.
 
 One standard (nonlinear) methodology for calculating reserve requirements
 looks something like: k * sqrt(sigma_load^2 + sigma_renewable^2), where k is a
@@ -140,8 +142,33 @@ def define_dynamic_lists(m):
 
 def gen_unit_contigency(m):
     """
-    Add components for unit-level contigencies. This will add binary variables
-    to the model for every GEN_TPS that has unit size specified.
+    Add components for unit-level contigencies. A generation project can
+    include one or more discretely sized generation units. This will model
+    contigencies of individual generation units that have discrete sizes
+    specified. Caution, this adds binary variables to the model for every
+    GEN_TPS for DISCRETELY_SIZED_GENS. This many binary variables can impact
+    runtime.
+    
+    UNIT_CONTINGENCY_DISPATCH_POINTS is a subset of GEN_TPS for
+    DISCRETELY_SIZED_GENS
+    
+    GenIsCommitted[(g,t) in UNIT_CONTINGENCY_DISPATCH_POINTS] is a binary
+    variable that tracks whether generation projects at least one units
+    committed.
+    
+    Enforce_GenIsCommitted[(g,t) in UNIT_CONTINGENCY_DISPATCH_POINTS] is a
+    constraint that enforces the tracking behavior of GenIsCommitted.
+    
+    GenUnitLargestContingency[(b,t) in BALANCING_AREA_TIMEPOINTS] is a
+    variable that tracks the size of the largest contigency in each balancing
+    area, accounting for all of the discretely sized units that are currently
+    committed. This is added to the dynamic list Spinning_Reserve_Contigencies.
+    
+    Enforce_GenUnitLargestContingency[(g,t) in UNIT_CONTINGENCY_DISPATCH_POINTS]
+    is a constraint that enforces the behavior of GenUnitLargestContingency,
+    by making GenUnitLargestContingency >= the capacity of each of the
+    committed units in its balancing area.
+    
     """
     # UNIT_CONTINGENCY_DISPATCH_POINTS duplicates
     # GEN_DISPATCH_POINTS_DISCRETE from generators.core.commit.discrete. I
@@ -181,7 +208,22 @@ def gen_unit_contigency(m):
 
 def gen_project_contigency(m):
     """
-    Add components for project-level contigencies based on committed capacity
+    Add components for project-level contigencies based on committed capacity.
+    A generation project can include one or more discretely sized generation
+    units. This will model contigencies of entire generation projects -
+    basically entire plants tripping offline, rather than individual
+    generation units in a plan tripping offline.
+    
+    GenProjectLargestContingency[(b,t) in BALANCING_AREA_TIMEPOINTS] is a
+    variable that tracks the size of the largest contigency in each balancing
+    area, accounting for all of the capacity that is committed. This is 
+    added to the dynamic list Spinning_Reserve_Contigencies.
+    
+    Enforce_GenProjectLargestContingency[(g,t) in GEN_TPS] is a constraint
+    that enforces the behavior of GenProjectLargestContingency, by making
+    GenProjectLargestContingency >= CommitGen for each of the generation
+    projects in its balancing area.
+    
     """
     m.GenProjectLargestContingency = Var(
         m.BALANCING_AREA_TIMEPOINTS,
@@ -199,9 +241,8 @@ def gen_project_contigency(m):
     
 
 def hawaii_spinning_reserve_requirements(m):
-    # This stuff seems more appropriate for a hawaii submodule until it is
-    # documented and referenced. I have a draft of this in a hawaii submodule, 
-    # but haven't tested it yet. 
+    # This may be more appropriate for a hawaii submodule until it is
+    # better documented and referenced. 
     # these parameters were found by regressing the reserve requirements from
     # the GE RPS Study against wind and solar conditions each hour (see
     # Dropbox/Research/Shared/Switch-Hawaii/ge_validation/source_data/
@@ -284,13 +325,17 @@ def nrel_3_5_spinning_reserve_requirements(m):
 
 def define_components(m):
     """
+    contigency_safety_factor is a parameter that increases the contigency 
+    requirements. By default this is set to 2.0 to prevent the largest 
+    generator from providing reserves for itself.
+    
     gen_can_provide_spinning_reserves[g] is a binary flag indicating whether
     the project is allowed to provide spinning reserves.
     
     AvailableGenSpinningReserveUp[(b,t) in BALANCING_AREA_TIMEPOINTS] is an 
     expression summarizing the amount of upward ramping capability from 
     generators within the balancing area, taking unit commitment into account.
-    For now, this is simplified as the sum DispatchSlackUp.
+    For now, this is simplified as the sum of DispatchSlackUp.
     
     AvailableGenSpinningReserveDown[(b,t) in BALANCING_AREA_TIMEPOINTS] is a
     matching expression, but in the downward direction based on
@@ -343,24 +388,45 @@ def define_components(m):
         
 
 def define_dynamic_components(m):
-    """    
+    """
+    MaximumContigency[(b,t) in BALANCING_AREA_TIMEPOINTS] is a variable that
+    tracks the size of the largest contigency in each balancing area,
+    accounting for every contigency that has been registered with
+    Spinning_Reserve_Contigencies.
+
+    BALANCING_AREA_TIMEPOINT_CONTIGENCIES is a set of (b, t, contigency) formed
+    from the cross product of the set BALANCING_AREA_TIMEPOINTS and the dynamic
+    list Spinning_Reserve_Contigencies.
+    
+    Enforce_MaximumContigency[(b,t,contigency) in BALANCING_AREA_TIMEPOINT_CONTIGENCIES]
+    is a constraint that enforces the behavior of MaximumContigency by making
+    MaximumContigency >= contigency for each contigency registered in the 
+    dynamic list Spinning_Reserve_Contigencies.
+    
     Satisfy_Spinning_Reserve_Up_Requirement[(b,t) in BALANCING_AREA_TIMEPOINTS]
-    is a constraint that the sum of Spinning_Reserve_Up_Provisions is greater
-    than or equal to the sum of Spinning_Reserve_Up_Requirements.
+    is a constraint that ensures upward spinning reserve requirements are
+    being satisfied based on the sums of the two dynamic lists
+    Spinning_Reserve_Up_Provisions and Spinning_Reserve_Up_Requirements.
 
     Satisfy_Spinning_Reserve_Down_Requirement[(b,t) in BALANCING_AREA_TIMEPOINTS]
     is a matching constraint that uses the downward reserve lists.
     """
     m.MaximumContigency = Var(
         m.BALANCING_AREA_TIMEPOINTS,
-        doc="Maximum of the registered Spinning_Reserve_Contigencies")
-    for contigency in m.Spinning_Reserve_Contigencies:
-        constraint_name = "Enforce_Max_Contigency_" + contigency
-        constraint = Constraint(
-            m.BALANCING_AREA_TIMEPOINTS,
-            rule=lambda m, b, t: m.MaximumContigency[b, t] >= getattr(m, contigency)[b, t]
-        )
-        setattr(m, constraint_name, constraint)
+        doc=("Maximum of the registered Spinning_Reserve_Contigencies, after "
+             "multiplying by contigency_safety_factor.")
+    )
+    m.BALANCING_AREA_TIMEPOINT_CONTIGENCIES = Set(
+        initialize=m.BALANCING_AREA_TIMEPOINTS * m.Spinning_Reserve_Contigencies,
+        doc=("The set of spinning reserve contigencies, copied from the "
+             "dynamic list Spinning_Reserve_Contigencies to simplify the "
+             "process of defining one constraint per contigency in the list.")
+    )
+    m.Enforce_MaximumContigency = Constraint(
+        m.BALANCING_AREA_TIMEPOINT_CONTIGENCIES,
+        rule=lambda m, b, t, contigency: 
+            m.MaximumContigency[b, t] >= m.contigency_safety_factor * getattr(m, contigency)[b, t]
+    )
     m.Spinning_Reserve_Up_Requirements.append('MaximumContigency')
     
     m.Satisfy_Spinning_Reserve_Up_Requirement = Constraint(
@@ -385,11 +451,24 @@ def define_dynamic_components(m):
     )
 
 
-# def load_inputs(m, switch_data, inputs_dir):
-#   gen_can_provide_spinning_reserves[g]
-#   contigency_safety_factor
-#
-#     switch_data.load_aug(
-#         filename=os.path.join(inputs_dir, 'reserve_requirements.tab'),
-#         auto_select=True,
-#         param=(m.regulating_reserve_requirement_mw))
+def load_inputs(m, switch_data, inputs_dir):
+    """
+    All files & columns are optional.
+    
+    generation_projects_info.tab
+        GENERATION_PROJECTS, ... gen_can_provide_spinning_reserves
+    
+    spinning_reserve_params.dat may override the default value of 
+    contigency_safety_factor. Note that is is a .dat file, not a .tab file.
+    """
+    switch_data.load_aug(
+        filename=os.path.join(inputs_dir, 'generation_projects_info.tab'),
+        auto_select=True,
+        optional_params=['gen_can_provide_spinning_reserves'],
+        param=(m.gen_can_provide_spinning_reserves)
+    )
+    switch_data.load_aug(
+        filename=os.path.join(inputs_dir, 'spinning_reserve_params.dat'),
+        optional=True,
+    )
+
