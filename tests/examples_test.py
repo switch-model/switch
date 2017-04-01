@@ -60,9 +60,11 @@ def make_test(example_dir):
         try:
             # Custom python modules may be in the example's working directory
             sys.path.append(example_dir)
-            switch_mod.solve.main([
-                '--inputs-dir', os.path.join(example_dir, 'inputs'),
-                '--outputs-dir', temp_dir])
+            args = switch_mod.solve.get_option_file_args(dir=example_dir, 
+                extra_args=[
+                    '--inputs-dir', os.path.join(example_dir, 'inputs'),
+                    '--outputs-dir', temp_dir])
+            switch_mod.solve.main(args)
             total_cost = read_file(os.path.join(temp_dir, 'total_cost.txt'))
         finally:
             sys.path.remove(example_dir)
