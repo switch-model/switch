@@ -231,7 +231,7 @@ def define_components(model):
             elif 'Distributed_Power_Injections' in dir(m) and m.gen_is_distributed[g]:
                 pass
             else:
-                reserve_cap += m.gen_capacity_value[g, t] * m.GenCapacityPerTP[g, t]
+                reserve_cap += m.gen_capacity_value[g, t] * m.GenCapacityInTP[g, t]
         return reserve_cap
     model.AvailableReserveCapacity = Expression(
         model.PRR_TIMEPOINTS, rule=AvailableReserveCapacity_rule

@@ -21,7 +21,7 @@ def define_components(m):
         rule=lambda m, g, tp:
             m.DispatchGen[g, tp] + (1-m.RunKalaeloaFull[tp]) * more_than_kalaeloa_capacity
             >=
-            m.GenCapacityPerTP[g, tp] * m.gen_availability[g]
+            m.GenCapacityInTP[g, tp] * m.gen_availability[g]
     )
     if hasattr(m, 'CommitGenUnits'):
         # using unit commitment

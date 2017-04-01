@@ -228,12 +228,12 @@ def define_components(mod):
     mod.CommitLowerLimit = Expression(
         mod.GEN_TPS,
         rule=lambda m, g, t: (
-            m.GenCapacityPerTP[g, t] * m.gen_availability[g] *
+            m.GenCapacityInTP[g, t] * m.gen_availability[g] *
             m.gen_min_commit_fraction[g, t]))
     mod.CommitUpperLimit = Expression(
         mod.GEN_TPS,
         rule=lambda m, g, t: (
-            m.GenCapacityPerTP[g, t] * m.gen_availability[g] *
+            m.GenCapacityInTP[g, t] * m.gen_availability[g] *
             m.gen_max_commit_fraction[g, t]))
     mod.Enforce_Commit_Lower_Limit = Constraint(
         mod.GEN_TPS,
@@ -345,7 +345,7 @@ def define_components(mod):
                 rule = (    
                     # committable capacity - committed >= recent shutdowns
                     # (all recent shutdowns are still offline)
-                    m.GenCapacityPerTP[g, tp] * committable_fraction
+                    m.GenCapacityInTP[g, tp] * committable_fraction
                     - m.CommitGen[g, tp] 
                     >= 
                     sum(m.ShutdownGenCapacity[g, tp_prev(m, tp, i)] for i in range(n_tp))

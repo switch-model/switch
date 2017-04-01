@@ -39,7 +39,7 @@ def define_components(mod):
     TPS_FOR_GEN, but broken down by period. Periods when
     the project is inactive will yield an empty set.
 
-    GenCapacityPerTP[(g, t) in GEN_TPS] is the same as
+    GenCapacityInTP[(g, t) in GEN_TPS] is the same as
     GenCapacity but indexed by timepoint rather than period to allow
     more compact statements.
 
@@ -209,7 +209,7 @@ def define_components(mod):
                 for (g, t) in m._FUEL_BASED_GEN_TPS 
                     for f in m.FUELS_FOR_GEN[g]))
 
-    mod.GenCapacityPerTP = Expression(
+    mod.GenCapacityInTP = Expression(
         mod.GEN_TPS,
         rule=lambda m, g, t: m.GenCapacity[g, m.tp_period[t]])
     mod.DispatchGen = Var(

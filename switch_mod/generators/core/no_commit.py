@@ -73,10 +73,10 @@ def define_components(mod):
     
     def DispatchUpperLimit_expr(m, g, t):
         if g in m.VARIABLE_GENS:
-            return (m.GenCapacityPerTP[g, t] * m.gen_availability[g] *
+            return (m.GenCapacityInTP[g, t] * m.gen_availability[g] *
                     m.gen_max_capacity_factor[g, t])
         else:
-            return m.GenCapacityPerTP[g, t] * m.gen_availability[g]
+            return m.GenCapacityInTP[g, t] * m.gen_availability[g]
     mod.DispatchUpperLimit = Expression(
         mod.GEN_TPS,
         rule=DispatchUpperLimit_expr)
