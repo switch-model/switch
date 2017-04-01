@@ -58,7 +58,7 @@ def define_components(m):
                 m.var_gen_cap_reserve_limit[m.proj_gen_tech[g]]
             )
             for g in m.VARIABLE_PROJECTS
-            if (g, t) in m.VAR_DISPATCH_POINTS and b == m.lz_balancing_area[m.proj_load_zone[g]]),
+            if (g, t) in m.VAR_DISPATCH_POINTS and b == m.zone_balancing_area[m.proj_load_zone[g]]),
         doc="The spinning reserves for backing up variable generation with Hawaii rules."
     )
     m.Spinning_Reserve_Up_Requirements.append('HawaiiVarGenUpSpinningReserveRequirement')
@@ -68,7 +68,7 @@ def define_components(m):
             load = m.WithdrawFromCentralGrid
         else:
             load = m.lz_demand_mw
-        return 0.10 * sum(load[z, t] for z in m.LOAD_ZONES if b == m.lz_balancing_area[z])
+        return 0.10 * sum(load[z, t] for z in m.LOAD_ZONES if b == m.zone_balancing_area[z])
     m.HawaiiLoadDownSpinningReserveRequirement = Expression(
         m.BALANCING_AREA_TIMEPOINTS,
         rule=HawaiiLoadDownSpinningReserveRequirement_rule
