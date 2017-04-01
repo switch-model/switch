@@ -20,7 +20,7 @@ def define_components(mod):
 
     BALANCING_AREAS is the set of balancing areas in which operational
     reserves must be met. These are the unique names specified in the
-    zone_balancing_area[z] parameter. This can be abbreviated as b for indexed.
+    zone_balancing_area[z] parameter. This can be abbreviated as b for indexes.
     
     ZONES_IN_BALANCING_AREA[b] is the set of load zones in a given balancing
     area.
