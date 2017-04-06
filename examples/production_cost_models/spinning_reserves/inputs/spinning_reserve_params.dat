@@ -1,1 +1,2 @@
-param contingency_safety_factor := 2.0;
+#param contingency_safety_factor := 2;
+param contingency_safety_factor := 1;
