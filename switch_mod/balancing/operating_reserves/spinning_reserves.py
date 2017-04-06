@@ -192,7 +192,9 @@ def gen_unit_contingency(m):
         initialize=m.GEN_TPS, 
         filter=lambda m, g, tp: g in m.DISCRETELY_SIZED_GENS
     )
-    m.GenIsCommitted = Var(m.UNIT_CONTINGENCY_DISPATCH_POINTS, within=Binary,
+    m.GenIsCommitted = Var(
+        m.UNIT_CONTINGENCY_DISPATCH_POINTS,
+        within=Binary,
         doc="Stores the status of unit committment as a binary variable."
     )
     m.Enforce_GenIsCommitted = Constraint(
@@ -234,9 +236,11 @@ def gen_project_contingency(m):
     added to the dynamic list Spinning_Reserve_Contingencies.
     
     Enforce_GenProjectLargestContingency[(g,t) in GEN_TPS] is a constraint
-    that enforces the behavior of GenProjectLargestContingency, by making
-    GenProjectLargestContingency >= CommitGen for each of the generation
-    projects in its balancing area.
+    that enforces the behavior of GenProjectLargestContingency by making
+        GenProjectLargestContingency >= DispatchGen 
+    for each generation project in a balancing area. If a generation project
+    is capable of providing upward reserves, then CommitGenSpinningReservesUp
+    is added to the right hand side.
     
     """
     m.GenProjectLargestContingency = Var(
@@ -244,7 +248,11 @@ def gen_project_contingency(m):
         doc="Largest generating project that could drop offline.")
     def Enforce_GenProjectLargestContingency_rule(m, g, t):
         b = m.zone_balancing_area[m.gen_load_zone[g]]
-        return m.GenProjectLargestContingency[b, t] >= m.CommitGen[g, t]
+        if m.gen_can_provide_spinning_reserves[g]:
+            return m.GenProjectLargestContingency[b, t] >= \
+                m.DispatchGen[g, t] + m.CommitGenSpinningReservesUp[g, t]
+        else:
+            return m.GenProjectLargestContingency[b, t] >= m.DispatchGen[g, t]
     m.Enforce_GenProjectLargestContingency = Constraint(
         m.GEN_TPS,
         rule=Enforce_GenProjectLargestContingency_rule,
@@ -346,15 +354,91 @@ def define_components(m):
     gen_can_provide_spinning_reserves[g] is a binary flag indicating whether
     the project is allowed to provide spinning reserves.
     
-    AvailableGenSpinningReserveUp[(b,t) in BALANCING_AREA_TIMEPOINTS] is an 
-    expression summarizing the amount of upward ramping capability from 
-    generators within the balancing area, taking unit commitment into account.
-    For now, this is simplified as the sum of DispatchSlackUp.
+    SPINNING_RESERVE_GEN_TPS is a subset of GEN_TPS of generators that can
+    provide spinning reserves based on gen_can_provide_spinning_reserves.
     
-    AvailableGenSpinningReserveDown[(b,t) in BALANCING_AREA_TIMEPOINTS] is a
-    matching expression, but in the downward direction based on
-    DispatchSlackDown.    
+    CommitGenSpinningReservesUp[(g,t) in SPINNING_RESERVE_GEN_TPS] is a
+    decision variable of how much upward spinning reserve capacity to commit
+    (in MW).
+    
+    CommitGenSpinningReservesDown[(g,t) in SPINNING_RESERVE_GEN_TPS] is a
+    corresponding variable for downward spinning reserves.
+
+    CommitGenSpinningReservesUp_Limit[(g,t) in SPINNING_RESERVE_GEN_TPS] and
+    CommitGenSpinningReservesDown_Limit constraint the CommitGenSpinningReserves
+    variables based on DispatchSlackUp and DispatchSlackDown.
+    
+    CommittedSpinningReserveUp[(b,t) in BALANCING_AREA_TIMEPOINTS] and
+    CommittedSpinningReserveDown are expressions summarizing the
+    CommitGenSpinningReserves variables for generators within each balancing
+    area.
+    
+    Depending on the configuration parameters unit_contingency,
+    project_contingency and spinning_requirement_rule, other components may be
+    added by other functions which are documented above.
     """
+    m.contingency_safety_factor = Param(default=2.0,
+        doc=("The spinning reserve requiremet will be set to this value "
+             "times the maximum contingency. This defaults to 2 to ensure "
+             "that the largest generator cannot be providing contingency "
+             "reserves for itself."))
+    m.gen_can_provide_spinning_reserves = Param(
+        m.GENERATION_PROJECTS, within=Boolean, default=True
+    )
+    m.SPINNING_RESERVE_GEN_TPS = Set(
+        dimen=2,
+        initialize=m.GEN_TPS,
+        filter=lambda m, g, t: m.gen_can_provide_spinning_reserves[g])
+    # CommitGenSpinningReservesUp and CommitGenSpinningReservesDown are
+    # variables instead of aliases to DispatchSlackUp & DispatchSlackDown
+    # because they may need to take on lower values to reduce the
+    # project-level contigencies, especially when discrete unit commitment is
+    # enabled, and committed capacity may exceed the amount of capacity that
+    # is strictly needed. Having these as variables also flags them for
+    # automatic export in model dumps and tab files, and opens up the
+    # possibility of further customizations like adding variable costs for
+    # spinning reserve provision.
+    m.CommitGenSpinningReservesUp = Var(
+        m.SPINNING_RESERVE_GEN_TPS,
+        within=NonNegativeReals
+    )
+    m.CommitGenSpinningReservesDown = Var(
+        m.SPINNING_RESERVE_GEN_TPS,
+        within=NonNegativeReals
+    )
+    m.CommitGenSpinningReservesUp_Limit = Constraint(
+        m.SPINNING_RESERVE_GEN_TPS,
+        rule=lambda m, g, t: \
+            m.CommitGenSpinningReservesUp[g,t] <= m.DispatchSlackUp[g, t]
+    )
+    m.CommitGenSpinningReservesDown_Limit = Constraint(
+        m.SPINNING_RESERVE_GEN_TPS,
+        rule=lambda m, g, t: \
+            m.CommitGenSpinningReservesDown[g,t] <= m.DispatchSlackDown[g, t]
+    )
+
+    # Sum of spinning reserve capacity per balancing area and timepoint..
+    m.CommittedSpinningReserveUp = Expression(
+        m.BALANCING_AREA_TIMEPOINTS, 
+        rule=lambda m, b, t: \
+            sum(m.CommitGenSpinningReservesUp[g, t] 
+                for z in m.ZONES_IN_BALANCING_AREA[b]
+                for g in m.GENS_IN_ZONE[z]
+                if (g,t) in m.SPINNING_RESERVE_GEN_TPS
+            )
+    )
+    m.Spinning_Reserve_Up_Provisions.append('CommittedSpinningReserveUp')
+    m.CommittedSpinningReserveDown = Expression(
+        m.BALANCING_AREA_TIMEPOINTS, 
+        rule=lambda m, b, t: \
+            sum(m.CommitGenSpinningReservesDown[g, t] 
+                for z in m.ZONES_IN_BALANCING_AREA[b]
+                for g in m.GENS_IN_ZONE[z]
+                if (g,t) in m.SPINNING_RESERVE_GEN_TPS
+            )
+    )
+    m.Spinning_Reserve_Down_Provisions.append('CommittedSpinningReserveDown')
+
     if m.options.unit_contingency:
         gen_unit_contingency(m)
     if m.options.project_contingency:
@@ -364,42 +448,6 @@ def define_components(m):
     elif m.options.spinning_requirement_rule == '3+5':
         nrel_3_5_spinning_reserve_requirements(m)
     
-    
-    m.contingency_safety_factor = Param(default=2.0,
-        doc=("The spinning reserve requiremet will be set to this value "
-             "times the maximum contingency. This defaults to 2 to ensure "
-             "that the largest generator cannot be providing contingency "
-             "reserves for itself."))
-    m.gen_can_provide_spinning_reserves = Param(
-        m.GENERATION_PROJECTS, within=Boolean, default=True
-    )
-    # Eventually, we may need something like GenCommitSpinningReservesUp[g,t]
-    # and ...Down decision variables, but for the moment, just use the slack
-    # variables to determine how much up and down ramping is available.
-    m.AvailableGenSpinningReserveUp = Expression(
-        m.BALANCING_AREA_TIMEPOINTS, 
-        rule=lambda m, b, t: \
-            sum(m.DispatchSlackUp[g, t] 
-                for z in m.ZONES_IN_BALANCING_AREA[b]
-                for g in m.GENS_IN_ZONE[z]
-                if m.gen_can_provide_spinning_reserves[g] and 
-                   t in m.TPS_FOR_GEN[g]
-            )
-    )
-    m.Spinning_Reserve_Up_Provisions.append('AvailableGenSpinningReserveUp')
-
-    m.AvailableGenSpinningReserveDown = Expression(
-        m.BALANCING_AREA_TIMEPOINTS, 
-        rule=lambda m, b, t: \
-            sum(m.DispatchSlackDown[g, t] 
-                for z in m.ZONES_IN_BALANCING_AREA[b]
-                for g in m.GENS_IN_ZONE[z]
-                if m.gen_can_provide_spinning_reserves[g] and 
-                   t in m.TPS_FOR_GEN[g]
-            )
-    )
-    m.Spinning_Reserve_Down_Provisions.append('AvailableGenSpinningReserveDown')
-        
 
 def define_dynamic_components(m):
     """
@@ -412,7 +460,7 @@ def define_dynamic_components(m):
     from the cross product of the set BALANCING_AREA_TIMEPOINTS and the dynamic
     list Spinning_Reserve_Contingencies.
     
-    Enforce_MaximumContiNgency[(b,t,contingency) in BALANCING_AREA_TIMEPOINT_CONTINGENCIES]
+    Enforce_MaximumContingency[(b,t,contingency) in BALANCING_AREA_TIMEPOINT_CONTINGENCIES]
     is a constraint that enforces the behavior of MaximumContingency by making
     MaximumContingency >= contingency for each contingency registered in the 
     dynamic list Spinning_Reserve_Contingencies.

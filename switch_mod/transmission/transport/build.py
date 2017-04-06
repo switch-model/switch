@@ -195,7 +195,7 @@ def define_components(mod):
         mod.TRANSMISSION_LINES, within=Boolean, default=True)
     mod.NEW_TRANS_BLD_YRS = Set(
         dimen=2,
-        initialize=lambda m: m.TRANSMISSION_LINES * m.PERIODS,
+        initialize=mod.TRANSMISSION_LINES * mod.PERIODS,
         filter=lambda m, tx, p: m.trans_new_build_allowed[tx])
     mod.BLD_YRS_FOR_TX = Set(
         dimen=2,

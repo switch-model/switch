@@ -53,13 +53,13 @@ def define_components(mod):
     parameter will default to gen_max_commit_fraction for generation
     technologies marked baseload and 0 for all other generators.
 
-    CommitLowerLimit[(g, t) in GEN_TPS] is an expression
-    that describes the minimum capacity that must be committed. This is
-    derived from installed capacity and gen_min_commit_fraction.
+    CommitLowerLimit[(g, t) in GEN_TPS] is an expression that describes the
+    minimum capacity that must be committed. This is derived from installed
+    capacity, gen_availability and gen_min_commit_fraction.
 
-    CommitUpperLimit[(g, t) in GEN_TPS] is an expression
-    that describes the maximum capacity available for commitment. This
-    is derived from installed capacity and gen_max_commit_fraction.
+    CommitUpperLimit[(g, t) in GEN_TPS] is an expression that describes the
+    maximum capacity available for commitment. This is derived from installed
+    capacity, gen_availability and gen_max_commit_fraction.
 
     Enforce_Commit_Lower_Limit[(g, t) in GEN_TPS] and
     Enforce_Commit_Upper_Limit[(g, t) in GEN_TPS] are
