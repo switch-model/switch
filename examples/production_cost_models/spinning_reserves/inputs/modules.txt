@@ -14,4 +14,4 @@ switch_mod.generators.core.commit.fuel_use
 switch_mod.energy_sources.fuel_costs.simple
 switch_mod.balancing.operating_reserves.areas
 switch_mod.balancing.operating_reserves.spinning_reserves
-switch_mod.reporting.dump
+#switch_mod.reporting.dump
