@@ -14,6 +14,7 @@ import os
 from pyomo.environ import *
 
 dependencies = 'switch_mod.timescales', 'switch_mod.balancing.load_zones'
+optional_dependencies = 'switch_mod.transmission.local_td'
 
 
 def define_components(mod):

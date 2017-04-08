@@ -9,6 +9,7 @@ from pyomo.environ import *
 from switch_mod.reporting import write_table
 
 dependencies = 'switch_mod.timescales'
+optional_dependencies = 'switch_mod.transmission.local_td'
 
 def define_dynamic_lists(mod):
     """

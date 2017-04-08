@@ -16,6 +16,7 @@ from switch_mod.reporting import write_table
 dependencies = 'switch_mod.timescales', 'switch_mod.balancing.load_zones',\
     'switch_mod.financials', 'switch_mod.energy_sources.properties', \
     'switch_mod.generators.core.build'
+optional_dependencies = 'switch_mod.transmission.local_td'
 
 def define_components(mod):
     """
