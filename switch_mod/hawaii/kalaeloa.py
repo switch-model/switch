@@ -60,6 +60,7 @@ def define_components(m):
     )
 
     # force at least one Kalaeloa unit to run at full power at all times
+    # (actually 75 MW, based on fig 9 of RPS Study)
     # unless they are both on maintenance outage (per John Cole e-mail 9/28/16)
     def Kalaeloa_Must_Run_rule(m, tp):
         try:
@@ -73,5 +74,5 @@ def define_components(m):
         if both_units_out:
             return Constraint.Skip
         else:
-            return (sum(m.RunKalaeloaUnitFull[p, tp] for p in m.KALAELOA_MAIN_UNITS) >= 1)
+            return (sum(m.DispatchProj[p, tp] for p in m.KALAELOA_MAIN_UNITS) >= 75.0)
     m.Kalaeloa_Must_Run = Constraint(m.KALAELOA_ACTIVE_TIMEPOINTS, rule=Kalaeloa_Must_Run_rule)
