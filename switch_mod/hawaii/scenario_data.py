@@ -113,7 +113,7 @@ def write_tables(**args):
                 JOIN generator_info g USING (technology)
                 CROSS JOIN study_length
                 -- existing projects still in use during the study
-                LEFT JOIN gen_existing_builds e ON (
+                LEFT JOIN proj_existing_builds e ON (
                     e.project_id = p.project_id
                     AND e.build_year + g.max_age_years > study_start 
                     AND e.build_year < study_end
@@ -363,8 +363,8 @@ def write_tables(**args):
         SELECT
             "GENERATION_PROJECT",
             build_year,
-            SUM(gen_existing_cap) as gen_predetermined_cap
-        FROM study_projects JOIN gen_existing_builds USING (project_id)
+            SUM(proj_existing_cap) as gen_predetermined_cap
+        FROM study_projects JOIN proj_existing_builds USING (project_id)
         GROUP BY 1, 2
         ORDER BY 1, 2;
     """, args)
@@ -392,11 +392,11 @@ def write_tables(**args):
         SELECT
             "GENERATION_PROJECT",
             build_year,
-            sum(gen_overnight_cost * 1000.0 * gen_existing_cap) / sum(gen_existing_cap)
+            sum(proj_overnight_cost * 1000.0 * proj_existing_cap) / sum(proj_existing_cap)
                 AS gen_overnight_cost,
-            sum(gen_fixed_om * 1000.0 * gen_existing_cap) / sum(gen_existing_cap)
+            sum(proj_fixed_om * 1000.0 * proj_existing_cap) / sum(proj_existing_cap)
                 AS gen_fixed_om
-        FROM study_projects JOIN gen_existing_builds USING (project_id)
+        FROM study_projects JOIN proj_existing_builds USING (project_id)
         GROUP BY 1, 2
         UNION
         SELECT "GENERATION_PROJECT", build_year, gen_overnight_cost, gen_fixed_o_m

@@ -25,13 +25,13 @@ def define_components(m):
     m.KALAELOA_MAIN_UNIT_DISPATCH_POINTS = Set(
         dimen=2,
         initialize=lambda m: (
-            (g, tp) for g in m.KALAELOA_MAIN_UNITS for tp in m.PROJ_ACTIVE_TIMEPOINTS[g]
+            (g, tp) for g in m.KALAELOA_MAIN_UNITS for tp in m.TPS_FOR_GEN[g]
         )
     )
     m.KALAELOA_DUCT_BURNER_DISPATCH_POINTS = Set(
         dimen=2,
         initialize=lambda m: (
-            (g, tp) for g in m.KALAELOA_DUCT_BURNERS for tp in m.PROJ_ACTIVE_TIMEPOINTS[g]
+            (g, tp) for g in m.KALAELOA_DUCT_BURNERS for tp in m.TPS_FOR_GEN[g]
         )
     )
     m.KALAELOA_ACTIVE_TIMEPOINTS = Set(
@@ -44,7 +44,7 @@ def define_components(m):
     m.Run_Kalaeloa_Unit_Full_Enforce = Constraint(
         m.KALAELOA_MAIN_UNIT_DISPATCH_POINTS,
         rule=lambda m, g, tp:
-            m.DispatchProj[proj, tp]
+            m.DispatchGen[g, tp]
             + (1 - m.RunKalaeloaUnitFull[g, tp]) * more_than_kalaeloa_capacity
             >=
             m.GenCapacityInTP[g, tp] * m.gen_availability[g]

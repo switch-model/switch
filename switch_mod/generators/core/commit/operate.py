@@ -13,9 +13,11 @@ need to include the module operations.unitcommit.fuel_use.
 import os, itertools
 from pyomo.environ import *
 
-dependencies = 'switch_mod.timescales', 'switch_mod.balancing.load_zones',\
-    'switch_mod.financials', 'switch_mod.energy_sources.properties.properties', \
+dependencies = (
+    'switch_mod.timescales', 'switch_mod.balancing.load_zones',
+    'switch_mod.financials', 'switch_mod.energy_sources.properties.properties',
     'switch_mod.generators.core.build', 'switch_mod.generators.core.dispatch'
+)
 
 def define_components(mod):
     """
@@ -413,7 +415,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     costs for a non-fuel based generator, you must put a dot . in the
     gen_startup_fuel column to avoid an error.
 
-    gen_commit_bounds_timepoints.tab
+    gen_timepoint_commit_bounds.tab
         GENERATION_PROJECT, TIMEPOINT, gen_min_commit_fraction_TP,
         gen_max_commit_fraction_TP, gen_min_load_fraction_TP
 
