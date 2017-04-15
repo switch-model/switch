@@ -1,5 +1,6 @@
 import time, sys, collections, os
 from textwrap import dedent
+from switch_mod import __version__ as switch_version
 
 # NOTE: instead of using the python csv writer, this directly writes tables to 
 # file in the pyomo .tab format. This uses tabs between columns and the standard
@@ -36,6 +37,10 @@ def write_tables(**args):
     if 'ev_scen_id' in args:
         raise ValueError("ev_scen_id argument is no longer supported; use ev_scenario instead.")
         
+    # write version marker file
+    with open(make_file_path('switch_inputs_version.txt', args), 'w') as f:
+        f.write(switch_version)
+    
     #########################
     # timescales
         
