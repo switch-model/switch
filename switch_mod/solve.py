@@ -76,6 +76,10 @@ def main(args=None, return_model=False, return_instance=False):
     if return_model and not return_instance:
         return model
 
+    if model.options.explore_solution:
+        if not os.path.isdir(model.options.outputs_dir):
+            raise IOError("Specified outputs directory for solution exploration does not exist.")
+
     # get a list of modules to iterate through
     iterate_modules = get_iteration_list(model)
     
@@ -95,7 +99,7 @@ def main(args=None, return_model=False, return_instance=False):
     instance.pre_solve()
     if model.options.verbose:
         instantiation_time = time.time()
-        print "Inputs loaded in {:.2f} s.".format(instantiation_time - creation_time)
+        print "Inputs loaded in {:.2f} s.\n".format(instantiation_time - creation_time)
     
     # return the instance as-is if requested
     if return_instance:
@@ -104,49 +108,73 @@ def main(args=None, return_model=False, return_instance=False):
         else:
             return instance
 
-    # make sure the outputs_dir exists (used by some modules during iterate)
-    # use a race-safe approach in case this code is run in parallel
-    try:
-        os.makedirs(instance.options.outputs_dir)
-    except OSError:
-        # directory probably exists already, but double-check
-        if not os.path.isdir(instance.options.outputs_dir):
-            raise
-
-    # solve the model
-    if iterate_modules:
-        if instance.options.verbose:
-            print "iterating model..."
-        iterate(instance, iterate_modules)
+    if model.options.explore_solution:
+        # read variable values from previously solved model
+        import csv
+        var_objects = [c for c in instance.component_objects()
+            if isinstance(c,pyomo.core.base.Var)]
+        for var in var_objects:
+            if '{}.tab'.format(var.name) not in os.listdir(model.options.outputs_dir):
+                raise RuntimeError("Tab output file for variable {} cannot be found in outputs directory. Exiting.".format(var.name))
+            with open(os.path.join(model.options.outputs_dir, '{}.tab'.format(var.name)),'r') as f:
+                reader = csv.reader(f, delimiter='\t')
+                # skip headers
+                next(reader)
+                identified_floats = False
+                for row in reader:
+                    if not identified_floats:
+                        numeric_cols = [is_numeric(ind) for ind in row[:-1]]
+                        identified_floats = True
+                    index = tuple(float(i) if numeric_cols[col_ind] == True
+                                else i for col_ind, i in enumerate(row[:-1]))
+                    var[index].value = float(row[-1])
+            print 'Loaded variable {} values into instance.'.format(var.name)
+        output_loading_time = time.time()
+        print 'Finished loading previous results into model instance in {:.2f} s.'.format(output_loading_time - instantiation_time)
     else:
-        results = solve(instance)
-        if instance.options.verbose:
-            print "Optimization termination condition was {}.\n".format(
-                results.solver.termination_condition)
-    
-    # report/save results
-    if instance.options.verbose:
-        post_solve_start_time = time.time()
-        print "Executing post solve functions..."
-    instance.post_solve()
-    if instance.options.verbose:
-        post_solve_end_time = time.time()
-        print "Post solve processing completed in {:.2f} s.".format(
-            post_solve_end_time - post_solve_start_time)
+        # make sure the outputs_dir exists (used by some modules during iterate)
+        # use a race-safe approach in case this code is run in parallel
+        try:
+            os.makedirs(model.options.outputs_dir)
+        except OSError:
+            # directory probably exists already, but double-check
+            if not os.path.isdir(model.options.outputs_dir):
+                raise
+
+        # solve the model
+        if iterate_modules:
+            if model.options.verbose:
+                print "Iterating model..."
+            iterate(instance, iterate_modules)
+        else:
+            results = solve(instance)
+            if model.options.verbose:
+                print "Optimization termination condition was {}.\n".format(
+                    results.solver.termination_condition)
+
+        # report/save results
+        if model.options.verbose:
+            post_solve_start_time = time.time()
+            print "Executing post solve functions..."
+        instance.post_solve()
+        if model.options.verbose:
+            post_solve_end_time = time.time()
+            print "Post solve processing completed in {:.2f} s.".format(
+                post_solve_end_time - post_solve_start_time)
 
     # return stdout to original
     sys.stdout = stdout_copy
 
-    if pre_module_options.interact:
+    if model.options.interact or model.options.explore_solution:
         m = instance  # present the solved model as 'm' for convenience
         banner = (
             "\n"
-            "=================================================================================\n"
+            "=======================================================================\n"
             "Entering interactive Python shell.\n"
             "Abstract model is in 'model' variable; \n"
             "Solved instance is in 'instance' and 'm' variables.\n"
             "Type ctrl-d or exit() to exit shell.\n"
-            "=================================================================================\n"
+            "=======================================================================\n"
         )
         import code
         code.interact(banner=banner, local=dict(globals().items() + locals().items()))
@@ -329,6 +357,12 @@ def define_arguments(argparser):
     argparser.add_argument(
         '--verbose', '-v', default=False, action='store_true',
         help='Show information about model preparation and solution')
+    argparser.add_argument(
+        '--interact', default=False, action='store_true',
+        help='Enter interactive shell after solving the instance to enable inspection of the solved model.')
+    argparser.add_argument(
+        '--explore-solution', default=False, action='store_true',
+        help='Load outputs from a previously solved instance into variable values to allow interactive exploration of model components without having to solve the instance again.')
 
 
 def add_module_args(parser):
@@ -360,8 +394,7 @@ def add_pre_module_args(parser):
                         help='Directory containing log files (default is "logs"')
     parser.add_argument("--debug", action="store_true", default=False,
                         help='Automatically start pdb debugger on exceptions')
-    parser.add_argument("--interact", action="store_true", default=False,
-                        help='Enter interactive shell after solving model (to inspect finished model).')
+
 
 def parse_pre_module_options(args):
     """
@@ -526,13 +559,9 @@ def solve(model):
         solve_end_time = time.time()
         print "Solved model. Total time spent in solver: {:2f} s.".format(solve_end_time - solve_start_time)
     
+    # check for errors
     model.solutions.load_from(results)
-
-    # Only return if the model solved correctly, otherwise throw a useful error
-    if(results.solver.status == SolverStatus.ok and 
-       results.solver.termination_condition == TerminationCondition.optimal):
-        return results
-    elif (results.solver.termination_condition == TerminationCondition.infeasible):
+    if results.solver.termination_condition == pyomo.opt.TerminationCondition.infeasible:
         if hasattr(model, "iis"):
             print "Model was infeasible; irreducible infeasible set (IIS) returned by solver:"
             print "\n".join(c.cname() for c in model.iis)
@@ -540,14 +569,8 @@ def solve(model):
             print "Model was infeasible; if the solver can generate an irreducible infeasible set,"
             print "more information may be available by calling this script with --suffixes iis ..."
         raise RuntimeError("Infeasible model")
-    else:
-        print "Solver terminated abnormally."
-        print "  Solver Status: ", results.solver.status
-        print "  Termination Condition: ", results.solver.termination_condition
-        if model.options.solver == 'glpk' and results.solver.termination_condition == TerminationCondition.other:
-            print "Hint: glpk has been known to classify infeasible problems as 'other'."
-        raise RuntimeError("Solver failed to find an optimal solution.")
 
+    return results
 
 # taken from https://software.sandia.gov/trac/pyomo/browser/pyomo/trunk/pyomo/opt/base/solvers.py?rev=10784
 # This can be removed when all users are on Pyomo 4.2
@@ -605,6 +628,13 @@ def query_yes_no(question, default="yes"):
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n').\n")
 
+
+def is_numeric(s):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
 
 
 ###############

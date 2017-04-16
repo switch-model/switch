@@ -423,6 +423,9 @@ def upgrade_input_dir(inputs_dir, verbose=False, backup=True):
         ],
         'zone_coincident_peak_demand.tab':[
         ('peak_demand_mw','zone_expected_coincident_peak_demand')
+        ],
+        'variable_capacity_factors.tab':[
+        ('proj_max_capacity_factor','gen_max_capacity_factor')
         ]
     }
     
