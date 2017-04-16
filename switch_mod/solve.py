@@ -238,10 +238,13 @@ def iterate(m, iterate_modules, depth=0):
                 converged = iterate_module_func(m, module, 'post_iterate', converged)
 
             j += 1
-        if converged:
-            print "Iteration of {ms} was completed after {j} rounds.".format(ms=iterate_modules[depth], j=j)
-        else:
-            print "Iteration of {ms} was stopped after {j} iterations without convergence.".format(ms=iterate_modules[depth], j=j)
+        if m.options.verbose:
+            if converged:
+                print "Iteration of {ms} was completed after {j} rounds." \
+                    .format(ms=iterate_modules[depth], j=j)
+            else:
+                print "Iteration of {ms} was stopped after {j} iterations without convergence." \
+                    .format(ms=iterate_modules[depth], j=j)
     return
 
 def iterate_module_func(m, module, func, converged):

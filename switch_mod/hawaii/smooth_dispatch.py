@@ -60,7 +60,8 @@ def pre_iterate(m):
             fix_obj_expression(m.Minimize_System_Cost)
             m.Minimize_System_Cost.deactivate()
             m.Smooth_Free_Variables.activate()
-            print "smoothing free variables..."
+            if m.options.verbose:
+                print "smoothing free variables..."
         else:
             raise RuntimeError("Reached unexpected iteration number {} in module {}.".format(m.iteration_number, __name__))
 
