@@ -326,10 +326,10 @@ def post_solve(instance, outdir):
     write_table(
         instance, instance.TIMEPOINTS,
         output_file=os.path.join(outdir, "dispatch.txt"),
-        headings=("timestamp",)+tuple(instance.GENERATION_PROJECTS),
+        headings=("timestamp",)+tuple(sorted(instance.GENERATION_PROJECTS)),
         values=lambda m, t: (m.tp_timestamp[t],) + tuple(
             m.DispatchGen[p, t] if (p, t) in m.GEN_TPS
             else 0.0
-            for p in m.GENERATION_PROJECTS
+            for p in sorted(m.GENERATION_PROJECTS)
         )
     )

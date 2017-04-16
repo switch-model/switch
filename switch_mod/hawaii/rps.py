@@ -87,20 +87,15 @@ def define_components(m):
                         if (p, m.TPS_IN_PERIOD[per].first()) in m.GEN_TPS
                             for tp in m.TPS_IN_PERIOD[per]
         )
-        -
-        # assume DumpPower is curtailed renewable energy
-        sum(m.DumpPower[z, tp] * m.tp_weight[tp] for z in m.LOAD_ZONES for tp in m.TPS_IN_PERIOD[per])
     )
 
     # total power production each period (against which RPS is measured)
-    # (we subtract DumpPower, because that shouldn't have been produced in the first place)
     m.RPSTotalPower = Expression(m.PERIODS, rule=lambda m, per:
         sum(
             m.DispatchGen[p, tp] * m.tp_weight[tp]
                 for p in m.GENERATION_PROJECTS if (p, m.TPS_IN_PERIOD[per].first()) in m.GEN_TPS
                     for tp in m.TPS_IN_PERIOD[per] 
         )
-        - sum(m.DumpPower[z, tp] * m.tp_weight[tp] for z in m.LOAD_ZONES for tp in m.TPS_IN_PERIOD[per])
     )
     
     if m.options.rps_level == 'activate':

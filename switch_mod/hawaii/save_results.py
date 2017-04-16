@@ -181,24 +181,27 @@ def write_results(m, outputs_dir):
             )
             +tuple(getattr(m, component)[z, t] for component in m.Zone_Power_Injections)
             +tuple(getattr(m, component)[z, t] for component in m.Zone_Power_Withdrawals)
-            +(util.get(m.dual, m.Energy_Balance[z, t], 0.0)/m.bring_timepoint_costs_to_base_year[t], 
+            +(util.get(m.dual, m.Zone_Energy_Balance[z, t], 0.0)/m.bring_timepoint_costs_to_base_year[t],
                 # note: this uses 0.0 if no dual available, i.e., with glpk solver
             'peak' if m.ts_scale_to_year[m.tp_ts[t]] < avg_ts_scale else 'typical')
     )
     
     # installed capacity information
-    gen_energy_source = lambda pr: \
-            '/'.join(sorted(m.FUELS_FOR_GEN[g])) if m.gen_uses_fuel[g] \
+    def gen_energy_source(g):
+        return (
+            '/'.join(sorted(m.FUELS_FOR_GEN[g]))
+            if m.gen_uses_fuel[g]
             else m.gen_energy_source[g]
-    built_g = tuple(set(
+        )
+    built_gens = tuple(sorted(set(
         g for pe in m.PERIODS for g in m.GENERATION_PROJECTS if value(m.GenCapacity[g, pe]) > 0.001
-    ))
+    )))
     operate_gen_in_period = tuple(set(
         (g, m.tp_period[tp]) 
             for g, tp in m.GEN_TPS if value(m.DispatchGen[g, tp]) > 0.001
     ))
-    built_tech = tuple(set(m.gen_tech[p] for p in built_g))
-    built_energy_source = tuple(set(gen_energy_source(pr) for g in built_g))
+    built_tech = tuple(set(m.gen_tech[g] for g in built_gens))
+    built_energy_source = tuple(set(gen_energy_source(g) for g in built_gens))
  
     battery_capacity_mw = lambda m, z, pe: (
         (m.Battery_Capacity[z, pe] * m.battery_max_discharge / m.battery_min_discharge_time)
@@ -211,7 +214,7 @@ def write_results(m, outputs_dir):
         values=lambda m, z, pe: (z, pe,) + tuple(
             sum(
                 (m.GenCapacity[g, pe] if ((g, pe) in operate_gen_in_period) else 0.0)
-                    for g in built_g 
+                    for g in built_gens
                         if m.gen_tech[g] == t and m.gen_load_zone[g] == z
             )
             for t in built_tech
@@ -227,8 +230,8 @@ def write_results(m, outputs_dir):
         values=lambda m, z, pe: (z, pe,) + tuple(
             sum(
                 (m.GenCapacity[g, pe] if ((g, pe) in operate_gen_in_period) else 0.0)
-                    for g in built_g 
-                        if gen_energy_source(pr) == s and m.gen_load_zone[g] == z
+                    for g in built_gens
+                        if gen_energy_source(g) == s and m.gen_load_zone[g] == z
             )
             for s in built_energy_source
         ) + (
@@ -245,7 +248,7 @@ def write_results(m, outputs_dir):
         values += [
             sum(
                 m.BuildGen[g, pe] 
-                    for g in built_g 
+                    for g in built_gens
                         if m.gen_tech[g] == t and m.gen_load_zone[g] == z and (g, pe) in m.BuildGen
             )
             for t in built_tech
@@ -262,7 +265,7 @@ def write_results(m, outputs_dir):
         values.append(
             sum(
                 m.BuildPumpedHydroMW[g, pe] 
-                    for g in m.PH_GENECTS if m.ph_load_zone[g]==z
+                    for g in m.PH_GENS if m.ph_load_zone[g]==z
             ) if hasattr(m, "BuildPumpedHydroMW") else 0.0,
         )
         # capacity built, hydrogen
@@ -287,7 +290,7 @@ def write_results(m, outputs_dir):
         values += [
             sum(
                 m.BuildGen[g, pe] * (m.gen_overnight_cost[g, pe] + m.gen_connect_cost_per_mw[g])
-                    for g in built_g 
+                    for g in built_gens
                         if m.gen_tech[g] == t and m.gen_load_zone[g] == z \
                             and (g, pe) in m.GEN_BLD_YRS
             )
@@ -305,7 +308,7 @@ def write_results(m, outputs_dir):
         values.append(
             sum(
                 m.BuildPumpedHydroMW[g, pe] * m.ph_capital_cost_per_mw[g]
-                    for g in m.PH_GENECTS if m.ph_load_zone[g]==z
+                    for g in m.PH_GENS if m.ph_load_zone[g]==z
             ) if hasattr(m, "BuildPumpedHydroMW") else 0.0,
         )
         # hydrogen
@@ -364,8 +367,8 @@ def write_results(m, outputs_dir):
     
     # util.write_table(m, m.PERIODS,
     #     output_file=os.path.join(outputs_dir, "capacity{t}.tsv".format(t=t)),
-    #     headings=("period",)+built_g,
-    #     values=lambda m, pe: (pe,) + tuple(m.GenCapacity[g, pe] for g in built_g)
+    #     headings=("period",)+built_gens,
+    #     values=lambda m, pe: (pe,) + tuple(m.GenCapacity[g, pe] for g in built_gens)
     # )
 
 
