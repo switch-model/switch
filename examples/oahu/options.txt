@@ -1,9 +1,3 @@
-# solver options
-# note: we have to use a pretty wide mipgap (1%) to get solutions in reasonable time
-# with discrete unit-commitment; using mipthreads=4 might also help
---solver=cplexamp
---solver-options-string="mipgap=0.01 display=1 mipdisplay=2 threads=1"
-
 # use the relaxed-split-commit method of RPS allocation (fairly fast and accurate)
 --rps-allocation relaxed_split_commit
 
