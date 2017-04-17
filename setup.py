@@ -19,10 +19,10 @@ def read(*rnames):
     return open(os.path.join(os.path.dirname(__file__), *rnames)).read()
 
 setup(
-    name='SWITCH',
+    name='switch_model',
     version='2.0.0b1',
-    maintainer='Matthias Fripp',
-    maintainer_email='mfripp@hawaii.edu',
+    maintainer='Switch Authors',
+    maintainer_email='authors@switch-model.org',
     url='http://switch-model.org',
     license='Apache v2',
     platforms=["any"],

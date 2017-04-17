@@ -1,4 +1,4 @@
-This contains the Switch electricity planning model written in Pyomo.
+This contains version 2 of the Switch electricity planning model.
 This optimization model is modular and can be used with varying levels
 of complexity. Look in the examples directory for demonstrations of
 using Switch for investment planning or production cost simulation. The
