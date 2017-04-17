@@ -1,0 +1,5 @@
+# use the relaxed-split-commit method of RPS allocation (fairly fast and accurate)
+--rps-allocation relaxed_split_commit
+
+# use a relatively low amount of demand response
+--demand-response-share 0.10

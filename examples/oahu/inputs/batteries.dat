@@ -1,0 +1,4 @@
+param battery_efficiency := 0.88;
+param battery_max_discharge := 1.0;
+param battery_min_discharge_time := 6;
+param battery_n_years := 15;

@@ -41,7 +41,10 @@ def find_example_dirs():
     for dirpath, dirnames, filenames in os.walk(examples_dir):
         for dirname in dirnames:
             path = os.path.join(dirpath, dirname)
-            if os.path.exists(os.path.join(path, 'inputs', 'modules.txt')):
+            if (
+                os.path.exists(os.path.join(path, 'inputs', 'modules.txt'))
+                or os.path.exists(os.path.join(path, 'modules.txt'))
+            ):
                 yield path
 
 
@@ -57,17 +60,20 @@ def get_expectation_path(example_dir):
 def make_test(example_dir):
     def test_example():
         temp_dir = tempfile.mkdtemp(prefix='switch_test_')
+        # switch_mod.solve may need to look for modules.txt, options.txt and
+        # iterate.txt in the current working dir
+        old_dir = os.getcwd()
+        os.chdir(example_dir)
+        # search for custom modules in the example dir if needed
+        sys.path.append(example_dir)
         try:
-            # Custom python modules may be in the example's working directory
-            sys.path.append(example_dir)
-            args = switch_mod.solve.get_option_file_args(dir=example_dir, 
-                extra_args=[
-                    '--inputs-dir', os.path.join(example_dir, 'inputs'),
-                    '--outputs-dir', temp_dir])
+            args = switch_mod.solve.get_option_file_args(
+                extra_args=['--outputs-dir', temp_dir])
             switch_mod.solve.main(args)
             total_cost = read_file(os.path.join(temp_dir, 'total_cost.txt'))
         finally:
             sys.path.remove(example_dir)
+            os.chdir(old_dir)
             _remove_temp_dir(temp_dir)
         expectation_file = get_expectation_path(example_dir)
         if UPDATE_EXPECTATIONS:
