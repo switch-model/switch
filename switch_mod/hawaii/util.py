@@ -66,13 +66,12 @@ def write_table(model, *indexes, **kwargs):
     """Write an output table in one shot - headers and body."""
     output_file = kwargs["output_file"]
 
-    if model.options.verbose:
-        print "Writing {file} ...".format(file=output_file),
-    sys.stdout.flush()  # display the part line to the user
-    start=time.time()
-
     create_table(**kwargs)
     append_table(model, *indexes, **kwargs)
+
+    if model.options.verbose:
+        print "Wrote {file}".format(file=output_file)
+
 
 def get(component, index, default=None):
     """Return an element from an indexed component, or the default value if the index is invalid."""
