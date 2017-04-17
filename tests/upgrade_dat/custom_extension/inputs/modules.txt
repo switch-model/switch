@@ -1,4 +1,4 @@
-switch_mod
+switch_model
 project.no_commit
 fuel_cost
 sunk_costs

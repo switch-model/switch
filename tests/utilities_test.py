@@ -6,8 +6,8 @@ import shutil
 import tempfile
 import unittest
 
-import switch_mod.utilities as utilities
-import switch_mod.solve
+import switch_model.utilities as utilities
+import switch_model.solve
 from pyomo.environ import DataPortal
 from testfixtures import compare
 
@@ -20,7 +20,7 @@ class UtilitiesTest(unittest.TestCase):
         assert utilities.approx_equal(1, 1)
 
     def test_save_inputs_as_dat(self):
-        (model, instance) = switch_mod.solve.main(
+        (model, instance) = switch_model.solve.main(
             args=["--inputs-dir", os.path.join('examples', '3zone_toy', 'inputs')],
             return_model=True, return_instance=True
         )

@@ -7,8 +7,8 @@ import sys
 import tempfile
 import unittest
 
-import switch_mod.solve
-import switch_mod.utilities
+import switch_model.solve
+import switch_model.utilities
 
 # This runs all the Switch examples (in the 'examples' directory) as
 # test cases.
@@ -60,11 +60,11 @@ def make_test(example_dir):
         try:
             # Custom python modules may be in the example's working directory
             sys.path.append(example_dir)
-            args = switch_mod.solve.get_option_file_args(dir=example_dir, 
+            args = switch_model.solve.get_option_file_args(dir=example_dir, 
                 extra_args=[
                     '--inputs-dir', os.path.join(example_dir, 'inputs'),
                     '--outputs-dir', temp_dir])
-            switch_mod.solve.main(args)
+            switch_model.solve.main(args)
             total_cost = read_file(os.path.join(temp_dir, 'total_cost.txt'))
         finally:
             sys.path.remove(example_dir)
@@ -75,7 +75,7 @@ def make_test(example_dir):
         else:
             expected = float(read_file(expectation_file))
             actual = float(total_cost)
-            if not switch_mod.utilities.approx_equal(expected, actual,
+            if not switch_model.utilities.approx_equal(expected, actual,
                                                      tolerance=0.0001):
                 raise AssertionError(
                     'Mismatch for total_cost (the objective function value):\n'

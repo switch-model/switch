@@ -44,7 +44,7 @@ setup(
     'Topic :: Scientific/Engineering',
     'Topic :: Software Development :: Libraries :: Python Modules'
     ],
-    packages=['switch_mod'],
+    packages=['switch_model'],
     keywords=[
         'renewable', 'power', 'energy', 'electricity', 
         'production cost', 'capacity expansion', 
@@ -61,6 +61,6 @@ setup(
         'database_access': ['psycopg2']
     },
     entry_points={
-        'console_scripts': ['switch = switch_mod.main:main']
+        'console_scripts': ['switch = switch_model.main:main']
     },
 )

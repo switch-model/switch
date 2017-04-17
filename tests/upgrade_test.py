@@ -9,11 +9,11 @@ import sys
 import tempfile
 import unittest
 
-import switch_mod.solve
-import switch_mod.utilities
-from switch_mod.upgrade import upgrade_inputs
+import switch_model.solve
+import switch_model.utilities
+from switch_model.upgrade import upgrade_inputs
 from .examples_test import get_expectation_path, read_file, write_file, TOP_DIR
-import switch_mod.upgrade.upgrade_2_0_0b1 as upgrade_2_0_0b1
+import switch_model.upgrade.upgrade_2_0_0b1 as upgrade_2_0_0b1
 
 UPDATE_EXPECTATIONS = False
 
@@ -44,7 +44,7 @@ def make_test(example_dir):
         try:
             # Custom python modules may be in the example's working directory
             sys.path.append(upgrade_dir)
-            switch_mod.solve.main([
+            switch_model.solve.main([
                 '--inputs-dir', upgrade_dir_inputs,
                 '--outputs-dir', upgrade_dir_outputs])
             total_cost = read_file(os.path.join(upgrade_dir_outputs, 'total_cost.txt'))
@@ -57,7 +57,7 @@ def make_test(example_dir):
         else:
             expected = float(read_file(expectation_file))
             actual = float(total_cost)
-            if not switch_mod.utilities.approx_equal(expected, actual,
+            if not switch_model.utilities.approx_equal(expected, actual,
                                                      tolerance=0.0001):
                 raise AssertionError(
                     'Mismatch for total_cost (the objective function value):\n'

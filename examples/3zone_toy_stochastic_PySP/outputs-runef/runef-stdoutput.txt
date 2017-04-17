@@ -11,23 +11,23 @@ User-defined EF solution writer module=pyomo.pysp.plugins.csvsolutionwriter alre
 Creating extensive form instance
 Time to construct extensive form instance=0.01 seconds
 Queuing extensive form solve
-Read MIP start from file c:\\users\\benjamin\\appdata\\local\\temp\\tmp3fqubb.gurobi.mst
-Optimize a model with 1630 rows, 1514 columns and 4231 nonzeros
-Coefficient statistics:
-  Matrix range    [5e-02, 2e+01]
-  Objective range [2e+03, 2e+06]
-  Bounds range    [4e-01, 1e+01]
-  RHS range       [4e-01, 1e+01]
-Presolve removed 1286 rows and 1139 columns
-Presolve time: 0.01s
-Presolved: 344 rows, 375 columns, 1334 nonzeros
-
-Iteration    Objective       Primal Inf.    Dual Inf.      Time
-       0    4.4576592e+07   3.604419e+02   0.000000e+00      0s
-     213    1.1111214e+08   0.000000e+00   0.000000e+00      0s
-
-Solved in 213 iterations and 0.02 seconds
-Optimal objective  1.111121419e+08
+Read MIP start from file c:\\users\\benjamin\\appdata\\local\\temp\\tmp3fqubb.gurobi.mst
+Optimize a model with 1630 rows, 1514 columns and 4231 nonzeros
+Coefficient statistics:
+  Matrix range    [5e-02, 2e+01]
+  Objective range [2e+03, 2e+06]
+  Bounds range    [4e-01, 1e+01]
+  RHS range       [4e-01, 1e+01]
+Presolve removed 1286 rows and 1139 columns
+Presolve time: 0.01s
+Presolved: 344 rows, 375 columns, 1334 nonzeros
+
+Iteration    Objective       Primal Inf.    Dual Inf.      Time
+       0    4.4576592e+07   3.604419e+02   0.000000e+00      0s
+     213    1.1111214e+08   0.000000e+00   0.000000e+00      0s
+
+Solved in 213 iterations and 0.02 seconds
+Optimal objective  1.111121419e+08
 Waiting for extensive form solve
 Done with extensive form solve - loading results
 Storing solution in scenario tree
