@@ -8,7 +8,7 @@ from distutils.version import StrictVersion
 
 import switch_model
 
-import upgrade_2_0_0b1
+import upgrade_2_0_0b2
 
 code_version = StrictVersion(switch_model.__version__)
 version_file = 'switch_inputs_version.txt'
@@ -64,7 +64,7 @@ def do_inputs_need_upgrade(inputs_dir):
     # Not every code revision requires an update, so just hard-code the last
     # revision that required an update.
     inputs_version = get_input_version(inputs_dir)
-    last_required_update = '2.0.0b1'
+    last_required_update = '2.0.0b2'
     return StrictVersion(inputs_version) < StrictVersion(last_required_update)
 
 
@@ -81,7 +81,7 @@ def _backup(inputs_dir):
 def upgrade_inputs(inputs_dir, backup=True):
     # This logic will grow over time as complexity evolves.. Don't overengineer
     if do_inputs_need_upgrade(inputs_dir):
-        upgrade_2_0_0b1.upgrade_input_dir(inputs_dir, backup)
+        upgrade_2_0_0b2.upgrade_input_dir(inputs_dir, backup)
 
 
 def main(args=None):
