@@ -52,12 +52,12 @@ setup(
     ],
     install_requires=[
         'Pyomo>=4.4.1', # We need a version that works with glpk 4.60+
-        'testfixtures'  # used for standard tests
+        'testfixtures', # used for standard tests
+        'pandas',       # used for input upgrades and testing that functionality
     ],
     extras_require={
         # packages used for advanced demand response, progressive hedging
-        # and input-file upgrades
-        'advanced': ['numpy', 'scipy', 'rpy2', 'sympy', 'pandas'],
+        'advanced': ['numpy', 'scipy', 'rpy2', 'sympy'],
         'database_access': ['psycopg2']
     },
     entry_points={

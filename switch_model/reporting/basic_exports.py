@@ -6,15 +6,11 @@ This module enables exporting basic plots and tables with processed information.
 
 """
 import switch_model.reporting as export
-import matplotlib.pyplot as plt
 import pandas as pd
 import os, time, sys
-from numpy import nan
 from csv import reader
-from cycler import cycler
 from itertools import cycle
 from pyomo.environ import Var
-from matplotlib.backends.backend_pdf import PdfPages
 from switch_model.financials import uniform_series_to_present_value, future_to_present_value
 
 def define_arguments(argparser):
@@ -62,6 +58,13 @@ def post_solve(mod, outdir):
     plot_dis_decision should be used when the quantity is indexed by timepoints
     
     """
+    # Import optional dependencies here instead of at the top of the file to
+    # avoid breaking tests for installations that don't use this functionality
+    import matplotlib.pyplot as plt
+    from numpy import nan
+    from cycler import cycler
+    from matplotlib.backends.backend_pdf import PdfPages
+
     summaries_dir = os.path.join(outdir,"Summaries")
     if not os.path.exists(summaries_dir):
         os.makedirs(summaries_dir)
