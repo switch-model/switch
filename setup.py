@@ -13,7 +13,7 @@ Use "pip uninstall switch" to uninstall switch from your system.
 """
 
 import os
-from setuptools import setup
+from setuptools import setup, find_packages
 
 def read(*rnames):
     return open(os.path.join(os.path.dirname(__file__), *rnames)).read()
@@ -44,7 +44,7 @@ setup(
     'Topic :: Scientific/Engineering',
     'Topic :: Software Development :: Libraries :: Python Modules'
     ],
-    packages=['switch_model'],
+    packages=find_packages(include=['switch_model', 'switch_model.*']),
     keywords=[
         'renewable', 'power', 'energy', 'electricity', 
         'production cost', 'capacity expansion', 
