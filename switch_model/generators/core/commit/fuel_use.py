@@ -66,10 +66,16 @@ from pyomo.environ import *
 import csv
 from switch_model.utilities import approx_equal
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
-    'switch_model.financials', 'switch_model.energy_sources.properties.properties', \
-    'switch_model.generators.core.build', 'switch_model.generators.core.dispatch',\
-    'switch_model.generators.core.commit.operate'
+dependencies = (
+    "switch_model.timescales",
+    "switch_model.balancing.load_zones",
+    "switch_model.financials",
+    "switch_model.energy_sources.properties.properties",
+    "switch_model.generators.core.build",
+    "switch_model.generators.core.dispatch",
+    "switch_model.generators.core.commit.operate",
+)
+
 
 def define_components(mod):
     """
@@ -100,18 +106,17 @@ def define_components(mod):
 
     """
 
-    mod.FUEL_USE_SEGMENTS_FOR_GEN = Set(
-        mod.FUEL_BASED_GENS,
-        dimen=2)
-    
+    mod.FUEL_USE_SEGMENTS_FOR_GEN = Set(mod.FUEL_BASED_GENS, dimen=2)
+
     # Use BuildAction to populate a set's default values.
     def FUEL_USE_SEGMENTS_FOR_GEN_default_rule(m, g):
         if g not in m.FUEL_USE_SEGMENTS_FOR_GEN:
             heat_rate = m.gen_full_load_heat_rate[g]
             m.FUEL_USE_SEGMENTS_FOR_GEN[g] = [(0, heat_rate)]
+
     mod.FUEL_USE_SEGMENTS_FOR_GEN_default = BuildAction(
-        mod.FUEL_BASED_GENS,
-        rule=FUEL_USE_SEGMENTS_FOR_GEN_default_rule)
+        mod.FUEL_BASED_GENS, rule=FUEL_USE_SEGMENTS_FOR_GEN_default_rule
+    )
 
     mod.GEN_TPS_FUEL_PIECEWISE_CONS_SET = Set(
         dimen=4,
@@ -119,22 +124,27 @@ def define_components(mod):
             (g, t, intercept, slope)
             for (g, t) in m._FUEL_BASED_GEN_TPS
             for (intercept, slope) in m.FUEL_USE_SEGMENTS_FOR_GEN[g]
-        ]
+        ],
     )
     mod.GenFuelUseRate_Calculate = Constraint(
         mod.GEN_TPS_FUEL_PIECEWISE_CONS_SET,
         rule=lambda m, g, t, intercept, incremental_heat_rate: (
-            sum(m.GenFuelUseRate[g, t, f] for f in m.FUELS_FOR_GEN[g]) >=
+            sum(m.GenFuelUseRate[g, t, f] for f in m.FUELS_FOR_GEN[g])
+            >=
             # Do the startup
-            m.StartupGenCapacity[g, t] * m.gen_startup_fuel[g] / m.tp_duration_hrs[t] +
-            intercept * m.CommitGen[g, t] +
-            incremental_heat_rate * m.DispatchGen[g, t]))
+            m.StartupGenCapacity[g, t] * m.gen_startup_fuel[g] / m.tp_duration_hrs[t]
+            + intercept * m.CommitGen[g, t]
+            + incremental_heat_rate * m.DispatchGen[g, t]
+        ),
+    )
+
 
 # TODO: switch to defining heat rates as a collection of (output_mw, fuel_mmbtu_per_h) points;
 # read those directly as normal sets, then derive the project heat rate curves from those
 # within define_components.
 # This will simplify data preparation (the current format is hard to produce from any
 # normalized database) and the import code and help the readability of this file.
+
 
 def load_inputs(mod, switch_data, inputs_dir):
     """
@@ -180,43 +190,50 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     """
 
-    path = os.path.join(inputs_dir, 'gen_inc_heat_rates.tab')
+    path = os.path.join(inputs_dir, "gen_inc_heat_rates.tab")
     if os.path.isfile(path):
         (fuel_rate_segments, min_load, full_hr) = _parse_inc_heat_rate_file(
-            path, id_column="project")
+            path, id_column="project"
+        )
         # Check implied minimum loading level for consistency with
         # gen_min_load_fraction if gen_min_load_fraction was provided. If
         # gen_min_load_fraction wasn't provided, set it to implied minimum
         # loading level.
         for g in min_load:
-            if 'gen_min_load_fraction' not in switch_data.data():
-                switch_data.data()['gen_min_load_fraction'] = {}
-            dp_dict = switch_data.data(name='gen_min_load_fraction')
+            if "gen_min_load_fraction" not in switch_data.data():
+                switch_data.data()["gen_min_load_fraction"] = {}
+            dp_dict = switch_data.data(name="gen_min_load_fraction")
             if g in dp_dict:
                 min_load_dat = dp_dict[g]
                 if not approx_equal(min_load[g], min_load_dat):
-                    raise ValueError((
-                        "gen_min_load_fraction is inconsistant with " +
-                        "incremental heat rate data for project " +
-                        "{}.").format(g))
+                    raise ValueError(
+                        (
+                            "gen_min_load_fraction is inconsistant with "
+                            + "incremental heat rate data for project "
+                            + "{}."
+                        ).format(g)
+                    )
             else:
                 dp_dict[g] = min_load[g]
         # Same thing, but for full load heat rate.
         for g in full_hr:
-            if 'gen_full_load_heat_rate' not in switch_data.data():
-                switch_data.data()['gen_full_load_heat_rate'] = {}
-            dp_dict = switch_data.data(name='gen_full_load_heat_rate')
+            if "gen_full_load_heat_rate" not in switch_data.data():
+                switch_data.data()["gen_full_load_heat_rate"] = {}
+            dp_dict = switch_data.data(name="gen_full_load_heat_rate")
             if g in dp_dict:
                 full_hr_dat = dp_dict[g]
                 if abs((full_hr[g] - full_hr_dat) / full_hr_dat) > 0.01:
-                    raise ValueError((
-                        "gen_full_load_heat_rate is inconsistant with " +
-                        "incremental heat rate data for project " +
-                        "{}.").format(g))
+                    raise ValueError(
+                        (
+                            "gen_full_load_heat_rate is inconsistant with "
+                            + "incremental heat rate data for project "
+                            + "{}."
+                        ).format(g)
+                    )
             else:
                 dp_dict[g] = full_hr[g]
         # Copy parsed data into the data portal.
-        switch_data.data()['FUEL_USE_SEGMENTS_FOR_GEN'] = fuel_rate_segments
+        switch_data.data()["FUEL_USE_SEGMENTS_FOR_GEN"] = fuel_rate_segments
 
 
 def _parse_inc_heat_rate_file(path, id_column):
@@ -236,45 +253,56 @@ def _parse_inc_heat_rate_file(path, id_column):
     full_load_hr = {}
     # Scan the file and stuff the data into dictionaries for easy access.
     # Parse the file and stuff data into dictionaries indexed by units.
-    with open(path, 'rb') as hr_file:
-        dat = list(csv.DictReader(hr_file, delimiter='\t'))
+    with open(path, "rb") as hr_file:
+        dat = list(csv.DictReader(hr_file, delimiter="\t"))
         for row in dat:
             u = row[id_column]
-            p1 = float(row['power_start_mw'])
-            p2 = row['power_end_mw']
-            ihr = row['incremental_heat_rate_mbtu_per_mwhr']
-            fr = row['fuel_use_rate_mmbtu_per_h']
+            p1 = float(row["power_start_mw"])
+            p2 = row["power_end_mw"]
+            ihr = row["incremental_heat_rate_mbtu_per_mwhr"]
+            fr = row["fuel_use_rate_mmbtu_per_h"]
             # Does this row give the first point?
-            if(p2 == '.' and ihr == '.'):
+            if p2 == "." and ihr == ".":
                 fr = float(fr)
-                if(u in fuel_rate_points):
+                if u in fuel_rate_points:
                     raise ValueError(
-                        "Error processing incremental heat rates for " +
-                        u + " in " + path + ". More than one row has " +
-                        "a fuel use rate specified.")
+                        "Error processing incremental heat rates for "
+                        + u
+                        + " in "
+                        + path
+                        + ". More than one row has "
+                        + "a fuel use rate specified."
+                    )
                 fuel_rate_points[u] = {p1: fr}
             # Does this row give a line segment?
-            elif(fr == '.'):
+            elif fr == ".":
                 p2 = float(p2)
                 ihr = float(ihr)
-                if(u not in ihr_dat):
+                if u not in ihr_dat:
                     ihr_dat[u] = []
                 ihr_dat[u].append((p1, p2, ihr))
             # Throw an error if the row's format is not recognized.
             else:
                 raise ValueError(
-                    "Error processing incremental heat rates for row " +
-                    u + " in " + path + ". Row format not recognized for " +
-                    "row " + str(row) + ". See documentation for acceptable " +
-                    "formats.")
+                    "Error processing incremental heat rates for row "
+                    + u
+                    + " in "
+                    + path
+                    + ". Row format not recognized for "
+                    + "row "
+                    + str(row)
+                    + ". See documentation for acceptable "
+                    + "formats."
+                )
 
     # Make sure that each project that has incremental heat rates defined
     # also has a starting point defined.
     missing_starts = [k for k in ihr_dat if k not in fuel_rate_points]
     if missing_starts:
         raise ValueError(
-            'No starting point(s) are defined for incremental heat rate curves '
-            'for the following technologies: {}'.format(','.join(missing_starts)))
+            "No starting point(s) are defined for incremental heat rate curves "
+            "for the following technologies: {}".format(",".join(missing_starts))
+        )
 
     # Construct a convex combination of lines describing a fuel use
     # curve for each representative unit "u".
@@ -292,7 +320,7 @@ def _parse_inc_heat_rate_file(path, id_column):
         # Sort the line segments by their domains.
         ihr_dat[u].sort()
         # Assume that the maximum power output is the rated capacity.
-        (junk, capacity, junk) = ihr_dat[u][len(ihr_dat[u])-1]
+        (junk, capacity, junk) = ihr_dat[u][len(ihr_dat[u]) - 1]
         # Retrieve the first incremental heat rate for error checking.
         (min_power, junk, ihr_prev) = ihr_dat[u][0]
         min_cap_factor[u] = min_power / capacity
@@ -301,20 +329,24 @@ def _parse_inc_heat_rate_file(path, id_column):
             # Error check: This incremental heat rate cannot be less than
             # the previous one.
             if ihr_prev > ihr:
-                raise ValueError((
-                    "Error processing incremental heat rates for " +
-                    "{} in file {}. The incremental heat rate " +
-                    "between power output levels {}-{} is less than " +
-                    "that of the prior line segment.").format(
-                        u, path, p_start, p_end))
+                raise ValueError(
+                    (
+                        "Error processing incremental heat rates for "
+                        + "{} in file {}. The incremental heat rate "
+                        + "between power output levels {}-{} is less than "
+                        + "that of the prior line segment."
+                    ).format(u, path, p_start, p_end)
+                )
             # Error check: This segment needs to start at an existing point.
             if p_start not in fr_points:
-                raise ValueError((
-                    "Error processing incremental heat rates for " +
-                    "{} in file {}. The incremental heat rate " +
-                    "between power output levels {}-{} does not start at a " +
-                    "previously defined point or line segment.").format(
-                        u, path, p_start, p_end))
+                raise ValueError(
+                    (
+                        "Error processing incremental heat rates for "
+                        + "{} in file {}. The incremental heat rate "
+                        + "between power output levels {}-{} does not start at a "
+                        + "previously defined point or line segment."
+                    ).format(u, path, p_start, p_end)
+                )
             # Calculate the y-intercept then normalize it by the capacity.
             intercept_norm = (fr_points[p_start] - ihr * p_start) / capacity
             # Save the line segment's definition.

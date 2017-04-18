@@ -13,10 +13,15 @@ import os, collections
 from pyomo.environ import *
 from switch_model.reporting import write_table
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
-    'switch_model.financials', 'switch_model.energy_sources.properties', \
-    'switch_model.generators.core.build'
-optional_dependencies = 'switch_model.transmission.local_td'
+dependencies = (
+    "switch_model.timescales",
+    "switch_model.balancing.load_zones",
+    "switch_model.financials",
+    "switch_model.energy_sources.properties",
+    "switch_model.generators.core.build",
+)
+optional_dependencies = "switch_model.transmission.local_td"
+
 
 def define_components(mod):
     """
@@ -30,13 +35,13 @@ def define_components(mod):
     they can be dispatched. A dispatch decisions is made for each member
     of this set. Members of this set can be abbreviated as (g, t) or
     (g, t).
-    
-    TPS_FOR_GEN[g] is a set array showing all timepoints when a 
-    project is active. These are the timepoints corresponding to 
-    PERIODS_FOR_GEN. This is the same data as GEN_TPS, 
+
+    TPS_FOR_GEN[g] is a set array showing all timepoints when a
+    project is active. These are the timepoints corresponding to
+    PERIODS_FOR_GEN. This is the same data as GEN_TPS,
     but split into separate sets for each project.
 
-    TPS_FOR_GEN_IN_PERIOD[g, period] is the same as 
+    TPS_FOR_GEN_IN_PERIOD[g, period] is the same as
     TPS_FOR_GEN, but broken down by period. Periods when
     the project is inactive will yield an empty set.
 
@@ -97,12 +102,12 @@ def define_components(mod):
     Value).
 
     _FUEL_BASED_GEN_TPS is a subset of GEN_TPS
-    showing all times when fuel-consuming projects could be dispatched 
+    showing all times when fuel-consuming projects could be dispatched
     (used to identify timepoints when fuel use must match power production).
 
     GEN_TP_FUELS is a subset of GEN_TPS * FUELS,
     showing all the valid combinations of project, timepoint and fuel,
-    i.e., all the times when each project could consume a fuel that is 
+    i.e., all the times when each project could consume a fuel that is
     limited, costly or produces emissions.
 
     GenFuelUseRate[(g, t, f) in GEN_TP_FUELS] is a
@@ -123,7 +128,7 @@ def define_components(mod):
     fuel's upstream emissions, as well as Carbon Capture efficiency for
     generators that implement Carbon Capture and Sequestration. This does
     not yet support multi-fuel generators.
-    
+
     AnnualEmissions[p in PERIODS]:The system's annual emissions, in metric
     tonnes of CO2 per year.
 
@@ -144,33 +149,38 @@ def define_components(mod):
     """
 
     def period_active_gen_rule(m, period):
-        if not hasattr(m, 'period_active_gen_dict'):
+        if not hasattr(m, "period_active_gen_dict"):
             m.period_active_gen_dict = collections.defaultdict(set)
             for (_g, _period) in m.GEN_PERIODS:
                 m.period_active_gen_dict[_period].add(_g)
         result = m.period_active_gen_dict.pop(period)
         if len(m.period_active_gen_dict) == 0:
-            delattr(m, 'period_active_gen_dict')
+            delattr(m, "period_active_gen_dict")
         return result
-    mod.GENS_IN_PERIOD = Set(mod.PERIODS, initialize=period_active_gen_rule,
-        doc="The set of projects active in a given period.")
+
+    mod.GENS_IN_PERIOD = Set(
+        mod.PERIODS,
+        initialize=period_active_gen_rule,
+        doc="The set of projects active in a given period.",
+    )
 
     def TPS_FOR_GEN_rule(m, gen):
-        if not hasattr(m, '_TPS_FOR_GEN_dict'):
+        if not hasattr(m, "_TPS_FOR_GEN_dict"):
             m._TPS_FOR_GEN_dict = collections.defaultdict(set)
             for (_gen, period) in m.GEN_PERIODS:
                 for t in m.TPS_IN_PERIOD[period]:
                     m._TPS_FOR_GEN_dict[_gen].add(t)
         result = m._TPS_FOR_GEN_dict.pop(gen)
         if len(m._TPS_FOR_GEN_dict) == 0:
-            delattr(m, '_TPS_FOR_GEN_dict')
-        return result        
+            delattr(m, "_TPS_FOR_GEN_dict")
+        return result
+
     mod.TPS_FOR_GEN = Set(
-        mod.GENERATION_PROJECTS, within=mod.TIMEPOINTS,
-        rule=TPS_FOR_GEN_rule)
+        mod.GENERATION_PROJECTS, within=mod.TIMEPOINTS, rule=TPS_FOR_GEN_rule
+    )
 
     def TPS_FOR_GEN_IN_PERIOD_rule(m, gen, period):
-        if not hasattr(m, '_TPS_FOR_GEN_IN_PERIOD_dict'):
+        if not hasattr(m, "_TPS_FOR_GEN_IN_PERIOD_dict"):
             m._TPS_FOR_GEN_IN_PERIOD_dict = collections.defaultdict(set)
             for _gen in m.GENERATION_PROJECTS:
                 for t in m.TPS_FOR_GEN[_gen]:
@@ -179,123 +189,137 @@ def define_components(mod):
             return ()
         result = m._TPS_FOR_GEN_IN_PERIOD_dict.pop((gen, period))
         if len(m._TPS_FOR_GEN_IN_PERIOD_dict) == 0:
-            delattr(m, '_TPS_FOR_GEN_IN_PERIOD_dict')
+            delattr(m, "_TPS_FOR_GEN_IN_PERIOD_dict")
         return result
-    mod.TPS_FOR_GEN_IN_PERIOD = Set(mod.GENERATION_PROJECTS, mod.PERIODS, 
+
+    mod.TPS_FOR_GEN_IN_PERIOD = Set(
+        mod.GENERATION_PROJECTS,
+        mod.PERIODS,
         within=mod.TIMEPOINTS,
-        rule=TPS_FOR_GEN_IN_PERIOD_rule)
+        rule=TPS_FOR_GEN_IN_PERIOD_rule,
+    )
 
     mod.GEN_TPS = Set(
         dimen=2,
         initialize=lambda m: (
-            (g, tp) 
-                for g in m.GENERATION_PROJECTS 
-                    for tp in m.TPS_FOR_GEN[g]))
+            (g, tp) for g in m.GENERATION_PROJECTS for tp in m.TPS_FOR_GEN[g]
+        ),
+    )
     mod.VARIABLE_GEN_TPS = Set(
         dimen=2,
         initialize=lambda m: (
-            (g, tp) 
-                for g in m.VARIABLE_GENS
-                    for tp in m.TPS_FOR_GEN[g]))
+            (g, tp) for g in m.VARIABLE_GENS for tp in m.TPS_FOR_GEN[g]
+        ),
+    )
     mod._FUEL_BASED_GEN_TPS = Set(
         dimen=2,
         initialize=lambda m: (
-            (g, tp) 
-                for g in m.FUEL_BASED_GENS
-                    for tp in m.TPS_FOR_GEN[g]))
+            (g, tp) for g in m.FUEL_BASED_GENS for tp in m.TPS_FOR_GEN[g]
+        ),
+    )
     mod.GEN_TP_FUELS = Set(
         dimen=3,
         initialize=lambda m: (
-            (g, t, f) 
-                for (g, t) in m._FUEL_BASED_GEN_TPS 
-                    for f in m.FUELS_FOR_GEN[g]))
+            (g, t, f) for (g, t) in m._FUEL_BASED_GEN_TPS for f in m.FUELS_FOR_GEN[g]
+        ),
+    )
 
     mod.GenCapacityInTP = Expression(
-        mod.GEN_TPS,
-        rule=lambda m, g, t: m.GenCapacity[g, m.tp_period[t]])
-    mod.DispatchGen = Var(
-        mod.GEN_TPS,
-        within=NonNegativeReals)
+        mod.GEN_TPS, rule=lambda m, g, t: m.GenCapacity[g, m.tp_period[t]]
+    )
+    mod.DispatchGen = Var(mod.GEN_TPS, within=NonNegativeReals)
     mod.ZoneTotalCentralDispatch = Expression(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
-        rule=lambda m, z, t: \
-            sum(m.DispatchGen[p, t]
-                for p in m.GENS_IN_ZONE[z]
-                if (p, t) in m.GEN_TPS and not m.gen_is_distributed[p]) -
-            sum(m.DispatchGen[p, t] * m.gen_ccs_energy_load[p]
-                for p in m.GENS_IN_ZONE[z]
-                if (p, t) in m.GEN_TPS and p in m.CCS_EQUIPPED_GENS),
-        doc="Net power from grid-tied generation projects.")
-    mod.Zone_Power_Injections.append('ZoneTotalCentralDispatch')
+        mod.LOAD_ZONES,
+        mod.TIMEPOINTS,
+        rule=lambda m, z, t: sum(
+            m.DispatchGen[p, t]
+            for p in m.GENS_IN_ZONE[z]
+            if (p, t) in m.GEN_TPS and not m.gen_is_distributed[p]
+        )
+        - sum(
+            m.DispatchGen[p, t] * m.gen_ccs_energy_load[p]
+            for p in m.GENS_IN_ZONE[z]
+            if (p, t) in m.GEN_TPS and p in m.CCS_EQUIPPED_GENS
+        ),
+        doc="Net power from grid-tied generation projects.",
+    )
+    mod.Zone_Power_Injections.append("ZoneTotalCentralDispatch")
 
     # Divide distributed generation into a separate expression so that we can
     # put it in the distributed node's power balance equations if local_td is
     # included.
     mod.ZoneTotalDistributedDispatch = Expression(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
-        rule=lambda m, z, t: \
-            sum(m.DispatchGen[g, t]
-                for g in m.GENS_IN_ZONE[z]
-                if (g, t) in m.GEN_TPS and m.gen_is_distributed[g]),
-        doc="Total power from distributed generation projects."
+        mod.LOAD_ZONES,
+        mod.TIMEPOINTS,
+        rule=lambda m, z, t: sum(
+            m.DispatchGen[g, t]
+            for g in m.GENS_IN_ZONE[z]
+            if (g, t) in m.GEN_TPS and m.gen_is_distributed[g]
+        ),
+        doc="Total power from distributed generation projects.",
     )
-    if 'Distributed_Power_Injections' in dir(mod):
-        mod.Distributed_Power_Injections.append('ZoneTotalDistributedDispatch')
+    if "Distributed_Power_Injections" in dir(mod):
+        mod.Distributed_Power_Injections.append("ZoneTotalDistributedDispatch")
     else:
-        mod.Zone_Power_Injections.append('ZoneTotalDistributedDispatch')
+        mod.Zone_Power_Injections.append("ZoneTotalDistributedDispatch")
 
     def init_gen_availability(m, g):
         if m.gen_is_baseload[g]:
-            return (
-                (1 - m.gen_forced_outage_rate[g]) *
-                (1 - m.gen_scheduled_outage_rate[g]))
+            return (1 - m.gen_forced_outage_rate[g]) * (
+                1 - m.gen_scheduled_outage_rate[g]
+            )
         else:
-            return (1 - m.gen_forced_outage_rate[g])
+            return 1 - m.gen_forced_outage_rate[g]
+
     mod.gen_availability = Param(
-        mod.GENERATION_PROJECTS,
-        within=PositiveReals,
-        initialize=init_gen_availability)
+        mod.GENERATION_PROJECTS, within=PositiveReals, initialize=init_gen_availability
+    )
 
     mod.gen_max_capacity_factor = Param(
-        mod.VARIABLE_GEN_TPS,
-        within=Reals,
-        validate=lambda m, val, g, t: -1 < val < 2)
-    mod.min_data_check('gen_max_capacity_factor')
+        mod.VARIABLE_GEN_TPS, within=Reals, validate=lambda m, val, g, t: -1 < val < 2
+    )
+    mod.min_data_check("gen_max_capacity_factor")
 
     mod.GenFuelUseRate = Var(
         mod.GEN_TP_FUELS,
         within=NonNegativeReals,
-        doc=("Other modules constraint this variable based on DispatchGen and "
-             "module-specific formulations of unit commitment and heat rates."))
+        doc=(
+            "Other modules constraint this variable based on DispatchGen and "
+            "module-specific formulations of unit commitment and heat rates."
+        ),
+    )
 
     def DispatchEmissions_rule(m, g, t, f):
         if g not in m.CCS_EQUIPPED_GENS:
-            return (
-                m.GenFuelUseRate[g, t, f] *
-                (m.f_co2_intensity[f] + m.f_upstream_co2_intensity[f]))
+            return m.GenFuelUseRate[g, t, f] * (
+                m.f_co2_intensity[f] + m.f_upstream_co2_intensity[f]
+            )
         else:
             ccs_emission_frac = 1 - m.gen_ccs_capture_efficiency[g]
-            return (
-                m.GenFuelUseRate[g, t, f] *
-                (m.f_co2_intensity[f] * ccs_emission_frac +
-                 m.f_upstream_co2_intensity[f]))
-    mod.DispatchEmissions = Expression(
-        mod.GEN_TP_FUELS,
-        rule=DispatchEmissions_rule)
-    mod.AnnualEmissions = Expression(mod.PERIODS,
+            return m.GenFuelUseRate[g, t, f] * (
+                m.f_co2_intensity[f] * ccs_emission_frac + m.f_upstream_co2_intensity[f]
+            )
+
+    mod.DispatchEmissions = Expression(mod.GEN_TP_FUELS, rule=DispatchEmissions_rule)
+    mod.AnnualEmissions = Expression(
+        mod.PERIODS,
         rule=lambda m, period: sum(
             m.DispatchEmissions[g, t, f] * m.tp_weight_in_year[t]
             for (g, t, f) in m.GEN_TP_FUELS
-            if m.tp_period[t] == period),
-        doc="The system's annual emissions, in metric tonnes of CO2 per year.")
+            if m.tp_period[t] == period
+        ),
+        doc="The system's annual emissions, in metric tonnes of CO2 per year.",
+    )
 
     mod.ProjVariableOMCosts = Expression(
         mod.TIMEPOINTS,
         rule=lambda m, t: sum(
             m.DispatchGen[g, t] * m.gen_variable_om[g]
-            for g in m.GENS_IN_PERIOD[m.tp_period[t]]),
-        doc="Summarize costs for the objective function")
-    mod.Cost_Components_Per_TP.append('ProjVariableOMCosts')
+            for g in m.GENS_IN_PERIOD[m.tp_period[t]]
+        ),
+        doc="Summarize costs for the objective function",
+    )
+    mod.Cost_Components_Per_TP.append("ProjVariableOMCosts")
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -313,9 +337,10 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'variable_capacity_factors.tab'),
+        filename=os.path.join(inputs_dir, "variable_capacity_factors.tab"),
         autoselect=True,
-        param=(mod.gen_max_capacity_factor))
+        param=(mod.gen_max_capacity_factor),
+    )
 
 
 def post_solve(instance, outdir):
@@ -324,12 +349,13 @@ def post_solve(instance, outdir):
 
     """
     write_table(
-        instance, instance.TIMEPOINTS,
+        instance,
+        instance.TIMEPOINTS,
         output_file=os.path.join(outdir, "dispatch.txt"),
-        headings=("timestamp",)+tuple(sorted(instance.GENERATION_PROJECTS)),
-        values=lambda m, t: (m.tp_timestamp[t],) + tuple(
-            m.DispatchGen[p, t] if (p, t) in m.GEN_TPS
-            else 0.0
+        headings=("timestamp",) + tuple(sorted(instance.GENERATION_PROJECTS)),
+        values=lambda m, t: (m.tp_timestamp[t],)
+        + tuple(
+            m.DispatchGen[p, t] if (p, t) in m.GEN_TPS else 0.0
             for p in sorted(m.GENERATION_PROJECTS)
-        )
+        ),
     )

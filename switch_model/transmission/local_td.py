@@ -13,8 +13,12 @@ losses from the distribution network.
 import os
 from pyomo.environ import *
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
-    'switch_model.financials'
+dependencies = (
+    "switch_model.timescales",
+    "switch_model.balancing.load_zones",
+    "switch_model.financials",
+)
+
 
 def define_dynamic_lists(mod):
     """
@@ -43,13 +47,13 @@ def define_components(mod):
     which are used for power balance equations. This module is divided into
     two sections: the distribution node and the local_td pathway that connects
     it to the central grid.
-    
+
     Note: This module interprets the parameter zone_demand_mw[z,t] as the end-
     use sales rather than the withdrawals from the central grid, and moves
     zone_demand_mw from the Zone_Power_Withdrawals list to the
     Distributed_Power_Withdrawals list so that distribution losses can be accounted
     for.
-    
+
     Unless otherwise stated, all power capacity is specified in units of MW and
     all sets and parameters are mandatory.
 
@@ -64,9 +68,9 @@ def define_components(mod):
     calculating Local T&D line losses. WithdrawFromCentralGrid is added to the
     load_zone power balance, and has a corresponding expression from the
     perspective of the distributed node:
-    
+
     InjectIntoDistributedGrid[z,t] = WithdrawFromCentralGrid[z,t] * (1-distribution_loss_rate)
-        
+
     The Distributed_Energy_Balance constraint is defined in define_dynamic_components.
 
     LOCAL_TD PATHWAY
@@ -142,74 +146,85 @@ def define_components(mod):
 
     # Local T&D
     mod.EXISTING_LOCAL_TD_BLD_YRS = Set(
-        dimen=2,
-        initialize=lambda m: set((z, 'Legacy') for z in m.LOAD_ZONES))
+        dimen=2, initialize=lambda m: set((z, "Legacy") for z in m.LOAD_ZONES)
+    )
     mod.existing_local_td = Param(mod.LOAD_ZONES, within=NonNegativeReals)
-    mod.min_data_check('existing_local_td')
+    mod.min_data_check("existing_local_td")
     mod.LOCAL_TD_BLD_YRS = Set(
         dimen=2,
         initialize=lambda m: set(
-            (m.LOAD_ZONES * m.PERIODS) | m.EXISTING_LOCAL_TD_BLD_YRS))
+            (m.LOAD_ZONES * m.PERIODS) | m.EXISTING_LOCAL_TD_BLD_YRS
+        ),
+    )
     mod.LOCAL_TD_BUILDS_IN_PERIOD = Set(
         mod.PERIODS,
         within=mod.LOCAL_TD_BLD_YRS,
         initialize=lambda m, p: set(
-            (z, bld_yr) for (z, bld_yr) in m.LOCAL_TD_BLD_YRS
-            if bld_yr <= p))
+            (z, bld_yr) for (z, bld_yr) in m.LOCAL_TD_BLD_YRS if bld_yr <= p
+        ),
+    )
 
     def bounds_BuildLocalTD(model, z, bld_yr):
-        if((z, bld_yr) in model.EXISTING_LOCAL_TD_BLD_YRS):
-            return (model.existing_local_td[z],
-                    model.existing_local_td[z])
+        if (z, bld_yr) in model.EXISTING_LOCAL_TD_BLD_YRS:
+            return (model.existing_local_td[z], model.existing_local_td[z])
         else:
             return (0, None)
+
     mod.BuildLocalTD = Var(
-        mod.LOCAL_TD_BLD_YRS,
-        within=NonNegativeReals,
-        bounds=bounds_BuildLocalTD)
+        mod.LOCAL_TD_BLD_YRS, within=NonNegativeReals, bounds=bounds_BuildLocalTD
+    )
     mod.LocalTDCapacity = Expression(
-        mod.LOAD_ZONES, mod.PERIODS,
+        mod.LOAD_ZONES,
+        mod.PERIODS,
         rule=lambda m, z, period: sum(
             m.BuildLocalTD[z, bld_yr]
             for (z2, bld_yr) in m.LOCAL_TD_BLD_YRS
-            if z2 == z and (bld_yr == 'Legacy' or bld_yr <= period)))
+            if z2 == z and (bld_yr == "Legacy" or bld_yr <= period)
+        ),
+    )
     mod.distribution_loss_rate = Param(default=0.053)
 
     mod.Meet_Local_TD = Constraint(
         mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS,
         rule=lambda m, z, period: (
-            m.LocalTDCapacity[z, period] >= 
-                m.zone_expected_coincident_peak_demand[z, period]/(1-m.distribution_loss_rate)))
-    mod.local_td_annual_cost_per_mw = Param(
-        mod.LOAD_ZONES,
-        within=PositiveReals)
-    mod.min_data_check('local_td_annual_cost_per_mw')
+            m.LocalTDCapacity[z, period]
+            >= m.zone_expected_coincident_peak_demand[z, period]
+            / (1 - m.distribution_loss_rate)
+        ),
+    )
+    mod.local_td_annual_cost_per_mw = Param(mod.LOAD_ZONES, within=PositiveReals)
+    mod.min_data_check("local_td_annual_cost_per_mw")
     mod.LocalTDFixedCosts = Expression(
         mod.PERIODS,
         doc="Summarize annual local T&D costs for the objective function.",
         rule=lambda m, p: sum(
             m.BuildLocalTD[z, bld_yr] * m.local_td_annual_cost_per_mw[z]
-            for (z, bld_yr) in m.LOCAL_TD_BUILDS_IN_PERIOD[p]))
-    mod.Cost_Components_Per_Period.append('LocalTDFixedCosts')
-
+            for (z, bld_yr) in m.LOCAL_TD_BUILDS_IN_PERIOD[p]
+        ),
+    )
+    mod.Cost_Components_Per_Period.append("LocalTDFixedCosts")
 
     # DISTRIBUTED NODE
     mod.WithdrawFromCentralGrid = Var(
         mod.ZONE_TIMEPOINTS,
         within=NonNegativeReals,
-        doc="Power withdrawn from a zone's central node sent over local T&D.")
+        doc="Power withdrawn from a zone's central node sent over local T&D.",
+    )
     mod.Enforce_Local_TD_Capacity_Limit = Constraint(
         mod.ZONE_TIMEPOINTS,
-        rule=lambda m, z, t:
-            m.WithdrawFromCentralGrid[z,t] <= m.LocalTDCapacity[z,m.tp_period[t]])
+        rule=lambda m, z, t: m.WithdrawFromCentralGrid[z, t]
+        <= m.LocalTDCapacity[z, m.tp_period[t]],
+    )
     mod.InjectIntoDistributedGrid = Expression(
         mod.ZONE_TIMEPOINTS,
         doc="Describes WithdrawFromCentralGrid after line losses.",
-        rule=lambda m, z, t: m.WithdrawFromCentralGrid[z,t] * (1-m.distribution_loss_rate))
+        rule=lambda m, z, t: m.WithdrawFromCentralGrid[z, t]
+        * (1 - m.distribution_loss_rate),
+    )
 
     # Register energy injections & withdrawals
-    mod.Zone_Power_Withdrawals.append('WithdrawFromCentralGrid')
-    mod.Distributed_Power_Injections.append('InjectIntoDistributedGrid')
+    mod.Zone_Power_Withdrawals.append("WithdrawFromCentralGrid")
+    mod.Distributed_Power_Injections.append("InjectIntoDistributedGrid")
 
 
 def define_dynamic_components(mod):
@@ -233,9 +248,13 @@ def define_dynamic_components(mod):
             sum(
                 getattr(m, component)[z, t]
                 for component in m.Distributed_Power_Injections
-            ) == sum(
+            )
+            == sum(
                 getattr(m, component)[z, t]
-                for component in m.Distributed_Power_Withdrawals)))
+                for component in m.Distributed_Power_Withdrawals
+            )
+        ),
+    )
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -251,6 +270,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     """
 
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'load_zones.tab'),
+        filename=os.path.join(inputs_dir, "load_zones.tab"),
         auto_select=True,
-        param=(mod.existing_local_td, mod.local_td_annual_cost_per_mw))
+        param=(mod.existing_local_td, mod.local_td_annual_cost_per_mw),
+    )
