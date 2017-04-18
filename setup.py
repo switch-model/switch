@@ -20,7 +20,7 @@ def read(*rnames):
 
 setup(
     name='switch_model',
-    version='2.0.0b1',
+    version='2.0.0b2',
     maintainer='Switch Authors',
     maintainer_email='authors@switch-model.org',
     url='http://switch-model.org',
