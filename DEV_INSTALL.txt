@@ -1,0 +1,70 @@
+ADVANCED INSTALLATION NOTES FOR DEVELOPERS AND ADVANCED USERS
+
+If you are prone to work with more than one version of switch, you will
+greatly benefit from python virtual environments which isolate your project's
+python software from other versions that may be installed on the computer.
+Software requirements and compatibilities change over time, sometimes in
+incompatible ways. Virtual environments also help developers ensure they have
+included all necessary dependencies in setup.py and aren't relying on
+mannually installed system libraries. Using virtual environments to
+encapsulate each project's customized software allows active and archived
+projects to coexist on a single computer. These instructions assume you have
+read INSTALL, have installed Anaconda (or equivalent), pip and solver
+prerequisites.
+
+INSTALLATION WITH PYTHON VIRTUAL ENVIRONMENTS FOR DEVELOPMENT
+
+1. Open either a terminal or Anaconda command prompt (Start -> Anaconda ->
+   Anaconda Prompt)
+
+2a. DEVELOPERS
+   Developers often work with switch example directories and don't necessarily
+   have a separate folder with inputs for analysis. In this case, the source
+   directory doubles as your project directory. Execute these commands, but
+   set PROJECT_DIR to the actual path you want to use.
+        PROJECT_DIR=/path/to/new/switch/checkout
+        SRC_DIR="$PROJECT_DIR"
+
+2b. ANALYSTS
+   Analysts typically have a directory per project that stores data for their
+   input scenarios as well as a copy of the code they are using. Execute these
+   commands, but set PROJECT_DIR to the actual path you want to use. 
+        PROJECT_DIR=/path/to/project/directory
+        SRC_DIR="$PROJECT_DIR"/switch_source
+
+   Note: If you are using one of Matthias's packaged scenarios with a
+   submodule or subtree, set SRC_DIR to that subfolder instead of doing a
+   fresh git checkout. In this case, skip step 3.
+
+3. Download a copy of switch
+        git clone https://github.com/switch-model/switch.git "$SRC_DIR"
+
+4. Create a virtual environment in your project directory, and install switch
+   and its prerequisites.
+        cd "$PROJECT_DIR"
+        pip install virtualenv
+        virtualenv venv
+        source venv/bin/activate
+        pip install --editable "$SRC_DIR"
+
+   Note: The --editable flag ensures that any changes to your downloaded copy
+   of switch will be immediately reflected to your installed copy in the
+   virtual environment.
+
+5. Record the exact version of every library you are using so you can 
+   precisely replicate this setup in the future. 
+        pip freeze > requirements.txt
+   Without this step, you are at higher risk of not being able to readily
+   repeat or extend this analysis, especially if future releases of libraries
+   are not completely backwards compatible (this has happened a few times in
+   the past few years).
+
+
+EXECUTION
+
+1. Open either a terminal or Anaconda command prompt (Start -> Anaconda ->
+   Anaconda Prompt) and navigate to your project directory.
+2. Activate your virtual environment with the following command:
+       source venv/bin/activate
+3. Execute switch like normal
+       switch solve ...
