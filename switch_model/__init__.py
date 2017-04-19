@@ -17,7 +17,7 @@ either operations.no_commit or operations.unitcommit.
 Most applications of Switch will also benefit from optional modules such as 
 transmission, local_td, reserves, etc.
 """
-__version__='2.0.0b2'
+__version__='2.0.0b3'
 core_modules = [
     'switch_model.timescales',
     'switch_model.financials',

@@ -4,11 +4,12 @@
 """Script to handle switch <cmd> calls from the command line."""
 
 import sys, os
+import switch_model
 
 # print "running {} as {}.".format(__file__, __name__)
 
 def main():
-    cmds = ["solve", "solve-scenarios", "test", "upgrade"]
+    cmds = ["solve", "solve-scenarios", "test", "upgrade", "--version"]
     if len(sys.argv) >= 2 and sys.argv[1] in cmds:
         # If users run a script from the command line, the location of the script
         # gets added to the start of sys.path; if they call a module from the 
@@ -23,6 +24,9 @@ def main():
         cmd = sys.argv[1]
         sys.argv[0] += " " + cmd
         del sys.argv[1]
+        if cmd == "--version":
+            print "Switch model version " + switch_model.__version__
+            return 0
         if cmd == "solve":
             from .solve import main
         elif cmd == "solve-scenarios":

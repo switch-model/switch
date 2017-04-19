@@ -14,13 +14,14 @@ Use "pip uninstall switch" to uninstall switch from your system.
 
 import os
 from setuptools import setup, find_packages
+import switch_model
 
 def read(*rnames):
     return open(os.path.join(os.path.dirname(__file__), *rnames)).read()
 
 setup(
     name='switch_model',
-    version='2.0.0b2',
+    version=switch_model.__version__,
     maintainer='Switch Authors',
     maintainer_email='authors@switch-model.org',
     url='http://switch-model.org',
