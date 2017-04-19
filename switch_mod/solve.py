@@ -46,7 +46,8 @@ def main(args=None, return_model=False, return_instance=False):
     parser = _ArgumentParser(allow_abbrev=False, add_help=False)
     add_module_args(parser)
     module_options = parser.parse_known_args(args=args)[0]
-    if do_inputs_need_upgrade(module_options.inputs_dir):
+    if(os.path.exists(module_options.inputs_dir) and
+       do_inputs_need_upgrade(module_options.inputs_dir)):
         do_upgrade = query_yes_no(
             ("Warning! Your inputs directory needs to be upgraded. "
              "Do you want to auto-upgrade now? We'll keep a backup of "
@@ -97,8 +98,8 @@ def main(args=None, return_model=False, return_instance=False):
     # create an instance
     instance = model.load_inputs()
     instance.pre_solve()
+    instantiation_time = time.time()
     if model.options.verbose:
-        instantiation_time = time.time()
         print "Inputs loaded in {:.2f} s.\n".format(instantiation_time - creation_time)
     
     # return the instance as-is if requested
@@ -113,6 +114,11 @@ def main(args=None, return_model=False, return_instance=False):
         import csv
         var_objects = [c for c in instance.component_objects()
             if isinstance(c,pyomo.core.base.Var)]
+        def _convert_if_numeric(s):
+            try:
+                return float(s)
+            except ValueError:
+                return s
         for var in var_objects:
             if '{}.tab'.format(var.name) not in os.listdir(model.options.outputs_dir):
                 raise RuntimeError("Tab output file for variable {} cannot be found in outputs directory. Exiting.".format(var.name))
@@ -120,13 +126,8 @@ def main(args=None, return_model=False, return_instance=False):
                 reader = csv.reader(f, delimiter='\t')
                 # skip headers
                 next(reader)
-                identified_floats = False
                 for row in reader:
-                    if not identified_floats:
-                        numeric_cols = [is_numeric(ind) for ind in row[:-1]]
-                        identified_floats = True
-                    index = tuple(float(i) if numeric_cols[col_ind] == True
-                                else i for col_ind, i in enumerate(row[:-1]))
+                    index = (_convert_if_numeric(i) for i in row[:-1])
                     var[index].value = float(row[-1])
             print 'Loaded variable {} values into instance.'.format(var.name)
         output_loading_time = time.time()
@@ -627,14 +628,6 @@ def query_yes_no(question, default="yes"):
         else:
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n').\n")
-
-
-def is_numeric(s):
-    try:
-        float(s)
-        return True
-    except ValueError:
-        return False
 
 
 ###############

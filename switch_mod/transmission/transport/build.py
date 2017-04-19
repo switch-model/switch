@@ -184,7 +184,7 @@ def define_components(mod):
     mod.BLD_YRS_FOR_EXISTING_TX = Set(
         dimen=2,
         initialize=lambda m: set(
-            (tx, 1000) for tx in m.TRANSMISSION_LINES))
+            (tx, 'Legacy') for tx in m.TRANSMISSION_LINES))
     mod.existing_trans_cap = Param(
         mod.TRANSMISSION_LINES,
         within=NonNegativeReals)
@@ -205,7 +205,7 @@ def define_components(mod):
         within=mod.BLD_YRS_FOR_TX,
         initialize=lambda m, p: set(
             (tx, bld_yr) for (tx, bld_yr) in m.BLD_YRS_FOR_TX
-            if bld_yr <= p and bld_yr != 1000))
+            if bld_yr == 'Legacy' or bld_yr <= p))
 
     def bounds_BuildTx(model, tx, bld_yr):
         if((tx, bld_yr) in model.BLD_YRS_FOR_EXISTING_TX):
@@ -222,7 +222,7 @@ def define_components(mod):
         rule=lambda m, tx, period: sum(
             m.BuildTx[tx, bld_yr]
             for (tx2, bld_yr) in m.BLD_YRS_FOR_TX
-            if tx2 == tx and bld_yr <= period))
+            if tx2 == tx and (bld_yr == 'Legacy' or bld_yr <= period)))
     mod.trans_derating_factor = Param(
         mod.TRANSMISSION_LINES,
         within=NonNegativeReals,
