@@ -205,7 +205,7 @@ def define_components(mod):
         within=mod.BLD_YRS_FOR_TX,
         initialize=lambda m, p: set(
             (tx, bld_yr) for (tx, bld_yr) in m.BLD_YRS_FOR_TX
-            if bld_yr == 'Legacy' or bld_yr <= p))
+            if bld_yr <= p))
 
     def bounds_BuildTx(model, tx, bld_yr):
         if((tx, bld_yr) in model.BLD_YRS_FOR_EXISTING_TX):
