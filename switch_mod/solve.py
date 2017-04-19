@@ -561,9 +561,9 @@ def solve(model):
         print "Solved model. Total time spent in solver: {:2f} s.".format(solve_end_time - solve_start_time)
     
     model.solutions.load_from(results)
-    
+
     # Only return if the model solved correctly, otherwise throw a useful error
-    if(results.solver.status == SolverStatus.ok and
+    if(results.solver.status == SolverStatus.ok and 
        results.solver.termination_condition == TerminationCondition.optimal):
         return results
     elif (results.solver.termination_condition == TerminationCondition.infeasible):
@@ -581,6 +581,7 @@ def solve(model):
         if model.options.solver == 'glpk' and results.solver.termination_condition == TerminationCondition.other:
             print "Hint: glpk has been known to classify infeasible problems as 'other'."
         raise RuntimeError("Solver failed to find an optimal solution.")
+
 
 # taken from https://software.sandia.gov/trac/pyomo/browser/pyomo/trunk/pyomo/opt/base/solvers.py?rev=10784
 # This can be removed when all users are on Pyomo 4.2
