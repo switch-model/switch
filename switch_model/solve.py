@@ -46,7 +46,8 @@ def main(args=None, return_model=False, return_instance=False):
     parser = _ArgumentParser(allow_abbrev=False, add_help=False)
     add_module_args(parser)
     module_options = parser.parse_known_args(args=args)[0]
-    if do_inputs_need_upgrade(module_options.inputs_dir):
+    if(os.path.exists(module_options.inputs_dir) and
+       do_inputs_need_upgrade(module_options.inputs_dir)):
         do_upgrade = query_yes_no(
             ("Warning! Your inputs directory needs to be upgraded. "
              "Do you want to auto-upgrade now? We'll keep a backup of "
@@ -76,6 +77,10 @@ def main(args=None, return_model=False, return_instance=False):
     if return_model and not return_instance:
         return model
 
+    if model.options.reload_prior_solution:
+        if not os.path.isdir(model.options.outputs_dir):
+            raise IOError("Specified outputs directory for solution exploration does not exist.")
+
     # get a list of modules to iterate through
     iterate_modules = get_iteration_list(model)
     
@@ -93,9 +98,9 @@ def main(args=None, return_model=False, return_instance=False):
     # create an instance
     instance = model.load_inputs()
     instance.pre_solve()
+    instantiation_time = time.time()
     if model.options.verbose:
-        instantiation_time = time.time()
-        print "Inputs loaded in {:.2f} s.".format(instantiation_time - creation_time)
+        print "Inputs loaded in {:.2f} s.\n".format(instantiation_time - creation_time)
     
     # return the instance as-is if requested
     if return_instance:
@@ -104,49 +109,73 @@ def main(args=None, return_model=False, return_instance=False):
         else:
             return instance
 
-    # make sure the outputs_dir exists (used by some modules during iterate)
-    # use a race-safe approach in case this code is run in parallel
-    try:
-        os.makedirs(instance.options.outputs_dir)
-    except OSError:
-        # directory probably exists already, but double-check
-        if not os.path.isdir(instance.options.outputs_dir):
-            raise
-
-    # solve the model
-    if iterate_modules:
-        if instance.options.verbose:
-            print "iterating model..."
-        iterate(instance, iterate_modules)
+    if model.options.reload_prior_solution:
+        # read variable values from previously solved model
+        import csv
+        var_objects = [c for c in instance.component_objects()
+            if isinstance(c,pyomo.core.base.Var)]
+        def _convert_if_numeric(s):
+            try:
+                return float(s)
+            except ValueError:
+                return s
+        for var in var_objects:
+            if '{}.tab'.format(var.name) not in os.listdir(model.options.outputs_dir):
+                raise RuntimeError("Tab output file for variable {} cannot be found in outputs directory. Exiting.".format(var.name))
+            with open(os.path.join(model.options.outputs_dir, '{}.tab'.format(var.name)),'r') as f:
+                reader = csv.reader(f, delimiter='\t')
+                # skip headers
+                next(reader)
+                for row in reader:
+                    index = (_convert_if_numeric(i) for i in row[:-1])
+                    var[index].value = float(row[-1])
+            print 'Loaded variable {} values into instance.'.format(var.name)
+        output_loading_time = time.time()
+        print 'Finished loading previous results into model instance in {:.2f} s.'.format(output_loading_time - instantiation_time)
     else:
-        results = solve(instance)
-        if instance.options.verbose:
-            print "Optimization termination condition was {}.\n".format(
-                results.solver.termination_condition)
-    
-    # report/save results
-    if instance.options.verbose:
-        post_solve_start_time = time.time()
-        print "Executing post solve functions..."
-    instance.post_solve()
-    if instance.options.verbose:
-        post_solve_end_time = time.time()
-        print "Post solve processing completed in {:.2f} s.".format(
-            post_solve_end_time - post_solve_start_time)
+        # make sure the outputs_dir exists (used by some modules during iterate)
+        # use a race-safe approach in case this code is run in parallel
+        try:
+            os.makedirs(model.options.outputs_dir)
+        except OSError:
+            # directory probably exists already, but double-check
+            if not os.path.isdir(model.options.outputs_dir):
+                raise
+
+        # solve the model
+        if iterate_modules:
+            if model.options.verbose:
+                print "Iterating model..."
+            iterate(instance, iterate_modules)
+        else:
+            results = solve(instance)
+            if model.options.verbose:
+                print "Optimization termination condition was {}.\n".format(
+                    results.solver.termination_condition)
+
+        # report/save results
+        if model.options.verbose:
+            post_solve_start_time = time.time()
+            print "Executing post solve functions..."
+        instance.post_solve()
+        if model.options.verbose:
+            post_solve_end_time = time.time()
+            print "Post solve processing completed in {:.2f} s.".format(
+                post_solve_end_time - post_solve_start_time)
 
     # return stdout to original
     sys.stdout = stdout_copy
 
-    if pre_module_options.interact:
+    if model.options.interact or model.options.reload_prior_solution:
         m = instance  # present the solved model as 'm' for convenience
         banner = (
             "\n"
-            "=================================================================================\n"
+            "=======================================================================\n"
             "Entering interactive Python shell.\n"
             "Abstract model is in 'model' variable; \n"
             "Solved instance is in 'instance' and 'm' variables.\n"
             "Type ctrl-d or exit() to exit shell.\n"
-            "=================================================================================\n"
+            "=======================================================================\n"
         )
         import code
         code.interact(banner=banner, local=dict(globals().items() + locals().items()))
@@ -331,6 +360,12 @@ def define_arguments(argparser):
     argparser.add_argument(
         '--verbose', '-v', default=False, action='store_true',
         help='Show information about model preparation and solution')
+    argparser.add_argument(
+        '--interact', default=False, action='store_true',
+        help='Enter interactive shell after solving the instance to enable inspection of the solved model.')
+    argparser.add_argument(
+        '--reload-prior-solution', default=False, action='store_true',
+        help='Load outputs from a previously solved instance into variable values to allow interactive exploration of model components without having to solve the instance again.')
 
 
 def add_module_args(parser):
@@ -362,8 +397,7 @@ def add_pre_module_args(parser):
                         help='Directory containing log files (default is "logs"')
     parser.add_argument("--debug", action="store_true", default=False,
                         help='Automatically start pdb debugger on exceptions')
-    parser.add_argument("--interact", action="store_true", default=False,
-                        help='Enter interactive shell after solving model (to inspect finished model).')
+
 
 def parse_pre_module_options(args):
     """
@@ -610,7 +644,6 @@ def query_yes_no(question, default="yes"):
         else:
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n').\n")
-
 
 
 ###############
