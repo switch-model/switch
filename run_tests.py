@@ -20,7 +20,7 @@ class TestLoader(unittest.TestLoader):
     # effects when imported.
     def discover(self, start_dir, pattern, top_level_dir):
         test_suite = unittest.TestSuite()
-        for subdir in ('switch_mod', 'tests'):
+        for subdir in ('switch_model', 'tests'):
             test_suite.addTests(
                 super(TestLoader, self).discover(
                     os.path.join(top_level_dir, subdir),

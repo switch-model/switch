@@ -65,14 +65,14 @@ scenario_list = [
 
 ###########################################################
 
-import switch_mod.utilities as utilities
-import switch_mod.solve
+import switch_model.utilities as utilities
+import switch_model.solve
 import sys, os
 from pyomo.environ import *
 
 print "creating model for scenario input generation..."
 
-module_list = switch_mod.solve.get_module_list(args=None)
+module_list = switch_model.solve.get_module_list(args=None)
 model = utilities.create_model(module_list)
 
 print "model successfully created..."

@@ -26,9 +26,9 @@ inputs_dir = "inputs"
 
 ###########################################################
 
-import switch_mod.utilities as utilities
-import switch_mod.financials as financials
-import switch_mod.solve
+import switch_model.utilities as utilities
+import switch_model.financials as financials
+import switch_model.solve
 import sys, os
 from pyomo.environ import *
 
@@ -36,9 +36,9 @@ print "loading model..."
 
 # Ideally, we would use the main codebase to generate the model, but the
 # mandatory switch argument parser is interferring with pysp's command line tools
-#model = switch_mod.solve.main(return_model=True)
+#model = switch_model.solve.main(return_model=True)
 
-module_list = switch_mod.solve.get_module_list(args=None)
+module_list = switch_model.solve.get_module_list(args=None)
 model = utilities.create_model(module_list, args=[])
 
 # The following code augments the model object with Expressions for the 

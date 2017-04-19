@@ -13,16 +13,16 @@ Use "pip uninstall switch" to uninstall switch from your system.
 """
 
 import os
-from setuptools import setup
+from setuptools import setup, find_packages
 
 def read(*rnames):
     return open(os.path.join(os.path.dirname(__file__), *rnames)).read()
 
 setup(
-    name='SWITCH',
-    version='2.0.0b1',
-    maintainer='Matthias Fripp',
-    maintainer_email='mfripp@hawaii.edu',
+    name='switch_model',
+    version='2.0.0b2',
+    maintainer='Switch Authors',
+    maintainer_email='authors@switch-model.org',
     url='http://switch-model.org',
     license='Apache v2',
     platforms=["any"],
@@ -44,7 +44,7 @@ setup(
     'Topic :: Scientific/Engineering',
     'Topic :: Software Development :: Libraries :: Python Modules'
     ],
-    packages=['switch_mod'],
+    packages=find_packages(include=['switch_model', 'switch_model.*']),
     keywords=[
         'renewable', 'power', 'energy', 'electricity', 
         'production cost', 'capacity expansion', 
@@ -52,15 +52,15 @@ setup(
     ],
     install_requires=[
         'Pyomo>=4.4.1', # We need a version that works with glpk 4.60+
-        'testfixtures'  # used for standard tests
+        'testfixtures', # used for standard tests
+        'pandas',       # used for input upgrades and testing that functionality
     ],
     extras_require={
         # packages used for advanced demand response, progressive hedging
-        # and input-file upgrades
-        'advanced': ['numpy', 'scipy', 'rpy2', 'sympy', 'pandas'],
+        'advanced': ['numpy', 'scipy', 'rpy2', 'sympy'],
         'database_access': ['psycopg2']
     },
     entry_points={
-        'console_scripts': ['switch = switch_mod.main:main']
+        'console_scripts': ['switch = switch_model.main:main']
     },
 )

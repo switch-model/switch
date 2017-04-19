@@ -92,7 +92,7 @@ def ph_rhosetter_callback(ph, scenario_tree, scenario):
         # I rolled my own compare tool for cost_coefficients because compare
         # insists on numeric equality, and the sympify's round-trip of
         # binary->text->binary results in slight rounding errors.
-        from switch_mod.utilities import approx_equal
+        from switch_model.utilities import approx_equal
         for vid in coefficients_pyomo.keys():
             assert(approx_equal(coefficients_sympify[vid], coefficients_pyomo[vid],
                                 tolerance=.000001))
