@@ -77,7 +77,7 @@ def main(args=None, return_model=False, return_instance=False):
     if return_model and not return_instance:
         return model
 
-    if model.options.explore_solution:
+    if model.options.reload_prior_solution:
         if not os.path.isdir(model.options.outputs_dir):
             raise IOError("Specified outputs directory for solution exploration does not exist.")
 
@@ -109,7 +109,7 @@ def main(args=None, return_model=False, return_instance=False):
         else:
             return instance
 
-    if model.options.explore_solution:
+    if model.options.reload_prior_solution:
         # read variable values from previously solved model
         import csv
         var_objects = [c for c in instance.component_objects()
@@ -166,7 +166,7 @@ def main(args=None, return_model=False, return_instance=False):
     # return stdout to original
     sys.stdout = stdout_copy
 
-    if model.options.interact or model.options.explore_solution:
+    if model.options.interact or model.options.reload_prior_solution:
         m = instance  # present the solved model as 'm' for convenience
         banner = (
             "\n"
@@ -362,7 +362,7 @@ def define_arguments(argparser):
         '--interact', default=False, action='store_true',
         help='Enter interactive shell after solving the instance to enable inspection of the solved model.')
     argparser.add_argument(
-        '--explore-solution', default=False, action='store_true',
+        '--reload-prior-solution', default=False, action='store_true',
         help='Load outputs from a previously solved instance into variable values to allow interactive exploration of model components without having to solve the instance again.')
 
 
@@ -560,18 +560,27 @@ def solve(model):
         solve_end_time = time.time()
         print "Solved model. Total time spent in solver: {:2f} s.".format(solve_end_time - solve_start_time)
     
-    # check for errors
     model.solutions.load_from(results)
-    if results.solver.termination_condition == pyomo.opt.TerminationCondition.infeasible:
+    
+    # Only return if the model solved correctly, otherwise throw a useful error
+    if(results.solver.status == SolverStatus.ok and
+       results.solver.termination_condition == TerminationCondition.optimal):
+        return results
+    elif (results.solver.termination_condition == TerminationCondition.infeasible):
         if hasattr(model, "iis"):
             print "Model was infeasible; irreducible infeasible set (IIS) returned by solver:"
-            print "\n".join(c.cname() for c in model.iis)
+            print "\n".join(c.name for c in model.iis)
         else:
             print "Model was infeasible; if the solver can generate an irreducible infeasible set,"
             print "more information may be available by calling this script with --suffixes iis ..."
         raise RuntimeError("Infeasible model")
-
-    return results
+    else:
+        print "Solver terminated abnormally."
+        print "  Solver Status: ", results.solver.status
+        print "  Termination Condition: ", results.solver.termination_condition
+        if model.options.solver == 'glpk' and results.solver.termination_condition == TerminationCondition.other:
+            print "Hint: glpk has been known to classify infeasible problems as 'other'."
+        raise RuntimeError("Solver failed to find an optimal solution.")
 
 # taken from https://software.sandia.gov/trac/pyomo/browser/pyomo/trunk/pyomo/opt/base/solvers.py?rev=10784
 # This can be removed when all users are on Pyomo 4.2
