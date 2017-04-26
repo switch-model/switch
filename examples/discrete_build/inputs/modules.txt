@@ -9,6 +9,6 @@ switch_model.generators.core.dispatch
 switch_model.reporting
 # Custom Modules
 switch_model.transmission.local_td
-switch_model.generators.core.proj_discrete_build
+switch_model.generators.core.gen_discrete_build
 switch_model.generators.core.no_commit
 switch_model.energy_sources.fuel_costs.markets
