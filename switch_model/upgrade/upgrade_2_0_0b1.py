@@ -103,7 +103,7 @@ rename_modules = {
     'switch_mod.trans_build': 'switch_mod.transmission.transport.build',
     'switch_mod.trans_dispatch': 'switch_mod.transmission.transport.dispatch',
     'switch_mod.project.build': 'switch_mod.generators.core.build',
-    'switch_mod.project.discrete_build': 'switch_mod.generators.core.proj_discrete_build',
+    'switch_mod.project.discrete_build': 'switch_mod.generators.core.gen_discrete_build',
     'switch_mod.project.dispatch': 'switch_mod.generators.core.dispatch',
     'switch_mod.project.no_commit': 'switch_mod.generators.core.no_commit',
     'switch_mod.project.unitcommit.commit': 'switch_mod.generators.core.commit.operate',
