@@ -19,6 +19,22 @@ dependencies = (
     'switch_model.generators.core.build', 'switch_model.generators.core.dispatch'
 )
 
+def _min_up_tp_window(m, g, tp):
+    """
+    how many timepoints must the project stay on once it's started?
+    note: StartupGenCapacity and ShutdownGenCapacity are assumed to occur
+    at the start of the timepoint        
+    """
+    return int(round(m.gen_min_uptime[g] / m.ts_duration_of_tp[m.tp_ts[tp]]))
+def _min_down_tp_window(m, g, tp):
+    """
+    how many timepoints must the project stay off once it's shutdown?
+    note: StartupGenCapacity and ShutdownGenCapacity are assumed to occur
+    at the start of the timepoint        
+    """
+    return int(round(m.gen_min_downtime[g] / m.ts_duration_of_tp[m.tp_ts[tp]]))
+
+
 def define_components(mod):
     """
 
@@ -291,73 +307,45 @@ def define_components(mod):
         default=0.0)
     mod.UPTIME_CONSTRAINED_GEN_TPS = Set(dimen=2, initialize=lambda m: [
         (g, tp) 
-            for g in m.GENERATION_PROJECTS if m.gen_min_uptime[g] > 0.0
-                for tp in m.TPS_FOR_GEN[g] 
+        for g in m.GENERATION_PROJECTS 
+            if m.gen_min_uptime[g] > 0.0
+            for tp in m.TPS_FOR_GEN[g]
+                if _min_up_tp_window(m, g ,tp) >= 0
     ])
     mod.DOWNTIME_CONSTRAINED_GEN_TPS = Set(dimen=2, initialize=lambda m: [
         (g, tp) 
-            for g in m.GENERATION_PROJECTS if m.gen_min_downtime[g] > 0.0
-                for tp in m.TPS_FOR_GEN[g] 
+        for g in m.GENERATION_PROJECTS 
+            if m.gen_min_downtime[g] > 0.0
+            for tp in m.TPS_FOR_GEN[g] 
+                if _min_down_tp_window(m, g, tp) >= 0
     ])
     
     def tp_prev(m, tp, n=1):
         # find nth previous timepoint, wrapping from start to end of day
         return m.TPS_IN_TS[m.tp_ts[tp]].prevw(tp, n)
-    # min_time_projects = set()
-    def min_time_rule(m, g, tp, up):
-        """ This uses a simple rule: all capacity turned on in the last x
-        hours must still be on now (or all capacity recently turned off
-        must still be off)."""
-        
-        # how many timepoints must the project stay on/off once it's
-        # started/shutdown?
-        # note: StartupGenCapacity and ShutdownGenCapacity are assumed to occur at the start of 
-        # the timepoint
-        n_tp = int(round(
-            (m.gen_min_uptime[g] if up else m.gen_min_downtime[g])
-            / m.ts_duration_of_tp[m.tp_ts[tp]]
-        ))
-        if n_tp == 0:
-            # project can be shutdown and restarted in the same timepoint
-            rule = Constraint.Skip
-        else:
-            # note: this rule stops one short of n_tp steps back (normal
-            # behavior of range()), because the current timepoint is
-            # included in the duration when the capacity will be on/off.
-            if up:
-                rule = (    
-                    # online capacity >= recent startups 
-                    # (all recent startups are still online)
-                    m.CommitGen[g, tp] 
-                    >= 
-                    sum(m.StartupGenCapacity[g, tp_prev(m, tp, i)] for i in range(n_tp))
-                )
-            else:
-                # Find the largest fraction of capacity that could have
-                # been committed in the last x hours, including the
-                # current hour. We assume that everything above this band
-                # must remain turned off (e.g., on maintenance outage). 
-                # Note: this band extends one step prior to the first
-                # relevant shutdown, since that capacity could have been
-                # online in the prior step.
-                committable_fraction = m.gen_availability[g] * max(
-                    m.gen_max_commit_fraction[g, tp_prev(m, tp, i)] 
-                        for i in range(n_tp+1)
-                )
-                rule = (    
-                    # committable capacity - committed >= recent shutdowns
-                    # (all recent shutdowns are still offline)
-                    m.GenCapacityInTP[g, tp] * committable_fraction
-                    - m.CommitGen[g, tp] 
-                    >= 
-                    sum(m.ShutdownGenCapacity[g, tp_prev(m, tp, i)] for i in range(n_tp))
-                )
-        return rule
     mod.Enforce_Min_Uptime = Constraint(
-        mod.UPTIME_CONSTRAINED_GEN_TPS, rule=lambda *a: min_time_rule(*a, up=True)
+        mod.UPTIME_CONSTRAINED_GEN_TPS, 
+        doc="All capacity turned on in the last x hours must still be on now",
+        rule=lambda m, g, tp: (
+            m.CommitGen[g, tp]
+            >= 
+            sum(m.StartupGenCapacity[g, tp_prev(m, tp, i)] 
+                for i in range(_min_up_tp_window(m, g ,tp))
+            )
+        )
     )
     mod.Enforce_Min_Downtime = Constraint(
-        mod.DOWNTIME_CONSTRAINED_GEN_TPS, rule=lambda *a: min_time_rule(*a, up=False)
+        mod.DOWNTIME_CONSTRAINED_GEN_TPS, 
+        doc=("All recently shutdown capacity remains offline: "
+             "committed <= committable capacity - recent shutdowns"),
+        rule=lambda m, g, tp: (
+            m.CommitGen[g, tp] 
+            <= 
+            m.CommitUpperLimit[g, tp]
+            - sum(m.ShutdownGenCapacity[g, tp_prev(m, tp, i)] 
+                  for i in range(_min_down_tp_window(m, g, tp))
+            )
+        )
     )
     
     # Dispatch limits relative to committed capacity.
