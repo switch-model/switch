@@ -378,9 +378,12 @@ def check_mandatory_components(model, *mandatory_model_components):
                     format(component_name))
         elif o_class == 'IndexedParam':
             if len(obj) != len(obj._index):
+            	missing_index_elements = [v for v in set(obj._index) - set( obj.sparse_keys())]
                 raise ValueError(
-                    ("Values are not provided for every element of " +
-                     "the mandatory parameter '{}'").format(component_name))
+                    ("Values are not provided for every element of the "
+                     "mandatory parameter '{}'. "
+                     "Missing data for {} values, including: {}"
+                    ).format(component_name, len(missing_index_elements), missing_index_elements[:10]))
         elif o_class == 'IndexedSet':
             if len(obj) != len(obj._index):
                 raise ValueError(

@@ -106,7 +106,7 @@ def define_components(mod):
     transmission model transmission data. At the end of this time,
     we assume transmission lines will be rebuilt at the same cost.
 
-    trans_fixed_o_m_fraction is describes the fixed Operations and
+    trans_fixed_om_fraction is describes the fixed Operations and
     Maintenance costs as a fraction of capital costs. This optional
     parameter defaults to 0.03 based on 2009 WREZ transmission model
     transmission data costs for existing transmission maintenance.
@@ -243,7 +243,7 @@ def define_components(mod):
     mod.trans_lifetime_yrs = Param(
         within=PositiveReals,
         default=20)
-    mod.trans_fixed_o_m_fraction = Param(
+    mod.trans_fixed_om_fraction = Param(
         within=PositiveReals,
         default=0.03)
     # Total annual fixed costs for building new transmission lines...
@@ -256,7 +256,7 @@ def define_components(mod):
         initialize=lambda m, tx: (
             m.trans_capital_cost_per_mw_km * m.trans_terrain_multiplier[tx] *
             m.trans_length_km[tx] * (crf(m.interest_rate, m.trans_lifetime_yrs) +
-                m.trans_fixed_o_m_fraction)))
+                m.trans_fixed_om_fraction)))
     # An expression to summarize annual costs for the objective
     # function. Units should be total annual future costs in $base_year
     # real dollars. The objective function will convert these to
@@ -321,7 +321,7 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     trans_params.dat
         trans_capital_cost_per_mw_km, trans_lifetime_yrs,
-        trans_fixed_o_m_fraction, distribution_loss_rate
+        trans_fixed_om_fraction, distribution_loss_rate
 
 
     """
