@@ -32,6 +32,9 @@ from switch_model.utilities import (
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 
+# paty's adition for debugging:
+from IPython import embed
+
 
 def main(args=None, return_model=False, return_instance=False):
 
