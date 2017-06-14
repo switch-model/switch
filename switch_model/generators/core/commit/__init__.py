@@ -10,5 +10,6 @@ module is optional and enforces discrete unit commitment.
 
 """
 core_modules = [
-    'switch_model.generators.core.commit.operate',
-    'switch_model.generators.core.commit.fuel_use']
+    "switch_model.generators.core.commit.operate",
+    "switch_model.generators.core.commit.fuel_use",
+]

@@ -9,9 +9,15 @@ module which constrains dispatch to unit commitment decisions.
 
 from pyomo.environ import *
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
-    'switch_model.financials', 'switch_model.energy_sources.properties.properties', \
-    'switch_model.generators.core.build', 'switch_model.generators.core.dispatch'
+dependencies = (
+    "switch_model.timescales",
+    "switch_model.balancing.load_zones",
+    "switch_model.financials",
+    "switch_model.energy_sources.properties.properties",
+    "switch_model.generators.core.build",
+    "switch_model.generators.core.dispatch",
+)
+
 
 def define_components(mod):
     """
@@ -56,46 +62,51 @@ def define_components(mod):
 
     """
 
-    # NOTE: DispatchBaseloadByPeriod should eventually be replaced by 
+    # NOTE: DispatchBaseloadByPeriod should eventually be replaced by
     # an "ActiveCapacityDuringPeriod" decision variable that applies to all
     # projects. This should be constrained
-    # based on the amount of installed capacity each period, and then 
+    # based on the amount of installed capacity each period, and then
     # DispatchUpperLimit and DispatchLowerLimit should be calculated
-    # relative to ActiveCapacityDuringPeriod. Fixed O&M (but not capital 
+    # relative to ActiveCapacityDuringPeriod. Fixed O&M (but not capital
     # costs) should be calculated based on ActiveCapacityDuringPeriod.
     # This would allow mothballing (and possibly restarting) projects.
 
     # Choose flat operating level for baseload plants during each period
     # (not necessarily running all available capacity)
-    # Note: this is unconstrained, because other constraints limit project 
+    # Note: this is unconstrained, because other constraints limit project
     # dispatch during each timepoint and therefore the level of this variable.
     mod.DispatchBaseloadByPeriod = Var(mod.BASELOAD_GENS, mod.PERIODS)
-    
+
     def DispatchUpperLimit_expr(m, g, t):
         if g in m.VARIABLE_GENS:
-            return (m.GenCapacityInTP[g, t] * m.gen_availability[g] *
-                    m.gen_max_capacity_factor[g, t])
+            return (
+                m.GenCapacityInTP[g, t]
+                * m.gen_availability[g]
+                * m.gen_max_capacity_factor[g, t]
+            )
         else:
             return m.GenCapacityInTP[g, t] * m.gen_availability[g]
-    mod.DispatchUpperLimit = Expression(
-        mod.GEN_TPS,
-        rule=DispatchUpperLimit_expr)
+
+    mod.DispatchUpperLimit = Expression(mod.GEN_TPS, rule=DispatchUpperLimit_expr)
 
     mod.Enforce_Dispatch_Baseload_Flat = Constraint(
         mod.GEN_TPS,
-        rule=lambda m, g, t: 
-            (m.DispatchGen[g, t] == m.DispatchBaseloadByPeriod[g, m.tp_period[t]])
-                if g in m.BASELOAD_GENS
-            else Constraint.Skip)
+        rule=lambda m, g, t: (
+            m.DispatchGen[g, t] == m.DispatchBaseloadByPeriod[g, m.tp_period[t]]
+        )
+        if g in m.BASELOAD_GENS
+        else Constraint.Skip,
+    )
 
     mod.Enforce_Dispatch_Upper_Limit = Constraint(
         mod.GEN_TPS,
-        rule=lambda m, g, t: (
-            m.DispatchGen[g, t] <= m.DispatchUpperLimit[g, t]))
+        rule=lambda m, g, t: (m.DispatchGen[g, t] <= m.DispatchUpperLimit[g, t]),
+    )
 
     mod.GenFuelUseRate_Calculate = Constraint(
         mod._FUEL_BASED_GEN_TPS,
         rule=lambda m, g, t: (
-            sum(m.GenFuelUseRate[g, t, f] 
-                for f in m.FUELS_FOR_GEN[g])
-            == m.DispatchGen[g, t] * m.gen_full_load_heat_rate[g]))
+            sum(m.GenFuelUseRate[g, t, f] for f in m.FUELS_FOR_GEN[g])
+            == m.DispatchGen[g, t] * m.gen_full_load_heat_rate[g]
+        ),
+    )

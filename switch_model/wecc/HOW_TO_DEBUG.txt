@@ -1,0 +1,14 @@
+ONE ROUTE FOR DEBUGGING SWITCH
+
+example:
+for i in instance.HYDRO_GENS: print(i)
+instance.hydro_avg_flow_mw[5000000, '2022_Winter_day']
+
+constraints:
+print instance.Enforce_Dispatch_Upper_Limit[5000000,105944]
+print(model.Enforce_Dispatch_Upper_Limit[5000000,105944].expr) # shows evaluated 
+print(model.Enforce_Hydro_Min_Flow[5000000,105944].expr)
+
+problems:
+Enforce_Dispatch_Upper_Limit[5000000,105944]
+Enforce_Hydro_Min_Flow[5000000,105944]

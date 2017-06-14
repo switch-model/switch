@@ -10,6 +10,9 @@ import pyomo.version
 from switch_model.utilities import create_model, _ArgumentParser, Logging
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 
+#paty's adition for debugging:
+from IPython import embed
+
 
 def main(args=None, return_model=False, return_instance=False):
 
@@ -101,6 +104,9 @@ def main(args=None, return_model=False, return_instance=False):
     instantiation_time = time.time()
     if model.options.verbose:
         print "Inputs loaded in {:.2f} s.\n".format(instantiation_time - creation_time)
+        
+    #Paty's addition for debugging:
+    #embed()
     
     # return the instance as-is if requested
     if return_instance:
@@ -152,7 +158,9 @@ def main(args=None, return_model=False, return_instance=False):
             if model.options.verbose:
                 print "Optimization termination condition was {}.\n".format(
                     results.solver.termination_condition)
-
+		#Paty's addition for debugging:
+    	#embed()
+    
         # report/save results
         if model.options.verbose:
             post_solve_start_time = time.time()
@@ -567,6 +575,8 @@ def solve(model):
         print "Solved model. Total time spent in solver: {:2f} s.".format(solve_end_time - solve_start_time)
 
     model.solutions.load_from(results)
+# Paty's addition for debugging:
+    embed()
 
     # Only return if the model solved correctly, otherwise throw a useful error
     if(results.solver.status == SolverStatus.ok and
