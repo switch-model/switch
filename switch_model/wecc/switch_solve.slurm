@@ -15,12 +15,12 @@
 # Tasks per node
 #SBATCH --ntasks-per-node=1
 # CPU's per task
-#SBATCH --cpus-per-task=1
+#SBATCH --cpus-per-task=6
 # Email notification
 #SBATCH --mail-type=all
 #SBATCH --mail-user=patricia.hidalgo.g@berkeley.edu
 # Node requirements
-#SBATCH --mem-per-cpu=30G
+#SBATCH --mem-per-cpu=20G
 # Log file paths
 #SBATCH --output=logs/load_solve-%j.log
 #SBATCH --error=logs/load_solve-%j.err
