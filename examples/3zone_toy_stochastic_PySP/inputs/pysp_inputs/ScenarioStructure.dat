@@ -34,14 +34,14 @@ param ScenarioLeafNode :=
     Scenario_HighFuelCosts HighFuelCosts;
 
 set StageVariables[Investment] := 
-    BuildProj[*,*]
+    BuildGen[*,*]
     BuildLocalTD[*,*]
-    BuildTrans[*,*]
+    BuildTx[*,*]
 ;
 
 set StageVariables[Operation] := 
-    DispatchProj[*,*]
-    ProjFuelUseRate[*,*,*]
+    DispatchGen[*,*]
+    GenFuelUseRate[*,*,*]
 ;
 
 param StageCost := 

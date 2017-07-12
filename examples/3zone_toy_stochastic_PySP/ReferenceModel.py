@@ -53,14 +53,13 @@ model = utilities.create_model(module_list, args=[])
 # be called from this script.
 
 def calc_tp_costs_in_period(m, t):
-        return sum(
-            getattr(m, tp_cost)[t] * m.tp_weight_in_year[t]
-            for tp_cost in m.cost_components_tp)
-
+	return sum(
+		getattr(m, tp_cost)[t] * m.tp_weight_in_year[t]
+		for tp_cost in m.Cost_Components_Per_TP)
 def calc_annual_costs_in_period(m, p):
-        return sum(
-            getattr(m, annual_cost)[p]
-            for annual_cost in m.cost_components_annual)
+	return sum(
+		getattr(m, annual_cost)[p]
+		for annual_cost in m.Cost_Components_Per_Period)
 
 # In the current version of Switch-Pyomo, all annual costs are defined 
 # by First Stage decision variables, such as fixed O&M and capital 
@@ -74,12 +73,13 @@ def calc_annual_costs_in_period(m, p):
 # Further comments on this are written in the Readme file.
 
 model.InvestmentCost = Expression(rule=lambda m: sum(
-                calc_annual_costs_in_period(m, p) * financials.uniform_series_to_present_value(
-                m.discount_rate, m.period_length_years[p]) * financials.future_to_present_value(
-                m.discount_rate, (m.period_start[p] - m.base_financial_year)) for p in m.PERIODS))
-model.OperationCost = Expression(rule=lambda m: sum(
-                sum(calc_tp_costs_in_period(m, t) for t in m.PERIOD_TPS[p]) * financials.uniform_series_to_present_value(
-                m.discount_rate, m.period_length_years[p]) * financials.future_to_present_value(
-                m.discount_rate, (m.period_start[p] - m.base_financial_year)) for p in m.PERIODS))
+                calc_annual_costs_in_period(m, p) * m.bring_annual_costs_to_base_year[p]
+                for p in m.PERIODS))
+
+model.OperationCost = Expression(rule=lambda m: 
+	sum(
+		sum(calc_tp_costs_in_period(m, t) for t in m.TPS_IN_PERIOD[p]
+		   ) * m.bring_annual_costs_to_base_year[p]
+	for p in m.PERIODS))
 
 print "model successfully loaded..."

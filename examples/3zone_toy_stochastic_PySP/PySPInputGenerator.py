@@ -56,8 +56,8 @@ pysp_subdir = "pysp_inputs"
 # Stage names. Can be any string and must be specified in order.
 stage_list = ["Investment", "Operation"]   
 stage_vars = {
-    "Investment": ["BuildProj", "BuildLocalTD", "BuildTrans"],
-    "Operation": ["DispatchProj", "ProjFuelUseRate"]
+    "Investment": ["BuildGen", "BuildLocalTD", "BuildTx"],
+    "Operation": ["DispatchGen", "GenFuelUseRate"]
 }
 # List of scenario names
 scenario_list = [
