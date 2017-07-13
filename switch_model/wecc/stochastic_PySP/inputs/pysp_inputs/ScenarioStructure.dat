@@ -1,0 +1,50 @@
+param ScenarioBasedData := False ;
+
+set Stages := Investment Operation;
+
+set Nodes := RootNode 
+    LowFuelCosts
+    MediumFuelCosts
+    HighFuelCosts;
+
+param NodeStage := RootNode Investment
+    LowFuelCosts Operation
+    MediumFuelCosts Operation
+    HighFuelCosts Operation
+;
+
+set Children[RootNode] := 
+    LowFuelCosts
+    MediumFuelCosts
+    HighFuelCosts;
+
+param ConditionalProbability := RootNode 1.0
+    LowFuelCosts 0.333333333333
+    MediumFuelCosts 0.333333333333
+    HighFuelCosts 0.333333333333;
+
+set Scenarios :=  
+    Scenario_LowFuelCosts
+    Scenario_MediumFuelCosts
+    Scenario_HighFuelCosts;
+
+param ScenarioLeafNode := 
+    Scenario_LowFuelCosts LowFuelCosts
+    Scenario_MediumFuelCosts MediumFuelCosts
+    Scenario_HighFuelCosts HighFuelCosts;
+
+set StageVariables[Investment] := 
+    BuildGen[*,*]
+    BuildLocalTD[*,*]
+    BuildTx[*,*]
+;
+
+set StageVariables[Operation] := 
+    DispatchGen[*,*]
+    GenFuelUseRate[*,*,*]
+;
+
+param StageCost := 
+    Investment InvestmentCost
+    Operation OperationCost
+;
