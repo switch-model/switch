@@ -1,0 +1,18 @@
+param fuel_cost := 
+ Central BioSolid 2030 15
+ North Coal 2030 4.0
+ North NaturalGas 2020 10.0
+ South NaturalGas 2020 10.0
+ North BioSolid 2030 15
+ Central Coal 2030 4.0
+ Central NaturalGas 2020 10.0
+ South BioSolid 2030 15
+ North Coal 2020 3.6
+ North NaturalGas 2030 1.5
+ Central BioSolid 2020 1.5
+ South BioSolid 2020 1.5
+ Central Coal 2020 3.6
+ Central NaturalGas 2030 1.5
+ North BioSolid 2020 1.5
+ South NaturalGas 2030 1.5
+;
