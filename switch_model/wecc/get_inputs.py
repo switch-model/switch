@@ -376,9 +376,9 @@ def main():
 	
 	#Pyomo will raise an error if a capacity factor is defined for a project on a timepoint when it is no longer operational (i.e. Canela 1 was built on 2007 and has a 30 year max age, so for tp's ocurring later than 2037, its capacity factor must not be written in the table).
 	
-	if False:
-		print '  variable_capacity_factors.tab...'
-		db_cursor.execute(("""select project_id, raw_timepoint_id, cap_factor  
+	
+	print '  variable_capacity_factors.tab...'
+	db_cursor.execute(("""select project_id, raw_timepoint_id, cap_factor  
 						FROM temp_ampl_study_timepoints 
 						JOIN temp_load_scenario_historic_timepoints USING(timepoint_id)
 						JOIN temp_variable_capacity_factors_historical ON(historic_hour=hour)
@@ -411,7 +411,7 @@ def main():
 						WHERE t.study_timeframe_id={id}
 						order by 1,2;
 						""").format(id=study_timeframe_id))
-		write_tab('variable_capacity_factors',['GENERATION_PROJECT','timepoint','gen_max_capacity_factor'],db_cursor)
+	write_tab('variable_capacity_factors',['GENERATION_PROJECT','timepoint','gen_max_capacity_factor'],db_cursor)
 	
 	########################################################
 	# HYDROPOWER
@@ -425,7 +425,7 @@ def main():
 # 					where hydro_simple_scenario_id={id1}
 # 					and study_timeframe_id = {id2};
 # 					""").format(timeseries_id_select=timeseries_id_select, id1=hydro_simple_scenario_id, id2=study_timeframe_id))
-	# Work-around for hydro plants having 100% capacity factors in a month, which exceeds their 
+	# Work-around for some hydro plants having 100% capacity factors in a month, which exceeds their 
 	# standard maintenance derating of 5%. These conditions arise periodically with individual hydro
 	# units, but rarely or never for virtual hydro units that aggregate all hydro in a zone or 
 	# zone + watershed. Eventually, we may rethink this derating, but it is a reasonable 
