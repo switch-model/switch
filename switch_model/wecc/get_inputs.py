@@ -314,7 +314,7 @@ def main():
 	#        gen_ccs_capture_efficiency, 
 	#        gen_is_distributed
 	print '  generation_projects_info.tab...'
-	db_cursor.execute(
+	db_cursor.execute((
 		"""select 
 				generation_plant_id, 
 				gen_tech, 
@@ -334,17 +334,22 @@ def main():
 				is_cogen as gen_is_cogen
 			from generation_plant as t
 			join load_zone as t2 using(load_zone_id)
+			join generation_plant_scenario_member using(generation_plant_id)
+			where generation_plant_scenario_id={id1}
 			order by gen_dbid;
-					""" ) 
+					""").format(id1=generation_plant_scenario_id)) 
+					
 	write_tab('generation_projects_info',['GENERATION_PROJECT','gen_tech','gen_energy_source','gen_load_zone','gen_max_age','gen_is_variable','gen_is_baseload','gen_full_load_heat_rate','gen_variable_om','gen_connect_cost_per_mw','gen_dbid','gen_scheduled_outage_rate','gen_forced_outage_rate','gen_capacity_limit_mw', 'gen_min_build_capacity', 'gen_is_cogen'],db_cursor)
 	
 	print '  gen_build_predetermined.tab...'
-	db_cursor.execute("""select generation_plant_id, build_year, capacity as gen_predetermined_cap  
+	db_cursor.execute(("""select generation_plant_id, build_year, capacity as gen_predetermined_cap  
 					from generation_plant_existing_and_planned 
-					join generation_plant as t using(generation_plant_id)  
-					where generation_plant_existing_and_planned_scenario_id=%s
+					join generation_plant as t using(generation_plant_id)
+					join generation_plant_scenario_member using(generation_plant_id)
+					where generation_plant_scenario_id={id1}
+					and generation_plant_existing_and_planned_scenario_id={id2}
 					;
-				""" % (generation_plant_existing_and_planned_scenario_id))
+				""").format(id1=generation_plant_scenario_id, id2=generation_plant_existing_and_planned_scenario_id)) 
 	write_tab('gen_build_predetermined',['GENERATION_PROJECT','build_year','gen_predetermined_cap'],db_cursor)
 	
 	print '  gen_build_costs.tab...'
@@ -355,11 +360,13 @@ def main():
 					from generation_plant_cost 
 					JOIN generation_plant using(generation_plant_id) 
 					JOIN period on(build_year>=start_year and build_year<=end_year)
-					where period.study_timeframe_id={id1} 
+					join generation_plant_scenario_member using(generation_plant_id)
+					where generation_plant_scenario_id={id3} 
+					and period.study_timeframe_id={id1} 
 					and generation_plant_cost.generation_plant_cost_scenario_id={id2}
 					group by 1,2
 					order by 1,2;
-					""").format(id1=study_timeframe_id, id2=generation_plant_cost_scenario_id)) 
+					""").format(id1=study_timeframe_id, id2=generation_plant_cost_scenario_id, id3=generation_plant_scenario_id)) 
 	write_tab('gen_build_costs',['GENERATION_PROJECT','build_year','gen_overnight_cost','gen_fixed_om'],db_cursor)
 	
 	########################################################
@@ -439,9 +446,11 @@ def main():
 			join sampled_timeseries on(month = date_part('month', first_timepoint_utc))
 			join generation_plant_existing_and_planned using(generation_plant_id)
 			join generation_plant using(generation_plant_id)
-		where hydro_simple_scenario_id={id1}
+			join generation_plant_scenario_member using(generation_plant_id)
+		where generation_plant_scenario_id = {id3} 
+		and hydro_simple_scenario_id={id1}
 			and study_timeframe_id = {id2};
-		""").format(timeseries_id_select=timeseries_id_select, id1=hydro_simple_scenario_id, id2=study_timeframe_id))
+		""").format(timeseries_id_select=timeseries_id_select, id1=hydro_simple_scenario_id, id2=study_timeframe_id, id3=generation_plant_scenario_id))
 	write_tab('hydro_timeseries',['hydro_project','timeseries','hydro_min_flow_mw', 'hydro_avg_flow_mw'],db_cursor)
 	
 	########################################################
