@@ -49,6 +49,9 @@ scenario_list should be modified to reflect those changes.
 """
 # Inputs directory relative to the location of this script.
 inputs_dir = "inputs"
+inputs_dir1 = "inputs1"
+inputs_dir2 = "inputs2"
+inputs_dir3 = "inputs3"
 # ScenarioStructure.dat and RootNode.dat will be saved to a
 # subdirectory in the inputs folder.
 pysp_subdir = "pysp_inputs"
@@ -56,12 +59,12 @@ pysp_subdir = "pysp_inputs"
 # Stage names. Can be any string and must be specified in order.
 stage_list = ["Investment", "Operation"]   
 stage_vars = {
-    "Investment": ["BuildGen", "BuildLocalTD", "BuildTx"],
+    "Investment": ["BuildGen", "BuildTx"], # Paty: deleted  "BuildLocalTD"
     "Operation": ["DispatchGen", "GenFuelUseRate"]
 }
 # List of scenario names
 scenario_list = [
-    "LowFuelCosts", "MediumFuelCosts", "HighFuelCosts"]
+    "Hydro1", "Hydro2", "Hydro3"]
 
 ###########################################################
 
@@ -77,8 +80,20 @@ model = utilities.create_model(module_list)
 
 print "model successfully created..."
 
-print "loading inputs into model..."
+print "loading base inputs into model..."
 instance = model.load_inputs(inputs_dir=inputs_dir)
+print "inputs successfully loaded..."
+
+print "loading inputs from scenario 1 into model..."
+instance1 = model.load_inputs(inputs_dir=inputs_dir1)
+print "inputs successfully loaded..."
+
+print "loading inputs from scenario 2 into model..."
+instance2 = model.load_inputs(inputs_dir=inputs_dir2)
+print "inputs successfully loaded..."
+
+print "loading inputs from scenario 3 into model..."
+instance3 = model.load_inputs(inputs_dir=inputs_dir3)
 print "inputs successfully loaded..."
       
 def save_dat_files():
@@ -90,10 +105,34 @@ def save_dat_files():
     # RootNode.dat
 
     dat_file = os.path.join(inputs_dir, pysp_subdir, "RootNode.dat")
-    print "creating and saving {}...".format(dat_file)
+    print "creating and saving base {}...".format(dat_file)
     utilities.save_inputs_as_dat(model, instance, save_path=dat_file,
         sorted_output=model.options.sorted_output)
-    
+        
+    ##############
+    # Hydro1.dat
+
+    dat_file = os.path.join(inputs_dir, pysp_subdir, "Hydro1.dat")
+    print "creating and saving scenario 1 {}...".format(dat_file)
+    utilities.save_inputs_as_dat(model, instance1, save_path=dat_file,
+        sorted_output=model.options.sorted_output)
+
+    ##############
+    # Hydro2.dat
+
+    dat_file = os.path.join(inputs_dir, pysp_subdir, "Hydro2.dat")
+    print "creating and saving scenario 2 {}...".format(dat_file)
+    utilities.save_inputs_as_dat(model, instance2, save_path=dat_file,
+        sorted_output=model.options.sorted_output)
+        
+    ##############
+    # Hydro3.dat
+
+    dat_file = os.path.join(inputs_dir, pysp_subdir, "Hydro3.dat")
+    print "creating and saving scenario 3 {}...".format(dat_file)
+    utilities.save_inputs_as_dat(model, instance3, save_path=dat_file,
+        sorted_output=model.options.sorted_output)
+        
     #######################
     # ScenarioStructure.dat
 
@@ -102,7 +141,7 @@ def save_dat_files():
 
     with open(scen_file, "w") as f:
         # Data will be defined in a Node basis to avoid redundancies
-        f.write("param ScenarioBasedData := False ;\n\n")
+        f.write("param ScenarioBasedData := True ;\n\n")
         
         f.write("set Stages :=")
         for st in stage_list:
