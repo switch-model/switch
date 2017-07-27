@@ -116,6 +116,14 @@ execute the following command from the /3zone_toy_stochastic_PySP directory:
         --solver=glpk --output-solver-log --output-times --traceback \
         --solution-writer=pyomo.pysp.plugins.csvsolutionwriter
 
+If you would like to export complete results from all the scenarios using post_solve 
+from the modules loaded in your model, run this command:
+
+    >>>runef --model-directory=. --instance-directory=inputs/pysp_inputs --solve \
+    --solver=glpk --output-solver-log --output-times --traceback \
+    --solution-writer=pyomo.pysp.plugins.csvsolutionwriter \
+    --solution-writer=switch_model.wecc.pyspsolutionwritertemplate
+
 The model directory needs to contain the ReferenceModel.py file; in this example
 it is a period - the relative path to the current directory.
 
