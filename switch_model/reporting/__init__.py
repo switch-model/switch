@@ -18,7 +18,7 @@ dependency on load_zones.
 
 
 """
-dependencies = 'switch_model.financials'
+dependencies = "switch_model.financials"
 
 
 import os
@@ -30,16 +30,23 @@ csv.register_dialect(
     "ampl-tab",
     delimiter="\t",
     lineterminator="\n",
-    doublequote=False, escapechar="\\",
-    quotechar='"', quoting=csv.QUOTE_MINIMAL,
-    skipinitialspace=False
+    doublequote=False,
+    escapechar="\\",
+    quotechar='"',
+    quoting=csv.QUOTE_MINIMAL,
+    skipinitialspace=False,
 )
+
 
 def define_arguments(argparser):
     argparser.add_argument(
-        "--sorted-output", default=False, action='store_true',
-        dest='sorted_output',
-        help='Write generic variable result values in sorted order')
+        "--sorted-output",
+        default=False,
+        action="store_true",
+        dest="sorted_output",
+        help="Write generic variable result values in sorted order",
+    )
+
 
 def write_table(instance, *indexes, **kwargs):
     # there must be a way to accept specific named keyword arguments and
@@ -48,11 +55,11 @@ def write_table(instance, *indexes, **kwargs):
     output_file = kwargs["output_file"]
     headings = kwargs["headings"]
     values = kwargs["values"]
-    digits = kwargs.get('digits', 6)
+    digits = kwargs.get("digits", 6)
     # create a master indexing set
     # this is a list of lists, even if only one list was specified
     idx = itertools.product(*indexes)
-    with open(output_file, 'wb') as f:
+    with open(output_file, "wb") as f:
         w = csv.writer(f, dialect="ampl-tab")
         # write header row
         w.writerow(list(headings))
@@ -67,10 +74,8 @@ def write_table(instance, *indexes, **kwargs):
                     else:
                         row[i] = sig_digits.format(v)
             return tuple(row)
-        w.writerows(
-            format_row(row=values(instance, *x))
-            for x in idx
-        )
+
+        w.writerows(format_row(row=values(instance, *x)) for x in idx)
 
 
 def make_iterable(item):
@@ -91,20 +96,22 @@ def _save_generic_results(instance, outdir, sorted_output):
         if not isinstance(var, Var):
             continue
 
-        output_file = os.path.join(outdir, '%s.tab' % var.name)
-        with open(output_file, 'wb') as fh:
-            writer = csv.writer(fh, dialect='ampl-tab')
+        output_file = os.path.join(outdir, "%s.tab" % var.name)
+        with open(output_file, "wb") as fh:
+            writer = csv.writer(fh, dialect="ampl-tab")
             if var.is_indexed():
                 index_name = var.index_set().name
                 # Write column headings
-                writer.writerow(['%s_%d' % (index_name, i + 1)
-                                 for i in xrange(var.index_set().dimen)] +
-                                [var.name])
+                writer.writerow(
+                    [
+                        "%s_%d" % (index_name, i + 1)
+                        for i in xrange(var.index_set().dimen)
+                    ]
+                    + [var.name]
+                )
                 # Results are saved in a random order by default for
                 # increased speed. Sorting is available if wanted.
-                for key, obj in (sorted(var.items())
-                                if sorted_output
-                                else var.items()):
+                for key, obj in sorted(var.items()) if sorted_output else var.items():
                     writer.writerow(tuple(make_iterable(key)) + (obj.value,))
             else:
                 # single-valued variable
@@ -116,14 +123,14 @@ def _save_total_cost_value(instance, outdir):
     values = instance.Minimize_System_Cost.values()
     assert len(values) == 1
     total_cost = values[0].expr()
-    with open(os.path.join(outdir, 'total_cost.txt'), 'w') as fh:
-        fh.write('%s\n' % total_cost)
+    with open(os.path.join(outdir, "total_cost.txt"), "w") as fh:
+        fh.write("%s\n" % total_cost)
 
 
 def post_solve(instance, outdir):
     """
     Minimum output generation for all model runs.
-    
+
     """
     _save_generic_results(instance, outdir, instance.options.sorted_output)
     _save_total_cost_value(instance, outdir)

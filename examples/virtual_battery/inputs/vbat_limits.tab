@@ -1,0 +1,4 @@
+VIRTUAL_BATTERIES	TIMEPOINT	vbat_cumulative_charge_lower_mwh	vbat_cumulative_charge_upper_mwh
+PEV	1	0	5.6
+PEV	2	4	9.6
+PEV	3	12	12

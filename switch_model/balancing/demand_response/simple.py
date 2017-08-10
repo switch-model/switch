@@ -13,12 +13,12 @@ nor a Shimmy Service (fast dispatch for load following or regulation).
 import os
 from pyomo.environ import *
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones'
-optional_dependencies = 'switch_model.transmission.local_td'
+dependencies = "switch_model.timescales", "switch_model.balancing.load_zones"
+optional_dependencies = "switch_model.transmission.local_td"
 
 
 def define_components(mod):
-    
+
     """
     Adds components to a Pyomo abstract model object to describe a demand
     response shift service.
@@ -37,44 +37,47 @@ def define_components(mod):
     in MW is reduced (if its value is negative) or increased (if
     its value is positive). This variable is bounded by dr_shift_down_limit
     and dr_shift_up_limit.
-    
+
     If the local_td module is included, ShiftDemand[z,t] will be registered
     with local_td's distributed node for energy balancing purposes. If
     local_td is not included, it will be registered with load zone's central
     node and will not reflect efficiency losses in the distribution network.
-    
+
     DR_Shift_Net_Zero[z,ts in TIMESERIES] is a constraint that forces all the
     changes in the demand to balance out over the course of each timeseries.
-    
+
     """
-    
+
     mod.dr_shift_down_limit = Param(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
-        default= 0.0,
+        mod.LOAD_ZONES,
+        mod.TIMEPOINTS,
+        default=0.0,
         within=NonNegativeReals,
-        validate=lambda m, value, z, t: value <= m.zone_demand_mw[z, t])
+        validate=lambda m, value, z, t: value <= m.zone_demand_mw[z, t],
+    )
     mod.dr_shift_up_limit = Param(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
-        default= float('inf'),
-        within=NonNegativeReals)
+        mod.LOAD_ZONES, mod.TIMEPOINTS, default=float("inf"), within=NonNegativeReals
+    )
     mod.ShiftDemand = Var(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
+        mod.LOAD_ZONES,
+        mod.TIMEPOINTS,
         within=Reals,
-        bounds=lambda m, z, t: 
-        (
-            (-1.0) * m.dr_shift_down_limit[z,t],
-            m.dr_shift_up_limit[z,t]
-        ))
+        bounds=lambda m, z, t: (
+            (-1.0) * m.dr_shift_down_limit[z, t],
+            m.dr_shift_up_limit[z, t],
+        ),
+    )
 
     mod.DR_Shift_Net_Zero = Constraint(
-        mod.LOAD_ZONES, mod.TIMESERIES,
-        rule=lambda m, z, ts:
-        sum(m.ShiftDemand[z, t] for t in m.TPS_IN_TS[ts]) == 0.0)
-    
-    if 'Distributed_Power_Injections' in dir(mod):
-        mod.Distributed_Power_Injections.append('ShiftDemand')
+        mod.LOAD_ZONES,
+        mod.TIMESERIES,
+        rule=lambda m, z, ts: sum(m.ShiftDemand[z, t] for t in m.TPS_IN_TS[ts]) == 0.0,
+    )
+
+    if "Distributed_Power_Injections" in dir(mod):
+        mod.Distributed_Power_Injections.append("ShiftDemand")
     else:
-        mod.Zone_Power_Withdrawals.append('ShiftDemand')
+        mod.Zone_Power_Withdrawals.append("ShiftDemand")
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -89,6 +92,7 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'dr_data.tab'),
+        filename=os.path.join(inputs_dir, "dr_data.tab"),
         autoselect=True,
-        param=(mod.dr_shift_down_limit, mod.dr_shift_up_limit))
+        param=(mod.dr_shift_down_limit, mod.dr_shift_up_limit),
+    )

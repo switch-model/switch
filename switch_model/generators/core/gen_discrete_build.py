@@ -8,9 +8,14 @@ that have gen_unit_size specified.
 
 from pyomo.environ import *
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
-    'switch_model.financials', 'switch_model.energy_sources.properties', \
-    'switch_model.generators.core.build'
+dependencies = (
+    "switch_model.timescales",
+    "switch_model.balancing.load_zones",
+    "switch_model.financials",
+    "switch_model.energy_sources.properties",
+    "switch_model.generators.core.build",
+)
+
 
 def define_components(mod):
     """
@@ -34,12 +39,12 @@ def define_components(mod):
 
     mod.NEW_DISCRETE_GEN_BLD_YRS = Set(
         initialize=mod.NEW_GEN_BLD_YRS,
-        filter=lambda m, g, bld_yr: g in m.DISCRETELY_SIZED_GENS)
-    mod.BuildUnits = Var(
-        mod.NEW_DISCRETE_GEN_BLD_YRS,
-        within=NonNegativeIntegers)
+        filter=lambda m, g, bld_yr: g in m.DISCRETELY_SIZED_GENS,
+    )
+    mod.BuildUnits = Var(mod.NEW_DISCRETE_GEN_BLD_YRS, within=NonNegativeIntegers)
     mod.Build_Units_Consistency = Constraint(
         mod.NEW_DISCRETE_GEN_BLD_YRS,
         rule=lambda m, g, bld_yr: (
-            m.BuildGen[g, bld_yr] ==
-            m.BuildUnits[g, bld_yr] * m.gen_unit_size[g]))
+            m.BuildGen[g, bld_yr] == m.BuildUnits[g, bld_yr] * m.gen_unit_size[g]
+        ),
+    )

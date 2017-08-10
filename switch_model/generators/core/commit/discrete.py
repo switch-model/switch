@@ -8,10 +8,17 @@ generation technologies that have gen_unit_size specified.
 
 from pyomo.environ import *
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
-    'switch_model.financials', 'switch_model.energy_sources.properties',\
-    'switch_model.generators.core.build', 'switch_model.investment.gen_discrete_build',\
-    'switch_model.generators.core.dispatch', 'switch_model.operations.unitcommit'
+dependencies = (
+    "switch_model.timescales",
+    "switch_model.balancing.load_zones",
+    "switch_model.financials",
+    "switch_model.energy_sources.properties",
+    "switch_model.generators.core.build",
+    "switch_model.investment.gen_discrete_build",
+    "switch_model.generators.core.dispatch",
+    "switch_model.operations.unitcommit",
+)
+
 
 def define_components(mod):
     """
@@ -49,14 +56,13 @@ def define_components(mod):
     """
 
     mod.GEN_TPS_DISCRETE = Set(
-        initialize=mod.GEN_TPS,
-        filter=lambda m, g, t: (
-            g in m.DISCRETELY_SIZED_GENS))
-    mod.CommitGenUnits = Var(
-        mod.GEN_TPS_DISCRETE,
-        within=NonNegativeIntegers)
+        initialize=mod.GEN_TPS, filter=lambda m, g, t: (g in m.DISCRETELY_SIZED_GENS)
+    )
+    mod.CommitGenUnits = Var(mod.GEN_TPS_DISCRETE, within=NonNegativeIntegers)
     mod.Commit_Units_Consistency = Constraint(
         mod.GEN_TPS_DISCRETE,
         rule=lambda m, g, t: (
-            m.CommitGen[g, t] == m.CommitGenUnits[g, t] * 
-            m.gen_unit_size[g] * m.gen_availability[g]))
+            m.CommitGen[g, t]
+            == m.CommitGenUnits[g, t] * m.gen_unit_size[g] * m.gen_availability[g]
+        ),
+    )

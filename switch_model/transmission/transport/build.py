@@ -9,8 +9,12 @@ import os
 from pyomo.environ import *
 from switch_model.financials import capital_recovery_factor as crf
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
-    'switch_model.financials'
+dependencies = (
+    "switch_model.timescales",
+    "switch_model.balancing.load_zones",
+    "switch_model.financials",
+)
+
 
 def define_components(mod):
     """
@@ -133,7 +137,7 @@ def define_components(mod):
     describes which transmission builds will be operational in a given
     period. Currently, transmission lines are kept online indefinitely,
     with parts being replaced as they wear out.
-    
+
     TX_BUILDS_IN_PERIOD[p] will return a subset of (tx, bld_yr)
     in BLD_YRS_FOR_TX.
 
@@ -174,78 +178,85 @@ def define_components(mod):
     mod.TRANSMISSION_LINES = Set()
     mod.trans_lz1 = Param(mod.TRANSMISSION_LINES, within=mod.LOAD_ZONES)
     mod.trans_lz2 = Param(mod.TRANSMISSION_LINES, within=mod.LOAD_ZONES)
-    mod.min_data_check('TRANSMISSION_LINES', 'trans_lz1', 'trans_lz2')
+    mod.min_data_check("TRANSMISSION_LINES", "trans_lz1", "trans_lz2")
     mod.trans_dbid = Param(mod.TRANSMISSION_LINES, default=lambda m, tx: tx)
     mod.trans_length_km = Param(mod.TRANSMISSION_LINES, within=PositiveReals)
     mod.trans_efficiency = Param(
         mod.TRANSMISSION_LINES,
         within=PositiveReals,
-        validate=lambda m, val, tx: val <= 1)
+        validate=lambda m, val, tx: val <= 1,
+    )
     mod.BLD_YRS_FOR_EXISTING_TX = Set(
-        dimen=2,
-        initialize=lambda m: set(
-            (tx, 'Legacy') for tx in m.TRANSMISSION_LINES))
-    mod.existing_trans_cap = Param(
-        mod.TRANSMISSION_LINES,
-        within=NonNegativeReals)
+        dimen=2, initialize=lambda m: set((tx, "Legacy") for tx in m.TRANSMISSION_LINES)
+    )
+    mod.existing_trans_cap = Param(mod.TRANSMISSION_LINES, within=NonNegativeReals)
     mod.min_data_check(
-        'trans_length_km', 'trans_efficiency', 'BLD_YRS_FOR_EXISTING_TX',
-        'existing_trans_cap')
+        "trans_length_km",
+        "trans_efficiency",
+        "BLD_YRS_FOR_EXISTING_TX",
+        "existing_trans_cap",
+    )
     mod.trans_new_build_allowed = Param(
-        mod.TRANSMISSION_LINES, within=Boolean, default=True)
+        mod.TRANSMISSION_LINES, within=Boolean, default=True
+    )
     mod.NEW_TRANS_BLD_YRS = Set(
         dimen=2,
         initialize=mod.TRANSMISSION_LINES * mod.PERIODS,
-        filter=lambda m, tx, p: m.trans_new_build_allowed[tx])
+        filter=lambda m, tx, p: m.trans_new_build_allowed[tx],
+    )
     mod.BLD_YRS_FOR_TX = Set(
-        dimen=2,
-        initialize=lambda m: m.BLD_YRS_FOR_EXISTING_TX | m.NEW_TRANS_BLD_YRS)
+        dimen=2, initialize=lambda m: m.BLD_YRS_FOR_EXISTING_TX | m.NEW_TRANS_BLD_YRS
+    )
     mod.TX_BUILDS_IN_PERIOD = Set(
         mod.PERIODS,
         within=mod.BLD_YRS_FOR_TX,
         initialize=lambda m, p: set(
-            (tx, bld_yr) for (tx, bld_yr) in m.BLD_YRS_FOR_TX
-            if bld_yr == 'Legacy' or bld_yr <= p))
+            (tx, bld_yr)
+            for (tx, bld_yr) in m.BLD_YRS_FOR_TX
+            if bld_yr == "Legacy" or bld_yr <= p
+        ),
+    )
 
     def bounds_BuildTx(model, tx, bld_yr):
-        if((tx, bld_yr) in model.BLD_YRS_FOR_EXISTING_TX):
-            return (model.existing_trans_cap[tx],
-                    model.existing_trans_cap[tx])
+        if (tx, bld_yr) in model.BLD_YRS_FOR_EXISTING_TX:
+            return (model.existing_trans_cap[tx], model.existing_trans_cap[tx])
         else:
             return (0, None)
+
     mod.BuildTx = Var(
-        mod.BLD_YRS_FOR_TX,
-        within=NonNegativeReals,
-        bounds=bounds_BuildTx)
+        mod.BLD_YRS_FOR_TX, within=NonNegativeReals, bounds=bounds_BuildTx
+    )
     mod.TxCapacityNameplate = Expression(
-        mod.TRANSMISSION_LINES, mod.PERIODS,
+        mod.TRANSMISSION_LINES,
+        mod.PERIODS,
         rule=lambda m, tx, period: sum(
             m.BuildTx[tx, bld_yr]
             for (tx2, bld_yr) in m.BLD_YRS_FOR_TX
-            if tx2 == tx and (bld_yr == 'Legacy' or bld_yr <= period)))
+            if tx2 == tx and (bld_yr == "Legacy" or bld_yr <= period)
+        ),
+    )
     mod.trans_derating_factor = Param(
         mod.TRANSMISSION_LINES,
         within=NonNegativeReals,
         default=1,
-        validate=lambda m, val, tx: val <= 1)
+        validate=lambda m, val, tx: val <= 1,
+    )
     mod.TxCapacityNameplateAvailable = Expression(
-        mod.TRANSMISSION_LINES, mod.PERIODS,
+        mod.TRANSMISSION_LINES,
+        mod.PERIODS,
         rule=lambda m, tx, period: (
-            m.TxCapacityNameplate[tx, period] * m.trans_derating_factor[tx]))
+            m.TxCapacityNameplate[tx, period] * m.trans_derating_factor[tx]
+        ),
+    )
     mod.trans_terrain_multiplier = Param(
         mod.TRANSMISSION_LINES,
         within=Reals,
         default=1,
-        validate=lambda m, val, tx: val >= 0.5 and val <= 3)
-    mod.trans_capital_cost_per_mw_km = Param(
-        within=PositiveReals,
-        default=1000)
-    mod.trans_lifetime_yrs = Param(
-        within=PositiveReals,
-        default=20)
-    mod.trans_fixed_o_m_fraction = Param(
-        within=PositiveReals,
-        default=0.03)
+        validate=lambda m, val, tx: val >= 0.5 and val <= 3,
+    )
+    mod.trans_capital_cost_per_mw_km = Param(within=PositiveReals, default=1000)
+    mod.trans_lifetime_yrs = Param(within=PositiveReals, default=20)
+    mod.trans_fixed_o_m_fraction = Param(within=PositiveReals, default=0.03)
     # Total annual fixed costs for building new transmission lines...
     # Multiply capital costs by capital recover factor to get annual
     # payments. Add annual fixed O&M that are expressed as a fraction of
@@ -254,9 +265,12 @@ def define_components(mod):
         mod.TRANSMISSION_LINES,
         within=PositiveReals,
         initialize=lambda m, tx: (
-            m.trans_capital_cost_per_mw_km * m.trans_terrain_multiplier[tx] *
-            m.trans_length_km[tx] * (crf(m.interest_rate, m.trans_lifetime_yrs) +
-                m.trans_fixed_o_m_fraction)))
+            m.trans_capital_cost_per_mw_km
+            * m.trans_terrain_multiplier[tx]
+            * m.trans_length_km[tx]
+            * (crf(m.interest_rate, m.trans_lifetime_yrs) + m.trans_fixed_o_m_fraction)
+        ),
+    )
     # An expression to summarize annual costs for the objective
     # function. Units should be total annual future costs in $base_year
     # real dollars. The objective function will convert these to
@@ -265,8 +279,10 @@ def define_components(mod):
         mod.PERIODS,
         rule=lambda m, p: sum(
             m.BuildTx[tx, bld_yr] * m.trans_cost_annual[tx]
-            for (tx, bld_yr) in m.TX_BUILDS_IN_PERIOD[p]))
-    mod.Cost_Components_Per_Period.append('TxFixedCosts')
+            for (tx, bld_yr) in m.TX_BUILDS_IN_PERIOD[p]
+        ),
+    )
+    mod.Cost_Components_Per_Period.append("TxFixedCosts")
 
     def init_DIRECTIONAL_TX(model):
         tx_dir = set()
@@ -274,23 +290,25 @@ def define_components(mod):
             tx_dir.add((model.trans_lz1[tx], model.trans_lz2[tx]))
             tx_dir.add((model.trans_lz2[tx], model.trans_lz1[tx]))
         return tx_dir
-    mod.DIRECTIONAL_TX = Set(
-        dimen=2,
-        initialize=init_DIRECTIONAL_TX)
+
+    mod.DIRECTIONAL_TX = Set(dimen=2, initialize=init_DIRECTIONAL_TX)
     mod.TX_CONNECTIONS_TO_ZONE = Set(
         mod.LOAD_ZONES,
         initialize=lambda m, lz: set(
-            z for z in m.LOAD_ZONES if (z,lz) in m.DIRECTIONAL_TX))
+            z for z in m.LOAD_ZONES if (z, lz) in m.DIRECTIONAL_TX
+        ),
+    )
 
     def init_trans_d_line(m, zone_from, zone_to):
         for tx in m.TRANSMISSION_LINES:
-            if((m.trans_lz1[tx] == zone_from and m.trans_lz2[tx] == zone_to) or
-               (m.trans_lz2[tx] == zone_from and m.trans_lz1[tx] == zone_to)):
+            if (m.trans_lz1[tx] == zone_from and m.trans_lz2[tx] == zone_to) or (
+                m.trans_lz2[tx] == zone_from and m.trans_lz1[tx] == zone_to
+            ):
                 return tx
+
     mod.trans_d_line = Param(
-        mod.DIRECTIONAL_TX,
-        within=mod.TRANSMISSION_LINES,
-        initialize=init_trans_d_line)
+        mod.DIRECTIONAL_TX, within=mod.TRANSMISSION_LINES, initialize=init_trans_d_line
+    )
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -314,7 +332,7 @@ def load_inputs(mod, switch_data, inputs_dir):
         trans_terrain_multiplier, trans_new_build_allowed
 
     Note that the next file is formatted as .dat, not as .tab. The
-    distribution_loss_rate parameter should only be inputted if the 
+    distribution_loss_rate parameter should only be inputted if the
     local_td module is loaded in the simulation. If this parameter is
     specified a value in trans_params.dat and local_td is not included
     in the module list, then an error will be raised.
@@ -327,19 +345,41 @@ def load_inputs(mod, switch_data, inputs_dir):
     """
 
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'transmission_lines.tab'),
-        select=('TRANSMISSION_LINE', 'trans_lz1', 'trans_lz2',
-                'trans_length_km', 'trans_efficiency', 'existing_trans_cap'),
+        filename=os.path.join(inputs_dir, "transmission_lines.tab"),
+        select=(
+            "TRANSMISSION_LINE",
+            "trans_lz1",
+            "trans_lz2",
+            "trans_length_km",
+            "trans_efficiency",
+            "existing_trans_cap",
+        ),
         index=mod.TRANSMISSION_LINES,
-        param=(mod.trans_lz1, mod.trans_lz2, mod.trans_length_km,
-               mod.trans_efficiency, mod.existing_trans_cap))
+        param=(
+            mod.trans_lz1,
+            mod.trans_lz2,
+            mod.trans_length_km,
+            mod.trans_efficiency,
+            mod.existing_trans_cap,
+        ),
+    )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'trans_optional_params.tab'),
+        filename=os.path.join(inputs_dir, "trans_optional_params.tab"),
         optional=True,
-        select=('TRANSMISSION_LINE', 'trans_dbid', 'trans_derating_factor',
-                'trans_terrain_multiplier', 'trans_new_build_allowed'),
-        param=(mod.trans_dbid, mod.trans_derating_factor,
-               mod.trans_terrain_multiplier, mod.trans_new_build_allowed))
-    trans_params_path = os.path.join(inputs_dir, 'trans_params.dat')
+        select=(
+            "TRANSMISSION_LINE",
+            "trans_dbid",
+            "trans_derating_factor",
+            "trans_terrain_multiplier",
+            "trans_new_build_allowed",
+        ),
+        param=(
+            mod.trans_dbid,
+            mod.trans_derating_factor,
+            mod.trans_terrain_multiplier,
+            mod.trans_new_build_allowed,
+        ),
+    )
+    trans_params_path = os.path.join(inputs_dir, "trans_params.dat")
     if os.path.isfile(trans_params_path):
         switch_data.load(filename=trans_params_path)
