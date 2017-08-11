@@ -86,8 +86,11 @@ def define_components(mod):
         ),
     )
 
-    mod.vbat_charge_limit = Param(
-        mod.VIRTUAL_BATTERIES, default=float("inf"), within=NonNegativeReals
+    mod.vbat_charge_limit_mw = Param(
+        mod.VIRTUAL_BATTERIES,
+        mod.TIMEPOINTS,
+        default=float("inf"),
+        within=NonNegativeReals,
     )
 
     mod.vbat_cumulative_charge_upper_mwh = Param(
@@ -102,7 +105,7 @@ def define_components(mod):
         mod.VIRTUAL_BATTERIES,
         mod.TIMEPOINTS,
         within=NonNegativeReals,
-        bounds=lambda m, vb, t: (0.0, m.vbat_charge_limit[vb]),
+        bounds=lambda m, vb, t: (0.0, m.vbat_charge_limit_mw[vb, t]),
     )
 
     mod.VbatCumulativeCharge = Expression(
@@ -148,11 +151,11 @@ def load_inputs(mod, switch_data, inputs_dir):
     from an input directory.
 
     vbat_info.tab
-        VIRTUAL_BATTERIES, vbat_load_zone, vbat_charge_limit
+        VIRTUAL_BATTERIES, vbat_load_zone
 
     vbat_limits.tab
         VIRTUAL_BATTERIES, TIMEPOINT, vbat_cumulative_charge_upper_mwh,
-        vbat_cumulative_charge_upper_mwh
+        vbat_cumulative_charge_upper_mwh, vbat_charge_limit_mw
 
     """
 
@@ -161,7 +164,7 @@ def load_inputs(mod, switch_data, inputs_dir):
         filename=os.path.join(inputs_dir, "vbat_info.tab"),
         auto_select=True,
         index=mod.VIRTUAL_BATTERIES,
-        param=(mod.vbat_load_zone, mod.vbat_charge_limit),
+        param=(mod.vbat_load_zone),
     )
 
     switch_data.load_aug(
@@ -171,5 +174,6 @@ def load_inputs(mod, switch_data, inputs_dir):
         param=(
             mod.vbat_cumulative_charge_lower_mwh,
             mod.vbat_cumulative_charge_upper_mwh,
+            mod.vbat_charge_limit_mw,
         ),
     )

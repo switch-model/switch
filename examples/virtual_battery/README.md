@@ -1,7 +1,6 @@
 SYNOPSIS
 	switch solve --verbose --log-run
 
-This example illustrates the use of Switch to construct and run a very
-simple model with a single load zone, one investment period, and two
-timepoints.  This model neglects local transmission and distribution
-as well.
+This example illustrates the use of Switch to model virtual batteries
+and run a very simple example with a single load zone, one investment period, and three
+timepoints. This example neglects local transmission and distribution.
