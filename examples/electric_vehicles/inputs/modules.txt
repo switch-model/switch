@@ -10,4 +10,4 @@ switch_model.reporting
 # Custom Modules
 switch_model.generators.core.no_commit
 switch_model.energy_sources.fuel_costs.simple
-switch_model.balancing.virtual_batteries.simple
+switch_model.balancing.electric_vehicles.simple
