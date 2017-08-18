@@ -198,7 +198,7 @@ def main():
 	write_tab('load_zones',['LOAD_ZONE','zone_ccs_distance_km','zone_dbid'],db_cursor)
 	
 	print '  loads.tab...'
-	db_cursor.execute(("""select load_zone_name, t.raw_timepoint_id as timepoint, demand_mw as zone_demand_mw
+	db_cursor.execute(("""select load_zone_name, t.raw_timepoint_id as timepoint, CASE WHEN demand_mw < 0 THEN 0 ELSE demand_mw END as zone_demand_mw
 					from sampled_timepoint as t
 						join sampled_timeseries using(sampled_timeseries_id)
 						join demand_timeseries as d using(raw_timepoint_id)
@@ -351,9 +351,14 @@ def main():
 	write_tab('gen_build_predetermined',['GENERATION_PROJECT','build_year','gen_predetermined_cap'],db_cursor)
 	
 	print '  gen_build_costs.tab...'
-	db_cursor.execute(("""select project_id as generation_plant_id, start_year as label,  overnight_cost as gen_overnight_cost, fixed_o_m as gen_fixed_om
-					from generation_plant_vintage_cost
-					union
+	db_cursor.execute(("""
+					select generation_plant_id, generation_plant_cost.build_year, overnight_cost as gen_overnight_cost, fixed_o_m as gen_fixed_om
+					from generation_plant_cost
+					JOIN generation_plant_existing_and_planned USING (generation_plant_id)
+					join generation_plant_scenario_member using(generation_plant_id)
+					where generation_plant_scenario_id={id3} 
+					and generation_plant_cost.generation_plant_cost_scenario_id={id2}
+					UNION
 					select generation_plant_id, label, avg(overnight_cost) as gen_overnight_cost, avg(fixed_o_m) as gen_fixed_om
 					from generation_plant_cost 
 					JOIN generation_plant using(generation_plant_id) 
