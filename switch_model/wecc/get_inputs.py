@@ -261,13 +261,13 @@ def main():
 					FROM switch.transmission_lines 
 					ORDER BY 1;
 					""")
-	write_tab('trans_optional_params.tab',['TRANSMISSION_LINE','trans_dbid','trans_derating_factor','trans_terrain_multiplier','trans_new_build_allowed'],db_cursor)
+	write_tab('trans_optional_params',['TRANSMISSION_LINE','trans_dbid','trans_derating_factor','trans_terrain_multiplier','trans_new_build_allowed'],db_cursor)
 	
 	print '  trans_params.dat...'
 	with open('trans_params.dat','w') as f:
 		f.write("param trans_capital_cost_per_mw_km:=1150;\n") # $1150 opposed to $1000 to reflect change to US$2016
 		f.write("param trans_lifetime_yrs:=20;\n") # Paty: check what lifetime has been used for the wecc
-		f.write("param trans_fixed_om_fraction:=0.03;\n")
+		f.write("param trans_fixed_o_m_fraction:=0.03;\n")
 		#f.write("param distribution_loss_rate:=0.0652;\n")
 	
 	########################################################
@@ -383,39 +383,13 @@ def main():
 	
 	
 	print '  variable_capacity_factors.tab...'
-	db_cursor.execute(("""select project_id, raw_timepoint_id, cap_factor  
-						FROM temp_ampl_study_timepoints 
-						JOIN temp_load_scenario_historic_timepoints USING(timepoint_id)
-						JOIN temp_variable_capacity_factors_historical ON(historic_hour=hour)
-						JOIN temp_ampl__proposed_projects_v3 USING(project_id)
-						JOIN temp_ampl_load_area_info_v3 USING(area_id)
-						JOIN sampled_timepoint as t ON(raw_timepoint_id = timepoint_id)
-						JOIN sampled_timeseries using(sampled_timeseries_id)
-						WHERE load_scenario_id=21 -- not an input from scenarios. This id is related to historical timepoints table
-						AND (( avg_cap_factor_percentile_by_intermittent_tech >= 0.75 or cumulative_avg_MW_tech_load_area <= 3 * total_yearly_load_mwh / 8766 or rank_by_tech_in_load_area <= 5 or avg_cap_factor_percentile_by_intermittent_tech is null) and technology <> 'Concentrating_PV') 
-						AND technology_id <> 7 
-						AND t.study_timeframe_id={id} 
-				UNION 
-						select project_id, raw_timepoint_id, cap_factor_adjusted as cap_factor  
-						FROM temp_ampl_study_timepoints 
-						JOIN temp_load_scenario_historic_timepoints USING(timepoint_id)
-						JOIN temp_variable_capacity_factors_historical_csp ON(historic_hour=hour)
-						JOIN temp_ampl__proposed_projects_v3 USING(project_id)
-						JOIN temp_ampl_load_area_info_v3 USING(area_id)
-						JOIN sampled_timepoint as t ON(raw_timepoint_id = timepoint_id)
-						JOIN sampled_timeseries using(sampled_timeseries_id)
-						WHERE load_scenario_id=21 -- not an input from scenarios. This id is related to historical timepoints table
-						AND (( avg_cap_factor_percentile_by_intermittent_tech >= 0.75 or cumulative_avg_MW_tech_load_area <= 3 * total_yearly_load_mwh / 8766 or rank_by_tech_in_load_area <= 5 or avg_cap_factor_percentile_by_intermittent_tech is null) and technology <> 'Concentrating_PV') 
-						AND technology_id = 7
-						AND t.study_timeframe_id={id}
-				UNION 
-						select project_id, raw_timepoint_id, cap_factor
-						from ampl_existing_intermittent_plant_cap_factor as t2
-						join sampled_timepoint as t ON(raw_timepoint_id = t2.timepoint_id)
-						JOIN sampled_timeseries using(sampled_timeseries_id)
-						WHERE t.study_timeframe_id={id}
+	db_cursor.execute(("""select generation_plant_id, raw_timepoint_id, capacity_factor
+						FROM variable_capacity_factors
+						JOIN sampled_timepoint USING (raw_timepoint_id)
+						JOIN generation_plant_scenario_member USING (generation_plant_id)
+						WHERE study_timeframe_id = {tp_id} AND generation_plant_scenario_id = {gen_id}
 						order by 1,2;
-						""").format(id=study_timeframe_id))
+						""").format(tp_id=study_timeframe_id, gen_id=generation_plant_scenario_id))
 	write_tab('variable_capacity_factors',['GENERATION_PROJECT','timepoint','gen_max_capacity_factor'],db_cursor)
 	
 	########################################################
