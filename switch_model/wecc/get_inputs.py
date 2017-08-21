@@ -414,15 +414,18 @@ def main():
 	# units, but rarely or never for virtual hydro units that aggregate all hydro in a zone or 
 	# zone + watershed. Eventually, we may rethink this derating, but it is a reasonable 
 	# approximation for a large hydro fleet where plant outages are individual random events.
+	# Negative flows are replaced by 0.01.
 	db_cursor.execute(("""
 		select generation_plant_id as hydro_project, 
 			{timeseries_id_select}, 
-			hydro_min_flow_mw, 
-			least(hydro_avg_flow_mw, capacity * (1-forced_outage_rate)) as hydro_avg_flow_mw
+			CASE WHEN hydro_min_flow_mw <= 0 THEN 0.01 
+			WHEN hydro_min_flow_mw > capacity_limit_mw THEN capacity_limit_mw
+			ELSE hydro_min_flow_mw END, 
+			CASE WHEN hydro_avg_flow_mw <= 0 THEN 0.01 ELSE
+			least(hydro_avg_flow_mw, (capacity_limit_mw) * (1-forced_outage_rate)) END as hydro_avg_flow_mw
 		from hydro_historical_monthly_capacity_factors
 			join sampled_timeseries on(month = date_part('month', first_timepoint_utc))
-			join generation_plant_existing_and_planned using(generation_plant_id)
-			join generation_plant using(generation_plant_id)
+			join generation_plant using (generation_plant_id)
 			join generation_plant_scenario_member using(generation_plant_id)
 		where generation_plant_scenario_id = {id3} 
 		and hydro_simple_scenario_id={id1}
