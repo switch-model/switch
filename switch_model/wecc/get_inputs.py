@@ -419,7 +419,7 @@ def main():
 		select generation_plant_id as hydro_project, 
 			{timeseries_id_select}, 
 			CASE WHEN hydro_min_flow_mw <= 0 THEN 0.01 
-			WHEN hydro_min_flow_mw > capacity_limit_mw THEN capacity_limit_mw
+			WHEN hydro_min_flow_mw > capacity_limit_mw*(1-forced_outage_rate) THEN capacity_limit_mw*(1-forced_outage_rate)
 			ELSE hydro_min_flow_mw END, 
 			CASE WHEN hydro_avg_flow_mw <= 0 THEN 0.01 ELSE
 			least(hydro_avg_flow_mw, (capacity_limit_mw) * (1-forced_outage_rate)) END as hydro_avg_flow_mw
