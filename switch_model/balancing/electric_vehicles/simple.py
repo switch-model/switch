@@ -109,7 +109,7 @@ def define_components(mod):
     )
 
     if "Distributed_Power_Injections" in dir(mod):
-        mod.Distributed_Power_Injections.append("EVCharge")
+        mod.Distributed_Power_Withdrawals.append("EVCharge")
     else:
         mod.Zone_Power_Withdrawals.append("EVCharge")
 
