@@ -336,7 +336,8 @@ def post_solve(instance, outdir):
     write_table(
         instance, instance.GEN_TPS,
         output_file=os.path.join(outdir, "dispatch.txt"),
-        headings=("generation_project","gen_dbid", "gen_tech", "gen_load_zone", "gen_energy_source", "timestamp", "tp_weight_in_year", "tp_period", "DispatchGen"),
+        headings=("generation_project","gen_dbid", "gen_tech", "gen_load_zone", "gen_energy_source",
+        "timestamp", "tp_weight_in_year", "tp_period", "DispatchGen"),
         values=lambda m, (g, t): (
         	g,
         	m.gen_dbid[g],
@@ -352,7 +353,8 @@ def post_solve(instance, outdir):
     write_table(
         instance, instance.GEN_TP_FUELS,
         output_file=os.path.join(outdir, "emissions_by_tp.txt"),
-        headings=("generation_project","gen_dbid", "gen_tech", "gen_load_zone", "gen_energy_source", "timestamp", "tp_weight_in_year", "tp_period", "DispatchGen", "DispatchEmissions"),
+        headings=("generation_project","gen_dbid", "gen_tech", "gen_load_zone", "gen_energy_source",
+        "timestamp", "tp_weight_in_year", "tp_period", "DispatchGen", "DispatchEmissions"),
         values=lambda m, (g, t, f): (
         	g,
         	m.gen_dbid[g],
