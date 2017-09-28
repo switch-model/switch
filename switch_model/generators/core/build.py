@@ -568,3 +568,30 @@ def post_solve(instance, outdir):
         values=lambda m, gp: gp
         + (m.GenCapacity[gp], m.GenCapitalCosts[gp], m.GenFixedOMCosts[gp]),
     )
+    write_table(
+        instance,
+        instance.GEN_PERIODS,
+        instance.GENERATION_PROJECTS,
+        output_file=os.path.join(outdir, "gen_cap_complete_info.txt"),
+        headings=(
+            "GENERATION_PROJECT",
+            "PERIOD",
+            "gen_dbid",
+            "gen_tech",
+            "gen_load_zone",
+            "gen_energy_source",
+            "GenCapacity",
+            "GenCapitalCosts",
+            "GenFixedOMCosts",
+        ),
+        values=lambda m, gp, g: gp
+        + (
+            m.gen_dbid[g],
+            m.gen_tech[g],
+            m.gen_load_zone[g],
+            m.gen_energy_source[g],
+            m.GenCapacity[gp],
+            m.GenCapitalCosts[gp],
+            m.GenFixedOMCosts[gp],
+        ),
+    )
