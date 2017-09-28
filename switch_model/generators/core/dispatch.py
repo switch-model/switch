@@ -325,11 +325,44 @@ def post_solve(instance, outdir):
     """
     write_table(
         instance, instance.TIMEPOINTS,
-        output_file=os.path.join(outdir, "dispatch.txt"),
+        output_file=os.path.join(outdir, "dispatch-wide.txt"),
         headings=("timestamp",)+tuple(sorted(instance.GENERATION_PROJECTS)),
         values=lambda m, t: (m.tp_timestamp[t],) + tuple(
             m.DispatchGen[p, t] if (p, t) in m.GEN_TPS
             else 0.0
             for p in sorted(m.GENERATION_PROJECTS)
         )
+    )
+    write_table(
+        instance, instance.GEN_TPS,
+        output_file=os.path.join(outdir, "dispatch.txt"),
+        headings=("generation_project","gen_dbid", "gen_tech", "gen_load_zone", "gen_energy_source", "timestamp", "tp_weight_in_year", "tp_period", "DispatchGen"),
+        values=lambda m, (g, t): (
+        	g,
+        	m.gen_dbid[g],
+        	m.gen_tech[g],
+        	m.gen_load_zone[g],
+        	m.gen_energy_source[g],
+        	m.tp_timestamp[t], 
+        	m.tp_weight_in_year[t],
+			m.tp_period[t],
+        	m.DispatchGen[g, t]
+        	)
+    )
+    write_table(
+        instance, instance.GEN_TP_FUELS,
+        output_file=os.path.join(outdir, "emissions_by_tp.txt"),
+        headings=("generation_project","gen_dbid", "gen_tech", "gen_load_zone", "gen_energy_source", "timestamp", "tp_weight_in_year", "tp_period", "DispatchGen", "DispatchEmissions"),
+        values=lambda m, (g, t, f): (
+        	g,
+        	m.gen_dbid[g],
+        	m.gen_tech[g],
+        	m.gen_load_zone[g],
+        	m.gen_energy_source[g],
+        	m.tp_timestamp[t], 
+        	m.tp_weight_in_year[t],
+			m.tp_period[t],
+        	m.DispatchGen[g, t],
+        	m.DispatchEmissions[g, t, f]
+        	)
     )
