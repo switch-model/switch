@@ -388,14 +388,20 @@ def main():
 	
 	
 	print '  variable_capacity_factors.tab...'
-	db_cursor.execute(("""select generation_plant_id, raw_timepoint_id, capacity_factor
-						FROM variable_capacity_factors
-						JOIN sampled_timepoint USING (raw_timepoint_id)
-						JOIN generation_plant_scenario_member USING (generation_plant_id)
-						WHERE study_timeframe_id = {tp_id} AND generation_plant_scenario_id = {gen_id}
-						order by 1,2;
-						""").format(tp_id=study_timeframe_id, gen_id=generation_plant_scenario_id))
-	write_tab('variable_capacity_factors',['GENERATION_PROJECT','timepoint','gen_max_capacity_factor'],db_cursor)
+	db_cursor.execute(("""
+	    select generation_plant_id, t.raw_timepoint_id, capacity_factor  
+        FROM variable_capacity_factors_historical v
+            JOIN projection_to_future_timepoint ON(v.raw_timepoint_id = historical_timepoint_id)
+            JOIN generation_plant_scenario_member USING(generation_plant_id)
+            JOIN sampled_timepoint as t ON(t.raw_timepoint_id = future_timepoint_id)
+        WHERE generation_plant_scenario_id = {generation_plant_scenario}
+            AND t.study_timeframe_id={id} 
+        """).format(
+            id=study_timeframe_id,
+            generation_plant_scenario=generation_plant_scenario_id
+        ))
+	write_tab('variable_capacity_factors', 
+	          ['GENERATION_PROJECT','timepoint','gen_max_capacity_factor'], db_cursor)
 	
 	########################################################
 	# HYDROPOWER
