@@ -267,7 +267,7 @@ def main():
 	with open('trans_params.dat','w') as f:
 		f.write("param trans_capital_cost_per_mw_km:=1150;\n") # $1150 opposed to $1000 to reflect change to US$2016
 		f.write("param trans_lifetime_yrs:=20;\n") # Paty: check what lifetime has been used for the wecc
-		f.write("param trans_fixed_o_m_fraction:=0.03;\n")
+		f.write("param trans_fixed_om_fraction:=0.03;\n")
 		#f.write("param distribution_loss_rate:=0.0652;\n")
 	
 	########################################################
