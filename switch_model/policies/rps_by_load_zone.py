@@ -3,6 +3,7 @@
 
 import os
 from pyomo.environ import *
+from switch_model.reporting import write_table
 
 """
 
@@ -66,6 +67,9 @@ def define_components(mod):
     
     """
 
+    mod.ZONE_PERIODS = Set(
+        dimen=2, within=mod.LOAD_ZONES * mod.PERIODS)
+            
     mod.f_rps_eligible = Param(
         mod.FUELS,
         within=Boolean,
@@ -77,7 +81,7 @@ def define_components(mod):
     mod.RPS_PERIODS = Set(
         validate=lambda m, p: p in m.PERIODS)
     mod.rps_target = Param(
-        mod.LOAD_ZONES, mod.RPS_PERIODS,
+        mod.ZONE_PERIODS,
         within=NonNegativeReals,
         validate=lambda m, val, z, p: val <= 1.0)
 
@@ -140,7 +144,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'rps_targets.tab'),
         select=('load_zone','period', 'rps_target'),#autoselect=True,
-        index=(mod.LOAD_ZONES*mod.PERIODS), #mod.LOAD_ZONES * mod.PERIODS, #index=mod.RPS_PERIODS,
+        index=mod.ZONE_PERIODS, #mod.LOAD_ZONES * mod.PERIODS, #index=mod.RPS_PERIODS,
         #dimen=2,
         param=[mod.rps_target])#param=(mod.rps_target,))#param=(mod.LOAD_ZONES, mod.PERIODS, mod.rps_target,))
 #    switch_data.load_aug(
@@ -175,3 +179,19 @@ def post_solve(instance, outdir):
             "TotalGenerationInPeriodGWh", "RPSGenFraction",
             "TotalSalesInPeriodGWh", "RPSSalesFraction"),
         values=get_row)   
+
+def post_solve(instance, outdir):
+    # write_table returns a tuple instead of expanding the indexes, so use
+    # "gp" for the tuple instead of "g, p" for the components.    
+    write_table(
+        instance, instance.LOAD_ZONES, instance.RPS_PERIODS,
+        output_file=os.path.join(outdir, "rps_energy_v2.txt"),
+        headings=("LOAD_ZONE", "PERIOD", "RPSFuelEnergyGWh", "RPSNonFuelEnergyGWh",
+            "TotalGenerationInPeriodGWh", "RPSGenFraction",
+            "TotalSalesInPeriodGWh", "RPSSalesFraction"),
+        values=lambda m, z, p: zp + ( m.RPSFuelEnergy[z, p] / 1000,
+                                m.RPSNonFuelEnergy[z, p] / 1000,
+        						total_generation_in_load_zone_in_period(m, z, p) / 1000,
+        						(m.RPSFuelEnergy[z, p] + m.RPSNonFuelEnergy[z, p]) / total_generation_in_load_zone_in_period(m, z, p),
+        						zone_total_demand_in_period_mwh(m, z, p), 
+        						(m.RPSFuelEnergy[z, p] + m.RPSNonFuelEnergy[z, p]) / zone_total_demand_in_period_mwh(m, z, p)))
