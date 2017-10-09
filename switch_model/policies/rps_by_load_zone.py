@@ -185,11 +185,8 @@ def post_solve(instance, outdir):
         #instance, instance.LOAD_ZONES, instance.PERIODS,
         output_file=os.path.join(outdir, "rps_energy_v2.txt"),
         headings=("LOAD_ZONE", "PERIOD", "RPSFuelEnergyGWh", "RPSNonFuelEnergyGWh",
-            "TotalGenerationInPeriodGWh", "RPSGenFraction",
-            "TotalSalesInPeriodGWh", "RPSSalesFraction"),
+            "TotalGenerationInPeriodGWh", "RPSGenFraction"),
         values=lambda m, (z, p): (z, p, m.RPSFuelEnergy[z, p] / 1000,
                                 m.RPSNonFuelEnergy[z, p] / 1000,
         						total_generation_in_load_zone_in_period(m, z, p) / 1000,
-        						(m.RPSFuelEnergy[z, p] + m.RPSNonFuelEnergy[z, p]) / total_generation_in_load_zone_in_period(m, z, p),
-        						m.zone_total_demand_in_period_mwh(z, p), 
-        						(m.RPSFuelEnergy[z, p] + m.RPSNonFuelEnergy[z, p]) / m.zone_total_demand_in_period_mwh(z, p)))
+        						(m.RPSFuelEnergy[z, p] + m.RPSNonFuelEnergy[z, p]) / total_generation_in_load_zone_in_period(m, z, p)))
