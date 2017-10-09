@@ -4,6 +4,35 @@ example:
 for i in instance.HYDRO_GENS: print(i)
 instance.hydro_avg_flow_mw[5000000, '2022_Winter_day']
 
+
+Loading results: model.solutions.load_from(results))
+
+To print sets
+In [3]: for i in model.RPS_ENERGY_SOURCES: print(i)
+Electricity
+Water
+Geothermal
+Solar
+BioSolid
+Wind
+
+In [4]: model.f_rps_eligible['ResidualFuelOil']
+Out[4]: 0
+In [5]: model.f_rps_eligible['BioSolid']
+Out[5]: 1
+
+
+Params:
+In [2]: for i in model.f_rps_eligible: print(i)
+ResidualFuelOil
+DistillateFuelOil
+Uranium
+Coal
+NaturalGas
+BioSolid
+
+
+
 constraints:
 print instance.Enforce_Dispatch_Upper_Limit[5000000,105944]
 print(model.Enforce_Dispatch_Upper_Limit[5000000,105944].expr) # shows evaluated 
