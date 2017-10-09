@@ -95,7 +95,7 @@ def define_components(mod):
             / m.gen_full_load_heat_rate[g]
             * m.tp_weight[t]
             for g in m.FUEL_BASED_GENS
-            for g in m.GENS_IN_ZONE[z]
+            if g in m.GENS_IN_ZONE[z]
             for t in m.TPS_FOR_GEN_IN_PERIOD[g, p]
         ),
     )
@@ -105,7 +105,7 @@ def define_components(mod):
         rule=lambda m, z, p: sum(
             m.DispatchGen[g, t] * m.tp_weight[t]
             for g in m.NON_FUEL_BASED_GENS
-            for g in m.GENS_IN_ZONE[z]
+            if g in m.GENS_IN_ZONE[z]
             for t in m.TPS_FOR_GEN_IN_PERIOD[g, p]
         ),
     )
@@ -123,7 +123,6 @@ def define_components(mod):
 def total_generation_in_load_zone_in_period(model, z, period):
     return sum(
         model.DispatchGen[g, t] * model.tp_weight[t]
-        for g in model.GENERATION_PROJECTS
         for g in m.GENS_IN_ZONE[z]
         for t in model.TPS_FOR_GEN_IN_PERIOD[g, period]
     )
