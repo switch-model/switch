@@ -84,8 +84,7 @@ def define_components(mod):
     )
 
     mod.RPSFuelEnergy = Expression(
-        mod.LOAD_ZONES,
-        mod.RPS_PERIODS,
+        mod.ZONE_PERIODS,
         rule=lambda m, z, p: sum(
             sum(
                 m.GenFuelUseRate[g, t, f]
@@ -100,8 +99,7 @@ def define_components(mod):
         ),
     )
     mod.RPSNonFuelEnergy = Expression(
-        mod.LOAD_ZONES,
-        mod.RPS_PERIODS,
+        mod.ZONE_PERIODS,
         rule=lambda m, z, p: sum(
             m.DispatchGen[g, t] * m.tp_weight[t]
             for g in m.NON_FUEL_BASED_GENS
@@ -111,8 +109,7 @@ def define_components(mod):
     )
 
     mod.RPS_Enforce_Target = Constraint(
-        mod.LOAD_ZONES,
-        mod.RPS_PERIODS,
+        mod.ZONE_PERIODS,
         rule=lambda m, z, p: (
             m.RPSFuelEnergy[z, p] + m.RPSNonFuelEnergy[z, p]
             >= m.rps_target[z, p] * m.zone_total_demand_in_period_mwh[z, p]
@@ -123,7 +120,7 @@ def define_components(mod):
 def total_generation_in_load_zone_in_period(model, z, period):
     return sum(
         model.DispatchGen[g, t] * model.tp_weight[t]
-        for g in m.GENS_IN_ZONE[z]
+        for g in model.GENS_IN_ZONE[z]
         for t in model.TPS_FOR_GEN_IN_PERIOD[g, period]
     )
 
@@ -193,7 +190,7 @@ def post_solve(instance, outdir):
             (m.RPSFuelEnergy[z, p] + m.RPSNonFuelEnergy[z, p])
             / total_generation_in_load_zone_in_period(m, z, p),
         )
-        row += (zone_total_demand_in_period_mwh(m, z, p),)
+        row += (m.zone_total_demand_in_period_mwh(m, z, p),)
         row += (
             (m.RPSFuelEnergy[z, p] + m.RPSNonFuelEnergy[z, p])
             / zone_total_demand_in_period_mwh(m, z, p),
@@ -224,8 +221,8 @@ def post_solve(instance, outdir):
     # "gp" for the tuple instead of "g, p" for the components.
     write_table(
         instance,
-        instance.LOAD_ZONES,
-        instance.RPS_PERIODS,
+        instance.ZONE_PERIODS,
+        # instance, instance.LOAD_ZONES, instance.PERIODS,
         output_file=os.path.join(outdir, "rps_energy_v2.txt"),
         headings=(
             "LOAD_ZONE",
@@ -237,15 +234,16 @@ def post_solve(instance, outdir):
             "TotalSalesInPeriodGWh",
             "RPSSalesFraction",
         ),
-        values=lambda m, z, p: zp
-        + (
+        values=lambda m, (z, p): (
+            z,
+            p,
             m.RPSFuelEnergy[z, p] / 1000,
             m.RPSNonFuelEnergy[z, p] / 1000,
             total_generation_in_load_zone_in_period(m, z, p) / 1000,
             (m.RPSFuelEnergy[z, p] + m.RPSNonFuelEnergy[z, p])
             / total_generation_in_load_zone_in_period(m, z, p),
-            zone_total_demand_in_period_mwh(m, z, p),
+            m.zone_total_demand_in_period_mwh(z, p),
             (m.RPSFuelEnergy[z, p] + m.RPSNonFuelEnergy[z, p])
-            / zone_total_demand_in_period_mwh(m, z, p),
+            / m.zone_total_demand_in_period_mwh(z, p),
         ),
     )
