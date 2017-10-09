@@ -231,8 +231,6 @@ def post_solve(instance, outdir):
             "RPSNonFuelEnergyGWh",
             "TotalGenerationInPeriodGWh",
             "RPSGenFraction",
-            "TotalSalesInPeriodGWh",
-            "RPSSalesFraction",
         ),
         values=lambda m, (z, p): (
             z,
@@ -242,8 +240,5 @@ def post_solve(instance, outdir):
             total_generation_in_load_zone_in_period(m, z, p) / 1000,
             (m.RPSFuelEnergy[z, p] + m.RPSNonFuelEnergy[z, p])
             / total_generation_in_load_zone_in_period(m, z, p),
-            m.zone_total_demand_in_period_mwh(z, p),
-            (m.RPSFuelEnergy[z, p] + m.RPSNonFuelEnergy[z, p])
-            / m.zone_total_demand_in_period_mwh(z, p),
         ),
     )
