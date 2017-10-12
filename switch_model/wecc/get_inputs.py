@@ -473,8 +473,8 @@ def main():
 	print '  fuel_supply_curves.tab...'
 	db_cursor.execute(("""
 		select regional_fuel_market, label as period, tier, unit_cost, 
-				(case when max_avail_at_cost IS NULL then 'inf' 
-				else max_avail_at_cost end) as max_avail_at_cost
+				(case when max_avail_at_cost is null then 'inf' 
+        			else max_avail_at_cost::varchar end) as max_avail_at_cost
 		from switch.fuel_supply_curves
 		join switch.period on(year>=start_year)
 		where year=FLOOR(period.start_year + length_yrs/2-1)
