@@ -160,10 +160,16 @@ def main():
 	
 	# Write general scenario parameters into a documentation file
 	print 'Writing scenario documentation into scenario_params.txt.'
+	db_cursor.execute("""SELECT * FROM switch.scenario WHERE scenario_id = %s""" % args.s)
+	s_details = db_cursor.fetchone()
+	colnames = [desc[0] for desc in db_cursor.description]
 	with open('scenario_params.txt', 'w') as f:
-		f.write('Scenario id: %s' % args.s)
-		f.write('\nScenario name: %s' % name)
-		f.write('\nScenario notes: %s' % description)
+		f.write('Scenario id: %s\n' % args.s)
+		f.write('Scenario name: %s\n' % name)
+		f.write('Scenario notes: %s\n' % description)
+		for i, col in enumerate(colnames):            
+			f.write('{}: {}\n'.format(col, s_details[i]))
+
 	
 	########################################################
 	# TIMESCALES
@@ -362,24 +368,28 @@ def main():
 	
 	print '  gen_build_costs.tab...'
 	db_cursor.execute(("""
-					select generation_plant_id, generation_plant_cost.build_year, overnight_cost as gen_overnight_cost, fixed_o_m as gen_fixed_om
-					from generation_plant_cost
-					JOIN generation_plant_existing_and_planned USING (generation_plant_id)
-					join generation_plant_scenario_member using(generation_plant_id)
-					where generation_plant_scenario_id={id3} 
-					and generation_plant_cost.generation_plant_cost_scenario_id={id2}
-					UNION
-					select generation_plant_id, label, avg(overnight_cost) as gen_overnight_cost, avg(fixed_o_m) as gen_fixed_om
-					from generation_plant_cost 
-					JOIN generation_plant using(generation_plant_id) 
-					JOIN period on(build_year>=start_year and build_year<=end_year)
-					join generation_plant_scenario_member using(generation_plant_id)
-					where generation_plant_scenario_id={id3} 
-					and period.study_timeframe_id={id1} 
-					and generation_plant_cost.generation_plant_cost_scenario_id={id2}
-					group by 1,2
-					order by 1,2;
-					""").format(id1=study_timeframe_id, id2=generation_plant_cost_scenario_id, id3=generation_plant_scenario_id)) 
+        select generation_plant_id, generation_plant_cost.build_year, 
+            overnight_cost as gen_overnight_cost, fixed_o_m as gen_fixed_om
+        FROM generation_plant_cost
+          JOIN generation_plant_existing_and_planned USING (generation_plant_id)
+          JOIN generation_plant_scenario_member using(generation_plant_id)
+        WHERE generation_plant_scenario_id={id3} 
+          AND generation_plant_cost.generation_plant_cost_scenario_id={id2}
+        UNION
+        SELECT generation_plant_id, period.label, 
+            avg(overnight_cost) as gen_overnight_cost, avg(fixed_o_m) as gen_fixed_om
+        FROM generation_plant_cost 
+          JOIN generation_plant using(generation_plant_id) 
+          JOIN period on(build_year>=start_year and build_year<=end_year)
+          JOIN generation_plant_scenario_member using(generation_plant_id)
+        WHERE generation_plant_scenario_id={id3} 
+          AND period.study_timeframe_id={id1} 
+          AND generation_plant_cost.generation_plant_cost_scenario_id={id2}
+        GROUP BY 1,2
+        ORDER BY 1,2;
+    """).format(id1=study_timeframe_id, id2=generation_plant_cost_scenario_id,
+                id3=generation_plant_scenario_id)
+    ) 
 	write_tab('gen_build_costs',['GENERATION_PROJECT','build_year','gen_overnight_cost','gen_fixed_om'],db_cursor)
 	
 	########################################################
