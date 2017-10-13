@@ -183,7 +183,7 @@ def post_solve(instance, outdir):
     write_table(
         instance, instance.ZONE_PERIODS,
         #instance, instance.LOAD_ZONES, instance.PERIODS,
-        output_file=os.path.join(outdir, "rps_energy_v2.txt"),
+        output_file=os.path.join(outdir, "rps_energy.txt"),
         headings=("LOAD_ZONE", "PERIOD", "RPSFuelEnergyGWh", "RPSNonFuelEnergyGWh",
             "TotalGenerationInPeriodGWh", "RPSGenFraction"),
         values=lambda m, (z, p): (z, p, m.RPSFuelEnergy[z, p] / 1000,
