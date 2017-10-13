@@ -170,50 +170,31 @@ def load_inputs(mod, switch_data, inputs_dir):
 #        param=[mod.fuel_cost])
 
 
-def post_solve(instance, outdir):
-    """
-    Export energy statistics relevant to RPS studies.
-
-    """
-
-    import switch_model.reporting as reporting
-
-    def get_row(m, z, p):
-        row = (
-            z,
-            p,
-        )
-        row += (m.RPSFuelEnergy[z, p] / 1000,)
-        row += (m.RPSNonFuelEnergy[z, p] / 1000,)
-        row += (total_generation_in_load_zone_in_period(m, z, p) / 1000,)
-        row += (
-            (m.RPSFuelEnergy[z, p] + m.RPSNonFuelEnergy[z, p])
-            / total_generation_in_load_zone_in_period(m, z, p),
-        )
-        row += (m.zone_total_demand_in_period_mwh(m, z, p),)
-        row += (
-            (m.RPSFuelEnergy[z, p] + m.RPSNonFuelEnergy[z, p])
-            / zone_total_demand_in_period_mwh(m, z, p),
-        )
-        return row
-
-    reporting.write_table(
-        instance,
-        instance.LOAD_ZONES,
-        instance.RPS_PERIODS,
-        output_file=os.path.join(outdir, "rps_energy.txt"),
-        headings=(
-            "LOAD_ZONES",
-            "PERIOD",
-            "RPSFuelEnergyGWh",
-            "RPSNonFuelEnergyGWh",
-            "TotalGenerationInPeriodGWh",
-            "RPSGenFraction",
-            "TotalSalesInPeriodGWh",
-            "RPSSalesFraction",
-        ),
-        values=get_row,
-    )
+# def post_solve(instance, outdir):
+#    """
+#    Export energy statistics relevant to RPS studies.
+#
+#    """
+#
+#    import switch_model.reporting as reporting
+#    def get_row(m, z, p):
+#        row = (z, p,)
+#        row += (m.RPSFuelEnergy[z, p] / 1000,)
+#        row += (m.RPSNonFuelEnergy[z, p] / 1000,)
+#        row += (total_generation_in_load_zone_in_period(m, z, p) / 1000,)
+#        row += ((m.RPSFuelEnergy[z, p] + m.RPSNonFuelEnergy[z, p]) /
+#            total_generation_in_load_zone_in_period(m, z, p),)
+#        row += (m.zone_total_demand_in_period_mwh(m, z, p),)
+#        row += ((m.RPSFuelEnergy[z, p] + m.RPSNonFuelEnergy[z, p]) /
+#            zone_total_demand_in_period_mwh(m, z, p),)
+#        return row
+#    reporting.write_table(
+#        instance, instance.LOAD_ZONES, instance.RPS_PERIODS,
+#        output_file=os.path.join(outdir, "rps_energy.txt"),
+#        headings=("LOAD_ZONES", "PERIOD", "RPSFuelEnergyGWh", "RPSNonFuelEnergyGWh",
+#            "TotalGenerationInPeriodGWh", "RPSGenFraction",
+#            "TotalSalesInPeriodGWh", "RPSSalesFraction"),
+#        values=get_row)
 
 
 def post_solve(instance, outdir):
