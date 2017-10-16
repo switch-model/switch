@@ -123,13 +123,17 @@ def main():
 	############################################################################################################
 	# These next variables determine which input data is used, though some are only for documentation and result exports.
 	
-	db_cursor.execute("""SELECT name, description, study_timeframe_id, time_sample_id, demand_scenario_id,  
-						fuel_simple_price_scenario_id, generation_plant_scenario_id, generation_plant_cost_scenario_id, 
-						generation_plant_existing_and_planned_scenario_id, hydro_simple_scenario_id, 
-						carbon_cap_scenario_id, 
-						supply_curves_scenario_id, regional_fuel_market_scenario_id, zone_to_regional_fuel_market_scenario_id,
-						rps_scenario_id
-						FROM switch.scenario WHERE scenario_id = %s""" % args.s)
+	db_cursor.execute("""
+		SELECT name, description, study_timeframe_id, time_sample_id, demand_scenario_id,  
+			fuel_simple_price_scenario_id, generation_plant_scenario_id,
+			generation_plant_cost_scenario_id,
+			generation_plant_existing_and_planned_scenario_id,
+			hydro_simple_scenario_id, carbon_cap_scenario_id,
+			supply_curves_scenario_id, regional_fuel_market_scenario_id,
+			zone_to_regional_fuel_market_scenario_id, rps_scenario_id
+		FROM switch.scenario WHERE scenario_id = %s""",
+		[args.s]
+	)
 	s_details = db_cursor.fetchone()
 	#name, description, sample_ts_scenario_id, hydro_scenario_meta_id, fuel_id, gen_costs_id, new_projects_id, carbon_tax_id, carbon_cap_id, rps_id, lz_hourly_demand_id, gen_info_id, load_zones_scenario_id, existing_projects_id, demand_growth_id = s_details[1], s_details[2], s_details[3], s_details[4], s_details[5], s_details[6], s_details[7], s_details[8], s_details[9], s_details[10], s_details[11], s_details[12], s_details[13], s_details[14], s_details[15]
 	name = s_details[0]
@@ -160,7 +164,7 @@ def main():
 	
 	# Write general scenario parameters into a documentation file
 	print 'Writing scenario documentation into scenario_params.txt.'
-	db_cursor.execute("""SELECT * FROM switch.scenario WHERE scenario_id = %s""" % args.s)
+	db_cursor.execute("SELECT * FROM switch.scenario WHERE scenario_id = %s", [args.s])
 	s_details = db_cursor.fetchone()
 	colnames = [desc[0] for desc in db_cursor.description]
 	with open('scenario_params.txt', 'w') as f:
@@ -175,16 +179,17 @@ def main():
 	# TIMESCALES
 	
 	print '  periods.tab...'
-	db_cursor.execute(("""select label, start_year as period_start, end_year as period_end
-					from period where study_timeframe_id={id}
-					order by 1;
-					""").format(id=study_timeframe_id))			
+	db_cursor.execute("""
+		select label, start_year as period_start, end_year as period_end
+		from period where study_timeframe_id=%s
+		order by 1;""", [study_timeframe_id])
 	write_tab('periods', ['INVESTMENT_PERIOD', 'period_start', 'period_end'], db_cursor)
 	
 	print '  timeseries.tab...'
 	timeseries_id_select = "date_part('year', first_timepoint_utc)|| '_' || replace(sampled_timeseries.name, ' ', '_') as timeseries"
 	db_cursor.execute(("""select {timeseries_id_select}, t.label as ts_period, 
-					hours_per_tp as ts_duration_of_tp, num_timepoints as ts_num_tps, scaling_to_period as ts_scale_to_period
+					hours_per_tp as ts_duration_of_tp, num_timepoints as ts_num_tps, 
+					scaling_to_period as ts_scale_to_period
 					from switch.sampled_timeseries
 						join period as t using(period_id)
 					where sampled_timeseries.study_timeframe_id={id}
@@ -501,34 +506,35 @@ def main():
 	########################################################
 	# BIO_SOLID CUPPLY CURVE
 	
-	print '  fuel_supply_curves.tab...'
-	db_cursor.execute(("""
-		select regional_fuel_market, label as period, tier, unit_cost, 
-				(case when max_avail_at_cost is null then 'inf' 
-        			else max_avail_at_cost::varchar end) as max_avail_at_cost
-		from switch.fuel_supply_curves
-		join switch.period on(year>=start_year)
-		where year=FLOOR(period.start_year + length_yrs/2-1)
-		and study_timeframe_id = {id1} 
-		and supply_curves_scenario_id = {id2};
-					""").format(id1=study_timeframe_id, id2=supply_curves_scenario_id))
-	write_tab('fuel_supply_curves',['regional_fuel_market','period','tier', 'unit_cost', 'max_avail_at_cost'],db_cursor)
+	if supply_curves_scenario_id is not None:
+		print '  fuel_supply_curves.tab...'
+		db_cursor.execute(("""
+			select regional_fuel_market, label as period, tier, unit_cost, 
+					(case when max_avail_at_cost is null then 'inf' 
+						else max_avail_at_cost::varchar end) as max_avail_at_cost
+			from switch.fuel_supply_curves
+			join switch.period on(year>=start_year)
+			where year=FLOOR(period.start_year + length_yrs/2-1)
+			and study_timeframe_id = {id1} 
+			and supply_curves_scenario_id = {id2};
+						""").format(id1=study_timeframe_id, id2=supply_curves_scenario_id))
+		write_tab('fuel_supply_curves',['regional_fuel_market','period','tier', 'unit_cost', 'max_avail_at_cost'],db_cursor)
 	
-	print '  regional_fuel_markets.tab...'
-	db_cursor.execute(("""
-		select regional_fuel_market, fuel 
-		from switch.regional_fuel_market
-		where regional_fuel_market_scenario_id={id};
-					""").format(id=regional_fuel_market_scenario_id))
-	write_tab('regional_fuel_markets',['regional_fuel_market','fuel'],db_cursor)
+		print '  regional_fuel_markets.tab...'
+		db_cursor.execute(("""
+			select regional_fuel_market, fuel 
+			from switch.regional_fuel_market
+			where regional_fuel_market_scenario_id={id};
+						""").format(id=regional_fuel_market_scenario_id))
+		write_tab('regional_fuel_markets',['regional_fuel_market','fuel'],db_cursor)
 	
-	print '  zone_to_regional_fuel_market.tab...'
-	db_cursor.execute(("""
-		select load_zone, regional_fuel_market 
-		from switch.zone_to_regional_fuel_market
-		where zone_to_regional_fuel_market_scenario_id={id};
-					""").format(id=zone_to_regional_fuel_market_scenario_id))
-	write_tab('zone_to_regional_fuel_market',['load_zone','regional_fuel_market'],db_cursor)	
+		print '  zone_to_regional_fuel_market.tab...'
+		db_cursor.execute(("""
+			select load_zone, regional_fuel_market 
+			from switch.zone_to_regional_fuel_market
+			where zone_to_regional_fuel_market_scenario_id={id};
+						""").format(id=zone_to_regional_fuel_market_scenario_id))
+		write_tab('zone_to_regional_fuel_market',['load_zone','regional_fuel_market'],db_cursor)	
 	
 	
 	end_time = time.time()
