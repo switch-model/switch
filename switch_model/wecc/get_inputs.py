@@ -174,6 +174,10 @@ def main():
 		for i, col in enumerate(colnames):            
 			f.write('{}: {}\n'.format(col, s_details[i]))
 
+	########################################################
+	# Which input specification are we writing against?
+	with open('switch_inputs_version.txt', 'w') as f: 
+		f.write('2.0.0b2' + os.linesep)
 	
 	########################################################
 	# TIMESCALES
@@ -192,9 +196,9 @@ def main():
 					scaling_to_period as ts_scale_to_period
 					from switch.sampled_timeseries
 						join period as t using(period_id)
-					where sampled_timeseries.study_timeframe_id={id}
+					where sampled_timeseries.time_sample_id={id}
 					order by label;
-					""").format(timeseries_id_select=timeseries_id_select, id=study_timeframe_id))
+					""").format(timeseries_id_select=timeseries_id_select, id=time_sample_id))
 	write_tab('timeseries', ['TIMESERIES', 'ts_period', 'ts_duration_of_tp', 'ts_num_tps', 'ts_scale_to_period'], db_cursor)
 	
 	print '  timepoints.tab...'
@@ -202,9 +206,9 @@ def main():
 					{timeseries_id_select}
 					from sampled_timepoint as t
 						join sampled_timeseries using(sampled_timeseries_id)
-					where t.study_timeframe_id={id}
+					where t.time_sample_id={id}
 					order by 1;
-					""").format(timeseries_id_select=timeseries_id_select, id=study_timeframe_id))
+					""").format(timeseries_id_select=timeseries_id_select, id=time_sample_id))
 	write_tab('timepoints', ['timepoint_id','timestamp','timeseries'], db_cursor)
 	
 	########################################################
@@ -219,14 +223,16 @@ def main():
 	write_tab('load_zones',['LOAD_ZONE','zone_ccs_distance_km','zone_dbid'],db_cursor)
 	
 	print '  loads.tab...'
-	db_cursor.execute(("""select load_zone_name, t.raw_timepoint_id as timepoint, CASE WHEN demand_mw < 0 THEN 0 ELSE demand_mw END as zone_demand_mw
-					from sampled_timepoint as t
-						join sampled_timeseries using(sampled_timeseries_id)
-						join demand_timeseries as d using(raw_timepoint_id)
-					where t.study_timeframe_id={id}
-					and demand_scenario_id={id2}
-					order by 1,2;
-					""").format(id=study_timeframe_id, id2=demand_scenario_id))
+	db_cursor.execute("""
+		select load_zone_name, t.raw_timepoint_id as timepoint, 
+			CASE WHEN demand_mw < 0 THEN 0 ELSE demand_mw END as zone_demand_mw
+		from sampled_timepoint as t
+			join demand_timeseries as d using(raw_timepoint_id)
+		where t.time_sample_id=%(id)s
+			and demand_scenario_id=%(id2)s
+		order by 1,2;
+		""",
+		{'id': time_sample_id, 'id2': demand_scenario_id})
 	write_tab('loads',['LOAD_ZONE','TIMEPOINT','zone_demand_mw'],db_cursor)
 	
 	########################################################
@@ -372,14 +378,15 @@ def main():
 	write_tab('gen_build_predetermined',['GENERATION_PROJECT','build_year','gen_predetermined_cap'],db_cursor)
 	
 	print '  gen_build_costs.tab...'
-	db_cursor.execute(("""
+	db_cursor.execute("""
         select generation_plant_id, generation_plant_cost.build_year, 
             overnight_cost as gen_overnight_cost, fixed_o_m as gen_fixed_om
         FROM generation_plant_cost
           JOIN generation_plant_existing_and_planned USING (generation_plant_id)
           JOIN generation_plant_scenario_member using(generation_plant_id)
-        WHERE generation_plant_scenario_id={id3} 
-          AND generation_plant_cost.generation_plant_cost_scenario_id={id2}
+        WHERE generation_plant_scenario_id=%(gen_plant_scenario)s 
+          AND generation_plant_cost.generation_plant_cost_scenario_id=%(cost_scenario)s
+          AND generation_plant_existing_and_planned_scenario_id=%(ep_id)s
         UNION
         SELECT generation_plant_id, period.label, 
             avg(overnight_cost) as gen_overnight_cost, avg(fixed_o_m) as gen_fixed_om
@@ -387,13 +394,16 @@ def main():
           JOIN generation_plant using(generation_plant_id) 
           JOIN period on(build_year>=start_year and build_year<=end_year)
           JOIN generation_plant_scenario_member using(generation_plant_id)
-        WHERE generation_plant_scenario_id={id3} 
-          AND period.study_timeframe_id={id1} 
-          AND generation_plant_cost.generation_plant_cost_scenario_id={id2}
+        WHERE generation_plant_scenario_id=%(gen_plant_scenario)s 
+          AND period.study_timeframe_id=%(timeframe)s 
+          AND generation_plant_cost.generation_plant_cost_scenario_id=%(cost_scenario)s
         GROUP BY 1,2
-        ORDER BY 1,2;
-    """).format(id1=study_timeframe_id, id2=generation_plant_cost_scenario_id,
-                id3=generation_plant_scenario_id)
+        ORDER BY 1,2;""", 
+    	{'timeframe': study_timeframe_id, 
+    	 'cost_scenario': generation_plant_cost_scenario_id,
+		 'gen_plant_scenario': generation_plant_scenario_id, 
+		 'ep_id': generation_plant_existing_and_planned_scenario_id
+		}
     ) 
 	write_tab('gen_build_costs',['GENERATION_PROJECT','build_year','gen_overnight_cost','gen_fixed_om'],db_cursor)
 	
@@ -413,18 +423,18 @@ def main():
 	
 	
 	print '  variable_capacity_factors.tab...'
-	db_cursor.execute(("""
+	db_cursor.execute("""
 	    select generation_plant_id, t.raw_timepoint_id, capacity_factor  
         FROM variable_capacity_factors_historical v
             JOIN projection_to_future_timepoint ON(v.raw_timepoint_id = historical_timepoint_id)
             JOIN generation_plant_scenario_member USING(generation_plant_id)
             JOIN sampled_timepoint as t ON(t.raw_timepoint_id = future_timepoint_id)
-        WHERE generation_plant_scenario_id = {generation_plant_scenario}
-            AND t.study_timeframe_id={id} 
-        """).format(
-            id=study_timeframe_id,
-            generation_plant_scenario=generation_plant_scenario_id
-        ))
+        WHERE generation_plant_scenario_id = %(generation_plant_scenario)s
+            AND t.time_sample_id=%(id)s
+        """, {
+            'id': time_sample_id,
+            'generation_plant_scenario': generation_plant_scenario_id
+        })
 	write_tab('variable_capacity_factors', 
 	          ['GENERATION_PROJECT','timepoint','gen_max_capacity_factor'], db_cursor)
 	
@@ -438,8 +448,8 @@ def main():
 # 					from hydro_historical_monthly_capacity_factors
 # 						join sampled_timeseries on(month = date_part('month', first_timepoint_utc))
 # 					where hydro_simple_scenario_id={id1}
-# 					and study_timeframe_id = {id2};
-# 					""").format(timeseries_id_select=timeseries_id_select, id1=hydro_simple_scenario_id, id2=study_timeframe_id))
+# 					and time_sample_id = {id2};
+# 					""").format(timeseries_id_select=timeseries_id_select, id1=hydro_simple_scenario_id, id2=time_sample_id))
 	# Work-around for some hydro plants having 100% capacity factors in a month, which exceeds their 
 	# standard maintenance derating of 5%. These conditions arise periodically with individual hydro
 	# units, but rarely or never for virtual hydro units that aggregate all hydro in a zone or 
@@ -460,8 +470,8 @@ def main():
 			join generation_plant_scenario_member using(generation_plant_id)
 		where generation_plant_scenario_id = {id3} 
 		and hydro_simple_scenario_id={id1}
-			and study_timeframe_id = {id2};
-		""").format(timeseries_id_select=timeseries_id_select, id1=hydro_simple_scenario_id, id2=study_timeframe_id, id3=generation_plant_scenario_id))
+			and time_sample_id = {id2};
+		""").format(timeseries_id_select=timeseries_id_select, id1=hydro_simple_scenario_id, id2=time_sample_id, id3=generation_plant_scenario_id))
 	write_tab('hydro_timeseries',['hydro_project','timeseries','hydro_min_flow_mw', 'hydro_avg_flow_mw'],db_cursor)
 	
 	########################################################
