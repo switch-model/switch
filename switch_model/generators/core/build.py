@@ -552,8 +552,6 @@ def load_inputs(mod, switch_data, inputs_dir):
 
 
 def post_solve(instance, outdir):
-    # write_table returns a tuple instead of expanding the indexes, so use
-    # "gp" for the tuple instead of "g, p" for the components.
     write_table(
         instance,
         instance.GEN_PERIODS,
@@ -561,22 +559,6 @@ def post_solve(instance, outdir):
         headings=(
             "GENERATION_PROJECT",
             "PERIOD",
-            "GenCapacity",
-            "GenCapitalCosts",
-            "GenFixedOMCosts",
-        ),
-        values=lambda m, gp: gp
-        + (m.GenCapacity[gp], m.GenCapitalCosts[gp], m.GenFixedOMCosts[gp]),
-    )
-    write_table(
-        instance,
-        instance.GEN_PERIODS,
-        instance.GENERATION_PROJECTS,
-        output_file=os.path.join(outdir, "gen_cap_complete_info.txt"),
-        headings=(
-            "GENERATION_PROJECT",
-            "PERIOD",
-            "gen_dbid",
             "gen_tech",
             "gen_load_zone",
             "gen_energy_source",
@@ -584,14 +566,16 @@ def post_solve(instance, outdir):
             "GenCapitalCosts",
             "GenFixedOMCosts",
         ),
-        values=lambda m, gp, g: gp
-        + (
-            m.gen_dbid[g],
+        # Indexes are provided as a tuple, so put (g,p) in parentheses to
+        # access the two components of the index individually.
+        values=lambda m, (g, p): (
+            g,
+            p,
             m.gen_tech[g],
             m.gen_load_zone[g],
             m.gen_energy_source[g],
-            m.GenCapacity[gp],
-            m.GenCapitalCosts[gp],
-            m.GenFixedOMCosts[gp],
+            m.GenCapacity[g, p],
+            m.GenCapitalCosts[g, p],
+            m.GenFixedOMCosts[g, p],
         ),
     )
