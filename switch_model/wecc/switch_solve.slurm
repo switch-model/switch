@@ -27,6 +27,8 @@
 # Export all my environment variables to the job.
 #SBATCH --export=ALL
 
+run_dir=$PWD
+
 module load python/2.7.8
 module load virtualenv
 module load pip numpy pandas
@@ -41,6 +43,6 @@ module add six/1.8.0
 cd /global/home/users/phidalgo/switch/20170607_CEC2050_v0_a1/switch_source/
 source venv/bin/activate
 cd ..
-cd 06_15_full/
-switch solve --verbose --log-run --solver=cplex --solver-io=nl --solver-options-string="iisfind=1" --suffixes iis
+cd $run_dir
+switch solve --verbose --log-run --solver=cplex --export-all
 deactivate
