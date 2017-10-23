@@ -44,5 +44,6 @@ cd /global/home/users/phidalgo/switch/20170607_CEC2050_v0_a1/switch_source/
 source venv/bin/activate
 cd ..
 cd $run_dir
+#switch solve --verbose --log-run --solver=cplex --export-all --solver-io=nl --solver-options-string="iisfind=1" --suffixes iis
 switch solve --verbose --log-run --solver=cplex --export-all
 deactivate
