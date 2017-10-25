@@ -387,7 +387,9 @@ def main():
 	db_cursor.execute("""
         select generation_plant_id, generation_plant_cost.build_year, 
             overnight_cost as gen_overnight_cost, fixed_o_m as gen_fixed_om,
-            storage_energy_capacity_cost_per_mwh as gen_storage_energy_overnight_cost 
+            (CASE 
+            	WHEN storage_energy_capacity_cost_per_mwh=0 THEN NULL
+            	WHEN storage_energy_capacity_cost_per_mwh>0 THEN storage_energy_capacity_cost_per_mwh END) as gen_storage_energy_overnight_cost 
         FROM generation_plant_cost
           JOIN generation_plant_existing_and_planned USING (generation_plant_id)
           JOIN generation_plant_scenario_member using(generation_plant_id)
@@ -399,7 +401,9 @@ def main():
         UNION
         SELECT generation_plant_id, period.label, 
             avg(overnight_cost) as gen_overnight_cost, avg(fixed_o_m) as gen_fixed_om,
-            avg(storage_energy_capacity_cost_per_mwh) as gen_storage_energy_overnight_cost
+            (CASE 
+            	WHEN avg(storage_energy_capacity_cost_per_mwh)=0 THEN NULL
+            	WHEN avg(storage_energy_capacity_cost_per_mwh)>0 THEN avg(storage_energy_capacity_cost_per_mwh) END) as gen_storage_energy_overnight_cost
         FROM generation_plant_cost 
           JOIN generation_plant using(generation_plant_id) 
           JOIN period on(build_year>=start_year and build_year<=end_year)
