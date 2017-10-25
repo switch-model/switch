@@ -357,8 +357,12 @@ def main():
 				capacity_limit_mw as gen_capacity_limit_mw,
 				min_build_capacity as gen_min_build_capacity, 
 				is_cogen as gen_is_cogen,
-				storage_efficiency as gen_storage_efficiency,
-				store_to_release_ratio as gen_store_to_release_ratio
+				(CASE
+					WHEN storage_efficiency=0 THEN NULL
+					WHEN storage_efficiency > 0 THEN storage_efficiency END) as gen_storage_efficiency,
+				(CASE 
+					WHEN store_to_release_ratio=0 THEN null
+					WHEN store_to_release_ratio > 0 THEN store_to_release_ratio END) as gen_store_to_release_ratio
 			from generation_plant as t
 			join load_zone as t2 using(load_zone_id)
 			join generation_plant_scenario_member using(generation_plant_id)
@@ -366,7 +370,7 @@ def main():
 			order by gen_dbid;
 					""").format(id1=generation_plant_scenario_id)) 
 					
-	write_tab('generation_projects_info',['GENERATION_PROJECT','gen_tech','gen_energy_source','gen_load_zone','gen_max_age','gen_is_variable','gen_is_baseload','gen_full_load_heat_rate','gen_variable_om','gen_connect_cost_per_mw','gen_dbid','gen_scheduled_outage_rate','gen_forced_outage_rate','gen_capacity_limit_mw', 'gen_min_build_capacity', 'gen_is_cogen'],db_cursor)
+	write_tab('generation_projects_info',['GENERATION_PROJECT','gen_tech','gen_energy_source','gen_load_zone','gen_max_age','gen_is_variable','gen_is_baseload','gen_full_load_heat_rate','gen_variable_om','gen_connect_cost_per_mw','gen_dbid','gen_scheduled_outage_rate','gen_forced_outage_rate','gen_capacity_limit_mw', 'gen_min_build_capacity', 'gen_is_cogen', 'gen_storage_efficiency','gen_store_to_release_ratio'],db_cursor)
 	
 	print '  gen_build_predetermined.tab...'
 	db_cursor.execute(("""select generation_plant_id, build_year, capacity as gen_predetermined_cap  
@@ -413,7 +417,7 @@ def main():
 		 'ep_id': generation_plant_existing_and_planned_scenario_id
 		}
     ) 
-	write_tab('gen_build_costs',['GENERATION_PROJECT','build_year','gen_overnight_cost','gen_fixed_om'],db_cursor)
+	write_tab('gen_build_costs',['GENERATION_PROJECT','build_year','gen_overnight_cost','gen_fixed_om', 'gen_storage_energy_overnight_cost'],db_cursor)
 	
 	########################################################
 	# FINANCIALS
