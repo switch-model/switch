@@ -9,7 +9,8 @@
 # Queue:
 #SBATCH --partition=savio2_htc
 # Wall clock limit:
-#SBATCH --time=24:00:00
+# It used to be --time=24:00:00
+#SBATCH --time=8:00:00
 # Num nodes
 #SBATCH --nodes=1
 # Tasks per node
@@ -45,5 +46,5 @@ source venv/bin/activate
 cd ..
 cd $run_dir
 #switch solve --verbose --log-run --solver=cplex --export-all --solver-io=nl --solver-options-string="iisfind=1" --suffixes iis
-switch solve --verbose --log-run --solver=cplex --export-all
+switch solve --verbose --log-run --solver=cplexamp --export-all
 deactivate
