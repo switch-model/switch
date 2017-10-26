@@ -56,7 +56,7 @@ def post_solve(mod, outdir):
     """
     # Import optional dependencies here instead of at the top of the file to
     # avoid breaking tests for installations that don't use this functionality
-    import matplotlib.pyplot as plt
+    #import matplotlib.pyplot as plt
     from numpy import nan
     from cycler import cycler
     from matplotlib.backends.backend_pdf import PdfPages
@@ -69,8 +69,8 @@ def post_solve(mod, outdir):
         for f in os.listdir(summaries_dir):
             os.unlink(os.path.join(summaries_dir, f))
             
-    color_map = plt.get_cmap('gist_rainbow')
-    styles = cycle(['-','--','-.',':'])
+    #color_map = plt.get_cmap('gist_rainbow')
+    #styles = cycle(['-','--','-.',':'])
 
     #####
     # Round doubles to the first decimal
@@ -81,7 +81,7 @@ def post_solve(mod, outdir):
     #        obj.value = round(obj.value,1)
     #    print "Finished rounding variable "+str(var)
 
-    def plot_inv_decision(name, tab, n_data, ind, by_period):
+#    def plot_inv_decision(name, tab, n_data, ind, by_period):
         """
         This function plots an investment decision over all periods on a
         bar plot.
@@ -105,36 +105,36 @@ def post_solve(mod, outdir):
         latter, it represents periods (hence he boolean values required).
         
         """
-        if by_period:
-            df = pd.DataFrame(tab[1:], 
-                columns = tab[0]).set_index(ind).transpose()
-            stack = False
-            num_col = int(n_data)/10
-        else:
-            df = pd.DataFrame(tab[1:], columns = tab[0]).set_index(ind)
-            stack = True
-            num_col = int(n_data)/2
-        fig = plt.figure()
-        inv_ax = fig.add_subplot(111)
-        inv_ax.grid(b=False)
-        # You have to play with the color map and the line style list to 
-        # get enough combinations for your particular plot
-        inv_ax.set_prop_cycle(cycler('color',
-                        [color_map(i/n_data) for i in range(0, n_data+1)]))
-        # To locate the legend: "loc" is the point of the legend for which you
-        # will specify coordinates. These coords are specified in 
-        # bbox_to_anchor (can be only 1 point or couple)        
-        inv_plot = df.plot(kind='bar', ax=inv_ax, 
-            stacked=stack).legend(loc='lower left', fontsize=8, 
-            bbox_to_anchor=(0.,1.015,1.,1.015), ncol=num_col, mode="expand")
-        if by_period:
-            plt.xticks(rotation=0, fontsize=10)
-            fname = summaries_dir+'/'+name+'.pdf'
-        else:
-            plt.xticks(rotation=90, fontsize=9)
-            fname = summaries_dir+'/'+name+'_stacked_by_p.pdf'
-        plt.savefig(fname, bbox_extra_artists=(inv_plot,), bbox_inches='tight')
-        plt.close()
+#        if by_period:
+#            df = pd.DataFrame(tab[1:], 
+#                columns = tab[0]).set_index(ind).transpose()
+#            stack = False
+#            num_col = int(n_data)/10
+#        else:
+#            df = pd.DataFrame(tab[1:], columns = tab[0]).set_index(ind)
+#            stack = True
+#            num_col = int(n_data)/2
+#        fig = plt.figure()
+#        inv_ax = fig.add_subplot(111)
+#        inv_ax.grid(b=False)
+#        # You have to play with the color map and the line style list to 
+#        # get enough combinations for your particular plot
+#        inv_ax.set_prop_cycle(cycler('color',
+#                        [color_map(i/n_data) for i in range(0, n_data+1)]))
+#        # To locate the legend: "loc" is the point of the legend for which you
+#        # will specify coordinates. These coords are specified in 
+#        # bbox_to_anchor (can be only 1 point or couple)        
+#        inv_plot = df.plot(kind='bar', ax=inv_ax, 
+#            stacked=stack).legend(loc='lower left', fontsize=8, 
+#            bbox_to_anchor=(0.,1.015,1.,1.015), ncol=num_col, mode="expand")
+#        if by_period:
+#            plt.xticks(rotation=0, fontsize=10)
+#            fname = summaries_dir+'/'+name+'.pdf'
+#        else:
+#            plt.xticks(rotation=90, fontsize=9)
+#            fname = summaries_dir+'/'+name+'_stacked_by_p.pdf'
+#        plt.savefig(fname, bbox_extra_artists=(inv_plot,), bbox_inches='tight')
+#        plt.close()
 
 #    def plot_dis_decision(name, tab, n_data, ind):
 #        """
@@ -280,32 +280,7 @@ def post_solve(mod, outdir):
 #                for (g, bldyr) in m.GEN_BLD_YRS if m.gen_tech[g] == gt and bldyr not in m.PERIODS)) + 
 #            tuple( sum(m.BuildGen[g, p] for (g, p) in m.GEN_BLD_YRS)) for p in m.PERIODS)
 #        #plot_inv_decision(table_name, table, n_elements, index, False)
-    
-    if mod.options.export_transmission:
-        n_elements = mod.TRANSMISSION_LINES.__len__()
-        index = 'path'
-        
-        table_name = "cummulative_transmission_by_path_periods"
-        print table_name+" ..."
-        table = export.write_table(
-            mod, mod.TRANSMISSION_LINES,
-            output_file=os.path.join(summaries_dir, table_name+".csv"),
-            headings=(index, 'legacy') + tuple(p for p in mod.PERIODS),
-            values=lambda m, tx: (tx, m.existing_trans_cap[tx]) + 
-                tuple(m.TxCapacityNameplate[tx, p] for p in m.PERIODS))
-        ##plot_inv_decision(table_name, table, n_elements, index, True)
-        
-        table_name = "transmission_installation_by_path_periods"
-        print table_name+" ..."
-        table = export.write_table(
-            mod, mod.TRANSMISSION_LINES,
-            output_file=os.path.join(summaries_dir, table_name+".csv"),
-            headings=(index, 'legacy') + tuple(p for p in mod.PERIODS),
-            values=lambda m, tx: (tx, m.existing_trans_cap[tx]) + 
-                tuple(m.BuildTx[tx, p] for p in m.PERIODS))        
-        #plot_inv_decision(table_name, table, n_elements, index, False)
-    
-    
+    ################################################################
     if mod.options.export_tech_dispatch:
 #        n_elements = mod.GENERATION_TECHNOLOGIES.__len__() 
 #        index = 'timepoints'
@@ -347,6 +322,32 @@ def post_solve(mod, outdir):
  #               if m.gen_tech[g] == gt and bldyr not in m.PERIODS)) + 
  #           tuple( sum(m.GenCapacity[g, p] for g in m.GENERATION_PROJECTS 
  #              if m.gen_tech[g] == gt) for p in m.PERIODS))
+    
+    if mod.options.export_transmission:
+        n_elements = mod.TRANSMISSION_LINES.__len__()
+        index = 'path'
+        
+        table_name = "cummulative_transmission_by_path_periods"
+        print table_name+" ..."
+        table = export.write_table(
+            mod, mod.TRANSMISSION_LINES,
+            output_file=os.path.join(summaries_dir, table_name+".csv"),
+            headings=(index, 'legacy') + tuple(p for p in mod.PERIODS),
+            values=lambda m, tx: (tx, m.existing_trans_cap[tx]) + 
+                tuple(m.TxCapacityNameplate[tx, p] for p in m.PERIODS))
+        ##plot_inv_decision(table_name, table, n_elements, index, True)
+        
+        table_name = "transmission_installation_by_path_periods"
+        print table_name+" ..."
+        table = export.write_table(
+            mod, mod.TRANSMISSION_LINES,
+            output_file=os.path.join(summaries_dir, table_name+".csv"),
+            headings=(index, 'legacy') + tuple(p for p in mod.PERIODS),
+            values=lambda m, tx: (tx, m.existing_trans_cap[tx]) + 
+                tuple(m.BuildTx[tx, p] for p in m.PERIODS))        
+        #plot_inv_decision(table_name, table, n_elements, index, False)
+    
+    
     ##############################################################
     
     def calc_tp_costs_in_period_one_scenario(m, p, s):
