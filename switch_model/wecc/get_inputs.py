@@ -357,12 +357,8 @@ def main():
 				capacity_limit_mw as gen_capacity_limit_mw,
 				min_build_capacity as gen_min_build_capacity, 
 				is_cogen as gen_is_cogen,
-				(CASE
-					WHEN storage_efficiency=0 THEN NULL
-					WHEN storage_efficiency > 0 THEN storage_efficiency END) as gen_storage_efficiency,
-				(CASE 
-					WHEN store_to_release_ratio=0 THEN null
-					WHEN store_to_release_ratio > 0 THEN store_to_release_ratio END) as gen_store_to_release_ratio
+				storage_efficiency as gen_storage_efficiency,
+				store_to_release_ratio as gen_store_to_release_ratio
 			from generation_plant as t
 			join load_zone as t2 using(load_zone_id)
 			join generation_plant_scenario_member using(generation_plant_id)
@@ -387,29 +383,23 @@ def main():
 	db_cursor.execute("""
         select generation_plant_id, generation_plant_cost.build_year, 
             overnight_cost as gen_overnight_cost, fixed_o_m as gen_fixed_om,
-            (CASE 
-            	WHEN storage_energy_capacity_cost_per_mwh=0 THEN NULL
-            	WHEN storage_energy_capacity_cost_per_mwh>0 THEN storage_energy_capacity_cost_per_mwh END) as gen_storage_energy_overnight_cost 
+            storage_energy_capacity_cost_per_mwh as gen_storage_energy_overnight_cost 
         FROM generation_plant_cost
           JOIN generation_plant_existing_and_planned USING (generation_plant_id)
           JOIN generation_plant_scenario_member using(generation_plant_id)
           join generation_plant as t1 using(generation_plant_id)
-          join switch.storage_energy_capacity_cost_per_mwh as t2 on (year=generation_plant_cost.build_year and t2.gen_tech=t1.gen_tech)
         WHERE generation_plant_scenario_id=%(gen_plant_scenario)s 
           AND generation_plant_cost.generation_plant_cost_scenario_id=%(cost_scenario)s
           AND generation_plant_existing_and_planned_scenario_id=%(ep_id)s
         UNION
         SELECT generation_plant_id, period.label, 
             avg(overnight_cost) as gen_overnight_cost, avg(fixed_o_m) as gen_fixed_om,
-            (CASE 
-            	WHEN avg(storage_energy_capacity_cost_per_mwh)=0 THEN NULL
-            	WHEN avg(storage_energy_capacity_cost_per_mwh)>0 THEN avg(storage_energy_capacity_cost_per_mwh) END) as gen_storage_energy_overnight_cost
+            avg(storage_energy_capacity_cost_per_mwh) as gen_storage_energy_overnight_cost
         FROM generation_plant_cost 
           JOIN generation_plant using(generation_plant_id) 
           JOIN period on(build_year>=start_year and build_year<=end_year)
           JOIN generation_plant_scenario_member using(generation_plant_id)
           join generation_plant as t1 using(generation_plant_id)
-          join switch.storage_energy_capacity_cost_per_mwh as t2 on (year=generation_plant_cost.build_year and t2.gen_tech=t1.gen_tech)
         WHERE generation_plant_scenario_id=%(gen_plant_scenario)s 
           AND period.study_timeframe_id=%(timeframe)s 
           AND generation_plant_cost.generation_plant_cost_scenario_id=%(cost_scenario)s
