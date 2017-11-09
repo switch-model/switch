@@ -26,7 +26,7 @@ def define_AbstractModel(*module_list, **kwargs):
     args = kwargs.get("args", sys.argv[1:])
     return create_model(module_list, args)
 
-def create_model(module_list, args=sys.argv[1:]):
+def create_model(module_list=None, args=sys.argv[1:]):
     """
 
     Construct a Pyomo AbstractModel using the Switch modules or packages
@@ -64,6 +64,9 @@ def create_model(module_list, args=sys.argv[1:]):
     model = AbstractModel()
 
     # Load modules
+    if module_list is None:
+        import switch_model.solve
+        module_list = switch_model.solve.get_module_list(args)
     model.module_list = module_list
     for m in module_list:
         importlib.import_module(m)
@@ -285,11 +288,10 @@ def _add_min_data_check(model):
     ... except ValueError as e:
     ...     print e  # doctest: +NORMALIZE_WHITESPACE
     ERROR: Constructing component 'min_data_check_2' from data=None failed:
-        ValueError: Values are not provided for every element of the
-        mandatory parameter 'paramA_empty'
+        ValueError: Values are not provided for every element of the mandatory
+        parameter 'paramA_empty'. Missing data for 2 values, including: [1, 2]
     Values are not provided for every element of the mandatory parameter
-    'paramA_empty'
-
+    'paramA_empty'. Missing data for 2 values, including: [1, 2]
 
     """
     if getattr(model, 'min_data_check', None) is None:
@@ -351,8 +353,8 @@ def check_mandatory_components(model, *mandatory_model_components):
         mod, 'set_A', 'paramA_empty') # doctest: +NORMALIZE_WHITESPACE
     Traceback (most recent call last):
         ...
-    ValueError: Values are not provided for every element of the
-    mandatory parameter 'paramA_empty'
+    ValueError: Values are not provided for every element of the mandatory
+    parameter 'paramA_empty'. Missing data for 2 values, including: [1, 2]
     >>> utilities.check_mandatory_components(mod, 'set_A', 'set_B')
     Traceback (most recent call last):
         ...

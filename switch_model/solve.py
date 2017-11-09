@@ -2,6 +2,7 @@
 # Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 import sys, os, time, shlex, re
+import cPickle as pickle
 
 from pyomo.environ import *
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
@@ -116,28 +117,7 @@ def main(args=None, return_model=False, return_instance=False):
             return instance
 
     if model.options.reload_prior_solution:
-        # read variable values from previously solved model
-        import csv
-        var_objects = [c for c in instance.component_objects()
-            if isinstance(c,pyomo.core.base.Var)]
-        def _convert_if_numeric(s):
-            try:
-                return float(s)
-            except ValueError:
-                return s
-        for var in var_objects:
-            if '{}.tab'.format(var.name) not in os.listdir(model.options.outputs_dir):
-                raise RuntimeError("Tab output file for variable {} cannot be found in outputs directory. Exiting.".format(var.name))
-            with open(os.path.join(model.options.outputs_dir, '{}.tab'.format(var.name)),'r') as f:
-                reader = csv.reader(f, delimiter='\t')
-                # skip headers
-                next(reader)
-                for row in reader:
-                    index = (_convert_if_numeric(i) for i in row[:-1])
-                    var[index].value = float(row[-1])
-            print 'Loaded variable {} values into instance.'.format(var.name)
-        output_loading_time = time.time()
-        print 'Finished loading previous results into model instance in {:.2f} s.'.format(output_loading_time - instantiation_time)
+        reload_prior_solution_from_pickle(instance, model.options.outputs_dir)
     else:
         # make sure the outputs_dir exists (used by some modules during iterate)
         # use a race-safe approach in case this code is run in parallel
@@ -187,6 +167,13 @@ def main(args=None, return_model=False, return_instance=False):
         )
         import code
         code.interact(banner=banner, local=dict(globals().items() + locals().items()))
+
+
+def reload_prior_solution_from_pickle(instance, outdir):
+    with open(os.path.join(outdir, 'results.pickle'), 'rb') as fh:
+         results = pickle.load(fh)
+    instance.solutions.load_from(results)
+    return instance 
 
 
 patched_pyomo = False
@@ -325,7 +312,7 @@ def define_arguments(argparser):
     # note: pyomo has a --solver-suffix option but it is not clear
     # whether that does the same thing as --suffix defined here,
     # so we don't reuse the same name.
-    argparser.add_argument("--suffixes", "--suffix", nargs="+", default=[],
+    argparser.add_argument("--suffixes", "--suffix", nargs="+", default=['rc','dual','slack'],
         help="Extra suffixes to add to the model and exchange with the solver (e.g., iis, rc, dual, or slack)")
 
     # Define solver-related arguments
@@ -506,7 +493,8 @@ def add_extra_suffixes(model):
     pass them to the solver.
     """
     for suffix in model.options.suffixes:
-        setattr(model, suffix, Suffix(direction=Suffix.IMPORT_EXPORT))
+        if not hasattr(model, suffix):
+            setattr(model, suffix, Suffix(direction=Suffix.IMPORT_EXPORT))
 
 
 def solve(model):
@@ -570,11 +558,19 @@ def solve(model):
 
     results = model.solver_manager.solve(model, opt=model.solver, **solver_args)
 
+    # Load the solution data into the results object (it only has execution
+    # metadata by default in recent versions of Pyomo). This will enable us to
+    # save and restore model solutions; the results object can be pickled to a
+    # file on disk, but the instance cannot. 
+    # https://stackoverflow.com/questions/39941520/pyomo-ipopt-does-not-return-solution
+    # 
+    model.solutions.store_to(results)
+    model.last_results = results
+
     if model.options.verbose:
         solve_end_time = time.time()
         print "Solved model. Total time spent in solver: {:2f} s.".format(solve_end_time - solve_start_time)
 
-    model.solutions.load_from(results)
 # Paty's addition for debugging:
  #   embed()
 
