@@ -211,6 +211,13 @@ def reload_prior_solution_from_pickle(instance, outdir):
     return instance
 
 
+def reload_prior_solution_from_pickle(instance, outdir):
+    with open(os.path.join(outdir, 'results.pickle'), 'rb') as fh:
+         results = pickle.load(fh)
+    instance.solutions.load_from(results)
+    return instance 
+
+
 patched_pyomo = False
 def patch_pyomo():
     global patched_pyomo
@@ -451,7 +458,7 @@ def define_arguments(argparser):
     # note: pyomo has a --solver-suffix option but it is not clear
     # whether that does the same thing as --suffix defined here,
     # so we don't reuse the same name.
-    argparser.add_argument("--suffixes", "--suffix", nargs="+", action='extend', default=[],
+    argparser.add_argument("--suffixes", "--suffix", nargs="+", default=['rc','dual','slack'],
         help="Extra suffixes to add to the model and exchange with the solver (e.g., iis, rc, dual, or slack)")
 
     # Define solver-related arguments
@@ -733,6 +740,15 @@ def solve(model):
 
     results = model.solver_manager.solve(model, opt=model.solver, **solver_args)
     #import pdb; pdb.set_trace()
+
+    # Load the solution data into the results object (it only has execution
+    # metadata by default in recent versions of Pyomo). This will enable us to
+    # save and restore model solutions; the results object can be pickled to a
+    # file on disk, but the instance cannot. 
+    # https://stackoverflow.com/questions/39941520/pyomo-ipopt-does-not-return-solution
+    # 
+    model.solutions.store_to(results)
+    model.last_results = results
 
     if model.options.verbose:
         print("Solved model. Total time spent in solver: {:2f} s.".format(timer.step_time()))
