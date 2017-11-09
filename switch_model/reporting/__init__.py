@@ -24,6 +24,7 @@ dependencies = "switch_model.financials"
 import os
 import csv
 import itertools
+import cPickle as pickle
 from pyomo.environ import value, Var
 
 csv.register_dialect(
@@ -127,6 +128,11 @@ def _save_total_cost_value(instance, outdir):
         fh.write("%s\n" % total_cost)
 
 
+def _save_results(instance, outdir):
+    with open(os.path.join(outdir, "results.pickle"), "wb") as fh:
+        pickle.dump(instance.last_results, fh, protocol=-1)
+
+
 def post_solve(instance, outdir):
     """
     Minimum output generation for all model runs.
@@ -134,3 +140,4 @@ def post_solve(instance, outdir):
     """
     _save_generic_results(instance, outdir, instance.options.sorted_output)
     _save_total_cost_value(instance, outdir)
+    _save_results(instance, outdir)
