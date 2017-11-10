@@ -471,7 +471,7 @@ def main():
 			CASE WHEN hydro_avg_flow_mw <= 0 THEN 0.01 ELSE
 			least(hydro_avg_flow_mw, (capacity_limit_mw) * (1-forced_outage_rate)) END as hydro_avg_flow_mw
 		from hydro_historical_monthly_capacity_factors
-			join sampled_timeseries on(month = date_part('month', first_timepoint_utc))
+			join sampled_timeseries on(month = date_part('month', first_timepoint_utc) and year = date_part('year', first_timepoint_utc))
 			join generation_plant using (generation_plant_id)
 			join generation_plant_scenario_member using(generation_plant_id)
 		where generation_plant_scenario_id = {id3} 
