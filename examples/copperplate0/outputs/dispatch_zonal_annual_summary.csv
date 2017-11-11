@@ -1,4 +1,11 @@
+<<<<<<< HEAD
 gen_tech,gen_load_zone,gen_energy_source,period,Energy_GWh_typical_yr,VariableCost_per_yr,DispatchEmissions_tCO2_per_typical_yr
 Central_PV,South,Solar,2020,2.6201574,0.0,
 Geothermal,South,Geothermal,2020,4.383,126361.89,
 NG_CC,South,NaturalGas,2020,30.2523426,103254.270528,10762.7942455
+=======
+gen_tech,gen_load_zone,gen_energy_source,period,Energy (GWh/typical yr),VariableCost ($/yr),DispatchEmissions (tCO2/typical yr)
+Central_PV,South,Solar,2020,2620.1574,0.0,
+Geothermal,South,Geothermal,2020,4383.0,126.36189,
+NG_CC,South,NaturalGas,2020,30252.3426,103.254270528,10762.7942455
+>>>>>>> 50d052e... Export summaries of dispatch as tables and a figure using pandas and ggplot. Renamed the "wide" dispatch output file to dispatch-wide.txt, not to be confused with the normalized data in dispatch.csv. Also renamed/reformatted other dispatch files from 'txt' to 'csv' to have appropriate associations on most computers.
