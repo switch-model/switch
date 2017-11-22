@@ -1,0 +1,4 @@
+LOAD_ZONE	TIMEPOINT	ev_cumulative_charge_lower_mwh	ev_cumulative_charge_upper_mwh	ev_charge_limit_mw
+South	1	0	5.6	2
+South	2	4	9.6	2
+South	3	12	12	2
