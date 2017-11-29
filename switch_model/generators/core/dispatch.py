@@ -406,12 +406,12 @@ def post_solve(instance, outdir):
             "gen_load_zone",
             "gen_energy_source",
             "timestamp",
-            "tp_weight_in_year (hrs)",
+            "tp_weight_in_year_hrs",
             "period",
             "DispatchGen (MW)",
-            "Energy (GWh/typical yr)",
-            "VariableCost ($/yr)",
-            "DispatchEmissions (tCO2/typical yr)",
+            "Energy_GWh_typical_yr",
+            "VariableCost_per_yr",
+            "DispatchEmissions_tCO2_per_typical_yr",
         ),
         index=("generation_project", "timestamp"),
     )
@@ -423,9 +423,9 @@ def post_solve(instance, outdir):
     annual_summary.to_csv(
         os.path.join(outdir, "dispatch_annual_summary.csv"),
         columns=[
-            "Energy (GWh/typical yr)",
-            "VariableCost ($/yr)",
-            "DispatchEmissions (tCO2/typical yr)",
+            "Energy_GWh_typical_yr",
+            "VariableCost_per_yr",
+            "DispatchEmissions_tCO2_per_typical_yr",
         ],
     )
 
@@ -435,9 +435,9 @@ def post_solve(instance, outdir):
     zonal_annual_summary.to_csv(
         os.path.join(outdir, "dispatch_zonal_annual_summary.csv"),
         columns=[
-            "Energy (GWh/typical yr)",
-            "VariableCost ($/yr)",
-            "DispatchEmissions (tCO2/typical yr)",
+            "Energy_GWh_typical_yr",
+            "VariableCost_per_yr",
+            "DispatchEmissions_tCO2_per_typical_yr",
         ],
     )
 
@@ -446,9 +446,7 @@ def post_solve(instance, outdir):
             ggplot(
                 annual_summary.reset_index(),
                 aes(
-                    x="period",
-                    weight="Energy (GWh/typical yr)",
-                    fill="factor(gen_tech)",
+                    x="period", weight="Energy_GWh_typical_yr", fill="factor(gen_tech)"
                 ),
             )
             + geom_bar(position="stack")
