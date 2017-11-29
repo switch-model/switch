@@ -130,7 +130,8 @@ def main():
 			generation_plant_existing_and_planned_scenario_id,
 			hydro_simple_scenario_id, carbon_cap_scenario_id,
 			supply_curves_scenario_id, regional_fuel_market_scenario_id,
-			zone_to_regional_fuel_market_scenario_id, rps_scenario_id
+			zone_to_regional_fuel_market_scenario_id, rps_scenario_id,
+			enable_dr, enable_ev
 		FROM switch.scenario WHERE scenario_id = %s""",
 		[args.s]
 	)
@@ -151,6 +152,8 @@ def main():
 	regional_fuel_market_scenario_id = s_details[12]
 	zone_to_regional_fuel_market_scenario_id = s_details[13]
 	rps_scenario_id = s_details[14]
+	enable_dr = s_details[15]
+	enable_ev = s_details[16]
 	
 	os.chdir(args.i)
 	
@@ -520,7 +523,7 @@ def main():
 		write_tab('rps_targets',['load_zone','period','rps_target'],db_cursor)
 	
 	########################################################
-	# BIO_SOLID CUPPLY CURVE
+	# BIO_SOLID SUPPLY CURVE
 	
 	if supply_curves_scenario_id is not None:
 		print '  fuel_supply_curves.tab...'
@@ -552,6 +555,77 @@ def main():
 						""").format(id=zone_to_regional_fuel_market_scenario_id))
 		write_tab('zone_to_regional_fuel_market',['load_zone','regional_fuel_market'],db_cursor)	
 	
+	
+	########################################################
+	# DEMAND RESPONSE
+	if enable_dr is not None:
+		print '  dr_data.tab...'
+		db_cursor.execute(("""
+			select load_zone_name as load_zone, sampled_timepoint.raw_timepoint_id AS timepoint, 
+			case 
+				when load_zone_id>=10 and load_zone_id<=21 and extract(year from sampled_timepoint.timestamp_utc)=2020 then 0.003*demand_mw
+    			when load_zone_id>=10 and load_zone_id<=21 and extract(year from sampled_timepoint.timestamp_utc)=2030 then 0.02*demand_mw
+    			when load_zone_id>=10 and load_zone_id<=21 and extract(year from sampled_timepoint.timestamp_utc)=2040 then 0.07*demand_mw
+    			when load_zone_id>=10 and load_zone_id<=21 and extract(year from sampled_timepoint.timestamp_utc)=2050 then 0.1*demand_mw
+    			when (load_zone_id<10 or load_zone_id>21) and extract(year from sampled_timepoint.timestamp_utc)=2020 then 0*demand_mw
+    			when (load_zone_id<10 or load_zone_id>21) and extract(year from sampled_timepoint.timestamp_utc)=2030 then 0.03*demand_mw
+    			when (load_zone_id<10 or load_zone_id>21) and extract(year from sampled_timepoint.timestamp_utc)=2040 then 0.02*demand_mw
+    			when (load_zone_id<10 or load_zone_id>21) and extract(year from sampled_timepoint.timestamp_utc)=2050 then 0.07*demand_mw
+    		end as dr_shift_down_limit,
+    		NULL as dr_shift_up_limit
+			from sampled_timepoint
+			left join demand_timeseries on sampled_timepoint.raw_timepoint_id=demand_timeseries.raw_timepoint_id
+			where demand_scenario_id = {id1} 
+			and study_timeframe_id = {id2}
+			order by demand_scenario_id, load_zone_id, sampled_timepoint.raw_timepoint_id;
+						""").format(id1=demand_scenario_id, id2=study_timeframe_id))
+		write_tab('dr_data',['LOAD_ZONE','timepoint','dr_shift_down_limit', 'dr_shift_up_limit'],db_cursor)
+
+	
+	########################################################
+	# ELECTRICAL VEHICLES
+	if enable_ev is not None:
+		print '  ev_limits.tab...'
+		db_cursor.execute(("""
+			SELECT load_zone_name as load_zone, raw_timepoint_id as timepoint,
+			(CASE 
+				WHEN raw_timepoint_id=max_raw_timepoint_id THEN ev_cumulative_charge_upper_mwh
+				ELSE ev_cumulative_charge_lower_mwh
+			END) AS ev_cumulative_charge_lower_mwh,
+			ev_cumulative_charge_upper_mwh,
+			ev_charge_limit as ev_charge_limit_mw
+			FROM(
+			--Table sample_points: with the sample points
+				SELECT 
+					load_zone_id, 
+					ev_profiles_per_timepoint_v3.raw_timepoint_id, 
+					sampled_timeseries_id, 
+					sampled_timepoint.timestamp_utc, 
+					load_zone_name, 
+					ev_cumulative_charge_lower_mwh, 
+					ev_cumulative_charge_upper_mwh, 
+					ev_charge_limit  FROM ev_profiles_per_timepoint_v3
+				LEFT JOIN sampled_timepoint
+				ON ev_profiles_per_timepoint_v3.raw_timepoint_id = sampled_timepoint.raw_timepoint_id 
+				WHERE study_timeframe_id = {id}
+				--END sample_points
+			)AS sample_points
+			LEFT JOIN(
+			--Table max_raw: with max raw_timepoint_id per _sample_timesseries_id
+			SELECT 
+				sampled_timeseries_id,
+				MAX(raw_timepoint_id) AS max_raw_timepoint_id
+			FROM sampled_timepoint 
+			WHERE study_timeframe_id = {id}
+			GROUP BY sampled_timeseries_id
+			--END max_raw
+			)AS max_raw
+			ON max_raw.sampled_timeseries_id=sample_points.sampled_timeseries_id
+			ORDER BY load_zone_id, raw_timepoint_id ;
+						""").format(id=study_timeframe_id))
+		write_tab('ev_limits',['LOAD_ZONE','timepoint','ev_cumulative_charge_lower_mwh', 'ev_cumulative_charge_upper_mwh', 'ev_charge_limit_mw'],db_cursor)
+
+
 	
 	end_time = time.time()
 	
