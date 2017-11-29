@@ -364,9 +364,9 @@ def post_solve(instance, outdir):
         dispatch_normalized_dat,
         columns=("generation_project","gen_dbid", "gen_tech",
                    "gen_load_zone", "gen_energy_source", "timestamp",
-                   "tp_weight_in_year (hrs)", "period", 
-                   "DispatchGen (MW)", "Energy (GWh/typical yr)",
-                   "VariableCost ($/yr)", "DispatchEmissions (tCO2/typical yr)"),
+                   "tp_weight_in_year_hrs", "period", 
+                   "DispatchGen (MW)", "Energy_GWh_typical_yr",
+                   "VariableCost_per_yr", "DispatchEmissions_tCO2_per_typical_yr"),
         index=("generation_project", "timestamp")
     )
     dispatch_full_df.to_csv(os.path.join(outdir, "dispatch.csv"))
@@ -375,8 +375,8 @@ def post_solve(instance, outdir):
     annual_summary = dispatch_full_df.groupby(['gen_tech', "gen_energy_source", "period"]).sum()
     annual_summary.to_csv(
         os.path.join(outdir, "dispatch_annual_summary.csv"),
-        columns=["Energy (GWh/typical yr)", "VariableCost ($/yr)", 
-                 "DispatchEmissions (tCO2/typical yr)"])
+        columns=["Energy_GWh_typical_yr", "VariableCost_per_yr", 
+                 "DispatchEmissions_tCO2_per_typical_yr"])
 
 
     zonal_annual_summary = dispatch_full_df.groupby(
@@ -384,14 +384,14 @@ def post_solve(instance, outdir):
     ).sum()
     zonal_annual_summary.to_csv(
         os.path.join(outdir, "dispatch_zonal_annual_summary.csv"),
-        columns=["Energy (GWh/typical yr)", "VariableCost ($/yr)", 
-                 "DispatchEmissions (tCO2/typical yr)"]
+        columns=["Energy_GWh_typical_yr", "VariableCost_per_yr", 
+                 "DispatchEmissions_tCO2_per_typical_yr"]
     )
     
     if can_plot:
         annual_summary_plot = ggplot(
                 annual_summary.reset_index(), 
-                aes(x='period', weight="Energy (GWh/typical yr)", fill="factor(gen_tech)")
+                aes(x='period', weight="Energy_GWh_typical_yr", fill="factor(gen_tech)")
             ) + \
             geom_bar(position="stack") + \
             scale_y_continuous(name='Energy (GWh/yr)') + theme_bw()
