@@ -408,7 +408,7 @@ def post_solve(instance, outdir):
             "timestamp",
             "tp_weight_in_year_hrs",
             "period",
-            "DispatchGen (MW)",
+            "DispatchGen_MW",
             "Energy_GWh_typical_yr",
             "VariableCost_per_yr",
             "DispatchEmissions_tCO2_per_typical_yr",
