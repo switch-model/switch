@@ -365,7 +365,7 @@ def post_solve(instance, outdir):
         columns=("generation_project","gen_dbid", "gen_tech",
                    "gen_load_zone", "gen_energy_source", "timestamp",
                    "tp_weight_in_year_hrs", "period", 
-                   "DispatchGen (MW)", "Energy_GWh_typical_yr",
+                   "DispatchGen_MW", "Energy_GWh_typical_yr",
                    "VariableCost_per_yr", "DispatchEmissions_tCO2_per_typical_yr"),
         index=("generation_project", "timestamp")
     )
