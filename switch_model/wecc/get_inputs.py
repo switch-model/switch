@@ -488,9 +488,10 @@ def main():
 	
 	# future work: join with table with carbon_cost_dollar_per_tco2
 	print '  carbon_policies.tab...'
-	db_cursor.execute(("""select period, AVG(carbon_cap_tco2_per_yr) as carbon_cap_tco2_per_yr, '.' as  carbon_cost_dollar_per_tco2
+	db_cursor.execute(("""select period, AVG(carbon_cap_tco2_per_yr) as carbon_cap_tco2_per_yr, AVG(carbon_cap_tco2_per_yr_CA) as carbon_cap_tco2_per_yr_CA,
+						'.' as  carbon_cost_dollar_per_tco2
 					from 
-					(select carbon_cap_tco2_per_yr, year, 
+					(select carbon_cap_tco2_per_yr, carbon_cap_tco2_per_yr_CA, year, 
 							(case when 
 							year >= period.start_year 
 							and year <= period.start_year + length_yrs -1 then label else 0 end) as period
@@ -501,7 +502,7 @@ def main():
 					group by period
 					order by 1;
 					""").format(id1=study_timeframe_id, id2=carbon_cap_scenario_id))
-	write_tab('carbon_policies',['PERIOD','carbon_cap_tco2_per_yr','carbon_cost_dollar_per_tco2'],db_cursor)
+	write_tab('carbon_policies',['PERIOD','carbon_cap_tco2_per_yr','carbon_cap_tco2_per_yr_CA','carbon_cost_dollar_per_tco2'],db_cursor)
 
 	########################################################
 	# RPS

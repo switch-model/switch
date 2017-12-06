@@ -45,10 +45,22 @@ def define_components(model):
             m.DispatchEmissions[g, t, f] * m.tp_weight_in_year[t]
             for (g, t, f) in m.GEN_TP_FUELS
             if m.tp_period[t] == period
-            and m.zone_dbid(m.gen_load_zone[g]) <= 21
-            and m.zone_dbid(m.gen_load_zone[g]) >= 10
+            and (
+                m.gen_load_zone[g] == "CA_IID"
+                or m.gen_load_zone[g] == "CA_LADWP"
+                or m.gen_load_zone[g] == "CA_PGE_BAY"
+                or m.gen_load_zone[g] == "CA_PGE_CEN"
+                or m.gen_load_zone[g] == "CA_PGE_N"
+                or m.gen_load_zone[g] == "CA_PGE_S"
+                or m.gen_load_zone[g] == "CA_SCE_CEN"
+                or m.gen_load_zone[g] == "CA_SCE_S"
+                or m.gen_load_zone[g] == "CA_SCE_SE"
+                or m.gen_load_zone[g] == "CA_SCE_VLY"
+                or m.gen_load_zone[g] == "CA_SDGE"
+                or m.gen_load_zone[g] == "CA_SMUD"
+            )
         ),
-        doc="The system's annual emissions, in metric tonnes of CO2 per year.",
+        doc="CA's annual emissions, in metric tonnes of CO2 per year.",
     )
     model.Enforce_Carbon_Cap = Constraint(
         model.PERIODS,
