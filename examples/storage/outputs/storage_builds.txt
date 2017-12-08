@@ -1,2 +1,2 @@
 project	period	load_zone	IncrementalPowerCapacityMW	IncrementalEnergyCapacityMWh	OnlinePowerCapacityMW	OnlineEnergyCapacityMWh
-Battery_Storage	2020	South	4.02460641399417	35.4970285714286	4.02460641399417	35.4970285714286
+Battery_Storage	2020	South	4.02461	35.497	4.02461	35.497
