@@ -7,6 +7,7 @@ Defines financial parameters for the SWITCH-Pyomo model.
 """
 from pyomo.environ import *
 import os
+import pandas as pd
 
 dependencies = "switch_model.timescales"
 
@@ -308,3 +309,21 @@ def load_inputs(mod, switch_data, inputs_dir):
     base_financial_year, interest_rate and optionally discount_rate.
     """
     switch_data.load(filename=os.path.join(inputs_dir, "financials.dat"))
+
+
+def post_solve(instance, outdir):
+    mod = instance
+    normalized_dat = [
+        {
+            "PERIOD": p,
+            "SystemCostPerPeriod": value(mod.SystemCostPerPeriod[p]),
+            "EnergyCost_per_MWh": value(
+                mod.SystemCostPerPeriod[p]
+                / sum(mod.zone_total_demand_in_period_mwh[z, p] for z in mod.LOAD_ZONES)
+            ),
+        }
+        for p in mod.PERIODS
+    ]
+    df = pd.DataFrame(normalized_dat)
+    df.set_index(["PERIOD"], inplace=True)
+    df.to_csv(os.path.join(outdir, "electricity_cost.csv"))
