@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 generation_project,timestamp,DispatchEmissions_tCO2_per_typical_yr,DispatchGen_MW,Energy_GWh_typical_yr,VariableCost_per_yr,gen_dbid,gen_energy_source,gen_load_zone,gen_tech,period,tp_weight_in_year_hrs
 S-Geothermal,2025011600,,0.5,2.1915,63180.945,33,Geothermal,South,Geothermal,2020,4383.0
 S-Geothermal,2025011512,,0.5,2.1915,63180.945,33,Geothermal,South,Geothermal,2020,4383.0
@@ -6,12 +5,3 @@ S-NG_CC,2025011512,10762.7942455,6.9022,30.2523426,103254.270528,34,NaturalGas,S
 S-NG_CC,2025011600,0.0,0.0,0.0,0.0,34,NaturalGas,South,NG_CC,2020,4383.0
 S-Central_PV-1,2025011600,,0.0,0.0,0.0,41,Solar,South,Central_PV,2020,4383.0
 S-Central_PV-1,2025011512,,0.5978,2.6201574,0.0,41,Solar,South,Central_PV,2020,4383.0
-=======
-generation_project,timestamp,gen_dbid,gen_tech,gen_load_zone,gen_energy_source,tp_weight_in_year (hrs),period,DispatchGen (MW),Energy (GWh/typical yr),VariableCost ($/yr),DispatchEmissions (tCO2/typical yr)
-S-Geothermal,2025011600,33,Geothermal,South,Geothermal,4383.0,2020,0.5,2191.5,63.180945,
-S-Geothermal,2025011512,33,Geothermal,South,Geothermal,4383.0,2020,0.5,2191.5,63.180945,
-S-NG_CC,2025011512,34,NG_CC,South,NaturalGas,4383.0,2020,6.9022,30252.3426,103.254270528,10762.7942455
-S-NG_CC,2025011600,34,NG_CC,South,NaturalGas,4383.0,2020,0.0,0.0,0.0,0.0
-S-Central_PV-1,2025011600,41,Central_PV,South,Solar,4383.0,2020,0.0,0.0,0.0,
-S-Central_PV-1,2025011512,41,Central_PV,South,Solar,4383.0,2020,0.5978,2620.1574,0.0,
->>>>>>> 50d052e... Export summaries of dispatch as tables and a figure using pandas and ggplot. Renamed the "wide" dispatch output file to dispatch-wide.txt, not to be confused with the normalized data in dispatch.csv. Also renamed/reformatted other dispatch files from 'txt' to 'csv' to have appropriate associations on most computers.
