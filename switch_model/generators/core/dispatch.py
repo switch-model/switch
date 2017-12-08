@@ -353,8 +353,23 @@ def load_inputs(mod, switch_data, inputs_dir):
 
 def post_solve(instance, outdir):
     """
-    Default export of project dispatch per timepoint in tabular "wide" format.
+    Exported files:
 
+    dispatch-wide.txt - Dispatch results timepoints in "wide" format with
+    timepoints as rows, generation projects as columns, and dispatch level
+    as values
+
+    dispatch.csv - Dispatch results in normalized form where each row
+    describes the dispatch of a generation project in one timepoint.
+
+    dispatch_annual_summary.csv - Similar to dispatch.csv, but summarized
+    by generation technology and period.
+
+    dispatch_zonal_annual_summary.csv - Similar to dispatch_annual_summary.csv
+    but broken out by load zone.
+
+    dispatch_annual_summary.pdf - A figure of annual summary data. Only written
+    if the ggplot python library is installed.
     """
     write_table(
         instance,
@@ -369,24 +384,25 @@ def post_solve(instance, outdir):
     )
 
     dispatch_normalized_dat = [
-        (
-            g,
-            instance.gen_dbid[g],
-            instance.gen_tech[g],
-            instance.gen_load_zone[g],
-            instance.gen_energy_source[g],
-            instance.tp_timestamp[t],
-            instance.tp_weight_in_year[t],
-            instance.tp_period[t],
-            value(instance.DispatchGen[g, t]),
-            value(instance.DispatchGen[g, t] * instance.tp_weight_in_year[t]),
-            value(
+        {
+            "generation_project": g,
+            "gen_dbid": instance.gen_dbid[g],
+            "gen_tech": instance.gen_tech[g],
+            "gen_load_zone": instance.gen_load_zone[g],
+            "gen_energy_source": instance.gen_energy_source[g],
+            "timestamp": instance.tp_timestamp[t],
+            "tp_weight_in_year_hrs": instance.tp_weight_in_year[t],
+            "period": instance.tp_period[t],
+            "DispatchGen_MW": value(instance.DispatchGen[g, t]),
+            "Energy_GWh_typical_yr": value(
+                instance.DispatchGen[g, t] * instance.tp_weight_in_year[t] / 1000
+            ),
+            "VariableCost_per_yr": value(
                 instance.DispatchGen[g, t]
                 * instance.gen_variable_om[g]
                 * instance.tp_weight_in_year[t]
-                / 1000
             ),
-            value(
+            "DispatchEmissions_tCO2_per_typical_yr": value(
                 sum(
                     instance.DispatchEmissions[g, t, f] * instance.tp_weight_in_year[t]
                     for f in instance.FUELS_FOR_GEN[g]
@@ -394,27 +410,11 @@ def post_solve(instance, outdir):
             )
             if instance.gen_uses_fuel[g]
             else None,
-        )
+        }
         for g, t in instance.GEN_TPS
     ]
-    dispatch_full_df = pd.DataFrame.from_records(
-        dispatch_normalized_dat,
-        columns=(
-            "generation_project",
-            "gen_dbid",
-            "gen_tech",
-            "gen_load_zone",
-            "gen_energy_source",
-            "timestamp",
-            "tp_weight_in_year_hrs",
-            "period",
-            "DispatchGen_MW",
-            "Energy_GWh_typical_yr",
-            "VariableCost_per_yr",
-            "DispatchEmissions_tCO2_per_typical_yr",
-        ),
-        index=("generation_project", "timestamp"),
-    )
+    dispatch_full_df = pd.DataFrame(dispatch_normalized_dat)
+    dispatch_full_df.set_index(["generation_project", "timestamp"], inplace=True)
     dispatch_full_df.to_csv(os.path.join(outdir, "dispatch.csv"))
 
     annual_summary = dispatch_full_df.groupby(

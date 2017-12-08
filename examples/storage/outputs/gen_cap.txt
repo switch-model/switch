@@ -1,0 +1,4 @@
+GENERATION_PROJECT	PERIOD	gen_tech	gen_load_zone	gen_energy_source	GenCapacity	GenCapitalCosts	GenFixedOMCosts
+Battery_Storage	2020	Battery_Storage	South	Electricity	4.02461	5730.71	402.461
+S-Central_PV-1	2020	Central_PV	South	Solar	1	227410	41850
+S-Geothermal	2020	Geothermal	South	Geothermal	4.58827	2.09222e+06	0
