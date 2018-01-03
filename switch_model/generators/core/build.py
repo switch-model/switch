@@ -327,11 +327,22 @@ def define_components(mod):
         mod.PREDETERMINED_GEN_BLD_YRS,
         rule=BuildGen_assign_default_value)
 
+    # note: in pull request 78, commit e7f870d..., GEN_PERIODS
+    # was mistakenly redefined as GENERATION_PROJECTS * PERIODS. 
+    # That didn't directly affect the objective function in the tests
+    # because most code uses GEN_TPS, which was defined correctly. 
+    # But it did have some subtle effects on the main Hawaii model.
+    # It would be good to have a test that this set is correct,
+    # e.g., assertions that in the 3zone_toy model, 
+    # ('C-Coal_ST', 2020) in m.GEN_PERIODS and ('C-Coal_ST', 2030) not in m.GEN_PERIODS
+    # and 'C-Coal_ST' in m.GENS_IN_PERIOD[2020] and 'C-Coal_ST' not in m.GENS_IN_PERIOD[2030]
     mod.GEN_PERIODS = Set(
         dimen=2,
-        initialize=mod.GENERATION_PROJECTS * mod.PERIODS)
+        initialize=lambda m:
+            [(g, p) for g in m.GENERATION_PROJECTS for p in m.PERIODS_FOR_GEN[g]])
+
     mod.GenCapacity = Expression(
-        mod.GEN_PERIODS,
+        mod.GENERATION_PROJECTS, mod.PERIODS,
         rule=lambda m, g, period: sum(
             m.BuildGen[g, bld_yr]
             for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, period]))
@@ -393,12 +404,12 @@ def define_components(mod):
             crf(m.interest_rate, m.gen_max_age[g])))
 
     mod.GenCapitalCosts = Expression(
-        mod.GEN_PERIODS,
+        mod.GENERATION_PROJECTS, mod.PERIODS,
         rule=lambda m, g, p: sum(
             m.BuildGen[g, bld_yr] * m.gen_capital_cost_annual[g, bld_yr]
             for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]))
     mod.GenFixedOMCosts = Expression(
-        mod.GEN_PERIODS,
+        mod.GENERATION_PROJECTS, mod.PERIODS,
         rule=lambda m, g, p: sum(
             m.BuildGen[g, bld_yr] * m.gen_fixed_om[g, bld_yr]
             for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]))
@@ -494,12 +505,10 @@ def load_inputs(mod, switch_data, inputs_dir):
 
 
 def post_solve(instance, outdir):
-    # write_table returns a tuple instead of expanding the indexes, so use
-    # "gp" for the tuple instead of "g, p" for the components.
     write_table(
-        instance, instance.GEN_PERIODS, 
+        instance, instance.GENERATION_PROJECTS, instance.PERIODS, 
         output_file=os.path.join(outdir, "gen_cap.txt"),
         headings=("GENERATION_PROJECT", "PERIOD", "GenCapacity",
                   "GenCapitalCosts", "GenFixedOMCosts"),
-        values=lambda m, gp: gp + (m.GenCapacity[gp], m.GenCapitalCosts[gp],
-                                m.GenFixedOMCosts[gp]))
+        values=lambda m, g, p: (g, p, m.GenCapacity[g, p], m.GenCapitalCosts[g, p],
+                                m.GenFixedOMCosts[g, p]))
