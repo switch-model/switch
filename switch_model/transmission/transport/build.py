@@ -176,11 +176,10 @@ def define_components(mod):
     mod.trans_lz2 = Param(mod.TRANSMISSION_LINES, within=mod.LOAD_ZONES)
     mod.min_data_check('TRANSMISSION_LINES', 'trans_lz1', 'trans_lz2')
     mod.trans_dbid = Param(mod.TRANSMISSION_LINES, default=lambda m, tx: tx)
-    mod.trans_length_km = Param(mod.TRANSMISSION_LINES, within=PositiveReals)
+    mod.trans_length_km = Param(mod.TRANSMISSION_LINES, within=NonNegativeReals)
     mod.trans_efficiency = Param(
         mod.TRANSMISSION_LINES,
-        within=PositiveReals,
-        validate=lambda m, val, tx: val <= 1)
+        within=PercentFraction)
     mod.BLD_YRS_FOR_EXISTING_TX = Set(
         dimen=2,
         initialize=lambda m: set(
@@ -225,9 +224,8 @@ def define_components(mod):
             if tx2 == tx and (bld_yr == 'Legacy' or bld_yr <= period)))
     mod.trans_derating_factor = Param(
         mod.TRANSMISSION_LINES,
-        within=NonNegativeReals,
-        default=1,
-        validate=lambda m, val, tx: val <= 1)
+        within=PercentFraction,
+        default=1)
     mod.TxCapacityNameplateAvailable = Expression(
         mod.TRANSMISSION_LINES, mod.PERIODS,
         rule=lambda m, tx, period: (
@@ -238,13 +236,13 @@ def define_components(mod):
         default=1,
         validate=lambda m, val, tx: val >= 0.5 and val <= 3)
     mod.trans_capital_cost_per_mw_km = Param(
-        within=PositiveReals,
+        within=NonNegativeReals,
         default=1000)
     mod.trans_lifetime_yrs = Param(
-        within=PositiveReals,
+        within=NonNegativeReals,
         default=20)
     mod.trans_fixed_o_m_fraction = Param(
-        within=PositiveReals,
+        within=NonNegativeReals,
         default=0.03)
     # Total annual fixed costs for building new transmission lines...
     # Multiply capital costs by capital recover factor to get annual
@@ -252,7 +250,7 @@ def define_components(mod):
     # overnight costs.
     mod.trans_cost_annual = Param(
         mod.TRANSMISSION_LINES,
-        within=PositiveReals,
+        within=NonNegativeReals,
         initialize=lambda m, tx: (
             m.trans_capital_cost_per_mw_km * m.trans_terrain_multiplier[tx] *
             m.trans_length_km[tx] * (crf(m.interest_rate, m.trans_lifetime_yrs) +
