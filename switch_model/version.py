@@ -6,4 +6,4 @@ modules in here because this file needs to be executed before SWITCH is
 installed and executed in environments that don't have any dependencies
 installed.
 """
-__version__='2.0.0b3'
+__version__='2.0.0b4'
