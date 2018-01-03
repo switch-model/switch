@@ -569,7 +569,7 @@ def solve(model):
     model.solutions.load_from(results)
 
     # Only return if the model solved correctly, otherwise throw a useful error
-    if(results.solver.status == SolverStatus.ok and
+    if(results.solver.status in {SolverStatus.ok, SolverStatus.warning} and
        results.solver.termination_condition == TerminationCondition.optimal):
         return results
     elif (results.solver.termination_condition == TerminationCondition.infeasible):

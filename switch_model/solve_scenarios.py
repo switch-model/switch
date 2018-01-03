@@ -269,7 +269,7 @@ def unlock_running_scenarios():
             interrupted = f.read().splitlines()
         for scenario_name in interrupted:
             try: 
-                os.rmdir(scenario_name)
+                os.rmdir(os.path.join(scenario_queue_dir, scenario_name))
             except OSError as e:
                 if e.errno != 2:    # no such file
                     raise

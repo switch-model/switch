@@ -71,9 +71,9 @@ def define_components(mod):
         rule=lambda m, z, ts:
         sum(m.ShiftDemand[z, t] for t in m.TPS_IN_TS[ts]) == 0.0)
     
-    if 'Distributed_Power_Withdrawals' in dir(mod):
+    try:
         mod.Distributed_Power_Withdrawals.append('ShiftDemand')
-    else:
+    except AttributeError:
         mod.Zone_Power_Withdrawals.append('ShiftDemand')
 
 

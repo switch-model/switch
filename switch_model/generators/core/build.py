@@ -242,7 +242,7 @@ def define_components(mod):
         filter=lambda m, g: m.gen_uses_fuel[g])
     mod.gen_full_load_heat_rate = Param(
         mod.FUEL_BASED_GENS,
-        within=PositiveReals)
+        within=NonNegativeReals)
     mod.MULTIFUEL_GENS = Set(
         initialize=mod.GENERATION_PROJECTS,
         filter=lambda m, g: m.gen_energy_source[g] == "multiple")
@@ -298,6 +298,11 @@ def define_components(mod):
             bld_yr for (gen, bld_yr) in m.GEN_BLD_YRS
             if gen == g and 
                _gen_build_can_operate_in_period(m, g, bld_yr, period)))
+    # The set of periods when a generator is available to run
+    mod.PERIODS_FOR_GEN = Set(
+        mod.GENERATION_PROJECTS,
+        initialize=lambda m, g: [p for p in m.PERIODS if len(m.BLD_YRS_FOR_GEN_PERIOD[g, p]) > 0]
+    )
 
     def bounds_BuildGen(model, g, bld_yr):
         if((g, bld_yr) in model.PREDETERMINED_GEN_BLD_YRS):
