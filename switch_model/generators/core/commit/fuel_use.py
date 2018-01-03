@@ -183,7 +183,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     path = os.path.join(inputs_dir, 'gen_inc_heat_rates.tab')
     if os.path.isfile(path):
         (fuel_rate_segments, min_load, full_hr) = _parse_inc_heat_rate_file(
-            path, id_column="project")
+            path, id_column="GENERATION_PROJECT")
         # Check implied minimum loading level for consistency with
         # gen_min_load_fraction if gen_min_load_fraction was provided. If
         # gen_min_load_fraction wasn't provided, set it to implied minimum
