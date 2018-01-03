@@ -220,7 +220,7 @@ def post_solve(instance, outdir):
         headings=("project", "period", "load_zone", 
                   "IncrementalPowerCapacityMW", "IncrementalEnergyCapacityMWh",
                   "OnlinePowerCapacityMW", "OnlineEnergyCapacityMWh" ),
-        values=lambda m, (g, bld_yr): (
+        values=lambda m, g, bld_yr: (
             g, bld_yr, m.gen_load_zone[g],
             m.BuildGen[g, bld_yr], m.BuildStorageEnergy[g, bld_yr],
             m.GenCapacity[g, bld_yr], m.StorageEnergyCapacity[g, bld_yr]
@@ -230,7 +230,7 @@ def post_solve(instance, outdir):
         output_file=os.path.join(outdir, "storage_dispatch.txt"),
         headings=("project", "timepoint", "load_zone", 
                   "ChargeMW", "DischargeMW", "StateOfCharge"),
-        values=lambda m, (g, t): (
+        values=lambda m, g, t: (
             g, m.tp_timestamp[t], m.gen_load_zone[g],
             m.ChargeStorage[g, t], m.DispatchGen[g, t],
             m.StateOfCharge[g, t]

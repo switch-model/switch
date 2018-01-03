@@ -49,9 +49,7 @@ def write_table(instance, *indexes, **kwargs):
     headings = kwargs["headings"]
     values = kwargs["values"]
     digits = kwargs.get('digits', 6)
-    # create a master indexing set
-    # this is a list of lists, even if only one list was specified
-    idx = itertools.product(*indexes)
+
     with open(output_file, 'wb') as f:
         w = csv.writer(f, dialect="ampl-tab")
         # write header row
@@ -67,10 +65,43 @@ def write_table(instance, *indexes, **kwargs):
                     else:
                         row[i] = sig_digits.format(v)
             return tuple(row)
-        w.writerows(
-            format_row(row=values(instance, *x))
-            for x in idx
-        )
+        
+        try:
+            w.writerows(
+                format_row(row=values(instance, *unpack_elements(x)))
+                for x in itertools.product(*indexes)
+            )
+        except TypeError: # lambda got wrong number of arguments
+            # use old code, which doesn't unpack the indices
+            w.writerows(
+                # TODO: flatten x (unpack tuples) like Pyomo before calling values()
+                # That may cause problems elsewhere though...
+            
+                format_row(row=values(instance, *x))
+                for x in itertools.product(*indexes)
+            )
+            print "DEPRECATION WARNING: switch_model.reporting.write_table() was called with a function"
+            print "that expects multidimensional index values to be stored in tuples, but Switch now unpacks"
+            print "these tuples automatically. Please update your code to work with unpacked index values."
+            print "Problem occured with {}.".format(values.func_code)
+
+def unpack_elements(it):
+    """Unpack any multi-element objects within it, to make a single flat list.
+    Note: this is not recursive.
+    This is used to flatten the product of a multi-dimensional index with anything else."""
+    l=[]
+    for t in it:
+        if isinstance(t, basestring):
+            l.append(t)
+        else:
+            try:
+                # check if it's iterable
+                iterator = iter(t)
+                for i in iterator:
+                    l.append(i)
+            except TypeError:
+                l.append(t)
+    return l
 
 
 def make_iterable(item):
