@@ -85,22 +85,19 @@ def write_table(instance, *indexes, **kwargs):
             print "these tuples automatically. Please update your code to work with unpacked index values."
             print "Problem occured with {}.".format(values.func_code)
 
-def unpack_elements(it):
-    """Unpack any multi-element objects within it, to make a single flat list.
+def unpack_elements(items):
+    """Unpack any multi-element objects within items, to make a single flat list.
     Note: this is not recursive.
     This is used to flatten the product of a multi-dimensional index with anything else."""
     l=[]
-    for t in it:
-        if isinstance(t, basestring):
-            l.append(t)
+    for x in items:
+        if isinstance(x, basestring):
+            l.append(x)
         else:
             try:
-                # check if it's iterable
-                iterator = iter(t)
-                for i in iterator:
-                    l.append(i)
-            except TypeError:
-                l.append(t)
+                l.extend(x)
+            except TypeError: # x isn't iterable
+                l.append(x)
     return l
 
 
