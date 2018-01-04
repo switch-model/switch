@@ -18,7 +18,7 @@ def define_components(m):
     
     # note: here we assume that existing projects and new (unbuilt) projects
     # are defined separately
-    m.NEW_GENECTS = Set(initialize=lambda m: set(p for (p, y) in m.NEW_GEN_BLD_YRS))
+    m.NEW_GENS = Set(initialize=lambda m: set(p for (p, y) in m.NEW_GEN_BLD_YRS))
     
     # model the wind production tax credit 
     m.Wind_Subsidy_Hourly = Expression(
@@ -26,7 +26,7 @@ def define_components(m):
         rule=lambda m, t: -wind_prod_tax_credit * sum(
             m.DispatchGen[p, t] 
                 for p in m.GENERATION_PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[wind_energy_source]
-                    if p in m.NEW_GENECTS and (p, t) in m.GEN_TPS
+                    if p in m.NEW_GENS and (p, t) in m.GEN_TPS
         )
     )
     m.Cost_Components_Per_TP.append('Wind_Subsidy_Hourly')
@@ -36,7 +36,7 @@ def define_components(m):
         -solar_invest_tax_credit * sum(
             m.BuildGen[g, bld_yr] * m.gen_capital_cost_annual[g, bld_yr]
                 for g in m.GENERATION_PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[solar_energy_source]
-                    if g in m.NEW_GENECTS
+                    if g in m.NEW_GENS
                         for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, pe]))
     # # another version:
     # m.Solar_Credit_Annual = Expression(m.PERIODS, rule=lambda m, pe:

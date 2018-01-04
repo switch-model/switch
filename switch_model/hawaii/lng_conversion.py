@@ -104,7 +104,7 @@ def define_components(m):
 
 
     # list of all projects and timepoints when LNG could potentially be used
-    m.LNG_GENECT_TIMEPOINTS = Set(dimen=2, initialize = lambda m: 
+    m.LNG_GEN_TIMEPOINTS = Set(dimen=2, initialize = lambda m: 
         ((p, t) for p in m.GENERATION_PROJECTS_BY_FUEL['LNG'] for t in m.TIMEPOINTS 
             if (p, t) in m.GEN_TPS)
     )
@@ -125,7 +125,7 @@ def define_components(m):
             'Oahu_CC_383', 'Oahu_CC_152', 'Oahu_CT_100'
         ]
     )
-    m.LNG_In_Converted_Plants_Only = Constraint(m.LNG_GENECT_TIMEPOINTS, 
+    m.LNG_In_Converted_Plants_Only = Constraint(m.LNG_GEN_TIMEPOINTS, 
         rule=lambda m, g, tp:
             Constraint.Skip if g in m.LNG_CONVERTED_PLANTS
             else (m.GenFuelUseRate[g, tp, 'LNG'] == 0)
@@ -195,7 +195,7 @@ def define_components(m):
     #     lng_market_exhausted = 1 - m.LNG_Has_Slack[rfm, m.tp_period[tp]]
     #     return (non_lng_fuel <= big_gect_lng * lng_market_exhausted)
     # m.Only_LNG_In_Converted_Plants = Constraint(
-    #     m.LNG_GENECT_TIMEPOINTS,
+    #     m.LNG_GEN_TIMEPOINTS,
     #     rule=Only_LNG_In_Converted_Plants_rule
     # )
     
@@ -226,7 +226,7 @@ def define_components(m):
     #         )
     #         return rule
     #     m.Force_Converted_Plants_On = Constraint(
-    #         m.LNG_GENECT_TIMEPOINTS,
+    #         m.LNG_GEN_TIMEPOINTS,
     #         rule=Force_Converted_Plants_On_rule
     #     )
             

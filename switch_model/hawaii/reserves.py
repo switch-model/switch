@@ -17,21 +17,21 @@ def define_components(m):
 
     # projects that can provide reserves
     # TODO: add batteries, hydrogen and pumped storage to this
-    m.FIRM_GENECTS = Set(
+    m.FIRM_GENS = Set(
         initialize=m.GENERATION_PROJECTS, 
         #filter=lambda m, p: m.gen_energy_source[p] not in ['Wind', 'Solar']
     )
     m.FIRM_GEN_TPS = Set(
         initialize=m.GEN_TPS, 
-        filter=lambda m, p, tp: p in m.FIRM_GENECTS
+        filter=lambda m, p, tp: p in m.FIRM_GENS
     )
-    m.CONTINGENCY_GENECTS = Set(
+    m.CONTINGENCY_GENS = Set(
         initialize=m.GENERATION_PROJECTS, 
         filter=lambda m, p: p in m.DISCRETELY_SIZED_GENS
     )
     m.CONTINGENCY_GEN_TPS = Set(
         initialize=m.GEN_TPS, 
-        filter=lambda m, p, tp: p in m.CONTINGENCY_GENECTS
+        filter=lambda m, p, tp: p in m.CONTINGENCY_GENS
     )
     
     # Calculate spinning reserve requirements.
@@ -69,18 +69,18 @@ def define_components(m):
                 if m.gen_tech[g] in m.regulating_reserve_fraction and (g, tp) in m.GEN_TPS
     ))
     
+def define_dynamic_components(m):
+    # these are defined late, so they can check whether various components have been defined by other modules
+    # TODO: create a central registry for components that contribute to reserves
+
     # Calculate contingency reserve requirements
     m.ContingencyReserveUpRequirement = Var(m.TIMEPOINTS, within=NonNegativeReals)
     # Apply a simple n-1 contingency reserve requirement; 
     # we treat each project as a separate contingency
-    # Note: we provide reserves for the full committed amount of the project so that
+    # Note: we provide reserves for the full committed amount of each unit so that
     # if any of the capacity is being used for regulating reserves, that will be backed
     # up by contingency reserves.
-    # TODO: convert this to a big-m constraint with the following elements:
-    # binary on/off flag for each g, tp in CONTINGENCY_GEN_TPS
-    # constraint that ProjDispatch[g, tp] <= binary * gen_max_capacity[g]
-    # constraint that m.ContingencyReserveUpRequirement[tp] >= binary * m.gen_unit_size[g]
-    # (but this may make the model too slow to solve!)
+    # note: this uses a binary run/no-run flag, so it only provides one unit's worth of reserves
     m.CommitGenFlag = Var(m.CONTINGENCY_GEN_TPS, within=Binary)
     m.Set_CommitGenFlag = Constraint(
         m.CONTINGENCY_GEN_TPS,
@@ -157,7 +157,7 @@ def define_dynamic_components(m):
         # from EVs and simple demand response, since it's not clear how high they could go
     )
 
-    # Meet the reserve requirements
+    # Meet the reserve requirements (we use zero on RHS to enforce the right sign for the duals)
     m.Satisfy_Spinning_Reserve_Up_Requirement = Constraint(m.TIMEPOINTS, rule=lambda m, tp:
         m.SpinningReservesUpAvailable[tp] - m.SpinningReserveUpRequirement[tp] >= 0
     )
@@ -189,7 +189,7 @@ def define_dynamic_components(m):
     # project reporting types are defined in save_custom_results.py
     # Note: this assumes timepoints are evenly spaced, and timeseries begin at midnight
     # m.CYCLING_PLANTS_TIMEPOINTS = Set(dimen=2, initialize=lambda m: [
-    #     (g, tp) for g in m.REPORTING_TYPE_GENECTS['Cycling']
+    #     (g, tp) for g in m.REPORTING_TYPE_GENS['Cycling']
     #         for tp in m.TPS_FOR_GEN[g]
     # ])
     # m.Cycle_Plants = Constraint(m.CYCLING_PLANTS_TIMEPOINTS, rule=lambda m, g, tp:

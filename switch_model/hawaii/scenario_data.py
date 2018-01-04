@@ -1,3 +1,29 @@
+# TODO: make this get data from the redr server via an HTTP api instead of psycopg2, as follows:
+
+# create a .rpy script on the redr server that can accept form data (the args dict) via POST
+# and then return a .zip file containing all the files created by write_tables (most of the 
+# code in this module would go into that script). This can create the files as text blobs and
+# then collect them into a single .zip file using the zip module 
+# Info on zipping multiple files together in memory: https://stackoverflow.com/a/25194850/3830997
+# See here for info on .rpy files:
+# https://twistedmatrix.com/documents/15.0.0/web/howto/using-twistedweb.html#web-howto-using-twistedweb-rpys
+# See here for info on receiving POST requests:
+# https://www.saltycrane.com/blog/2010/08/twisted-web-post-example-json/
+
+# client side will then just send a POST request with the args dictionary (probably using the
+# requests module), receive back a zip file with all the relevant CSVs (probably with a whole
+# relative directory structure). Client may also need to convert line endings (or unzip may do 
+# it automatically).
+# See here for info on sending a Python dict as the body in a 
+# POST request: https://stackoverflow.com/a/14804320/3830997
+# https://stackoverflow.com/questions/15694120/why-does-http-post-request-body-need-to-be-json-enconded-in-python
+# https://stackoverflow.com/questions/35212279/python-request-post-not-accepting-dictionary
+# (the latter two are interesting edge cases but may be doing it wrong)
+# Unzipping files in Python: https://stackoverflow.com/questions/3451111/unzipping-files-in-python
+# some random info on converting line endings with Python zip/unzip:
+# https://bytes.com/topic/python/answers/692751-module-zipfile-writestr-line-endings-issue
+# https://stackoverflow.com/questions/2613800/how-to-convert-dos-windows-newline-crlf-to-unix-newline-n-in-a-bash-script
+
 import time, sys, collections, os
 from textwrap import dedent
 from switch_model import __version__ as switch_version
@@ -453,7 +479,7 @@ def write_tables(**args):
                 ORDER BY 1
             )
             SELECT
-                "GENERATION_PROJECT" as project,
+                "GENERATION_PROJECT",
                 power_start_mw, power_end_mw,
                 incremental_heat_rate_mbtu_per_mwhr, fuel_use_rate_mmbtu_per_h
             FROM curves c JOIN study_projects p using (technology)
