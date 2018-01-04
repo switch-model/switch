@@ -31,3 +31,17 @@ def define_components(m):
     m.Zone_Power_Injections.append('UnservedLoad')
     # add the unserved load penalty to the model's objective function
     m.Cost_Components_Per_TP.append('UnservedLoadPenalty')
+
+    # amount of unserved reserves during each timepoint
+    m.UnservedUpReserves = Var(m.TIMEPOINTS, within=NonNegativeReals)
+    m.UnservedDownReserves = Var(m.TIMEPOINTS, within=NonNegativeReals)
+    # total cost for unserved reserves (90% as high as cost of unserved load,
+    # to make the model prefer to serve load when possible)
+    m.UnservedReservePenalty = Expression(m.TIMEPOINTS, rule=lambda m, tp:
+        m.tp_duration_hrs[tp] 
+        * 0.9
+        * m.unserved_load_penalty_per_mwh
+        * (m.UnservedUpReserves[tp] + m.UnservedDownReserves[tp])
+    )
+    # add the unserved load penalty to the model's objective function
+    m.Cost_Components_Per_TP.append('UnservedReservePenalty')
