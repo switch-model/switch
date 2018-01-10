@@ -72,7 +72,7 @@ def define_components(m):
     # more conservative values (found by giving 10x weight to times when we provide less reserves than GE):
     # [1., 1., 1., 0.25760558, 0.18027923, 0.49123101]
 
-    m.regulating_reserve_requirement_mw = Expression(m.TIMEPOINTS, rule=lambda m, tp: sum(
+    m.RegulatingReserveRequirementMW = Expression(m.TIMEPOINTS, rule=lambda m, tp: sum(
         m.GenCapacity[g, m.tp_period[tp]] 
         * min(
             m.regulating_reserve_fraction[m.gen_tech[g]] * m.gen_max_capacity_factor[g, tp], 
@@ -125,7 +125,7 @@ def define_dynamic_components(m):
     
     # Calculate total spinning reserve requirements
     m.SpinningReserveUpRequirement = Expression(m.TIMEPOINTS, rule=lambda m, tp:
-        m.regulating_reserve_requirement_mw[tp] + m.ContingencyReserveUpRequirement[tp]
+        m.RegulatingReserveRequirementMW[tp] + m.ContingencyReserveUpRequirement[tp]
     )
     m.SpinningReserveDownRequirement = Expression(m.TIMEPOINTS, rule=lambda m, tp:
         m.ContingencyReserveDownRequirement[tp]
@@ -134,12 +134,25 @@ def define_dynamic_components(m):
 
     # Available reserves
     def expr(m, tp):
-        avail = sum(m.DispatchSlackUp[p, tp] for p in m.FIRM_GENS if (p, tp) in m.GEN_TPS)
+        STORAGE_GENS = getattr(m, 'STORAGE_GENS', [])
+        # all regular generators; omit storage because they'll be added separately if needed
+        avail = sum(
+            m.DispatchSlackUp[g, tp] 
+            for g in m.FIRM_GENS 
+            if (g, tp) in m.GEN_TPS and g not in STORAGE_GENS
+        )
         if m.options.reserves_from_storage:
+            # hawaii battery and hydrogen modules
             if hasattr(m, 'BatterySlackUp'):
                 avail += sum(m.BatterySlackUp[z, tp] for z in m.LOAD_ZONES)
             if hasattr(m, 'HydrogenSlackUp'):
                 avail += sum(m.HydrogenSlackUp[z, tp] for z in m.LOAD_ZONES)
+            # standard storage module (can stop charging and raise output to max)
+            avail += sum(
+                m.DispatchSlackUp[g, tp] + m.ChargeStorage[g, tp]
+                for g in STORAGE_GENS 
+                if (g, tp) in m.GEN_TPS
+            )
         if m.options.reserves_from_demand_response:
             if hasattr(m, 'DemandUpReserves'):
                 avail += sum(m.DemandUpReserves[z, tp] for z in m.LOAD_ZONES) 
@@ -155,19 +168,37 @@ def define_dynamic_components(m):
         return avail
     m.SpinningReservesUpAvailable = Expression(m.TIMEPOINTS, rule=expr)
     def expr(m, tp):
-        avail = sum(m.DispatchSlackDown[p, tp] for p in m.FIRM_GENS if (p, tp) in m.GEN_TPS)
+        STORAGE_GENS = getattr(m, 'STORAGE_GENS', [])
+        # all regular generators; omit storage because they'll be added separately if needed    
+        avail = sum(
+            m.DispatchSlackDown[g, tp] 
+            for g in m.FIRM_GENS 
+            if (g, tp) in m.GEN_TPS and g not in STORAGE_GENS
+        )
         if m.options.reserves_from_storage:
             if hasattr(m, 'BatterySlackDown'):
                 avail += sum(m.BatterySlackDown[z, tp] for z in m.LOAD_ZONES)
             if hasattr(m, 'HydrogenSlackDown'):
                 avail += sum(m.HydrogenSlackDown[z, tp] for z in m.LOAD_ZONES)
+            # standard storage module (can stop producing power and raise charging to max)
+            avail += sum(
+                m.DispatchSlackDown[g, tp] 
+                + m.DispatchUpperLimit[g, tp] * m.gen_store_to_release_ratio[g]
+                - m.ChargeStorage[g, tp]
+                for g in STORAGE_GENS 
+                if (g, tp) in m.GEN_TPS
+            )
+            
         if m.options.reserves_from_demand_response:
             if hasattr(m, 'DemandDownReserves'):
                 avail += sum(m.DemandDownReserves[z, tp] for z in m.LOAD_ZONES)
             if hasattr(m, 'ShiftDemand'):
                 # avail += sum(m.ShiftDemand[z, tp].ub - m.ShiftDemand[z, tp] for z in m.LOAD_ZONES) 
-                ub = 24/3 * m.demand_response_max_share * m.zone_demand_mw[z, tp]
-                avail += sum(ub - m.ShiftDemand[z, tp] for z in m.LOAD_ZONES) 
+                avail += sum(
+                    24/3 * m.demand_response_max_share * m.zone_demand_mw[z, tp]
+                    - m.ShiftDemand[z, tp] 
+                    for z in m.LOAD_ZONES
+                ) 
             # note: we currently ignore down-reserves (option of increasing consumption) 
             # from EVs since it's not clear how high they could go; we could revisit this if
             # down-reserves have a positive price at equilibrium (probabably won't)
@@ -225,6 +256,6 @@ def define_dynamic_components(m):
 #     switch_data.load_aug(
 #         filename=os.path.join(inputs_dir, 'reserve_requirements.tab'),
 #         auto_select=True,
-#         param=(m.regulating_reserve_requirement_mw))
+#         param=(m.RegulatingReserveRequirementMW))
 
 

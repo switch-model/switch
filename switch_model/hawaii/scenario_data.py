@@ -384,8 +384,11 @@ def write_tables(**args):
             cogen as gen_is_cogen,
             non_cycling as gen_non_cycling,
             variable_o_m * 1000.0 AS gen_variable_om,
-            CASE WHEN fuel IN ('SUN', 'WND', 'MSW') THEN fuel ELSE 'multiple' END AS gen_energy_source,
-            CASE WHEN fuel IN ('SUN', 'WND', 'MSW') THEN null ELSE {flhr} END AS gen_full_load_heat_rate
+            CASE WHEN fuel IN ('SUN', 'WND', 'MSW', 'Battery') THEN fuel ELSE 'multiple' END AS gen_energy_source,
+            CASE WHEN fuel IN ('SUN', 'WND', 'MSW', 'Battery') THEN null ELSE {flhr} END AS gen_full_load_heat_rate,
+            gen_storage_efficiency,
+            gen_storage_energy_to_power_ratio,
+            gen_storage_max_cycles_per_year
         FROM study_projects JOIN study_generator_info USING (technology)
         ORDER BY 2, 3, 1;
     """.format(fo=forced_outage_rate, flhr=full_load_heat_rate), args)
@@ -402,6 +405,8 @@ def write_tables(**args):
 
     # NOTE: these costs must be expressed in $/MW, $/MWh or $/MW-year,
     # not $/kW, $/kWh or $/kW-year.
+    # NOTE: for now, we only specify storage costs per unit of power, not 
+    # on per unit of energy, so we insert $0 as the energy cost here.
     write_table('gen_build_costs.tab', """
         WITH gen_build_costs AS (
             SELECT
@@ -410,6 +415,8 @@ def write_tables(**args):
                 c.capital_cost_per_kw * 1000.0
                     * power(1.0+%(inflation_rate)s, %(base_financial_year)s-c.base_year)
                     AS gen_overnight_cost,
+                CASE WHEN i.gen_storage_efficiency IS NULL THEN NULL ELSE 0.0 END 
+                    AS gen_storage_energy_overnight_cost,
                 i.fixed_o_m * 1000.0 * power(1.0+%(inflation_rate)s, %(base_financial_year)s-i.base_year)
                     AS gen_fixed_o_m
             FROM study_generator_info i
@@ -425,12 +432,14 @@ def write_tables(**args):
             build_year,
             sum(proj_overnight_cost * 1000.0 * proj_existing_cap) / sum(proj_existing_cap)
                 AS gen_overnight_cost,
+            null AS gen_storage_energy_overnight_cost,
             sum(proj_fixed_om * 1000.0 * proj_existing_cap) / sum(proj_existing_cap)
                 AS gen_fixed_om
         FROM study_projects JOIN proj_existing_builds USING (project_id)
         GROUP BY 1, 2
         UNION
-        SELECT "GENERATION_PROJECT", build_year, gen_overnight_cost, gen_fixed_o_m
+        SELECT "GENERATION_PROJECT", build_year, gen_overnight_cost, 
+            gen_storage_energy_overnight_cost, gen_fixed_o_m
         FROM gen_build_costs JOIN study_projects USING (technology)
         ORDER BY 1, 2;
     """, args)
@@ -502,7 +511,7 @@ def write_tables(**args):
                 cogen
             FROM study_generator_info
         ), all_fueled_techs AS (
-            SELECT * from all_techs WHERE orig_fuel NOT IN ('SUN', 'WND', 'MSW')
+            SELECT * from all_techs WHERE orig_fuel NOT IN ('SUN', 'WND', 'MSW', 'Battery')
         ), gen_multiple_fuels AS (
             SELECT DISTINCT technology, b.energy_source as fuel
             FROM all_fueled_techs t
@@ -598,26 +607,25 @@ def write_tables(**args):
     #########################
     # trans_dispatch
     # --- Not used ---
-
-
+    
     #########################
     # batteries
-    # TODO: put these data in a database and write a .tab file instead
-    bat_years = 'BATTERY_CAPITAL_COST_YEARS'
-    bat_cost = 'battery_capital_cost_per_mwh_capacity_by_year'
-    write_dat_file(
-        'batteries.dat',
-        sorted([k for k in args if k.startswith('battery_') and k not in [bat_years, bat_cost]]),
-        args
-    )
-    if bat_years in args and bat_cost in args:
-        # annual costs were provided -- write those to a tab file
-        write_tab_file(
-            'battery_capital_cost.tab',
-            headers=[bat_years, bat_cost],
-            data=zip(args[bat_years], args[bat_cost]),
-            arguments=args
-        )
+    # (now included as standard storage projects)
+    # bat_years = 'BATTERY_CAPITAL_COST_YEARS'
+    # bat_cost = 'battery_capital_cost_per_mwh_capacity_by_year'
+    # write_dat_file(
+    #     'batteries.dat',
+    #     sorted([k for k in args if k.startswith('battery_') and k not in [bat_years, bat_cost]]),
+    #     args
+    # )
+    # if bat_years in args and bat_cost in args:
+    #     # annual costs were provided -- write those to a tab file
+    #     write_tab_file(
+    #         'battery_capital_cost.tab',
+    #         headers=[bat_years, bat_cost],
+    #         data=zip(args[bat_years], args[bat_cost]),
+    #         arguments=args
+    #     )
 
     #########################
     # EV annual energy consumption
