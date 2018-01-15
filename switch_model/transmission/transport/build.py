@@ -24,7 +24,7 @@ def define_components(mod):
     TRANSMISSION_LINES is the complete set of transmission pathways
     connecting load zones. Each member of this set is a one dimensional
     identifier such as "A-B". This set has no regard for directionality
-    of transmisison lines and will generate an error if you specify two
+    of transmission lines and will generate an error if you specify two
     lines that move in opposite directions such as (A to B) and (B to
     A). Another derived set - TRANS_LINES_DIRECTIONAL - stores
     directional information. Transmission may be abbreviated as trans or
@@ -69,7 +69,7 @@ def define_components(mod):
     potential builds.
 
     BuildTx[(tx, bld_yr) in BLD_YRS_FOR_TX] is a decision variable
-    that describes the transfer capacity in MW installed on a cooridor
+    that describes the transfer capacity in MW installed on a corridor
     in a given build year. For existing builds, this variable is locked
     to the existing capacity.
 

@@ -3,8 +3,8 @@
 
 """
 Defines model components to describe generation projects build-outs for
-the SWITCH-Pyomo model. This module requires either operations.unitcommit or
-operations.no_commit to constrain project dispatch to either committed or
+the SWITCH-Pyomo model. This module requires either generators.core.unitcommit or
+generators.core.no_commit to constrain project dispatch to either committed or
 installed capacity.
 
 """
@@ -86,7 +86,7 @@ def define_components(mod):
 
     gen_full_load_heat_rate[g] is the full load heat rate in units
     of MMBTU/MWh that describes the thermal efficiency of a project when
-    runnign at full load. This optional parameter overrides the generic
+    running at full load. This optional parameter overrides the generic
     heat rate of a generation technology. In the future, we may expand
     this to be indexed by fuel source as well if we need to support a
     multi-fuel generator whose heat rate depends on fuel source.

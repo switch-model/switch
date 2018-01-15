@@ -60,7 +60,7 @@ def define_components(mod):
     the perspective of the central grid. We currently prohibit injections into
     the central grid because it would create a mathematical loophole for
     "spilling power" and we currently lack use cases that need this. We cannot
-    use a single unsigned varaible for this without introducing errrors in
+    use a single unsigned variable for this without introducing errrors in
     calculating Local T&D line losses. WithdrawFromCentralGrid is added to the
     load_zone power balance, and has a corresponding expression from the
     perspective of the distributed node:
@@ -81,7 +81,7 @@ def define_components(mod):
 
     EXISTING_LOCAL_TD_BLD_YRS is a subset of LOCAL_TD_BLD_YRS that
     lists builds that happened before the first investment period. For
-    most datasets the build year is unknown, so is it always set to
+    most datasets the build year is unknown, so it is always set to
     'Legacy'.
 
     existing_local_td[z in LOAD_ZONES] is the amount of local
@@ -135,7 +135,7 @@ def define_components(mod):
     online indefinitely. At the end of its financial lifetime, existing
     capacity will be retired and rebuilt, so the annual cost of a line
     upgrade will remain constant in every future year. See notes in the
-    trans_build module for more a more detailed comparison to the old
+    trans_build module for a more detailed comparison to the old
     SWITCH-WECC model.
 
     """
