@@ -114,7 +114,7 @@ def define_components(mod):
 def define_dynamic_components(mod):
     """
     Adds components to a Pyomo abstract model object to enforce the
-    first law of thermodynamics at the level of load zone busses. Unless
+    first law of thermodynamics at the level of load zone buses. Unless
     otherwise stated, all terms describing power are in units of MW and
     all terms describing energy are in units of MWh.
 
