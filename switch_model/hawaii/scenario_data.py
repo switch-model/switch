@@ -445,6 +445,45 @@ def write_tables(**args):
     """, args)
 
     #########################
+    # spinning_reserves_advanced
+    # args['max_reserve_capability'] is a list of tuples of (technology, reserve_type)
+    # (assumed equivalent to 'regulation' if not specified)
+    # We unzip it to use with the unnest function (psycopg2 passes lists of tuples
+    # as arrays of tuples, and unnest would keeps those as tuples)
+    try:
+        reserve_technologies, reserve_types = map(list, zip(*args['max_reserve_capability']))
+    except KeyError:
+        reserve_technologies, reserve_types = [], []
+    res_args = args.copy()
+    res_args['reserve_technologies']=reserve_technologies
+    res_args['reserve_types']=reserve_types
+
+    write_table('generation_projects_reserve_capability.tab', """
+        WITH reserve_capability (technology, reserve_type) as (
+            SELECT 
+                UNNEST(%(reserve_technologies)s) AS technology,
+                UNNEST(%(reserve_types)s) AS reserve_type
+        ),
+        reserve_types (rank, reserve_type) as (
+            VALUES 
+            (0, 'none'), 
+            (1, 'contingency'),
+            (2, 'regulation')
+        )
+        SELECT
+            p."GENERATION_PROJECT",
+            t2.reserve_type AS "SPINNING_RESERVE_TYPE"
+        FROM 
+            study_projects p
+            LEFT JOIN reserve_capability c USING (technology)
+            LEFT JOIN reserve_types t1 USING (reserve_type)
+            JOIN reserve_types t2 on t2.rank <= COALESCE(t1.rank, 100)
+        WHERE t2.rank > 0
+        ORDER BY 1, t2.rank;
+    """, res_args)
+    
+
+    #########################
     # operation.unitcommit.fuel_use
 
     # get part load heat rate curves if requested

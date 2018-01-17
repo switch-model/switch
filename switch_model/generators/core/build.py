@@ -213,6 +213,9 @@ def define_components(mod):
     mod.VARIABLE_GENS = Set(
         initialize=mod.GENERATION_PROJECTS,
         filter=lambda m, g: m.gen_is_variable[g])
+    mod.VARIABLE_GENS_IN_ZONE = Set(
+        mod.LOAD_ZONES,
+        initialize=lambda m, z: [g for g in m.GENS_IN_ZONE[z] if m.gen_is_variable[g]])
     mod.BASELOAD_GENS = Set(
         initialize=mod.GENERATION_PROJECTS,
         filter=lambda m, g: m.gen_is_baseload[g])

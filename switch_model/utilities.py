@@ -601,3 +601,12 @@ class Logging:
         self.terminal.flush()
         self.log_file.flush()
 
+
+def iteritems(obj):
+    """ Iterator of key, value pairs for obj; 
+    equivalent to obj.items() on Python 3+ and obj.iteritems() on Python 2 """
+    try:
+        return obj.iteritems()
+    except AttributeError: # Python 3+
+        return obj.items()
+
