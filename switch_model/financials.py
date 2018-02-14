@@ -308,17 +308,53 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load(filename=os.path.join(inputs_dir, 'financials.dat'))
 
 def post_solve(instance, outdir):
-    mod = instance
+    m = instance
+    # Overall electricity costs
     normalized_dat = [
         {
         	"PERIOD": p,
-        	"SystemCostPerPeriod": value(mod.SystemCostPerPeriod[p]),
-        	"EnergyCost_per_MWh": value(
-        	    mod.SystemCostPerPeriod[p] / 
-        	    sum(mod.zone_total_demand_in_period_mwh[z,p] for z in mod.LOAD_ZONES)
-        	)
-        } for p in mod.PERIODS
+        	"SystemCostPerPeriod_NPV": value(m.SystemCostPerPeriod[p]),
+        	"SystemCostPerPeriod_Real": value(
+        	    m.SystemCostPerPeriod[p] / m.bring_annual_costs_to_base_year[p]
+        	),
+        	"EnergyCostReal_per_MWh": value(
+        	    m.SystemCostPerPeriod[p] / m.bring_annual_costs_to_base_year[p] /
+        	    sum(m.zone_total_demand_in_period_mwh[z,p] for z in m.LOAD_ZONES)
+        	),
+        	"SystemDemand_MWh": value(sum(
+        	    m.zone_total_demand_in_period_mwh[z,p] for z in m.LOAD_ZONES
+        	))
+        } for p in m.PERIODS
     ]
     df = pd.DataFrame(normalized_dat)
     df.set_index(["PERIOD"], inplace=True)
     df.to_csv(os.path.join(outdir, "electricity_cost.csv"))
+    # Itemized annual costs
+    annualized_costs = [
+        {
+        	"PERIOD": p,
+        	"Component": annual_cost,
+        	"Component_type": "annual",
+        	"AnnualCost_NPV": value(
+        	    getattr(m, annual_cost)[p] * m.bring_annual_costs_to_base_year[p]
+        	),
+        	"AnnualCost_Real": value(getattr(m, annual_cost)[p])
+        } for p in m.PERIODS for annual_cost in m.Cost_Components_Per_Period
+    ] + [
+        {
+        	"PERIOD": p,
+        	"Component": tp_cost,
+        	"Component_type": "timepoint",
+        	"AnnualCost_NPV": value(sum(
+        	    getattr(m, tp_cost)[t] * m.tp_weight_in_year[t]
+        	    for t in m.TPS_IN_PERIOD[p]
+        	) * m.bring_annual_costs_to_base_year[p]),
+        	"AnnualCost_Real": value(sum(
+        	    getattr(m, tp_cost)[t] * m.tp_weight_in_year[t]
+        	    for t in m.TPS_IN_PERIOD[p]
+        	))
+        } for p in m.PERIODS for tp_cost in m.Cost_Components_Per_TP
+    ]
+    df = pd.DataFrame(annualized_costs)
+    df.set_index(["PERIOD", "Component"], inplace=True)
+    df.to_csv(os.path.join(outdir, "costs_itemized.csv"))
