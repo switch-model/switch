@@ -1,0 +1,4 @@
+gen_tech,gen_energy_source,period,Energy_GWh_typical_yr,VariableCost_per_yr,DispatchEmissions_tCO2_per_typical_yr
+Central_PV,Solar,2020,2.6201574,0.0,
+Geothermal,Geothermal,2020,4.383,126361.89,
+NG_CC,NaturalGas,2020,30.2523426,103254.270528,10762.7942455
