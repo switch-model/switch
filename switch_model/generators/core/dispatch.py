@@ -12,6 +12,12 @@ installed capacity.
 import os, collections
 from pyomo.environ import *
 from switch_model.reporting import write_table
+import pandas as pd
+try:
+    from ggplot import *
+    can_plot = True
+except:
+    can_plot = False
 
 dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
     'switch_model.financials', 'switch_model.energy_sources.properties', \
@@ -289,13 +295,13 @@ def define_components(mod):
             if m.tp_period[t] == period),
         doc="The system's annual emissions, in metric tonnes of CO2 per year.")
 
-    mod.ProjVariableOMCosts = Expression(
+    mod.GenVariableOMCostsInTP = Expression(
         mod.TIMEPOINTS,
         rule=lambda m, t: sum(
             m.DispatchGen[g, t] * m.gen_variable_om[g]
             for g in m.GENS_IN_PERIOD[m.tp_period[t]]),
         doc="Summarize costs for the objective function")
-    mod.Cost_Components_Per_TP.append('ProjVariableOMCosts')
+    mod.Cost_Components_Per_TP.append('GenVariableOMCostsInTP')
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -320,12 +326,27 @@ def load_inputs(mod, switch_data, inputs_dir):
 
 def post_solve(instance, outdir):
     """
-    Default export of project dispatch per timepoint in tabular "wide" format.
-
+    Exported files:
+    
+    dispatch-wide.txt - Dispatch results timepoints in "wide" format with
+    timepoints as rows, generation projects as columns, and dispatch level
+    as values
+    
+    dispatch.csv - Dispatch results in normalized form where each row 
+    describes the dispatch of a generation project in one timepoint.
+    
+    dispatch_annual_summary.csv - Similar to dispatch.csv, but summarized
+    by generation technology and period.
+    
+    dispatch_zonal_annual_summary.csv - Similar to dispatch_annual_summary.csv
+    but broken out by load zone. 
+    
+    dispatch_annual_summary.pdf - A figure of annual summary data. Only written
+    if the ggplot python library is installed.
     """
     write_table(
         instance, instance.TIMEPOINTS,
-        output_file=os.path.join(outdir, "dispatch.txt"),
+        output_file=os.path.join(outdir, "dispatch-wide.txt"),
         headings=("timestamp",)+tuple(sorted(instance.GENERATION_PROJECTS)),
         values=lambda m, t: (m.tp_timestamp[t],) + tuple(
             m.DispatchGen[p, t] if (p, t) in m.GEN_TPS
@@ -333,3 +354,54 @@ def post_solve(instance, outdir):
             for p in sorted(m.GENERATION_PROJECTS)
         )
     )
+
+
+    dispatch_normalized_dat = [{
+        "generation_project": g,
+        "gen_dbid": instance.gen_dbid[g],
+        "gen_tech": instance.gen_tech[g],
+        "gen_load_zone": instance.gen_load_zone[g],
+        "gen_energy_source": instance.gen_energy_source[g],
+        "timestamp": instance.tp_timestamp[t], 
+        "tp_weight_in_year_hrs": instance.tp_weight_in_year[t],
+        "period": instance.tp_period[t],
+        "DispatchGen_MW": value(instance.DispatchGen[g, t]),
+        "Energy_GWh_typical_yr": value(
+            instance.DispatchGen[g, t] * instance.tp_weight_in_year[t] / 1000),
+        "VariableCost_per_yr": value(
+            instance.DispatchGen[g, t] * instance.gen_variable_om[g] * 
+            instance.tp_weight_in_year[t]),
+        "DispatchEmissions_tCO2_per_typical_yr": value(sum(
+            instance.DispatchEmissions[g, t, f] * instance.tp_weight_in_year[t]
+              for f in instance.FUELS_FOR_GEN[g]
+        )) if instance.gen_uses_fuel[g] else None
+    } for g, t in instance.GEN_TPS ]
+    dispatch_full_df = pd.DataFrame(dispatch_normalized_dat)
+    dispatch_full_df.set_index(["generation_project", "timestamp"], inplace=True)
+    dispatch_full_df.to_csv(os.path.join(outdir, "dispatch.csv"))
+        
+
+    annual_summary = dispatch_full_df.groupby(['gen_tech', "gen_energy_source", "period"]).sum()
+    annual_summary.to_csv(
+        os.path.join(outdir, "dispatch_annual_summary.csv"),
+        columns=["Energy_GWh_typical_yr", "VariableCost_per_yr", 
+                 "DispatchEmissions_tCO2_per_typical_yr"])
+
+
+    zonal_annual_summary = dispatch_full_df.groupby(
+        ['gen_tech', "gen_load_zone", "gen_energy_source", "period"]
+    ).sum()
+    zonal_annual_summary.to_csv(
+        os.path.join(outdir, "dispatch_zonal_annual_summary.csv"),
+        columns=["Energy_GWh_typical_yr", "VariableCost_per_yr", 
+                 "DispatchEmissions_tCO2_per_typical_yr"]
+    )
+    
+    if can_plot:
+        annual_summary_plot = ggplot(
+                annual_summary.reset_index(), 
+                aes(x='period', weight="Energy_GWh_typical_yr", fill="factor(gen_tech)")
+            ) + \
+            geom_bar(position="stack") + \
+            scale_y_continuous(name='Energy (GWh/yr)') + theme_bw()
+        annual_summary_plot.save(filename=os.path.join(outdir, "dispatch_annual_summary.pdf"))

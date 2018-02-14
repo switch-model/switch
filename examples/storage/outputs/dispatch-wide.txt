@@ -1,0 +1,3 @@
+timestamp	Battery_Storage	S-Central_PV-1	S-Geothermal
+2025011512	2.95809	0.5978	4.44411
+2025011600	0	0	4.44411

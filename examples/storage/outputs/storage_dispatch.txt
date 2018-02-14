@@ -1,3 +1,3 @@
-project	timepoint	load_zone	ChargeMW	DischargeMW	StateOfChargeMWh
-Battery_Storage	2025011512	South	0.0	2.95808571428571	0.0
-Battery_Storage	2025011600	South	3.94411428571429	0.0	35.4970285714286
+project	timepoint	load_zone	ChargeMW	DischargeMW	StateOfCharge
+Battery_Storage	2025011512	South	0	2.95809	0
+Battery_Storage	2025011600	South	3.94411	0	35.497

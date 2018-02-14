@@ -65,6 +65,7 @@ setup(
     extras_require={
         # packages used for advanced demand response, progressive hedging
         'advanced': ['numpy', 'scipy', 'rpy2', 'sympy'],
+        'plotting': ['ggplot'],
         'database_access': ['psycopg2']
     },
     entry_points={
