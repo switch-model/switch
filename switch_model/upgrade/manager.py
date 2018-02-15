@@ -78,7 +78,6 @@ def _write_input_version(inputs_dir, new_version):
     version_path = os.path.join(inputs_dir, version_file)
     with open(version_path, 'w') as f:
         f.write(new_version + "\n")
-    
 
 def do_inputs_need_upgrade(inputs_dir):
     """
@@ -120,7 +119,9 @@ def upgrade_inputs(inputs_dir, backup=True):
         # Successively apply the upgrade scripts as needed.
         for (upgrader, v_from, v_to) in upgrade_plugins:
             inputs_v = StrictVersion(get_input_version(inputs_dir))
-            if inputs_v == StrictVersion(v_from):
+            # note: the next line catches datasets created by/for versions of Switch that 
+            # didn't require input directory upgrades
+            if StrictVersion(v_from) <= inputs_v < StrictVersion(v_to): 
                 print_verbose('\tUpgrading from ' + v_from + ' to ' + v_to)
                 upgrader.upgrade_input_dir(inputs_dir)
         print_verbose('\tFinished upgrading ' + inputs_dir + '\n')

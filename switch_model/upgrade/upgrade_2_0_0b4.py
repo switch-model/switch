@@ -39,9 +39,7 @@ def upgrade_input_dir(inputs_dir):
     }
     
     for fname, old_new_pairs in old_new_column_names_in_file.iteritems():
-        for old_new_pair in old_new_pairs:
-            old = old_new_pair[0]
-            new = old_new_pair[1]
+        for old, new in old_new_pairs:
             rename_column(fname, old_col_name=old, new_col_name=new)
 
     # Write a new version text file.
