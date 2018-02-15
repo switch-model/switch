@@ -25,31 +25,11 @@ from pyomo.environ import *
 import pyomo.repn.canonical_repn
 
 import switch_model.utilities as utilities
-from save_results import DispatchGenByFuel
+# TODO: move part of the reporting back into Hawaii module and eliminate these dependencies
+from switch_model.hawaii.save_results import DispatchGenByFuel
+import switch_model.hawaii.util as util
 
 demand_module = None    # will be set via command-line options
-
-import util
-from util import get
-
-# patch Pyomo's solver to retrieve duals and reduced costs for MIPs from cplex lp solver
-# (This could be made permanent in pyomo.solvers.plugins.solvers.CPLEX.create_command_line)
-def new_create_command_line(*args, **kwargs):
-    # call original command
-    command = old_create_command_line(*args, **kwargs)
-    # alter script
-    if hasattr(command, 'script') and 'optimize\n' in command.script:
-        command.script = command.script.replace(
-            'optimize\n',
-            'optimize\nchange problem fix\noptimize\n'
-            # see http://www-01.ibm.com/support/docview.wss?uid=swg21399941
-            # and http://www-01.ibm.com/support/docview.wss?uid=swg21400009
-        )
-    return command
-from pyomo.solvers.plugins.solvers.CPLEX import CPLEXSHELL
-old_create_command_line = CPLEXSHELL.create_command_line
-CPLEXSHELL.create_command_line = new_create_command_line
-
 
 def define_arguments(argparser):
     argparser.add_argument("--dr-flat-pricing", action='store_true', default=False,
@@ -966,6 +946,12 @@ def summary_values(m):
     ])
 
     return values
+
+def get(component, idx, default):
+    try:
+        return component[idx]
+    except KeyError:
+        return default
 
 def write_results(m):
     outputs_dir = m.options.outputs_dir
