@@ -1,6 +1,23 @@
 from pyomo.environ import *
 import switch_model.utilities as utilities
-from util import get
+
+# patch Pyomo's solver to retrieve duals and reduced costs for MIPs from cplex lp solver
+# (This could be made permanent in pyomo.solvers.plugins.solvers.CPLEX.create_command_line)
+def new_create_command_line(*args, **kwargs):
+    # call original command
+    command = old_create_command_line(*args, **kwargs)
+    # alter script
+    if hasattr(command, 'script') and 'optimize\n' in command.script:
+        command.script = command.script.replace(
+            'optimize\n',
+            'optimize\nchange problem fix\noptimize\n'
+            # see http://www-01.ibm.com/support/docview.wss?uid=swg21399941
+            # and http://www-01.ibm.com/support/docview.wss?uid=swg21400009
+        )
+    return command
+from pyomo.solvers.plugins.solvers.CPLEX import CPLEXSHELL
+old_create_command_line = CPLEXSHELL.create_command_line
+CPLEXSHELL.create_command_line = new_create_command_line
 
 def define_components(m):
     """Make various changes to the model to facilitate reporting and avoid unwanted behavior"""

@@ -208,8 +208,9 @@ def write_results(m, outputs_dir):
         g for pe in m.PERIODS for g in m.GENERATION_PROJECTS if value(m.GenCapacity[g, pe]) > 0.001
     )))
     active_periods_for_gen = defaultdict(set)
+    used_cap = getattr(m, 'CommitGen', m.DispatchGen) # use CommitGen if available, otherwise DispatchGen
     for (g, tp) in m.GEN_TPS:
-        if value(m.DispatchGen[g, tp]) > 0.001:
+        if value(used_cap[g, tp]) > 0.001:
             active_periods_for_gen[g].add(m.tp_period[tp])
     # add the periods between the first and last active period if capacity was available then
     operate_gen_in_period = set()

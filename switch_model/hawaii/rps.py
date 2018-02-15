@@ -7,12 +7,14 @@ from util import get
 def define_arguments(argparser):
     argparser.add_argument('--biofuel-limit', type=float, default=1.0, 
         help="Maximum fraction of power that can be obtained from biofuel in any period (default=1.0)")
+    argparser.add_argument('--biofuel-switch-threshold', type=float, default=1.0, 
+        help="RPS level at which all thermal plants switch to biofuels (0.0-1.0, default=1.0); use with --rps-allocation fuel_switch_at_high_rps")
     argparser.add_argument('--rps-activate', default='activate',
         dest='rps_level', action='store_const', const='activate', 
         help="Activate RPS (on by default).")
     argparser.add_argument('--rps-deactivate', 
         dest='rps_level', action='store_const', const='deactivate', 
-        help="Dectivate RPS.")
+        help="Deactivate RPS.")
     argparser.add_argument('--rps-no-renewables', 
         dest='rps_level', action='store_const', const='no_renewables', 
         help="Deactivate RPS and don't allow any new renewables.")
@@ -24,6 +26,7 @@ def define_arguments(argparser):
             'full_load_heat_rate', 
             'split_commit',
             'relaxed_split_commit',
+            'fuel_switch_at_high_rps',
         ],
         help="Method to use to allocate power output among fuels. Default is fuel_switch_by_period for models "
             + "with unit commitment, full_load_heat_rate for models without."
@@ -40,7 +43,8 @@ def define_components(m):
     m.f_rps_eligible = Param(m.FUELS, within=Binary)
 
     m.RPS_ENERGY_SOURCES = Set(initialize=lambda m: 
-        list(m.NON_FUEL_ENERGY_SOURCES) + [f for f in m.FUELS if m.f_rps_eligible[f]])
+        [s for s in m.NON_FUEL_ENERGY_SOURCES if s != 'Battery'] + [f for f in m.FUELS if m.f_rps_eligible[f]]
+    )
 
     m.RPS_YEARS = Set(ordered=True)
     m.rps_target = Param(m.RPS_YEARS)
@@ -63,10 +67,9 @@ def define_components(m):
     # calculate amount of power produced from renewable fuels during each period
     m.RPSFuelPower = Expression(m.PERIODS, rule=lambda m, per:
         sum(
-            m.DispatchGenRenewableMW[p, tp] * m.tp_weight[tp]
-                for p in m.FUEL_BASED_GENS 
-                    if (p, m.TPS_IN_PERIOD[per].first()) in m.GEN_TPS
-                        for tp in m.TPS_IN_PERIOD[per]
+            m.DispatchGenRenewableMW[g, tp] * m.tp_weight[tp]
+            for g in m.FUEL_BASED_GENS 
+            for tp in m.TPS_FOR_GEN_IN_PERIOD[g, per]
         )
     )
 
@@ -81,20 +84,20 @@ def define_components(m):
         m.RPSFuelPower[per]
         +
         sum(
-            m.DispatchGen[p, tp] * m.tp_weight[tp]
-                for f in m.NON_FUEL_ENERGY_SOURCES if f in m.RPS_ENERGY_SOURCES
-                    for p in m.GENERATION_PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[f]
-                        if (p, m.TPS_IN_PERIOD[per].first()) in m.GEN_TPS
-                            for tp in m.TPS_IN_PERIOD[per]
+            m.DispatchGen[g, tp] * m.tp_weight[tp]
+            for f in m.NON_FUEL_ENERGY_SOURCES if f in m.RPS_ENERGY_SOURCES
+            for g in m.GENERATION_PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[f]
+            for tp in m.TPS_FOR_GEN_IN_PERIOD[g, per]
         )
     )
 
     # total power production each period (against which RPS is measured)
+    # note: we exclude production from storage
     m.RPSTotalPower = Expression(m.PERIODS, rule=lambda m, per:
         sum(
-            m.DispatchGen[p, tp] * m.tp_weight[tp]
-                for p in m.GENERATION_PROJECTS if (p, m.TPS_IN_PERIOD[per].first()) in m.GEN_TPS
-                    for tp in m.TPS_IN_PERIOD[per] 
+            m.DispatchGen[g, tp] * m.tp_weight[tp]
+            for g in m.GENERATION_PROJECTS if g not in getattr(m, 'STORAGE_GENS', [])
+            for tp in m.TPS_FOR_GEN_IN_PERIOD[g, per]
         )
     )
     
@@ -169,7 +172,8 @@ def define_DispatchGenRenewableMW(m):
         split_commit_DispatchGenRenewableMW(m)
     elif m.options.rps_allocation == 'relaxed_split_commit':
         relaxed_split_commit_DispatchGenRenewableMW(m)
-
+    elif m.options.rps_allocation == 'fuel_switch_at_high_rps':
+        fuel_switch_at_high_rps_DispatchGenRenewableMW(m)
 
 def simple_DispatchGenRenewableMW(m):
     # Allocate the power produced during each timepoint among the fuels.
@@ -309,7 +313,21 @@ def relaxed_split_commit_DispatchGenRenewableMW(m):
             * m.gen_min_load_fraction_TP[g, tp]
     )
     
+    # rule=lambda m, g, t, intercept, incremental_heat_rate: (
+    #     sum(m.GenFuelUseRate[g, t, f] for f in m.FUELS_FOR_GEN[g]) >=
+    #     # Do the startup
+    #     m.StartupGenCapacity[g, t] * m.gen_startup_fuel[g] / m.tp_duration_hrs[t] +
+    #     intercept * m.CommitGen[g, t] +
+    #     incremental_heat_rate * m.DispatchGen[g, t]))
+
+    # TODO: fix bug in this code that forces renewable dispatch=total committed when
+    # using 100% RPS (this makes it hard to get reserves and makes it impossible to
+    # use the AES plant when using discrete commitment, because the PSIP module limits
+    # output to 180 MW but the plant is rated 185 MW.)
+
     # use standard heat rate calculations for renewable and non-renewable parts
+    # These set a lower bound for each type of fuel, as if we committed one slice of capacity 
+    # for renewables and one slice for non-renewable, equal to the amount of power from each.
     m.ProjRenewableFuelUseRate_Calculate = Constraint(
         m.GEN_TPS_FUEL_PIECEWISE_CONS_SET,
         rule=lambda m, g, tp, intercept, incremental_heat_rate: 
@@ -333,7 +351,7 @@ def relaxed_split_commit_DispatchGenRenewableMW(m):
             ) 
             >=
             (m.StartupGenCapacity[g, tp] - m.StartupGenCapacityRenewable[g, tp]) * m.gen_startup_fuel[g] / m.tp_duration_hrs[tp]
-            + intercept * (m.CommitGen[g, tp] - m.DispatchGenRenewableMW[g, tp])
+            + intercept * (m.DispatchGen[g, tp] - m.DispatchGenRenewableMW[g, tp])
             + incremental_heat_rate * (m.DispatchGen[g, tp] - m.DispatchGenRenewableMW[g, tp])
     )
 
@@ -355,7 +373,59 @@ def relaxed_split_commit_DispatchGenRenewableMW(m):
             m.FULL_RPS_GEN_FOSSIL_FUEL_DISPATCH_POINTS,
             rule=lambda m, g, tp, f: m.GenFuelUseRate[g, tp, f] == 0.0
         )
+    
+    # only count biofuels toward RPS
+    # prevent use of non-renewable fuels during renewable timepoints
+    def Enforce_DispatchRenewableFlag_rule(m, g, tp, f):
+        if m.f_rps_eligible[f]:
+            return Constraint.Skip
+        else:
+            # harder to read like this, but having all numerical values on the right hand side
+            # facilitates analysis of duals and reduced costs
+            # note: we also add a little slack to avoid having this be the main constraint
+            # on total output from any power plant (that also clarifies dual analysis)
+            big_fuel = 1.01 * m.gen_capacity_limit_mw[g] * m.gen_full_load_heat_rate[g]
+            return (
+                m.GenFuelUseRate[g, tp, f] 
+                + m.DispatchRenewableFlag[g, m.tp_period[tp]] * big_fuel
+                <= 
+                big_fuel
+            )
+    m.Enforce_DispatchRenewableFlag = Constraint(
+        m.GEN_TP_FUELS, rule=Enforce_DispatchRenewableFlag_rule
+    )
 
+def fuel_switch_at_high_rps_DispatchGenRenewableMW(m):
+    """ switch all plants to biofuel (and count toward RPS) if and only if rps is above threshold """
+    
+    if m.options.rps_level == 'activate':
+        # find all dispatch points for non-renewable fuels during periods with 100% RPS
+        m.HIGH_RPS_GEN_FOSSIL_FUEL_DISPATCH_POINTS = Set(
+            dimen=3, 
+            initialize=lambda m: [
+                (g, tp, f) 
+                    for p in m.PERIODS if m.rps_target_for_period[p] >= m.options.biofuel_switch_threshold
+                        for g in m.FUEL_BASED_GENS if (g, p) in m.GEN_PERIODS
+                            for f in m.FUELS_FOR_GEN[g] if not m.f_rps_eligible[f]
+                                for tp in m.TPS_IN_PERIOD[p]
+            ]
+        )
+        m.No_Fossil_Fuel_With_High_RPS = Constraint(
+            m.HIGH_RPS_GEN_FOSSIL_FUEL_DISPATCH_POINTS,
+            rule=lambda m, g, tp, f: m.GenFuelUseRate[g, tp, f] == 0.0
+        )
+        # count full dispatch toward RPS during non-fossil periods, otherwise give no credit
+        def rule(m, g, tp):
+            if m.rps_target_for_period[m.tp_period[tp]] >=  m.options.biofuel_switch_threshold:
+                return m.DispatchGen[g, tp]
+            else:
+                return 0.0
+        m.DispatchGenRenewableMW = Expression(m._FUEL_BASED_GEN_TPS, rule=rule)
+    else:
+        m.DispatchGenRenewableMW = Expression(
+            m._FUEL_BASED_GEN_TPS, within=NonNegativeReals, 
+            rule=lambda m, g, tp: 0.0
+        )
 
 def binary_by_period_DispatchGenRenewableMW(m):
     # NOTE: this could be extended to handle fuel blends (e.g., 50% biomass/50% coal)
@@ -378,6 +448,15 @@ def binary_by_period_DispatchGenRenewableMW(m):
     m.DispatchRenewableFlag = Var(m.GEN_WITH_FUEL_ACTIVE_PERIODS, within=Binary)
     
     # force flag on or off when the RPS is simple (to speed computation)
+    def rule(m, g, p):
+        if m.rps_target_for_period[pe]==1.0:
+            # 100% RPS; use only renewable fuels
+            return (m.DispatchRenewableFlag[g, pe] == 1)
+        elif m.rps_target_for_period[pe]==0.0 or m.options.rps_level != 'activate':
+            # no RPS, don't bother counting renewable fuels
+            return (m.DispatchRenewableFlag[g, pe] == 0)
+        else:
+            return Constraint.Skip
     m.Force_DispatchRenewableFlag = Constraint(
         m.GEN_WITH_FUEL_ACTIVE_PERIODS, 
         rule=lambda m, g, pe:
