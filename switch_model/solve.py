@@ -574,11 +574,12 @@ def solve(model):
         return results
     elif (results.solver.termination_condition == TerminationCondition.infeasible):
         if hasattr(model, "iis"):
-            print "Model was infeasible; irreducible infeasible set (IIS) returned by solver:"
+            print "Model was infeasible; irreducibly inconsistent set (IIS) returned by solver:"
             print "\n".join(c.name for c in model.iis)
         else:
-            print "Model was infeasible; if the solver can generate an irreducible infeasible set,"
-            print "more information may be available by calling this script with --suffixes iis ..."
+            print "Model was infeasible; if the solver can generate an irreducibly inconsistent set (IIS),"
+            print "more information may be available by setting the appropriate flags in the "
+            print 'solver_options_string and calling this script with "--suffixes iis".'
         raise RuntimeError("Infeasible model")
     else:
         print "Solver terminated abnormally."
