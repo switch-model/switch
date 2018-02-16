@@ -374,7 +374,7 @@ def post_solve(instance, outdir):
         "DispatchEmissions_tCO2_per_typical_yr": value(sum(
             instance.DispatchEmissions[g, t, f] * instance.tp_weight_in_year[t]
               for f in instance.FUELS_FOR_GEN[g]
-        )) if instance.gen_uses_fuel[g] else None
+        )) if instance.gen_uses_fuel[g] else 0
     } for g, t in instance.GEN_TPS ]
     dispatch_full_df = pd.DataFrame(dispatch_normalized_dat)
     dispatch_full_df.set_index(["generation_project", "timestamp"], inplace=True)
