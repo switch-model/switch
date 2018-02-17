@@ -1,96 +1,13 @@
 # Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 """
-A simple and flexible model of spinning reserves that tracks the state of unit
-commitment and dispatched capacity to ensures that the generation fleet has
-enough up- and down- ramping capacity to satisfy reserve requirements. The
-unit commitment module is a prerequisite for spinning reserves. This
-formulation does not consider ramping speed or duration requirements, just MW
-of upward and downward ramping capability.
-
-Spinning reserve requirements can be customized through use of configuration
-parameters and can include n-1 contingencies (either from generation units or
-entire generation plants), as well as variability of load and variable
-renewable resources. This lumps together regulating reserves, load following
-reserves, and contingency reserves without distinguishing their timescales or
-required response duration. Operating reserves at timescales with slower
-responses for load following or longer-term recovery from contingencies are not
-included here.
-
-Most regions and countries use distinct terminology for reserves products and
-distinct procedures for determining reserve requirements. This module provides
-a simple approach to spinning reserve requirements, which can be extended by
-other module via registering with dynamic lists. Detailed regional studies may
-need to write their own reserve modules to reflect specific regional reserve
-definitions and policies. 
-
-Notes: 
-
-This formulation only considers ramping capacity (MW), not duration or speed.
-The lack of duration requirements could cause problems if a significant amount
-of capacity is energy limited such as demand response, storage, or hydro.
-California now has a duration requirement of 3 hours for some classes of
-operating reserves. The lack of ramping speed could cause issues if the
-generators that are earmarked for providing spinning reserves have significant
-differences in ramping speeds that are important to account for. This
-formulation could be extended in the future to break reserve products into
-different categories based on overall response time (ramping speed &
-telemetry), and specify different reserve requirements for various response
-times: <1sec, <1 min, <5min, <15min, <1hr, 1day.
-
-One standard (nonlinear) methodology for calculating reserve requirements
-looks something like: k * sqrt(sigma_load^2 + sigma_renewable^2), where k is a
-constant reflecting capacity requirements (typically in the range of 3-5), and
-sigma's denote standard deviation in units of MW. Depending on the study,
-sigma may be calculated on timescales of seconds to minutes. Several studies
-estimate the sigmas with linear approximations. Some studies set
-sigma_renewable as a function of renewable output, especially for wind where
-power output shows the highest variability in the 40-60% output range because
-that is the steepest section of its power production curve. This formulation
-is not used here because the signma_renewable term would need to be
-approximated using renewable power output, making this equation non-linear
-with respect to dispatch decision variables.
-
-Other studies have used linear equations for estimating reserve requirements:
-
-The Western Wind and Solar Integration study suggested a heuristic of 3% *
-load + 5% * renewable_output for spinning reserve capacity requirements, and
-the same amount for quick start capacity requirements.
-
-Halamay 2011 derives spinning reserve requirements of +2.1% / -2.8% of load
-and ~ +2% / -3% for renewables to balance natural variability, and derives
-non-spinning reserve requirements and +3.5% / -4.0% of load and ~ +/- 4% for
-renewables to balance hour-ahead forecast errors.
-
-Note: Most research appears to be headed towards dynamic and probabilistic
-techniques, rather than the static approximations used here. 
-
-References on operating reserves follow.
-
-Ela, Erik, et al. "Evolution of operating reserve determination in wind power
-integration studies." Power and Energy Society General Meeting, 2010 IEEE.
-http://www.nrel.gov/docs/fy11osti/49100.pdf
-
-Milligan, Michael, et al. "Operating reserves and wind power integration: An
-international comparison." proc. 9th International Workshop on large-scale
-integration of wind power into power systems. 2010.
-http://www.nrel.gov/docs/fy11osti/49019.pdf
-
-Halamay, Douglas A., et al. "Reserve requirement impacts of large-scale
-integration of wind, solar, and ocean wave power generation." IEEE
-Transactions on Sustainable Energy 2.3 (2011): 321-328.
-http://nnmrec.oregonstate.edu/sites/nnmrec.oregonstate.edu/files/PES_GM_2010_HalamayVariability_y09m11d30h13m26_DAH.pdf
-
-Ibanez, Eduardo, Ibrahim Krad, and Erik Ela. "A systematic comparison of
-operating reserve methodologies." PES General Meeting| Conference &
-Exposition, 2014 IEEE. http://www.nrel.gov/docs/fy14osti/61016.pdf
-
+This is an advanced version of the basic spinning_reserves reserves module, and
+can be used in place of it (not in addition to).
 """
 import os
 from collections import defaultdict
 from pyomo.environ import *
 from switch_model.utilities import iteritems
-
 
 
 dependencies = (
@@ -128,7 +45,7 @@ def define_arguments(argparser):
     )
     # TODO: define these inputs in data files
     group.add_argument(
-        '--contingency-reserve-type', 
+        '--contingency-reserve-type', dest='contingency_reserve_type',
         default='spinning', 
         help=
             "Type of reserves to use to meet the contingency reserve requirements "
@@ -136,7 +53,7 @@ def define_arguments(argparser):
             "(e.g., 'contingency' or 'spinning'); default is 'spinning'."
     )
     group.add_argument(
-        '--regulating-reserve-type', 
+        '--regulating-reserve-type', dest='regulating_reserve_type',
         default='spinning', 
         help=
             "Type of reserves to use to meet the regulating reserve requirements "
@@ -151,23 +68,27 @@ def define_dynamic_lists(m):
     """
     Spinning_Reserve_Requirements and Spinning_Reserve_Provisions are
     dicts of lists of components that contribute to the requirement or provision
-    of operating reserves. Entries in each dict are indexed by reserve
-    type (usually "regulation" or "contingency") and direction ("up" or "down").
+    of spinning reserves. Entries in each dict are indexed by reserve
+    product. In the simple scenario, you may only have a single product called
+    'spinning'. In other scenarios where some generators are limited in what
+    kind of reserves they can provide, you may have "regulation" and
+    "contingency" reserve products.
     The dicts are setup as defaultdicts, so they will automatically 
     return an empty list if nothing has been added for a particular 
     type of reserves.
     
-    Spinning_Reserve_Requirements contains lists of model components that 
-    increase operating reserve requirements in each balancing area and timepoint. 
+    Spinning_Reserve_Up_Requirements and Spinning_Reserve_Down_Requirements
+    list model components that increase reserve requirements in each balancing
+    area and timepoint. 
     
-    Spinning_Reserve_Provisions contains lists of model components that 
-    help satisfy operating reserve requirements in each balancing area and
-    timepoint. 
+    Spinning_Reserve_Up_Provisions and Spinning_Reserve_Down_Provisions list
+    model components that help satisfy spinning reserve requirements in
+    each balancing area and timepoint. 
     
-    Spinning_Reserve_Contingencies is a list of model components
-    describing maximum contingency events. Elements of this list are 
-    summarized into a MaximumContingency variable that is added to the
-    Spinning_Reserve_Requirements['contingency', 'up'] list.
+    Spinning_Reserve_Up_Contingencies and Spinning_Reserve_Down_Contingencies
+    list model components describing maximum contingency events. Elements of
+    this list are summarized into a MaximumContingency variable that is added
+    to the Spinning_Reserve_Requirements['contingency'] list.
     
     Each component in the Requirements and Provisions lists needs to use units 
     of MW and be indexed by reserve type, balancing area and timepoint. Missing 
@@ -283,9 +204,12 @@ def gen_project_contingency(m):
         doc="Largest generating project that could drop offline.")
     def Enforce_GenProjectLargestContingency_rule(m, g, t):
         b = m.zone_balancing_area[m.gen_load_zone[g]]
-        if m.gen_can_provide_spinning_reserves[g]:
+        if g in m.SPINNING_RESERVE_CAPABLE_GENS:
+            total_up_reserves = sum(
+                m.CommitGenSpinningReservesUp[rt, g, t] 
+                for rt in m.SPINNING_RESERVE_TYPES_FOR_GEN[g])
             return m.GenProjectLargestContingency[b, t] >= \
-                m.DispatchGen[g, t] + m.CommitGenSpinningReservesUp[g, t]
+                m.DispatchGen[g, t] + total_up_reserves
         else:
             return m.GenProjectLargestContingency[b, t] >= m.DispatchGen[g, t]
     m.Enforce_GenProjectLargestContingency = Constraint(
@@ -297,15 +221,13 @@ def gen_project_contingency(m):
     m.Spinning_Reserve_Up_Contingencies.append('GenProjectLargestContingency')
 
 def hawaii_spinning_reserve_requirements(m):
-    # This may be more appropriate for a hawaii submodule until it is
-    # better documented and referenced. 
-    # these parameters were found by regressing the reserve requirements from
+    # These parameters were found by regressing the reserve requirements from
     # the GE RPS Study against wind and solar conditions each hour (see
     # Dropbox/Research/Shared/Switch-Hawaii/ge_validation/source_data/
     # reserve_requirements_oahu_scenarios charts.xlsx and
     # Dropbox/Research/Shared/Switch-Hawaii/ge_validation/
     # fit_renewable_reserves.ipynb ) 
-    # TODO: supply all the parameters for this function in input files
+    # TODO: supply all the parameters for this function in input files. 
 
     # Calculate and register regulating reserve requirements
     # (currently only considers variable generation, only underforecasting)
@@ -373,22 +295,19 @@ def nrel_3_5_spinning_reserve_requirements(m):
     be set to WithdrawFromCentralGrid. Otherwise load will be set to
     zone_demand_mw.
     """
-
     def NREL35VarGenSpinningReserveRequirement_rule(m, rt, b, t):
         try:
             load = m.WithdrawFromCentralGrid
         except AttributeError:
             load = m.zone_demand_mw
         return (
-            0.03 * sum(load[z, t] for z in m.LOAD_ZONES_IN_BALANCING_AREA[b])
-            + 
-            0.05 * sum(
-                m.DispatchGen[g, t] 
-                for z in m.ZONES_IN_BALANCING_AREA[b]
-                for g in m.VARIABLE_GENS_IN_ZONE[z]
-                if (g, t) in m.VARIABLE_GEN_TPS
-            )
-        )
+            0.03 * sum(load[z, t] 
+                       for z in m.LOAD_ZONES
+                       if b == m.zone_balancing_area[z])
+            + 0.05 * sum(m.DispatchGen[g, t] 
+                         for g in m.VARIABLE_GENS
+                         if (g, t) in m.VARIABLE_GEN_TPS and 
+                            b == m.zone_balancing_area[m.gen_load_zone[g]]))
     m.NREL35VarGenSpinningReserveRequirement = Expression(
         [m.options.regulating_reserve_type],
         m.BALANCING_AREA_TIMEPOINTS, 
@@ -401,8 +320,7 @@ def nrel_3_5_spinning_reserve_requirements(m):
 def define_components(m):
     """
     contingency_safety_factor is a parameter that increases the contingency 
-    requirements. By default this is set to 2.0 to prevent the largest 
-    generator from providing reserves for itself.
+    requirements. This is defaults to 1.0.
     
     GEN_SPINNING_RESERVE_TYPES is a set of all allowed reserve types for each generation
     project. This is read from generation_projects_reserve_availability.tab.
@@ -412,11 +330,9 @@ def define_components(m):
     capacity that can be used to provide each type of reserves. It is indexed
     by GEN_SPINNING_RESERVE_TYPES. This is read from generation_projects_reserve_availability.tab
     and defaults to 1 if not specified.
-    
-
 
     SPINNING_RESERVE_CAPABLE_GEN_TPS is a subset of GEN_TPS of generators that can
-    provide spinning reserves based on gen_can_provide_spinning_reserves.
+    provide spinning reserves based on generation_projects_reserve_capability.tab.
     
     CommitGenSpinningReservesUp[(g,t) in SPINNING_SPINNING_RESERVE_CAPABLE_GEN_TPS] is a
     decision variable of how much upward spinning reserve capacity to commit
@@ -450,11 +366,6 @@ def define_components(m):
         default=1.0
     )
     
-    # TODO: go back to calling all of these spinning reserves instead of operating reserves,
-    # since they all have to be backed by spinning (committed) capacity for now. Also prefix
-    # "reserve" with "spinning" everywhere, to distinguish from planning reserves. Then the
-    # terminology will be pretty similar to the current spinning_reserves module.
-
     # reserve types that are supplied by generation projects
     # and generation projects that can provide reserves
     # note: these are also the indexing sets of the above set arrays; maybe that could be used?
@@ -676,13 +587,20 @@ def load_inputs(m, switch_data, inputs_dir):
     spinning_reserve_params.dat may override the default value of 
     contingency_safety_factor. Note that this is a .dat file, not a .tab file.
     """
+    path=os.path.join(inputs_dir, 'generation_projects_reserve_capability.tab')
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'generation_projects_reserve_capability.tab'),
+        filename=path,
+        optional=True,
         auto_select=True,
         optional_params=['gen_reserve_type_max_share]'],
         index=m.GEN_SPINNING_RESERVE_TYPES,
         param=(m.gen_reserve_type_max_share)
     )
+    if not os.path.isfile(path):
+        gen_projects = switch_data.data()['GENERATION_PROJECTS'][None]
+        switch_data.data()['GEN_SPINNING_RESERVE_TYPES'] = {}
+        switch_data.data()['GEN_SPINNING_RESERVE_TYPES'][None] = \
+            [(g, "spinning") for g in gen_projects]
 
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'spinning_reserve_params.dat'),
