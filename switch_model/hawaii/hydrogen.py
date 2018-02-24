@@ -197,7 +197,7 @@ def define_components(m):
         m.HydrogenSpinningReserveDown = Expression(
             m.BALANCING_AREA_TIMEPOINTS, 
             rule=lambda m, b, t: \
-                sum(m.HydrogenSlackDown[g, t] 
+                sum(m.HydrogenSlackDown[z, t] 
                     for z in m.ZONES_IN_BALANCING_AREA[b])
         )
         m.Spinning_Reserve_Down_Provisions.append('HydrogenSpinningReserveDown')

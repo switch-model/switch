@@ -175,18 +175,24 @@ def write_results(m, outputs_dir):
             +tuple(
                 sum(
                     DispatchGenByFuel(m, p, t, f) 
-                        for p in m.GENERATION_PROJECTS_BY_FUEL[f] if (p, t) in m.GEN_TPS
+                        for p in m.GENERATION_PROJECTS_BY_FUEL[f] 
+                        if (p, t) in m.GEN_TPS and m.gen_load_zone[p] == z
                 )
                 for f in m.FUELS
             )
             +tuple(
-                sum(util.get(m.DispatchGen, (p, t), 0.0) for p in m.GENERATION_PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[s])
+                sum(
+                    util.get(m.DispatchGen, (p, t), 0.0) 
+                    for p in m.GENERATION_PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[s]
+                    if m.gen_load_zone[p] == z
+                )
                 for s in m.NON_FUEL_ENERGY_SOURCES
             )
             +tuple(
                 sum(
                     util.get(m.DispatchUpperLimit, (p, t), 0.0) - util.get(m.DispatchGen, (p, t), 0.0) 
                     for p in m.GENERATION_PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[s]
+                    if m.gen_load_zone[p] == z
                 )
                 for s in m.NON_FUEL_ENERGY_SOURCES
             )
@@ -225,7 +231,7 @@ def write_results(m, outputs_dir):
     built_energy_source = tuple(sorted(set(gen_energy_source(g) for g in built_gens)))
  
     battery_capacity_mw = lambda m, z, pe: (
-        (m.Battery_Capacity[z, pe] * m.battery_max_discharge / m.battery_min_discharge_time)
+        (m.Battery_Capacity[z, pe] / m.battery_min_discharge_time)
             if hasattr(m, "Battery_Capacity") else 0.0
     )
     

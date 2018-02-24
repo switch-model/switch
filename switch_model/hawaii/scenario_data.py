@@ -96,11 +96,14 @@ def write_tables(**args):
     # (switch_model.timescales can handle that now),
     # and it lets period_end be a floating point number 
     # (postgresql will export it with a .0 in this case)
+    # note: despite the comments above, this rounded period_end to
+    # the nearest whole number until 2018-02-17. This was removed to
+    # support fractional years for monthly batches in production-cost models.
     write_table('periods.tab', 
         with_period_length + """
         SELECT p.period AS "INVESTMENT_PERIOD",
                 p.period as period_start,
-                round(p.period + period_length) as period_end
+                p.period + period_length as period_end
             FROM study_periods p JOIN period_length l USING (period)
             WHERE time_sample = %(time_sample)s
             ORDER by 1;
@@ -124,6 +127,19 @@ def write_tables(**args):
             ORDER BY period, extract(doy from date), study_hour;
     """, args)
 
+    # double-check that arguments are valid
+    cur = db_cursor()
+    cur.execute(
+        'select * from generator_costs_by_year where cap_cost_scen_id = %(cap_cost_scen_id)s',
+        args
+    )
+    if len([r for r in cur]) == 0:
+        print "================================================================"
+        print "WARNING: no records found in generator_costs_by_year for cap_cost_scen_id='{}'".format(args['cap_cost_scen_id'])
+        print "================================================================"
+        time.sleep(2)
+    del cur
+
     #########################
     # create temporary tables that can be referenced by other queries 
     # to identify available projects and technologies
@@ -131,7 +147,7 @@ def write_tables(**args):
         DROP TABLE IF EXISTS study_length;
         CREATE TEMPORARY TABLE study_length AS
             {}
-            SELECT min(period) as study_start, max(period+period_length) AS study_end
+            SELECT min(period)::real as study_start, max(period+period_length)::real AS study_end
             FROM period_length;
 
         DROP TABLE IF EXISTS study_projects;
@@ -166,7 +182,6 @@ def write_tables(**args):
             SELECT DISTINCT g.* 
             FROM generator_info g JOIN study_projects p USING (technology);
     """.format(with_period_length), args)    
-
 
     #########################
     # financials
@@ -407,6 +422,11 @@ def write_tables(**args):
     # not $/kW, $/kWh or $/kW-year.
     # NOTE: for now, we only specify storage costs per unit of power, not 
     # on per unit of energy, so we insert $0 as the energy cost here.
+    # NOTE: projects should have NULL for overnight cost and fixed O&M in
+    # proj_existing_builds if they have an entry for the same year in 
+    # generator_costs_by_year. If they have costs in both, they will both
+    # get passed through to the data table, and Switch will raise an error
+    # (as it should, because costs are ambiguous in this case).
     write_table('gen_build_costs.tab', """
         WITH gen_build_costs AS (
             SELECT
@@ -418,31 +438,45 @@ def write_tables(**args):
                 CASE WHEN i.gen_storage_efficiency IS NULL THEN NULL ELSE 0.0 END 
                     AS gen_storage_energy_overnight_cost,
                 i.fixed_o_m * 1000.0 * power(1.0+%(inflation_rate)s, %(base_financial_year)s-i.base_year)
-                    AS gen_fixed_o_m
+                    AS gen_fixed_o_m,
+                i.min_vintage_year
             FROM study_generator_info i
                 JOIN generator_costs_by_year c USING (technology)
-                JOIN study_periods p ON p.period = c.year
-            WHERE time_sample = %(time_sample)s
-                AND (i.min_vintage_year IS NULL OR c.year >= i.min_vintage_year)
-                AND c.cap_cost_scen_id = %(cap_cost_scen_id)s
+            WHERE c.cap_cost_scen_id = %(cap_cost_scen_id)s
             ORDER BY 1, 2
         )
-        SELECT
+        SELECT   -- costs specified in proj_existing_builds
             "GENERATION_PROJECT",
-            build_year,
-            sum(proj_overnight_cost * 1000.0 * proj_existing_cap) / sum(proj_existing_cap)
+            b.build_year,
+            SUM(b.proj_overnight_cost * 1000.0 * proj_existing_cap) / sum(proj_existing_cap) 
                 AS gen_overnight_cost,
             null AS gen_storage_energy_overnight_cost,
-            sum(proj_fixed_om * 1000.0 * proj_existing_cap) / sum(proj_existing_cap)
+            SUM(b.proj_fixed_om * 1000.0 * proj_existing_cap) / sum(proj_existing_cap)
                 AS gen_fixed_om
-        FROM study_projects JOIN proj_existing_builds USING (project_id)
+        FROM study_projects p
+            JOIN proj_existing_builds b USING (project_id)
+        WHERE (b.proj_overnight_cost IS NOT NULL OR b.proj_fixed_om IS NOT NULL)
         GROUP BY 1, 2
         UNION
-        SELECT "GENERATION_PROJECT", build_year, gen_overnight_cost, 
+        SELECT   -- costs specified in generator_costs_by_year
+            "GENERATION_PROJECT", c.build_year, gen_overnight_cost, 
             gen_storage_energy_overnight_cost, gen_fixed_o_m
-        FROM gen_build_costs JOIN study_projects USING (technology)
+        FROM study_projects proj 
+            JOIN gen_build_costs c USING (technology)
+            LEFT JOIN study_periods per ON (per.time_sample = %(time_sample)s AND c.build_year = per.period)
+            LEFT JOIN proj_existing_builds e ON (e.project_id = proj.project_id AND e.build_year = c.build_year)
+        WHERE
+            -- note: this allows users to have build_year < min_vintage_year for predetermined projects
+            -- that have entries in the cost table, e.g., if they want to prespecify some, but postpone
+            -- additional construction until some later year (unlikely)
+            (per.period IS NOT NULL AND (c.min_vintage_year IS NULL OR c.build_year >= c.min_vintage_year))
+            OR e.project_id IS NOT NULL
         ORDER BY 1, 2;
     """, args)
+
+    if args['base_financial_year'] != 2016:
+        print "WARNING: capital costs for existing plants were stored in the database with a 2016 base year"
+        print "WARNING: and have not been updated to the scenario base year of {}.".format(args['base_financial_year'])
 
     #########################
     # spinning_reserves_advanced
@@ -458,11 +492,12 @@ def write_tables(**args):
     res_args['reserve_technologies']=reserve_technologies
     res_args['reserve_types']=reserve_types
 
+    # note: casting is needed if the lists are empty; see https://stackoverflow.com/a/41893576/3830997
     write_table('generation_projects_reserve_capability.tab', """
         WITH reserve_capability (technology, reserve_type) as (
-            SELECT 
-                UNNEST(%(reserve_technologies)s) AS technology,
-                UNNEST(%(reserve_types)s) AS reserve_type
+            SELECT
+                UNNEST(%(reserve_technologies)s::varchar(40)[]) AS technology,
+                UNNEST(%(reserve_types)s::varchar(20)[]) AS reserve_type
         ),
         reserve_types (rank, reserve_type) as (
             VALUES 
@@ -649,22 +684,25 @@ def write_tables(**args):
     
     #########################
     # batteries
-    # (now included as standard storage projects)
-    # bat_years = 'BATTERY_CAPITAL_COST_YEARS'
-    # bat_cost = 'battery_capital_cost_per_mwh_capacity_by_year'
-    # write_dat_file(
-    #     'batteries.dat',
-    #     sorted([k for k in args if k.startswith('battery_') and k not in [bat_years, bat_cost]]),
-    #     args
-    # )
-    # if bat_years in args and bat_cost in args:
-    #     # annual costs were provided -- write those to a tab file
-    #     write_tab_file(
-    #         'battery_capital_cost.tab',
-    #         headers=[bat_years, bat_cost],
-    #         data=zip(args[bat_years], args[bat_cost]),
-    #         arguments=args
-    #     )
+    # (now included as standard storage projects, but kept here 
+    # to support older projects that haven't upgraded yet)
+    bat_years = 'BATTERY_CAPITAL_COST_YEARS'
+    bat_cost = 'battery_capital_cost_per_mwh_capacity_by_year'
+    non_cost_bat_vars = sorted([k for k in args if k.startswith('battery_') and k not in [bat_years, bat_cost]])
+    if non_cost_bat_vars:
+        write_dat_file(
+            'batteries.dat',
+            non_cost_bat_vars,
+            args
+        )
+    if bat_years in args and bat_cost in args:
+        # annual costs were provided -- write those to a tab file
+        write_tab_file(
+            'battery_capital_cost.tab',
+            headers=[bat_years, bat_cost],
+            data=zip(args[bat_years], args[bat_cost]),
+            arguments=args
+        )
 
     #########################
     # EV annual energy consumption

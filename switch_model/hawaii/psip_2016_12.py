@@ -1,6 +1,11 @@
 from __future__ import division
+from collections import defaultdict
+from textwrap import dedent
 import os
 from pyomo.environ import *
+
+def TODO(note):
+    raise NotImplementedError(dedent(note))
 
 def define_arguments(argparser):
     argparser.add_argument('--psip-force', action='store_true', default=True, 
@@ -11,6 +16,11 @@ def define_arguments(argparser):
         help="Use only the amount of renewables shown in PSIP plans, and no more (should be combined with --psip-relax).")
     argparser.add_argument('--force-build', nargs=3, default=None, 
         help="Force construction of at least a certain quantity of a particular technology during certain years. Space-separated list of year, technology and quantity.")
+
+def is_renewable(tech):
+    return any(txt in tech for txt in ("PV", "Wind", "Solar"))
+def is_battery(tech):
+    return 'battery' in tech.lower()
 
 def define_components(m):
     ###################
@@ -50,74 +60,82 @@ def define_components(m):
     # SWITCH profiles seem to be more accurate, so we optimize against them
     # and show that this may give (small) savings vs. the RESOLVE plan.    
     
+    # TODO: Should I use Switch to investigate how much of HECO's poor performance is due
+    # to using bad resource profiles (small onshore wind that doesn't rise in the rankings),
+    # how much is due to capping PV at 300 MW in 2020, 
+    # how much is due to non-integrality in RESOLVE (fixed by later jimmying by HECO), and
+    # how much is due to forcing in elements before and after the optimization?
+
+    # NOTE: I briefly moved future DistPV to the existing plants workbook, with the idea that 
+    # we assume the same forecasted adoption occurs with or without the PSIP. That approach
+    # also spread the DistPV adoption among the top half of tranches, rather than allowing
+    # Switch to cherry-pick the best tranches. However, that approach was ineffective because
+    # Switch was still able to add (and did add) DistPV from the lower tranches. That could 
+    # have been fixed up in import_data.py, or the DistPV could have been moved here, into 
+    # technology_targets_definite. However, on further reflection, forcing DistPV installations
+    # to always match the PSIP forecast seems artificial -- it might be better to do DistPV 
+    # than utility-scale PV, and there's no reason to preclude that in the non-PSIP plans. 
+    # (Although it's probably not worth dwelling long on differences if they arise, since they
+    # won't make a huge difference in cost.) So now the DistPV is treated as just another optional 
+    # part of the PSIP plan. Note that this allows Switch to cherry-pick among the best DistPV
+    # tranches to meet the PSIP, but that is a little conservative (favorable to HECO), because
+    # Switch can also do that for the non-PSIP scenarios. Also, these targets are roughly equal
+    # to the top half of the DistPV tranches, so there's not much cherry-picking going on anyway.
+    # This could be resolved by setting (optional) project-specific targets in this module,
+    # or by making the DistPV tranches coarser (e.g., upper half, third quartile, fourth quartile),
+    # which seems like a good idea for representing the general precision of DistPV policies 
+    # anyway.
+    
+    # TODO (maybe): set project-specific targets, so that DistPV targets can be spread among tranches 
+    # and specific projects in the PSIP can be represented accurately (really just NPM wind). This
+    # might also allow reconstruction of exactly the same existing or PSIP project when retired 
+    # (as specified in the PSIP). Currently the code below lets Switch choose the best project with the 
+    # same technology when it replaces retired renewable projects.
+    
     # targets for individual generation technologies
     # (year, technology, MW added)
     # TODO: allow either CentralFixedPV or CentralTrackingPV for utility-scale solar
     # (not urgent now, since CentralFixedPV is not currently in the model)
 
-    def annual(start_year, end_year, start_amount, end_amount):
-        # should be applied to each year including end year, but not start year
-        return (end_amount-start_amount)/(end_year-start_year)
-        
-    # technologies that are definitely being built (we assume near-term
-    # are underway and military projects are being built for their own 
-    # reasons)
-    technology_targets_definite = [ 
-        (2016, 'CentralTrackingPV', 27.6),  # Waianae Solar by Eurus Energy America
-        (2018, 'IC_Schofield', 54.0),
+    # Technologies that are definitely being built (at least have permits already.)
+    # (Note: these have all been moved into the existing plants workbook.)
+    technology_targets_definite = []
 
-        # Distributed PV from Table J-1 of PSIP
-        # TODO: check that this matches Resolve inputs
-        # This is treated as definite, so we don't get caught up in "you could save
-        # a little money by building Central PV instead of distributed." Probably
-        # appropriate, since it's a forecast, not a decision anyway.
-        (2016, 'DistPV', 471 - 444), # net of 444 MW of pre-existing DistPV, also counted in 2016
-
-        (2017, 'DistPV', annual(2016, 2020, 471, 856)),
-        (2018, 'DistPV', annual(2016, 2020, 471, 856)),
-        (2019, 'DistPV', annual(2016, 2020, 471, 856)),
-        (2020, 'DistPV', annual(2016, 2020, 471, 856)),
-
-        (2021, 'DistPV', annual(2020, 2030, 856, 1169)),
-        (2022, 'DistPV', annual(2020, 2030, 856, 1169)),
-        (2023, 'DistPV', annual(2020, 2030, 856, 1169)),
-        (2024, 'DistPV', annual(2020, 2030, 856, 1169)),
-        (2025, 'DistPV', annual(2020, 2030, 856, 1169)),
-        (2026, 'DistPV', annual(2020, 2030, 856, 1169)),
-        (2027, 'DistPV', annual(2020, 2030, 856, 1169)),
-        (2028, 'DistPV', annual(2020, 2030, 856, 1169)),
-        (2029, 'DistPV', annual(2020, 2030, 856, 1169)),
-        (2030, 'DistPV', annual(2020, 2030, 856, 1169)),
-
-        (2031, 'DistPV', annual(2030, 2040, 1169, 1517)),
-        (2032, 'DistPV', annual(2030, 2040, 1169, 1517)),
-        (2033, 'DistPV', annual(2030, 2040, 1169, 1517)),
-        (2034, 'DistPV', annual(2030, 2040, 1169, 1517)),
-        (2035, 'DistPV', annual(2030, 2040, 1169, 1517)),
-        (2036, 'DistPV', annual(2030, 2040, 1169, 1517)),
-        (2037, 'DistPV', annual(2030, 2040, 1169, 1517)),
-        (2038, 'DistPV', annual(2030, 2040, 1169, 1517)),
-        (2039, 'DistPV', annual(2030, 2040, 1169, 1517)),
-        (2040, 'DistPV', annual(2030, 2040, 1169, 1517)),
-        
-        (2041, 'DistPV', annual(2040, 2045, 1517, 1697)),
-        (2042, 'DistPV', annual(2040, 2045, 1517, 1697)),
-        (2043, 'DistPV', annual(2040, 2045, 1517, 1697)),
-        (2044, 'DistPV', annual(2040, 2045, 1517, 1697)),
-        (2045, 'DistPV', annual(2040, 2045, 1517, 1697)), 
-        # replace prebuilt capacity (counted in 2016, so retired in 2041)
-        (2041, 'DistPV', 444),
-        # replace PSIP capacity built before 2020, which was counted in 2020 (retires in 2045)
-        (2045, 'DistPV', 856-444),
-    ]
-    # technologies proposed in PSIP but which may not be built if a 
-    # better plan is found
+    # add targets specified on the command line
+    if m.options.force_build is not None:
+        b = list(m.options.force_build)
+        b[0] = int(b[0])    # year
+        b[2] = float(b[2])  # quantity
+        b = tuple(b)
+        print "Forcing build: {}".format(b)
+        technology_targets_definite.append(b)
+ 
+    # technologies proposed in PSIP but which may not be built if a better plan is found.
+    # All from final plan in Table 4-1 of PSIP 2016-12-23 sometimes cross-referenced with PLEXOS inputs.
+    # These differ somewhat from inputs to RESOLVE or the RESOLVE plans in Table 3-1 and 3-4, but
+    # they represent HECO's final plan as reported in the PSIP.
     technology_targets_psip = [     
-        (2018, 'OnshoreWind', 24),      # Na Pua Makani (NPM) wind
-        (2018, 'CentralTrackingPV', 109.6),  # replacement for canceled SunEdison projects
-        (2018, 'OnshoreWind', 10),      # CBRE wind
+        # Na Pua Makani (NPM) wind (still awaiting approval as of Feb. 2018) note: this is at a 
+        # specific location (21.668 -157.956), but since it isn't in the existing plants 
+        # workbook, we represent it as a generic technology target.
+        # note: Resolve modeled 134 MW of planned onshore wind, 30 MW of optional onshore 
+        # and 800 MW of optional offshore; See "data/HECO Plans/PSIP-WebDAV/2017-01-31 Response to Parties IRs/CA-IR-1/Input and Output Files by Case/E3 and Company Defined Cases/Market DGPV (Reference)/OA_NOLNG/capacity_limits.tab".
+        # planned seems to correspond to Na Pua Makani (24), CBRE (10), Kahuku (30), Kawailoka (69); 
+        # Resolve built 273 MW offshore in 2025-45 (including 143 MW rebuilt in 2045), 
+        # and 30 MW onshore in 2045 (tables 3-1 and 3-4).
+        # Not clear why it picked offshore before onshore (maybe bad resource profiles?). But 
+        # in their final plan (table 4-1), HECO changed it to 200 MW offshore in 2025 (presumably rebuilt
+        # in 2045) and 30 MW onshore in 2045.
+        (2018, 'OnshoreWind', 24), # Na Pua Makani (NPM) wind
+        (2018, 'OnshoreWind', 10), # CBRE wind
+        # note: 109.6 MW SunEdison replacements are in Existing Plants workbook.
+        
+        # note: RESOLVE had 53.6 MW of planned PV, which is probably Waianae (27.6), Kalaeloa (5) 
+        # and West Loch (20). Then it added these (table 3-1): 2020: 300 MW (capped, see "renewable_limits.tab"), 
+        # 2022: 48 MW, 2025: 193 MW, 2040: 541 (incl. 300 MW rebuild), 2045: 1400 MW (incl. 241 MW rebuild). 
+        # HECO converted this to 109.6 MW of replacement SunEdison waiver projects in 2018 
+        # (we list those as "existing") and other additions shown below.
         (2018, 'CentralTrackingPV', 15),  # CBRE PV
-        (2019, 'CentralTrackingPV', 20), # West Loch PV
         (2020, 'CentralTrackingPV', 180),
         (2022, 'CentralTrackingPV', 40),
         (2022, 'IC_Barge', 100.0),         # JBPHH plant
@@ -128,22 +146,85 @@ def define_components(m):
         (2040, 'CentralTrackingPV', 280),
         (2045, 'CentralTrackingPV', 1180),
         (2045, 'IC_MCBH', 68.0), # proxy for 68 MW of generic ICE capacity
-        # restrict construction of batteries
-        (2022, 'LoadShiftBattery', 426), 
-        (2025, 'LoadShiftBattery', 29),
-        (2030, 'LoadShiftBattery', 165),
-        (2035, 'LoadShiftBattery', 168),
-        (2040, 'LoadShiftBattery', 420),
-        (2045, 'LoadShiftBattery', 1525),
-    ]
 
-    if m.options.force_build is not None:
-        b = list(m.options.force_build)
-        b[0] = int(b[0])    # year
-        b[2] = float(b[2])  # quantity
-        b = tuple(b)
-        print "Forcing build: {}".format(b)
-        technology_targets_definite.append(b)
+        # batteries (MW)
+        # from PSIP 2016-12-23 Table 4-1; also see energy ("capacity") and power files in 
+        # "data/HECO Plans/PSIP-WebDAV/2017-01-31 Response to Parties IRs/DBEDT-IR-12/Input/Oahu/Oahu E3 Plan Input/CSV files/Battery"
+        # (note: we mistakenly treated these as MWh quantities instead of MW before 2018-02-20)
+        (2019, 'Battery_Conting', 90),
+        (2022, 'Battery_4', 426), 
+        (2025, 'Battery_4', 29),
+        (2030, 'Battery_4', 165),
+        (2035, 'Battery_4', 168),
+        (2040, 'Battery_4', 420),
+        (2045, 'Battery_4', 1525),
+        # RESOLVE modeled 4-hour batteries as being capable of providing reserves, 
+        # and didn't model contingency batteries (see data/HECO Plans/PSIP-WebDAV/2017-01-31 Response to Parties IRs/CA-IR-1/Input and Output Files by Case/E3 and Company Defined Cases/Market DGPV (Reference)/OA_NOLNG/technologies.tab).
+        # Then HECO added a 90 MW contingency battery (table 4-1 of PSIP 2016-12-23).
+        # Note: RESOLVE can get reserves from batteries (they only considered 4-hour batteries), but not
+        # from EVs or flexible demand.
+        # DR: Looking at RESOLVE inputs, it seems like they take roughly 4% of load, and allow it to be doubled 
+        # or cut to zero each hour (need to double-check this beyond first day). Maybe this includes EVs? 
+        # (no separate sign of EVs).
+        # TODO: check Resolve load levels against Switch.
+        # TODO: maybe I should switch over to using the ABC curves and load profiles that HECO used with PLEXOS
+        # (for all islands).
+        # TODO: Did HECO assume 4-hour batteries, demand response or EVs could provide reserves when running PLEXOS?
+        # - all of these seem unlikely, but we have to ask HECO to find out; PLEXOS files are unclear.
+        
+        # installations based on changes in installed capacity shown in 
+        # data/HECO Plans/PSIP-WebDAV/2017-01-31 Response to Parties IRs/CA-IR-1/Input and Output Files by Case/E3 Company Defined Cases/Market DGPV (Reference)/OA_NOLNG/planned_installed_capacities.tab
+        # Also see Figure J-10 of 2016-12-23 PSIP (Vol. 3), which matches these levels (excluding FIT(?)).
+        # Note: code further below adds in reconstruction of early installations
+        (2020, "DistPV", 606.3-444),  # net of 444 installed as of 2016 (in existing generators workbook)
+        (2022, "DistPV", 680.3-606.3),
+        (2025, "DistPV", 744.9-680.3),
+        (2030, "DistPV", 868.7-744.9),
+        (2035, "DistPV", 1015.4-868.7),
+        (2040, "DistPV", 1163.4-1015.4),
+        (2045, "DistPV", 1307.9-1163.4),
+    ]
+    
+    # Rebuild renewable projects at retirement (20 years), as specified in the PSIP
+    # note: this doesn't include DistPV, because those are part of a forecast, not a plan, so they already
+    # get reconstructed in the existing generators workbook, whether or not the PSIP plan is used.
+    
+    # note: this behavior is consistent with the following:
+    # discussion on p. 3-8 of PSIP 2016-12-23 vol. 1.
+    # Resolve applied planned wind and solar as set levels through 2045, not set additions in each year.
+    # Table 4-1 shows final plans that were sent to Plexos; Plexos input files in 
+    # data/HECO Plans/PSIP-WebDAV/2017-01-31 Response to Parties IRs/DBEDT-IR-12/Input/Oahu/Oahu E3 Plan Input/CSV files/Theme 5
+    # show optional capacity built in 2020 or 2025 (in list below) continuing in service in 2045.
+    # and Plexos input files in data/HECO Plans/PSIP-WebDAV/2017-01-31 Response to Parties IRs/DBEDT-IR-12/Input/Oahu/Oahu E3 Plan Input/CSV files/PSIP Max Capacity.csv
+    # don't show any retirements of wind and solar included as "planned" in RESOLVE and "existing" in Switch
+    # (Waivers PV1, West Loch; Kawailoa may be omitted?)
+    # also note: Plexos input files in XX 
+    # show max battery capacity equal to sum of all prior additions
+    
+    # projects from existing plants workbook (pasted in)
+    existing_techs = [
+        (2011, "OnshoreWind", 30),
+        (2012, "OnshoreWind", 69),
+        (2012, "CentralTrackingPV", 5),
+        (2016, "CentralTrackingPV", 27.6),
+        (2016, "DistPV", 444),
+        (2018, "IC_Schofield", 54.98316),
+        (2018, "CentralTrackingPV", 49),
+        (2018, "CentralTrackingPV", 14.7),
+        (2018, "CentralTrackingPV", 46),
+        (2018, "CentralTrackingPV", 20),
+    ] 
+    existing_techs += technology_targets_definite
+    existing_techs += technology_targets_psip
+    # rebuild all renewables at retirement (20 years for RE, 15 years for batteries)
+    rebuild_targets = [
+        (y+20, tech, cap) for y, tech, cap in existing_techs if is_renewable(tech)
+    ] + [
+        (y+15, tech, cap) for y, tech, cap in existing_techs if is_battery(tech)
+    ] # note: early batteries won't quite need 2 replacements
+    # don't schedule rebuilding past end of study
+    rebuild_targets = [t for t in rebuild_targets if t[0] <= 2045]
+    technology_targets_psip += rebuild_targets
     
     # make sure LNG is turned off
     if psip and getattr(m.options, "force_lng_tier", []) != ["none"]:
@@ -157,8 +238,15 @@ def define_components(m):
     # make a special list including all standard generation technologies plus "LoadShiftBattery"
     m.GEN_TECHS_AND_BATTERIES = Set(initialize=lambda m: [g for g in m.GENERATION_TECHNOLOGIES] + ["LoadShiftBattery"])
 
+    # make a list of renewable technologies
+    m.RENEWABLE_TECHNOLOGIES = Set(
+        initialize=m.GENERATION_TECHNOLOGIES, 
+        filter=lambda m, tech: is_renewable(tech)
+    )
+
     def technology_target_init(m, per, tech):
-        """Find the amount of each technology that is targeted to be built by the start of each period."""
+        """Find the amount of each technology that is targeted to be built between the start of the
+        previous period and the start of the current period."""
         start = 2000 if per == m.PERIODS.first() else m.PERIODS.prev(per)
         end = per
         target = sum(
@@ -168,34 +256,48 @@ def define_components(m):
         return target
     m.technology_target = Param(m.PERIODS, m.GEN_TECHS_AND_BATTERIES, initialize=technology_target_init)
 
+    def MakeGenTechDicts_rule(m):
+        # get unit sizes of all technologies
+        unit_sizes = m.gen_tech_unit_size_dict = defaultdict(float) 
+        for g, unit_size in m.gen_unit_size.iteritems():
+            tech = m.gen_tech[g]
+            if tech in unit_sizes:
+                if unit_sizes[tech] != unit_size:
+                    raise ValueError("Generation technology {} uses different unit sizes for different projects.")
+            else:
+                unit_sizes[tech] = unit_size
+        # get predetermined capacity for all technologies
+        predet_cap = m.gen_tech_predetermined_cap_dict = defaultdict(float) 
+        for (g, per), cap in m.gen_predetermined_cap.iteritems():
+            tech = m.gen_tech[g]
+            predet_cap[tech, per] += cap
+    m.MakeGenTechDicts = BuildAction(rule=MakeGenTechDicts_rule)
+
     # with PSIP: BuildGen is zero except for technology_targets 
     #     (sum during each period or before first period)
     # without PSIP: BuildGen is >= definite targets
     def Enforce_Technology_Target_rule(m, per, tech):
         """Enforce targets for each technology; exact target for PSIP cases, minimum target for non-PSIP."""
-                
-        def adjust_psip_credit(g, target): 
-            if g in m.DISCRETELY_SIZED_GENS and target > 0.0:
-                # Rescale so that the n integral units that come closest 
-                # to the target gets counted as the n.n fractional units
-                # needed to exactly meet the target.
-                # This is needed because some of the targets are based on
-                # nominal unit sizes rather than actual max output.
-                return (target / m.gen_unit_size[g]) / round(target / m.gen_unit_size[g])
-            else:
-                return 1.0
         
-        target = m.technology_target[per, tech]
-
+        # get target, including any capacity specified in the predetermined builds, 
+        # so the target will be additional to those
+        target = m.technology_target[per, tech] + m.gen_tech_predetermined_cap_dict[tech, per]
+        
+        # convert target to closest integral number of units
+        # (some of the targets are based on nominal unit sizes rather than actual max output)
+        if m.gen_tech_unit_size_dict[tech] > 0.0:
+            target = round(target / m.gen_tech_unit_size_dict[tech]) * m.gen_tech_unit_size_dict[tech]
+        
         if tech == "LoadShiftBattery":
             # special treatment for batteries, which are not a standard technology
             if hasattr(m, 'BuildBattery'):
-                build = sum(m.BuildBattery[z, per] for z in m.LOAD_ZONES)
+                # note: BuildBattery is in MWh, so we convert to MW
+                build = sum(m.BuildBattery[z, per] for z in m.LOAD_ZONES) / m.battery_min_discharge_time
             else:
                 build = 0
         else:
             build = sum(
-                m.BuildGen[g, per] * adjust_psip_credit(g, target)
+                m.BuildGen[g, per]
                 for g in m.GENERATION_PROJECTS 
                 if m.gen_tech[g] == tech and (g, per) in m.GEN_BLD_YRS
             )
@@ -212,7 +314,7 @@ def define_components(m):
                 return Constraint.Infeasible
         elif psip:
             return (build == target)
-        elif m.options.psip_minimal_renewables and any(txt in tech for txt in ["PV", "Wind", "Solar"]):
+        elif m.options.psip_minimal_renewables and tech in m.RENEWABLE_TECHNOLOGIES:
             # only build the specified amount of renewables, no more
             return (build == target)
         else:
