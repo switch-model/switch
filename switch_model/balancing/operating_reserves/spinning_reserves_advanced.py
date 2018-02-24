@@ -119,12 +119,14 @@ def define_arguments(argparser):
               "Unlike unit contingencies, this is a purely linear expression.")
     )
     group.add_argument('--spinning-requirement-rule', default=None, 
-        choices = ["Hawaii", "3+5"],
+        choices = ["Hawaii", "3+5", "none"],
         help=("Choose rules for spinning reserves requirements as a function "
               "of variable renewable power and load. Hawaii uses rules "
               "bootstrapped from the GE RPS study, and '3+5' requires 3% of "
               "load and 5% of variable renewable output, based on the heuristic "
-              "described in the 2010 Western Wind and Solar Integration Study.")
+              "described in the 2010 Western Wind and Solar Integration Study. "
+              "Specify 'none' if applying your own rules instead. "
+        )
     )
     # TODO: define these inputs in data files
     group.add_argument(
@@ -141,7 +143,7 @@ def define_arguments(argparser):
         help=
             "Type of reserves to use to meet the regulating reserve requirements "
             "defined by the spinning requirements rule (e.g., 'spinning' or "
-            "'contingency'); default is 'spinning'."
+            "'regulation'); default is 'spinning'."
     )
     
     
@@ -556,6 +558,10 @@ def define_components(m):
         hawaii_spinning_reserve_requirements(m)
     elif m.options.spinning_requirement_rule == '3+5':
         nrel_3_5_spinning_reserve_requirements(m)
+    elif m.options.spinning_requirement_rule == 'none':
+        pass # users can turn off the rules and use their own instead
+    else:
+        raise ValueError('No --spinning-requirement-rule specified on command line; unable to allocate reserves.')
     
 
 def define_dynamic_components(m):
