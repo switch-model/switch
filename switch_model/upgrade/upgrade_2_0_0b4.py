@@ -42,5 +42,15 @@ def upgrade_input_dir(inputs_dir):
         for old, new in old_new_pairs:
             rename_column(fname, old_col_name=old, new_col_name=new)
 
+    # merge trans_optional_params.tab with transmission_lines.tab
+    trans_lines_path = os.path.join(inputs_dir, 'transmission_lines.tab')
+    trans_opt_path = os.path.join(inputs_dir, 'trans_optional_params.tab')
+    if os.path.isfile(trans_lines_path) and os.path.isfile(trans_lines_path):
+        trans_lines = pandas.read_csv(trans_lines_path, na_values=['.'], sep='\t')
+        trans_opt = pandas.read_csv(trans_opt_path, na_values=['.'], sep='\t')
+        trans_lines = trans_lines.merge(trans_opt, on='TRANSMISSION_LINE', how='left')
+        trans_lines.to_csv(trans_lines_path, sep='\t', na_rep='.', index=False)
+        os.remove(trans_opt_path)
+
     # Write a new version text file.
     switch_model.upgrade._write_input_version(inputs_dir, upgrades_to)
