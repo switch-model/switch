@@ -203,6 +203,16 @@ def write_results(m, outputs_dir):
             'peak' if m.ts_scale_to_year[m.tp_ts[t]] < avg_ts_scale else 'typical')
     )
     
+    sorted_projects = tuple(sorted(g for g in m.GENERATION_PROJECTS))
+    util.write_table(
+        m, m.TIMEPOINTS,
+        output_file=os.path.join(outputs_dir, "gen_dispatch{t}.tsv".format(t=tag)), 
+        headings=("period", "timepoint_label")+sorted_projects,
+        values=lambda m, t: 
+            (m.tp_period[t], m.tp_timestamp[t]) 
+            + tuple(util.get(m.DispatchGen, (p, t), 0.0) for p in sorted_projects)
+    )
+
     # installed capacity information
     def gen_energy_source(g):
         return (
