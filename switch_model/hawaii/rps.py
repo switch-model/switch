@@ -15,9 +15,13 @@ def define_arguments(argparser):
     argparser.add_argument('--rps-deactivate', 
         dest='rps_level', action='store_const', const='deactivate', 
         help="Deactivate RPS.")
-    argparser.add_argument('--rps-no-renewables', 
-        dest='rps_level', action='store_const', const='no_renewables', 
-        help="Deactivate RPS and don't allow any new renewables.")
+    argparser.add_argument('--rps-no-new-renewables', 
+        dest='rps_level', action='store_const', const='no_new_renewables', 
+        help="Deactivate RPS and don't allow any new renewables except to replace existing capacity.")
+    argparser.add_argument('--rps-no-new-wind', action='store_true', default=False,
+        help="Don't allow any new wind capacity except to replace existing capacity.")
+    argparser.add_argument('--rps-no-wind', action='store_true', default=False,
+        help="Don't allow any new wind capacity or replacement of existing capacity.")
     argparser.add_argument(
         '--rps-allocation', default=None, 
         choices=[
@@ -109,14 +113,31 @@ def define_components(m):
         m.RPS_Enforce = Constraint(m.PERIODS, rule=lambda m, per:
             m.RPSEligiblePower[per] >= m.rps_target_for_period[per] * m.RPSTotalPower[per]
         )
-    elif m.options.rps_level == 'no_renewables':
-        # prevent construction of any new exclusively-renewable projects
-        # (doesn't actually ban use of biofuels in existing or multi-fuel projects,
-        # but that could be done with --biofuel-limit 0)
-        m.No_Renewables = Constraint(m.NEW_GEN_BLD_YRS, rule=lambda m, g, bld_yr:
-            (m.BuildGen[g, bld_yr] == 0)
-            if m.gen_energy_source[g] in m.RPS_ENERGY_SOURCES else
-            Constraint.Skip
+    elif m.options.rps_level == 'no_new_renewables':
+        # prevent construction of any new exclusively-renewable projects, but allow
+        # replacement of existing ones
+        # (doesn't ban use of biofuels in existing or multi-fuel projects, but that could 
+        # be done with --biofuel-limit 0)
+        m.No_New_Renewables = Constraint(m.NEW_GEN_BLD_YRS, rule=lambda m, g, bld_yr:
+            (m.GenCapacity[g, bld_yr] <= m.GenCapacity[g, m.PERIODS.first()] - m.BuildGen[g, m.PERIODS.first()])
+            if m.gen_energy_source[g] in m.RPS_ENERGY_SOURCES
+            else Constraint.Skip
+        )
+    
+    wind_energy_sources = {'WND'}
+    if m.options.rps_no_new_wind:
+        # limit wind to existing capacity
+        m.No_New_Wind = Constraint(m.NEW_GEN_BLD_YRS, rule=lambda m, g, bld_yr:
+            (m.GenCapacity[g, bld_yr] <= m.GenCapacity[g, m.PERIODS.first()] - m.BuildGen[g, m.PERIODS.first()])
+            if m.gen_energy_source[g] in wind_energy_sources
+            else Constraint.Skip
+        )
+    if m.options.rps_no_wind:
+        # don't build any new capacity or replace existing
+        m.No_Wind = Constraint(m.NEW_GEN_BLD_YRS, rule=lambda m, g, bld_yr:
+            (m.BuildGen[g, bld_yr] == 0.0)
+            if m.gen_energy_source[g] in wind_energy_sources
+            else Constraint.Skip
         )
 
     # Don't allow (bio)fuels to provide more than a certain percentage of the system's energy

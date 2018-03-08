@@ -5,7 +5,7 @@ from pyomo.environ import *
 import switch_model.solve
 
 def define_components(m):
-    if m.options.solver in ('cplex', 'cplexamp', 'gurobi'):
+    if m.options.solver in ('cplex', 'cplexamp', 'gurobi', 'gurobi_ampl'):
         m.options.smooth_dispatch = True
     else:
         # glpk and cbc can't handle quadratic problem used for smoothing
@@ -13,8 +13,8 @@ def define_components(m):
         if m.options.verbose:
             print "Not smoothing dispatch because {} cannot solve a quadratic model.".format(m.options.solver)
             print "Remove hawaii.smooth_dispatch from modules.txt and iterate.txt to avoid this message."
-
-    # add an alternative objective function that smoothes out various non-cost variables
+    
+    # add an alternative objective function that smoothes out time-shiftable energy sources and sinks
     if m.options.smooth_dispatch:
         def Smooth_Free_Variables_obj_rule(m):
             # minimize production (i.e., maximize curtailment / minimize losses)
@@ -25,7 +25,7 @@ def define_components(m):
                             for component in m.Zone_Power_Injections)
             # minimize the variability of various slack responses
             adjustable_components = [
-                'ShiftDemand', 'ChargeBattery', 'DischargeBattery', 'ChargeEVs',
+                'ShiftDemand', 'ChargeBattery', 'DischargeBattery', 'ChargeEVs', 
                 'RunElectrolyzerMW', 'LiquifyHydrogenMW', 'DispatchFuelCellMW'
             ]
             for var in adjustable_components:
@@ -34,6 +34,11 @@ def define_components(m):
                         print "Will smooth {}.".format(var)
                     comp = getattr(m, var)
                     obj += sum(comp[z, t]*comp[z, t] for z in m.LOAD_ZONES for t in m.TIMEPOINTS)
+            # include standard storage generators too
+            if hasattr(m, 'STORAGE_GEN_TPS'):
+                print "Will smooth charging and discharging of standard storage."
+                obj += sum(m.ChargeStorage[g, tp]*m.ChargeStorage[g, tp] for g, tp in m.STORAGE_GEN_TPS)
+                obj += sum(m.DispatchGen[g, tp]*m.DispatchGen[g, tp] for g, tp in m.STORAGE_GEN_TPS)
             return obj
         m.Smooth_Free_Variables = Objective(rule=Smooth_Free_Variables_obj_rule, sense=minimize)
         # leave standard objective in effect for now
