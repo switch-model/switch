@@ -117,7 +117,7 @@ def define_components(mod):
         dimen=4,
         initialize=lambda m: [
             (g, t, intercept, slope)
-            for (g, t) in m._FUEL_BASED_GEN_TPS
+            for (g, t) in m.FUEL_BASED_GEN_TPS
             for (intercept, slope) in m.FUEL_USE_SEGMENTS_FOR_GEN[g]
         ]
     )

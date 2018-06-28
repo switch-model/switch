@@ -202,7 +202,7 @@ def simple_DispatchGenRenewableMW(m):
     # fuel usage and the full load heat rate. This also allows use of 
     # multiple fuels in the same project at the same time.
     m.DispatchGenRenewableMW = Expression(
-        m._FUEL_BASED_GEN_TPS,
+        m.FUEL_BASED_GEN_TPS,
         rule=lambda m, g, t:
             sum(
                 m.GenFuelUseRate[g, t, f] 
@@ -231,30 +231,30 @@ def split_commit_DispatchGenRenewableMW(m):
     # can't get committed in the 100% RPS due to non-zero min loads)
     
     # count amount of renewable power produced from project
-    m.DispatchGenRenewableMW = Var(m._FUEL_BASED_GEN_TPS, within=NonNegativeReals)
-    m.DispatchGenRenewableMW_Cap = Constraint(m._FUEL_BASED_GEN_TPS, 
+    m.DispatchGenRenewableMW = Var(m.FUEL_BASED_GEN_TPS, within=NonNegativeReals)
+    m.DispatchGenRenewableMW_Cap = Constraint(m.FUEL_BASED_GEN_TPS, 
         rule = lambda m, g, tp:
             m.DispatchGenRenewableMW[g, tp] <= m.DispatchGen[g, tp]
     )
     # a portion of every startup and shutdown must be designated as renewable
-    m.CommitGenRenewable = Var(m._FUEL_BASED_GEN_TPS, within=NonNegativeReals)
-    m.CommitGenRenewable_Cap = Constraint(m._FUEL_BASED_GEN_TPS, 
+    m.CommitGenRenewable = Var(m.FUEL_BASED_GEN_TPS, within=NonNegativeReals)
+    m.CommitGenRenewable_Cap = Constraint(m.FUEL_BASED_GEN_TPS, 
         rule = lambda m, g, tp:
             m.CommitGenRenewable[g, tp] <= m.CommitGen[g, tp]
     )
-    m.StartupGenCapacityRenewable = Var(m._FUEL_BASED_GEN_TPS, within=NonNegativeReals)
-    m.StartupGenCapacityRenewable_Cap = Constraint(m._FUEL_BASED_GEN_TPS, 
+    m.StartupGenCapacityRenewable = Var(m.FUEL_BASED_GEN_TPS, within=NonNegativeReals)
+    m.StartupGenCapacityRenewable_Cap = Constraint(m.FUEL_BASED_GEN_TPS, 
         rule = lambda m, g, tp:
             m.StartupGenCapacityRenewable[g, tp] <= m.StartupGenCapacity[g, tp]
     )
-    m.ShutdownGenCapacityRenewable = Var(m._FUEL_BASED_GEN_TPS, within=NonNegativeReals)
-    m.ShutdownGenCapacityRenewable_Cap = Constraint(m._FUEL_BASED_GEN_TPS, 
+    m.ShutdownGenCapacityRenewable = Var(m.FUEL_BASED_GEN_TPS, within=NonNegativeReals)
+    m.ShutdownGenCapacityRenewable_Cap = Constraint(m.FUEL_BASED_GEN_TPS, 
         rule = lambda m, g, tp:
             m.ShutdownGenCapacityRenewable[g, tp] <= m.ShutdownGenCapacity[g, tp]
     )
     # chain commitments, startup and shutdown for renewables
     m.Commit_StartupGenCapacity_ShutdownGenCapacity_Consistency_Renewable = Constraint(
-        m._FUEL_BASED_GEN_TPS,
+        m.FUEL_BASED_GEN_TPS,
         rule=lambda m, g, tp: 
             m.CommitGenRenewable[g, m.tp_previous[tp]]
             + m.StartupGenCapacityRenewable[g, tp] 
@@ -263,13 +263,13 @@ def split_commit_DispatchGenRenewableMW(m):
     )
     # must use committed capacity for renewable production
     m.Enforce_Dispatch_Upper_Limit_Renewable = Constraint(
-        m._FUEL_BASED_GEN_TPS,
+        m.FUEL_BASED_GEN_TPS,
         rule=lambda m, g, tp: 
             m.DispatchGenRenewableMW[g, tp] <= m.CommitGenRenewable[g, tp]
     )
     # can't dispatch non-renewable capacity below its lower limit
     m.Enforce_Dispatch_Lower_Limit_Non_Renewable = Constraint(
-        m._FUEL_BASED_GEN_TPS,
+        m.FUEL_BASED_GEN_TPS,
         rule=lambda m, g, tp: 
             (m.DispatchGen[g, tp] - m.DispatchGenRenewableMW[g, tp])
             >= 
@@ -313,20 +313,20 @@ def relaxed_split_commit_DispatchGenRenewableMW(m):
     # is 100%.
         
     # count amount of renewable power produced from project
-    m.DispatchGenRenewableMW = Var(m._FUEL_BASED_GEN_TPS, within=NonNegativeReals)
-    m.DispatchGenRenewableMW_Cap = Constraint(m._FUEL_BASED_GEN_TPS, 
+    m.DispatchGenRenewableMW = Var(m.FUEL_BASED_GEN_TPS, within=NonNegativeReals)
+    m.DispatchGenRenewableMW_Cap = Constraint(m.FUEL_BASED_GEN_TPS, 
         rule = lambda m, g, tp:
             m.DispatchGenRenewableMW[g, tp] <= m.DispatchGen[g, tp]
     )
-    m.StartupGenCapacityRenewable = Var(m._FUEL_BASED_GEN_TPS, within=NonNegativeReals)
-    m.StartupGenCapacityRenewable_Cap = Constraint(m._FUEL_BASED_GEN_TPS, 
+    m.StartupGenCapacityRenewable = Var(m.FUEL_BASED_GEN_TPS, within=NonNegativeReals)
+    m.StartupGenCapacityRenewable_Cap = Constraint(m.FUEL_BASED_GEN_TPS, 
         rule = lambda m, g, tp:
             m.StartupGenCapacityRenewable[g, tp] <= m.StartupGenCapacity[g, tp]
     )
 
     # can't dispatch non-renewable capacity below its lower limit
     m.Enforce_Dispatch_Lower_Limit_Non_Renewable = Constraint(
-        m._FUEL_BASED_GEN_TPS,
+        m.FUEL_BASED_GEN_TPS,
         rule=lambda m, g, tp: 
             (m.DispatchGen[g, tp] - m.DispatchGenRenewableMW[g, tp])
             >= 
@@ -441,10 +441,10 @@ def fuel_switch_at_high_rps_DispatchGenRenewableMW(m):
                 return m.DispatchGen[g, tp]
             else:
                 return 0.0
-        m.DispatchGenRenewableMW = Expression(m._FUEL_BASED_GEN_TPS, rule=rule)
+        m.DispatchGenRenewableMW = Expression(m.FUEL_BASED_GEN_TPS, rule=rule)
     else:
         m.DispatchGenRenewableMW = Expression(
-            m._FUEL_BASED_GEN_TPS, within=NonNegativeReals, 
+            m.FUEL_BASED_GEN_TPS, within=NonNegativeReals, 
             rule=lambda m, g, tp: 0.0
         )
 
@@ -462,7 +462,7 @@ def binary_by_period_DispatchGenRenewableMW(m):
     m.GEN_WITH_FUEL_ACTIVE_PERIODS = Set(dimen=2, initialize=lambda m: {
         (g, pe) 
             for g in m.FUEL_BASED_GENS for pe in m.PERIODS
-                if (g, m.TPS_IN_PERIOD[pe].first()) in m._FUEL_BASED_GEN_TPS
+                if (g, m.TPS_IN_PERIOD[pe].first()) in m.FUEL_BASED_GEN_TPS
     })
     
     # choose whether to run (only) on renewable fuels during each period
@@ -491,17 +491,17 @@ def binary_by_period_DispatchGenRenewableMW(m):
     )
     
     # count amount of renewable power produced from project
-    m.DispatchGenRenewableMW = Var(m._FUEL_BASED_GEN_TPS, within=NonNegativeReals)
+    m.DispatchGenRenewableMW = Var(m.FUEL_BASED_GEN_TPS, within=NonNegativeReals)
     
     # don't overcount renewable power production
     m.Limit_DispatchGenRenewableMW = Constraint(
-        m._FUEL_BASED_GEN_TPS, 
+        m.FUEL_BASED_GEN_TPS, 
             rule=lambda m, g, tp: 
                 m.DispatchGenRenewableMW[g, tp] <= m.DispatchGen[g, tp]
     )
     # force the flag to be set during renewable timepoints
     m.Set_DispatchRenewableFlag = Constraint(
-            m._FUEL_BASED_GEN_TPS, 
+            m.FUEL_BASED_GEN_TPS, 
             rule=lambda m, g, tp:
                  m.DispatchGenRenewableMW[g, tp] 
                  <= 
@@ -532,7 +532,7 @@ def binary_by_timeseries_DispatchGenRenewableMW(m):
     m.GEN_WITH_FUEL_ACTIVE_TIMESERIES = Set(dimen=2, initialize=lambda m: {
         (g, ts) 
             for g in m.FUEL_BASED_GENS for ts in m.TIMESERIES
-                if (g, m.TPS_IN_TS[ts].first()) in m._FUEL_BASED_GEN_TPS
+                if (g, m.TPS_IN_TS[ts].first()) in m.FUEL_BASED_GEN_TPS
     })
     
     # choose whether to run (only) on renewable fuels during each period
@@ -550,17 +550,17 @@ def binary_by_timeseries_DispatchGenRenewableMW(m):
     )
     
     # count amount of renewable power produced from project
-    m.DispatchGenRenewableMW = Var(m._FUEL_BASED_GEN_TPS, within=NonNegativeReals)
+    m.DispatchGenRenewableMW = Var(m.FUEL_BASED_GEN_TPS, within=NonNegativeReals)
     
     # don't overcount renewable power production
     m.Limit_DispatchGenRenewableMW = Constraint(
-        m._FUEL_BASED_GEN_TPS, 
+        m.FUEL_BASED_GEN_TPS, 
             rule=lambda m, g, tp: 
                 m.DispatchGenRenewableMW[g, tp] <= m.DispatchGen[g, tp]
     )
     # force the flag to be set during renewable timepoints
     m.Set_DispatchRenewableFlag = Constraint(
-            m._FUEL_BASED_GEN_TPS, 
+            m.FUEL_BASED_GEN_TPS, 
             rule=lambda m, g, tp:
                  m.DispatchGenRenewableMW[g, tp] 
                  <= 
@@ -588,19 +588,19 @@ def binary_by_timeseries_DispatchGenRenewableMW(m):
 
 def advanced2_DispatchGenRenewableMW(m):
     # choose whether to run (only) on renewable fuels during each timepoint
-    m.DispatchRenewableFlag = Var(m._FUEL_BASED_GEN_TPS, within=Binary)
+    m.DispatchRenewableFlag = Var(m.FUEL_BASED_GEN_TPS, within=Binary)
     
     # count amount of renewable power produced from project
-    m.DispatchGenRenewableMW = Var(m._FUEL_BASED_GEN_TPS, within=NonNegativeReals)
+    m.DispatchGenRenewableMW = Var(m.FUEL_BASED_GEN_TPS, within=NonNegativeReals)
     
     # don't overcount renewable power production
     m.Limit_DispatchGenRenewableMW = Constraint(
-        m._FUEL_BASED_GEN_TPS, 
+        m.FUEL_BASED_GEN_TPS, 
             rule=lambda m, g, tp: m.DispatchGenRenewableMW[g, tp] <= m.DispatchGen[g, tp]
     )
     # force the flag to be set during renewable timepoints
     m.Set_DispatchRenewableFlag = Constraint(
-            m._FUEL_BASED_GEN_TPS, 
+            m.FUEL_BASED_GEN_TPS, 
             rule=lambda m, g, tp:
                  m.DispatchGenRenewableMW[g, tp] 
                  <= 
@@ -626,7 +626,7 @@ def advanced1_DispatchGenRenewableMW(m):
     m.DispatchGenRenewableMW = Var(m.GEN_TP_FUELS, within=NonNegativeReals)
     # make sure this matches total production
     m.DispatchGenRenewableMW_Total = Constraint(
-        m._FUEL_BASED_GEN_TPS, 
+        m.FUEL_BASED_GEN_TPS, 
         rule=lambda m, g, tp: 
             sum(m.DispatchGenRenewableMW[g, tp, f] for f in m.FUELS_FOR_GEN[g])
             ==
@@ -636,7 +636,7 @@ def advanced1_DispatchGenRenewableMW(m):
     # choose a single fuel to use during each timestep
     m.DispatchFuelFlag = Var(m.GEN_TP_FUELS, within=Binary)
     m.DispatchFuelFlag_Total = Constraint(
-        m._FUEL_BASED_GEN_TPS, 
+        m.FUEL_BASED_GEN_TPS, 
         rule=lambda m, g, tp: 
             sum(m.DispatchFuelFlag[g, tp, f] for f in m.FUELS_FOR_GEN[g])
             ==
@@ -692,21 +692,21 @@ def advanced1_DispatchGenRenewableMW(m):
 
 def quadratic_DispatchGenRenewableMW(m):
     # choose how much power to obtain from renewables during each timepoint
-    m.DispatchRenewableFraction = Var(m._FUEL_BASED_GEN_TPS, within=PercentFraction)
+    m.DispatchRenewableFraction = Var(m.FUEL_BASED_GEN_TPS, within=PercentFraction)
     
     # count amount of renewable power produced from project
-    m.DispatchGenRenewableMW = Var(m._FUEL_BASED_GEN_TPS, within=NonNegativeReals)
+    m.DispatchGenRenewableMW = Var(m.FUEL_BASED_GEN_TPS, within=NonNegativeReals)
     
     # don't overcount renewable power production
     m.Set_DispatchRenewableFraction = Constraint(
-            m._FUEL_BASED_GEN_TPS, 
+            m.FUEL_BASED_GEN_TPS, 
             rule=lambda m, g, tp:
                  m.DispatchGenRenewableMW[g, tp] 
                  <= 
                  m.DispatchRenewableFraction[g, tp] * m.DispatchGen[g, tp]
     )
     m.Enforce_DispatchRenewableFraction = Constraint(
-        m._FUEL_BASED_GEN_TPS, 
+        m.FUEL_BASED_GEN_TPS, 
         rule=lambda m, g, tp: 
             sum(
                 m.GenFuelUseRate[g, tp, f] 
@@ -727,7 +727,7 @@ def quadratic1_DispatchGenRenewableMW(m):
 
     # make sure this matches total production
     m.DispatchGenRenewableMW_Total = Constraint(
-        m._FUEL_BASED_GEN_TPS, 
+        m.FUEL_BASED_GEN_TPS, 
         rule=lambda m, g, tp: 
             sum(m.DispatchGenRenewableMW[g, tp, f] for f in m.FUELS_FOR_GEN[g])
             ==
