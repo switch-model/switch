@@ -8,7 +8,7 @@ Functions to help export results.
 Modules within this directory may implement custom exports that
 depend on multiple Switch modules. Each individual Switch module
 that defines components should only access model components that
-it defined or that were defined upstream in Switch modules that 
+it defined or that were defined upstream in Switch modules that
 it depends on. For example, the load_zone module cannot assume whether users
 will be including project.no_commit or project.unitcommit, so it cannot
 reference model components defined in either of those files. However,
@@ -65,7 +65,7 @@ def write_table(instance, *indexes, **kwargs):
                     else:
                         row[i] = sig_digits.format(v)
             return tuple(row)
-        
+
         try:
             w.writerows(
                 format_row(row=values(instance, *unpack_elements(x)))
@@ -76,7 +76,7 @@ def write_table(instance, *indexes, **kwargs):
             w.writerows(
                 # TODO: flatten x (unpack tuples) like Pyomo before calling values()
                 # That may cause problems elsewhere though...
-            
+
                 format_row(row=values(instance, *x))
                 for x in itertools.product(*indexes)
             )
@@ -141,17 +141,14 @@ def _save_generic_results(instance, outdir, sorted_output):
 
 
 def _save_total_cost_value(instance, outdir):
-    values = instance.Minimize_System_Cost.values()
-    assert len(values) == 1
-    total_cost = values[0].expr()
     with open(os.path.join(outdir, 'total_cost.txt'), 'w') as fh:
-        fh.write('%s\n' % total_cost)
+        fh.write('{}\n'.format(value(instance.SystemCost)))
 
 
 def post_solve(instance, outdir):
     """
     Minimum output generation for all model runs.
-    
+
     """
     _save_generic_results(instance, outdir, instance.options.sorted_output)
     _save_total_cost_value(instance, outdir)

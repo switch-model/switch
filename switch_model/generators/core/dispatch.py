@@ -155,19 +155,13 @@ def define_components(mod):
     mod.GENS_IN_PERIOD = Set(mod.PERIODS, initialize=period_active_gen_rule,
         doc="The set of projects active in a given period.")
 
-    def TPS_FOR_GEN_rule(m, gen):
-        if not hasattr(m, '_TPS_FOR_GEN_dict'):
-            m._TPS_FOR_GEN_dict = collections.defaultdict(set)
-            for (_gen, period) in m.GEN_PERIODS:
-                for t in m.TPS_IN_PERIOD[period]:
-                    m._TPS_FOR_GEN_dict[_gen].add(t)
-        result = m._TPS_FOR_GEN_dict.pop(gen)
-        if len(m._TPS_FOR_GEN_dict) == 0:
-            delattr(m, '_TPS_FOR_GEN_dict')
-        return result        
     mod.TPS_FOR_GEN = Set(
-        mod.GENERATION_PROJECTS, within=mod.TIMEPOINTS,
-        rule=TPS_FOR_GEN_rule)
+        mod.GENERATION_PROJECTS, 
+        within=mod.TIMEPOINTS,
+        rule=lambda m, g: (
+            tp for p in m.PERIODS_FOR_GEN[g] for tp in m.TPS_IN_PERIOD[p]
+        )
+    )
 
     def TPS_FOR_GEN_IN_PERIOD_rule(m, gen, period):
         if not hasattr(m, '_TPS_FOR_GEN_IN_PERIOD_dict'):

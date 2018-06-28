@@ -75,8 +75,8 @@ def define_components(mod):
 
     ConsumeFuelTier[rfm, period, tier] is a decision variable that
     denotes the amount of fuel consumed in each tier of a supply curve
-    in a particular regional fuel market and period. It has an upper bound
-    of rfm_supply_tier_limit.
+    in a particular regional fuel market and period (MMBtu/year). It 
+    has an upper bound of rfm_supply_tier_limit.
 
     FuelConsumptionInMarket[rfm, period] is a derived decision variable
     specifying the total amount of fuel consumed in a regional fuel
