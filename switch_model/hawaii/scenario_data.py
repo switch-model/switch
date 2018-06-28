@@ -451,12 +451,16 @@ def write_tables(**args):
         SELECT   -- costs specified in proj_existing_builds
             "GENERATION_PROJECT",
             b.build_year,
-            power(1.0+%(inflation_rate)s, %(base_financial_year)s-b.base_year)
-            * SUM(b.proj_overnight_cost * 1000.0 * proj_existing_cap) / sum(proj_existing_cap)
+            SUM(
+                power(1.0+%(inflation_rate)s, %(base_financial_year)s-b.base_year)
+                * b.proj_overnight_cost * 1000.0 * proj_existing_cap
+            ) / SUM(proj_existing_cap)
                 AS gen_overnight_cost,
             null AS gen_storage_energy_overnight_cost,
-            power(1.0+%(inflation_rate)s, %(base_financial_year)s-b.base_year)
-            * SUM(b.proj_fixed_om * 1000.0 * proj_existing_cap) / sum(proj_existing_cap)
+            SUM(
+                power(1.0+%(inflation_rate)s, %(base_financial_year)s-b.base_year)
+                * b.proj_fixed_om * 1000.0 * proj_existing_cap
+            ) / SUM(proj_existing_cap)
                 AS gen_fixed_om
         FROM study_projects p
             JOIN proj_existing_builds b USING (project_id)
