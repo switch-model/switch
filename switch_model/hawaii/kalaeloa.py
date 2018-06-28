@@ -11,8 +11,6 @@ def define_components(m):
     # commit units 1 & 2, run each between 65 and 90 MW
     # run both 1 & 2 at 90 MW, and run 3 at 28 MW
 
-    more_than_kalaeloa_capacity = 220   # used for big-m constraints on individual units
-
     m.KALAELOA_MAIN_UNITS = Set(
         initialize=["Oahu_Kalaeloa_CC1", "Oahu_Kalaeloa_CC2", "Kalaeloa_CC1", "Kalaeloa_CC2"],
         filter=lambda m, g: g in m.GENERATION_PROJECTS
@@ -39,13 +37,14 @@ def define_components(m):
     )
 
     # run kalaeloa at full power or not
+    # (if linearized, this is the fraction of capacity that is dispatched)
     m.RunKalaeloaUnitFull = Var(m.KALAELOA_MAIN_UNIT_DISPATCH_POINTS, within=Binary)
 
-    m.Run_Kalaeloa_Unit_Full_Enforce = Constraint(
+    m.Run_Kalaeloa_Unit_Full_Enforce = Constraint( # big-m constraint
         m.KALAELOA_MAIN_UNIT_DISPATCH_POINTS,
         rule=lambda m, g, tp:
             m.DispatchGen[g, tp]
-            + (1 - m.RunKalaeloaUnitFull[g, tp]) * more_than_kalaeloa_capacity
+            + (1 - m.RunKalaeloaUnitFull[g, tp]) * m.gen_capacity_limit_mw[g]
             >=
             m.GenCapacityInTP[g, tp] * m.gen_availability[g]
     )
@@ -56,7 +55,7 @@ def define_components(m):
         rule=lambda m, g_duct, tp, g_main:
             m.DispatchGen[g_duct, tp]
             <= 
-            m.RunKalaeloaUnitFull[g_main, tp] * more_than_kalaeloa_capacity
+            m.RunKalaeloaUnitFull[g_main, tp] * m.gen_capacity_limit_mw[g_duct]
     )
 
     # force at least one Kalaeloa unit to run at full power at all times
