@@ -35,6 +35,11 @@ def define_arguments(argparser):
               "committed capacity of a generation project falling offline. "
               "Unlike unit contingencies, this is a purely linear expression.")
     )
+    group.add_argument('--fixed-contingency', type=float, default=0.0,
+        help=("Add a fixed generator contingency reserve margin, specified in MW. "
+              "This can be used alone or in combination with the other "
+              "contingency options.")
+    )
     group.add_argument('--spinning-requirement-rule', default=None, 
         choices = ["Hawaii", "3+5", "none"],
         help=("Choose rules for spinning reserves requirements as a function "
@@ -107,6 +112,18 @@ def define_dynamic_lists(m):
     m.Spinning_Reserve_Up_Contingencies = []
     m.Spinning_Reserve_Down_Contingencies = []
 
+
+def gen_fixed_contingency(m):
+    """
+    Add a fixed contingency reserve margin (much faster than unit-by-unit
+    reserve margins, and reasonable when there is a single largest plant
+    that is usually online and/or reserves are cheap).
+    """
+    m.GenFixedContingency = Param(
+        m.BALANCING_AREA_TIMEPOINTS, 
+        initialize=lambda m: m.options.fixed_contingency
+    )
+    m.Spinning_Reserve_Up_Contingencies.append('GenFixedContingency')
 
 def gen_unit_contingency(m):
     """
@@ -461,6 +478,8 @@ def define_components(m):
     m.Spinning_Reserve_Down_Provisions.append('TotalGenSpinningReservesDown')
     
     # define reserve requirements
+    if m.options.fixed_contingency:
+        gen_fixed_contingency(m)
     if m.options.unit_contingency:
         gen_unit_contingency(m)
     if m.options.project_contingency:
