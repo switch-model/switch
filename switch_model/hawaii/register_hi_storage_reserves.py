@@ -7,15 +7,16 @@ from pyomo.environ import *
 
 # TODO: use standard reserves module for this
 # note: this is modeled off of hawaii.reserves, to avoid adding lots of 
-# reserve-related code to the pumped storage and hydrogen modules.
+# reserve-related code to the pumped storage and (formerly) hydrogen modules.
 # But eventually those modules should use the standard storage module and
 # extend that as needed.
 
 def define_arguments(argparser):
     argparser.add_argument('--hawaii-storage-reserve-types', nargs='+', default=['spinning'], 
         help=
-            "Type(s) of reserves to provide from hydrogen and/or pumped-hydro storage "
-            "(e.g., 'contingency' or 'regulation'). "
+            "Type(s) of reserves to provide from " # hydrogen and/or 
+            "pumped-hydro storage "
+            "(e.g., 'contingency regulation'). "
             "Default is generic 'spinning'. Specify 'none' to disable."
     )
 
@@ -55,8 +56,9 @@ def define_components(m):
             # calculate available slack from hawaii storage
             def up_expr(m, a, tp):
                 avail = 0.0
-                if hasattr(m, 'HydrogenSlackUp'):
-                    avail += sum(m.HydrogenSlackUp[z, tp] for z in m.ZONES_IN_BALANCING_AREA[a])
+                # now handled in hydrogen module:
+                # if hasattr(m, 'HydrogenSlackUp'):
+                #     avail += sum(m.HydrogenSlackUp[z, tp] for z in m.ZONES_IN_BALANCING_AREA[a])
                 if hasattr(m, 'PumpedStorageSpinningUpReserves'):
                     avail += sum(
                         m.PumpedStorageSpinningUpReserves[phg, tp]
@@ -67,8 +69,8 @@ def define_components(m):
             m.HawaiiStorageSlackUp = Expression(m.BALANCING_AREA_TIMEPOINTS, rule=up_expr)
             def down_expr(m, a, tp):
                 avail = 0.0
-                if hasattr(m, 'HydrogenSlackDown'):
-                    avail += sum(m.HydrogenSlackDown[z, tp] for z in m.ZONES_IN_BALANCING_AREA[a])
+                # if hasattr(m, 'HydrogenSlackDown'):
+                #     avail += sum(m.HydrogenSlackDown[z, tp] for z in m.ZONES_IN_BALANCING_AREA[a])
                 if hasattr(m, 'PumpedStorageSpinningDownReserves'):
                     avail += sum(
                         m.PumpedStorageSpinningDownReserves[phg, tp]

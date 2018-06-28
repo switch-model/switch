@@ -479,44 +479,46 @@ def write_tables(**args):
         print "WARNING: and have not been updated to the scenario base year of {}.".format(args['base_financial_year'])
 
     #########################
-    # spinning_reserves_advanced
-    # args['max_reserve_capability'] is a list of tuples of (technology, reserve_type)
-    # (assumed equivalent to 'regulation' if not specified)
-    # We unzip it to use with the unnest function (psycopg2 passes lists of tuples
-    # as arrays of tuples, and unnest would keeps those as tuples)
-    try:
-        reserve_technologies, reserve_types = map(list, zip(*args['max_reserve_capability']))
-    except KeyError:
-        reserve_technologies, reserve_types = [], []
-    res_args = args.copy()
-    res_args['reserve_technologies']=reserve_technologies
-    res_args['reserve_types']=reserve_types
+    # spinning_reserves_advanced (if wanted; otherwise defaults to just "spinning"
+    if 'max_reserve_capability' in args or args.get('write_generation_projects_reserve_capability', False):
 
-    # note: casting is needed if the lists are empty; see https://stackoverflow.com/a/41893576/3830997
-    write_table('generation_projects_reserve_capability.tab', """
-        WITH reserve_capability (technology, reserve_type) as (
+        # args['max_reserve_capability'] is a list of tuples of (technology, reserve_type)
+        # (assumed equivalent to 'regulation' if not specified)
+        # We unzip it to use with the unnest function (psycopg2 passes lists of tuples
+        # as arrays of tuples, and unnest would keeps those as tuples)
+        try:
+            reserve_technologies, reserve_types = map(list, zip(*args['max_reserve_capability']))
+        except KeyError:
+            reserve_technologies, reserve_types = [], []
+        res_args = args.copy()
+        res_args['reserve_technologies']=reserve_technologies
+        res_args['reserve_types']=reserve_types
+
+        # note: casting is needed if the lists are empty; see https://stackoverflow.com/a/41893576/3830997
+        write_table('generation_projects_reserve_capability.tab', """
+            WITH reserve_capability (technology, reserve_type) as (
+                SELECT
+                    UNNEST(%(reserve_technologies)s::varchar(40)[]) AS technology,
+                    UNNEST(%(reserve_types)s::varchar(20)[]) AS reserve_type
+            ),
+            reserve_types (rank, reserve_type) as (
+                VALUES
+                (0, 'none'),
+                (1, 'contingency'),
+                (2, 'regulation')
+            )
             SELECT
-                UNNEST(%(reserve_technologies)s::varchar(40)[]) AS technology,
-                UNNEST(%(reserve_types)s::varchar(20)[]) AS reserve_type
-        ),
-        reserve_types (rank, reserve_type) as (
-            VALUES 
-            (0, 'none'), 
-            (1, 'contingency'),
-            (2, 'regulation')
-        )
-        SELECT
-            p."GENERATION_PROJECT",
-            t2.reserve_type AS "SPINNING_RESERVE_TYPE"
-        FROM 
-            study_projects p
-            LEFT JOIN reserve_capability c USING (technology)
-            LEFT JOIN reserve_types t1 USING (reserve_type)
-            JOIN reserve_types t2 on t2.rank <= COALESCE(t1.rank, 100)
-        WHERE t2.rank > 0
-        ORDER BY 1, t2.rank;
-    """, res_args)
-    
+                p."GENERATION_PROJECT",
+                t2.reserve_type AS "SPINNING_RESERVE_TYPE"
+            FROM
+                study_projects p
+                LEFT JOIN reserve_capability c USING (technology)
+                LEFT JOIN reserve_types t1 USING (reserve_type)
+                JOIN reserve_types t2 on t2.rank <= COALESCE(t1.rank, 100)
+            WHERE t2.rank > 0
+            ORDER BY 1, t2.rank;
+        """, res_args)
+
 
     #########################
     # operation.unitcommit.fuel_use

@@ -125,8 +125,13 @@ def DispatchGenByFuel(m, g, tp, fuel):
     project.no_commit, not project.unitcommit.fuel_use. In the unit commitment version
     it can only be defined as a quadratically constrained variable, which we don't
     want to force on all users."""
-    dispatch = value(m.DispatchGen[g, tp]) if (g, tp) in m.DispatchGen else 0.0
-    total_fuel = value(sum(m.GenFuelUseRate[g, tp, f] for f in m.FUELS_FOR_GEN[g]))
+    if (g, tp) in m.DispatchGen:
+        dispatch = value(m.DispatchGen[g, tp])
+        total_fuel = value(sum(m.GenFuelUseRate[g, tp, f] for f in m.FUELS_FOR_GEN[g]))
+    else:
+        dispatch = 0.0
+        total_fuel = 0.0
+
     if dispatch == 0.0:
         result = 0.0
     elif total_fuel == 0.0:
@@ -149,6 +154,25 @@ def write_results(m, outputs_dir):
         values=lambda m: summary_values(m)
     )
     
+    if hasattr(m, 'Spinning_Reserve_Up_Requirements'):
+        # pre-calculate amount of reserves provided and needed for each balancing area and timepoint
+        spinning_reserve_provisions = defaultdict(float)
+        spinning_reserve_requirements = defaultdict(float)
+        if hasattr(m, 'GEN_SPINNING_RESERVE_TYPES'): # advanced module
+            for component in m.Spinning_Reserve_Up_Provisions:
+                for (rt, ba, tp), val in getattr(m, component).items():
+                    spinning_reserve_provisions[ba, tp] += val
+            for component in m.Spinning_Reserve_Up_Requirements:
+                for (rt, ba, tp), val in getattr(m, component).items():
+                    spinning_reserve_requirements[ba, tp] += val
+        else: # basic module
+            for component in m.Spinning_Reserve_Up_Provisions:
+                for (ba, tp), val in getattr(m, component).items():
+                    spinning_reserve_provisions[ba, tp] += val
+            for component in m.Spinning_Reserve_Up_Requirements:
+                for (ba, tp), val in getattr(m, component).items():
+                    spinning_reserve_requirements[ba, tp] += val
+            
     # # write out results
     # util.write_table(m, m.TIMEPOINTS,
     #     output_file=os.path.join(outputs_dir, "dispatch{t}.tsv".format(t=tag)),
@@ -169,7 +193,8 @@ def write_results(m, outputs_dir):
             +tuple("curtail_"+s for s in m.NON_FUEL_ENERGY_SOURCES)
             +tuple(m.Zone_Power_Injections)
             +tuple(m.Zone_Power_Withdrawals)
-            +("marginal_cost","peak_day"),
+            +("spinning_reserve_provision", "spinning_reserve_requirement")
+            +("marginal_cost", "peak_day"),
         values=lambda m, z, t: 
             (z, m.tp_period[t], m.tp_timestamp[t]) 
             +tuple(
@@ -198,11 +223,75 @@ def write_results(m, outputs_dir):
             )
             +tuple(getattr(m, component)[z, t] for component in m.Zone_Power_Injections)
             +tuple(getattr(m, component)[z, t] for component in m.Zone_Power_Withdrawals)
+            +(  # save spinning reserve requirements and provisions; note: this assumes one zone per balancing area
+                (spinning_reserve_provisions[m.zone_balancing_area[z], t], spinning_reserve_requirements[m.zone_balancing_area[z], t]) 
+                if hasattr(m, 'Spinning_Reserve_Up_Requirements') 
+                else (0.0, 0.0)
+            )
             +(util.get(m.dual, m.Zone_Energy_Balance[z, t], 0.0)/m.bring_timepoint_costs_to_base_year[t],
                 # note: this uses 0.0 if no dual available, i.e., with glpk solver
             'peak' if m.ts_scale_to_year[m.tp_ts[t]] < avg_ts_scale else 'typical')
     )
-    
+        
+    if hasattr(m, 'Spinning_Reserve_Up_Requirements') and hasattr(m, 'GEN_SPINNING_RESERVE_TYPES'): # advanced module
+        # write the reserve values
+        util.write_table(
+            m, m.BALANCING_AREAS, m.TIMEPOINTS,
+            output_file=os.path.join(outputs_dir, "up_reserve_sources{t}.tsv".format(t=tag)), 
+            headings=
+                ("balancing_area", "period", "timepoint_label")
+                +tuple(m.FUELS)
+                +tuple(m.NON_FUEL_ENERGY_SOURCES)
+                +tuple(m.Spinning_Reserve_Up_Provisions)
+                +tuple(m.Spinning_Reserve_Up_Requirements)
+                +tuple("marginal_cost_"+rt for rt in m.SPINNING_RESERVE_TYPES_FROM_GENS)
+                +("peak_day",),
+            values=lambda m, ba, t: 
+                (ba, m.tp_period[t], m.tp_timestamp[t]) 
+                +tuple(
+                    (
+                        sum(
+                            # total reserve production
+                            sum(
+                                m.CommitGenSpinningReservesUp[rt, p, t]
+                                for rt in m.SPINNING_RESERVE_TYPES_FOR_GEN[p]
+                            ) 
+                            # prorated by energy source used
+                            * DispatchGenByFuel(m, p, t, f) / m.DispatchGen[p, t]
+                            for p in m.GENERATION_PROJECTS_BY_FUEL[f] 
+                            if (p, t) in m.GEN_TPS and m.zone_balancing_area[m.gen_load_zone[p]] == ba
+                        )
+                    )
+                    for f in m.FUELS
+                )
+                +tuple(
+                    sum(
+                        m.CommitGenSpinningReservesUp[rt, p, t]
+                        for p in m.GENERATION_PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[s]
+                        if (p, t) in m.SPINNING_RESERVE_CAPABLE_GEN_TPS and m.zone_balancing_area[m.gen_load_zone[p]] == ba
+                        for rt in m.SPINNING_RESERVE_TYPES_FOR_GEN[p]
+                    )
+                    for s in m.NON_FUEL_ENERGY_SOURCES
+                )
+                +tuple(
+                    sum(util.get(getattr(m, component), (rt, ba, t), 0.0) for rt in m.SPINNING_RESERVE_TYPES_FROM_GENS)
+                    for component in m.Spinning_Reserve_Up_Provisions
+                )
+                +tuple(
+                    sum(util.get(getattr(m, component), (rt, ba, t), 0.0) for rt in m.SPINNING_RESERVE_TYPES_FROM_GENS)
+                    for component in m.Spinning_Reserve_Up_Requirements
+                )
+                +tuple(
+                    util.get(
+                        m.dual, 
+                        util.get(m.Satisfy_Spinning_Reserve_Up_Requirement, (rt, ba, t), None), 
+                        0.0  # note: this uses 0.0 if no dual available, i.e., with glpk solver
+                    ) / m.bring_timepoint_costs_to_base_year[t]
+                    for rt in m.SPINNING_RESERVE_TYPES_FROM_GENS
+                ) 
+                +(('peak' if m.ts_scale_to_year[m.tp_ts[t]] < avg_ts_scale else 'typical'),)
+        )
+
     sorted_projects = tuple(sorted(g for g in m.GENERATION_PROJECTS))
     util.write_table(
         m, m.TIMEPOINTS,

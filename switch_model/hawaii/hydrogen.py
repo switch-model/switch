@@ -2,6 +2,13 @@ import os
 from pyomo.environ import *
 from switch_model.financials import capital_recovery_factor as crf
 
+def define_arguments(argparser):
+    argparser.add_argument('--hydrogen-reserve-types', nargs='+', default=['spinning'], 
+        help=
+            "Type(s) of reserves to provide from hydrogen infrastructure (e.g., 'contingency regulation'). "
+            "Specify 'none' to disable."
+    )
+
 def define_components(m):
 
     # electrolyzer details
@@ -185,22 +192,62 @@ def define_components(m):
     m.Cost_Components_Per_Period.append('HydrogenFixedCostAnnual')
     
     # Register with spinning reserves if it is available
-    if 'Spinning_Reserve_Up_Provisions' in dir(m):
-        m.HydrogenSpinningReserveUp = Expression(
-            m.BALANCING_AREA_TIMEPOINTS, 
-            rule=lambda m, b, t:
-                sum(m.HydrogenSlackUp[z, t]
-                    for z in m.ZONES_IN_BALANCING_AREA[b])
-        )
-        m.Spinning_Reserve_Up_Provisions.append('HydrogenSpinningReserveUp')
-
-        m.HydrogenSpinningReserveDown = Expression(
-            m.BALANCING_AREA_TIMEPOINTS, 
-            rule=lambda m, b, t: \
-                sum(m.HydrogenSlackDown[z, t] 
-                    for z in m.ZONES_IN_BALANCING_AREA[b])
-        )
-        m.Spinning_Reserve_Down_Provisions.append('HydrogenSpinningReserveDown')
+    if [rt.lower() for rt in m.options.hydrogen_reserve_types] != ['none']:
+        # Register with spinning reserves
+        if hasattr(m, 'Spinning_Reserve_Up_Provisions'):
+            # calculate available slack from hydrogen equipment
+            m.HydrogenSlackUpForArea = Expression(
+                m.BALANCING_AREA_TIMEPOINTS, 
+                rule=lambda m, b, t:
+                    sum(m.HydrogenSlackUp[z, t] for z in m.ZONES_IN_BALANCING_AREA[b])
+            )
+            m.HydrogenSlackDownForArea = Expression(
+                m.BALANCING_AREA_TIMEPOINTS, 
+                rule=lambda m, b, t: 
+                    sum(m.HydrogenSlackDown[z, t] for z in m.ZONES_IN_BALANCING_AREA[b])
+            )
+            if hasattr(m, 'GEN_SPINNING_RESERVE_TYPES'):
+                # using advanced formulation, index by reserve type, balancing area, timepoint
+                # define variables for each type of reserves to be provided
+                # choose how to allocate the slack between the different reserve products
+                m.HYDROGEN_SPINNING_RESERVE_TYPES = Set(
+                    initialize=m.options.hydrogen_reserve_types
+                )
+                m.HydrogenSpinningReserveUp = Var(
+                    m.HYDROGEN_SPINNING_RESERVE_TYPES, m.BALANCING_AREA_TIMEPOINTS,
+                    within=NonNegativeReals
+                )
+                m.HydrogenSpinningReserveDown = Var(
+                    m.HYDROGEN_SPINNING_RESERVE_TYPES, m.BALANCING_AREA_TIMEPOINTS,
+                    within=NonNegativeReals
+                )
+                # constrain reserve provision within available slack
+                m.Limit_HydrogenSpinningReserveUp = Constraint(
+                    m.BALANCING_AREA_TIMEPOINTS, 
+                    rule=lambda m, ba, tp: 
+                        sum(
+                            m.HydrogenSpinningReserveUp[rt, ba, tp]
+                            for rt in m.HYDROGEN_SPINNING_RESERVE_TYPES
+                        ) <= m.HydrogenSlackUpForArea[ba, tp]
+                )
+                m.Limit_HydrogenSpinningReserveDown = Constraint(
+                    m.BALANCING_AREA_TIMEPOINTS, 
+                    rule=lambda m, ba, tp: 
+                        sum(
+                            m.HydrogenSpinningReserveDown[rt, ba, tp]
+                            for rt in m.HYDROGEN_SPINNING_RESERVE_TYPES
+                        ) <= m.HydrogenSlackDownForArea[ba, tp]
+                )
+                m.Spinning_Reserve_Up_Provisions.append('HydrogenSpinningReserveUp')
+                m.Spinning_Reserve_Down_Provisions.append('HydrogenSpinningReserveDown')
+            else:
+                # using older formulation, only one type of spinning reserves, indexed by balancing area, timepoint
+                if m.options.hydrogen_reserve_types != ['spinning']:
+                    raise ValueError(
+                        'Unable to use reserve types other than "spinning" with simple spinning reserves module.'
+                    )
+                m.Spinning_Reserve_Up_Provisions.append('HydrogenSlackUpForArea')
+                m.Spinning_Reserve_Down_Provisions.append('HydrogenSlackDownForArea')
 
 
 def load_inputs(mod, switch_data, inputs_dir):
