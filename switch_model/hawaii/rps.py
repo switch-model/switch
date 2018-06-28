@@ -35,6 +35,19 @@ def define_arguments(argparser):
         help="Method to use to allocate power output among fuels. Default is fuel_switch_by_period for models "
             + "with unit commitment, full_load_heat_rate for models without."
     )
+
+# TODO: make this work with progressive hedging as follows:
+# add a variable indexed over all weather scenarios and all cost scenarios,
+# which shows how much of the RPS will be allocated to each scenario.
+# Problem: we multiply the RPS target by total generation, so this will become quadratic?
+# May instead need to treat the RPS more like a limit on non-renewable production (as a fraction of loads)?
+# Designate the allocations as a first-stage variable.
+# Require each subproblem to work within its part of the allocation. Also require in each subproblem
+# that the allocations across all weather scenarios (within each cost scenario) average out to match the 
+# actual target (when applying the scenario weights).
+# Then PHA will force all the scenarios to agree on how the target is allocated among them.
+# Could do the same with hydrogen storage: require average hydrogen stored across all scenarios
+# to be less than the size of the storage built.
     
 def define_components(m):
     """
@@ -383,11 +396,10 @@ def relaxed_split_commit_DispatchGenRenewableMW(m):
             dimen=3,
             initialize=lambda m: [
                 (g, tp, f) 
-                    for per in m.PERIODS if m.rps_target_for_period[per] == 1.0
-                        for g in m.FUEL_BASED_GENS 
-                            if (g, m.TPS_IN_PERIOD[per].first()) in m.GEN_TPS
-                                for f in m.FUELS_FOR_GEN[g] if not m.f_rps_eligible[f]
-                                    for tp in m.TPS_IN_PERIOD[per]
+                for per in m.PERIODS if m.rps_target_for_period[per] == 1.0
+                for g in m.FUEL_BASED_GENS if (g, per) in m.GEN_PERIODS
+                for f in m.FUELS_FOR_GEN[g] if not m.f_rps_eligible[f]
+                for tp in m.TPS_IN_PERIOD[per]
             ]
         )
         m.No_Fossil_Fuel_With_Full_RPS = Constraint(
@@ -395,26 +407,6 @@ def relaxed_split_commit_DispatchGenRenewableMW(m):
             rule=lambda m, g, tp, f: m.GenFuelUseRate[g, tp, f] == 0.0
         )
     
-    # only count biofuels toward RPS
-    # prevent use of non-renewable fuels during renewable timepoints
-    def Enforce_DispatchRenewableFlag_rule(m, g, tp, f):
-        if m.f_rps_eligible[f]:
-            return Constraint.Skip
-        else:
-            # harder to read like this, but having all numerical values on the right hand side
-            # facilitates analysis of duals and reduced costs
-            # note: we also add a little slack to avoid having this be the main constraint
-            # on total output from any power plant (that also clarifies dual analysis)
-            big_fuel = 1.01 * m.gen_capacity_limit_mw[g] * m.gen_full_load_heat_rate[g]
-            return (
-                m.GenFuelUseRate[g, tp, f] 
-                + m.DispatchRenewableFlag[g, m.tp_period[tp]] * big_fuel
-                <= 
-                big_fuel
-            )
-    m.Enforce_DispatchRenewableFlag = Constraint(
-        m.GEN_TP_FUELS, rule=Enforce_DispatchRenewableFlag_rule
-    )
 
 def fuel_switch_at_high_rps_DispatchGenRenewableMW(m):
     """ switch all plants to biofuel (and count toward RPS) if and only if rps is above threshold """
