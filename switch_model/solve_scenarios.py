@@ -35,7 +35,7 @@ cmd_line_args = sys.argv[1:]
 # Parse scenario-manager-related command-line arguments.
 # Other command-line arguments will be passed through to solve.py via scenario_cmd_line_args
 parser = _ArgumentParser(
-    allow_abbrev=False, description='Solve one or more SWITCH scenarios.'
+    allow_abbrev=False, description='Solve one or more Switch scenarios.'
 )
 parser.add_argument('--scenario', '--scenarios', nargs='+', dest='scenarios', default=[])
 #parser.add_argument('--scenarios', nargs='+', default=[])
@@ -43,8 +43,10 @@ parser.add_argument("--scenario-list", default="scenarios.txt")
 parser.add_argument("--scenario-queue", default="scenario_queue")
 parser.add_argument("--job-id", default=None)
 
-#import pdb; pdb.set_trace()
+# import pdb; pdb.set_trace()
+# get a namespace object with successfully parsed scenario manager arguments
 scenario_manager_args = parser.parse_known_args(args=option_file_args + cmd_line_args)[0]
+# get lists of other arguments to pass through to standard solve routine
 scenario_option_file_args = parser.parse_known_args(args=option_file_args)[1]
 scenario_cmd_line_args = parser.parse_known_args(args=cmd_line_args)[1]
 
@@ -168,23 +170,26 @@ def scenarios_to_run():
             # This list is found by retrieving the names of the lock-directories.
             already_run = filter(os.path.isdir, os.listdir("."))
             for scenario_name, base_args in get_scenario_dict().items():
+                scenario_args = scenario_option_file_args + base_args + scenario_cmd_line_args
                 if scenario_name not in already_run and checkout(scenario_name):
                     # run this scenario, then start again at the top of the list
                     ran.append(scenario_name)
-                    scenario_args = scenario_option_file_args + base_args + scenario_cmd_line_args
                     yield (scenario_name, scenario_args)
                     all_done = False
                     break
                 else:
                     if scenario_name not in skipped and scenario_name not in ran:
                         skipped.append(scenario_name)
-                        print("Skipping {} because it was already run.".format(scenario_name))
+                        if is_verbose(scenario_args):
+                            print("Skipping {} because it was already run.".format(scenario_name))
                 # move on to the next candidate
         # no more scenarios to run
         if skipped and not ran:
             print(
-                "Please remove the {sq} directory or its contents if you would like to "
-                "run these scenarios again. (rm -rf {sq})".format(sq=scenario_queue_dir)
+                "Skipping all scenarios because they have already been solved. "
+                "If you would like to run these scenarios again, "
+                "please remove the {sq} directory or its contents. (rm -rf {sq})"
+                .format(sq=scenario_queue_dir)
             )
         return
 
@@ -204,6 +209,11 @@ def parse_arg(arg, args=sys.argv[1:], **parse_kw):
 def get_scenario_name(scenario_args):
     # use ad-hoc parsing to extract the scenario name from a scenario-definition string
     return parse_arg("--scenario-name", default=None, args=scenario_args)
+
+def is_verbose(scenario_args):
+    # check options settings for --verbose flag
+    # note: this duplicates settings in switch_model.solve, so it may fall out of date
+    return parse_arg("--verbose", default=False, args=scenario_args)
 
 def get_scenario_dict():
     # note: we read the list from the disk each time so that we get a fresher version
