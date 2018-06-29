@@ -213,7 +213,7 @@ def get_scenario_name(scenario_args):
 def is_verbose(scenario_args):
     # check options settings for --verbose flag
     # note: this duplicates settings in switch_model.solve, so it may fall out of date
-    return parse_arg("--verbose", default=False, args=scenario_args)
+    return parse_arg("--verbose", action='store_true', default=False, args=scenario_args)
 
 def get_scenario_dict():
     # note: we read the list from the disk each time so that we get a fresher version
