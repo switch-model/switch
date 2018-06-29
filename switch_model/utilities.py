@@ -104,6 +104,18 @@ def get_modules(model):
         yield sys.modules[m]
 
 
+def make_iterable(item):
+    """Return an iterable for the one or more items passed."""
+    if isinstance(item, basestring):
+        i = iter([item])
+    else:
+        try:
+            # check if it's iterable
+            i = iter(item)
+        except TypeError:
+            i = iter([item])
+    return i
+
 def load_inputs(model, inputs_dir=None, attachDataPortal=True):
     """
 

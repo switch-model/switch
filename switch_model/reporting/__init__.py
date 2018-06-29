@@ -25,6 +25,7 @@ import os
 import csv
 import itertools
 from pyomo.environ import value, Var
+from switch_model.utilities import make_iterable
 
 csv.register_dialect(
     "ampl-tab",
@@ -101,20 +102,14 @@ def unpack_elements(items):
     return l
 
 
-def make_iterable(item):
-    """Return an iterable for the one or more items passed."""
-    if isinstance(item, basestring):
-        i = iter([item])
-    else:
-        try:
-            # check if it's iterable
-            i = iter(item)
-        except TypeError:
-            i = iter([item])
-    return i
+def post_solve(instance, outdir):
+    """
+    Minimum output generation for all model runs.
+    """
+    save_generic_results(instance, outdir, instance.options.sorted_output)
+    save_total_cost_value(instance, outdir)
 
-
-def _save_generic_results(instance, outdir, sorted_output):
+def save_generic_results(instance, outdir, sorted_output):
     for var in instance.component_objects():
         if not isinstance(var, Var):
             continue
@@ -140,15 +135,6 @@ def _save_generic_results(instance, outdir, sorted_output):
                 writer.writerow([value(obj)])
 
 
-def _save_total_cost_value(instance, outdir):
+def save_total_cost_value(instance, outdir):
     with open(os.path.join(outdir, 'total_cost.txt'), 'w') as fh:
         fh.write('{}\n'.format(value(instance.SystemCost)))
-
-
-def post_solve(instance, outdir):
-    """
-    Minimum output generation for all model runs.
-
-    """
-    _save_generic_results(instance, outdir, instance.options.sorted_output)
-    _save_total_cost_value(instance, outdir)
