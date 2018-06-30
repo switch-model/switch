@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
-import sys, os, shlex, re
+import sys, os, time, shlex, re
+import cPickle as pickle
 
 from pyomo.environ import *
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
@@ -113,8 +114,7 @@ def main(args=None, return_model=False, return_instance=False):
             return instance
 
     if instance.options.reload_prior_solution:
-        # read variable values from previously solved model
-        reload_prior_solution(instance)
+        reload_prior_solution_from_pickle(instance, instance.options.outputs_dir)
         if instance.options.verbose:
             print(
                 'Loaded previous results into model instance in {:.2f} s.'
@@ -168,6 +168,14 @@ def main(args=None, return_model=False, return_instance=False):
         import code
         code.interact(banner=banner, local=dict(globals().items() + locals().items()))
 
+
+def reload_prior_solution_from_pickle(instance, outdir):
+    with open(os.path.join(outdir, 'results.pickle'), 'rb') as fh:
+         results = pickle.load(fh)
+    instance.solutions.load_from(results)
+    return instance
+
+
 patched_pyomo = False
 def patch_pyomo():
     global patched_pyomo
@@ -192,10 +200,10 @@ def patch_pyomo():
                 pyomo.environ.Expression.construct = new_construct
             del m
 
-def reload_prior_solution(instance):
+def reload_prior_solution_from_tabs(instance):
     """
     Assign values to all model variables from <variable>.tab files saved after
-    previous solution.
+    previous solution. (Not currently used.)
     """
     import csv
     var_objects = instance.component_objects(Var)
@@ -346,7 +354,7 @@ def define_arguments(argparser):
     # note: pyomo has a --solver-suffix option but it is not clear
     # whether that does the same thing as --suffix defined here,
     # so we don't reuse the same name.
-    argparser.add_argument("--suffixes", "--suffix", nargs="+", default=[],
+    argparser.add_argument("--suffixes", "--suffix", nargs="+", default=['rc','dual','slack'],
         help="Extra suffixes to add to the model and exchange with the solver (e.g., iis, rc, dual, or slack)")
 
     # Define solver-related arguments
@@ -530,7 +538,8 @@ def add_extra_suffixes(model):
     pass them to the solver.
     """
     for suffix in model.options.suffixes:
-        setattr(model, suffix, Suffix(direction=Suffix.IMPORT_EXPORT))
+        if not hasattr(model, suffix):
+            setattr(model, suffix, Suffix(direction=Suffix.IMPORT_EXPORT))
 
 
 def solve(model):
@@ -594,10 +603,18 @@ def solve(model):
 
     results = model.solver_manager.solve(model, opt=model.solver, **solver_args)
 
+    # Load the solution data into the results object (it only has execution
+    # metadata by default in recent versions of Pyomo). This will enable us to
+    # save and restore model solutions; the results object can be pickled to a
+    # file on disk, but the instance cannot.
+    # https://stackoverflow.com/questions/39941520/pyomo-ipopt-does-not-return-solution
+    #
+    model.solutions.store_to(results)
+    model.last_results = results
+
     if model.options.verbose:
         print "Solved model. Total time spent in solver: {:2f} s.".format(timer.step_time())
 
-    model.solutions.load_from(results)
 
     # Only return if the model solved correctly, otherwise throw a useful error
     if(results.solver.status in {SolverStatus.ok, SolverStatus.warning} and

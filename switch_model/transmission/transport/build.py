@@ -8,6 +8,7 @@ Defines transmission build-outs.
 import os
 from pyomo.environ import *
 from switch_model.financials import capital_recovery_factor as crf
+import pandas as pd
 
 dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
     'switch_model.financials'
@@ -24,7 +25,7 @@ def define_components(mod):
     TRANSMISSION_LINES is the complete set of transmission pathways
     connecting load zones. Each member of this set is a one dimensional
     identifier such as "A-B". This set has no regard for directionality
-    of transmisison lines and will generate an error if you specify two
+    of transmission lines and will generate an error if you specify two
     lines that move in opposite directions such as (A to B) and (B to
     A). Another derived set - TRANS_LINES_DIRECTIONAL - stores
     directional information. Transmission may be abbreviated as trans or
@@ -69,7 +70,7 @@ def define_components(mod):
     potential builds.
 
     BuildTx[(tx, bld_yr) in BLD_YRS_FOR_TX] is a decision variable
-    that describes the transfer capacity in MW installed on a cooridor
+    that describes the transfer capacity in MW installed on a corridor
     in a given build year. For existing builds, this variable is locked
     to the existing capacity.
 
@@ -106,7 +107,7 @@ def define_components(mod):
     transmission model transmission data. At the end of this time,
     we assume transmission lines will be rebuilt at the same cost.
 
-    trans_fixed_o_m_fraction is describes the fixed Operations and
+    trans_fixed_om_fraction is describes the fixed Operations and
     Maintenance costs as a fraction of capital costs. This optional
     parameter defaults to 0.03 based on 2009 WREZ transmission model
     transmission data costs for existing transmission maintenance.
@@ -133,7 +134,7 @@ def define_components(mod):
     describes which transmission builds will be operational in a given
     period. Currently, transmission lines are kept online indefinitely,
     with parts being replaced as they wear out.
-    
+
     TX_BUILDS_IN_PERIOD[p] will return a subset of (tx, bld_yr)
     in BLD_YRS_FOR_TX.
 
@@ -246,7 +247,7 @@ def define_components(mod):
     mod.trans_lifetime_yrs = Param(
         within=NonNegativeReals,
         default=20)
-    mod.trans_fixed_o_m_fraction = Param(
+    mod.trans_fixed_om_fraction = Param(
         within=NonNegativeReals,
         default=0.03)
     # Total annual fixed costs for building new transmission lines...
@@ -259,7 +260,7 @@ def define_components(mod):
         initialize=lambda m, tx: (
             m.trans_capital_cost_per_mw_km * m.trans_terrain_multiplier[tx] *
             m.trans_length_km[tx] * (crf(m.interest_rate, m.trans_lifetime_yrs) +
-                m.trans_fixed_o_m_fraction)))
+                m.trans_fixed_om_fraction)))
     # An expression to summarize annual costs for the objective
     # function. Units should be total annual future costs in $base_year
     # real dollars. The objective function will convert these to
@@ -317,14 +318,14 @@ def load_inputs(mod, switch_data, inputs_dir):
         trans_terrain_multiplier, trans_new_build_allowed
 
     Note that the next file is formatted as .dat, not as .tab. The
-    distribution_loss_rate parameter should only be inputted if the 
+    distribution_loss_rate parameter should only be inputted if the
     local_td module is loaded in the simulation. If this parameter is
     specified a value in trans_params.dat and local_td is not included
     in the module list, then an error will be raised.
 
     trans_params.dat
         trans_capital_cost_per_mw_km, trans_lifetime_yrs,
-        trans_fixed_o_m_fraction, distribution_loss_rate
+        trans_fixed_om_fraction, distribution_loss_rate
 
 
     """
@@ -339,7 +340,7 @@ def load_inputs(mod, switch_data, inputs_dir):
             'trans_dbid', 'trans_derating_factor',
             'trans_terrain_multiplier', 'trans_new_build_allowed'
         ),
-        index=mod.TRANSMISSION_LINES, 
+        index=mod.TRANSMISSION_LINES,
         optional_params=(
             'trans_dbid', 'trans_derating_factor',
             'trans_terrain_multiplier', 'trans_new_build_allowed'
@@ -354,3 +355,25 @@ def load_inputs(mod, switch_data, inputs_dir):
     trans_params_path = os.path.join(inputs_dir, 'trans_params.dat')
     if os.path.isfile(trans_params_path):
         switch_data.load(filename=trans_params_path)
+
+
+def post_solve(instance, outdir):
+    mod = instance
+    normalized_dat = [
+        {
+        	"TRANSMISSION_LINE": tx,
+        	"PERIOD": p,
+        	"trans_lz1": mod.trans_lz1[tx],
+        	"trans_lz2": mod.trans_lz2[tx],
+        	"trans_dbid": mod.trans_dbid[tx],
+        	"trans_length_km": mod.trans_length_km[tx],
+        	"trans_efficiency": mod.trans_efficiency[tx],
+        	"trans_derating_factor": mod.trans_derating_factor[tx],
+        	"TxCapacityNameplate": value(mod.TxCapacityNameplate[tx,p]),
+        	"TxCapacityNameplateAvailable": value(mod.TxCapacityNameplateAvailable[tx,p]),
+        	"TotalAnnualCost": value(mod.TxCapacityNameplate[tx,p] * mod.trans_cost_annual[tx])
+        } for tx, p in mod.TRANSMISSION_LINES * mod.PERIODS
+    ]
+    tx_build_df = pd.DataFrame(normalized_dat)
+    tx_build_df.set_index(["TRANSMISSION_LINE", "PERIOD"], inplace=True)
+    tx_build_df.to_csv(os.path.join(outdir, "transmission.csv"))

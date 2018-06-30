@@ -21,7 +21,7 @@ def define_AbstractModel(*module_list, **kwargs):
     args = kwargs.get("args", sys.argv[1:])
     return create_model(module_list, args)
 
-def create_model(module_list, args=sys.argv[1:]):
+def create_model(module_list=None, args=sys.argv[1:]):
     """
 
     Construct a Pyomo AbstractModel using the Switch modules or packages
@@ -59,6 +59,9 @@ def create_model(module_list, args=sys.argv[1:]):
     model = AbstractModel()
 
     # Load modules
+    if module_list is None:
+        import switch_model.solve
+        module_list = switch_model.solve.get_module_list(args)
     model.module_list = module_list
     for m in module_list:
         importlib.import_module(m)
@@ -279,37 +282,9 @@ def min_data_check(model, *mandatory_model_components):
 
 def _add_min_data_check(model):
     """
-
     Bind the min_data_check() method to an instance of a Pyomo AbstractModel
     object if it has not already been added. Also add a counter to keep
     track of what to name the next check that is added.
-
-    >>> from switch_model.utilities import _add_min_data_check
-    >>> mod = AbstractModel()
-    >>> _add_min_data_check(mod)
-    >>> mod.set_A = Set(initialize=[1,2])
-    >>> mod.paramA_full = Param(mod.set_A, initialize={1:'a',2:'b'})
-    >>> mod.paramA_empty = Param(mod.set_A)
-    >>> mod.min_data_check('set_A', 'paramA_full')
-    >>> if hasattr(mod, 'create_instance'):
-    ...     instance_pass = mod.create_instance()
-    ... else:
-    ...     instance_pass = mod.create()
-    >>> mod.min_data_check('set_A', 'paramA_empty')
-    >>> try:
-    ...     if hasattr(mod, 'create_instance'):
-    ...         instance_fail = mod.create_instance()
-    ...     else:
-    ...         instance_fail = mod.create()
-    ... except ValueError as e:
-    ...     print e  # doctest: +NORMALIZE_WHITESPACE
-    ERROR: Constructing component 'min_data_check_2' from data=None failed:
-        ValueError: Values are not provided for every element of the
-        mandatory parameter 'paramA_empty'
-    Values are not provided for every element of the mandatory parameter
-    'paramA_empty'
-
-
     """
     if getattr(model, 'min_data_check', None) is None:
         model.__num_min_data_checks = 0
@@ -344,43 +319,6 @@ def check_mandatory_components(model, *mandatory_model_components):
     If an argument is a simple parameter, it must have a value.
 
     This does not work with indexed sets.
-
-    EXAMPLE:
-    >>> from pyomo.environ import *
-    >>> import switch_model.utilities as utilities
-    >>> mod = ConcreteModel()
-    >>> mod.set_A = Set(initialize=[1,2])
-    >>> mod.paramA_full = Param(mod.set_A, initialize={1:'a',2:'b'})
-    >>> mod.paramA_empty = Param(mod.set_A)
-    >>> mod.set_B = Set()
-    >>> mod.paramB_empty = Param(mod.set_B)
-    >>> mod.paramC = Param(initialize=1)
-    >>> mod.paramD = Param()
-    >>> utilities.check_mandatory_components(mod, 'set_A', 'paramA_full')
-    True
-    >>> utilities.check_mandatory_components(mod, 'paramB_empty')
-    True
-    >>> utilities.check_mandatory_components(mod, 'paramC')
-    True
-    >>> utilities.check_mandatory_components(\
-        mod, 'set_A', 'paramA_empty') # doctest: +NORMALIZE_WHITESPACE
-    Traceback (most recent call last):
-        ...
-    ValueError: Values are not provided for every element of the
-    mandatory parameter 'paramA_empty'
-    >>> utilities.check_mandatory_components(mod, 'set_A', 'set_B')
-    Traceback (most recent call last):
-        ...
-    ValueError: No data is defined for the mandatory set 'set_B'.
-    >>> utilities.check_mandatory_components(mod, 'paramC', 'paramD')
-    Traceback (most recent call last):
-        ...
-    ValueError: Value not provided for mandatory parameter 'paramD'
-
-    # Demonstration of incorporating this function into Pyomo's BuildCheck()
-    >>> mod.min_dat_pass = BuildCheck(\
-            rule=lambda m: utilities.check_mandatory_components(\
-                m, 'set_A', 'paramA_full','paramB_empty', 'paramC'))
     """
 
     for component_name in mandatory_model_components:
@@ -393,9 +331,12 @@ def check_mandatory_components(model, *mandatory_model_components):
                     format(component_name))
         elif o_class == 'IndexedParam':
             if len(obj) != len(obj._index):
+            	missing_index_elements = [v for v in set(obj._index) - set( obj.sparse_keys())]
                 raise ValueError(
-                    ("Values are not provided for every element of " +
-                     "the mandatory parameter '{}'").format(component_name))
+                    ("Values are not provided for every element of the "
+                     "mandatory parameter '{}'. "
+                     "Missing data for {} values, including: {}"
+                    ).format(component_name, len(missing_index_elements), missing_index_elements[:10]))
         elif o_class == 'IndexedSet':
             if len(obj) != len(obj._index):
                 raise ValueError(

@@ -198,7 +198,7 @@ def define_components(mod):
     period on the grid with surplus wind power and frequent
     curtailments.
 
-    This timeseries describing 3 days in Spring is composted of 72
+    This timeseries describing 3 days in Spring is composed of 72
     timepoints, each representing 1 hour. The timeseries is scaled up by
     a factor of 21.3 to represent the 61 days of March and April, then
     scaled by another factor of 10 to represent a 10-year period.

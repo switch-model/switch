@@ -1,0 +1,4 @@
+gen_tech,gen_load_zone,gen_energy_source,period,Energy_GWh_typical_yr,VariableCost_per_yr,DispatchEmissions_tCO2_per_typical_yr
+Battery_Storage,South,Electricity,2020,12.965289685714268,129.65289685714268,0
+Central_PV,South,Solar,2020,2.6201574,0.0,0
+Geothermal,South,Geothermal,2020,38.95710582857147,1123133.3610377153,0

@@ -13,7 +13,7 @@ Available at: http://mpc.zib.de/index.php/MPC/article/viewFile/85/39
 Pyomo Online Documentation:
 https://software.sandia.gov/downloads/pub/pyomo/PyomoOnlineDocs.html
 
-If any concepts on stochastic programming need to be adquired or refreshed, a
+If any concepts on stochastic programming need to be acquired or refreshed, a
 good reference is:  Birge, J. R. & Louveaux, F. (2011). Introduction to
 Stochastic Programming. 2nd Edition. Springer Science+Business Media.
 

@@ -116,12 +116,12 @@ def load_inputs(mod, switch_data, inputs_dir):
     
     Mandatory input files:
         rps_targets.tab
-            PERIOD rps_target
+            PERIOD, rps_target
     
     The optional parameter to define fuels as RPS eligible can be inputted
     in the following file:
         fuels.tab
-            fuel  f_rps_eligible
+            fuel, f_rps_eligible
     
     """
 

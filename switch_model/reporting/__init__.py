@@ -24,6 +24,7 @@ dependencies = 'switch_model.financials'
 import os
 import csv
 import itertools
+import cPickle as pickle
 from pyomo.environ import value, Var
 from switch_model.utilities import make_iterable
 
@@ -108,12 +109,11 @@ def post_solve(instance, outdir):
     """
     save_generic_results(instance, outdir, instance.options.sorted_output)
     save_total_cost_value(instance, outdir)
+    save_results(instance, outdir)
+
 
 def save_generic_results(instance, outdir, sorted_output):
-    for var in instance.component_objects():
-        if not isinstance(var, Var):
-            continue
-
+    for var in instance.component_objects(Var):
         output_file = os.path.join(outdir, '%s.tab' % var.name)
         with open(output_file, 'wb') as fh:
             writer = csv.writer(fh, dialect='ampl-tab')
@@ -138,3 +138,8 @@ def save_generic_results(instance, outdir, sorted_output):
 def save_total_cost_value(instance, outdir):
     with open(os.path.join(outdir, 'total_cost.txt'), 'w') as fh:
         fh.write('{}\n'.format(value(instance.SystemCost)))
+
+
+def save_results(instance, outdir):
+    with open(os.path.join(outdir, 'results.pickle'), 'wb') as fh:
+        pickle.dump(instance.last_results, fh, protocol=-1)
