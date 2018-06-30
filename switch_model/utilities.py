@@ -5,12 +5,7 @@
 Utility functions for SWITCH-pyomo.
 """
 
-import os
-import types
-import importlib
-import re
-import sys
-import argparse
+import os, types, importlib, re, sys, argparse, time
 import __main__ as main
 from pyomo.environ import *
 import pyomo.opt
@@ -116,33 +111,51 @@ def make_iterable(item):
             i = iter([item])
     return i
 
-def load_inputs(model, inputs_dir=None, attachDataPortal=True):
+class StepTimer(object):
     """
+    Keep track of elapsed time for steps of a process.
+    Use timer = StepTimer() to create a timer, then retrieve elapsed time and/or
+    reset the timer at each step by calling timer.step_time()
+    """
+    def __init__(self):
+        self.start_time = time.time()
+    def step_time(self):
+        """
+        Reset timer to current time and return time elapsed since last step.
+        """
+        last_start = self.start_time
+        self.start_time = now = time.time()
+        return now - last_start
 
+def load_inputs(model, inputs_dir=None, attach_data_portal=True):
+    """
     Load input data for an AbstractModel using the modules in the given
     list and return a model instance. This is implemented as calling the
     load_inputs() function of each module, if the module has that function.
-
     """
     if inputs_dir is None:
         inputs_dir = getattr(model.options, "inputs_dir", "inputs")
 
     # Load data; add a fancier load function to the data portal
+    timer = StepTimer()
     data = DataPortal(model=model)
     data.load_aug = types.MethodType(load_aug, data)
     for module in model.get_modules():
         if hasattr(module, 'load_inputs'):
             module.load_inputs(model, data, inputs_dir)
+    if model.options.verbose:
+        print "Data read in {:.2f} s.\n".format(timer.step_time())
 
-    # At some point, pyomo deprecated 'create' in favor of
-    # 'create_instance'. Determine which option is available
-    # and use that.
+    # At some point, pyomo deprecated 'create' in favor of 'create_instance'.
+    # Determine which option is available and use that.
     if hasattr(model, 'create_instance'):
         instance = model.create_instance(data)
     else:
         instance = model.create(data)
+    if model.options.verbose:
+        print "Instance created from data in {:.2f} s.\n".format(timer.step_time())
 
-    if attachDataPortal:
+    if attach_data_portal:
         instance.DataPortal = data
     return instance
 

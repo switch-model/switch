@@ -1,19 +1,21 @@
 #!/usr/bin/env python
 # Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
-import sys, os, time, shlex, re
+import sys, os, shlex, re
 
 from pyomo.environ import *
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
 import pyomo.version
 
-from switch_model.utilities import create_model, _ArgumentParser, Logging
+from switch_model.utilities import (
+    create_model, _ArgumentParser, Logging, StepTimer, make_iterable
+)
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 
 
 def main(args=None, return_model=False, return_instance=False):
 
-    start_time = time.time()
+    timer = StepTimer()
     if args is None:
         # combine default arguments read from options.txt file with
         # additional arguments specified on the command line
@@ -85,9 +87,8 @@ def main(args=None, return_model=False, return_instance=False):
     iterate_modules = get_iteration_list(model)
 
     if model.options.verbose:
-        creation_time = time.time()
         print "\n======================================================================="
-        print "SWITCH model created in {:.2f} s.\nArguments:".format(creation_time - start_time)
+        print "SWITCH model created in {:.2f} s.\nArguments:".format(timer.step_time())
         print ", ".join(k+"="+repr(v) for k, v in model.options.__dict__.items() if v)
         print "Modules:\n"+", ".join(m for m in modules)
         if iterate_modules:
@@ -95,12 +96,14 @@ def main(args=None, return_model=False, return_instance=False):
         print "=======================================================================\n"
         print "Loading inputs..."
 
-    # create an instance
+    # create an instance (also reports time spent reading data and loading into model)
     instance = model.load_inputs()
+
+    #### Below here, we refer to instance instead of model ####
+
     instance.pre_solve()
-    instantiation_time = time.time()
-    if model.options.verbose:
-        print "Inputs loaded in {:.2f} s.\n".format(instantiation_time - creation_time)
+    if instance.options.verbose:
+        print "Total time spent constructing model: {:.2f} s.\n".format(timer.step_time())
 
     # return the instance as-is if requested
     if return_instance:
@@ -109,64 +112,49 @@ def main(args=None, return_model=False, return_instance=False):
         else:
             return instance
 
-    if model.options.reload_prior_solution:
+    if instance.options.reload_prior_solution:
         # read variable values from previously solved model
-        import csv
-        var_objects = [c for c in instance.component_objects()
-            if isinstance(c,pyomo.core.base.Var)]
-        def _convert_if_numeric(s):
-            try:
-                return float(s)
-            except ValueError:
-                return s
-        for var in var_objects:
-            if '{}.tab'.format(var.name) not in os.listdir(model.options.outputs_dir):
-                raise RuntimeError("Tab output file for variable {} cannot be found in outputs directory. Exiting.".format(var.name))
-            with open(os.path.join(model.options.outputs_dir, '{}.tab'.format(var.name)),'r') as f:
-                reader = csv.reader(f, delimiter='\t')
-                # skip headers
-                next(reader)
-                for row in reader:
-                    index = (_convert_if_numeric(i) for i in row[:-1])
-                    var[index].value = float(row[-1])
-            print 'Loaded variable {} values into instance.'.format(var.name)
-        output_loading_time = time.time()
-        print 'Finished loading previous results into model instance in {:.2f} s.'.format(output_loading_time - instantiation_time)
+        reload_prior_solution(instance)
+        if instance.options.verbose:
+            print(
+                'Loaded previous results into model instance in {:.2f} s.'
+                .format(timer.step_time())
+            )
     else:
         # make sure the outputs_dir exists (used by some modules during iterate)
         # use a race-safe approach in case this code is run in parallel
         try:
-            os.makedirs(model.options.outputs_dir)
+            os.makedirs(instance.options.outputs_dir)
         except OSError:
             # directory probably exists already, but double-check
-            if not os.path.isdir(model.options.outputs_dir):
+            if not os.path.isdir(instance.options.outputs_dir):
                 raise
 
-        # solve the model
+        # solve the model (reports time for each step as it goes)
         if iterate_modules:
-            if model.options.verbose:
+            if instance.options.verbose:
                 print "Iterating model..."
             iterate(instance, iterate_modules)
         else:
             results = solve(instance)
-            if model.options.verbose:
+            if instance.options.verbose:
                 print "Optimization termination condition was {}.\n".format(
                     results.solver.termination_condition)
 
+        if instance.options.verbose:
+            timer.step_time() # restart counter for next step
+
         # report/save results
-        if model.options.verbose:
-            post_solve_start_time = time.time()
+        if instance.options.verbose:
             print "Executing post solve functions..."
         instance.post_solve()
-        if model.options.verbose:
-            post_solve_end_time = time.time()
-            print "Post solve processing completed in {:.2f} s.".format(
-                post_solve_end_time - post_solve_start_time)
+        if instance.options.verbose:
+            print "Post solve processing completed in {:.2f} s.".format(timer.step_time())
 
     # return stdout to original
     sys.stdout = stdout_copy
 
-    if model.options.interact or model.options.reload_prior_solution:
+    if instance.options.interact or instance.options.reload_prior_solution:
         m = instance  # present the solved model as 'm' for convenience
         banner = (
             "\n"
@@ -179,7 +167,6 @@ def main(args=None, return_model=False, return_instance=False):
         )
         import code
         code.interact(banner=banner, local=dict(globals().items() + locals().items()))
-
 
 patched_pyomo = False
 def patch_pyomo():
@@ -204,6 +191,48 @@ def patch_pyomo():
                     self._init_rule = _init_rule
                 pyomo.environ.Expression.construct = new_construct
             del m
+
+def reload_prior_solution(instance):
+    """
+    Assign values to all model variables from <variable>.tab files saved after
+    previous solution.
+    """
+    import csv
+    var_objects = instance.component_objects(Var)
+    for var in var_objects:
+        var_file = os.path.join(instance.options.outputs_dir, '{}.tab'.format(var.name))
+        if not os.path.isfile(var_file):
+            raise RuntimeError(
+                "Tab output file for variable {} cannot be found in outputs "
+                "directory. Exiting.".format(var.name)
+            )
+        try:
+            # check types of the first tuple of keys for this variable
+            key_types = [type(i) for i in make_iterable(next(var.iterkeys()))]
+        except StopIteration:
+            key_types = []  # no keys
+        with open(var_file,'r') as f:
+            reader = csv.reader(f, delimiter='\t')
+            next(reader) # skip headers
+            for row in reader:
+                index = tuple(t(k) for t, k in zip(key_types, row[:-1]))
+                try:
+                    v = var[index]
+                except KeyError:
+                    raise KeyError(
+                        "Unable to set value for {}[{}]; index is invalid."
+                        .format(var.name, keys)
+                    )
+                if row[-1] == '':
+                    # Variables that are not used in the model end up with no
+                    # value after the solve and get saved as blanks; we skip those.
+                    continue
+                val = float(row[-1])
+                if v.is_integer() or v.is_binary():
+                    val = int(val)
+                v.value = val
+        if instance.options.verbose:
+            print 'Loaded variable {} values into instance.'.format(var.name)
 
 
 def iterate(m, iterate_modules, depth=0):
@@ -555,7 +584,7 @@ def solve(model):
 
     # solve the model
     if model.options.verbose:
-        solve_start_time = time.time()
+        timer = StepTimer()
         print "\nSolving model..."
 
     if model.options.tempdir is not None:
@@ -566,8 +595,7 @@ def solve(model):
     results = model.solver_manager.solve(model, opt=model.solver, **solver_args)
 
     if model.options.verbose:
-        solve_end_time = time.time()
-        print "Solved model. Total time spent in solver: {:2f} s.".format(solve_end_time - solve_start_time)
+        print "Solved model. Total time spent in solver: {:2f} s.".format(timer.step_time())
 
     model.solutions.load_from(results)
 
