@@ -75,7 +75,7 @@ def define_components(mod):
 
     ConsumeFuelTier[rfm, period, tier] is a decision variable that
     denotes the amount of fuel consumed in each tier of a supply curve
-    in a particular regional fuel market and period (MMBtu/year). It 
+    in a particular regional fuel market and period (MMBtu/year). It
     has an upper bound of rfm_supply_tier_limit.
 
     FuelConsumptionInMarket[rfm, period] is a derived decision variable
@@ -180,9 +180,9 @@ def define_components(mod):
     with the fuel are a much larger driver of consumption than the fuel
     costs.
 
-    GEN_TPS_FOR_RFM_PERIOD[regional_fuel_market, period] is an indexed set
-    of GEN_TP_FUELS that contribute to a given regional
-    fuel market's activity in a given period.
+    GENS_FOR_RFM_PERIOD[regional_fuel_market, period] is an indexed set
+    of GENS that contribute to a given regional fuel market's activity
+    in a given period.
 
     Enforce_Fuel_Consumption is a constraint that ties the aggregate
     fuel consumption from dispatch into FuelConsumptionInMarket variable
@@ -291,19 +291,36 @@ def define_components(mod):
 
     # Components to link aggregate fuel consumption from project
     # dispatch into market framework
-    mod.GEN_TPS_FOR_RFM_PERIOD = Set(
-        mod.REGIONAL_FUEL_MARKETS, mod.PERIODS,
-        within=mod.GEN_TP_FUELS,
-        initialize=lambda m, rfm, p: [
-            (g, t, f) for (g, t, f) in m.GEN_TP_FUELS
-            if f == m.rfm_fuel[rfm] and
-            m.gen_load_zone[g] in m.ZONES_IN_RFM[rfm] and
-            m.tp_period[t] == p])
 
+    def GENS_FOR_RFM_PERIOD_rule(m, rfm, p):
+        # Construct and cache a set of gens for each zone/fuel/period, then
+        # return lists of gens for each rfm/period as needed
+        try:
+            d = m.GENS_FOR_RFM_PERIOD_dict
+        except AttributeError:
+            d = m.GENS_FOR_RFM_PERIOD_dict = dict()
+            # d uses (zone, fuel, period) as key; could use (rfm, period) as key
+            # if m.zone_fuel_rfm (back-lookup) existed
+            for g in m.FUEL_BASED_GENS:
+                for f in m.FUELS_FOR_GEN[g]:
+                    for p_ in m.PERIODS_FOR_GEN[g]:
+                        d.setdefault((m.gen_load_zone[g], f, p_), []).append(g)
+        relevant_gens = [
+            g
+            for z in m.ZONES_IN_RFM[rfm]
+            for g in d.pop((z, m.rfm_fuel[rfm], p), []) # pop releases memory
+        ]
+        return relevant_gens
+    mod.GENS_FOR_RFM_PERIOD = Set(
+        mod.REGIONAL_FUEL_MARKETS, mod.PERIODS,
+        initialize=GENS_FOR_RFM_PERIOD_rule
+    )
     def Enforce_Fuel_Consumption_rule(m, rfm, p):
         return m.FuelConsumptionInMarket[rfm, p] == sum(
-            m.GenFuelUseRate[g, t, f] * m.tp_weight_in_year[t]
-            for (g, t, f) in m.GEN_TPS_FOR_RFM_PERIOD[rfm, p])
+            m.GenFuelUseRate[g, t, m.rfm_fuel[rfm]] * m.tp_weight_in_year[t]
+            for g in m.GENS_FOR_RFM_PERIOD[rfm, p]
+            for t in m.TPS_IN_PERIOD[p]
+    )
     mod.Enforce_Fuel_Consumption = Constraint(
         mod.REGIONAL_FUEL_MARKETS, mod.PERIODS,
         rule=Enforce_Fuel_Consumption_rule)
