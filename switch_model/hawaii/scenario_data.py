@@ -399,8 +399,8 @@ def write_tables(**args):
             cogen as gen_is_cogen,
             -- non_cycling as gen_non_cycling,
             variable_o_m * 1000.0 AS gen_variable_om,
-            CASE WHEN fuel IN ('SUN', 'WND', 'MSW', 'Battery') THEN fuel ELSE 'multiple' END AS gen_energy_source,
-            CASE WHEN fuel IN ('SUN', 'WND', 'MSW', 'Battery') THEN null ELSE {flhr} END AS gen_full_load_heat_rate,
+            CASE WHEN fuel IN ('SUN', 'WND', 'MSW', 'Battery', 'Hydro') THEN fuel ELSE 'multiple' END AS gen_energy_source,
+            CASE WHEN fuel IN ('SUN', 'WND', 'MSW', 'Battery', 'Hydro') THEN null ELSE {flhr} END AS gen_full_load_heat_rate,
             min_uptime as gen_min_uptime,
             min_downtime as gen_min_downtime,
             startup_energy / unit_size as gen_startup_fuel,
@@ -592,7 +592,7 @@ def write_tables(**args):
                 cogen
             FROM study_generator_info
         ), all_fueled_techs AS (
-            SELECT * from all_techs WHERE orig_fuel NOT IN ('SUN', 'WND', 'MSW', 'Battery')
+            SELECT * from all_techs WHERE orig_fuel NOT IN ('SUN', 'WND', 'MSW', 'Battery', 'Hydro')
         ), gen_multiple_fuels AS (
             SELECT DISTINCT technology, b.energy_source as fuel
             FROM all_fueled_techs t
