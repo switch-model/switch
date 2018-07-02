@@ -368,12 +368,12 @@ def define_arguments(argparser):
     # whether that does the same thing as --solver-options-string so we don't reuse the same name.
     argparser.add_argument("--solver-options-string", default=None,
         help='A quoted string of options to pass to the model solver. Each option must be of the form option=value. '
-            '(e.g., --solver-options-string "mipgap=0.001 primalopt advance=2 threads=1")')
+            '(e.g., --solver-options-string "mipgap=0.001 primalopt=\'\' advance=2 threads=1")')
     argparser.add_argument("--keepfiles", action='store_true', default=None,
         help="Keep temporary files produced by the solver (may be useful with --symbolic-solver-labels)")
     argparser.add_argument(
         "--stream-output", "--stream-solver", action='store_true', dest="tee", default=None,
-        help="Display information from the solver about its progress (usually combined with a suitable --solver-options string)")
+        help="Display information from the solver about its progress (usually combined with a suitable --solver-options-string)")
     argparser.add_argument(
         "--symbolic-solver-labels", action='store_true', default=None,
         help='Use symbol names derived from the model when interfacing with the solver. '
@@ -603,18 +603,8 @@ def solve(model):
 
     results = model.solver_manager.solve(model, opt=model.solver, **solver_args)
 
-    # Load the solution data into the results object (it only has execution
-    # metadata by default in recent versions of Pyomo). This will enable us to
-    # save and restore model solutions; the results object can be pickled to a
-    # file on disk, but the instance cannot.
-    # https://stackoverflow.com/questions/39941520/pyomo-ipopt-does-not-return-solution
-    #
-    model.solutions.store_to(results)
-    model.last_results = results
-
     if model.options.verbose:
         print "Solved model. Total time spent in solver: {:2f} s.".format(timer.step_time())
-
 
     # Only return if the model solved correctly, otherwise throw a useful error
     if(results.solver.status in {SolverStatus.ok, SolverStatus.warning} and
@@ -637,6 +627,15 @@ def solve(model):
             print "Hint: glpk has been known to classify infeasible problems as 'other'."
         raise RuntimeError("Solver failed to find an optimal solution.")
 
+    # Copy the solution data into the results object (it only has execution
+    # metadata by default in recent versions of Pyomo). This will enable us to
+    # save and restore model solutions; the results object can be pickled to a
+    # file on disk, but the instance cannot.
+    # https://stackoverflow.com/questions/39941520/pyomo-ipopt-does-not-return-solution
+    # Note: this will fail if the solver doesn't return values for the variables
+    # (e.g., for infeasible models), so it should happen after the feasibility test.
+    model.solutions.store_to(results)
+    model.last_results = results
 
 # taken from https://software.sandia.gov/trac/pyomo/browser/pyomo/trunk/pyomo/opt/base/solvers.py?rev=10784
 # This can be removed when all users are on Pyomo 4.2
