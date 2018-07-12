@@ -609,7 +609,11 @@ def solve(model):
     # Only return if the model solved correctly, otherwise throw a useful error
     if(results.solver.status in {SolverStatus.ok, SolverStatus.warning} and
        results.solver.termination_condition == TerminationCondition.optimal):
-        return results
+       # Cache a copy of the results object, to allow saving and restoring model
+       # solutions later.
+       model.last_results = results
+       # Successful solution, return results
+       return results
     elif (results.solver.termination_condition == TerminationCondition.infeasible):
         if hasattr(model, "iis"):
             print "Model was infeasible; irreducibly inconsistent set (IIS) returned by solver:"
@@ -627,15 +631,7 @@ def solve(model):
             print "Hint: glpk has been known to classify infeasible problems as 'other'."
         raise RuntimeError("Solver failed to find an optimal solution.")
 
-    # Copy the solution data into the results object (it only has execution
-    # metadata by default in recent versions of Pyomo). This will enable us to
-    # save and restore model solutions; the results object can be pickled to a
-    # file on disk, but the instance cannot.
-    # https://stackoverflow.com/questions/39941520/pyomo-ipopt-does-not-return-solution
-    # Note: this will fail if the solver doesn't return values for the variables
-    # (e.g., for infeasible models), so it should happen after the feasibility test.
-    model.solutions.store_to(results)
-    model.last_results = results
+    # no default return, because we'll never reach here
 
 # taken from https://software.sandia.gov/trac/pyomo/browser/pyomo/trunk/pyomo/opt/base/solvers.py?rev=10784
 # This can be removed when all users are on Pyomo 4.2
