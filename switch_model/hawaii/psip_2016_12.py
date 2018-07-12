@@ -46,7 +46,7 @@ def define_components(m):
             print "Using PSIP construction plan."
         else:
             print "Relaxing PSIP construction plan."
-    
+
     # don't allow addition of anything other than those specified here
     # force retirement of AES at end of 2022
 
@@ -120,13 +120,14 @@ def define_components(m):
         # specific location (21.668 -157.956), but since it isn't in the existing plants
         # workbook, we represent it as a generic technology target.
         # note: Resolve modeled 134 MW of planned onshore wind, 30 MW of optional onshore
-        # and 800 MW of optional offshore; See "data/HECO Plans/PSIP-WebDAV/2017-01-31 Response to Parties IRs/CA-IR-1/Input and Output Files by Case/E3 and Company Defined Cases/Market DGPV (Reference)/OA_NOLNG/capacity_limits.tab".
-        # planned seems to correspond to Na Pua Makani (24), CBRE (10), Kahuku (30), Kawailoka (69);
+        # and 800 MW of optional offshore; See "data/HECO Plans/PSIP-WebDAV/2017-01-31 Response to Parties IRs/CA-IR-1/Input
+        # and Output Files by Case/E3 and Company Defined Cases/Market DGPV (Reference)/OA_NOLNG/capacity_limits.tab".
+        # 'planned' seems to correspond to Na Pua Makani (24), CBRE (10), Kahuku (30), Kawailoka (69);
         # Resolve built 273 MW offshore in 2025-45 (including 143 MW rebuilt in 2045),
         # and 30 MW onshore in 2045 (tables 3-1 and 3-4).
         # Not clear why it picked offshore before onshore (maybe bad resource profiles?). But
-        # in their final plan (table 4-1), HECO changed it to 200 MW offshore in 2025 (presumably rebuilt
-        # in 2045) and 30 MW onshore in 2045.
+        # in their final plan (table 4-1), HECO changed it to 200 MW offshore in 2025
+        # (presumably rebuilt in 2045) and 30 MW onshore in 2045.
         (2018, 'OnshoreWind', 24), # Na Pua Makani (NPM) wind
         (2018, 'OnshoreWind', 10), # CBRE wind
         # note: 109.6 MW SunEdison replacements are in Existing Plants workbook.
@@ -160,7 +161,8 @@ def define_components(m):
         (2040, 'Battery_4', 420),
         (2045, 'Battery_4', 1525),
         # RESOLVE modeled 4-hour batteries as being capable of providing reserves,
-        # and didn't model contingency batteries (see data/HECO Plans/PSIP-WebDAV/2017-01-31 Response to Parties IRs/CA-IR-1/Input and Output Files by Case/E3 and Company Defined Cases/Market DGPV (Reference)/OA_NOLNG/technologies.tab).
+        # and didn't model contingency batteries (see data/HECO Plans/PSIP-WebDAV/2017-01-31 Response to Parties IRs/CA-IR-1/Input
+        # and Output Files by Case/E3 and Company Defined Cases/Market DGPV (Reference)/OA_NOLNG/technologies.tab).
         # Then HECO added a 90 MW contingency battery (table 4-1 of PSIP 2016-12-23).
         # Note: RESOLVE can get reserves from batteries (they only considered 4-hour batteries), but not
         # from EVs or flexible demand.

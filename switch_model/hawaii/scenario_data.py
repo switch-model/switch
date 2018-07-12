@@ -238,7 +238,7 @@ def write_tables(**args):
 
     # gather info on fuels
     write_table('fuels.tab', """
-        SELECT DISTINCT c.fuel_type AS fuel, co2_intensity, 0.0 AS upstream_co2_intensity, rps_eligible
+        SELECT DISTINCT replace(c.fuel_type, ' ', '_') AS fuel, co2_intensity, 0.0 AS upstream_co2_intensity, rps_eligible
         FROM fuel_costs c JOIN energy_source_properties p on (p.energy_source = c.fuel_type)
         WHERE load_zone in %(load_zones)s AND fuel_scen_id=%(fuel_scen_id)s;
     """, args)
@@ -284,7 +284,7 @@ def write_tables(**args):
 
         write_table('fuel_cost.tab',
             with_period_length + """
-            SELECT load_zone, fuel_type as fuel, p.period,
+            SELECT load_zone, replace(fuel_type, ' ', '_') as fuel, p.period,
                 avg(price_mmbtu * {inflator} + COALESCE(fixed_cost, 0.00)) as fuel_cost
             FROM fuel_costs c, study_periods p JOIN period_length l USING (period)
             WHERE load_zone in %(load_zones)s
@@ -299,15 +299,17 @@ def write_tables(**args):
         # advanced fuel markets with LNG expansion options (used by forward-looking models)
         # (use fuel_markets module)
         write_table('regional_fuel_markets.tab', """
-            SELECT DISTINCT concat('Hawaii_', fuel_type) AS regional_fuel_market, fuel_type AS fuel
+            SELECT DISTINCT
+                concat('Hawaii_', replace(fuel_type, ' ', '_')) AS regional_fuel_market,
+                replace(fuel_type, ' ', '_') AS fuel
             FROM fuel_costs
             WHERE load_zone in %(load_zones)s AND fuel_scen_id = %(fuel_scen_id)s;
         """, args)
 
         write_table('fuel_supply_curves.tab',
             with_period_length + """
-            SELECT concat('Hawaii_', fuel_type) as regional_fuel_market,
-                fuel_type as fuel,
+            SELECT concat('Hawaii_', replace(fuel_type, ' ', '_')) as regional_fuel_market,
+                replace(fuel_type, ' ', '_') as fuel,
                 tier,
                 p.period,
                 avg(price_mmbtu * {inflator}) as unit_cost,
@@ -324,7 +326,7 @@ def write_tables(**args):
         """.format(inflator=inflator), args)
 
         write_table('zone_to_regional_fuel_market.tab', """
-            SELECT DISTINCT load_zone, concat('Hawaii_', fuel_type) AS regional_fuel_market
+            SELECT DISTINCT load_zone, concat('Hawaii_', replace(fuel_type, ' ', '_')) AS regional_fuel_market
             FROM fuel_costs
             WHERE load_zone in %(load_zones)s AND fuel_scen_id = %(fuel_scen_id)s;
         """, args)
@@ -712,7 +714,7 @@ def write_tables(**args):
         )
 
     #########################
-    # EV annual energy consumption
+    # EV annual energy consumption (original, basic version)
     # print "ev_scenario:", args.get('ev_scenario', None)
     if args.get('ev_scenario', None) is not None:
         write_table('ev_fleet_info.tab', """
@@ -743,6 +745,88 @@ def write_tables(**args):
             ORDER BY 1, 2;
         """, args)
 
+    #########################
+    # EV annual energy consumption (advanced, frozen Dantzig-Wolfe version)
+    if args.get('ev_scenario', None) is not None:
+        write_table('ev_share.tab', """
+            SELECT
+                load_zone as "LOAD_ZONE", period as "PERIOD",
+                ev_share
+            FROM ev_adoption a JOIN study_periods p on a.year = p.period
+            WHERE load_zone in %(load_zones)s
+                AND time_sample = %(time_sample)s
+                AND ev_scenario = %(ev_scenario)s
+            ORDER BY 1, 2;
+        """, args)
+        write_table('ev_fleet_info_advanced.tab', """
+            WITH detailed_fleet AS (
+                SELECT
+                    a.load_zone AS "LOAD_ZONE",
+                    replace(f."vehicle type", ' ', '_') AS "VEHICLE_TYPE",
+                    p.period AS "PERIOD",
+                    f."number of vehicles" AS "n_vehicles", -- for whole fleet, not current adoption level
+                    CASE
+                    WHEN period <= 2020 THEN "gals fuel per year 2020"
+                    WHEN period >= 2045 THEN "gals fuel per year 2045"
+                    ELSE
+                        (period-2020)/25.0 * "gals fuel per year 2045"
+                        + (2045-period)/25.0 * "gals fuel per year 2020"
+                    END AS "ice_gals_per_year",
+                    CONCAT_WS('_', 'Motor', "ICE fuel") AS "ice_fuel",
+                    "kWh per year" AS "ev_kwh_per_year",
+                    CASE
+                    WHEN period <= 2020 THEN "EV extra capital cost per year 2020"
+                    WHEN period >= 2045 THEN "EV extra capital cost per year 2045"
+                    ELSE
+                        (period-2020)/25.0 * "EV extra capital cost per year 2045"
+                        + (2045-period)/25.0 * "EV extra capital cost per year 2020"
+                    END AS "ev_extra_cost_per_vehicle_year"
+                 FROM ev_adoption a
+                    JOIN study_periods p ON a.year = p.period
+                    JOIN ev_fleet f ON f.load_zone = a.load_zone
+                WHERE a.load_zone in %(load_zones)s
+                    AND time_sample = %(time_sample)s
+                    AND ev_scenario = %(ev_scenario)s
+            )
+            SELECT "LOAD_ZONE",
+                CONCAT_WS('_', 'All', replace(ice_fuel, 'Motor_', ''), 'Vehicles') AS "VEHICLE_TYPE",
+                "PERIOD",
+                SUM(n_vehicles) AS n_vehicles,
+                SUM(ice_gals_per_year*n_vehicles)/SUM(n_vehicles) AS ice_gals_per_year,
+                ice_fuel,
+                SUM(ev_kwh_per_year*n_vehicles)/SUM(n_vehicles) AS ev_kwh_per_year,
+                SUM(ev_extra_cost_per_vehicle_year*n_vehicles)/SUM(n_vehicles)
+                    AS ev_extra_cost_per_vehicle_year
+            FROM detailed_fleet
+            GROUP BY 1, 2, 3, 6
+            ORDER BY 1, 2, 3;
+        """, args)
+        # power consumption bids for each hour of the day
+        # (consolidate to one vehicle class to accelerate data retrieval and
+        # reduce model memory requirements) (note that there are 6 classes of
+        # vehicle and 25 bids for for 24-hour models, which makes 150 entries
+        # per load zone and timestep, which is larger than the renewable
+        # capacity factor data)
+        if args.get("skip_ev_bids", False):
+            print "SKIPPING ev_charging_bids.tab"
+        else:
+            write_table('ev_charging_bids.tab', """
+                SELECT
+                    b.load_zone AS "LOAD_ZONE",
+                    CONCAT_WS('_', 'All', "ICE fuel", 'Vehicles') AS "VEHICLE_TYPE",
+                    bid_number AS "BID_NUM",
+                    study_hour AS "TIMEPOINT",
+                    sum(charge_mw) AS ev_bid_by_type
+                FROM study_date d
+                    JOIN study_hour h USING (study_date, time_sample)
+                    JOIN ev_charging_bids b
+                        ON b.hour = h.hour_of_day AND b.hours_per_step = d.ts_duration_of_tp
+                    JOIN ev_fleet f ON b.vehicle_type=f."vehicle type" AND b.load_zone=f.load_zone
+                WHERE b.load_zone in %(load_zones)s
+                    AND d.time_sample = %(time_sample)s
+                GROUP BY 1, 2, 3, 4
+                ORDER BY 1, 2, 3, 4;
+            """, args)
 
     #########################
     # pumped hydro
