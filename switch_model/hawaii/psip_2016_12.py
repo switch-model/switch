@@ -16,6 +16,8 @@ def define_arguments(argparser):
         help="Use only the amount of renewables shown in PSIP plans, and no more (should be combined with --psip-relax).")
     argparser.add_argument('--force-build', nargs=3, default=None,
         help="Force construction of at least a certain quantity of a particular technology during certain years. Space-separated list of year, technology and quantity.")
+    argparser.add_argument('--psip-relax-after', type=float, default=None,
+        help="Follow the PSIP plan up to and including the specified year, then optimize construction in later years. Should be combined with --psip-force.")
 
 def is_renewable(tech):
     return any(txt in tech for txt in ("PV", "Wind", "Solar"))
@@ -234,7 +236,11 @@ def define_components(m):
         raise RuntimeError('You must use the lng_conversion module and set "--force-lng-tier none" to match the PSIP.')
 
     if psip:
-        technology_targets = technology_targets_definite + technology_targets_psip
+        if m.options.psip_relax_after is not None:
+            psip_targets = [t for t in technology_targets_psip if t[0] <= m.options.psip_relax_after]
+        else:
+            psip_targets = technology_targets_psip
+        technology_targets = technology_targets_definite + psip_targets
     else:
         technology_targets = technology_targets_definite
 
@@ -315,7 +321,7 @@ def define_components(m):
                     "Model will be infeasible.".format(tech, per)
                 )
                 return Constraint.Infeasible
-        elif psip:
+        elif psip and per <= m.options.psip_relax_after:
             return (build == target)
         elif m.options.psip_minimal_renewables and tech in m.RENEWABLE_TECHNOLOGIES:
             # only build the specified amount of renewables, no more
