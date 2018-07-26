@@ -130,12 +130,12 @@ def write_tables(**args):
     # double-check that arguments are valid
     cur = db_cursor()
     cur.execute(
-        'select * from generator_costs_by_year where cap_cost_scen_id = %(cap_cost_scen_id)s',
+        'select * from generator_costs_by_year where tech_scen_id = %(tech_scen_id)s',
         args
     )
     if len([r for r in cur]) == 0:
         print "================================================================"
-        print "WARNING: no records found in generator_costs_by_year for cap_cost_scen_id='{}'".format(args['cap_cost_scen_id'])
+        print "WARNING: no records found in generator_costs_by_year for tech_scen_id='{}'".format(args['tech_scen_id'])
         print "================================================================"
         time.sleep(2)
     del cur
@@ -155,7 +155,8 @@ def write_tables(**args):
             SELECT DISTINCT
                 CONCAT_WS('_', load_zone, p.technology, nullif(site, 'na'), nullif(orientation, 'na'))
                     AS "GENERATION_PROJECT",
-                p.*
+                p.*,
+                g.tech_scen_id
             FROM project p
                 JOIN generator_info g USING (technology)
                 CROSS JOIN study_length
@@ -167,7 +168,7 @@ def write_tables(**args):
                 )
                 -- projects that could be built during the study
                 LEFT JOIN generator_costs_by_year c ON (
-                    c.cap_cost_scen_id = %(cap_cost_scen_id)s
+                    c.tech_scen_id = g.tech_scen_id
                     AND c.technology = g.technology
                     AND (g.min_vintage_year IS NULL OR c.year >= g.min_vintage_year)
                     AND c.year >= study_start
@@ -175,13 +176,16 @@ def write_tables(**args):
                 )
             WHERE (e.project_id IS NOT NULL OR c.technology IS NOT NULL)
                 AND p.load_zone in %(load_zones)s
+                AND g.tech_scen_id IN ('all', %(tech_scen_id)s)
                 AND g.technology NOT IN %(exclude_technologies)s;
 
         DROP TABLE IF EXISTS study_generator_info;
         CREATE TEMPORARY TABLE study_generator_info AS
             SELECT DISTINCT g.*
-            FROM generator_info g JOIN study_projects p USING (technology);
+            FROM generator_info g JOIN study_projects p USING (tech_scen_id, technology);
     """.format(with_period_length), args)
+
+    # import pdb; pdb.set_trace()
 
     #########################
     # financials
@@ -345,11 +349,6 @@ def write_tables(**args):
     # Some of these are actually single-fuel, but this approach is simpler than sorting
     # them out within each query, and it doesn't add any complexity to the model.
 
-    if args.get('connect_cost_per_mw_km', 0):
-        print(
-            "WARNING: ignoring connect_cost_per_mw_km specified in arguments; using"
-            "project.connect_cost_per_mw and generator_info.connect_cost_per_kw_generic instead."
-        )
     if args.get('wind_capital_cost_escalator', 0.0) or args.get('pv_capital_cost_escalator', 0.0):
         # user supplied a non-zero escalator
         raise ValueError(
@@ -389,7 +388,7 @@ def write_tables(**args):
             "GENERATION_PROJECT",
             load_zone AS gen_load_zone,
             technology AS gen_tech,
-            connect_cost_per_mw AS gen_connect_cost_per_mw,
+            spur_line_cost_per_mw + 1000 * substation_cost_per_kw AS gen_connect_cost_per_mw,
             max_capacity AS gen_capacity_limit_mw,
             unit_size as gen_unit_size,
             max_age_years as gen_max_age,
@@ -440,14 +439,12 @@ def write_tables(**args):
                 c.capital_cost_per_kw * 1000.0
                     * power(1.0+%(inflation_rate)s, %(base_financial_year)s-c.base_year)
                     AS gen_overnight_cost,
-                CASE WHEN i.gen_storage_efficiency IS NULL THEN NULL ELSE 0.0 END
-                    AS gen_storage_energy_overnight_cost,
-                i.fixed_o_m * 1000.0 * power(1.0+%(inflation_rate)s, %(base_financial_year)s-i.base_year)
+                c.capital_cost_per_kwh AS gen_storage_energy_overnight_cost,
+                c.fixed_o_m * 1000.0 * power(1.0+%(inflation_rate)s, %(base_financial_year)s-i.base_year)
                     AS gen_fixed_o_m,
-                i.min_vintage_year
+                i.min_vintage_year  -- used for build_year filter below
             FROM study_generator_info i
-                JOIN generator_costs_by_year c USING (technology)
-            WHERE c.cap_cost_scen_id = %(cap_cost_scen_id)s
+                JOIN generator_costs_by_year c USING (technology, tech_scen_id)
             ORDER BY 1, 2
         )
         SELECT   -- costs specified in proj_existing_builds
