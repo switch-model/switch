@@ -76,8 +76,8 @@ def define_components(m):
 
     # add cost components to account for the vehicle miles traveled via EV or ICE
     # (not used because it interferes with calculation of cost per kWh for electricity)
-    # m.Cost_Components_Per_Period.append('ev_extra_annual_cost')
-    # m.Cost_Components_Per_Period.append('ice_annual_fuel_cost')
+    m.Cost_Components_Per_Period.append('ev_extra_annual_cost')
+    m.Cost_Components_Per_Period.append('ice_annual_fuel_cost')
 
     # EV bid data -- total MW used by 100% EV fleet, for each zone, veh type,
     # bid number, timepoint
