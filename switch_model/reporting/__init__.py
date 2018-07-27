@@ -45,7 +45,7 @@ def define_arguments(argparser):
 
 def write_table(instance, *indexes, **kwargs):
     # there must be a way to accept specific named keyword arguments and
-    # also an  open-ended list of positional arguments (*indexes), but I
+    # also an open-ended list of positional arguments (*indexes), but I
     # don't know what that is.
     output_file = kwargs["output_file"]
     headings = kwargs["headings"]
@@ -78,7 +78,6 @@ def write_table(instance, *indexes, **kwargs):
             w.writerows(
                 # TODO: flatten x (unpack tuples) like Pyomo before calling values()
                 # That may cause problems elsewhere though...
-
                 format_row(row=values(instance, *x))
                 for x in itertools.product(*indexes)
             )
@@ -109,6 +108,7 @@ def post_solve(instance, outdir):
     """
     save_generic_results(instance, outdir, instance.options.sorted_output)
     save_total_cost_value(instance, outdir)
+    save_cost_components(instance, outdir)
     save_results(instance, outdir)
 
 
@@ -138,6 +138,36 @@ def save_generic_results(instance, outdir, sorted_output):
 def save_total_cost_value(instance, outdir):
     with open(os.path.join(outdir, 'total_cost.txt'), 'w') as fh:
         fh.write('{}\n'.format(value(instance.SystemCost)))
+
+
+def save_cost_components(m, outdir):
+    """
+    Save values for all individual components of total system cost on NPV basis.
+    """
+    cost_dict = dict()
+    for annual_cost in m.Cost_Components_Per_Period:
+        cost = getattr(m, annual_cost)
+        # note: storing value() instead of the expression may save
+        # some memory while this function runs
+        cost_dict[annual_cost] = value(sum(
+            cost[p] * m.bring_annual_costs_to_base_year[p]
+            for p in m.PERIODS
+        ))
+    for tp_cost in m.Cost_Components_Per_TP:
+        cost = getattr(m, tp_cost)
+        cost_dict[tp_cost] = value(sum(
+            cost[t] * m.tp_weight_in_year[t]
+            * m.bring_annual_costs_to_base_year[m.tp_period[t]]
+            for t in m.TIMEPOINTS
+        ))
+    write_table(
+        m,
+        cost_dict.keys(),
+        output_file=os.path.join(outdir, "cost_components.tab"),
+        headings=('component', 'npv_cost'),
+        values=lambda m, c: (c, cost_dict[c]),
+        digits=16
+    )
 
 
 def save_results(instance, outdir):
