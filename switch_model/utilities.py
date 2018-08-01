@@ -5,12 +5,7 @@
 Utility functions for SWITCH-pyomo.
 """
 
-import os
-import types
-import importlib
-import re
-import sys
-import argparse
+import os, types, importlib, re, sys, argparse, time
 import __main__ as main
 from pyomo.environ import *
 import pyomo.opt
@@ -36,7 +31,7 @@ def create_model(module_list=None, args=sys.argv[1:]):
 
     This is implemented as calling the following functions for each module
     that has them defined:
-    
+
     define_dynamic_lists(model): Add lists to the model that other modules can
     register with. Used for power balance equations, cost components of the
     objective function, etc.
@@ -44,13 +39,13 @@ def create_model(module_list=None, args=sys.argv[1:]):
     define_components(model): Add components to the model object (parameters,
     sets, decisions variables, expressions, and/or constraints). Also register
     with relevant dynamic_lists.
-    
+
     define_dynamic_components(model): Add dynamic components to the model that
     depend on the contents of dyanmics lists. Power balance constraints and
     the objective function are defined in this manner.
-    
+
     See financials and balancing.load_zones for examples of dynamic definitions.
-    
+
     All modules can request access to command line parameters and set their
     default values for those options. If this codebase is being used more like
     a library than a stand-alone executable, this behavior can cause problems.
@@ -86,7 +81,7 @@ def create_model(module_list=None, args=sys.argv[1:]):
         if hasattr(module, 'define_arguments'):
             module.define_arguments(argparser)
     model.options = argparser.parse_args(args)
-    
+
     # Define model components
     for module in model.get_modules():
         if hasattr(module, 'define_dynamic_lists'):
@@ -107,33 +102,63 @@ def get_modules(model):
         yield sys.modules[m]
 
 
-def load_inputs(model, inputs_dir=None, attachDataPortal=True):
-    """
+def make_iterable(item):
+    """Return an iterable for the one or more items passed."""
+    if isinstance(item, basestring):
+        i = iter([item])
+    else:
+        try:
+            # check if it's iterable
+            i = iter(item)
+        except TypeError:
+            i = iter([item])
+    return i
 
+class StepTimer(object):
+    """
+    Keep track of elapsed time for steps of a process.
+    Use timer = StepTimer() to create a timer, then retrieve elapsed time and/or
+    reset the timer at each step by calling timer.step_time()
+    """
+    def __init__(self):
+        self.start_time = time.time()
+    def step_time(self):
+        """
+        Reset timer to current time and return time elapsed since last step.
+        """
+        last_start = self.start_time
+        self.start_time = now = time.time()
+        return now - last_start
+
+def load_inputs(model, inputs_dir=None, attach_data_portal=True):
+    """
     Load input data for an AbstractModel using the modules in the given
     list and return a model instance. This is implemented as calling the
     load_inputs() function of each module, if the module has that function.
-
     """
     if inputs_dir is None:
         inputs_dir = getattr(model.options, "inputs_dir", "inputs")
 
     # Load data; add a fancier load function to the data portal
+    timer = StepTimer()
     data = DataPortal(model=model)
     data.load_aug = types.MethodType(load_aug, data)
     for module in model.get_modules():
         if hasattr(module, 'load_inputs'):
             module.load_inputs(model, data, inputs_dir)
+    if model.options.verbose:
+        print "Data read in {:.2f} s.\n".format(timer.step_time())
 
-    # At some point, pyomo deprecated 'create' in favor of
-    # 'create_instance'. Determine which option is available
-    # and use that.
+    # At some point, pyomo deprecated 'create' in favor of 'create_instance'.
+    # Determine which option is available and use that.
     if hasattr(model, 'create_instance'):
         instance = model.create_instance(data)
     else:
         instance = model.create(data)
+    if model.options.verbose:
+        print "Instance created from data in {:.2f} s.\n".format(timer.step_time())
 
-    if attachDataPortal:
+    if attach_data_portal:
         instance.DataPortal = data
     return instance
 
@@ -145,52 +170,46 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
     tools that have not been fully integrated with DataPortal.
     SYNOPSIS:
         save_inputs_as_dat(model, instance, save_path)
-    
-
     """
     # helper function to convert values to strings,
     # putting quotes around values that start as strings
     quote_str = lambda v: '"{}"'.format(v) if isinstance(v, basestring) else '{}'.format(str(v))
-    
+    # helper function to create delimited lists from single items or iterables of any data type
+    from switch_model.reporting import make_iterable
+    join_space = lambda items: ' '.join(map(str, make_iterable(items)))  # space-separated list
+    join_comma = lambda items: ','.join(map(str, make_iterable(items)))  # comma-separated list
+
     with open(save_path, "w") as f:
         for component_name in instance.DataPortal.data():
             if component_name in exclude:
-                continue    # don't write data for components in exclude list 
+                continue    # don't write data for components in exclude list
                             # (they're in scenario-specific files)
             component = getattr(model, component_name)
             comp_class = type(component).__name__
             component_data = instance.DataPortal.data(name=component_name)
             if comp_class == 'SimpleSet' or comp_class == 'OrderedSimpleSet':
-                f.write("set " + component_name + " := ")
-                f.write(' '.join(map(str, component_data))) # space-separated list
-                f.write(";\n")
+                f.write(
+                    "set {} := {};\n"
+                    .format(component_name, join_space(component_data))
+                )
             elif comp_class == 'IndexedParam':
-                if len(component_data) > 0:  # omit components for which no data were provided
-                    f.write("param " + component_name + " := ")
-                    if component.index_set().dimen == 1:
-                        f.write(' '.join(str(key) + " " + quote_str(value)
-                                for key,value in component_data.iteritems()))
-                    else:
-                        f.write("\n")
-                        for key,value in (sorted(component_data.iteritems()) 
-                                          if sorted_output
-                                          else component_data.iteritems()):
-                            f.write(" " + 
-                                    ' '.join(map(str, key)) + " " +
-                                    quote_str(value) + "\n")
+                if component_data:  # omit components for which no data were provided
+                    f.write("param {} := \n".format(component_name))
+                    for key, value in (
+                        sorted(iteritems(component_data))
+                        if sorted_output
+                        else iteritems(component_data)
+                    ):
+                        f.write(" {} {}\n".format(join_space(key), quote_str(value)))
                     f.write(";\n")
             elif comp_class == 'SimpleParam':
-                f.write("param " + component_name + " := " + str(component_data) + ";\n")
+                f.write("param {} := {};\n".format(component_name, component_data))
             elif comp_class == 'IndexedSet':
-                # raise RuntimeError(
-                #     "Error with IndexedSet {}. Support for .dat export is not tested.".
-                #     format(component_name))
-                # print "Warning: exporting IndexedSet {}, but code has not been tested.".format(
-                #     component_name)
-                for key in component_data:  # note: key is always a tuple
-                    f.write("set " + component_name + "[" + ",".join(map(str, key)) + "] := ")
-                    f.write(' '.join(map(str, component_data[key]))) # space-separated list
-                    f.write(";\n")
+                for key, vals in iteritems(component_data):
+                    f.write(
+                        "set {}[{}] := {};\n"
+                        .format(component_name, join_comma(key), join_space(vals))
+                    )
             else:
                 raise ValueError(
                     "Error! Component type {} not recognized for model element '{}'.".
@@ -207,18 +226,18 @@ def pre_solve(instance, outputs_dir=None):
 
 def post_solve(instance, outputs_dir=None):
     """
-    Call post-solve function (if present) in all modules used to compose this model. 
+    Call post-solve function (if present) in all modules used to compose this model.
     This function can be used to report or save results from the solved model.
     """
     if outputs_dir is None:
         outputs_dir = getattr(instance.options, "outputs_dir", "outputs")
     if not os.path.exists(outputs_dir):
         os.makedirs(outputs_dir)
-        
+
     # TODO: implement a check to call post solve functions only if
     # solver termination condition is not 'infeasible' or 'unknown'
     # (the latter may occur when there are problems with licenses, etc)
-    
+
     for module in instance.get_modules():
         if hasattr(module, 'post_solve'):
             module.post_solve(instance, outputs_dir)
@@ -273,16 +292,12 @@ def _add_min_data_check(model):
 
 
 def has_discrete_variables(model):
-    for variable in model.component_objects(Var, active=True):
-        if variable.is_indexed():
-            for v in variable.itervalues():
-                if v.is_binary() or v.is_integer():
-                    return True
-        else:
-            if v.is_binary() or v.is_integer():
-                return True
-    return False
-
+    all_elements = lambda v: v.itervalues() if v.is_indexed() else [v]
+    return any(
+        v.is_binary() or v.is_integer()
+        for variable in model.component_objects(Var, active=True)
+        for v in all_elements(variable)
+    )
 
 def check_mandatory_components(model, *mandatory_model_components):
     """
@@ -363,17 +378,26 @@ def load_aug(switch_data, optional=False, auto_select=False,
     The name load_aug() is not great and may be changed.
 
     """
+    # TODO:
+    # Allow user to specify filename when defining parameters and sets.
+    # Also allow user to specify the name(s) of the column(s) in each set.
+    # Then use those automatically to pull data from the right file (and to
+    # write correct index column names in the generic output files).
+    # This will simplify code and ease comprehension (user can see
+    # immediately where the data come from for each component). This can
+    # also support auto-documenting of parameters and input files.
+
     path = kwds['filename']
     # Skip if the file is missing
     if optional and not os.path.isfile(path):
         return
     # If this is a .dat file, then skip the rest of this fancy business; we'll
-    # only check if the file is missing and optional for .dat files.
+    # only check if the file is missing and optional for .tab files.
     filename, extension = os.path.splitext(path)
     if extension == '.dat':
         switch_data.load(**kwds)
         return
-    
+
     # copy the optional_params to avoid side-effects when the list is altered below
     optional_params=list(optional_params)
     # Parse header and first row
@@ -459,6 +483,7 @@ def load_aug(switch_data, optional=False, auto_select=False,
         for (i, p_i) in del_items:
             del kwds['select'][i]
             del kwds['param'][p_i]
+
     if optional and file_has_no_data_rows:
         # Skip the file.  Note that we are only doing this after having
         # validated the file's column headings.
@@ -468,10 +493,10 @@ def load_aug(switch_data, optional=False, auto_select=False,
     switch_data.load(**kwds)
 
 
-# Define an argument parser that accepts the allow_abbrev flag to 
+# Define an argument parser that accepts the allow_abbrev flag to
 # prevent partial matches, even on versions of Python before 3.5.
 # See https://bugs.python.org/issue14910
-# This is needed because the parser may sometimes be called with only a subset 
+# This is needed because the parser may sometimes be called with only a subset
 # of the eventual argument list (e.g., to parse module-related arguments before
 # loading the modules and adding their arguments to the list), and without this
 # flag, the parser could match arguments that are meant to be used later
@@ -481,7 +506,7 @@ def load_aug(switch_data, optional=False, auto_select=False,
 if sys.version_info >= (3, 5):
     _ArgumentParser = argparse.ArgumentParser
 else:
-    # patch ArgumentParser to accept the allow_abbrev flag 
+    # patch ArgumentParser to accept the allow_abbrev flag
     # (works on Python 2.7 and maybe others)
     class _ArgumentParser(argparse.ArgumentParser):
         def __init__(self, *args, **kwargs):
@@ -519,7 +544,7 @@ class Logging:
     def __init__(self, logs_dir):
         # Make logs directory if class is initialized
         if not os.path.exists(logs_dir):
-            os.mkdir(logs_dir)
+            os.makedirs(logs_dir)
 
         # Assign sys.stdout and a log file as locations to write to
         self.terminal = sys.stdout
@@ -542,3 +567,11 @@ class Logging:
         self.terminal.flush()
         self.log_file.flush()
 
+
+def iteritems(obj):
+    """ Iterator of key, value pairs for obj;
+    equivalent to obj.items() on Python 3+ and obj.iteritems() on Python 2 """
+    try:
+        return obj.iteritems()
+    except AttributeError: # Python 3+
+        return obj.items()

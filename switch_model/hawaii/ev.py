@@ -5,6 +5,11 @@ from switch_model import timescales
 def define_arguments(argparser):
     argparser.add_argument("--ev-timing", choices=['bau', 'flat', 'optimal'], default='optimal',
         help="Rule for when to charge EVs -- business-as-usual (upon arrival), flat around the clock, or optimal (default).")
+    argparser.add_argument('--ev-reserve-types', nargs='+', default=['spinning'], 
+        help=
+            "Type(s) of reserves to provide from electric-vehicle charging (e.g., 'contingency' or 'regulation')."
+            "Default is generic 'spinning'. Specify 'none' to disable. Only takes effect with '--ev-timing optimal'."
+    )
 
 def define_components(m):
     # setup various parameters describing the EV and ICE fleet each year
@@ -85,17 +90,48 @@ def define_components(m):
     # add the EV load to the model's energy balance
     m.Zone_Power_Withdrawals.append('ChargeEVs')
 
-    # Register with spinning reserves if it is available and optimal EV
-    # charging is enabled.
-    if('Spinning_Reserve_Up_Provisions' in dir(m) and 
-       m.options.ev_timing == "optimal"):
-        m.EVSpinningReserveUp = Expression(
-            m.BALANCING_AREA_TIMEPOINTS, 
-            rule=lambda m, b, t:
-                sum(m.ChargeEVs[z, t]
-                    for z in m.ZONES_IN_BALANCING_AREA[b])
-        )
-        m.Spinning_Reserve_Up_Provisions.append('EVSpinningReserveUp')
+    # Register with spinning reserves if it is available and optimal EV charging is enabled.
+    if [rt.lower() for rt in m.options.ev_reserve_types] != ['none'] and m.options.ev_timing == "optimal":
+        if hasattr(m, 'Spinning_Reserve_Up_Provisions'):
+            # calculate available slack from EV charging
+            # (from supply perspective, so "up" means less load)
+            m.EVSlackUp = Expression(
+                m.BALANCING_AREA_TIMEPOINTS, 
+                rule=lambda m, b, t:
+                    sum(m.ChargeEVs[z, t] for z in m.ZONES_IN_BALANCING_AREA[b])
+            )
+            # note: we currently ignore down-reserves (option of increasing consumption) 
+            # from EVs since it's not clear how high they could go; we could revisit this if
+            # down-reserves have a positive price at equilibrium (probabably won't)
+            if hasattr(m, 'GEN_SPINNING_RESERVE_TYPES'):
+                # using advanced formulation, index by reserve type, balancing area, timepoint
+                # define variables for each type of reserves to be provided
+                # choose how to allocate the slack between the different reserve products
+                m.EV_SPINNING_RESERVE_TYPES = Set(
+                    initialize=m.options.ev_reserve_types
+                )
+                m.EVSpinningReserveUp = Var(
+                    m.EV_SPINNING_RESERVE_TYPES, m.BALANCING_AREA_TIMEPOINTS,
+                    within=NonNegativeReals
+                )
+                # constrain reserve provision within available slack
+                m.Limit_EVSpinningReserveUp = Constraint(
+                    m.BALANCING_AREA_TIMEPOINTS, 
+                    rule=lambda m, ba, tp: 
+                        sum(
+                            m.EVSpinningReserveUp[rt, ba, tp]
+                            for rt in m.EV_SPINNING_RESERVE_TYPES
+                        ) <= m.EVSlackUp[ba, tp]
+                )
+                m.Spinning_Reserve_Up_Provisions.append('EVSpinningReserveUp')
+            else:
+                # using older formulation, only one type of spinning reserves, indexed by balancing area, timepoint
+                if m.options.ev_reserve_types != ['spinning']:
+                    raise ValueError(
+                        'Unable to use reserve types other than "spinning" with simple spinning reserves module.'
+                    )
+                m.Spinning_Reserve_Up_Provisions.append('EVSlackUp')
+
 
 
 def load_inputs(m, switch_data, inputs_dir):

@@ -8,21 +8,23 @@ from pyomo.environ import *
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
 import pyomo.version
 
-from switch_model.utilities import create_model, _ArgumentParser, Logging
+from switch_model.utilities import (
+    create_model, _ArgumentParser, Logging, StepTimer, make_iterable
+)
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 
 
 def main(args=None, return_model=False, return_instance=False):
 
-    start_time = time.time()
+    timer = StepTimer()
     if args is None:
-        # combine default arguments read from options.txt file with 
+        # combine default arguments read from options.txt file with
         # additional arguments specified on the command line
         args = get_option_file_args(extra_args=sys.argv[1:])
 
     # Get options needed before any modules are loaded
     pre_module_options = parse_pre_module_options(args)
-    
+
     # turn on post-mortem debugging mode if requested
     # (from http://stackoverflow.com/a/1237407 ; more options available there)
     if pre_module_options.debug:
@@ -63,7 +65,7 @@ def main(args=None, return_model=False, return_instance=False):
     # build a module list based on configuration options, and add
     # the current module (to register define_arguments callback)
     modules = get_module_list(args)
-    
+
     # Patch pyomo if needed, to allow reconstruction of expressions.
     # This must be done before the model is constructed.
     patch_pyomo()
@@ -73,7 +75,7 @@ def main(args=None, return_model=False, return_instance=False):
 
     # Add any suffixes specified on the command line (usually only iis)
     add_extra_suffixes(model)
-    
+
     # return the model as-is if requested
     if return_model and not return_instance:
         return model
@@ -84,11 +86,10 @@ def main(args=None, return_model=False, return_instance=False):
 
     # get a list of modules to iterate through
     iterate_modules = get_iteration_list(model)
-    
+
     if model.options.verbose:
-        creation_time = time.time()
         print "\n======================================================================="
-        print "SWITCH model created in {:.2f} s.\nArguments:".format(creation_time - start_time)
+        print "SWITCH model created in {:.2f} s.\nArguments:".format(timer.step_time())
         print ", ".join(k+"="+repr(v) for k, v in model.options.__dict__.items() if v)
         print "Modules:\n"+", ".join(m for m in modules)
         if iterate_modules:
@@ -96,13 +97,15 @@ def main(args=None, return_model=False, return_instance=False):
         print "=======================================================================\n"
         print "Loading inputs..."
 
-    # create an instance
+    # create an instance (also reports time spent reading data and loading into model)
     instance = model.load_inputs()
+
+    #### Below here, we refer to instance instead of model ####
+
     instance.pre_solve()
-    instantiation_time = time.time()
-    if model.options.verbose:
-        print "Inputs loaded in {:.2f} s.\n".format(instantiation_time - creation_time)
-    
+    if instance.options.verbose:
+        print "Total time spent constructing model: {:.2f} s.\n".format(timer.step_time())
+
     # return the instance as-is if requested
     if return_instance:
         if return_model:
@@ -110,43 +113,48 @@ def main(args=None, return_model=False, return_instance=False):
         else:
             return instance
 
-    if model.options.reload_prior_solution:
-        reload_prior_solution_from_pickle(instance, model.options.outputs_dir)
+    if instance.options.reload_prior_solution:
+        reload_prior_solution_from_pickle(instance, instance.options.outputs_dir)
+        if instance.options.verbose:
+            print(
+                'Loaded previous results into model instance in {:.2f} s.'
+                .format(timer.step_time())
+            )
     else:
         # make sure the outputs_dir exists (used by some modules during iterate)
         # use a race-safe approach in case this code is run in parallel
         try:
-            os.makedirs(model.options.outputs_dir)
+            os.makedirs(instance.options.outputs_dir)
         except OSError:
             # directory probably exists already, but double-check
-            if not os.path.isdir(model.options.outputs_dir):
+            if not os.path.isdir(instance.options.outputs_dir):
                 raise
 
-        # solve the model
+        # solve the model (reports time for each step as it goes)
         if iterate_modules:
-            if model.options.verbose:
+            if instance.options.verbose:
                 print "Iterating model..."
             iterate(instance, iterate_modules)
         else:
             results = solve(instance)
-            if model.options.verbose:
+            if instance.options.verbose:
                 print "Optimization termination condition was {}.\n".format(
                     results.solver.termination_condition)
 
+        if instance.options.verbose:
+            timer.step_time() # restart counter for next step
+
         # report/save results
-        if model.options.verbose:
-            post_solve_start_time = time.time()
+        if instance.options.verbose:
             print "Executing post solve functions..."
         instance.post_solve()
-        if model.options.verbose:
-            post_solve_end_time = time.time()
-            print "Post solve processing completed in {:.2f} s.".format(
-                post_solve_end_time - post_solve_start_time)
+        if instance.options.verbose:
+            print "Post solve processing completed in {:.2f} s.".format(timer.step_time())
 
     # return stdout to original
     sys.stdout = stdout_copy
 
-    if model.options.interact or model.options.reload_prior_solution:
+    if instance.options.interact or instance.options.reload_prior_solution:
         m = instance  # present the solved model as 'm' for convenience
         banner = (
             "\n"
@@ -165,7 +173,7 @@ def reload_prior_solution_from_pickle(instance, outdir):
     with open(os.path.join(outdir, 'results.pickle'), 'rb') as fh:
          results = pickle.load(fh)
     instance.solutions.load_from(results)
-    return instance 
+    return instance
 
 
 patched_pyomo = False
@@ -192,24 +200,66 @@ def patch_pyomo():
                 pyomo.environ.Expression.construct = new_construct
             del m
 
+def reload_prior_solution_from_tabs(instance):
+    """
+    Assign values to all model variables from <variable>.tab files saved after
+    previous solution. (Not currently used.)
+    """
+    import csv
+    var_objects = instance.component_objects(Var)
+    for var in var_objects:
+        var_file = os.path.join(instance.options.outputs_dir, '{}.tab'.format(var.name))
+        if not os.path.isfile(var_file):
+            raise RuntimeError(
+                "Tab output file for variable {} cannot be found in outputs "
+                "directory. Exiting.".format(var.name)
+            )
+        try:
+            # check types of the first tuple of keys for this variable
+            key_types = [type(i) for i in make_iterable(next(var.iterkeys()))]
+        except StopIteration:
+            key_types = []  # no keys
+        with open(var_file,'r') as f:
+            reader = csv.reader(f, delimiter='\t')
+            next(reader) # skip headers
+            for row in reader:
+                index = tuple(t(k) for t, k in zip(key_types, row[:-1]))
+                try:
+                    v = var[index]
+                except KeyError:
+                    raise KeyError(
+                        "Unable to set value for {}[{}]; index is invalid."
+                        .format(var.name, keys)
+                    )
+                if row[-1] == '':
+                    # Variables that are not used in the model end up with no
+                    # value after the solve and get saved as blanks; we skip those.
+                    continue
+                val = float(row[-1])
+                if v.is_integer() or v.is_binary():
+                    val = int(val)
+                v.value = val
+        if instance.options.verbose:
+            print 'Loaded variable {} values into instance.'.format(var.name)
+
 
 def iterate(m, iterate_modules, depth=0):
     """Iterate through all modules listed in the iterate_list (usually iterate.txt),
     if any. If there is no iterate_list, then this will just solve the model once.
-    
+
     If it exists, the iterate_list contains one row per level of iteration,
     and each row contains a list of modules to test for iteration at that level
     (these can be separated with commas, spaces or tabs).
-    The model will run through the levels like nested loops, running the lowest level 
+    The model will run through the levels like nested loops, running the lowest level
     till it converges, then advancing the next higher level by one step, then running the
     lowest level to convergence/completion again, repeating until all levels are complete.
     During each iteration, the pre_iterate() and post_iterate() functions of each specified
-    module (if they exist) will be called before and after solving. When a module is 
-    converged or completed, its post_iterate() function should return True. 
+    module (if they exist) will be called before and after solving. When a module is
+    converged or completed, its post_iterate() function should return True.
     All modules specified in the iterate_list should also be loaded via the module_list
     or include_module(s) arguments.
     """
-    
+
     # create or truncate the iteration tree
     if depth == 0:
         m.iteration_node = tuple()
@@ -222,11 +272,11 @@ def iterate(m, iterate_modules, depth=0):
     else:
         # iterate until converged at the current level
 
-        # note: the modules in iterate_modules were also specified in the model's 
+        # note: the modules in iterate_modules were also specified in the model's
         # module list, and have already been loaded, so they are accessible via sys.modules
         # This prepends 'switch_model.' if needed, to be consistent with modules.txt.
         current_modules = [
-            sys.modules[module_name if module_name in sys.modules else 'switch_model.' + module_name] 
+            sys.modules[module_name if module_name in sys.modules else 'switch_model.' + module_name]
             for module_name in iterate_modules[depth]]
 
         j = 0
@@ -246,7 +296,7 @@ def iterate(m, iterate_modules, depth=0):
 
             # converge the deeper-level modules, if any (inner loop)
             iterate(m, iterate_modules, depth=depth+1)
-            
+
             # post-iterate modules at this level
             m.iteration_number = j      # may have been changed during iterate()
             m.iteration_node = m.iteration_node[:depth] + (j,)
@@ -261,8 +311,8 @@ def iterate(m, iterate_modules, depth=0):
     return
 
 def iterate_module_func(m, module, func, converged):
-    """Call function func() in specified module (if available) and use the result to 
-    adjust model convergence status. If func doesn't exist or returns None, convergence 
+    """Call function func() in specified module (if available) and use the result to
+    adjust model convergence status. If func doesn't exist or returns None, convergence
     status will not be changed."""
     module_converged = None
     iter_func = getattr(module, func, None)
@@ -273,7 +323,7 @@ def iterate_module_func(m, module, func, converged):
         return converged
     else:
         return converged and module_converged
-    
+
 
 def define_arguments(argparser):
     # callback function to define model configuration arguments while the model is built
@@ -309,23 +359,23 @@ def define_arguments(argparser):
 
     # Define solver-related arguments
     # These are a subset of the arguments offered by "pyomo solve --solver=cplex --help"
-    argparser.add_argument("--solver", default="glpk", 
+    argparser.add_argument("--solver", default="glpk",
         help='Name of Pyomo solver to use for the model (default is "glpk")')
     argparser.add_argument("--solver-manager", default="serial",
         help='Name of Pyomo solver manager to use for the model ("neos" to use remote NEOS server)')
     argparser.add_argument("--solver-io", default=None, help="Method for Pyomo to use to communicate with solver")
     # note: pyomo has a --solver-options option but it is not clear
     # whether that does the same thing as --solver-options-string so we don't reuse the same name.
-    argparser.add_argument("--solver-options-string", default=None, 
+    argparser.add_argument("--solver-options-string", default=None,
         help='A quoted string of options to pass to the model solver. Each option must be of the form option=value. '
-            '(e.g., --solver-options-string "mipgap=0.001 primalopt advance=2 threads=1")')
+            '(e.g., --solver-options-string "mipgap=0.001 primalopt=\'\' advance=2 threads=1")')
     argparser.add_argument("--keepfiles", action='store_true', default=None,
         help="Keep temporary files produced by the solver (may be useful with --symbolic-solver-labels)")
     argparser.add_argument(
         "--stream-output", "--stream-solver", action='store_true', dest="tee", default=None,
-        help="Display information from the solver about its progress (usually combined with a suitable --solver-options string)")
+        help="Display information from the solver about its progress (usually combined with a suitable --solver-options-string)")
     argparser.add_argument(
-        "--symbolic-solver-labels", action='store_true', default=None, 
+        "--symbolic-solver-labels", action='store_true', default=None,
         help='Use symbol names derived from the model when interfacing with the solver. '
             'See "pyomo solve --solver=x --help" for more details.')
     argparser.add_argument("--tempdir", default=None,
@@ -347,6 +397,9 @@ def define_arguments(argparser):
     argparser.add_argument(
         '--verbose', '-v', default=False, action='store_true',
         help='Show information about model preparation and solution')
+    # argparser.add_argument(
+    #     '--quiet', '-q', dest='verbose', action='store_false',
+    #     help="Don't show information about model preparation and solution (cancels --verbose setting)")
     argparser.add_argument(
         '--interact', default=False, action='store_true',
         help='Enter interactive shell after solving the instance to enable inspection of the solved model.')
@@ -357,7 +410,7 @@ def define_arguments(argparser):
 
 def add_module_args(parser):
     parser.add_argument(
-        "--module-list", default=None, 
+        "--module-list", default=None,
         help='Text file with a list of modules to include in the model (default is "modules.txt")'
     )
     parser.add_argument(
@@ -368,9 +421,9 @@ def add_module_args(parser):
         "--exclude-modules", "--exclude-module", dest="exclude_modules", nargs='+', default=[],
         help="Module(s) to remove from the model after processing --module-list and --include-modules"
     )
-    # note: we define --inputs-dir here because it may be used to specify the location of 
+    # note: we define --inputs-dir here because it may be used to specify the location of
     # the module list, which is needed before it is loaded.
-    parser.add_argument("--inputs-dir", default="inputs", 
+    parser.add_argument("--inputs-dir", default="inputs",
         help='Directory containing input files (default is "inputs")')
 
 
@@ -434,7 +487,7 @@ def get_module_list(args):
     # remove modules requested by the user
     for module_name in module_options.exclude_modules:
         modules.remove(module_name)
-    
+
     # add the current module, since it has callbacks, e.g. define_arguments for iteration and suffixes
     modules.append("switch_model.solve")
 
@@ -499,7 +552,7 @@ def solve(model):
         model.solver = SolverFactory(model.options.solver, solver_io=model.options.solver_io)
 
         # patch for Pyomo < 4.2
-        # note: Pyomo added an options_string argument to solver.solve() in Pyomo 4.2 rev 10587. 
+        # note: Pyomo added an options_string argument to solver.solve() in Pyomo 4.2 rev 10587.
         # (See https://software.sandia.gov/trac/pyomo/browser/pyomo/trunk/pyomo/opt/base/solvers.py?rev=10587 )
         # This is misreported in the documentation as options=, but options= actually accepts a dictionary.
         if model.options.solver_options_string and not hasattr(model.solver, "_options_string_to_dict"):
@@ -533,16 +586,16 @@ def solve(model):
     # while i is not None:
     #     c, i = m._decl_order[i]
     #     solver_args[suffixes].append(c.name)
-    
+
     # patch for Pyomo < 4.2
     if not hasattr(model.solver, "_options_string_to_dict"):
         solver_args.pop("options_string", "")
 
     # solve the model
     if model.options.verbose:
-        solve_start_time = time.time()
+        timer = StepTimer()
         print "\nSolving model..."
-    
+
     if model.options.tempdir is not None:
         # from https://software.sandia.gov/downloads/pub/pyomo/PyomoOnlineDocs.html#_changing_the_temporary_directory
         from pyutilib.services import TempfileManager
@@ -550,31 +603,25 @@ def solve(model):
 
     results = model.solver_manager.solve(model, opt=model.solver, **solver_args)
 
-    # Load the solution data into the results object (it only has execution
-    # metadata by default in recent versions of Pyomo). This will enable us to
-    # save and restore model solutions; the results object can be pickled to a
-    # file on disk, but the instance cannot. 
-    # https://stackoverflow.com/questions/39941520/pyomo-ipopt-does-not-return-solution
-    # 
-    model.solutions.store_to(results)
-    model.last_results = results
-
     if model.options.verbose:
-        solve_end_time = time.time()
-        print "Solved model. Total time spent in solver: {:2f} s.".format(solve_end_time - solve_start_time)
-
+        print "Solved model. Total time spent in solver: {:2f} s.".format(timer.step_time())
 
     # Only return if the model solved correctly, otherwise throw a useful error
-    if(results.solver.status == SolverStatus.ok and
+    if(results.solver.status in {SolverStatus.ok, SolverStatus.warning} and
        results.solver.termination_condition == TerminationCondition.optimal):
-        return results
+       # Cache a copy of the results object, to allow saving and restoring model
+       # solutions later.
+       model.last_results = results
+       # Successful solution, return results
+       return results
     elif (results.solver.termination_condition == TerminationCondition.infeasible):
         if hasattr(model, "iis"):
-            print "Model was infeasible; irreducible infeasible set (IIS) returned by solver:"
-            print "\n".join(c.name for c in model.iis)
+            print "Model was infeasible; irreducibly inconsistent set (IIS) returned by solver:"
+            print "\n".join(sorted(c.name for c in model.iis))
         else:
-            print "Model was infeasible; if the solver can generate an irreducible infeasible set,"
-            print "more information may be available by calling this script with --suffixes iis ..."
+            print "Model was infeasible; if the solver can generate an irreducibly inconsistent set (IIS),"
+            print "more information may be available by setting the appropriate flags in the "
+            print 'solver_options_string and calling this script with "--suffixes iis".'
         raise RuntimeError("Infeasible model")
     else:
         print "Solver terminated abnormally."
@@ -584,6 +631,7 @@ def solve(model):
             print "Hint: glpk has been known to classify infeasible problems as 'other'."
         raise RuntimeError("Solver failed to find an optimal solution.")
 
+    # no default return, because we'll never reach here
 
 # taken from https://software.sandia.gov/trac/pyomo/browser/pyomo/trunk/pyomo/opt/base/solvers.py?rev=10784
 # This can be removed when all users are on Pyomo 4.2

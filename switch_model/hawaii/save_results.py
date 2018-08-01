@@ -22,6 +22,7 @@ be called automatically to store results.
 import os
 import switch_model.hawaii.util as util
 import switch_model.financials as financials
+from collections import defaultdict
 from pyomo.environ import *
 
 def define_components(m):
@@ -46,6 +47,16 @@ def summary_values(m):
     demand_components = [c for c in ('zone_demand_mw', 'ShiftDemand', 'ChargeEVs') if hasattr(m, c)]
     values = []
     
+    # Cache SystemCostPerPeriod and SystemCost to speed up saving large models
+    # The time needed to directly access the expressions seems to rise quadratically
+    # with the number of timepoints, so it gets very slow for big models and we don't
+    # want to repeat it if possible (e.g., without caching, this function takes up
+    # to an hour for an 8760 Oahu model)
+    SystemCostPerPeriod = dict()
+    for p in m.PERIODS:
+        SystemCostPerPeriod[p] = value(m.SystemCostPerPeriod[p])
+    SystemCost = sum(SystemCostPerPeriod[p] for p in m.PERIODS)
+    
     # scenario name and looping variables
     values.extend([
         str(m.options.scenario_name),
@@ -53,23 +64,23 @@ def summary_values(m):
     ])
     
     # total cost (all periods)
-    values.append(m.SystemCost)
+    values.append(SystemCost) # m.SystemCost)
     
     # NPV of total cost / NPV of kWh generated (equivalent to spreading 
     # all costs uniformly over all generation)
     values.append(
-        m.SystemCost
+        SystemCost # m.SystemCost
         / sum(
             m.bring_timepoint_costs_to_base_year[t] * 1000.0 *
             sum(getattr(m, c)[z, t] for c in demand_components for z in m.LOAD_ZONES)
-            for t in m.TIMEPOINTS 
+            for t in m.TIMEPOINTS
         )
     )
             
     #  total cost / kWh generated in each period 
     # (both discounted to today, so the discounting cancels out)
     values.extend([
-        m.SystemCostPerPeriod[p]
+        SystemCostPerPeriod[p] # m.SystemCostPerPeriod[p]
         / sum(
             m.bring_timepoint_costs_to_base_year[t] * 1000.0 *
             sum(getattr(m, c)[z, t] for c in demand_components for z in m.LOAD_ZONES)
@@ -114,8 +125,13 @@ def DispatchGenByFuel(m, g, tp, fuel):
     project.no_commit, not project.unitcommit.fuel_use. In the unit commitment version
     it can only be defined as a quadratically constrained variable, which we don't
     want to force on all users."""
-    dispatch = value(m.DispatchGen[g, tp]) if (g, tp) in m.DispatchGen else 0.0
-    total_fuel = value(sum(m.GenFuelUseRate[g, tp, f] for f in m.FUELS_FOR_GEN[g]))
+    if (g, tp) in m.DispatchGen:
+        dispatch = value(m.DispatchGen[g, tp])
+        total_fuel = value(sum(m.GenFuelUseRate[g, tp, f] for f in m.FUELS_FOR_GEN[g]))
+    else:
+        dispatch = 0.0
+        total_fuel = 0.0
+
     if dispatch == 0.0:
         result = 0.0
     elif total_fuel == 0.0:
@@ -138,6 +154,25 @@ def write_results(m, outputs_dir):
         values=lambda m: summary_values(m)
     )
     
+    if hasattr(m, 'Spinning_Reserve_Up_Requirements'):
+        # pre-calculate amount of reserves provided and needed for each balancing area and timepoint
+        spinning_reserve_provisions = defaultdict(float)
+        spinning_reserve_requirements = defaultdict(float)
+        if hasattr(m, 'GEN_SPINNING_RESERVE_TYPES'): # advanced module
+            for component in m.Spinning_Reserve_Up_Provisions:
+                for (rt, ba, tp), val in getattr(m, component).items():
+                    spinning_reserve_provisions[ba, tp] += val
+            for component in m.Spinning_Reserve_Up_Requirements:
+                for (rt, ba, tp), val in getattr(m, component).items():
+                    spinning_reserve_requirements[ba, tp] += val
+        else: # basic module
+            for component in m.Spinning_Reserve_Up_Provisions:
+                for (ba, tp), val in getattr(m, component).items():
+                    spinning_reserve_provisions[ba, tp] += val
+            for component in m.Spinning_Reserve_Up_Requirements:
+                for (ba, tp), val in getattr(m, component).items():
+                    spinning_reserve_requirements[ba, tp] += val
+            
     # # write out results
     # util.write_table(m, m.TIMEPOINTS,
     #     output_file=os.path.join(outputs_dir, "dispatch{t}.tsv".format(t=tag)),
@@ -158,34 +193,115 @@ def write_results(m, outputs_dir):
             +tuple("curtail_"+s for s in m.NON_FUEL_ENERGY_SOURCES)
             +tuple(m.Zone_Power_Injections)
             +tuple(m.Zone_Power_Withdrawals)
-            +("marginal_cost","peak_day"),
+            +("spinning_reserve_provision", "spinning_reserve_requirement")
+            +("marginal_cost", "peak_day"),
         values=lambda m, z, t: 
             (z, m.tp_period[t], m.tp_timestamp[t]) 
             +tuple(
                 sum(
                     DispatchGenByFuel(m, p, t, f) 
-                        for p in m.GENERATION_PROJECTS_BY_FUEL[f] if (p, t) in m.GEN_TPS
+                        for p in m.GENERATION_PROJECTS_BY_FUEL[f] 
+                        if (p, t) in m.GEN_TPS and m.gen_load_zone[p] == z
                 )
                 for f in m.FUELS
             )
             +tuple(
-                sum(util.get(m.DispatchGen, (p, t), 0.0) for p in m.GENERATION_PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[s])
+                sum(
+                    util.get(m.DispatchGen, (p, t), 0.0) 
+                    for p in m.GENERATION_PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[s]
+                    if m.gen_load_zone[p] == z
+                )
                 for s in m.NON_FUEL_ENERGY_SOURCES
             )
             +tuple(
                 sum(
                     util.get(m.DispatchUpperLimit, (p, t), 0.0) - util.get(m.DispatchGen, (p, t), 0.0) 
                     for p in m.GENERATION_PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[s]
+                    if m.gen_load_zone[p] == z
                 )
                 for s in m.NON_FUEL_ENERGY_SOURCES
             )
             +tuple(getattr(m, component)[z, t] for component in m.Zone_Power_Injections)
             +tuple(getattr(m, component)[z, t] for component in m.Zone_Power_Withdrawals)
+            +(  # save spinning reserve requirements and provisions; note: this assumes one zone per balancing area
+                (spinning_reserve_provisions[m.zone_balancing_area[z], t], spinning_reserve_requirements[m.zone_balancing_area[z], t]) 
+                if hasattr(m, 'Spinning_Reserve_Up_Requirements') 
+                else (0.0, 0.0)
+            )
             +(util.get(m.dual, m.Zone_Energy_Balance[z, t], 0.0)/m.bring_timepoint_costs_to_base_year[t],
                 # note: this uses 0.0 if no dual available, i.e., with glpk solver
             'peak' if m.ts_scale_to_year[m.tp_ts[t]] < avg_ts_scale else 'typical')
     )
-    
+        
+    if hasattr(m, 'Spinning_Reserve_Up_Requirements') and hasattr(m, 'GEN_SPINNING_RESERVE_TYPES'): # advanced module
+        # write the reserve values
+        util.write_table(
+            m, m.BALANCING_AREAS, m.TIMEPOINTS,
+            output_file=os.path.join(outputs_dir, "up_reserve_sources{t}.tsv".format(t=tag)), 
+            headings=
+                ("balancing_area", "period", "timepoint_label")
+                +tuple(m.FUELS)
+                +tuple(m.NON_FUEL_ENERGY_SOURCES)
+                +tuple(m.Spinning_Reserve_Up_Provisions)
+                +tuple(m.Spinning_Reserve_Up_Requirements)
+                +tuple("marginal_cost_"+rt for rt in m.SPINNING_RESERVE_TYPES_FROM_GENS)
+                +("peak_day",),
+            values=lambda m, ba, t: 
+                (ba, m.tp_period[t], m.tp_timestamp[t]) 
+                +tuple(
+                    (
+                        sum(
+                            # total reserve production
+                            sum(
+                                m.CommitGenSpinningReservesUp[rt, p, t]
+                                for rt in m.SPINNING_RESERVE_TYPES_FOR_GEN[p]
+                            ) 
+                            # prorated by energy source used
+                            * DispatchGenByFuel(m, p, t, f) / m.DispatchGen[p, t]
+                            for p in m.GENERATION_PROJECTS_BY_FUEL[f] 
+                            if (p, t) in m.GEN_TPS and m.zone_balancing_area[m.gen_load_zone[p]] == ba
+                        )
+                    )
+                    for f in m.FUELS
+                )
+                +tuple(
+                    sum(
+                        m.CommitGenSpinningReservesUp[rt, p, t]
+                        for p in m.GENERATION_PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[s]
+                        if (p, t) in m.SPINNING_RESERVE_CAPABLE_GEN_TPS and m.zone_balancing_area[m.gen_load_zone[p]] == ba
+                        for rt in m.SPINNING_RESERVE_TYPES_FOR_GEN[p]
+                    )
+                    for s in m.NON_FUEL_ENERGY_SOURCES
+                )
+                +tuple(
+                    sum(util.get(getattr(m, component), (rt, ba, t), 0.0) for rt in m.SPINNING_RESERVE_TYPES_FROM_GENS)
+                    for component in m.Spinning_Reserve_Up_Provisions
+                )
+                +tuple(
+                    sum(util.get(getattr(m, component), (rt, ba, t), 0.0) for rt in m.SPINNING_RESERVE_TYPES_FROM_GENS)
+                    for component in m.Spinning_Reserve_Up_Requirements
+                )
+                +tuple(
+                    util.get(
+                        m.dual, 
+                        util.get(m.Satisfy_Spinning_Reserve_Up_Requirement, (rt, ba, t), None), 
+                        0.0  # note: this uses 0.0 if no dual available, i.e., with glpk solver
+                    ) / m.bring_timepoint_costs_to_base_year[t]
+                    for rt in m.SPINNING_RESERVE_TYPES_FROM_GENS
+                ) 
+                +(('peak' if m.ts_scale_to_year[m.tp_ts[t]] < avg_ts_scale else 'typical'),)
+        )
+
+    sorted_projects = tuple(sorted(g for g in m.GENERATION_PROJECTS))
+    util.write_table(
+        m, m.TIMEPOINTS,
+        output_file=os.path.join(outputs_dir, "gen_dispatch{t}.tsv".format(t=tag)), 
+        headings=("period", "timepoint_label")+sorted_projects,
+        values=lambda m, t: 
+            (m.tp_period[t], m.tp_timestamp[t]) 
+            + tuple(util.get(m.DispatchGen, (p, t), 0.0) for p in sorted_projects)
+    )
+
     # installed capacity information
     def gen_energy_source(g):
         return (
@@ -196,15 +312,25 @@ def write_results(m, outputs_dir):
     built_gens = tuple(sorted(set(
         g for pe in m.PERIODS for g in m.GENERATION_PROJECTS if value(m.GenCapacity[g, pe]) > 0.001
     )))
-    operate_gen_in_period = tuple(set(
-        (g, m.tp_period[tp]) 
-            for g, tp in m.GEN_TPS if value(m.DispatchGen[g, tp]) > 0.001
-    ))
-    built_tech = tuple(set(m.gen_tech[g] for g in built_gens))
-    built_energy_source = tuple(set(gen_energy_source(g) for g in built_gens))
+    active_periods_for_gen = defaultdict(set)
+    used_cap = getattr(m, 'CommitGen', m.DispatchGen) # use CommitGen if available, otherwise DispatchGen
+    for (g, tp) in m.GEN_TPS:
+        if value(used_cap[g, tp]) > 0.001:
+            active_periods_for_gen[g].add(m.tp_period[tp])
+    # add the periods between the first and last active period if capacity was available then
+    operate_gen_in_period = set()
+    for g, active_periods in active_periods_for_gen.items():
+        start = min(active_periods)
+        end = max(active_periods)
+        for p in m.PERIODS:
+            if start <= p <= end and value(m.GenCapacity[g, p]) > 0:
+                operate_gen_in_period.add((g, p))
+    
+    built_tech = tuple(sorted(set(m.gen_tech[g] for g in built_gens)))
+    built_energy_source = tuple(sorted(set(gen_energy_source(g) for g in built_gens)))
  
     battery_capacity_mw = lambda m, z, pe: (
-        (m.Battery_Capacity[z, pe] * m.battery_max_discharge / m.battery_min_discharge_time)
+        (m.Battery_Capacity[z, pe] / m.battery_min_discharge_time)
             if hasattr(m, "Battery_Capacity") else 0.0
     )
     
@@ -241,129 +367,142 @@ def write_results(m, outputs_dir):
         )
     )
     
-    def cost_breakdown_details(m, z, pe):
-        values = [z, pe]
-        # capacity built, conventional plants
-    
-        values += [
-            sum(
-                m.BuildGen[g, pe] 
-                    for g in built_gens
-                        if m.gen_tech[g] == t and m.gen_load_zone[g] == z and (g, pe) in m.BuildGen
-            )
-            for t in built_tech
-        ]
-        # capacity built, batteries, MW and MWh
-        if hasattr(m, "BuildBattery"):
-            values.extend([
-                m.BuildBattery[z, pe]/m.battery_min_discharge_time, 
-                m.BuildBattery[z, pe]
-            ])
-        else:
-            values.extend([0.0, 0.0])
-        # capacity built, hydro
-        values.append(
-            sum(
-                m.BuildPumpedHydroMW[g, pe] 
-                    for g in m.PH_GENS if m.ph_load_zone[g]==z
-            ) if hasattr(m, "BuildPumpedHydroMW") else 0.0,
-        )
-        # capacity built, hydrogen
-        if hasattr(m, "BuildElectrolyzerMW"):
-            values.extend([
-                m.BuildElectrolyzerMW[z, pe],
-                m.BuildLiquifierKgPerHour[z, pe],
-                m.BuildLiquidHydrogenTankKg[z, pe],
-                m.BuildFuelCellMW[z, pe]
-            ])
-        else:
-            values.extend([0.0, 0.0, 0.0, 0.0])
-        
-        # number of EVs and conventional vehicles
-        if hasattr(m, 'ev_share'):
-            values.append(m.n_all_vehicles[z, pe] * m.ev_share[z, pe])
-            values.append(m.n_all_vehicles[z, pe] * (1.0 - m.ev_share[z, pe]))
-            # import pdb; pdb.set_trace()
-        
-        # capital investments
-        # regular projects
-        values += [
-            sum(
-                m.BuildGen[g, pe] * (m.gen_overnight_cost[g, pe] + m.gen_connect_cost_per_mw[g])
-                    for g in built_gens
-                        if m.gen_tech[g] == t and m.gen_load_zone[g] == z \
-                            and (g, pe) in m.GEN_BLD_YRS
-            )
-            for t in built_tech
-        ]
-        # batteries
-        if hasattr(m, 'battery_capital_cost_per_mwh_capacity'): 
-            # models with single capital cost (defunct)
-            values.append(m.BuildBattery[z, pe] * m.battery_capital_cost_per_mwh_capacity)
-        elif hasattr(m, 'battery_capital_cost_per_mwh_capacity_by_year'): 
-            values.append(m.BuildBattery[z, pe] * m.battery_capital_cost_per_mwh_capacity_by_year[pe])
-        else:
-            values.append(0.0)
-        # hydro
-        values.append(
-            sum(
-                m.BuildPumpedHydroMW[g, pe] * m.ph_capital_cost_per_mw[g]
-                    for g in m.PH_GENS if m.ph_load_zone[g]==z
-            ) if hasattr(m, "BuildPumpedHydroMW") else 0.0,
-        )
-        # hydrogen
-        if hasattr(m, "BuildElectrolyzerMW"):
-            values.extend([
-                m.BuildElectrolyzerMW[z, pe] * m.hydrogen_electrolyzer_capital_cost_per_mw,
-                m.BuildLiquifierKgPerHour[z, pe] * m.hydrogen_liquifier_capital_cost_per_kg_per_hour,
-                m.BuildLiquidHydrogenTankKg[z, pe] * m.liquid_hydrogen_tank_capital_cost_per_kg,
-                m.BuildFuelCellMW[z, pe] * m.hydrogen_fuel_cell_capital_cost_per_mw
-            ])
-        else:
-            values.extend([0.0, 0.0, 0.0, 0.0])
-
-        # _annual_ fuel expenditures
-        if hasattr(m, "REGIONAL_FUEL_MARKETS"):
-            values.extend([
-                sum(m.ConsumeFuelTier[rfm_st] * m.rfm_supply_tier_cost[rfm_st] for rfm_st in m.SUPPLY_TIERS_FOR_RFM_PERIOD[rfm, pe])
-                    for rfm in m.REGIONAL_FUEL_MARKETS
-            ])
-        # costs to expand fuel markets (this could later be disaggregated by market and tier)
-        if hasattr(m, "RFM_Fixed_Costs_Annual"):
-            values.append(m.RFM_Fixed_Costs_Annual[pe])
-        # TODO: add similar code for fuel_costs module instead of fuel_markets module
-
-        # total cost per period
-        values.append(annualize_present_value_period_cost(m, pe, m.SystemCostPerPeriod[pe]))
-        
-        #  total cost per year for transport
-        if hasattr(m, "ev_extra_annual_cost"):
-            values.append(m.ev_extra_annual_cost[pe])
-            values.append(m.ice_annual_fuel_cost[pe])
-                
-        return values
-        
     util.write_table(m, m.LOAD_ZONES, m.PERIODS, 
-        output_file=os.path.join(outputs_dir, "cost_breakdown{t}.tsv".format(t=tag)),
-        headings=("load_zone", "period") + tuple(t+"_mw_added" for t in built_tech)
-            + ("batteries_mw_added", "batteries_mwh_added", "hydro_mw_added") 
-            + ( "h2_electrolyzer_mw_added", "h2_liquifier_kg_per_hour_added", 
-                "liquid_h2_tank_kg_added", "fuel_cell_mw_added")
-            + (('ev_count', 'ice_count') if hasattr(m, 'ev_share') else ())
-            + tuple(t+"_overnight_cost" for t in built_tech) 
-            + ("batteries_overnight_cost", "hydro_overnight_cost")
-            + ( "h2_electrolyzer_overnight_cost", "h2_liquifier_overnight_cost",
-                "liquid_h2_tank_overnight_cost", "fuel_cell_overnight_cost")
-            + (tuple(rfm+"_annual_cost" for rfm in m.REGIONAL_FUEL_MARKETS) 
-                    if hasattr(m, "REGIONAL_FUEL_MARKETS") else ())
-            + (("fuel_market_expansion_annual_cost",) 
-                    if hasattr(m, "RFM_Fixed_Costs_Annual") else ())
-            + ('total_electricity_cost',)
-            + (('ev_extra_capital_recovery',) 
-                    if hasattr(m, 'ev_extra_annual_cost') else ())
-            + (('ice_annual_fuel_cost',) if hasattr(m, 'ice_annual_fuel_cost') else ()),
-        values=cost_breakdown_details
+        output_file=os.path.join(outputs_dir, "production_by_technology{t}.tsv".format(t=tag)),
+        headings=("load_zone", "period") + built_tech,
+        values=lambda m, z, pe: (z, pe,) + tuple(
+            sum(
+                m.DispatchGen[g, tp] * m.tp_weight_in_year[tp] * 0.001 # MWh -> GWh
+                for g in built_gens if m.gen_tech[g] == t and m.gen_load_zone[g] == z
+                for tp in m.TPS_FOR_GEN_IN_PERIOD[g, pe]
+            )
+            for t in built_tech
+        ) # TODO: add hydro and hydrogen
     )
+
+    # def cost_breakdown_details(m, z, pe):
+    #     values = [z, pe]
+    #     # capacity built, conventional plants
+    #
+    #     values += [
+    #         sum(
+    #             m.BuildGen[g, pe]
+    #                 for g in built_gens
+    #                     if m.gen_tech[g] == t and m.gen_load_zone[g] == z and (g, pe) in m.BuildGen
+    #         )
+    #         for t in built_tech
+    #     ]
+    #     # capacity built, batteries, MW and MWh
+    #     if hasattr(m, "BuildBattery"):
+    #         values.extend([
+    #             m.BuildBattery[z, pe]/m.battery_min_discharge_time,
+    #             m.BuildBattery[z, pe]
+    #         ])
+    #     else:
+    #         values.extend([0.0, 0.0])
+    #     # capacity built, hydro
+    #     values.append(
+    #         sum(
+    #             m.BuildPumpedHydroMW[g, pe]
+    #                 for g in m.PH_GENS if m.ph_load_zone[g]==z
+    #         ) if hasattr(m, "BuildPumpedHydroMW") else 0.0,
+    #     )
+    #     # capacity built, hydrogen
+    #     if hasattr(m, "BuildElectrolyzerMW"):
+    #         values.extend([
+    #             m.BuildElectrolyzerMW[z, pe],
+    #             m.BuildLiquifierKgPerHour[z, pe],
+    #             m.BuildLiquidHydrogenTankKg[z, pe],
+    #             m.BuildFuelCellMW[z, pe]
+    #         ])
+    #     else:
+    #         values.extend([0.0, 0.0, 0.0, 0.0])
+    #
+    #     # number of EVs and conventional vehicles
+    #     if hasattr(m, 'ev_share'):
+    #         values.append(m.n_all_vehicles[z, pe] * m.ev_share[z, pe])
+    #         values.append(m.n_all_vehicles[z, pe] * (1.0 - m.ev_share[z, pe]))
+    #         # import pdb; pdb.set_trace()
+    #
+    #     # capital investments
+    #     # regular projects
+    #     values += [
+    #         sum(
+    #             m.BuildGen[g, pe] * (m.gen_overnight_cost[g, pe] + m.gen_connect_cost_per_mw[g])
+    #                 for g in built_gens
+    #                     if m.gen_tech[g] == t and m.gen_load_zone[g] == z \
+    #                         and (g, pe) in m.GEN_BLD_YRS
+    #         )
+    #         for t in built_tech
+    #     ]
+    #     # batteries
+    #     if hasattr(m, 'battery_capital_cost_per_mwh_capacity'):
+    #         # models with single capital cost (defunct)
+    #         values.append(m.BuildBattery[z, pe] * m.battery_capital_cost_per_mwh_capacity)
+    #     elif hasattr(m, 'battery_capital_cost_per_mwh_capacity_by_year'):
+    #         values.append(m.BuildBattery[z, pe] * m.battery_capital_cost_per_mwh_capacity_by_year[pe])
+    #     else:
+    #         values.append(0.0)
+    #     # hydro
+    #     values.append(
+    #         sum(
+    #             m.BuildPumpedHydroMW[g, pe] * m.ph_capital_cost_per_mw[g]
+    #                 for g in m.PH_GENS if m.ph_load_zone[g]==z
+    #         ) if hasattr(m, "BuildPumpedHydroMW") else 0.0,
+    #     )
+    #     # hydrogen
+    #     if hasattr(m, "BuildElectrolyzerMW"):
+    #         values.extend([
+    #             m.BuildElectrolyzerMW[z, pe] * m.hydrogen_electrolyzer_capital_cost_per_mw,
+    #             m.BuildLiquifierKgPerHour[z, pe] * m.hydrogen_liquifier_capital_cost_per_kg_per_hour,
+    #             m.BuildLiquidHydrogenTankKg[z, pe] * m.liquid_hydrogen_tank_capital_cost_per_kg,
+    #             m.BuildFuelCellMW[z, pe] * m.hydrogen_fuel_cell_capital_cost_per_mw
+    #         ])
+    #     else:
+    #         values.extend([0.0, 0.0, 0.0, 0.0])
+    #
+    #     # _annual_ fuel expenditures
+    #     if hasattr(m, "REGIONAL_FUEL_MARKETS"):
+    #         values.extend([
+    #             sum(m.ConsumeFuelTier[rfm_st] * m.rfm_supply_tier_cost[rfm_st] for rfm_st in m.SUPPLY_TIERS_FOR_RFM_PERIOD[rfm, pe])
+    #                 for rfm in m.REGIONAL_FUEL_MARKETS
+    #         ])
+    #     # costs to expand fuel markets (this could later be disaggregated by market and tier)
+    #     if hasattr(m, "RFM_Fixed_Costs_Annual"):
+    #         values.append(m.RFM_Fixed_Costs_Annual[pe])
+    #     # TODO: add similar code for fuel_costs module instead of fuel_markets module
+    #
+    #     # total cost per period
+    #     values.append(annualize_present_value_period_cost(m, pe, m.SystemCostPerPeriod[pe]))
+    #
+    #     #  total cost per year for transport
+    #     if hasattr(m, "ev_extra_annual_cost"):
+    #         values.append(m.ev_extra_annual_cost[pe])
+    #         values.append(m.ice_annual_fuel_cost[pe])
+    #
+    #     return values
+    #
+    # util.write_table(m, m.LOAD_ZONES, m.PERIODS,
+    #     output_file=os.path.join(outputs_dir, "cost_breakdown{t}.tsv".format(t=tag)),
+    #     headings=("load_zone", "period") + tuple(t+"_mw_added" for t in built_tech)
+    #         + ("batteries_mw_added", "batteries_mwh_added", "hydro_mw_added")
+    #         + ( "h2_electrolyzer_mw_added", "h2_liquifier_kg_per_hour_added",
+    #             "liquid_h2_tank_kg_added", "fuel_cell_mw_added")
+    #         + (('ev_count', 'ice_count') if hasattr(m, 'ev_share') else ())
+    #         + tuple(t+"_overnight_cost" for t in built_tech)
+    #         + ("batteries_overnight_cost", "hydro_overnight_cost")
+    #         + ( "h2_electrolyzer_overnight_cost", "h2_liquifier_overnight_cost",
+    #             "liquid_h2_tank_overnight_cost", "fuel_cell_overnight_cost")
+    #         + (tuple(rfm+"_annual_cost" for rfm in m.REGIONAL_FUEL_MARKETS)
+    #                 if hasattr(m, "REGIONAL_FUEL_MARKETS") else ())
+    #         + (("fuel_market_expansion_annual_cost",)
+    #                 if hasattr(m, "RFM_Fixed_Costs_Annual") else ())
+    #         + ('total_electricity_cost',)
+    #         + (('ev_extra_capital_recovery',)
+    #                 if hasattr(m, 'ev_extra_annual_cost') else ())
+    #         + (('ice_annual_fuel_cost',) if hasattr(m, 'ice_annual_fuel_cost') else ()),
+    #     values=cost_breakdown_details
+    # )
     
     # util.write_table(m, m.PERIODS,
     #     output_file=os.path.join(outputs_dir, "capacity{t}.tsv".format(t=t)),

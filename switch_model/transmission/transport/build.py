@@ -134,7 +134,7 @@ def define_components(mod):
     describes which transmission builds will be operational in a given
     period. Currently, transmission lines are kept online indefinitely,
     with parts being replaced as they wear out.
-    
+
     TX_BUILDS_IN_PERIOD[p] will return a subset of (tx, bld_yr)
     in BLD_YRS_FOR_TX.
 
@@ -175,13 +175,16 @@ def define_components(mod):
     mod.TRANSMISSION_LINES = Set()
     mod.trans_lz1 = Param(mod.TRANSMISSION_LINES, within=mod.LOAD_ZONES)
     mod.trans_lz2 = Param(mod.TRANSMISSION_LINES, within=mod.LOAD_ZONES)
-    mod.min_data_check('TRANSMISSION_LINES', 'trans_lz1', 'trans_lz2')
+    # we don't do a min_data_check for TRANSMISSION_LINES, because it may be empty for model
+    # configurations that are sometimes run with interzonal transmission and sometimes not
+    # (e.g., island interconnect scenarios). However, presence of this column will still be
+    # checked by load_data_aug.
+    mod.min_data_check('trans_lz1', 'trans_lz2')
     mod.trans_dbid = Param(mod.TRANSMISSION_LINES, default=lambda m, tx: tx)
-    mod.trans_length_km = Param(mod.TRANSMISSION_LINES, within=PositiveReals)
+    mod.trans_length_km = Param(mod.TRANSMISSION_LINES, within=NonNegativeReals)
     mod.trans_efficiency = Param(
         mod.TRANSMISSION_LINES,
-        within=PositiveReals,
-        validate=lambda m, val, tx: val <= 1)
+        within=PercentFraction)
     mod.BLD_YRS_FOR_EXISTING_TX = Set(
         dimen=2,
         initialize=lambda m: set(
@@ -189,9 +192,10 @@ def define_components(mod):
     mod.existing_trans_cap = Param(
         mod.TRANSMISSION_LINES,
         within=NonNegativeReals)
+    # Note: we don't do a min_data_check for BLD_YRS_FOR_EXISTING_TX, because it may be empty for
+    # models that start with no pre-existing transmission (e.g., island interconnect scenarios).
     mod.min_data_check(
-        'trans_length_km', 'trans_efficiency', 'BLD_YRS_FOR_EXISTING_TX',
-        'existing_trans_cap')
+        'trans_length_km', 'trans_efficiency', 'existing_trans_cap')
     mod.trans_new_build_allowed = Param(
         mod.TRANSMISSION_LINES, within=Boolean, default=True)
     mod.NEW_TRANS_BLD_YRS = Set(
@@ -226,9 +230,8 @@ def define_components(mod):
             if tx2 == tx and (bld_yr == 'Legacy' or bld_yr <= period)))
     mod.trans_derating_factor = Param(
         mod.TRANSMISSION_LINES,
-        within=NonNegativeReals,
-        default=1,
-        validate=lambda m, val, tx: val <= 1)
+        within=PercentFraction,
+        default=1)
     mod.TxCapacityNameplateAvailable = Expression(
         mod.TRANSMISSION_LINES, mod.PERIODS,
         rule=lambda m, tx, period: (
@@ -239,13 +242,13 @@ def define_components(mod):
         default=1,
         validate=lambda m, val, tx: val >= 0.5 and val <= 3)
     mod.trans_capital_cost_per_mw_km = Param(
-        within=PositiveReals,
+        within=NonNegativeReals,
         default=1000)
     mod.trans_lifetime_yrs = Param(
-        within=PositiveReals,
+        within=NonNegativeReals,
         default=20)
     mod.trans_fixed_om_fraction = Param(
-        within=PositiveReals,
+        within=NonNegativeReals,
         default=0.03)
     # Total annual fixed costs for building new transmission lines...
     # Multiply capital costs by capital recover factor to get annual
@@ -253,7 +256,7 @@ def define_components(mod):
     # overnight costs.
     mod.trans_cost_annual = Param(
         mod.TRANSMISSION_LINES,
-        within=PositiveReals,
+        within=NonNegativeReals,
         initialize=lambda m, tx: (
             m.trans_capital_cost_per_mw_km * m.trans_terrain_multiplier[tx] *
             m.trans_length_km[tx] * (crf(m.interest_rate, m.trans_lifetime_yrs) +
@@ -315,7 +318,7 @@ def load_inputs(mod, switch_data, inputs_dir):
         trans_terrain_multiplier, trans_new_build_allowed
 
     Note that the next file is formatted as .dat, not as .tab. The
-    distribution_loss_rate parameter should only be inputted if the 
+    distribution_loss_rate parameter should only be inputted if the
     local_td module is loaded in the simulation. If this parameter is
     specified a value in trans_params.dat and local_td is not included
     in the module list, then an error will be raised.
@@ -327,20 +330,28 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     """
 
+    # TODO: send issue / pull request to Pyomo to allow .tab files with
+    # no rows after header (fix bugs in pyomo.core.plugins.data.text)
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'transmission_lines.tab'),
-        select=('TRANSMISSION_LINE', 'trans_lz1', 'trans_lz2',
-                'trans_length_km', 'trans_efficiency', 'existing_trans_cap'),
+        select=(
+            'TRANSMISSION_LINE', 'trans_lz1', 'trans_lz2',
+            'trans_length_km', 'trans_efficiency', 'existing_trans_cap',
+            'trans_dbid', 'trans_derating_factor',
+            'trans_terrain_multiplier', 'trans_new_build_allowed'
+        ),
         index=mod.TRANSMISSION_LINES,
-        param=(mod.trans_lz1, mod.trans_lz2, mod.trans_length_km,
-               mod.trans_efficiency, mod.existing_trans_cap))
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'trans_optional_params.tab'),
-        optional=True,
-        select=('TRANSMISSION_LINE', 'trans_dbid', 'trans_derating_factor',
-                'trans_terrain_multiplier', 'trans_new_build_allowed'),
-        param=(mod.trans_dbid, mod.trans_derating_factor,
-               mod.trans_terrain_multiplier, mod.trans_new_build_allowed))
+        optional_params=(
+            'trans_dbid', 'trans_derating_factor',
+            'trans_terrain_multiplier', 'trans_new_build_allowed'
+        ),
+        param=(
+            mod.trans_lz1, mod.trans_lz2,
+            mod.trans_length_km, mod.trans_efficiency, mod.existing_trans_cap,
+            mod.trans_dbid, mod.trans_derating_factor,
+            mod.trans_terrain_multiplier, mod.trans_new_build_allowed
+        )
+    )
     trans_params_path = os.path.join(inputs_dir, 'trans_params.dat')
     if os.path.isfile(trans_params_path):
         switch_data.load(filename=trans_params_path)

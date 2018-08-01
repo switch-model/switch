@@ -117,7 +117,7 @@ def define_components(mod):
         dimen=4,
         initialize=lambda m: [
             (g, t, intercept, slope)
-            for (g, t) in m._FUEL_BASED_GEN_TPS
+            for (g, t) in m.FUEL_BASED_GEN_TPS
             for (intercept, slope) in m.FUEL_USE_SEGMENTS_FOR_GEN[g]
         ]
     )
@@ -183,7 +183,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     path = os.path.join(inputs_dir, 'gen_inc_heat_rates.tab')
     if os.path.isfile(path):
         (fuel_rate_segments, min_load, full_hr) = _parse_inc_heat_rate_file(
-            path, id_column="project")
+            path, id_column="GENERATION_PROJECT")
         # Check implied minimum loading level for consistency with
         # gen_min_load_fraction if gen_min_load_fraction was provided. If
         # gen_min_load_fraction wasn't provided, set it to implied minimum
