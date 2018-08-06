@@ -25,7 +25,7 @@ import os
 import csv
 import itertools
 import cPickle as pickle
-from pyomo.environ import value, Var
+from pyomo.environ import value, Var, Expression
 from switch_model.utilities import make_iterable
 
 csv.register_dialect(
@@ -42,6 +42,10 @@ def define_arguments(argparser):
         "--sorted-output", default=False, action='store_true',
         dest='sorted_output',
         help='Write generic variable result values in sorted order')
+    argparser.add_argument(
+        "--save-expressions", "--save-expression", dest="save_expressions", nargs='+', default=['none'],
+        help="List of expressions to save in addition to variables; can also be 'all' or 'none'."
+    )
 
 def write_table(instance, *indexes, **kwargs):
     # there must be a way to accept specific named keyword arguments and
@@ -113,7 +117,16 @@ def post_solve(instance, outdir):
 
 
 def save_generic_results(instance, outdir, sorted_output):
-    for var in instance.component_objects(Var):
+    components = list(instance.component_objects(Var))
+    # add Expression objects that should be saved, if any
+    if instance.options.save_expressions == ['none']:
+        pass
+    elif instance.options.save_expressions == ['all']:
+        components += list(instance.component_objects(Expression))
+    else:
+        components += [getattr(instance, c) for c in instance.options.save_expressions]
+
+    for var in components:
         output_file = os.path.join(outdir, '%s.tab' % var.name)
         with open(output_file, 'wb') as fh:
             writer = csv.writer(fh, dialect='ampl-tab')
@@ -125,14 +138,37 @@ def save_generic_results(instance, outdir, sorted_output):
                                 [var.name])
                 # Results are saved in a random order by default for
                 # increased speed. Sorting is available if wanted.
-                for key, obj in (sorted(var.items())
-                                if sorted_output
-                                else var.items()):
-                    writer.writerow(tuple(make_iterable(key)) + (obj.value,))
+                items = sorted(var.items()) if sorted_output else var.items()
+                for key, obj in items:
+                    writer.writerow(tuple(make_iterable(key)) + (get_value(obj),))
             else:
                 # single-valued variable
                 writer.writerow([var.name])
-                writer.writerow([value(obj)])
+                writer.writerow([get_value(obj)])
+
+def get_value(obj):
+    """
+    Retrieve value of one element of a Variable or Expression, converting
+    division-by-zero to nan and uninitialized values to None.
+    """
+    try:
+        val = value(obj)
+    except ZeroDivisionError:
+        # diagnostic expressions sometimes have 0 denominator,
+        # e.g., AverageFuelCosts for unused fuels;
+        val = float("nan")
+    except ValueError as e:
+        # If variables are not used in constraints or the
+        # objective function, they will never get values, and
+        # give a ValueError at this point.
+        # Note: for variables this could instead use 0 if allowed, or
+        # otherwise the closest bound.
+        if getattr(obj, 'value', 0) is None:
+            val = None
+        else:
+            # Caught some other ValueError
+            raise
+    return val
 
 
 def save_total_cost_value(instance, outdir):

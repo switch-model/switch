@@ -52,25 +52,47 @@ def define_components(m):
             for t in m.EV_TYPES
         )
     )
-    # calculate total fuel cost for ICE (non-EV) VMTs
+
+    # calculate total fuel usage, cost and emissions for ICE (non-EV) vehicles
     motor_fuel_mmbtu_per_gallon = {
         # from https://www.eia.gov/Energyexplained/?page=about_energy_units
         "Motor_Gasoline": 0.120476,
         "Motor_Diesel":   0.137452
     }
+    m.ice_annual_fuel_mmbtu = Param(
+        m.LOAD_ZONES, m.EV_TYPES, m.PERIODS,
+        initialize=lambda m, z, evt, p:
+            (1.0 - m.ev_share[z, p])
+            * m.n_vehicles[z, evt, p]
+            * m.ice_gals_per_year[z, evt, p]
+            * motor_fuel_mmbtu_per_gallon[m.ice_fuel[z, evt, p]]
+    )
+    # non-EV fuel cost
     if hasattr(m, "rfm_supply_tier_cost"):
         ice_fuel_cost_func = lambda m, z, p, f: m.rfm_supply_tier_cost[m.zone_rfm[z, f], p, 'base']
     else:
         ice_fuel_cost_func = lambda m, z, p, f: m.fuel_cost[z, f, p]
     m.ice_annual_fuel_cost = Param(m.PERIODS, initialize=lambda m, p:
         sum(
-            (1.0 - m.ev_share[z, p])
-            * m.n_vehicles[z, t, p]
-            * m.ice_gals_per_year[z, t, p]
-            * motor_fuel_mmbtu_per_gallon[m.ice_fuel[z, t, p]]
-            * ice_fuel_cost_func(m, z, p, m.ice_fuel[z, t, p])
+            m.ice_annual_fuel_mmbtu[z, evt, p]
+            * ice_fuel_cost_func(m, z, p, m.ice_fuel[z, evt, p])
             for z in m.LOAD_ZONES
-            for t in m.EV_TYPES
+            for evt in m.EV_TYPES
+        )
+    )
+    # non-EV annual emissions (currently only used for reporting via
+    # --save-expression ice_annual_emissions
+    # TODO: find a way to add this to the AnnualEmissions expression (maybe);
+    # at present, this doesn't affect the system emissions or emission cost
+    m.ice_annual_emissions = Param(m.PERIODS, initialize = lambda m, p:
+        sum(
+            m.ice_annual_fuel_mmbtu[z, evt, p]
+            * (
+                m.f_co2_intensity[m.ice_fuel[z, evt, p]]
+                + m.f_upstream_co2_intensity[m.ice_fuel[z, evt, p]]
+            )
+            for z in m.LOAD_ZONES
+            for evt in m.EV_TYPES
         )
     )
 
