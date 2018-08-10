@@ -535,38 +535,67 @@ def approx_equal(a, b, tolerance=0.01):
 def default_solver():
     return pyomo.opt.SolverFactory('glpk')
 
-
-class Logging:
+def warn(message):
     """
-    Assign standard output and a log file as output destinations. This is accomplished by assigning this class
-    to sys.stdout.
+    Send warning message to sys.stderr.
+    Unlike warnings.warn, this does not add the current line of code to the message.
     """
-    def __init__(self, logs_dir):
-        # Make logs directory if class is initialized
-        if not os.path.exists(logs_dir):
-            os.makedirs(logs_dir)
+    sys.stderr.write("WARNING: " + message + '\n')
 
-        # Assign sys.stdout and a log file as locations to write to
-        self.terminal = sys.stdout
-        self.log_file_path = os.path.join(logs_dir, datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".log")
-        self.log_file = open(self.log_file_path, "w", buffering=1)
-
-    def __getattr__(self, attr):
+class TeeStream:
+    """
+    Virtual stream that writes output to both stream1 and stream2. Attributes
+    of stream1 will be reported to callers if needed. For example, specifying
+    `sys.stdout=TeeStream(sys.stdout, log_file_handle)` will copy
+    output destined for sys.stdout to log_file_handle as well.
+    """
+    def __init__(self, stream1, stream2):
+        self.stream1 = stream1
+        self.stream2 = stream2
+    def __getattr__(self, *args, **kwargs):
         """
-        Default to sys.stdout attributes when calling attributes for this class.
-        This is here to prevent unintended consequences for code that assumes sys.stdout is an object with its own
+        Provide stream1 attributes when attributes are requested for this class.
+        This supports code that assumes sys.stdout is an object with its own
         methods, etc.
         """
-        return getattr(self.terminal, attr)
+        return getattr(self.stream1, *args, **kwargs)
+    def write(self, *args, **kwargs):
+        self.stream1.write(*args, **kwargs)
+        self.stream2.write(*args, **kwargs)
+    def flush(self, *args, **kwargs):
+        self.stream1.flush(*args, **kwargs)
+        self.stream2.flush(*args, **kwargs)
 
-    def write(self, message):
-        self.terminal.write(message)
-        self.log_file.write(message)
-
-    def flush(self):
-        self.terminal.flush()
-        self.log_file.flush()
-
+class LogOutput(object):
+    """
+    Copy output sent to stdout or stderr to a log file in the specified directory.
+    Takes no action if directory is None. Log file is named based on the current
+    date and time. Directory will be created if needed, and file will be overwritten
+    if it already exists (unlikely).
+    """
+    def __init__(self, logs_dir):
+        self.logs_dir = logs_dir
+    def __enter__(self):
+        """ start copying output to log file """
+        if self.logs_dir is not None:
+            if not os.path.exists(self.logs_dir):
+                os.makedirs(self.logs_dir)
+            log_file_path = os.path.join(
+                self.logs_dir,
+                datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".log"
+            )
+            self.log_file = open(log_file_path, "w", buffering=1)
+            self.stdout = sys.stdout
+            self.stderr = sys.stderr
+            sys.stdout = TeeStream(sys.stdout, self.log_file)
+            sys.stderr = TeeStream(sys.stderr, self.log_file)
+            print "logging output to " + str(log_file_path)
+    def __exit__(self, type, value, traceback):
+        """ restore original output streams and close log file """
+        if self.logs_dir is not None:
+            sys.stdout = self.stdout
+            sys.stderr = self.stderr
+            self.log_file.close()
 
 def iteritems(obj):
     """ Iterator of key, value pairs for obj;

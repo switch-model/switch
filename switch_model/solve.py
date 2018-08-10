@@ -9,7 +9,7 @@ from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
 import pyomo.version
 
 from switch_model.utilities import (
-    create_model, _ArgumentParser, Logging, StepTimer, make_iterable
+    create_model, _ArgumentParser, StepTimer, make_iterable, LogOutput, warn
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 
@@ -35,124 +35,124 @@ def main(args=None, return_model=False, return_instance=False):
         sys.excepthook = debug
 
     # Write output to a log file if logging option is specified
-    stdout_copy = sys.stdout  # make a copy of current sys.stdout to return to eventually
-
     if pre_module_options.log_run_to_file:
-        logging = Logging(pre_module_options.logs_dir)
-        print "logging run to " + str(logging.log_file_path)
-        sys.stdout = logging  # assign private class to sys.stdout
+        logs_dir = pre_module_options.logs_dir
     else:
-        pass
+        logs_dir = None # disables logging
 
-    # Look out for outdated inputs. This has to happen before modules.txt is
-    # parsed to avoid errors from incompatible files.
-    parser = _ArgumentParser(allow_abbrev=False, add_help=False)
-    add_module_args(parser)
-    module_options = parser.parse_known_args(args=args)[0]
-    if(os.path.exists(module_options.inputs_dir) and
-       do_inputs_need_upgrade(module_options.inputs_dir)):
-        do_upgrade = query_yes_no(
-            ("Warning! Your inputs directory needs to be upgraded. "
-             "Do you want to auto-upgrade now? We'll keep a backup of "
-             "this current version."))
-        if do_upgrade:
-            upgrade_inputs(module_options.inputs_dir)
-        else:
-            print "Inputs need upgrade. Consider `switch upgrade --help`. Exiting."
-            sys.stdout = stdout_copy
-            return -1
+    with LogOutput(logs_dir):
 
-    # build a module list based on configuration options, and add
-    # the current module (to register define_arguments callback)
-    modules = get_module_list(args)
+        # Look out for outdated inputs. This has to happen before modules.txt is
+        # parsed to avoid errors from incompatible files.
+        parser = _ArgumentParser(allow_abbrev=False, add_help=False)
+        add_module_args(parser)
+        module_options = parser.parse_known_args(args=args)[0]
+        if(os.path.exists(module_options.inputs_dir) and
+           do_inputs_need_upgrade(module_options.inputs_dir)):
+            do_upgrade = query_yes_no(
+                ("Warning! Your inputs directory needs to be upgraded. "
+                 "Do you want to auto-upgrade now? We'll keep a backup of "
+                 "this current version."))
+            if do_upgrade:
+                upgrade_inputs(module_options.inputs_dir)
+            else:
+                print "Inputs need upgrade. Consider `switch upgrade --help`. Exiting."
+                stop_logging_output()
+                return -1
 
-    # Patch pyomo if needed, to allow reconstruction of expressions.
-    # This must be done before the model is constructed.
-    patch_pyomo()
+        # build a module list based on configuration options, and add
+        # the current module (to register define_arguments callback)
+        modules = get_module_list(args)
 
-    # Define the model
-    model = create_model(modules, args=args)
+        # Patch pyomo if needed, to allow reconstruction of expressions.
+        # This must be done before the model is constructed.
+        patch_pyomo()
 
-    # Add any suffixes specified on the command line (usually only iis)
-    add_extra_suffixes(model)
+        # Define the model
+        model = create_model(modules, args=args)
 
-    # return the model as-is if requested
-    if return_model and not return_instance:
-        return model
+        # Add any suffixes specified on the command line (usually only iis)
+        add_extra_suffixes(model)
 
-    if model.options.reload_prior_solution:
-        if not os.path.isdir(model.options.outputs_dir):
-            raise IOError("Specified outputs directory for solution exploration does not exist.")
+        # return the model as-is if requested
+        if return_model and not return_instance:
+            return model
 
-    # get a list of modules to iterate through
-    iterate_modules = get_iteration_list(model)
+        if model.options.reload_prior_solution:
+            if not os.path.isdir(model.options.outputs_dir):
+                raise IOError("Specified outputs directory for solution exploration does not exist.")
 
-    if model.options.verbose:
-        print "\n======================================================================="
-        print "SWITCH model created in {:.2f} s.\nArguments:".format(timer.step_time())
-        print ", ".join(k+"="+repr(v) for k, v in model.options.__dict__.items() if v)
-        print "Modules:\n"+", ".join(m for m in modules)
-        if iterate_modules:
-            print "Iteration modules:", iterate_modules
-        print "=======================================================================\n"
-        print "Loading inputs..."
+        # get a list of modules to iterate through
+        iterate_modules = get_iteration_list(model)
 
-    # create an instance (also reports time spent reading data and loading into model)
-    instance = model.load_inputs()
+        if model.options.verbose:
+            print "\n======================================================================="
+            print "SWITCH model created in {:.2f} s.\nArguments:".format(timer.step_time())
+            print ", ".join(k+"="+repr(v) for k, v in model.options.__dict__.items() if v)
+            print "Modules:\n"+", ".join(m for m in modules)
+            if iterate_modules:
+                print "Iteration modules:", iterate_modules
+            print "=======================================================================\n"
+            print "Loading inputs..."
 
-    #### Below here, we refer to instance instead of model ####
+        # create an instance (also reports time spent reading data and loading into model)
+        instance = model.load_inputs()
 
-    instance.pre_solve()
-    if instance.options.verbose:
-        print "Total time spent constructing model: {:.2f} s.\n".format(timer.step_time())
+        #### Below here, we refer to instance instead of model ####
 
-    # return the instance as-is if requested
-    if return_instance:
-        if return_model:
-            return (model, instance)
-        else:
-            return instance
-
-    if instance.options.reload_prior_solution:
-        reload_prior_solution_from_pickle(instance, instance.options.outputs_dir)
+        instance.pre_solve()
         if instance.options.verbose:
-            print(
-                'Loaded previous results into model instance in {:.2f} s.'
-                .format(timer.step_time())
-            )
-    else:
-        # make sure the outputs_dir exists (used by some modules during iterate)
-        # use a race-safe approach in case this code is run in parallel
-        try:
-            os.makedirs(instance.options.outputs_dir)
-        except OSError:
-            # directory probably exists already, but double-check
-            if not os.path.isdir(instance.options.outputs_dir):
-                raise
+            print "Total time spent constructing model: {:.2f} s.\n".format(timer.step_time())
 
-        # solve the model (reports time for each step as it goes)
-        if iterate_modules:
+        # return the instance as-is if requested
+        if return_instance:
+            if return_model:
+                return (model, instance)
+            else:
+                return instance
+
+        if instance.options.reload_prior_solution:
+            reload_prior_solution_from_pickle(instance, instance.options.outputs_dir)
             if instance.options.verbose:
-                print "Iterating model..."
-            iterate(instance, iterate_modules)
+                print(
+                    'Loaded previous results into model instance in {:.2f} s.'
+                    .format(timer.step_time())
+                )
         else:
-            results = solve(instance)
+            # make sure the outputs_dir exists (used by some modules during iterate)
+            # use a race-safe approach in case this code is run in parallel
+            try:
+                os.makedirs(instance.options.outputs_dir)
+            except OSError:
+                # directory probably exists already, but double-check
+                if not os.path.isdir(instance.options.outputs_dir):
+                    raise
+
+            # solve the model (reports time for each step as it goes)
+            if iterate_modules:
+                if instance.options.verbose:
+                    print "Iterating model..."
+                iterate(instance, iterate_modules)
+            else:
+                results = solve(instance)
+                if instance.options.verbose:
+                    print ""
+                    print results.solver.message
+                    print "Optimization termination condition was {}.".format(
+                        results.solver.termination_condition)
+                    print ""
+
             if instance.options.verbose:
-                print "Optimization termination condition was {}.\n".format(
-                    results.solver.termination_condition)
+                timer.step_time() # restart counter for next step
 
-        if instance.options.verbose:
-            timer.step_time() # restart counter for next step
+            # report/save results
+            if instance.options.verbose:
+                print "Executing post solve functions..."
+            instance.post_solve()
+            if instance.options.verbose:
+                print "Post solve processing completed in {:.2f} s.".format(timer.step_time())
 
-        # report/save results
-        if instance.options.verbose:
-            print "Executing post solve functions..."
-        instance.post_solve()
-        if instance.options.verbose:
-            print "Post solve processing completed in {:.2f} s.".format(timer.step_time())
-
-    # return stdout to original
-    sys.stdout = stdout_copy
+    # end of LogOutput block
 
     if instance.options.interact or instance.options.reload_prior_solution:
         m = instance  # present the solved model as 'm' for convenience
@@ -602,19 +602,15 @@ def solve(model):
         TempfileManager.tempdir = model.options.tempdir
 
     results = model.solver_manager.solve(model, opt=model.solver, **solver_args)
+    #import pdb; pdb.set_trace()
 
     if model.options.verbose:
         print "Solved model. Total time spent in solver: {:2f} s.".format(timer.step_time())
 
-    # Only return if the model solved correctly, otherwise throw a useful error
-    if(results.solver.status in {SolverStatus.ok, SolverStatus.warning} and
-       results.solver.termination_condition == TerminationCondition.optimal):
-       # Cache a copy of the results object, to allow saving and restoring model
-       # solutions later.
-       model.last_results = results
-       # Successful solution, return results
-       return results
-    elif (results.solver.termination_condition == TerminationCondition.infeasible):
+    # Treat infeasibility as an error, rather than trying to load and save the results
+    # (note: in this case, results.solver.status may be SolverStatus.warning instead of
+    # SolverStatus.error)
+    if (results.solver.termination_condition == TerminationCondition.infeasible):
         if hasattr(model, "iis"):
             print "Model was infeasible; irreducibly inconsistent set (IIS) returned by solver:"
             print "\n".join(sorted(c.name for c in model.iis))
@@ -623,15 +619,48 @@ def solve(model):
             print "more information may be available by setting the appropriate flags in the "
             print 'solver_options_string and calling this script with "--suffixes iis".'
         raise RuntimeError("Infeasible model")
-    else:
-        print "Solver terminated abnormally."
+
+    # Raise an error if the solver failed to produce a solution
+    # Note that checking for results.solver.status in {SolverStatus.ok,
+    # SolverStatus.warning} is not enough because with a warning there will
+    # sometimes be a solution and sometimes not.
+    # Note: the results object originally contains values for model components
+    # in results.solution.variable, etc., but pyomo.solvers.solve erases it via
+    # result.solution.clear() after calling model.solutions.load_from() with it.
+    # load_from() loads values into the model.solutions._entry, so we check there.
+    # (See pyomo.PyomoModel.ModelSolutions.add_solution() for the code that
+    # actually creates _entry).
+    # Another option might be to check that model.solutions[-1].status (previously
+    # result.solution.status, but also cleared) is in
+    # pyomo.opt.SolutionStatus.['optimal', 'bestSoFar', 'feasible', 'globallyOptimal', 'locallyOptimal'],
+    # but this seems pretty foolproof (if undocumented).
+    if len(model.solutions[-1]._entry['variable']) == 0:
+        # no solution returned
+        print "Solver terminated without a solution."
         print "  Solver Status: ", results.solver.status
+        print "  Solution Status: ", model.solutions[-1].status
         print "  Termination Condition: ", results.solver.termination_condition
         if model.options.solver == 'glpk' and results.solver.termination_condition == TerminationCondition.other:
             print "Hint: glpk has been known to classify infeasible problems as 'other'."
         raise RuntimeError("Solver failed to find an optimal solution.")
 
-    # no default return, because we'll never reach here
+    # Report any warnings; these are written to stderr so users can find them in
+    # error logs (e.g. on HPC systems). These can occur, e.g., if solver reaches
+    # time limit or iteration limit but still returns a valid solution
+    if results.solver.status == SolverStatus.warning:
+        warn(
+            "Solver terminated with warning.\n"
+            + "  Solution Status: {}\n".format(model.solutions[-1].status)
+            + "  Termination Condition: {}".format(results.solver.termination_condition)
+        )
+
+    ### process and return solution ###
+
+    # Cache a copy of the results object, to allow saving and restoring model
+    # solutions later.
+    model.last_results = results
+    return results
+
 
 # taken from https://software.sandia.gov/trac/pyomo/browser/pyomo/trunk/pyomo/opt/base/solvers.py?rev=10784
 # This can be removed when all users are on Pyomo 4.2
