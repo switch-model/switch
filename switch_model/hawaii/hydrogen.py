@@ -15,7 +15,7 @@ def define_arguments(argparser):
 def define_components(m):
     if not m.options.no_hydrogen:
         define_hydrogen_components(m)
-    
+
 def define_hydrogen_components(m):
 
     # electrolyzer details
@@ -257,9 +257,10 @@ def define_hydrogen_components(m):
                 m.Spinning_Reserve_Down_Provisions.append('HydrogenSlackDownForArea')
 
 
-def load_inputs(mod, switch_data, inputs_dir):
+def load_inputs(m, switch_data, inputs_dir):
     """
     Import hydrogen data from a .dat file.
     TODO: change this to allow multiple storage technologies.
     """
-    switch_data.load(filename=os.path.join(inputs_dir, 'hydrogen.dat'))
+    if not m.options.no_hydrogen:
+        switch_data.load(filename=os.path.join(inputs_dir, 'hydrogen.dat'))
