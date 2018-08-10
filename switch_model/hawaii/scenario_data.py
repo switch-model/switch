@@ -129,15 +129,16 @@ def write_tables(**args):
 
     # double-check that arguments are valid
     cur = db_cursor()
-    cur.execute(
-        'select * from generator_costs_by_year where tech_scen_id = %(tech_scen_id)s',
-        args
-    )
-    if len([r for r in cur]) == 0:
-        print "================================================================"
-        print "WARNING: no records found in generator_costs_by_year for tech_scen_id='{}'".format(args['tech_scen_id'])
-        print "================================================================"
-        time.sleep(2)
+    for table in ['generator_costs_by_year', 'generator_info']:
+        cur.execute(
+            'select * from {} where tech_scen_id = %(tech_scen_id)s limit 1'.format(table),
+            args
+        )
+        if len(list(cur)) == 0:
+            print "================================================================"
+            print "WARNING: no records found in {} for tech_scen_id='{}'".format(table, args['tech_scen_id'])
+            print "================================================================"
+            time.sleep(2)
     del cur
 
     #########################
