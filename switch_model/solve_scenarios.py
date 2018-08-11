@@ -53,50 +53,27 @@ scenario_cmd_line_args = parser.parse_known_args(args=cmd_line_args)[1]
 requested_scenarios = scenario_manager_args.scenarios
 scenario_list_file = scenario_manager_args.scenario_list
 scenario_queue_dir = scenario_manager_args.scenario_queue
+
+# Get a unique task id.
+# This is used to requeue any scenario that this task was working on that got
+# interrupted. This is useful for running jobs on a pre-emptable cluster.
+# Note: in the past we have tried to get a persistent ID for each parallel task
+# by inspecting the cluster computing batch environment or looking at the parent's
+# pid (useful when launching several instances of `switch solve-scenarios` in
+# different terminals on a desktop). However, that only works if tasks are
+# restarted under similar conditions. It also fails if users run one job on a
+# cluster that launches several instances of solve-scenarios via a direct call to
+# "srun" or "mpirun". That launches many tasks that all end up thinking they're
+# the same task and race to reset the queue. So now it is up to the user to
+# specify a unique task id in an environment variable or command-line argument.
+# If a job id is not specified, interrupted jobs will not be restarted.
 job_id = scenario_manager_args.job_id
-
-# Get a unique job id. Note: in the past we have tried to get a
-# persistent ID for each parallel task, so that it could requeue any
-# jobs it was previously working on when it restarted. However, this
-# is kludgy to begin with (only works if restarted under similar conditions)
-# and tends to fail. It also cannot work with a bare "srun" or "mpirun"
-# command, which might launch 20+ tasks that end up thinking they're the
-# same job and race to reset the queue.
-job_id = socket.gethostname() + '_' + str(os.getpid())
-
-# # Make a best effort to get a unique, persistent job_id for each job.
-# # This is used to clear the queue of running tasks if a task is stopped and
-# # restarted. (would be better if other jobs could do this when this job dies
-# # but it's hard to see how they can detect when this job fails.)
-# # (The idea is that the user will run multiple jobs in parallel, with one
-# # thread per job, to process all the scenarios. These might be run in separate
-# # terminal windows, or in separate instances of gnu screen, or as numbered
-# # jobs on an HPC system. Sometimes a job will get interrupted, e.g., if the
-# # user presses ctrl-c in a terminal window or if the job is launched on an
-# # interruptible queue. This script attempts to detect when that job gets
-# # relaunched, and re-run the interrupted scenario.)
-# if job_id is None:
-#     job_id = os.environ.get('JOB_ID') # could be set by user
-# if job_id is None:
-#     job_id = os.environ.get('JOBID') # could be set by user
-# if job_id is None:
-#     job_id = os.environ.get('SLURM_JOBID')
-# if job_id is None:
-#     job_id = os.environ.get('OMPI_MCA_ess_base_jobid')
-# if job_id is None:
-#     # construct one from hostname and parent's pid
-#     # this way, each job launched from a different terminal window
-#     # or different instance of gnu screen will have a persistent ID
-#     # (This won't work on Windows before Python 3.2; in that case,
-#     # users should specify a --job-id or set an environment variable
-#     # when running multiple jobs in parallel. Without that, all
-#     # jobs will think they have the same ID, and at startup they will
-#     # try to re-run the scenario currently being run by some other job.)
-#     if hasattr(os, 'getppid'):
-#         job_id = socket.gethostname() + '_' + str(os.getppid())
-#     else:
-#         # won't be able to automatically clear previously interrupted job
-#         job_id = socket.gethostname() + '_' + str(os.getpid())
+if job_id is None:
+    job_id = os.environ.get('SWITCH_JOB_ID')
+if job_id is None:
+    # this cannot be running in parallel with another task with the same pid on
+    # the same host, so it's safe to requeue any jobs with this id
+    job_id = socket.gethostname() + '_' + str(os.getpid())
 
 running_scenarios_file = os.path.join(scenario_queue_dir, job_id+"_running.txt")
 
