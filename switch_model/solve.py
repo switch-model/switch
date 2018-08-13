@@ -354,7 +354,7 @@ def define_arguments(argparser):
     # note: pyomo has a --solver-suffix option but it is not clear
     # whether that does the same thing as --suffix defined here,
     # so we don't reuse the same name.
-    argparser.add_argument("--suffixes", "--suffix", nargs="+", default=['rc','dual','slack'],
+    argparser.add_argument("--suffixes", "--suffix", nargs="+", action='extend', default=['rc','dual','slack'],
         help="Extra suffixes to add to the model and exchange with the solver (e.g., iis, rc, dual, or slack)")
 
     # Define solver-related arguments
@@ -414,12 +414,14 @@ def add_module_args(parser):
         help='Text file with a list of modules to include in the model (default is "modules.txt")'
     )
     parser.add_argument(
-        "--include-modules", "--include-module", dest="include_modules", nargs='+', default=[],
-        help="Module(s) to add to the model in addition to any specified with --module-list"
+        "--include-modules", "--include-module", dest="include_exclude_modules", nargs='+',
+        action='include', default=[],
+        help="Module(s) to add to the model in addition to any specified with --module-list file"
     )
     parser.add_argument(
-        "--exclude-modules", "--exclude-module", dest="exclude_modules", nargs='+', default=[],
-        help="Module(s) to remove from the model after processing --module-list and --include-modules"
+        "--exclude-modules", "--exclude-module", dest="include_exclude_modules", nargs='+',
+        action='exclude', default=[],
+        help="Module(s) to remove from the model after processing --module-list file and prior --include-modules arguments"
     )
     # note: we define --inputs-dir here because it may be used to specify the location of
     # the module list, which is needed before it is loaded.
@@ -481,14 +483,24 @@ def get_module_list(args):
             modules = [r.strip() for r in f.read().splitlines()]
         modules = [m for m in modules if m and not m.startswith("#")]
 
-    # add additional modules requested by the user
-    modules.extend(module_options.include_modules)
+    # adjust modules as requested by the user
+    # include_exclude_modules format: [('include', [mod1, mod2]), ('exclude', [mod3])]
+    for action, mods in module_options.include_exclude_modules:
+        if action == 'include':
+            for module_name in mods:
+                if module_name not in modules:  # maybe we should raise an error if already present?
+                    modules.append(module_name)
+        if action == 'exclude':
+            for module_name in mods:
+                try:
+                    modules.remove(module_name)
+                except ValueError:
+                    raise ValueError(            # maybe we should just pass?
+                        'Unable to exclude module {} because it was not '
+                        'previously included.'.format(module_name)
+                    )
 
-    # remove modules requested by the user
-    for module_name in module_options.exclude_modules:
-        modules.remove(module_name)
-
-    # add the current module, since it has callbacks, e.g. define_arguments for iteration and suffixes
+    # add this module, since it has callbacks, e.g. define_arguments for iteration and suffixes
     modules.append("switch_model.solve")
 
     return modules

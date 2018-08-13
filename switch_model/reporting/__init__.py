@@ -43,7 +43,8 @@ def define_arguments(argparser):
         dest='sorted_output',
         help='Write generic variable result values in sorted order')
     argparser.add_argument(
-        "--save-expressions", "--save-expression", dest="save_expressions", nargs='+', default=['none'],
+        "--save-expressions", "--save-expression", dest="save_expressions", nargs='+',
+        default=[], action='extend',
         help="List of expressions to save in addition to variables; can also be 'all' or 'none'."
     )
 
@@ -119,9 +120,15 @@ def post_solve(instance, outdir):
 def save_generic_results(instance, outdir, sorted_output):
     components = list(instance.component_objects(Var))
     # add Expression objects that should be saved, if any
-    if instance.options.save_expressions == ['none']:
-        pass
-    elif instance.options.save_expressions == ['all']:
+    if 'none' in instance.options.save_expressions:
+        # drop everything up till the last 'none' (users may have added more after that)
+        last_none = (
+            len(instance.options.save_expressions)
+            - instance.options.save_expressions[::-1].index('none')
+        )
+        instance.options.save_expressions = instance.options.save_expressions[last_none:]
+
+    if 'all' in instance.options.save_expressions:
         components += list(instance.component_objects(Expression))
     else:
         components += [getattr(instance, c) for c in instance.options.save_expressions]

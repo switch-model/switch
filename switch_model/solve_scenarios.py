@@ -37,7 +37,10 @@ cmd_line_args = sys.argv[1:]
 parser = _ArgumentParser(
     allow_abbrev=False, description='Solve one or more Switch scenarios.'
 )
-parser.add_argument('--scenario', '--scenarios', nargs='+', dest='scenarios', default=[])
+parser.add_argument(
+    '--scenario', '--scenarios', nargs='+', dest='scenarios',
+    default=[], action='extend'
+)
 #parser.add_argument('--scenarios', nargs='+', default=[])
 parser.add_argument("--scenario-list", default="scenarios.txt")
 parser.add_argument("--scenario-queue", default="scenario_queue")

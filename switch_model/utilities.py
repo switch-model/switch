@@ -504,11 +504,11 @@ def load_aug(switch_data, optional=False, auto_select=False,
 # which will be consumed by one of their modules, the default parser would
 # match that to "--exclude-modules" during the early, partial parse.)
 if sys.version_info >= (3, 5):
-    _ArgumentParser = argparse.ArgumentParser
+    _ArgumentParserAllowAbbrev = argparse.ArgumentParser
 else:
     # patch ArgumentParser to accept the allow_abbrev flag
     # (works on Python 2.7 and maybe others)
-    class _ArgumentParser(argparse.ArgumentParser):
+    class _ArgumentParserAllowAbbrev(argparse.ArgumentParser):
         def __init__(self, *args, **kwargs):
             if not kwargs.get("allow_abbrev", True):
                 if hasattr(self, "_get_option_tuples"):
@@ -526,6 +526,56 @@ else:
             # consume the allow_abbrev argument if present
             kwargs.pop("allow_abbrev", None)
             return argparse.ArgumentParser.__init__(self, *args, **kwargs)
+
+class ExtendAction(argparse.Action):
+    """Create or extend list with the provided items"""
+    # from https://stackoverflow.com/a/41153081/3830997
+    def __call__(self, parser, namespace, values, option_string=None):
+        items = getattr(namespace, self.dest) or []
+        items.extend(values)
+        setattr(namespace, self.dest, items)
+
+class IncludeAction(argparse.Action):
+    """Flag the specified items for inclusion in the model"""
+    def __call__(self, parser, namespace, values, option_string=None):
+        items = getattr(namespace, self.dest) or []
+        items.append(('include', values))
+        setattr(namespace, self.dest, items)
+class ExcludeAction(argparse.Action):
+    """Flag the specified items for exclusion from the model"""
+    def __call__(self, parser, namespace, values, option_string=None):
+        items = getattr(namespace, self.dest) or []
+        items.append(('exclude', values))
+        setattr(namespace, self.dest, items)
+
+# TODO: merge the _ArgumentParserAllowAbbrev code into this class
+class _ArgumentParser(_ArgumentParserAllowAbbrev):
+    """
+    Custom version of ArgumentParser:
+    - warns about a bug in standard Python ArgumentParser for --arg="some words"
+    - allows use of 'extend', 'include' and 'exclude' actions to accumulate lists
+      with multiple calls
+    """
+    def __init__(self, *args, **kwargs):
+        super(_ArgumentParser, self).__init__(*args, **kwargs)
+        self.register('action', 'extend', ExtendAction)
+        self.register('action', 'include', IncludeAction)
+        self.register('action', 'exclude', ExcludeAction)
+
+    def parse_known_args(self, args=None, namespace=None):
+        # parse_known_args parses arguments like --list-arg a b --other-arg="something with space"
+        # as list_arg=['a', 'b', '--other-arg="something with space"'].
+        # See https://bugs.python.org/issue34390.
+        # We issue a warning to avoid this.
+        if args is not None:
+            for a in args:
+                if a.startswith('--') and '=' in a:
+                    print(
+                        "Warning: argument '{}' may be parsed incorrectly. It is "
+                        "safer to use ' ' instead of '=' as a separator."
+                        .format(a)
+                    )
+        return super(_ArgumentParser, self).parse_known_args(args, namespace)
 
 
 def approx_equal(a, b, tolerance=0.01):
