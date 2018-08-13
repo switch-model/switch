@@ -190,10 +190,18 @@ def get_scenario_name(scenario_args):
     # use ad-hoc parsing to extract the scenario name from a scenario-definition string
     return parse_arg("--scenario-name", default=None, args=scenario_args)
 
+def last_index(lst, val):
+    try:
+        return len(lst) - lst[::-1].index(val) - 1
+    except ValueError:
+        return -1
+
 def is_verbose(scenario_args):
     # check options settings for --verbose flag
+    # we can't use parse_arg, because we need to process both --verbose and --quiet
     # note: this duplicates settings in switch_model.solve, so it may fall out of date
-    return parse_arg("--verbose", action='store_true', default=False, args=scenario_args)
+    return last_index(scenario_args, '--verbose') >= last_index(scenario_args, '--quiet')
+    # return parse_arg("--verbose", action='store_true', default=False, args=scenario_args)
 
 def get_scenario_dict():
     # note: we read the list from the disk each time so that we get a fresher version

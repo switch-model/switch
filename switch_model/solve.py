@@ -375,6 +375,9 @@ def define_arguments(argparser):
         "--stream-output", "--stream-solver", action='store_true', dest="tee", default=None,
         help="Display information from the solver about its progress (usually combined with a suitable --solver-options-string)")
     argparser.add_argument(
+        "--no-stream-output", "--no-stream-solver", action='store_false', dest="tee", default=None,
+        help="Don't display information from the solver about its progress")
+    argparser.add_argument(
         "--symbolic-solver-labels", action='store_true', default=None,
         help='Use symbol names derived from the model when interfacing with the solver. '
             'See "pyomo solve --solver=x --help" for more details.')
@@ -395,11 +398,11 @@ def define_arguments(argparser):
 
     # General purpose arguments
     argparser.add_argument(
-        '--verbose', '-v', default=False, action='store_true',
+        '--verbose', '-v', dest='verbose', default=False, action='store_true',
         help='Show information about model preparation and solution')
-    # argparser.add_argument(
-    #     '--quiet', '-q', dest='verbose', action='store_false',
-    #     help="Don't show information about model preparation and solution (cancels --verbose setting)")
+    argparser.add_argument(
+        '--quiet', '-q', dest='verbose', action='store_false',
+        help="Don't show information about model preparation and solution (cancels --verbose setting)")
     argparser.add_argument(
         '--interact', default=False, action='store_true',
         help='Enter interactive shell after solving the instance to enable inspection of the solved model.')
