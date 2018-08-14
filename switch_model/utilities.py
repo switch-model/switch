@@ -5,11 +5,10 @@
 Utility functions for SWITCH-pyomo.
 """
 
-import os, types, importlib, re, sys, argparse, time
+import os, types, importlib, re, sys, argparse, time, datetime
 import __main__ as main
 from pyomo.environ import *
 import pyomo.opt
-import datetime
 
 # Check whether this is an interactive session (determined by whether
 # __main__ has a __file__ attribute). Scripts can check this value to
@@ -548,6 +547,17 @@ class ExcludeAction(argparse.Action):
         items.append(('exclude', values))
         setattr(namespace, self.dest, items)
 
+# Test whether we need to issue warnings about the Python parsing bug.
+# (applies to at least Python 2.7.11 and 3.6.2)
+# This bug messes up solve-scenarios if the user specifies
+# --scenario x --solver-options-string="a=b c=d"
+test_parser = argparse.ArgumentParser()
+test_parser.add_argument('--arg1', nargs='+', default=[])
+bad_equal_parser = (
+    len(test_parser.parse_known_args(['--arg1', 'a', '--arg2=a=1 b=2'])[1])
+    == 0
+)
+
 # TODO: merge the _ArgumentParserAllowAbbrev code into this class
 class _ArgumentParser(_ArgumentParserAllowAbbrev):
     """
@@ -567,7 +577,7 @@ class _ArgumentParser(_ArgumentParserAllowAbbrev):
         # as list_arg=['a', 'b', '--other-arg="something with space"'].
         # See https://bugs.python.org/issue34390.
         # We issue a warning to avoid this.
-        if args is not None:
+        if bad_equal_parser and args is not None:
             for a in args:
                 if a.startswith('--') and '=' in a:
                     print(
@@ -575,6 +585,7 @@ class _ArgumentParser(_ArgumentParserAllowAbbrev):
                         "safer to use ' ' instead of '=' as a separator."
                         .format(a)
                     )
+                    time.sleep(2)  # give users a chance to see it
         return super(_ArgumentParser, self).parse_known_args(args, namespace)
 
 
