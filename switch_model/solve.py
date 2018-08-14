@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
-import sys, os, time, shlex, re
+import sys, os, time, shlex, re, inspect, textwrap, types
 import cPickle as pickle
 
 from pyomo.environ import *
@@ -189,10 +189,11 @@ def patch_pyomo():
     if not patched_pyomo:
         patched_pyomo = True
         # patch Pyomo if needed
+
+        # Pyomo 4.2 and 4.3 mistakenly discard the original rule during
+        # Expression.construct. This makes it impossible to reconstruct
+        # expressions (e.g., for iterated models). So we patch it.
         if (4, 2) <= pyomo.version.version_info[:2] <= (4, 3):
-            # Pyomo 4.2 and 4.3 mistakenly discard the original rule during
-            # Expression.construct. This makes it impossible to reconstruct
-            # expressions (e.g., for iterated models). So we patch it.
             # test whether patch is needed:
             m = ConcreteModel()
             m.e = Expression(rule=lambda m: 0)
@@ -206,6 +207,67 @@ def patch_pyomo():
                     self._init_rule = _init_rule
                 pyomo.environ.Expression.construct = new_construct
             del m
+
+        # Pyomo 5.1.1 (and maybe others) is very slow to load prior solutions because
+        # it does a full-component search for each component name as it assigns the
+        # data. This ends up taking longer than solving the model. So we micro-
+        # patch pyomo.core.base.PyomoModel.ModelSolutions.add_solution to use
+        # Pyomo's built-in caching system for component names.
+        # TODO: create a pull request for Pyomo to do this
+        # NOTE: space inside the long quotes is significant; must match the Pyomo code
+        old_code = """
+                    for obj in instance.component_data_objects(Var):
+                        cache[obj.name] = obj
+                    for obj in instance.component_data_objects(Objective, active=True):
+                        cache[obj.name] = obj
+                    for obj in instance.component_data_objects(Constraint, active=True):
+                        cache[obj.name] = obj"""
+        new_code = """
+                    # use buffer to avoid full search of component for data object
+                    # which introduces a delay that is quadratic in model size
+                    buf=dict()
+                    for obj in instance.component_data_objects(Var):
+                        cache[obj.getname(fully_qualified=True, name_buffer=buf)] = obj
+                    for obj in instance.component_data_objects(Objective, active=True):
+                        cache[obj.getname(fully_qualified=True, name_buffer=buf)] = obj
+                    for obj in instance.component_data_objects(Constraint, active=True):
+                        cache[obj.getname(fully_qualified=True, name_buffer=buf)] = obj"""
+
+        from pyomo.core.base.PyomoModel import ModelSolutions
+        add_solution_code = inspect.getsource(ModelSolutions.add_solution)
+        if old_code in add_solution_code:
+            # create and inject a new version of the method
+            add_solution_code = add_solution_code.replace(old_code, new_code)
+            replace_method(ModelSolutions, 'add_solution', add_solution_code)
+        else:
+            print(
+                "NOTE: The patch to pyomo.core.base.PyomoModel.ModelSolutions.add_solution "
+                "has been deactivated because the Pyomo source code has changed. "
+                "Check whether this patch is still needed and edit {} accordingly."
+                .format(__file__)
+            )
+
+def replace_method(class_ref, method_name, new_source_code):
+    """
+    Replace specified class method with a compiled version of new_source_code.
+    """
+    orig_method = getattr(class_ref, method_name)
+    # compile code into a function
+    workspace = dict()
+    exec(textwrap.dedent(new_source_code), workspace)
+    new_method = workspace[method_name]
+    # create a new function with the same body, but using the old method's namespace
+    new_func = types.FunctionType(
+        new_method.__code__,
+        orig_method.__globals__,
+        orig_method.__name__,
+        orig_method.__defaults__,
+        orig_method.__closure__
+    )
+    # note: this normal function will be automatically converted to an unbound
+    # method when it is assigned as an attribute of a class
+    setattr(class_ref, method_name, new_func)
+
 
 def reload_prior_solution_from_tabs(instance):
     """
@@ -400,6 +462,10 @@ def define_arguments(argparser):
     # location of the module list (deprecated)
     # argparser.add_argument("--inputs-dir", default="inputs",
     #     help='Directory containing input files (default is "inputs")')
+    argparser.add_argument(
+        "--input-alias", "--input-aliases", dest="input_aliases", nargs='+', default=[],
+        help='List of input file substitutions, in form of standard_file.tab=alternative_file.tab, '
+        'useful for sensitivity studies with different inputs.')
     argparser.add_argument("--outputs-dir", default="outputs",
         help='Directory to write output files (default is "outputs")')
 
