@@ -114,7 +114,6 @@ def post_solve(instance, outdir):
     save_generic_results(instance, outdir, instance.options.sorted_output)
     save_total_cost_value(instance, outdir)
     save_cost_components(instance, outdir)
-    save_results(instance, outdir)
 
 
 def save_generic_results(instance, outdir, sorted_output):
@@ -211,20 +210,3 @@ def save_cost_components(m, outdir):
         values=lambda m, c: (c, cost_dict[c]),
         digits=16
     )
-
-
-def save_results(instance, outdir):
-    """
-    Save model solution for later reuse.
-
-    Note that this pickles a solver results object because the instance itself
-    cannot be pickled -- see
-    https://stackoverflow.com/questions/39941520/pyomo-ipopt-does-not-return-solution
-    """
-    # First, save the full solution data to the results object, because recent
-    # versions of Pyomo only store execution metadata there by default.
-    instance.solutions.store_to(instance.last_results)
-    with open(os.path.join(outdir, 'results.pickle'), 'wb') as fh:
-        pickle.dump(instance.last_results, fh, protocol=-1)
-    # remove the solution from the results object, to minimize long-term memory use
-    instance.last_results.solution.clear()

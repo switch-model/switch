@@ -111,7 +111,17 @@ def main(args=None, return_model=False, return_instance=False):
             else:
                 return instance
 
+        # make sure the outputs_dir exists (used by some modules during iterate)
+        # use a race-safe approach in case this code is run in parallel
+        try:
+            os.makedirs(instance.options.outputs_dir)
+        except OSError:
+            # directory probably exists already, but double-check
+            if not os.path.isdir(instance.options.outputs_dir):
+                raise
+
         if instance.options.reload_prior_solution:
+            print('Loading prior solution...')
             reload_prior_solution_from_pickle(instance, instance.options.outputs_dir)
             if instance.options.verbose:
                 print(
@@ -119,15 +129,6 @@ def main(args=None, return_model=False, return_instance=False):
                     .format(timer.step_time())
                 )
         else:
-            # make sure the outputs_dir exists (used by some modules during iterate)
-            # use a race-safe approach in case this code is run in parallel
-            try:
-                os.makedirs(instance.options.outputs_dir)
-            except OSError:
-                # directory probably exists already, but double-check
-                if not os.path.isdir(instance.options.outputs_dir):
-                    raise
-
             # solve the model (reports time for each step as it goes)
             if iterate_modules:
                 if instance.options.verbose:
@@ -142,19 +143,25 @@ def main(args=None, return_model=False, return_instance=False):
                         results.solver.termination_condition)
                     print ""
 
-            if instance.options.verbose:
-                timer.step_time() # restart counter for next step
+                if instance.options.verbose:
+                    timer.step_time() # restart counter for next step
 
-            # report/save results
-            if instance.options.verbose:
-                print "Executing post solve functions..."
-            instance.post_solve()
-            if instance.options.verbose:
-                print "Post solve processing completed in {:.2f} s.".format(timer.step_time())
+                if not instance.options.no_save_solution:
+                    save_results(instance, instance.options.outputs_dir)
+                    if instance.options.verbose:
+                        print('Saved results in {:.2f} s.'.format(timer.step_time()))
+
+        # report results
+        # (repeated if model is reloaded, to automatically run any new export code)
+        if instance.options.verbose:
+            print "Executing post solve functions..."
+        instance.post_solve()
+        if instance.options.verbose:
+            print "Post solve processing completed in {:.2f} s.".format(timer.step_time())
 
     # end of LogOutput block
 
-    if instance.options.interact or instance.options.reload_prior_solution:
+    if instance.options.interact:
         m = instance  # present the solved model as 'm' for convenience
         banner = (
             "\n"
@@ -409,6 +416,9 @@ def define_arguments(argparser):
     argparser.add_argument(
         '--reload-prior-solution', default=False, action='store_true',
         help='Load outputs from a previously solved instance into variable values to allow interactive exploration of model components without having to solve the instance again.')
+    argparser.add_argument(
+        '--no-save-solution', default=False, action='store_true',
+        help="Don't save solution after model is solved.")
 
 
 def add_module_args(parser):
@@ -699,6 +709,23 @@ def _options_string_to_dict(istr):
             val = token[(index+1):]
         ans[token[:index]] = val
     return ans
+
+def save_results(instance, outdir):
+    """
+    Save model solution for later reuse.
+
+    Note that this pickles a solver results object because the instance itself
+    cannot be pickled -- see
+    https://stackoverflow.com/questions/39941520/pyomo-ipopt-does-not-return-solution
+    """
+    # First, save the full solution data to the results object, because recent
+    # versions of Pyomo only store execution metadata there by default.
+    instance.solutions.store_to(instance.last_results)
+    with open(os.path.join(outdir, 'results.pickle'), 'wb') as fh:
+        pickle.dump(instance.last_results, fh, protocol=-1)
+    # remove the solution from the results object, to minimize long-term memory use
+    instance.last_results.solution.clear()
+
 
 
 def query_yes_no(question, default="yes"):
