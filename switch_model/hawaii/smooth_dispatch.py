@@ -1,4 +1,4 @@
-"""Minimize excess renewable production (dissipated in transmission losses) and 
+"""Minimize excess renewable production (dissipated in transmission losses) and
 smooth out demand response and EV charging as much as possible."""
 
 from pyomo.environ import *
@@ -13,22 +13,38 @@ def define_components(m):
         if m.options.verbose:
             print "Not smoothing dispatch because {} cannot solve a quadratic model.".format(m.options.solver)
             print "Remove hawaii.smooth_dispatch from modules.txt and iterate.txt to avoid this message."
-    
+
     # add an alternative objective function that smoothes out time-shiftable energy sources and sinks
     if m.options.smooth_dispatch:
+        if hasattr(m, 'ChargeEVs') and isinstance(m.ChargeEVs, Expression):
+            # Create a variable bound to the ChargeEVs expression
+            # that can be squared in the objective function without creating
+            # a non-positive-definite problem.
+            m.ChargeEVsVar = Var(m.ChargeEVs.index_set())
+            m.ChargeEVsVar_fix = Constraint(
+                m.ChargeEVs.index_set(),
+                rule=lambda m, *key: m.ChargeEVsVar[key] == m.ChargeEVs[key]
+            )
+
         def Smooth_Free_Variables_obj_rule(m):
             # minimize production (i.e., maximize curtailment / minimize losses)
             obj = sum(
                 getattr(m, component)[z, t]
                     for z in m.LOAD_ZONES
-                        for t in m.TIMEPOINTS 
+                        for t in m.TIMEPOINTS
                             for component in m.Zone_Power_Injections)
+
             # minimize the variability of various slack responses
-            adjustable_components = [
-                'ShiftDemand', 'ChargeBattery', 'DischargeBattery', 'ChargeEVs', 
-                'RunElectrolyzerMW', 'LiquifyHydrogenMW', 'DispatchFuelCellMW'
+            components_to_smooth = [
+                'ShiftDemand', 'ChargeBattery', 'DischargeBattery',
+                'RunElectrolyzerMW', 'LiquifyHydrogenMW', 'DispatchFuelCellMW',
             ]
-            for var in adjustable_components:
+            if hasattr(m, 'ChargeEVsVar'):
+                components_to_smooth.append('ChargeEVsVar')
+            else:
+                components_to_smooth.append('ChargeEVs')
+
+            for var in components_to_smooth:
                 if hasattr(m, var):
                     if m.options.verbose:
                         print "Will smooth {}.".format(var)
@@ -39,7 +55,7 @@ def define_components(m):
                 print "Will smooth charging and discharging of standard storage."
                 obj += sum(m.ChargeStorage[g, tp]*m.ChargeStorage[g, tp] for g, tp in m.STORAGE_GEN_TPS)
                 obj += sum(m.DispatchGen[g, tp]*m.DispatchGen[g, tp] for g, tp in m.STORAGE_GEN_TPS)
-            # also maximize up reserves, which will (a) minimize arbitrary burning off of renewables 
+            # also maximize up reserves, which will (a) minimize arbitrary burning off of renewables
             # (e.g., via storage) and (b) give better representation of the amount of reserves actually available
             if hasattr(m, 'Spinning_Reserve_Up_Provisions') and hasattr(m, 'GEN_SPINNING_RESERVE_TYPES'): # advanced module
                 print "Will maximize provision of up reserves."
@@ -69,30 +85,23 @@ def pre_iterate(m):
             # indicate that this was run in iterated mode, so no need for post-solve
             m.iterated_smooth_dispatch = True
         elif m.iteration_number == 1:
-            # save any dual values for later use (solving with a different objective
-            # will alter them in an undesirable way)
-            save_duals(m)
-            # switch to the smoothing objective
-            fix_obj_expression(m.Minimize_System_Cost)
-            m.Minimize_System_Cost.deactivate()
-            m.Smooth_Free_Variables.activate()
-            print "smoothing free variables..."
+            pre_smooth_solve(m)
         else:
             raise RuntimeError("Reached unexpected iteration number {} in module {}.".format(m.iteration_number, __name__))
 
     return None  # no comment on convergence
-    
+
 def post_iterate(m):
     if hasattr(m, "ChargeBattery"):
         double_charge = [
             (
-                z, t, 
-                m.ChargeBattery[z, t].value, 
+                z, t,
+                m.ChargeBattery[z, t].value,
                 m.DischargeBattery[z, t].value
-            ) 
-                for z in m.LOAD_ZONES 
-                    for t in m.TIMEPOINTS 
-                        if m.ChargeBattery[z, t].value > 0 
+            )
+                for z in m.LOAD_ZONES
+                    for t in m.TIMEPOINTS
+                        if m.ChargeBattery[z, t].value > 0
                             and m.DischargeBattery[z, t].value > 0
         ]
         if len(double_charge) > 0:
@@ -104,20 +113,14 @@ def post_iterate(m):
                     z=z, t=m.tp_timestamp[t],
                     c=c, d=d
                 )
-            
+
     if m.options.smooth_dispatch:
         # setup model for next iteration
         if m.iteration_number == 0:
             done = False # we'll have to run again to do the smoothing
         elif m.iteration_number == 1:
             # finished smoothing the model
-            # restore the standard objective
-            m.Smooth_Free_Variables.deactivate()
-            m.Minimize_System_Cost.activate()
-            # unfix the variables
-            fix_obj_expression(m.Minimize_System_Cost, False)
-            # restore any duals from the original solution
-            restore_duals(m)
+            post_smooth_solve(m)
             # now we're done
             done = True
         else:
@@ -129,24 +132,32 @@ def post_iterate(m):
     return done
 
 def post_solve(m, outputs_dir):
+    """ Smooth dispatch if it wasn't already done during an iterative solution. """
     if m.options.smooth_dispatch and not getattr(m, 'iterated_smooth_dispatch', False):
-
-        # store model state and prepare for smoothing
-        save_duals(m)
-        fix_obj_expression(m.Minimize_System_Cost)
-        m.Minimize_System_Cost.deactivate()
-        m.Smooth_Free_Variables.activate()
-
+        pre_smooth_solve(m)
         # re-solve and load results
-        print "smoothing free variables..."
         m.preprocess()
         switch_model.solve.solve(m)
+        post_smooth_solve(m)
 
-        # restore original model state
-        m.Smooth_Free_Variables.deactivate()
-        m.Minimize_System_Cost.activate()
-        fix_obj_expression(m.Minimize_System_Cost, False)
-        restore_duals(m)
+def pre_smooth_solve(m):
+    """ store model state and prepare for smoothing """
+    save_duals(m)
+    fix_obj_expression(m.Minimize_System_Cost)
+    m.Minimize_System_Cost.deactivate()
+    m.Smooth_Free_Variables.activate()
+    print "smoothing free variables..."
+
+def post_smooth_solve(m):
+    """ restore original model state """
+    # restore the standard objective
+    m.Smooth_Free_Variables.deactivate()
+    m.Minimize_System_Cost.activate()
+    # unfix the variables
+    fix_obj_expression(m.Minimize_System_Cost, False)
+    # restore any duals from the original solution
+    restore_duals(m)
+
 
 def save_duals(m):
     if hasattr(m, 'dual'):
@@ -182,5 +193,3 @@ def fix_obj_expression(e, status=True):
             'Expression {e} does not have an exg, fixed or _args property, ' +
             'so it cannot be fixed.'.format(e=e)
         )
-        
-
