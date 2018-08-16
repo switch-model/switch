@@ -206,7 +206,7 @@ def define_components(m):
                             for rt in m.EV_SPINNING_RESERVE_TYPES
                         ) <= m.EVSlackUp[ba, tp]
                 )
-                m.Limit_EVSpinningReserveUp = Constraint(
+                m.Limit_EVSpinningReserveDown = Constraint(
                     m.BALANCING_AREA_TIMEPOINTS,
                     rule=lambda m, ba, tp:
                         sum(

@@ -512,10 +512,11 @@ def load_inputs(mod, switch_data, inputs_dir):
         switch_data.load(filename=multi_fuels_path)
 
 
-def post_solve(instance, outdir):
+def post_solve(m, outdir):
     write_table(
-        instance, instance.GEN_PERIODS,
-        output_file=os.path.join(outdir, "gen_cap.txt"),
+        m,
+        sorted(m.GEN_PERIODS) if m.options.sorted_output else m.GEN_PERIODS,
+        output_file=os.path.join(outdir, "gen_cap.tab"),
         headings=(
             "GENERATION_PROJECT", "PERIOD",
             "gen_tech", "gen_load_zone", "gen_energy_source",

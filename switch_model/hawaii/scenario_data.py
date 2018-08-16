@@ -266,10 +266,7 @@ def write_tables(**args):
     # TODO: add a flag to fuel_costs indicating whether forecasts are real or nominal,
     # and base year, and possibly inflation rate.
     if args['fuel_scen_id'] in ('1', '2', '3'):
-        # no base_year specified; these are in nominal dollars
-        inflator = 'power(1.0+%(inflation_rate)s, %(base_financial_year)s-c.year)'
-    else:
-        inflator = 'power(1.0+%(inflation_rate)s, %(base_financial_year)s-c.base_year)'
+        raise ValueError("fuel_scen_ids '1', '2' and '3' (specified in nominal dollars) are no longer supported.")
 
     if args.get("use_simple_fuel_costs", False):
         # simple fuel markets with no bulk LNG expansion option (use fuel_cost module)
@@ -290,7 +287,11 @@ def write_tables(**args):
         write_table('fuel_cost.tab',
             with_period_length + """
             SELECT load_zone, replace(fuel_type, ' ', '_') as fuel, p.period,
-                avg(price_mmbtu * {inflator} + COALESCE(fixed_cost, 0.00)) as fuel_cost
+                avg(
+                    price_mmbtu
+                    * power(1.0+%(inflation_rate)s, %(base_financial_year)s-c.base_year)
+                    + COALESCE(fixed_cost, 0.00)
+                ) as fuel_cost
             FROM fuel_costs c, study_periods p JOIN period_length l USING (period)
             WHERE load_zone in %(load_zones)s
                 AND fuel_scen_id = %(fuel_scen_id)s
@@ -299,7 +300,7 @@ def write_tables(**args):
                 AND c.year >= p.period AND c.year < p.period + l.period_length
             GROUP BY 1, 2, 3
             ORDER BY 1, 2, 3;
-        """.format(inflator=inflator, lng_selector=lng_selector), args)
+        """.format(lng_selector=lng_selector), args)
     else:
         # advanced fuel markets with LNG expansion options (used by forward-looking models)
         # (use fuel_markets module)
@@ -317,7 +318,7 @@ def write_tables(**args):
                 replace(fuel_type, ' ', '_') as fuel,
                 tier,
                 p.period,
-                avg(price_mmbtu * {inflator}) as unit_cost,
+                avg(price_mmbtu * power(1.0+%(inflation_rate)s, %(base_financial_year)s-c.base_year)) as unit_cost,
                 avg(max_avail_at_cost) as max_avail_at_cost,
                 avg(fixed_cost) as fixed_cost,
                 avg(max_age) as max_age
@@ -328,7 +329,7 @@ def write_tables(**args):
                 AND (c.year >= p.period AND c.year < p.period + l.period_length)
             GROUP BY 1, 2, 3, 4
             ORDER BY 1, 2, 3, 4;
-        """.format(inflator=inflator), args)
+        """, args)
 
         write_table('zone_to_regional_fuel_market.tab', """
             SELECT DISTINCT load_zone, concat('Hawaii_', replace(fuel_type, ' ', '_')) AS regional_fuel_market

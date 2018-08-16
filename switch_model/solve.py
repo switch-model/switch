@@ -79,8 +79,10 @@ def main(args=None, return_model=False, return_instance=False):
             return model
 
         if model.options.reload_prior_solution:
+            # TODO: allow a directory to be specified after --reload-prior-solution,
+            # otherwise use outputs_dir.
             if not os.path.isdir(model.options.outputs_dir):
-                raise IOError("Specified outputs directory for solution exploration does not exist.")
+                raise IOError("Directory specified for prior solution does not exist.")
 
         # get a list of modules to iterate through
         iterate_modules = get_iteration_list(model)
@@ -153,11 +155,12 @@ def main(args=None, return_model=False, return_instance=False):
 
         # report results
         # (repeated if model is reloaded, to automatically run any new export code)
-        if instance.options.verbose:
-            print "Executing post solve functions..."
-        instance.post_solve()
-        if instance.options.verbose:
-            print "Post solve processing completed in {:.2f} s.".format(timer.step_time())
+        if not instance.options.no_post_solve:
+            if instance.options.verbose:
+                print "Executing post solve functions..."
+            instance.post_solve()
+            if instance.options.verbose:
+                print "Post solve processing completed in {:.2f} s.".format(timer.step_time())
 
     # end of LogOutput block
 
@@ -477,14 +480,17 @@ def define_arguments(argparser):
         '--quiet', '-q', dest='verbose', action='store_false',
         help="Don't show information about model preparation and solution (cancels --verbose setting)")
     argparser.add_argument(
-        '--interact', default=False, action='store_true',
-        help='Enter interactive shell after solving the instance to enable inspection of the solved model.')
+        '--no-post-solve', default=False, action='store_true',
+        help="Don't run post-solve code on the completed model (i.e., reporting functions).")
     argparser.add_argument(
         '--reload-prior-solution', default=False, action='store_true',
-        help='Load outputs from a previously solved instance into variable values to allow interactive exploration of model components without having to solve the instance again.')
+        help='Load a previously saved solution; useful for re-running post-solve code or interactively exploring the model (via --interact).')
     argparser.add_argument(
         '--no-save-solution', default=False, action='store_true',
         help="Don't save solution after model is solved.")
+    argparser.add_argument(
+        '--interact', default=False, action='store_true',
+        help='Enter interactive shell after solving the instance to enable inspection of the solved model.')
 
 
 def add_module_args(parser):
