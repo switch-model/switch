@@ -741,17 +741,17 @@ def write_results(m):
         values=lambda m, z, t: 
             (z, m.tp_period[t], m.tp_timestamp[t]) 
             +tuple(
-                sum(get(m.DispatchGenByFuel, (p, t, f), 0.0) for p in m.GENERATION_PROJECTS_BY_FUEL[f])
+                sum(get(m.DispatchGenByFuel, (p, t, f), 0.0) for p in m.GENS_BY_FUEL[f])
                 for f in m.FUELS
             )
             +tuple(
-                sum(get(m.DispatchGen, (p, t), 0.0) for p in m.GENERATION_PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[s])
+                sum(get(m.DispatchGen, (p, t), 0.0) for p in m.GENS_BY_NON_FUEL_ENERGY_SOURCE[s])
                 for s in m.NON_FUEL_ENERGY_SOURCES
             )
             +tuple(
                 sum(
                     get(m.DispatchUpperLimit, (p, t), 0.0) - get(m.DispatchGen, (p, t), 0.0) 
-                    for p in m.GENERATION_PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[s]
+                    for p in m.GENS_BY_NON_FUEL_ENERGY_SOURCE[s]
                 )
                 for s in m.NON_FUEL_ENERGY_SOURCES
             )

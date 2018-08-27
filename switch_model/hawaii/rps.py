@@ -108,7 +108,7 @@ def define_components(m):
         sum(
             m.DispatchGen[g, tp] * m.tp_weight[tp]
             for f in m.NON_FUEL_ENERGY_SOURCES if f in m.RPS_ENERGY_SOURCES
-            for g in m.GENERATION_PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[f]
+            for g in m.GENS_BY_NON_FUEL_ENERGY_SOURCE[f]
             for tp in m.TPS_FOR_GEN_IN_PERIOD[g, per]
         )
     )

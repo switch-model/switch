@@ -39,7 +39,7 @@ def define_components(m):
     # How much pumped hydro to build
     m.BuildPumpedHydroMW = Var(m.PH_GENS, m.PERIODS, within=NonNegativeReals)
     m.Pumped_Hydro_Proj_Capacity_MW = Expression(m.PH_GENS, m.PERIODS, rule=lambda m, g, pe:
-        sum(m.BuildPumpedHydroMW[g, pp] for pp in m.CURRENT_AND_PRIOR_PERIODS[pe])
+        sum(m.BuildPumpedHydroMW[g, pp] for pp in m.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD[pe])
     )
 
     # flag indicating whether any capacity is added to each project each year

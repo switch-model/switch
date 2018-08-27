@@ -105,7 +105,7 @@ def define_components(m):
 
     # list of all projects and timepoints when LNG could potentially be used
     m.LNG_GEN_TIMEPOINTS = Set(dimen=2, initialize = lambda m:
-        ((p, t) for p in m.GENERATION_PROJECTS_BY_FUEL['LNG'] for t in m.TIMEPOINTS
+        ((p, t) for p in m.GENS_BY_FUEL['LNG'] for t in m.TIMEPOINTS
             if (p, t) in m.GEN_TPS)
     )
 

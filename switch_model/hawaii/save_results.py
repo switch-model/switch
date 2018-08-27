@@ -207,16 +207,16 @@ def write_results(m, outputs_dir):
             )
             +tuple(
                 sum(
-                    util.get(m.DispatchGen, (p, t), 0.0) 
-                    for p in m.GENERATION_PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[s]
+                    util.get(m.DispatchGen, (p, t), 0.0)
+                    for p in m.GENS_BY_NON_FUEL_ENERGY_SOURCE[s]
                     if m.gen_load_zone[p] == z
                 )
                 for s in m.NON_FUEL_ENERGY_SOURCES
             )
             +tuple(
                 sum(
-                    util.get(m.DispatchUpperLimit, (p, t), 0.0) - util.get(m.DispatchGen, (p, t), 0.0) 
-                    for p in m.GENERATION_PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[s]
+                    util.get(m.DispatchUpperLimit, (p, t), 0.0) - util.get(m.DispatchGen, (p, t), 0.0)
+                    for p in m.GENS_BY_NON_FUEL_ENERGY_SOURCE[s]
                     if m.gen_load_zone[p] == z
                 )
                 for s in m.NON_FUEL_ENERGY_SOURCES
@@ -258,7 +258,7 @@ def write_results(m, outputs_dir):
                             ) 
                             # prorated by energy source used
                             * DispatchGenByFuel(m, p, t, f) / m.DispatchGen[p, t]
-                            for p in m.GENERATION_PROJECTS_BY_FUEL[f] 
+                            for p in m.GENS_BY_FUEL[f]
                             if (p, t) in m.GEN_TPS and m.zone_balancing_area[m.gen_load_zone[p]] == ba
                         )
                     )
@@ -267,7 +267,7 @@ def write_results(m, outputs_dir):
                 +tuple(
                     sum(
                         m.CommitGenSpinningReservesUp[rt, p, t]
-                        for p in m.GENERATION_PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[s]
+                        for p in m.GENS_BY_NON_FUEL_ENERGY_SOURCE[s]
                         if (p, t) in m.SPINNING_RESERVE_CAPABLE_GEN_TPS and m.zone_balancing_area[m.gen_load_zone[p]] == ba
                         for rt in m.SPINNING_RESERVE_TYPES_FOR_GEN[p]
                     )

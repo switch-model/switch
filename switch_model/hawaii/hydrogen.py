@@ -26,7 +26,7 @@ def define_hydrogen_components(m):
     m.hydrogen_electrolyzer_life_years = Param()
     m.BuildElectrolyzerMW = Var(m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals)
     m.ElectrolyzerCapacityMW = Expression(m.LOAD_ZONES, m.PERIODS, rule=lambda m, z, p:
-        sum(m.BuildElectrolyzerMW[z, p_] for p_ in m.CURRENT_AND_PRIOR_PERIODS[p]))
+        sum(m.BuildElectrolyzerMW[z, p_] for p_ in m.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD[p]))
     m.RunElectrolyzerMW = Var(m.LOAD_ZONES, m.TIMEPOINTS, within=NonNegativeReals)
     m.ProduceHydrogenKgPerHour = Expression(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
         m.RunElectrolyzerMW[z, t] * m.hydrogen_electrolyzer_kg_per_mwh)
@@ -44,7 +44,7 @@ def define_hydrogen_components(m):
     m.hydrogen_liquifier_life_years = Param()
     m.BuildLiquifierKgPerHour = Var(m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals)  # capacity to build, measured in kg/hour of throughput
     m.LiquifierCapacityKgPerHour = Expression(m.LOAD_ZONES, m.PERIODS, rule=lambda m, z, p:
-        sum(m.BuildLiquifierKgPerHour[z, p_] for p_ in m.CURRENT_AND_PRIOR_PERIODS[p]))
+        sum(m.BuildLiquifierKgPerHour[z, p_] for p_ in m.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD[p]))
     m.LiquifyHydrogenKgPerHour = Var(m.LOAD_ZONES, m.TIMEPOINTS, within=NonNegativeReals)
     m.LiquifyHydrogenMW = Expression(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
         m.LiquifyHydrogenKgPerHour[z, t] * m.hydrogen_liquifier_mwh_per_kg
@@ -56,7 +56,7 @@ def define_hydrogen_components(m):
     m.liquid_hydrogen_tank_life_years = Param()
     m.BuildLiquidHydrogenTankKg = Var(m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals) # in kg
     m.LiquidHydrogenTankCapacityKg = Expression(m.LOAD_ZONES, m.PERIODS, rule=lambda m, z, p:
-        sum(m.BuildLiquidHydrogenTankKg[z, p_] for p_ in m.CURRENT_AND_PRIOR_PERIODS[p]))
+        sum(m.BuildLiquidHydrogenTankKg[z, p_] for p_ in m.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD[p]))
     m.StoreLiquidHydrogenKg = Expression(m.LOAD_ZONES, m.TIMESERIES, rule=lambda m, z, ts:
         m.ts_duration_of_tp[ts] * sum(m.LiquifyHydrogenKgPerHour[z, tp] for tp in m.TPS_IN_TS[ts])
     )
@@ -71,7 +71,7 @@ def define_hydrogen_components(m):
     m.hydrogen_fuel_cell_life_years = Param()
     m.BuildFuelCellMW = Var(m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals)
     m.FuelCellCapacityMW = Expression(m.LOAD_ZONES, m.PERIODS, rule=lambda m, z, p:
-        sum(m.BuildFuelCellMW[z, p_] for p_ in m.CURRENT_AND_PRIOR_PERIODS[p]))
+        sum(m.BuildFuelCellMW[z, p_] for p_ in m.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD[p]))
     m.DispatchFuelCellMW = Var(m.LOAD_ZONES, m.TIMEPOINTS, within=NonNegativeReals)
     m.ConsumeHydrogenKgPerHour = Expression(m.LOAD_ZONES, m.TIMEPOINTS, rule=lambda m, z, t:
         m.DispatchFuelCellMW[z, t] / m.hydrogen_fuel_cell_mwh_per_kg

@@ -238,7 +238,7 @@ def define_components(mod):
     # Derived sets and parameters
     # note: the first four are calculated early so they
     # can be used for the add_one_to_period_end_rule
-    
+
     mod.tp_weight = Param(
         mod.TIMEPOINTS,
         within=PositiveReals,
@@ -267,7 +267,7 @@ def define_components(mod):
         within=mod.TIMEPOINTS,
         initialize=lambda m, p: [
             t for t in m.TIMEPOINTS if m.tp_period[t] == p])
-    
+
     # Decide whether period_end values have been given as exact points in time
     # (e.g., 2020.0 means 2020-01-01 00:00:00), or as a label for a full
     # year (e.g., 2020 means 2020-12-31 12:59:59). We use whichever one gives
@@ -312,9 +312,9 @@ def define_components(mod):
         mod.TIMEPOINTS,
         initialize=lambda m, t: m.ts_duration_of_tp[m.tp_ts[t]])
     # Identify previous step for each timepoint, for use in tracking
-    # unit commitment or storage. We use circular indexing (.prevw() method) 
-    # for the timepoints within a timeseries to give consistency between the 
-    # start and end state. (Note: separate timeseries are assumed to be 
+    # unit commitment or storage. We use circular indexing (.prevw() method)
+    # for the timepoints within a timeseries to give consistency between the
+    # start and end state. (Note: separate timeseries are assumed to be
     # disconnected from each other.)
     mod.tp_previous = Param(
         mod.TIMEPOINTS,
@@ -352,8 +352,16 @@ def define_components(mod):
                 return False
         return True
     mod.validate_period_lengths = BuildCheck(
-        mod.PERIODS, 
+        mod.PERIODS,
         rule=validate_period_lengths_rule)
+
+    # define an indexed set of all periods before or including the current one.
+    # this is useful for calculations that must index over previous and current periods
+    mod.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD = Set(
+        mod.PERIODS, ordered=True,
+        initialize=lambda m, p:
+            [p2 for p2 in m.PERIODS if m.PERIODS.ord(p2) <= m.PERIODS.ord(p)]
+    )
 
 
 def load_inputs(mod, switch_data, inputs_dir):
