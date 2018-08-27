@@ -35,7 +35,7 @@ def define_components(m):
             """
             tp = key[-1]
             prev_tp = m.TPS_IN_TS[m.tp_ts[tp]].prevw(tp)
-            entry_key = str((component,) + key)
+            entry_key = str((component.name,) + key)
             entry_val = component[key] - component[key[:-1]+(prev_tp,)]
             d[entry_key] = entry_val
 
