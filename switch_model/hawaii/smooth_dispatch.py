@@ -156,7 +156,7 @@ def post_solve(m, outputs_dir):
         pre_smooth_solve(m)
         # re-solve and load results
         m.preprocess()
-        switch_model.solve.solve(m)
+        solve(m)
         post_smooth_solve(m)
 
 def pre_smooth_solve(m):
@@ -166,6 +166,16 @@ def pre_smooth_solve(m):
     m.Minimize_System_Cost.deactivate()
     m.Smooth_Free_Variables.activate()
     print "smoothing free variables..."
+
+def solve(m):
+    try:
+        switch_model.solve.solve(m)
+    except RuntimeError as e:
+        if e.message.lower() == 'infeasible model':
+            # show a warning, but don't abort the overall post_solve process
+            print('WARNING: model became infeasible when smoothing; reverting to original solution.')
+        else:
+            raise
 
 def post_smooth_solve(m):
     """ restore original model state """
