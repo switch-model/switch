@@ -185,6 +185,11 @@ def write_results(m, outputs_dir):
 
     # get a list of non-fuel technologies, to allow disaggregation by type
     non_fuel_techs = tuple(sorted(set(m.gen_tech[g] for g in m.NON_FUEL_BASED_GENS)))
+    # get a list of ad-hoc technologies (not included in standard generation projects)
+    ad_hoc_sources = tuple(
+        s for s in m.Zone_Power_Injections
+        if s not in {'ZoneTotalCentralDispatch', 'ZoneTotalDistributedDispatch'}
+    )
     avg_ts_scale = float(sum(m.ts_scale_to_year[ts] for ts in m.TIMESERIES))/len(m.TIMESERIES)
     util.write_table(
         m, m.LOAD_ZONES, m.TIMEPOINTS,
@@ -381,16 +386,71 @@ def write_results(m, outputs_dir):
 
     util.write_table(m, m.LOAD_ZONES, m.PERIODS,
         output_file=os.path.join(outputs_dir, "production_by_technology{t}.tsv".format(t=tag)),
-        headings=("load_zone", "period") + built_tech,
-        values=lambda m, z, pe: (z, pe,) + tuple(
-            sum(
-                m.DispatchGen[g, tp] * m.tp_weight_in_year[tp] * 0.001 # MWh -> GWh
-                for g in built_gens if m.gen_tech[g] == t and m.gen_load_zone[g] == z
-                for tp in m.TPS_FOR_GEN_IN_PERIOD[g, pe]
+        headings=("load_zone", "period") + built_tech + ad_hoc_sources,
+        values=lambda m, z, pe:
+            (z, pe,)
+            + tuple(
+                sum(
+                    m.DispatchGen[g, tp] * m.tp_weight_in_year[tp] * 0.001 # MWh -> GWh
+                    for g in built_gens if m.gen_tech[g] == t and m.gen_load_zone[g] == z
+                    for tp in m.TPS_FOR_GEN_IN_PERIOD[g, pe]
+                )
+                for t in built_tech
             )
-            for t in built_tech
-        ) # TODO: add hydro and hydrogen
+            + tuple(  # ad hoc techs: hydrogen, pumped storage, etc.
+                sum(
+                    comp[z, tp] * m.tp_weight_in_year[tp] * 0.001
+                    for tp in m.TPS_IN_PERIOD[pe]
+                )
+                for comp in [getattr(m, cname) for cname in ad_hoc_sources]
+            )
     )
+
+    # option 1: make separate tables of production_by_technology and production_by_energy_source,
+    # and use columns from production_by_technology to replace corresponding columns from
+    # production_by_energy_source in order to disaggregate certain energy sources.
+    # option 2: make a single table that shows production by technology and energy source
+    # (sub slices); but this has to either have two heading levels or concatenate them or
+    # use a database format rather than a table format, which will then require post-processing
+    # by pandas or an Excel pivot table.
+    # For now, we go with option 1.
+    util.write_table(m, m.LOAD_ZONES, m.PERIODS,
+        output_file=os.path.join(outputs_dir, "production_by_energy_source{t}.tsv".format(t=tag)),
+        headings=
+            ("load_zone", "period")
+            + tuple(m.FUELS)
+            + tuple(m.NON_FUEL_ENERGY_SOURCES)
+            + ad_hoc_sources,
+        values=lambda m, z, pe:
+            (z, pe,)
+            + tuple(
+                sum(
+                    DispatchGenByFuel(m, g, tp, f) * m.tp_weight_in_year[tp] * 0.001 # MWh -> GWh
+                    for g in m.GENS_BY_FUEL[f]
+                    if m.gen_load_zone[g] == z
+                    for tp in m.TPS_FOR_GEN_IN_PERIOD[g, pe]
+                )
+                for f in m.FUELS
+            )
+            + tuple(
+                sum(
+                    m.DispatchGen[g, tp] * m.tp_weight_in_year[tp] * 0.001 # MWh -> GWh
+                    for g in m.GENS_BY_NON_FUEL_ENERGY_SOURCE[s]
+                    if m.gen_load_zone[g] == z
+                    for tp in m.TPS_FOR_GEN_IN_PERIOD[g, pe]
+                )
+                for s in m.NON_FUEL_ENERGY_SOURCES
+            )
+            + tuple(  # ad hoc techs: hydrogen, pumped storage, etc.
+                sum(
+                    comp[z, tp] * m.tp_weight_in_year[tp] * 0.001
+                    for tp in m.TPS_IN_PERIOD[pe]
+                )
+                for comp in [getattr(m, cname) for cname in ad_hoc_sources]
+            )
+    )
+
+
 
     # def cost_breakdown_details(m, z, pe):
     #     values = [z, pe]
