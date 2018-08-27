@@ -1,8 +1,9 @@
-"""Minimize excess renewable production (dissipated in transmission losses) and
-smooth out demand response and EV charging as much as possible."""
+"""Minimize excess renewable production (dissipated in transmission and battery
+losses) and smooth out demand response and EV charging as much as possible."""
 
 from pyomo.environ import *
 import switch_model.solve
+from switch_model.utilities import iteritems
 
 def define_components(m):
     if m.options.solver in ('cplex', 'cplexamp', 'gurobi', 'gurobi_ampl'):
@@ -16,15 +17,56 @@ def define_components(m):
 
     # add an alternative objective function that smoothes out time-shiftable energy sources and sinks
     if m.options.smooth_dispatch:
-        if hasattr(m, 'ChargeEVs') and isinstance(m.ChargeEVs, Expression):
-            # Create a variable bound to the ChargeEVs expression
-            # that can be squared in the objective function without creating
-            # a non-positive-definite problem.
-            m.ChargeEVsVar = Var(m.ChargeEVs.index_set())
-            m.ChargeEVsVar_fix = Constraint(
-                m.ChargeEVs.index_set(),
-                rule=lambda m, *key: m.ChargeEVsVar[key] == m.ChargeEVs[key]
-            )
+        # minimize the range of variation of various slack responses;
+        # these should each have timepoint as their final index component
+        components_to_smooth = [
+            'ShiftDemand', 'ChargeBattery', 'DischargeBattery', 'ChargeEVs',
+            'RunElectrolyzerMW', 'LiquifyHydrogenMW', 'DispatchFuelCellMW',
+        ]
+
+        def add_smoothing_entry(m, d, component, key):
+            """
+            Add an entry to the dictionary d of elements to smooth. The entry's
+            key is based on component name and specified key, and its value is
+            an expression whose absolute value should be minimized to smooth the
+            model. The last element of the provided key must be a timepoint, and
+            the expression is equal to the value of the component at this
+            timepoint minus its value at the previous timepoint.
+            """
+            tp = key[-1]
+            prev_tp = m.TPS_IN_TS[m.tp_ts[tp]].prevw(tp)
+            entry_key = str((component,) + key)
+            entry_val = component[key] - component[key[:-1]+(prev_tp,)]
+            d[entry_key] = entry_val
+
+        def rule(m):
+            m.component_smoothing_dict = dict()
+            """Find all components to be smoothed"""
+            # smooth named components
+            for c in components_to_smooth:
+                try:
+                    comp = getattr(m, c)
+                except AttributeError:
+                    continue
+                print "Will smooth {}.".format(c)
+                for key in comp:
+                    add_smoothing_entry(m, m.component_smoothing_dict, comp, key)
+            # smooth standard storage generators
+            if hasattr(m, 'STORAGE_GEN_TPS'):
+                print "Will smooth charging and discharging of standard storage."
+                for c in ['ChargeStorage', 'DispatchGen']:
+                    comp = getattr(m, c)
+                    for key in m.STORAGE_GEN_TPS:
+                        add_smoothing_entry(m, m.component_smoothing_dict, comp, key)
+        m.make_component_smoothing_dict = BuildAction(rule=rule)
+
+        # Force IncreaseSmoothedValue to equal any step-up in a smoothed value
+        m.ISV_INDEX = Set(initialize=lambda m: m.component_smoothing_dict.keys())
+        m.IncreaseSmoothedValue = Var(m.ISV_INDEX, within=NonNegativeReals)
+        m.Calculate_IncreaseSmoothedValue = Constraint(
+            m.ISV_INDEX,
+            rule=lambda m, k: m.IncreaseSmoothedValue[k] >= m.component_smoothing_dict[k]
+        )
 
         def Smooth_Free_Variables_obj_rule(m):
             # minimize production (i.e., maximize curtailment / minimize losses)
@@ -33,28 +75,6 @@ def define_components(m):
                     for z in m.LOAD_ZONES
                         for t in m.TIMEPOINTS
                             for component in m.Zone_Power_Injections)
-
-            # minimize the variability of various slack responses
-            components_to_smooth = [
-                'ShiftDemand', 'ChargeBattery', 'DischargeBattery',
-                'RunElectrolyzerMW', 'LiquifyHydrogenMW', 'DispatchFuelCellMW',
-            ]
-            if hasattr(m, 'ChargeEVsVar'):
-                components_to_smooth.append('ChargeEVsVar')
-            else:
-                components_to_smooth.append('ChargeEVs')
-
-            for var in components_to_smooth:
-                if hasattr(m, var):
-                    if m.options.verbose:
-                        print "Will smooth {}.".format(var)
-                    comp = getattr(m, var)
-                    obj += sum(comp[z, t]*comp[z, t] for z in m.LOAD_ZONES for t in m.TIMEPOINTS)
-            # include standard storage generators too
-            if hasattr(m, 'STORAGE_GEN_TPS'):
-                print "Will smooth charging and discharging of standard storage."
-                obj += sum(m.ChargeStorage[g, tp]*m.ChargeStorage[g, tp] for g, tp in m.STORAGE_GEN_TPS)
-                obj += sum(m.DispatchGen[g, tp]*m.DispatchGen[g, tp] for g, tp in m.STORAGE_GEN_TPS)
             # also maximize up reserves, which will (a) minimize arbitrary burning off of renewables
             # (e.g., via storage) and (b) give better representation of the amount of reserves actually available
             if hasattr(m, 'Spinning_Reserve_Up_Provisions') and hasattr(m, 'GEN_SPINNING_RESERVE_TYPES'): # advanced module
@@ -66,18 +86,17 @@ def define_components(m):
                         reserve_weight.get(rt, 1.0) * component[rt, ba, tp]
                         for rt, ba, tp in component
                     )
+            # minimize absolute value of changes in the smoothed variables
+            obj += sum(v for v in m.IncreaseSmoothedValue.values())
             return obj
         m.Smooth_Free_Variables = Objective(rule=Smooth_Free_Variables_obj_rule, sense=minimize)
+
+        # constrain smoothing objective to find unbounded ray
+        m.Bound_Obj = Constraint(rule=lambda m: Smooth_Free_Variables_obj_rule(m) <= 1e9)
+
         # leave standard objective in effect for now
         m.Smooth_Free_Variables.deactivate()
 
-        # def Fix_Obj_rule(m):
-        #     # import pdb; pdb.set_trace()
-        #     # make sure the minimum-cost objective is in effect
-        #     # not sure if this is needed, and not sure
-        #     m.Smooth_Free_Variables.deactivate()
-        #     m.Minimize_System_Cost.activate()
-        # m.Fix_Obj = BuildAction(rule=Fix_Obj_rule)
 
 def pre_iterate(m):
     if m.options.smooth_dispatch:
@@ -190,6 +209,6 @@ def fix_obj_expression(e, status=True):
         pass
     else:
         raise ValueError(
-            'Expression {e} does not have an exg, fixed or _args property, ' +
+            'Expression {e} does not have an expr, fixed or _args property, ' +
             'so it cannot be fixed.'.format(e=e)
         )
