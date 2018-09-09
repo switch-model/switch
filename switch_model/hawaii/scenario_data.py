@@ -441,7 +441,7 @@ def write_tables(**args):
                 c.capital_cost_per_kw * 1000.0
                     * power(1.0+%(inflation_rate)s, %(base_financial_year)s-c.base_year)
                     AS gen_overnight_cost,
-                c.capital_cost_per_kwh AS gen_storage_energy_overnight_cost,
+                c.capital_cost_per_kwh * 1000.0 AS gen_storage_energy_overnight_cost,
                 c.fixed_o_m * 1000.0 * power(1.0+%(inflation_rate)s, %(base_financial_year)s-i.base_year)
                     AS gen_fixed_o_m,
                 i.min_vintage_year  -- used for build_year filter below
