@@ -6,15 +6,15 @@ import os
 from pyomo.environ import *
 
 # TODO: use standard reserves module for this
-# note: this is modeled off of hawaii.reserves, to avoid adding lots of 
+# note: this is modeled off of hawaii.reserves, to avoid adding lots of
 # reserve-related code to the pumped storage and (formerly) hydrogen modules.
 # But eventually those modules should use the standard storage module and
 # extend that as needed.
 
 def define_arguments(argparser):
-    argparser.add_argument('--hawaii-storage-reserve-types', nargs='+', default=['spinning'], 
+    argparser.add_argument('--hawaii-storage-reserve-types', nargs='+', default=['spinning'],
         help=
-            "Type(s) of reserves to provide from " # hydrogen and/or 
+            "Type(s) of reserves to provide from " # hydrogen and/or
             "pumped-hydro storage "
             "(e.g., 'contingency regulation'). "
             "Default is generic 'spinning'. Specify 'none' to disable."
@@ -33,24 +33,39 @@ def define_components(m):
             # choose how much pumped storage reserves to provide each hour, without reversing direction
             m.PumpedStorageSpinningUpReserves = Var(m.PH_GENS, m.TIMEPOINTS, within=NonNegativeReals)
             m.Limit_PumpedStorageSpinningUpReserves_When_Charging = Constraint(
-                m.PH_GENS, m.TIMEPOINTS, 
+                m.PH_GENS, m.TIMEPOINTS,
                 rule=lambda m, phg, tp:
                     m.PumpedStorageSpinningUpReserves[phg, tp]
-                    <= 
+                    <=
                     m.PumpedHydroProjStoreMW[phg, tp]
                     + m.ph_max_capacity_mw[phg] * (1 - m.PumpedStorageCharging[phg, tp]) # relax when discharging
             )
             m.Limit_PumpedStorageSpinningUpReserves_When_Discharging = Constraint(
-                m.PH_GENS, m.TIMEPOINTS, 
+                m.PH_GENS, m.TIMEPOINTS,
                 rule=lambda m, phg, tp:
                     m.PumpedStorageSpinningUpReserves[phg, tp]
-                    <= 
+                    <=
                     m.Pumped_Hydro_Proj_Capacity_MW[phg, m.tp_period[tp]] - m.PumpedHydroProjGenerateMW[phg, tp]
                     + m.ph_max_capacity_mw[phg] * m.PumpedStorageCharging[phg, tp] # relax when charging
             )
-            # TODO: implement down reserves
             m.PumpedStorageSpinningDownReserves = Var(m.PH_GENS, m.TIMEPOINTS, within=NonNegativeReals, bounds=(0,0))
-        
+            m.Limit_PumpedStorageSpinningDownReserves_When_Charging = Constraint(
+                m.PH_GENS, m.TIMEPOINTS,
+                rule=lambda m, phg, tp:
+                    m.PumpedStorageSpinningDownReserves[phg, tp]
+                    <=
+                    m.Pumped_Hydro_Proj_Capacity_MW[phg, m.tp_period[tp]] - m.PumpedHydroProjStoreMW[phg, tp]
+                    + m.ph_max_capacity_mw[phg] * (1 - m.PumpedStorageCharging[phg, tp]) # relax when discharging
+            )
+            m.Limit_PumpedStorageSpinningDownReserves_When_Discharging = Constraint(
+                m.PH_GENS, m.TIMEPOINTS,
+                rule=lambda m, phg, tp:
+                    m.PumpedStorageSpinningDownReserves[phg, tp]
+                    <=
+                    m.PumpedHydroProjGenerateMW[phg, tp]
+                    + m.ph_max_capacity_mw[phg] * m.PumpedStorageCharging[phg, tp] # relax when charging
+            )
+
         # Register with spinning reserves
         if hasattr(m, 'Spinning_Reserve_Up_Provisions'): # using spinning_reserves_advanced
             # calculate available slack from hawaii storage
@@ -62,7 +77,7 @@ def define_components(m):
                 if hasattr(m, 'PumpedStorageSpinningUpReserves'):
                     avail += sum(
                         m.PumpedStorageSpinningUpReserves[phg, tp]
-                        for phg in m.PH_GENS 
+                        for phg in m.PH_GENS
                         if m.ph_load_zone[phg] in m.ZONES_IN_BALANCING_AREA[a]
                     )
                 return avail
@@ -74,7 +89,7 @@ def define_components(m):
                 if hasattr(m, 'PumpedStorageSpinningDownReserves'):
                     avail += sum(
                         m.PumpedStorageSpinningDownReserves[phg, tp]
-                        for phg in m.PH_GENS 
+                        for phg in m.PH_GENS
                         if m.ph_load_zone[phg] in m.ZONES_IN_BALANCING_AREA[a]
                     )
                 return avail
@@ -97,16 +112,16 @@ def define_components(m):
                 )
                 # constrain reserve provision within available slack
                 m.Limit_HawaiiStorageSpinningReserveUp = Constraint(
-                    m.BALANCING_AREA_TIMEPOINTS, 
-                    rule=lambda m, ba, tp: 
+                    m.BALANCING_AREA_TIMEPOINTS,
+                    rule=lambda m, ba, tp:
                         sum(
                             m.HawaiiStorageSpinningReserveUp[rt, ba, tp]
                             for rt in m.HI_STORAGE_SPINNING_RESERVE_TYPES
                         ) <= m.HawaiiStorageSlackUp[ba, tp]
                 )
                 m.Limit_HawaiiStorageSpinningReserveDown = Constraint(
-                    m.BALANCING_AREA_TIMEPOINTS, 
-                    rule=lambda m, ba, tp: 
+                    m.BALANCING_AREA_TIMEPOINTS,
+                    rule=lambda m, ba, tp:
                         sum(
                             m.HawaiiStorageSpinningReserveDown[rt, ba, tp]
                             for rt in m.HI_STORAGE_SPINNING_RESERVE_TYPES
@@ -122,4 +137,3 @@ def define_components(m):
                     )
                 m.Spinning_Reserve_Up_Provisions.append('HawaiiStorageSlackUp')
                 m.Spinning_Reserve_Down_Provisions.append('HawaiiStorageSlackDown')
-
