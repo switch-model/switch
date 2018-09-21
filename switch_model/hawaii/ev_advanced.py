@@ -115,11 +115,15 @@ def define_components(m):
     # find lowest and highest possible charging in each timepoint, used for reserve calcs
     m.ev_charge_min = Param(
         m.LOAD_ZONES, m.TIMEPOINTS,
-        initialize=lambda m, z, tp: min(m.ev_bid_mw[z, n, tp] for n in m.EV_BID_NUMS)
+        initialize=lambda m, z, tp:
+            m.ev_share[z, m.tp_period[tp]]
+            * min(m.ev_bid_mw[z, n, tp] for n in m.EV_BID_NUMS)
     )
     m.ev_charge_max = Param(
         m.LOAD_ZONES, m.TIMEPOINTS,
-        initialize=lambda m, z, tp: max(m.ev_bid_mw[z, n, tp] for n in m.EV_BID_NUMS)
+        initialize=lambda m, z, tp:
+            m.ev_share[z, m.tp_period[tp]]
+            * max(m.ev_bid_mw[z, n, tp] for n in m.EV_BID_NUMS)
     )
 
     # decide which share of the fleet to allocate to each charging bid
