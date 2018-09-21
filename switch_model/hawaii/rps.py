@@ -664,7 +664,7 @@ def advanced1_DispatchGenRenewableMW(m):
     # omit binary variables and big-m constraints if len(m.FUELS_FOR_GEN[p]) == 1
     #   (assign all production to the single fuel)
     # use m.GenFuelUseRate[g, t, f] / m.gen_full_load_heat_rate[g]
-    #    for gects with no heat rate curve and no startup fuel
+    #    for projects with no heat rate curve and no startup fuel
 
     # note: a continuous, quadratic version of this function can be created as follows:
     # - make DispatchFuelFlag a PercentFraction instead of Binary

@@ -180,8 +180,8 @@ def define_components(m):
     # # force LNG-capable plants to use only LNG until they exhaust all active tiers
     # # note: we assume no single project can produce more than
     # # 1500 MW from LNG at 10 MMBtu/MWh heat rate
-    # big_gect_mw = 1500 # MW
-    # big_gect_lng = big_gect_mw * 10 # MMBtu/hour
+    # big_project_mw = 1500 # MW
+    # big_project_lng = big_project_mw * 10 # MMBtu/hour
     # def Only_LNG_In_Converted_Plants_rule(m, g, tp):
     #     if g not in m.LNG_CONVERTED_PLANTS:
     #         return Constraint.Skip
@@ -193,7 +193,7 @@ def define_components(m):
     #     )
     #     rfm = m.zone_rfm[m.gen_load_zone[g], 'LNG']
     #     lng_market_exhausted = 1 - m.LNG_Has_Slack[rfm, m.tp_period[tp]]
-    #     return (non_lng_fuel <= big_gect_lng * lng_market_exhausted)
+    #     return (non_lng_fuel <= big_project_lng * lng_market_exhausted)
     # m.Only_LNG_In_Converted_Plants = Constraint(
     #     m.LNG_GEN_TIMEPOINTS,
     #     rule=Only_LNG_In_Converted_Plants_rule
@@ -222,7 +222,7 @@ def define_components(m):
     #             m.DispatchGen[g, tp]
     #             >=
     #             m.DispatchUpperLimit[g, tp]
-    #             - big_gect_mw * lng_market_exhausted
+    #             - big_project_mw * lng_market_exhausted
     #         )
     #         return rule
     #     m.Force_Converted_Plants_On = Constraint(
