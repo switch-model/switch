@@ -406,7 +406,14 @@ def load_aug(switch_data, optional=False, auto_select=False,
         second_line = infile.readline()
     file_is_empty = (headers_line == '')
     file_has_no_data_rows = (second_line == '')
-    headers = headers_line.strip().split('\t')
+    suffix = path.split('.')[-1]
+    if suffix == 'tab':
+        separator = '\t'
+    elif suffix == 'csv':
+        separator = ','
+    else:
+        raise switch_model.utilities.InputError('Unrecognized file type for input file {}'.format(path))
+    headers = headers_line.strip().split(separator)
     # Skip if the file is empty.
     if optional and file_is_empty:
         return
