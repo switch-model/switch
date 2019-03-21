@@ -20,10 +20,10 @@ be called automatically to store results.
 # added as methods (possibly by util rather than a separate reporting module).
 
 import os
-import switch_model.hawaii.util as util
-import switch_model.financials as financials
 from collections import defaultdict
 from pyomo.environ import *
+import switch_model.hawaii.util as util
+import switch_model.financials as financials
 
 def define_components(m):
     # Make sure the model has a dual suffix
