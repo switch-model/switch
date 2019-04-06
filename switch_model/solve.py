@@ -456,6 +456,13 @@ def define_arguments(argparser):
     argparser.add_argument("--tempdir", default=None,
         help='The name of a directory to hold temporary files produced by the solver. '
              'This is usually paired with --keepfiles and --symbolic-solver-labels.')
+    argparser.add_argument(
+        '--retrieve-cplex-mip-duals', default=False, action='store_true',
+        help=(
+            "Patch Pyomo's solver script for cplex to re-solve and retrieve "
+            "dual values for mixed-integer programs."
+        )
+    )
 
     # NOTE: the following could potentially be made into standard arguments for all models,
     # e.g. by defining them in a define_standard_arguments() function in switch.utilities.py
@@ -659,18 +666,15 @@ def solve(model):
         # import pdb; pdb.set_trace()
         model.solver_manager = SolverManagerFactory(model.options.solver_manager)
 
-    # get solver arguments (if any)
-    if hasattr(model, "options"):
-        solver_args = dict(
-            options_string=model.options.solver_options_string,
-            keepfiles=model.options.keepfiles,
-            tee=model.options.tee,
-            symbolic_solver_labels=model.options.symbolic_solver_labels
-        )
-        # drop all the unspecified options
-        solver_args = {k: v for (k, v) in solver_args.items() if v is not None}
-    else:
-        solver_args={}
+    # get solver arguments
+    solver_args = dict(
+        options_string=model.options.solver_options_string,
+        keepfiles=model.options.keepfiles,
+        tee=model.options.tee,
+        symbolic_solver_labels=model.options.symbolic_solver_labels
+    )
+    # drop all the unspecified options
+    solver_args = {k: v for (k, v) in solver_args.items() if v is not None}
 
     # Automatically send all defined suffixes to the solver
     solver_args["suffixes"] = [
@@ -687,6 +691,10 @@ def solve(model):
     # patch for Pyomo < 4.2
     if not hasattr(model.solver, "_options_string_to_dict"):
         solver_args.pop("options_string", "")
+
+    # patch Pyomo to retrieve MIP duals from cplex if needed
+    if model.options.retrieve_cplex_mip_duals:
+        retrieve_cplex_mip_duals()
 
     # solve the model
     if model.options.verbose:
@@ -757,6 +765,35 @@ def solve(model):
     # solutions later.
     model.last_results = results
     return results
+
+def retrieve_cplex_mip_duals():
+    """patch Pyomo's solver to retrieve duals and reduced costs for MIPs
+    from cplex lp solver. (This could be made permanent in
+    pyomo.solvers.plugins.solvers.CPLEX.create_command_line)."""
+    from pyomo.solvers.plugins.solvers.CPLEX import CPLEXSHELL
+    old_create_command_line = CPLEXSHELL.create_command_line
+    def new_create_command_line(*args, **kwargs):
+        # call original command
+        command = old_create_command_line(*args, **kwargs)
+        # alter script
+        if hasattr(command, 'script') and 'optimize\n' in command.script:
+            command.script = command.script.replace(
+                'optimize\n',
+                'optimize\nchange problem fix\noptimize\n'
+                # see http://www-01.ibm.com/support/docview.wss?uid=swg21399941
+                # and http://www-01.ibm.com/support/docview.wss?uid=swg21400009
+            )
+            print "changed CPLEX solve script to the following:"
+            print command.script
+        else:
+            print (
+                "Unable to patch CPLEX solver script to retrieve duals "
+                "for MIP problems"
+            )
+        return command
+    new_create_command_line.is_patched = True
+    if not getattr(CPLEXSHELL.create_command_line, 'is_patched', False):
+        CPLEXSHELL.create_command_line = new_create_command_line
 
 
 # taken from https://software.sandia.gov/trac/pyomo/browser/pyomo/trunk/pyomo/opt/base/solvers.py?rev=10784
