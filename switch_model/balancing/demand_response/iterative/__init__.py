@@ -22,7 +22,11 @@ current demand_module in this module (rather than storing it in the model itself
 import os, sys, time
 from pprint import pprint
 from pyomo.environ import *
-import pyomo.repn.canonical_repn
+try:
+    from pyomo.repn import generate_standard_repn
+except ImportError:
+    # this was called generate_canonical_repn before Pyomo 5.6
+    from pyomo.repn import generate_canonical_repn as generate_standard_repn
 
 import switch_model.utilities as utilities
 # TODO: move part of the reporting back into Hawaii module and eliminate these dependencies
@@ -190,22 +194,35 @@ def define_components(m):
         )
     )
     # Register with spinning reserves if it is available
-    if 'Spinning_Reserve_Up_Provisions' in dir(m):
+    if hasattr(m, 'Spinning_Reserve_Up_Provisions'):
         m.DemandSpinningReserveUp = Expression(
             m.BALANCING_AREA_TIMEPOINTS,
-            rule=lambda m, b, t:
-                sum(m.DemandUpReserves[z, t]
-                    for z in m.ZONES_IN_BALANCING_AREA[b])
+            rule=lambda m, b, t: sum(
+                m.DemandUpReserves[z, t] for z in m.ZONES_IN_BALANCING_AREA[b]
+            )
         )
         m.Spinning_Reserve_Up_Provisions.append('DemandSpinningReserveUp')
 
         m.DemandSpinningReserveDown = Expression(
             m.BALANCING_AREA_TIMEPOINTS,
-            rule=lambda m, b, t: \
-                sum(m.DemandDownReserves[g, t]
-                    for z in m.ZONES_IN_BALANCING_AREA[b])
+            rule=lambda m, b, t: sum(
+                m.DemandDownReserves[z, t] for z in m.ZONES_IN_BALANCING_AREA[b]
+            )
         )
         m.Spinning_Reserve_Down_Provisions.append('DemandSpinningReserveDown')
+    if hasattr(m, 'GEN_SPINNING_RESERVE_TYPES'):
+        # User has spacified advanced formulation with different reserve types.
+        # Code needs to be added to support this if needed (see simple.py
+        # for an example). This is not hard, but it gets messy to support
+        # both simple and advanced formulations. Eventually we should just
+        # standardize on the advanced formulation, and then the code will be
+        # fairly simple.
+        raise NotImplementedError(
+            "The {} module does not yet support provision of multiple reserve types. "
+            "Please contact the Switch team if you need this feature."
+            .format(__name__)
+        )
+
 
     # replace zone_demand_mw with FlexibleDemand in the energy balance constraint
     # note: the first two lines are simpler than the method I use, but my approach
@@ -268,7 +285,7 @@ def define_components(m):
     #
     #         start_time_tuples = [(s, 0) for s in m.FLAT_PRICING_START_TIMES]
     #         for ts in m.TIMESERIES:
-    #             timepoint_tuples = [(i * m.ts_duration_of_tp[ts], tp) for i, tp in enumerate(m.TS_TPS[ts])]
+    #             timepoint_tuples = [(i * m.ts_duration_of_tp[ts], tp) for i, tp in enumerate(m.TPS_IN_TS[ts])]
     #
     #     return d.pop(p, st)
     #
@@ -355,7 +372,7 @@ def pre_iterate(m):
         #         ) + m.DR_Welfare_Cost[tp]
         #     ) * m.bring_timepoint_costs_to_base_year[tp]
         #     for ts in m.TIMESERIES
-        #     for tp in m.TS_TPS[ts]
+        #     for tp in m.TPS_IN_TS[ts]
         # ))
 
         print ""
@@ -378,7 +395,7 @@ def pre_iterate(m):
                     for z in m.LOAD_ZONES for prod in m.DR_PRODUCTS
                 ) * m.bring_timepoint_costs_to_base_year[tp]
                 for ts in m.TIMESERIES
-                for tp in m.TS_TPS[ts]
+                for tp in m.TPS_IN_TS[ts]
             )
         )
         best_bid_benefit = value(
@@ -611,11 +628,11 @@ def total_direct_costs_per_year(m, period):
 def electricity_marginal_cost(m, z, tp, prod):
     """Return marginal cost of providing product prod in load_zone z during timepoint tp."""
     if prod == 'energy':
-        component = m.Energy_Balance[z, tp]
+        component = m.Zone_Energy_Balance[z, tp]
     elif prod == 'energy up':
-        component = m.Satisfy_Spinning_Reserve_Up_Requirement[tp]
+        component = m.Satisfy_Spinning_Reserve_Up_Requirement[m.zone_balancing_area[z], tp]
     elif prod == 'energy down':
-        component = m.Satisfy_Spinning_Reserve_Down_Requirement[tp]
+        component = m.Satisfy_Spinning_Reserve_Down_Requirement[m.zone_balancing_area[z], tp]
     else:
         raise ValueError('Unrecognized electricity product: {}.'.format(prod))
     return m.dual[component]/m.bring_timepoint_costs_to_base_year[tp]
@@ -866,8 +883,8 @@ def add_bids(m, bids):
         # record the level of demand for each timepoint
         for prod in m.DR_PRODUCTS:
             for i, tp in enumerate(m.TPS_IN_TS[ts]):
-                m.dr_bid[b, z, tp, prod] = demand[god][i]
-                m.dr_price[b, z, tp, prod] = prices[god][i]
+                m.dr_bid[b, z, tp, prod] = demand[prod][i]
+                m.dr_price[b, z, tp, prod] = prices[prod][i]
 
     print "len(m.DR_BID_LIST): {l}".format(l=len(m.DR_BID_LIST))
     print "m.DR_BID_LIST: {b}".format(b=[x for x in m.DR_BID_LIST])
@@ -888,7 +905,7 @@ def add_bids(m, bids):
     # that no longer exist in the model).
     # (i.e., Energy_Balance refers to the items returned by FlexibleDemand instead of referring
     # to FlexibleDemand itself)
-    m.Energy_Balance.reconstruct()
+    m.Zone_Energy_Balance.reconstruct()
     if hasattr(m, 'SpinningReservesUpAvailable'):
         m.SpinningReservesUpAvailable.reconstruct()
         m.SpinningReservesDownAvailable.reconstruct()
@@ -901,14 +918,14 @@ def add_bids(m, bids):
 def reconstruct_energy_balance(m):
     """Reconstruct Energy_Balance constraint, preserving dual values (if present)."""
     # copy the existing Energy_Balance object
-    old_Energy_Balance = dict(m.Energy_Balance)
-    m.Energy_Balance.reconstruct()
+    old_Energy_Balance = dict(m.Zone_Energy_Balance)
+    m.Zone_Energy_Balance.reconstruct()
     # TODO: now that this happens just before a solve, there may be no need to
     # preserve duals across the reconstruct().
     if m.iteration_number > 0:
         for k in old_Energy_Balance:
             # change dual entries to match new Energy_Balance objects
-            m.dual[m.Energy_Balance[k]] = m.dual.pop(old_Energy_Balance[k])
+            m.dual[m.Zone_Energy_Balance[k]] = m.dual.pop(old_Energy_Balance[k])
 
 
 def write_batch_results(m):
@@ -956,7 +973,7 @@ def summary_values(m):
         for p in m.PERIODS
     ])
 
-    # payments by customers ([expected demand] * [gice offered for that demand])
+    # payments by customers ([expected demand] * [price offered for that demand])
     # note: this uses the final MC to set the final price, rather than using the
     # final price offered to customers. This creates consistency between the final
     # quantities and prices. Otherwise, we would use prices that differ from the
@@ -1011,7 +1028,7 @@ def write_results(m):
         (lz, tp, prod): final_prices_by_timeseries[lz, ts][prod][i]
         for lz in m.LOAD_ZONES
         for ts in m.TIMESERIES
-        for i, tp in enumerate(m.TS_TPS[ts])
+        for i, tp in enumerate(m.TPS_IN_TS[ts])
         for prod in m.DR_PRODUCTS
     }
     final_quantities = {
@@ -1021,7 +1038,7 @@ def write_results(m):
         ))
         for lz in m.LOAD_ZONES
         for ts in m.TIMESERIES
-        for tp in m.TS_TPS[ts]
+        for tp in m.TPS_IN_TS[ts]
         for prod in m.DR_PRODUCTS
     }
 
@@ -1029,7 +1046,7 @@ def write_results(m):
     # for lz in m.LOAD_ZONES:
     #     for ts in m.TIMESERIES:
     #         for prod in m.DR_PRODUCTS:
-    #             for i, tp in enumerate(m.TS_TPS[ts]):
+    #             for i, tp in enumerate(m.TPS_IN_TS[ts]):
     #                 final_prices_by_timepoint[lz, ts, prod] = \
     #                     final_prices[lz, ts][prod][i]
 
@@ -1162,9 +1179,9 @@ def write_dual_costs(m):
                 # cancel out any constants that were stored in the body instead of the bounds
                 # (see https://groups.google.com/d/msg/pyomo-forum/-loinAh0Wx4/IIkxdfqxAQAJ)
                 # (might be faster to do this once during model setup instead of every time)
-                canonical_constraint = pyomo.repn.canonical_repn.generate_canonical_repn(constr.body)
-                if canonical_constraint.constant is not None:
-                    offset = -canonical_constraint.constant
+                standard_constraint = generate_standard_repn(constr.body)
+                if standard_constraint.constant is not None:
+                    offset = -standard_constraint.constant
                 add_dual(constr, value(constr.lower), value(constr.upper), m.dual, offset=offset)
 
     dual_data.sort(key=lambda r: (not r[0].startswith('DR_Convex_'), r[3] >= 0)+r)
