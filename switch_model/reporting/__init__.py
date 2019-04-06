@@ -163,7 +163,7 @@ def get_value(obj):
         # diagnostic expressions sometimes have 0 denominator,
         # e.g., AverageFuelCosts for unused fuels;
         val = float("nan")
-    except ValueError as e:
+    except ValueError:
         # If variables are not used in constraints or the
         # objective function, they will never get values, and
         # give a ValueError at this point.
@@ -171,6 +171,14 @@ def get_value(obj):
         # otherwise the closest bound.
         if getattr(obj, 'value', 0) is None:
             val = None
+            # Pyomo will print an error before it raises the ValueError,
+            # but we say more here to help users figure out what's going on.
+            print (
+                "WARNING: variable {} has not been assigned a value. This "
+                "usually indicates a coding error: either the variable is "
+                "not needed or it has accidentally been omitted from all "
+                "constraints and the objective function.".format(obj.name)
+            )
         else:
             # Caught some other ValueError
             raise
