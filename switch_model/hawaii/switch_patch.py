@@ -8,8 +8,8 @@ def define_components(m):
     # e.g., amount of capacity of some resource that has been built
     # This isn't very good form (generally every asset should have a lifetime and we
     # should refer to that), so it's not included in the core model.
-    mod.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD = Set(
-        mod.PERIODS, ordered=True,
+    m.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD = Set(
+        m.PERIODS, ordered=True,
         initialize=lambda m, p:
             [p2 for p2 in m.PERIODS if m.PERIODS.ord(p2) <= m.PERIODS.ord(p)]
     )
