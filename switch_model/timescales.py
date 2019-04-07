@@ -355,14 +355,6 @@ def define_components(mod):
         mod.PERIODS,
         rule=validate_period_lengths_rule)
 
-    # define an indexed set of all periods before or including the current one.
-    # this is useful for calculations that must index over previous and current periods
-    mod.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD = Set(
-        mod.PERIODS, ordered=True,
-        initialize=lambda m, p:
-            [p2 for p2 in m.PERIODS if m.PERIODS.ord(p2) <= m.PERIODS.ord(p)]
-    )
-
 
 def load_inputs(mod, switch_data, inputs_dir):
     """
