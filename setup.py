@@ -1,12 +1,12 @@
-"""Setup script for SWITCH. 
+"""Setup script for SWITCH.
 
 Use "pip install --upgrade ." to install a copy in the site packages directory.
 
-Use "pip install --upgrade --editable ." to install SWITCH to be run from its 
+Use "pip install --upgrade --editable ." to install SWITCH to be run from its
 current location.
 
-Optional dependencies can be added during the initial install or later by 
-running a command like this: 
+Optional dependencies can be added during the initial install or later by
+running a command like this:
 pip install --upgrade --editable .[advanced,database_access]
 
 Use "pip uninstall switch" to uninstall switch from your system.
@@ -36,7 +36,7 @@ setup(
     description='SWITCH Power System Planning Model',
     long_description=read('README'),
     classifiers=[
-    'Development Status :: 4 - Beta',
+    'Development Status :: 5 - Production/Stable',
     'Environment :: Console',
     'Intended Audience :: Education',
     'Intended Audience :: End Users/Desktop',
@@ -45,16 +45,16 @@ setup(
     'Natural Language :: English',
     'Operating System :: Microsoft :: Windows',
     'Operating System :: MacOS :: MacOS X',
+    'Operating System :: POSIX :: Linux',
     'Operating System :: Unix',
     'Programming Language :: Python',
-    'Programming Language :: Unix Shell',
     'Topic :: Scientific/Engineering',
     'Topic :: Software Development :: Libraries :: Python Modules'
     ],
     packages=find_packages(include=['switch_model', 'switch_model.*']),
     keywords=[
-        'renewable', 'power', 'energy', 'electricity', 
-        'production cost', 'capacity expansion', 
+        'renewable', 'power', 'energy', 'electricity',
+        'production cost', 'capacity expansion',
         'planning', 'optimization'
     ],
     install_requires=[
