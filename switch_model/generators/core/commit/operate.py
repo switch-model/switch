@@ -23,7 +23,7 @@ def define_components(mod):
     """
 
     Adds components to a Pyomo abstract model object to describe
-    unit commitment for gects. Unless otherwise stated, all power
+    unit commitment for projects. Unless otherwise stated, all power
     capacity is specified in units of MW and all sets and parameters
     are mandatory.
 

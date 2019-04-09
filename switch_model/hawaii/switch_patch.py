@@ -1,25 +1,18 @@
 from pyomo.environ import *
-import switch_model.utilities as utilities
 
-# patch Pyomo's solver to retrieve duals and reduced costs for MIPs from cplex lp solver
-# (This could be made permanent in pyomo.solvers.plugins.solvers.CPLEX.create_command_line)
-def new_create_command_line(*args, **kwargs):
-    # call original command
-    command = old_create_command_line(*args, **kwargs)
-    # alter script
-    if hasattr(command, 'script') and 'optimize\n' in command.script:
-        command.script = command.script.replace(
-            'optimize\n',
-            'optimize\nchange problem fix\noptimize\n'
-            # see http://www-01.ibm.com/support/docview.wss?uid=swg21399941
-            # and http://www-01.ibm.com/support/docview.wss?uid=swg21400009
-        )
-    print "changed CPLEX solve script to the following:"
-    print command.script
-    return command
-from pyomo.solvers.plugins.solvers.CPLEX import CPLEXSHELL
-old_create_command_line = CPLEXSHELL.create_command_line
-CPLEXSHELL.create_command_line = new_create_command_line
+def define_components(m):
+    """Make various changes to the model to support hawaii-specific modules."""
+
+    # define an indexed set of all periods before or including the current one.
+    # this is useful for calculations that must index over previous and current periods
+    # e.g., amount of capacity of some resource that has been built
+    # This isn't very good form (generally every asset should have a lifetime and we
+    # should refer to that), so it's not included in the core model.
+    m.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD = Set(
+        m.PERIODS, ordered=True,
+        initialize=lambda m, p:
+            [p2 for p2 in m.PERIODS if m.PERIODS.ord(p2) <= m.PERIODS.ord(p)]
+    )
 
 # # TODO: combine the following changes into a pull request for Pyomo
 # # patch Pyomo's table-reading function to allow .tab files with headers but no data
@@ -72,28 +65,3 @@ CPLEXSHELL.create_command_line = new_create_command_line
 #     print "Unable to patch current version of pyomo.core.data.process_data:"
 #     print '{}({})'.format(type(e).__name__, ','.join(repr(a) for a in e.args))
 #     print "Switch will not be able to read empty data files."
-
-
-def define_components(m):
-    """Make various changes to the model to facilitate reporting and avoid unwanted behavior"""
-    
-    # define an indexed set of all periods before or including the current one.
-    # this is useful for calculations that must index over previous and current periods
-    # e.g., amount of capacity of some resource that has been built
-    m.CURRENT_AND_PRIOR_PERIODS = Set(m.PERIODS, ordered=True, initialize=lambda m, p:
-        # note: this is a fast way to refer to all previous periods, which also respects 
-        # the built-in ordering of the set, but you have to be careful because 
-        # (a) pyomo sets are indexed from 1, not 0, and
-        # (b) python's range() function is not inclusive on the top end.
-        [m.PERIODS[i] for i in range(1, m.PERIODS.ord(p)+1)]
-    )
-    
-    # create lists of projects by energy source
-    # we sort these to help with display, but that may not actually have any effect
-    m.GENERATION_PROJECTS_BY_FUEL = Set(m.FUELS, initialize=lambda m, f:
-        sorted([p for p in m.FUEL_BASED_GENS if f in m.FUELS_FOR_GEN[p]])
-    )
-    m.GENERATION_PROJECTS_BY_NON_FUEL_ENERGY_SOURCE = Set(m.NON_FUEL_ENERGY_SOURCES, initialize=lambda m, s:
-        sorted([p for p in m.NON_FUEL_BASED_GENS if m.gen_energy_source[p] == s])
-    )
-

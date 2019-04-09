@@ -11,7 +11,7 @@ def define_components(m):
     m.BANNED_FUEL_DISPATCH_POINTS = Set(dimen=3, initialize=lambda m: 
         [(g, tp, f) 
             for (f, y) in m.FUEL_BANS
-                for g in m.GENERATION_PROJECTS_BY_FUEL[f] # if not m.gen_is_cogen[g]
+                for g in m.GENS_BY_FUEL[f] # if not m.gen_is_cogen[g]
                     for pe in m.PERIODS if m.period_end[pe] >= y
                         for tp in m.TPS_IN_PERIOD[pe] if (g, tp) in m.GEN_TPS
         ]

@@ -69,7 +69,25 @@ def define_components(mod):
     # (not necessarily running all available capacity)
     # Note: this is unconstrained, because other constraints limit project
     # dispatch during each timepoint and therefore the level of this variable.
-    mod.DispatchBaseloadByPeriod = Var(mod.BASELOAD_GENS, mod.PERIODS)
+    # TODO: this should be harmonized with the treatment of baseload generators
+    # in generators.core.commit, where baseload just means they will all be
+    # committed all the time, but not required to run at a constant output
+    # level. That's the definition of baseload used in the Hawaii power system,
+    # while the definition used here is more like common usage (run at a flat level
+    # or don't run). Since there are multiple meanings, we should probably
+    # have separate parameters for constant_output and always_commit. Or
+    # we could implement those via time-varying values for min/max commitment
+    # and dispatch.
+    mod.BASELOAD_GEN_PERIODS = Set(
+        dimen=2,
+        rule=lambda m:
+            [(g, p) for g in m.BASELOAD_GENS for p in m.PERIODS_FOR_GEN[g]])
+    mod.BASELOAD_GEN_TPS = Set(
+        dimen=2,
+        rule=lambda m:
+            [(g, t) for g, p in m.BASELOAD_GEN_PERIODS for t in m.TPS_IN_PERIOD[p]])
+
+    mod.DispatchBaseloadByPeriod = Var(mod.BASELOAD_GEN_PERIODS)
 
     def DispatchUpperLimit_expr(m, g, t):
         if g in m.VARIABLE_GENS:
@@ -82,11 +100,9 @@ def define_components(mod):
         rule=DispatchUpperLimit_expr)
 
     mod.Enforce_Dispatch_Baseload_Flat = Constraint(
-        mod.GEN_TPS,
+        mod.BASELOAD_GEN_TPS,
         rule=lambda m, g, t:
-            (m.DispatchGen[g, t] == m.DispatchBaseloadByPeriod[g, m.tp_period[t]])
-                if g in m.BASELOAD_GENS
-            else Constraint.Skip)
+            m.DispatchGen[g, t] == m.DispatchBaseloadByPeriod[g, m.tp_period[t]])
 
     mod.Enforce_Dispatch_Upper_Limit = Constraint(
         mod.GEN_TPS,

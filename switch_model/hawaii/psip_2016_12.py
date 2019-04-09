@@ -381,7 +381,7 @@ def define_components(m):
         #     sum(
         #         m.DispatchGenByFuel[g, tp, f] * m.tp_weight_in_year[tp] * 0.001 # convert from MWh to GWh
         #             for f in ['Diesel', 'LSFO', 'LSFO-Diesel-Blend']
-        #                 for g in m.GENERATION_PROJECTS_BY_FUEL[f]
+        #                 for g in m.GENS_BY_FUEL[f]
         #                     for tp in m.TPS_IN_PERIOD[per] if (g, tp) in m.GEN_TPS
         #     )
         # )

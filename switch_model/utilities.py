@@ -5,11 +5,10 @@
 Utility functions for SWITCH-pyomo.
 """
 
-import os, types, importlib, re, sys, argparse, time
+import os, types, importlib, re, sys, argparse, time, datetime
 import __main__ as main
 from pyomo.environ import *
 import pyomo.opt
-import datetime
 
 # Check whether this is an interactive session (determined by whether
 # __main__ has a __file__ attribute). Scripts can check this value to
@@ -511,11 +510,11 @@ def load_aug(switch_data, optional=False, auto_select=False,
 # which will be consumed by one of their modules, the default parser would
 # match that to "--exclude-modules" during the early, partial parse.)
 if sys.version_info >= (3, 5):
-    _ArgumentParser = argparse.ArgumentParser
+    _ArgumentParserAllowAbbrev = argparse.ArgumentParser
 else:
     # patch ArgumentParser to accept the allow_abbrev flag
     # (works on Python 2.7 and maybe others)
-    class _ArgumentParser(argparse.ArgumentParser):
+    class _ArgumentParserAllowAbbrev(argparse.ArgumentParser):
         def __init__(self, *args, **kwargs):
             if not kwargs.get("allow_abbrev", True):
                 if hasattr(self, "_get_option_tuples"):
@@ -534,6 +533,68 @@ else:
             kwargs.pop("allow_abbrev", None)
             return argparse.ArgumentParser.__init__(self, *args, **kwargs)
 
+class ExtendAction(argparse.Action):
+    """Create or extend list with the provided items"""
+    # from https://stackoverflow.com/a/41153081/3830997
+    def __call__(self, parser, namespace, values, option_string=None):
+        items = getattr(namespace, self.dest) or []
+        items.extend(values)
+        setattr(namespace, self.dest, items)
+
+class IncludeAction(argparse.Action):
+    """Flag the specified items for inclusion in the model"""
+    def __call__(self, parser, namespace, values, option_string=None):
+        items = getattr(namespace, self.dest) or []
+        items.append(('include', values))
+        setattr(namespace, self.dest, items)
+class ExcludeAction(argparse.Action):
+    """Flag the specified items for exclusion from the model"""
+    def __call__(self, parser, namespace, values, option_string=None):
+        items = getattr(namespace, self.dest) or []
+        items.append(('exclude', values))
+        setattr(namespace, self.dest, items)
+
+# Test whether we need to issue warnings about the Python parsing bug.
+# (applies to at least Python 2.7.11 and 3.6.2)
+# This bug messes up solve-scenarios if the user specifies
+# --scenario x --solver-options-string="a=b c=d"
+test_parser = argparse.ArgumentParser()
+test_parser.add_argument('--arg1', nargs='+', default=[])
+bad_equal_parser = (
+    len(test_parser.parse_known_args(['--arg1', 'a', '--arg2=a=1 b=2'])[1])
+    == 0
+)
+
+# TODO: merge the _ArgumentParserAllowAbbrev code into this class
+class _ArgumentParser(_ArgumentParserAllowAbbrev):
+    """
+    Custom version of ArgumentParser:
+    - warns about a bug in standard Python ArgumentParser for --arg="some words"
+    - allows use of 'extend', 'include' and 'exclude' actions to accumulate lists
+      with multiple calls
+    """
+    def __init__(self, *args, **kwargs):
+        super(_ArgumentParser, self).__init__(*args, **kwargs)
+        self.register('action', 'extend', ExtendAction)
+        self.register('action', 'include', IncludeAction)
+        self.register('action', 'exclude', ExcludeAction)
+
+    def parse_known_args(self, args=None, namespace=None):
+        # parse_known_args parses arguments like --list-arg a b --other-arg="something with space"
+        # as list_arg=['a', 'b', '--other-arg="something with space"'].
+        # See https://bugs.python.org/issue34390.
+        # We issue a warning to avoid this.
+        if bad_equal_parser and args is not None:
+            for a in args:
+                if a.startswith('--') and '=' in a:
+                    print(
+                        "Warning: argument '{}' may be parsed incorrectly. It is "
+                        "safer to use ' ' instead of '=' as a separator."
+                        .format(a)
+                    )
+                    time.sleep(2)  # give users a chance to see it
+        return super(_ArgumentParser, self).parse_known_args(args, namespace)
+
 
 def approx_equal(a, b, tolerance=0.01):
     return abs(a-b) <= (abs(a) + abs(b)) / 2.0 * tolerance
@@ -542,38 +603,67 @@ def approx_equal(a, b, tolerance=0.01):
 def default_solver():
     return pyomo.opt.SolverFactory('glpk')
 
-
-class Logging:
+def warn(message):
     """
-    Assign standard output and a log file as output destinations. This is accomplished by assigning this class
-    to sys.stdout.
+    Send warning message to sys.stderr.
+    Unlike warnings.warn, this does not add the current line of code to the message.
     """
-    def __init__(self, logs_dir):
-        # Make logs directory if class is initialized
-        if not os.path.exists(logs_dir):
-            os.makedirs(logs_dir)
+    sys.stderr.write("WARNING: " + message + '\n')
 
-        # Assign sys.stdout and a log file as locations to write to
-        self.terminal = sys.stdout
-        self.log_file_path = os.path.join(logs_dir, datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".log")
-        self.log_file = open(self.log_file_path, "w", buffering=1)
-
-    def __getattr__(self, attr):
+class TeeStream:
+    """
+    Virtual stream that writes output to both stream1 and stream2. Attributes
+    of stream1 will be reported to callers if needed. For example, specifying
+    `sys.stdout=TeeStream(sys.stdout, log_file_handle)` will copy
+    output destined for sys.stdout to log_file_handle as well.
+    """
+    def __init__(self, stream1, stream2):
+        self.stream1 = stream1
+        self.stream2 = stream2
+    def __getattr__(self, *args, **kwargs):
         """
-        Default to sys.stdout attributes when calling attributes for this class.
-        This is here to prevent unintended consequences for code that assumes sys.stdout is an object with its own
+        Provide stream1 attributes when attributes are requested for this class.
+        This supports code that assumes sys.stdout is an object with its own
         methods, etc.
         """
-        return getattr(self.terminal, attr)
+        return getattr(self.stream1, *args, **kwargs)
+    def write(self, *args, **kwargs):
+        self.stream1.write(*args, **kwargs)
+        self.stream2.write(*args, **kwargs)
+    def flush(self, *args, **kwargs):
+        self.stream1.flush(*args, **kwargs)
+        self.stream2.flush(*args, **kwargs)
 
-    def write(self, message):
-        self.terminal.write(message)
-        self.log_file.write(message)
-
-    def flush(self):
-        self.terminal.flush()
-        self.log_file.flush()
-
+class LogOutput(object):
+    """
+    Copy output sent to stdout or stderr to a log file in the specified directory.
+    Takes no action if directory is None. Log file is named based on the current
+    date and time. Directory will be created if needed, and file will be overwritten
+    if it already exists (unlikely).
+    """
+    def __init__(self, logs_dir):
+        self.logs_dir = logs_dir
+    def __enter__(self):
+        """ start copying output to log file """
+        if self.logs_dir is not None:
+            if not os.path.exists(self.logs_dir):
+                os.makedirs(self.logs_dir)
+            log_file_path = os.path.join(
+                self.logs_dir,
+                datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".log"
+            )
+            self.log_file = open(log_file_path, "w", buffering=1)
+            self.stdout = sys.stdout
+            self.stderr = sys.stderr
+            sys.stdout = TeeStream(sys.stdout, self.log_file)
+            sys.stderr = TeeStream(sys.stderr, self.log_file)
+            print "logging output to " + str(log_file_path)
+    def __exit__(self, type, value, traceback):
+        """ restore original output streams and close log file """
+        if self.logs_dir is not None:
+            sys.stdout = self.stdout
+            sys.stderr = self.stderr
+            self.log_file.close()
 
 def iteritems(obj):
     """ Iterator of key, value pairs for obj;

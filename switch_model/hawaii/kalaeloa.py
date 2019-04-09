@@ -5,7 +5,7 @@ from pyomo.environ import *
 
 def define_components(m):
     # force Kalaeloa_CC3 offline unless 1&2 are at max (per John Cole e-mail 9/28/16)
-    
+
     # by inspection of figure 8 & 9 in the RPS Study, it appears that Kalaeloa has 3 modes:
     # commit unit 1, run between 65 and 90 MW
     # commit units 1 & 2, run each between 65 and 90 MW
@@ -54,7 +54,7 @@ def define_components(m):
         m.KALAELOA_DUCT_BURNER_DISPATCH_POINTS, m.KALAELOA_MAIN_UNITS,
         rule=lambda m, g_duct, tp, g_main:
             m.DispatchGen[g_duct, tp]
-            <= 
+            <=
             m.RunKalaeloaUnitFull[g_main, tp] * m.gen_capacity_limit_mw[g_duct]
     )
 
@@ -70,7 +70,19 @@ def define_components(m):
         except AttributeError:
             both_units_out = False
 
-        if both_units_out:
+        # in 2018, fossil fuel consumption was roughly 1M barrels for various
+        # taxable uses, 420k barrels for utility, and maybe 500k barrels for
+        # non-utility electricity production (Kalaeloa)? (It looks like jet
+        # kerosene was brought in directly.) There are two refineries that split
+        # the crude oil into LSFO, gasoline and other products. These are co-products,
+        # so it's probably not cost-effective to keep running any refinery with the
+        # same amount of steam if the demand for either product drops below 25%
+        # of the 2018 level. So we assume that Kalaeloa's must-run rule applies
+        # only until either consumption is below 25% of the starting level.
+        ev_share = m.ev_share['Oahu', m.tp_period[tp]] if hasattr(m, 'ev_share') else 0.0
+        rps_level = m.rps_target_for_period[m.tp_period[tp]] if hasattr(m, 'rps_target_for_period') else 0.0
+
+        if both_units_out or ev_share >= 0.75 or rps_level >= 0.75:
             return Constraint.Skip
         else:
             return (sum(m.DispatchGen[g, tp] for g in m.KALAELOA_MAIN_UNITS) >= 75.0)

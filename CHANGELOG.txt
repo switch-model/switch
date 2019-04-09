@@ -1,0 +1,111 @@
+-------------------------------------------------------------------------------
+Switch 2.0.1
+-------------------------------------------------------------------------------
+
+- General
+    - Switch is now compatible with Pyomo 5.6+ (in addition to earlier
+      versions).
+    - A new --no-post-solve option prevents all post-solve actions (e.g., saving
+      variable results).
+    - If the user specifies --reload-prior-solution, Switch now behaves as if it
+      had just solved the model, i.e., after loading the solution, it runs post-
+      solve code unless --no-post-solve is specified (useful for re-running
+      reporting code), and it only drops to an interactive Python prompt if the
+      user also specifies --interact.
+    - A new --no-save-solution disables automatic solution-saving. This saves
+      time and disk space for models that won't need to be reloaded later.
+    - New --quiet and --no-stream-solver arguments cancel --verbose and
+      --stream-solver.
+    - A new "--save-expression[s] <name1> <name2> ..." argument can be used to
+      save values for any Pyomo Expression object to a .tab file after the model
+      is solved (similar to the automatic saving of variable values). This also
+      works for Param objects.
+    - The --include-module(s), --exclude-module(s), --save-expression(s),
+      --suffix(es) and --scenario(s) flags can now be used repeatedly on the
+      command line, in options.txt or in scenarios.txt. The include and exclude
+      options will be applied in the order they are encountered, in options.txt,
+      then scenarios.txt, then the command line.
+    - A new --retrieve-cplex-mip-duals flag can be used to support retrieving
+      duals for a MIP program from the cplex solver (users must also turn on the
+      "duals") suffix. This flag patches the Pyomo-generated cplex command
+      script to pass the "change problem fix" command to the solver and then
+      solve a second time. This fixes integer variables at their final values,
+      then re-solves to obtain duals. This flag is not needed with the cplexamp
+      solver.
+    - A new balancing.demand_response.iterative module has been added. This was
+      formerly in the Hawaii regional package. This moduel performs iterative solutions with any convex demand system, based on a bid-response
+      process.
+    - New indexed sets have been added to allow efficient selection of groups of
+      generators that use a particular technology, fuel or non-fuel energy
+      source: GENS_BY_TECHNOLOGY, GENS_BY_FUEL, GENS_BY_NON_FUEL_ENERGY_SOURCE.
+    - Generator capacity data is saved to gen_cap.tab instead of gen_cap.txt and
+      rows are sorted if user specifies --sorted-output.
+    - Even if a model has solver warnings, results will be reported and
+      post-solve will be performed if a valid solution is available.
+    - A more descriptive warning is given when switch_model.reporting finds an
+      uninitialized variable.
+    - A warning is given about potential errors parsing arguments in the form
+      "--flag=value". Python's argument parsing module can make mistakes with
+      these, so "--flag value" is a safer choice.
+    - Switch now monkeypatches Pyomo to accelerate reloading prior solutions.
+      Previously Pyomo 5.1.1 (and maybe others) took longer to load prior
+      solutions than solving the model.
+    - At startup, "switch solve-scenarios" will restart jobs that were
+      previously interrupted after being started by the same worker (same
+      --job-id argument or SWITCH_JOB_ID environment variable). Note that
+      workers automatically pull scenarios from the scenario list file until
+      there are none left to solve, and avoid solving scenarios that have been
+      pulled by other workers. Each worker should be given a unique job ID, and
+      this ID should be reused if the worker is terminated and restarted. The
+      new behavior ensures that jobs are not abandoned if a worker is restarted.
+
+- Upgrade scripts
+    - The upgrade scripts now report changes in module behavior or renamed
+      modules while upgrading an inputs directory. This only reports changes to
+      modules used in the current model.
+    - The hawaii.reserves module is automatically replaced by
+      balancing.operating_reserves.areas and
+      balancing.operating_reserves.spinning_reserves in the module  list.
+    - The hawaii.demand_response module is replaced by
+      balancing.demand_response.iterative and hawaii.r_demand_system is replaced
+      by balancing.demand_response.iterative.r_demand_system in the module list.
+    - "switch_mod" will not be changed to "switch_modelel" if a module file is
+      upgraded from 2.0.0b1 to 2.0.0b2 twice.
+
+- Hawaii regional package
+    - The hawaii.reserves module has been deprecated and the
+      hawaii.demand_response module has been moved (see upgrade scripts)
+    - Switch now places limits on down-reserves from pumped-storage hydro.
+    - A new --rps-prefer-dist-pv option for hawaii.rps will prevent construction
+      of new large PV until 90% of distributed PV potential has been developed.
+    - Limits on load-shifting between hours in hawaii.demand_response_simple
+      have been formalized.
+    - The Hawaii storage energy cost calculation has been fixed.
+    - Total production by energy source is reported by hawaii.save_results,
+      ad-hoc technologies are added to production_by_technology.tsv, and
+      hourly dispatch is disaggregated by non-fuel technologies.
+    - Bugs have been fixed in reserve calculation for EVs and in
+      hawaii.smooth_dispatch and hawaii.scenario_data.
+    - hawaii.smooth_dispatch minimizes total inter-hour change instead of square
+      of levels. The old quadratic smoothing method has been moved to
+      hawaii.smooth_dispatch.quadratic (slow and possibly buggy).
+    - The must-run requirement in hawaii.kalaeloa is turned off when RPS or EV
+      share is above 75% (can be overridden by --run-kalaeloa-even-with-high-rps)
+    - Support for nominal-dollar fuel price forecasts has been dropped from
+      hawaii.scenario_data
+    - A new --no-hydrogen flag can be used to deactivate the hydrogen module.
+    - The hawaii.ev_advanced module now calculates vehicle fleet emissions.
+
+-------------------------------------------------------------------------------
+Switch 2.0.0
+-------------------------------------------------------------------------------
+
+First public release of Switch 2. This uses a similar framework to Switch 1,
+but with numerous improvements. The most significant are:
+
+- Written in Python instead of AMPL language
+- Modular approach, so components can be easily added or removed from model
+- Modeling of unit commitment and part load heat rates (optional)
+- Generalization of sample timeseries to have arbitrary length instead of single
+  days
+- Standardized reporting, e.g., automatic export of all variable values

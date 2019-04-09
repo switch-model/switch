@@ -1,29 +1,42 @@
+from __future__ import division
 import os
 from pyomo.environ import *
 from switch_model.financials import capital_recovery_factor as crf
 
 def define_arguments(argparser):
-    argparser.add_argument('--demand-response-share', type=float, default=0.30, 
+    argparser.add_argument('--demand-response-share', type=float, default=0.30,
         help="Fraction of hourly load that can be shifted to other times of day (default=0.30)")
-    argparser.add_argument('--demand-response-reserve-types', nargs='+', default=['spinning'], 
+    argparser.add_argument('--demand-response-reserve-types', nargs='+', default=['spinning'],
         help=
             "Type(s) of reserves to provide from demand response (e.g., 'contingency' or 'regulation'). "
             "Specify 'none' to disable."
     )
 
 def define_components(m):
-    
+
     # maximum share of hourly load that can be rescheduled
     # this is mutable so various values can be tested
     m.demand_response_max_share = Param(default=m.options.demand_response_share, mutable=True)
 
+    # maximum amount of load that can be _added_ each hour; we assume
+    # it is 8x the maximum reduction, which is roughly equivalent to
+    # concentrating the shifted load into a 3-hour period.
+    # Note: before 9/12/18, we didn't enforce this for scheduling, but did
+    # apply it when calculating down reserve provision, which meant we would
+    # give negative down reserves when shifted demand exceeded this quantity,
+    # which would have to come from somewhere else.
+    m.demand_response_max_increase = Param(
+        rule=lambda m: m.demand_response_max_share * 24 / 3
+    )
+
     # adjustment to demand during each hour (positive = higher demand)
-    m.ShiftDemand = Var(m.LOAD_ZONES, m.TIMEPOINTS, within=Reals, bounds=lambda m, z, t: 
-        (
-            (-1.0) * m.demand_response_max_share * m.zone_demand_mw[z, t],
-            # assume all shiftable load can be concentrated into 3 hours (no less)
-            None # 24/3 * m.demand_response_max_share * m.zone_demand_mw[z, t]
-        )
+    m.ShiftDemand = Var(
+        m.LOAD_ZONES, m.TIMEPOINTS, within=Reals,
+        bounds=lambda m, z, t:
+            (
+                (-1.0) * m.demand_response_max_share * m.zone_demand_mw[z, t],
+                m.demand_response_max_increase * m.zone_demand_mw[z, t]
+            )
     )
 
     # all changes to demand must balance out over the course of the day
@@ -47,8 +60,9 @@ def define_components(m):
             )
             m.DemandResponseSlackDown = Expression(m.BALANCING_AREA_TIMEPOINTS, rule=lambda m, b, tp:
                 sum(
-                    # Assume shiftable load can only be raised by factor of 8 (i.e., concentrate in 3 hours)
-                    24/3 * m.demand_response_max_share * m.zone_demand_mw[z, tp] - m.ShiftDemand[z, tp]
+                    # difference between scheduled load and max allowed
+                    m.demand_response_max_increase * m.zone_demand_mw[z, tp] 
+                    - m.ShiftDemand[z, tp]
                     for z in m.ZONES_IN_BALANCING_AREA[b]
                 )
             )
@@ -69,16 +83,16 @@ def define_components(m):
                 )
                 # constrain reserve provision within available slack
                 m.Limit_DemandResponseSpinningReserveUp = Constraint(
-                    m.BALANCING_AREA_TIMEPOINTS, 
-                    rule=lambda m, ba, tp: 
+                    m.BALANCING_AREA_TIMEPOINTS,
+                    rule=lambda m, ba, tp:
                         sum(
                             m.DemandResponseSpinningReserveUp[rt, ba, tp]
                             for rt in m.DR_SPINNING_RESERVE_TYPES
                         ) <= m.DemandResponseSlackUp[ba, tp]
                 )
                 m.Limit_DemandResponseSpinningReserveDown = Constraint(
-                    m.BALANCING_AREA_TIMEPOINTS, 
-                    rule=lambda m, ba, tp: 
+                    m.BALANCING_AREA_TIMEPOINTS,
+                    rule=lambda m, ba, tp:
                         sum(
                             m.DemandResponseSpinningReserveDown[rt, ba, tp]
                             for rt in m.DR_SPINNING_RESERVE_TYPES

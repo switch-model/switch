@@ -29,7 +29,7 @@ def define_components(m):
     m.Battery_Capacity = Expression(m.LOAD_ZONES, m.PERIODS, rule=lambda m, z, p:
         sum(
             m.BuildBattery[z, bld_yr] 
-                for bld_yr in m.CURRENT_AND_PRIOR_PERIODS[p] if bld_yr + m.battery_n_years > p
+                for bld_yr in m.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD[p] if bld_yr + m.battery_n_years > p
         )
     )
 
@@ -53,7 +53,7 @@ def define_components(m):
             m.BuildBattery[z, bld_yr] 
             * m.battery_capital_cost_per_mwh_capacity_by_year[bld_yr] 
             * crf(m.interest_rate, m.battery_n_years)
-                for bld_yr in m.CURRENT_AND_PRIOR_PERIODS[p] if bld_yr + m.battery_n_years > p
+                for bld_yr in m.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD[p] if bld_yr + m.battery_n_years > p
                     for z in m.LOAD_ZONES 
         )
     )

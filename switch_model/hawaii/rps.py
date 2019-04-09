@@ -22,6 +22,8 @@ def define_arguments(argparser):
         help="Don't allow any new wind capacity except to replace existing capacity.")
     argparser.add_argument('--rps-no-wind', action='store_true', default=False,
         help="Don't allow any new wind capacity or replacement of existing capacity.")
+    argparser.add_argument('--rps-prefer-dist-pv', action='store_true', default=False,
+        help="Don't allow any new large solar capacity unless 90% of distributed PV ('*DistPV') capacity has been developed.")
     argparser.add_argument(
         '--rps-allocation', default=None,
         choices=[
@@ -82,6 +84,16 @@ def define_components(m):
     # m.rps_fuel_limit = Param(default=float("inf"), mutable=True)
     m.rps_fuel_limit = Param(initialize=m.options.biofuel_limit, mutable=True)
 
+    # calculate amount of pre-existing capacity in each generation project;
+    # used when we want to restrict expansion
+    m.gen_pre_existing_capacity = Expression(
+        m.GENERATION_PROJECTS,
+        rule=lambda m, g: (
+            m.GenCapacity[g, m.PERIODS.first()]
+            - get(m.BuildGen, (g, m.PERIODS.first()), 0)
+        )
+    )
+
     # Define DispatchGenRenewableMW, which shows the amount of power produced
     # by each project from each fuel during each time step.
     define_DispatchGenRenewableMW(m)
@@ -108,7 +120,7 @@ def define_components(m):
         sum(
             m.DispatchGen[g, tp] * m.tp_weight[tp]
             for f in m.NON_FUEL_ENERGY_SOURCES if f in m.RPS_ENERGY_SOURCES
-            for g in m.GENERATION_PROJECTS_BY_NON_FUEL_ENERGY_SOURCE[f]
+            for g in m.GENS_BY_NON_FUEL_ENERGY_SOURCE[f]
             for tp in m.TPS_FOR_GEN_IN_PERIOD[g, per]
         )
     )
@@ -137,7 +149,7 @@ def define_components(m):
         # (doesn't ban use of biofuels in existing or multi-fuel projects, but that could
         # be done with --biofuel-limit 0)
         m.No_New_Renewables = Constraint(m.NEW_GEN_BLD_YRS, rule=lambda m, g, bld_yr:
-            (m.GenCapacity[g, bld_yr] <= m.GenCapacity[g, m.PERIODS.first()] - m.BuildGen[g, m.PERIODS.first()])
+            (m.GenCapacity[g, bld_yr] <= m.gen_pre_existing_capacity[g])
             if m.gen_energy_source[g] in m.RPS_ENERGY_SOURCES
             else Constraint.Skip
         )
@@ -146,7 +158,7 @@ def define_components(m):
     if m.options.rps_no_new_wind:
         # limit wind to existing capacity
         m.No_New_Wind = Constraint(m.NEW_GEN_BLD_YRS, rule=lambda m, g, bld_yr:
-            (m.GenCapacity[g, bld_yr] <= m.GenCapacity[g, m.PERIODS.first()] - m.BuildGen[g, m.PERIODS.first()])
+            (m.GenCapacity[g, bld_yr] <= m.gen_pre_existing_capacity[g])
             if m.gen_energy_source[g] in wind_energy_sources
             else Constraint.Skip
         )
@@ -156,6 +168,36 @@ def define_components(m):
             (m.BuildGen[g, bld_yr] == 0.0)
             if m.gen_energy_source[g] in wind_energy_sources
             else Constraint.Skip
+        )
+
+    if m.options.rps_prefer_dist_pv:
+        m.DIST_PV_GENS = Set(initialize=lambda m: [
+            g for g in m.GENS_BY_NON_FUEL_ENERGY_SOURCE['SUN']
+            if 'DistPV' in m.gen_tech[g]
+        ])
+        m.LARGE_PV_GENS = Set(initialize=lambda m: [
+            g for g in m.GENS_BY_NON_FUEL_ENERGY_SOURCE['SUN']
+            if g not in m.DIST_PV_GENS
+        ])
+        # LargePVAllowed must be 1 to allow large PV to be built
+        m.LargePVAllowed = Var(m.PERIODS, within=Binary) #
+        # LargePVAllowed can only be 1 if 90% of the available rooftop PV has been built
+        m.Set_LargePVAllowed = Constraint(
+            m.PERIODS,
+            rule=lambda m, p:
+                sum(m.GenCapacity[g, p] for g in m.DIST_PV_GENS)
+                >=
+                m.LargePVAllowed[p]
+                * 0.9
+                * sum(m.gen_capacity_limit_mw[g] for g in m.DIST_PV_GENS)
+        )
+        m.Apply_LargePVAllowed = Constraint(
+            m.LARGE_PV_GENS, m.PERIODS,
+            rule=lambda m, g, p:
+                m.GenCapacity[g, p]
+                <=
+                m.LargePVAllowed[p] * m.gen_capacity_limit_mw[g]
+                + m.gen_pre_existing_capacity[g]
         )
 
     # Don't allow (bio)fuels to provide more than a certain percentage of the system's energy
@@ -664,7 +706,7 @@ def advanced1_DispatchGenRenewableMW(m):
     # omit binary variables and big-m constraints if len(m.FUELS_FOR_GEN[p]) == 1
     #   (assign all production to the single fuel)
     # use m.GenFuelUseRate[g, t, f] / m.gen_full_load_heat_rate[g]
-    #    for gects with no heat rate curve and no startup fuel
+    #    for projects with no heat rate curve and no startup fuel
 
     # note: a continuous, quadratic version of this function can be created as follows:
     # - make DispatchFuelFlag a PercentFraction instead of Binary

@@ -46,7 +46,7 @@ def define_components(m):
     # TODO: integrate this with other project data, so it can contribute to reserves, etc.
     m.BuildBattery = Var(m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals)
     m.Battery_Capacity = Expression(m.LOAD_ZONES, m.PERIODS, rule=lambda m, z, p:
-        sum(m.BuildBattery[z, pp] for pp in m.CURRENT_AND_PRIOR_PERIODS[p])
+        sum(m.BuildBattery[z, pp] for pp in m.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD[p])
     )
 
     # rate of charging/discharging battery

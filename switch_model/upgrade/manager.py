@@ -13,24 +13,28 @@ import switch_model
 import upgrade_2_0_0b1
 import upgrade_2_0_0b2
 import upgrade_2_0_0b4
+import upgrade_2_0_1
 
-# Available upgrade code. This needs to be in consecutive order so 
+# Available upgrade code. This needs to be in consecutive order so
 # upgrade_inputs can incrementally apply the upgrades.
 upgrade_plugins = [
-    (upgrade_2_0_0b1, 
-     upgrade_2_0_0b1.upgrades_from, 
+    (upgrade_2_0_0b1,
+     upgrade_2_0_0b1.upgrades_from,
      upgrade_2_0_0b1.upgrades_to),
-    (upgrade_2_0_0b2, 
+    (upgrade_2_0_0b2,
      upgrade_2_0_0b2.upgrades_from,
      upgrade_2_0_0b2.upgrades_to),
-    (upgrade_2_0_0b4, 
+    (upgrade_2_0_0b4,
      upgrade_2_0_0b4.upgrades_from,
      upgrade_2_0_0b4.upgrades_to),
+    (upgrade_2_0_1,
+     upgrade_2_0_1.upgrades_from,
+     upgrade_2_0_1.upgrades_to),
 ]
-    
+
 # Not every code revision requires an update, so we hard-code the last
 # revision that required an update.
-last_required_update = '2.0.0b4'
+last_required_update = '2.0.1'
 
 code_version = StrictVersion(switch_model.__version__)
 version_file = 'switch_inputs_version.txt'
@@ -50,7 +54,7 @@ def get_input_version(inputs_dir):
     """
     Scan the inputs directory and take a best-guess at version number.
     In the simple case, this will be in the stored in switch_inputs_version.txt
-    Args: 
+    Args:
         inputs_dir (str) path to inputs folder
     Returns:
         version (str) of inputs folder
@@ -82,7 +86,7 @@ def _write_input_version(inputs_dir, new_version):
 def do_inputs_need_upgrade(inputs_dir):
     """
     Determine if input directory can be upgraded with this script.
-    Args: 
+    Args:
         inputs_dir (str) path to inputs folder
     Returns:
         (boolean)
@@ -119,9 +123,9 @@ def upgrade_inputs(inputs_dir, backup=True):
         # Successively apply the upgrade scripts as needed.
         for (upgrader, v_from, v_to) in upgrade_plugins:
             inputs_v = StrictVersion(get_input_version(inputs_dir))
-            # note: the next line catches datasets created by/for versions of Switch that 
+            # note: the next line catches datasets created by/for versions of Switch that
             # didn't require input directory upgrades
-            if StrictVersion(v_from) <= inputs_v < StrictVersion(v_to): 
+            if StrictVersion(v_from) <= inputs_v < StrictVersion(v_to):
                 print_verbose('\tUpgrading from ' + v_from + ' to ' + v_to)
                 upgrader.upgrade_input_dir(inputs_dir)
         print_verbose('\tFinished upgrading ' + inputs_dir + '\n')
@@ -142,7 +146,7 @@ def main(args=None):
     else:
         if not os.path.isdir(args.inputs_dir_name):
             print("Error: Input directory {} does not exist.".format(args.inputs_dir_name))
-            return -1    
+            return -1
         upgrade_inputs(os.path.normpath(args.inputs_dir_name), args.backup)
 
 def set_verbose(verbosity):
@@ -150,13 +154,13 @@ def set_verbose(verbosity):
     verbose = verbosity
 
 def add_parser_args(parser):
-    parser.add_argument("--inputs-dir-name", type=str, default="inputs", 
+    parser.add_argument("--inputs-dir-name", type=str, default="inputs",
         help='Input directory name (default is "inputs")')
-    parser.add_argument("--backup", action='store_true', default=True, 
+    parser.add_argument("--backup", action='store_true', default=True,
         help='Make backup of inputs directory before upgrading (set true by default)')
-    parser.add_argument("--no-backup", action='store_false', dest='backup', 
+    parser.add_argument("--no-backup", action='store_false', dest='backup',
         help='Do not make backup of inputs directory before upgrading')
-    parser.add_argument("--recursive", dest="recursive", 
+    parser.add_argument("--recursive", dest="recursive",
         default=False, action='store_true',
         help=('Recursively scan the provided path for inputs directories '
               'named "inputs", and upgrade each directory found. Note, this '

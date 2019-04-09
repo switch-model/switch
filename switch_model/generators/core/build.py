@@ -219,6 +219,13 @@ def define_components(mod):
     mod.BASELOAD_GENS = Set(
         initialize=mod.GENERATION_PROJECTS,
         filter=lambda m, g: m.gen_is_baseload[g])
+    # TODO: use a construction dictionary or closure to create all the GENS_BY_...
+    # indexed sets more efficiently
+    mod.GENS_BY_TECHNOLOGY = Set(
+        mod.GENERATION_TECHNOLOGIES,
+        initialize=lambda m, t:
+            [g for g in m.GENERATION_PROJECTS if m.gen_tech[g] == t]
+    )
 
     mod.CAPACITY_LIMITED_GENS = Set(within=mod.GENERATION_PROJECTS)
     mod.gen_capacity_limit_mw = Param(
@@ -243,6 +250,7 @@ def define_components(mod):
     mod.FUEL_BASED_GENS = Set(
         initialize=mod.GENERATION_PROJECTS,
         filter=lambda m, g: m.gen_uses_fuel[g])
+
     mod.gen_full_load_heat_rate = Param(
         mod.FUEL_BASED_GENS,
         within=NonNegativeReals)
@@ -255,6 +263,17 @@ def define_components(mod):
             m.FUELS_FOR_MULTIFUEL_GEN[g]
             if g in m.MULTIFUEL_GENS
             else [m.gen_energy_source[g]]))
+
+    mod.GENS_BY_NON_FUEL_ENERGY_SOURCE = Set(
+        mod.NON_FUEL_ENERGY_SOURCES,
+        initialize=lambda m, s:
+            [g for g in m.NON_FUEL_BASED_GENS if m.gen_energy_source[g] == s]
+    )
+    mod.GENS_BY_FUEL = Set(
+        mod.FUELS,
+        initialize=lambda m, f:
+            [g for g in m.FUEL_BASED_GENS if f in m.FUELS_FOR_GEN[g]]
+    )
 
     mod.PREDETERMINED_GEN_BLD_YRS = Set(
         dimen=2)
@@ -512,10 +531,11 @@ def load_inputs(mod, switch_data, inputs_dir):
         switch_data.load(filename=multi_fuels_path)
 
 
-def post_solve(instance, outdir):
+def post_solve(m, outdir):
     write_table(
-        instance, instance.GEN_PERIODS,
-        output_file=os.path.join(outdir, "gen_cap.txt"),
+        m,
+        sorted(m.GEN_PERIODS) if m.options.sorted_output else m.GEN_PERIODS,
+        output_file=os.path.join(outdir, "gen_cap.tab"),
         headings=(
             "GENERATION_PROJECT", "PERIOD",
             "gen_tech", "gen_load_zone", "gen_energy_source",
