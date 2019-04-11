@@ -245,7 +245,8 @@ def write_tables(**args):
     write_table('fuels.tab', """
         SELECT DISTINCT replace(c.fuel_type, ' ', '_') AS fuel, co2_intensity, 0.0 AS upstream_co2_intensity, rps_eligible
         FROM fuel_costs c JOIN energy_source_properties p on (p.energy_source = c.fuel_type)
-        WHERE load_zone in %(load_zones)s AND fuel_scen_id=%(fuel_scen_id)s;
+        WHERE load_zone in %(load_zones)s AND fuel_scen_id=%(fuel_scen_id)s
+        ORDER BY 1;
     """, args)
 
     #########################

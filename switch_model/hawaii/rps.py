@@ -23,7 +23,7 @@ def define_arguments(argparser):
     argparser.add_argument('--rps-no-wind', action='store_true', default=False,
         help="Don't allow any new wind capacity or replacement of existing capacity.")
     argparser.add_argument('--rps-prefer-dist-pv', action='store_true', default=False,
-        help="Don't allow any new large solar capacity unless 90% of distributed PV ('*DistPV') capacity has been developed.")
+        help="Don't allow any new large solar capacity unless 90%% of distributed PV ('*DistPV') capacity has been developed.")
     argparser.add_argument(
         '--rps-allocation', default=None,
         choices=[

@@ -5,4 +5,6 @@
 gurobi.log
 switch_model.egg-info/
 venv
-build/
+build*/
+dist*/
+autodoc*

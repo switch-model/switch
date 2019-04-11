@@ -1,4 +1,16 @@
 -------------------------------------------------------------------------------
+Switch 2.0.2
+-------------------------------------------------------------------------------
+
+- General
+    - Added --assign-current-version argument to `switch upgrade`. This is
+      useful for updating version number in example directories to match
+      current version of Switch, even if the data files don't need an upgrade.
+
+- Hawaii regional package
+    - Fixed bug in hawaii.rps that would crash `switch solve --help`.
+
+-------------------------------------------------------------------------------
 Switch 2.0.1
 -------------------------------------------------------------------------------
 
@@ -33,8 +45,8 @@ Switch 2.0.1
       then re-solves to obtain duals. This flag is not needed with the cplexamp
       solver.
     - A new balancing.demand_response.iterative module has been added. This was
-      formerly in the Hawaii regional package. This moduel performs iterative solutions with any convex demand system, based on a bid-response
-      process.
+      formerly in the Hawaii regional package. This module performs iterative
+      solutions with any convex demand system, based on a bid-response process.
     - New indexed sets have been added to allow efficient selection of groups of
       generators that use a particular technology, fuel or non-fuel energy
       source: GENS_BY_TECHNOLOGY, GENS_BY_FUEL, GENS_BY_NON_FUEL_ENERGY_SOURCE.
