@@ -3,6 +3,11 @@
 import os
 from pyomo.environ import *
 
+def define_arguments(argparser):
+    argparser.add_argument("--run-kalaeloa-even-with-high-rps", action='store_true', default=False,
+        help="Enforce the 75 MW minimum-output rule for Kalaeloa in all years (otherwise relaxed "
+             "if RPS or EV share >= 75%%). Mimics behavior from switch 2.0.0b2.")
+
 def define_components(m):
     # force Kalaeloa_CC3 offline unless 1&2 are at max (per John Cole e-mail 9/28/16)
 
@@ -82,7 +87,9 @@ def define_components(m):
         ev_share = m.ev_share['Oahu', m.tp_period[tp]] if hasattr(m, 'ev_share') else 0.0
         rps_level = m.rps_target_for_period[m.tp_period[tp]] if hasattr(m, 'rps_target_for_period') else 0.0
 
-        if both_units_out or ev_share >= 0.75 or rps_level >= 0.75:
+        if both_units_out or (
+            (ev_share >= 0.75 or rps_level >= 0.75) and not m.options.run_kalaeloa_even_with_high_rps
+        ):
             return Constraint.Skip
         else:
             return (sum(m.DispatchGen[g, tp] for g in m.KALAELOA_MAIN_UNITS) >= 75.0)

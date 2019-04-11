@@ -371,11 +371,9 @@ class InputError(Exception):
 def load_aug(switch_data, optional=False, auto_select=False,
              optional_params=[], **kwds):
     """
-
     This is a wrapper for the DataPortal object that accepts additional
     keywords. This currently supports a flag for the file being optional.
     The name load_aug() is not great and may be changed.
-
     """
     # TODO:
     # Allow user to specify filename when defining parameters and sets.
