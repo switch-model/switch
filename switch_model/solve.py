@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 import sys, os, time, shlex, re, inspect, textwrap, types
 import cPickle as pickle

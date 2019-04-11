@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """Scenario management module.
@@ -77,6 +77,55 @@ if job_id is None:
     # this cannot be running in parallel with another task with the same pid on
     # the same host, so it's safe to requeue any jobs with this id
     job_id = socket.gethostname() + '_' + str(os.getpid())
+
+# TODO: other options for requeueing jobs:
+# - use file locks on lockfiles: lock a
+# lockfile in the scenario queue corresponding to the name of the scenario, then
+# run the scenario, then create
+# a flag file indicating the scenario has been run, then unlock the scenario.
+# (or maybe just update a "completed.txt" file when it's finished, and use locks
+# on that to manage contention; but still use a lockfile to identify jobs that
+# are currently running).
+# This allows robust kill/restart of the scenario solver without needing task IDs,
+# and without creating all the scenario subdirs (so scenario queue can be cleaned
+# out more easily too).
+# The lockfile package might be able to do this (seems to work OK on the UH HPC,
+# which uses lustre shared file system), but it uses flock on Linux, which is not
+# supposed to work across NFS. A better option could be to use fcntl.lockf();
+# see here for info about unix file locking:
+# http://chris.improbable.org/2010/12/16/everything-you-never-wanted-to-know-about-file-locking/
+# ***
+# A more robust and platform independent way might be to write a hostname,
+# port and key (e.g., creation time) into a lockfile; then listen on that port
+# (probably with another subprocess). When another machine wants to run the same
+# scenario, it first connects to that host and port and offers the key; if
+# if the listening process exists and has ever posted that key, it responds
+# affirmatively (that the job is either running or [recently] finished running
+# on that host), and the attempter moves on. Otherwise it replaces that file
+# with a new one (can that be done atomically? might have to do this with lock dirs).
+# This requires a way
+# for each host to identify itself in an externally accessible way; we could
+# just use the IP address and require all hosts to be on the same subnet.
+# There's a little more info here about lockfiles:
+# http://dev-random.net/linux-lockfile-explained-how-to-use-them-the-easy-or-hard-way/
+# ***
+# Or maybe it's better just to use a job server approach to manage the available
+# scenarios, similar to pyro, or even use pyro or mpirun to run parallel jobs
+# directly.
+# ***
+# Or we could use a sqlite database and just require each worker to update the
+# fact that it's still running a particular job, at least once per minute (probably
+# via a separate subprocess). If another worker finds a job that was last updated
+# more than a minute ago, it can take over and solve it. Race conditions would be
+# managed via normal database locks.
+# update locktable set host=myhost, time=mytime where host=oldhost and time=oldtime"
+# then check whether that was successful, or possibly got updated first by a different
+# worker, then launch the job. Or do the check and update within a transaction, so
+# it's atomic.
+# This makes it harder to selectively restart jobs, but that could be resolved by
+# creating "scenario_done" files for each finished scenario (and removing it from
+# the DB), so users can restart scenarios by deleting the 'done' file.
+# But this requires synchronized clocks across workers...
 
 running_scenarios_file = os.path.join(scenario_queue_dir, job_id+"_running.txt")
 
