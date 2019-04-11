@@ -1,4 +1,16 @@
 -------------------------------------------------------------------------------
+Switch 2.0.2
+-------------------------------------------------------------------------------
+
+- General
+    - Added --assign-current-version argument to `switch upgrade`. This is
+      useful for updating version number in example directories to match
+      current version of Switch, even if the data files don't need an upgrade.
+
+- Hawaii regional package
+    - Fixed bug in hawaii.rps that would crash `switch solve --help`.
+
+-------------------------------------------------------------------------------
 Switch 2.0.1
 -------------------------------------------------------------------------------
 
