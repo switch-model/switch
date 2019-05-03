@@ -29,9 +29,13 @@ def main(args=None, return_model=False, return_instance=False):
     # (from http://stackoverflow.com/a/1237407 ; more options available there)
     if pre_module_options.debug:
         def debug(type, value, tb):
-            import traceback, pdb
+            import traceback
+            try:
+                from ipdb import pm
+            except ImportError:
+                from pdb import pm
             traceback.print_exception(type, value, tb)
-            pdb.pm()
+            pm()
         sys.excepthook = debug
 
     # Write output to a log file if logging option is specified

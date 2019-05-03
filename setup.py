@@ -65,8 +65,9 @@ setup(
     extras_require={
         # packages used for advanced demand response, progressive hedging
         'advanced': ['numpy', 'scipy', 'rpy2', 'sympy'],
+        'dev': ['ipdb'],
         'plotting': ['ggplot'],
-        'database_access': ['psycopg2']
+        'database_access': ['psycopg2-binary']
     },
     entry_points={
         'console_scripts': ['switch = switch_model.main:main']

@@ -49,7 +49,7 @@ def load_inputs(model, switch_data, inputs_dir):
 
     Expected input files:
     carbon_policies.tab
-        PERIOD, carbon_cap_tco2_per_yr, model.carbon_cost_dollar_per_tco2
+        PERIOD, carbon_cap_tco2_per_yr, carbon_cost_dollar_per_tco2
     
     """
     switch_data.load_aug(
