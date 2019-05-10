@@ -63,21 +63,36 @@ def define_components(mod):
     
     """
 
-    mod.HYDRO_GEN_TS = Set(
+    mod.HYDRO_GEN_TS_RAW = Set(
         dimen=2,
         validate=lambda m, g, ts: (g in m.GENERATION_PROJECTS) & (ts in m.TIMESERIES))
+
     mod.HYDRO_GENS = Set(
-        initialize=lambda m: set(g for (g, ts) in m.HYDRO_GEN_TS),
+        initialize=lambda m: set(g for (g, ts) in m.HYDRO_GEN_TS_RAW),
         doc="Dispatchable hydro projects")
+    mod.HYDRO_GEN_TS = Set(
+        dimen=2,
+        initialize=lambda m: set(
+            (g, m.tp_ts[tp])
+                for g in m.HYDRO_GENS
+                    for tp in m.TPS_FOR_GEN[g]))
     mod.HYDRO_GEN_TPS = Set(
         initialize=mod.GEN_TPS,
         filter=lambda m, g, t: g in m.HYDRO_GENS)
+
+    # Validate that a timeseries data is specified for every hydro generator /
+    # timeseries that we need. Extra data points (ex: outside of planning
+    # horizon or beyond a plant's lifetime) can safely be ignored to make it
+    # easier to create input files.
+    mod.have_minimal_hydro_params = BuildCheck(
+        mod.HYDRO_GEN_TS,
+        rule=lambda m, g, ts: (g,ts) in m.HYDRO_GEN_TS_RAW)
 
     # To do: Add validation check that timeseries data are specified for every
     # valid timepoint.
 
     mod.hydro_min_flow_mw = Param(
-        mod.HYDRO_GEN_TS,
+        mod.HYDRO_GEN_TS_RAW,
         within=NonNegativeReals,
         default=0.0)
     mod.Enforce_Hydro_Min_Flow = Constraint(
@@ -86,7 +101,7 @@ def define_components(mod):
             m.DispatchGen[g, t] >= m.hydro_min_flow_mw[g, m.tp_ts[t]]))
 
     mod.hydro_avg_flow_mw = Param(
-        mod.HYDRO_GEN_TS,
+        mod.HYDRO_GEN_TS_RAW,
         within=NonNegativeReals,
         default=0.0)
     mod.Enforce_Hydro_Avg_Flow = Constraint(
@@ -108,21 +123,17 @@ def load_inputs(mod, switch_data, inputs_dir):
     
     Run-of-River hydro projects should not be included in this file; RoR
     hydro is treated like any other variable renewable resource, and
-    which expects data in variable_capacity_factors.tab.
+    expects data in variable_capacity_factors.tab.
 
     hydro_timeseries.tab
         hydro_generation_project, timeseries, hydro_min_flow_mw,
         hydro_avg_flow_mw
 
     """
-    # Include select in each load() function so that it will check out
-    # column names, be indifferent to column order, and throw an error
-    # message if some columns are not found.
-
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, 'hydro_timeseries.tab'),
         autoselect=True,
-        index=mod.HYDRO_GEN_TS,
+        index=mod.HYDRO_GEN_TS_RAW,
         param=(mod.hydro_min_flow_mw, mod.hydro_avg_flow_mw)
     )
