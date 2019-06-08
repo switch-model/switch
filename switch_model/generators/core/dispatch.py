@@ -164,7 +164,7 @@ def define_components(mod):
     mod.TPS_FOR_GEN = Set(
         mod.GENERATION_PROJECTS,
         within=mod.TIMEPOINTS,
-        rule=lambda m, g: (
+        initialize=lambda m, g: (
             tp for p in m.PERIODS_FOR_GEN[g] for tp in m.TPS_IN_PERIOD[p]
         )
     )
@@ -183,7 +183,7 @@ def define_components(mod):
         return result
     mod.TPS_FOR_GEN_IN_PERIOD = Set(mod.GENERATION_PROJECTS, mod.PERIODS,
         within=mod.TIMEPOINTS,
-        rule=TPS_FOR_GEN_IN_PERIOD_rule)
+        initialize=TPS_FOR_GEN_IN_PERIOD_rule)
 
     mod.GEN_TPS = Set(
         dimen=2,
