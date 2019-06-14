@@ -169,21 +169,19 @@ def define_components(mod):
         )
     )
 
-        if not hasattr(m, '_TPS_FOR_GEN_IN_PERIOD_dict'):
-            m._TPS_FOR_GEN_IN_PERIOD_dict = collections.defaultdict(set)
     def rule(m, gen, period):
+        try:
+            d = m._TPS_FOR_GEN_IN_PERIOD_dict
+        except AttributeError:
+            d = m._TPS_FOR_GEN_IN_PERIOD_dict = dict()
             for _gen in m.GENERATION_PROJECTS:
                 for t in m.TPS_FOR_GEN[_gen]:
-                    m._TPS_FOR_GEN_IN_PERIOD_dict[(_gen, m.tp_period[t])].add(t)
-        if (gen, period) not in m._TPS_FOR_GEN_IN_PERIOD_dict:
-            return ()
-        result = m._TPS_FOR_GEN_IN_PERIOD_dict.pop((gen, period))
-        if len(m._TPS_FOR_GEN_IN_PERIOD_dict) == 0:
-            delattr(m, '_TPS_FOR_GEN_IN_PERIOD_dict')
+                    d.setdefault((_gen, m.tp_period[t]), set()).add(t)
+        result = d.pop((gen, period), set())
+        if not d:  # all gone, delete the attribute
+            del m._TPS_FOR_GEN_IN_PERIOD_dict
         return result
     mod.TPS_FOR_GEN_IN_PERIOD = Set(mod.GENERATION_PROJECTS, mod.PERIODS,
-        within=mod.TIMEPOINTS,
-        rule=TPS_FOR_GEN_IN_PERIOD_rule)
         within=mod.TIMEPOINTS, rule=rule)
 
     mod.GEN_TPS = Set(
