@@ -213,9 +213,6 @@ def define_components(model):
     def AvailableReserveCapacity_rule(m, prr, t):
         reserve_cap = 0.0
         ZONES = zones_for_prr(m, prr)
-        # Apply net power from storage if available
-        if 'StorageNetCharge' in dir(m):
-            reserve_cap -= sum(m.StorageNetCharge[z,t] for z in ZONES)
         GENS = [g 
                 for z in ZONES 
                 for g in m.GENS_IN_ZONE[z] 
@@ -223,8 +220,10 @@ def define_components(model):
                    m.gen_can_provide_cap_reserves[g]]
         for g in GENS:
             # Storage is only credited with its expected output
-            if 'STORAGE_GENS' in dir(m) and g in m.STORAGE_GENS:
-                reserve_cap += DispatchGen[g, t]
+            # Note: this code appears to have no users, since it references
+            # DispatchGen, which doesn't exist (should be m.DispatchGen).
+            if g in getattr(m, 'STORAGE_GENS', set()):
+                reserve_cap += DispatchGen[g, t] - m.ChargeStorage[g, t]
             # If local_td is included with DER modeling, avoid allocating
             # distributed generation to central grid capacity because it will
             # be credited with adjusting load at the distribution node.
