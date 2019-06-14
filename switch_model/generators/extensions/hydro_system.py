@@ -329,9 +329,10 @@ def define_components(mod):
         mod.RESERVOIR_TPS,
         within=NonNegativeReals,
         bounds=ReservoirVol_bounds)
-    mod.ReservoirSurplus = Var(
+    mod.ReservoirFinalVol = Var(
         mod.RESERVOIRS, mod.PERIODS,
-        within=NonNegativeReals)
+        within=NonNegativeReals,
+        bounds=lambda m, r, p: (m.final_res_vol[r], m.res_max_vol[r]))
 
     ################
     # Edges of the water network
@@ -373,33 +374,41 @@ def define_components(mod):
             for wc in m.INWARD_WCONS_TO_WNODE[wn])
         dispatch_outflow = sum(m.DispatchWater[wc, t]
             for wc in m.OUTWARD_WCONS_FROM_WNODE[wn])
-        # Reservoir flows: 0 for non-reservoirs
+        # net change in reservoir volume (m3/s): 0 for non-reservoirs
         reservoir_fill_rate = 0.0
         if wn in m.RESERVOIRS:
             p = m.tp_period[t]
-            end_volume = 0.0
-            if t != m.TPS_IN_PERIOD[p].last():
-                t_next = m.TPS_IN_PERIOD[p].next(t)
-                end_volume = m.ReservoirVol[wn, t_next]
+            if t == m.TPS_IN_PERIOD[p].last():
+                next_volume = m.ReservoirFinalVol[wn, p]
             else:
-                end_volume = m.final_res_vol[wn] + m.ReservoirSurplus[wn, p]
+                next_volume = m.ReservoirVol[wn, m.TPS_IN_PERIOD[p].next(t)]
             reservoir_fill_rate = (
-                (end_volume - m.ReservoirVol[wn, t]) * 1000000.0 /
+                (next_volume - m.ReservoirVol[wn, t]) * 1000000.0 /
                 (m.tp_duration_hrs[t] * 3600))
         # Conservation of mass flow
         return (
-            m.wnode_tp_inflow[wn, t] + dispatch_inflow == \
-            m.wnode_tp_consumption[wn, t] + dispatch_outflow \
-            + m.SpillWaterAtNode[wn, t] + reservoir_fill_rate)
+            # inflows (m3/s)
+            m.wnode_tp_inflow[wn, t] + dispatch_inflow
+            # less outflows (m3/s)
+            - m.wnode_tp_consumption[wn, t] - dispatch_outflow
+            - m.SpillWaterAtNode[wn, t]
+            # net change in volume (m3/s)
+            == reservoir_fill_rate
+        )
     mod.Enforce_Wnode_Balance = Constraint(
         mod.WNODE_TPS,
         rule=Enforce_Wnode_Balance_rule)
 
     mod.NodeSpillageCosts = Expression(
         mod.TIMEPOINTS,
-        rule=lambda m, t: sum(m.SpillWaterAtNode[wn,t] * 3600 *
-            m.spillage_penalty for wn in m.WATER_NODES
-                if not m.wn_is_sink[wn]))
+        rule=lambda m, t: sum(
+            # prior to Switch 2.0.3, this did not account for tp_duration_hrs
+            m.SpillWaterAtNode[wn,t] * 3600 * m.tp_duration_hrs[t] *
+            m.spillage_penalty
+            for wn in m.WATER_NODES
+            if not m.wn_is_sink[wn]
+        )
+    )
     mod.Cost_Components_Per_TP.append('NodeSpillageCosts')
 
     ################
@@ -472,6 +481,11 @@ def load_inputs(mod, switch_data, inputs_dir):
         index=mod.RESERVOIRS,
         param=(mod.res_min_vol, mod.res_max_vol,
             mod.initial_res_vol, mod.final_res_vol))
+    if os.path.exists(os.path.join(inputs_dir, 'reservoir_tp_data.tab')):
+        raise NotImplementedError(
+            "Code needs to be added to hydro_system module to enforce "
+            "reservoir volume limits per timepoint."
+        )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'reservoir_tp_data.tab'),
         optional=True,
