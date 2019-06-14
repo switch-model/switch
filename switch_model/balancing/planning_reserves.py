@@ -228,7 +228,7 @@ def define_components(model):
             # If local_td is included with DER modeling, avoid allocating
             # distributed generation to central grid capacity because it will
             # be credited with adjusting load at the distribution node.
-            elif 'Distributed_Power_Injections' in dir(m) and m.gen_is_distributed[g]:
+            elif hasattr(m, 'Distributed_Power_Injections') and m.gen_is_distributed[g]:
                 pass
             else:
                 reserve_cap += m.gen_capacity_value[g, t] * m.GenCapacityInTP[g, t]
@@ -243,7 +243,7 @@ def define_components(model):
 
     def CapacityRequirements_rule(m, prr, t):
         ZONES = zones_for_prr(m, prr)
-        if 'WithdrawFromCentralGrid' in dir(m):
+        if hasattr(m, 'WithdrawFromCentralGrid'):
             return sum(
                 (1 + m.prr_cap_reserve_margin[prr]) * m.WithdrawFromCentralGrid[z,t]
                 for z in ZONES

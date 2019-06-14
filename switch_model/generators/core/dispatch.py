@@ -238,9 +238,9 @@ def define_components(mod):
                 if (g, t) in m.GEN_TPS and m.gen_is_distributed[g]),
         doc="Total power from distributed generation projects."
     )
-    if 'Distributed_Power_Injections' in dir(mod):
+    try:
         mod.Distributed_Power_Injections.append('ZoneTotalDistributedDispatch')
-    else:
+    except AttributeError:
         mod.Zone_Power_Injections.append('ZoneTotalDistributedDispatch')
 
     def init_gen_availability(m, g):

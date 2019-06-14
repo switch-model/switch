@@ -117,7 +117,7 @@ def define_components(m):
     )
 
     # Register with spinning reserves if it is available
-    if 'Spinning_Reserve_Up_Provisions' in dir(m):
+    if hasattr(m, 'Spinning_Reserve_Up_Provisions'):
         m.BatterySpinningReserveUp = Expression(
             m.BALANCING_AREA_TIMEPOINTS,
             rule=lambda m, b, t:
@@ -129,7 +129,7 @@ def define_components(m):
         m.BatterySpinningReserveDown = Expression(
             m.BALANCING_AREA_TIMEPOINTS,
             rule=lambda m, b, t: \
-                sum(m.BatterySlackDown[z, t] 
+                sum(m.BatterySlackDown[z, t]
                     for z in m.ZONES_IN_BALANCING_AREA[b])
         )
         m.Spinning_Reserve_Down_Provisions.append('BatterySpinningReserveDown')
