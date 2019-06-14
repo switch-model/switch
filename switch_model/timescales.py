@@ -236,7 +236,7 @@ def define_components(mod):
     mod.tp_timestamp = Param(mod.TIMEPOINTS, default=lambda m, t: t)
 
     # Derived sets and parameters
-    # note: the first four are calculated early so they
+    # note: the first five are calculated early so they
     # can be used for the add_one_to_period_end_rule
 
     mod.tp_weight = Param(

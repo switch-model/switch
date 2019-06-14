@@ -1,6 +1,6 @@
+from pyomo.environ import *
 import os
 from pprint import pprint
-from pyomo.environ import *
 import switch_model.utilities as utilities
 from util import get
 
