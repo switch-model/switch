@@ -164,12 +164,12 @@ def define_components(mod):
     mod.TPS_FOR_GEN = Set(
         mod.GENERATION_PROJECTS,
         within=mod.TIMEPOINTS,
-        rule=lambda m, g: (
+        initialize=lambda m, g: (
             tp for p in m.PERIODS_FOR_GEN[g] for tp in m.TPS_IN_PERIOD[p]
         )
     )
 
-    def rule(m, gen, period):
+    def init(m, gen, period):
         try:
             d = m._TPS_FOR_GEN_IN_PERIOD_dict
         except AttributeError:
@@ -181,8 +181,9 @@ def define_components(mod):
         if not d:  # all gone, delete the attribute
             del m._TPS_FOR_GEN_IN_PERIOD_dict
         return result
-    mod.TPS_FOR_GEN_IN_PERIOD = Set(mod.GENERATION_PROJECTS, mod.PERIODS,
-        within=mod.TIMEPOINTS, rule=rule)
+    mod.TPS_FOR_GEN_IN_PERIOD = Set(
+        mod.GENERATION_PROJECTS, mod.PERIODS,
+        within=mod.TIMEPOINTS, initialize=init)
 
     mod.GEN_TPS = Set(
         dimen=2,
