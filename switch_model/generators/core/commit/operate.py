@@ -271,7 +271,7 @@ def define_components(mod):
     mod.gen_startup_fuel = Param(mod.FUEL_BASED_GENS, default=0.0)
     mod.gen_startup_om = Param(mod.GENERATION_PROJECTS, default=0.0)
     # Note: lump-sum startup O&M cost is divided by the duration of the
-    # timepoint to give a cost-per-hour during this timepoint, as needed by 
+    # timepoint to give a cost-per-hour during this timepoint, as needed by
     # Cost_Components_Per_TP.
     mod.Total_StartupGenCapacity_OM_Costs = Expression(
         mod.TIMEPOINTS,
@@ -316,7 +316,7 @@ def define_components(mod):
         # the timepoint
         n_tp = int(round(
             (m.gen_min_uptime[g] if up else m.gen_min_downtime[g])
-            / m.ts_duration_of_tp[m.tp_ts[tp]]
+            / m.tp_duration_hrs[tp]
         ))
         if n_tp == 0:
             # project can be shutdown and restarted in the same timepoint
