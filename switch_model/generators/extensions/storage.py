@@ -108,7 +108,7 @@ def define_components(mod):
     # TODO: rename to gen_charge_to_discharge_ratio?
     mod.gen_store_to_release_ratio = Param(
         mod.STORAGE_GENS,
-        within=PositiveReals,
+        within=NonNegativeReals,
         default=1.0)
     mod.gen_storage_energy_to_power_ratio = Param(
         mod.STORAGE_GENS,

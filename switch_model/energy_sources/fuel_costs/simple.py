@@ -51,7 +51,7 @@ def define_components(mod):
             p in m.PERIODS))
     mod.fuel_cost = Param(
         mod.ZONE_FUEL_PERIODS,
-        within=PositiveReals)
+        within=NonNegativeReals)
     mod.min_data_check('ZONE_FUEL_PERIODS', 'fuel_cost')
 
     mod.GEN_TP_FUELS_UNAVAILABLE = Set(

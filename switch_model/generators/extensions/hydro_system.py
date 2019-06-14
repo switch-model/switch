@@ -296,7 +296,7 @@ def define_components(mod):
         within=NonNegativeReals)
     mod.res_max_vol = Param(
         mod.RESERVOIRS,
-        within=PositiveReals,
+        within=NonNegativeReals,
         validate=lambda m, val, r: val >= m.res_min_vol[r])
     mod.res_min_vol_tp = Param(
         mod.RESERVOIR_TPS,
@@ -347,7 +347,7 @@ def define_components(mod):
         within=mod.WATER_NODES)
     mod.wc_capacity = Param(
         mod.WATER_CONNECTIONS,
-        within=PositiveReals,
+        within=NonNegativeReals,
         default=float('inf'))
     mod.min_eco_flow = Param(
         mod.WCON_TPS,
@@ -411,8 +411,7 @@ def define_components(mod):
         filter=lambda m, g, t: g in m.HYDRO_GENS)
     mod.hydro_efficiency = Param(
         mod.HYDRO_GENS,
-        within=PositiveReals,
-        validate=lambda m, val, g: val <= 10)
+        within=NonNegativeReals)
     mod.hydraulic_location = Param(
         mod.HYDRO_GENS,
         validate=lambda m, val, g: val in m.WATER_CONNECTIONS)

@@ -252,7 +252,7 @@ def define_components(mod):
             return (1 - m.gen_forced_outage_rate[g])
     mod.gen_availability = Param(
         mod.GENERATION_PROJECTS,
-        within=PositiveReals,
+        within=NonNegativeReals,
         initialize=init_gen_availability)
 
     mod.gen_max_capacity_factor = Param(

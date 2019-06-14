@@ -228,7 +228,7 @@ def define_components(mod):
 
     mod.CAPACITY_LIMITED_GENS = Set(within=mod.GENERATION_PROJECTS)
     mod.gen_capacity_limit_mw = Param(
-        mod.CAPACITY_LIMITED_GENS, within=PositiveReals)
+        mod.CAPACITY_LIMITED_GENS, within=NonNegativeReals)
     mod.DISCRETELY_SIZED_GENS = Set(within=mod.GENERATION_PROJECTS)
     mod.gen_unit_size = Param(
         mod.DISCRETELY_SIZED_GENS, within=PositiveReals)

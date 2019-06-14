@@ -217,8 +217,8 @@ def define_components(mod):
     """
 
     mod.PERIODS = Set(ordered=True)
-    mod.period_start = Param(mod.PERIODS, within=PositiveReals)
-    mod.period_end = Param(mod.PERIODS, within=PositiveReals)
+    mod.period_start = Param(mod.PERIODS, within=NonNegativeReals)
+    mod.period_end = Param(mod.PERIODS, within=NonNegativeReals)
     mod.min_data_check('PERIODS', 'period_start', 'period_end')
 
     mod.TIMESERIES = Set(ordered=True)

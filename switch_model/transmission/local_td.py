@@ -7,7 +7,7 @@ build-outs for the SWITCH-Pyomo model. This adds a virtual "distribution node"
 to each load zone that is connected to the zone's central node via a
 distribution pathway that incurs distribution losses. Distributed Energy
 Resources (DER) impact the energy balance at the distribution node, avoiding
-losses from the distribution network. 
+losses from the distribution network.
 """
 
 import os
@@ -43,13 +43,13 @@ def define_components(mod):
     which are used for power balance equations. This module is divided into
     two sections: the distribution node and the local_td pathway that connects
     it to the central grid.
-    
+
     Note: This module interprets the parameter zone_demand_mw[z,t] as the end-
     use sales rather than the withdrawals from the central grid, and moves
     zone_demand_mw from the Zone_Power_Withdrawals list to the
     Distributed_Power_Withdrawals list so that distribution losses can be accounted
     for.
-    
+
     Unless otherwise stated, all power capacity is specified in units of MW and
     all sets and parameters are mandatory.
 
@@ -64,9 +64,9 @@ def define_components(mod):
     calculating Local T&D line losses. WithdrawFromCentralGrid is added to the
     load_zone power balance, and has a corresponding expression from the
     perspective of the distributed node:
-    
+
     InjectIntoDistributedGrid[z,t] = WithdrawFromCentralGrid[z,t] * (1-distribution_loss_rate)
-        
+
     The Distributed_Energy_Balance constraint is defined in define_dynamic_components.
 
     LOCAL_TD PATHWAY
@@ -178,11 +178,11 @@ def define_components(mod):
     mod.Meet_Local_TD = Constraint(
         mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS,
         rule=lambda m, z, period: (
-            m.LocalTDCapacity[z, period] >= 
+            m.LocalTDCapacity[z, period] >=
                 m.zone_expected_coincident_peak_demand[z, period]/(1-m.distribution_loss_rate)))
     mod.local_td_annual_cost_per_mw = Param(
         mod.LOAD_ZONES,
-        within=PositiveReals)
+        within=NonNegativeReals)
     mod.min_data_check('local_td_annual_cost_per_mw')
     mod.LocalTDFixedCosts = Expression(
         mod.PERIODS,

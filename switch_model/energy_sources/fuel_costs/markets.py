@@ -232,7 +232,7 @@ def define_components(mod):
     mod.rfm_supply_tier_cost = Param(
         mod.RFM_SUPPLY_TIERS, within=Reals)
     mod.rfm_supply_tier_limit = Param(
-        mod.RFM_SUPPLY_TIERS, within=PositiveReals, default=float('inf'))
+        mod.RFM_SUPPLY_TIERS, within=NonNegativeReals, default=float('inf'))
     mod.min_data_check(
         'RFM_SUPPLY_TIERS', 'rfm_supply_tier_cost', 'rfm_supply_tier_limit')
     mod.SUPPLY_TIERS_FOR_RFM_PERIOD = Set(

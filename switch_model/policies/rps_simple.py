@@ -73,8 +73,7 @@ def define_components(mod):
         validate=lambda m, p: p in m.PERIODS)
     mod.rps_target = Param(
         mod.RPS_PERIODS,
-        within=NonNegativeReals,
-        validate=lambda m, val, p: val <= 1.0)
+        within=PercentFraction)
 
     mod.RPSFuelEnergy = Expression(
         mod.RPS_PERIODS,
@@ -91,7 +90,7 @@ def define_components(mod):
     mod.RPSNonFuelEnergy = Expression(
         mod.RPS_PERIODS,
         rule=lambda m, p: sum(m.DispatchGen[g, t] * m.tp_weight[t]
-            for g in m.NON_FUEL_BASED_GENS 
+            for g in m.NON_FUEL_BASED_GENS
                 for t in m.TPS_FOR_GEN_IN_PERIOD[g, p]))
 
     mod.RPS_Enforce_Target = Constraint(

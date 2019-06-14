@@ -214,9 +214,8 @@ def define_components(mod):
             m.TxCapacityNameplate[tx, period] * m.trans_derating_factor[tx]))
     mod.trans_terrain_multiplier = Param(
         mod.TRANSMISSION_LINES,
-        within=Reals,
-        default=1,
-        validate=lambda m, val, tx: val >= 0.5 and val <= 3)
+        within=NonNegativeReals,
+        default=1)
     mod.trans_capital_cost_per_mw_km = Param(
         within=NonNegativeReals,
         default=1000)

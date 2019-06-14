@@ -212,14 +212,14 @@ def define_components(mod):
 
     """
 
-    mod.base_financial_year = Param(within=PositiveReals)
+    mod.base_financial_year = Param(within=NonNegativeReals)
     mod.interest_rate = Param(within=NonNegativeReals)
     mod.discount_rate = Param(
         within=NonNegativeReals, default=mod.interest_rate)
     mod.min_data_check('base_financial_year', 'interest_rate')
     mod.bring_annual_costs_to_base_year = Param(
         mod.PERIODS,
-        within=PositiveReals,
+        within=NonNegativeReals,
         initialize=lambda m, p: (
             uniform_series_to_present_value(
                 m.discount_rate, m.period_length_years[p]) *
@@ -228,7 +228,7 @@ def define_components(mod):
                 m.period_start[p] - m.base_financial_year)))
     mod.bring_timepoint_costs_to_base_year = Param(
         mod.TIMEPOINTS,
-        within=PositiveReals,
+        within=NonNegativeReals,
         initialize=lambda m, t: (
             m.bring_annual_costs_to_base_year[m.tp_period[t]] *
             m.tp_weight_in_year[t]))
