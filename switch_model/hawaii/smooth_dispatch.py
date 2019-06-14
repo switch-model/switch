@@ -2,6 +2,7 @@
 losses) and smooth out demand response and EV charging as much as possible."""
 
 from pyomo.environ import *
+from pyomo.core.base.numvalue import native_numeric_types
 import switch_model.solve
 from switch_model.utilities import iteritems
 
@@ -22,6 +23,7 @@ def define_components(m):
         components_to_smooth = [
             'ShiftDemand', 'ChargeBattery', 'DischargeBattery', 'ChargeEVs',
             'RunElectrolyzerMW', 'LiquifyHydrogenMW', 'DispatchFuelCellMW',
+            'DispatchGen', 'ChargeStorage',
         ]
 
         def add_smoothing_entry(m, d, component, key):
@@ -51,13 +53,13 @@ def define_components(m):
                 print "Will smooth {}.".format(c)
                 for key in comp:
                     add_smoothing_entry(m, m.component_smoothing_dict, comp, key)
-            # smooth standard storage generators
-            if hasattr(m, 'STORAGE_GEN_TPS'):
-                print "Will smooth charging and discharging of standard storage."
-                for c in ['ChargeStorage', 'DispatchGen']:
-                    comp = getattr(m, c)
-                    for key in m.STORAGE_GEN_TPS:
-                        add_smoothing_entry(m, m.component_smoothing_dict, comp, key)
+            # # smooth standard storage generators
+            # if hasattr(m, 'STORAGE_GEN_TPS'):
+            #     print "Will smooth charging and discharging of standard storage."
+            #     for c in ['ChargeStorage', 'DispatchGen']:
+            #         comp = getattr(m, c)
+            #         for key in m.STORAGE_GEN_TPS:
+            #             add_smoothing_entry(m, m.component_smoothing_dict, comp, key)
         m.make_component_smoothing_dict = BuildAction(rule=rule)
 
         # Force IncreaseSmoothedValue to equal any step-up in a smoothed value
@@ -202,6 +204,8 @@ def restore_duals(m):
 
 def fix_obj_expression(e, status=True):
     """Recursively fix all variables included in an objective expression."""
+    # note: this contains code to work with various versions of Pyomo,
+    # e.g., _potentially_variable in 5.1, is_potentially_variable in 5.6
     if hasattr(e, 'fixed'):
         e.fixed = status      # see p. 171 of the Pyomo book
     elif hasattr(e, '_numerator'):
@@ -209,16 +213,25 @@ def fix_obj_expression(e, status=True):
             fix_obj_expression(e2, status)
         for e2 in e._denominator:
             fix_obj_expression(e2, status)
-    elif hasattr(e, '_args'):
+    elif hasattr(e, 'args'):  # SumExpression; can't actually see where this is defined in Pyomo though
+        for e2 in e.args:
+            fix_obj_expression(e2, status)
+    elif hasattr(e, '_args'): # switched to 'args' and/or '_args_' in Pyomo 5
         for e2 in e._args:
             fix_obj_expression(e2, status)
     elif hasattr(e, 'expr'):
         fix_obj_expression(e.expr, status)
-    elif hasattr(e, 'is_constant'):
-        # parameter; we don't actually care if it's mutable or not
+    # below here are parameters or constants, no need to fix
+    elif hasattr(e, 'is_potentially_variable') and not e.is_potentially_variable():
+        pass
+    elif hasattr(e, '_potentially_variable') and not e._potentially_variable():
+        pass
+    elif hasattr(e, 'is_constant') and e.is_constant():
+        pass
+    elif type(e) in native_numeric_types:
         pass
     else:
         raise ValueError(
-            'Expression {e} does not have an expr, fixed or _args property, ' +
-            'so it cannot be fixed.'.format(e=e)
+            'Expression {} does not have an expr, fixed or args property, '
+            'so it cannot be fixed.'.format(e)
         )
