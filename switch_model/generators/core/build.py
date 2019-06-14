@@ -210,18 +210,18 @@ def define_components(mod):
     'construction dictionary' pattern: on the first call, make a single
     traversal through all generation projects to generate a complete index,
     use that for subsequent lookups, and clean up at the last call."""
-    def _GENS_IN_ZONE_init(m, z):
-        if not hasattr(m, '_GENS_IN_ZONE_dict'):
-            m._GENS_IN_ZONE_dict = {_z: [] for _z in m.LOAD_ZONES}
+    def GENS_IN_ZONE_init(m, z):
+        if not hasattr(m, 'GENS_IN_ZONE_dict'):
+            m.GENS_IN_ZONE_dict = {_z: [] for _z in m.LOAD_ZONES}
             for g in m.GENERATION_PROJECTS:
-                m._GENS_IN_ZONE_dict[m.gen_load_zone[g]].append(g)
-        result = m._GENS_IN_ZONE_dict.pop(z)
-        if len(m._GENS_IN_ZONE_dict) == 0:
-            delattr(m, '_GENS_IN_ZONE_dict')
+                m.GENS_IN_ZONE_dict[m.gen_load_zone[g]].append(g)
+        result = m.GENS_IN_ZONE_dict.pop(z)
+        if not m.GENS_IN_ZONE_dict:
+            del m.GENS_IN_ZONE_dict
         return result
     mod.GENS_IN_ZONE = Set(
         mod.LOAD_ZONES,
-        initialize=_GENS_IN_ZONE_init
+        initialize=GENS_IN_ZONE_init
     )
     mod.VARIABLE_GENS = Set(
         initialize=mod.GENERATION_PROJECTS,
@@ -233,18 +233,18 @@ def define_components(mod):
         initialize=mod.GENERATION_PROJECTS,
         filter=lambda m, g: m.gen_is_baseload[g])
 
-    def _GENS_BY_TECHNOLOGY_init(m, t):
-        if not hasattr(m, '_GENS_BY_TECH_dict'):
-            m._GENS_BY_TECH_dict = {_t: [] for _t in m.GENERATION_TECHNOLOGIES}
+    def GENS_BY_TECHNOLOGY_init(m, t):
+        if not hasattr(m, 'GENS_BY_TECH_dict'):
+            m.GENS_BY_TECH_dict = {_t: [] for _t in m.GENERATION_TECHNOLOGIES}
             for g in m.GENERATION_PROJECTS:
-                m._GENS_BY_TECH_dict[m.gen_tech[g]].append(g)
-        result = m._GENS_BY_TECH_dict.pop(t)
-        if len(m._GENS_BY_TECH_dict) == 0:
-            delattr(m, '_GENS_BY_TECH_dict')
+                m.GENS_BY_TECH_dict[m.gen_tech[g]].append(g)
+        result = m.GENS_BY_TECH_dict.pop(t)
+        if not m.GENS_BY_TECH_dict:
+            del m.GENS_BY_TECH_dict
         return result
     mod.GENS_BY_TECHNOLOGY = Set(
         mod.GENERATION_TECHNOLOGIES,
-        initialize=_GENS_BY_TECHNOLOGY_init
+        initialize=GENS_BY_TECHNOLOGY_init
     )
 
     mod.CAPACITY_LIMITED_GENS = Set(within=mod.GENERATION_PROJECTS)
@@ -284,18 +284,22 @@ def define_components(mod):
             if g in m.MULTIFUEL_GENS
             else [m.gen_energy_source[g]]))
 
-    def _GENS_BY_ENERGY_SOURCE_init(m, e):
-        if not hasattr(m, '_GENS_BY_ENERGY_dict'):
-            m._GENS_BY_ENERGY_dict = {_e: [] for _e in m.ENERGY_SOURCES}
+    def GENS_BY_ENERGY_SOURCE_init(m, e):
+        if not hasattr(m, 'GENS_BY_ENERGY_dict'):
+            m.GENS_BY_ENERGY_dict = {_e: [] for _e in m.ENERGY_SOURCES}
             for g in m.GENERATION_PROJECTS:
-                m._GENS_BY_ENERGY_dict[m.gen_energy_source[g]].append(g)
-        result = m._GENS_BY_ENERGY_dict.pop(e)
-        if len(m._GENS_BY_ENERGY_dict) == 0:
-            delattr(m, '_GENS_BY_ENERGY_dict')
+                if g in m.FUEL_BASED_GENS:
+                    for f in m.FUELS_FOR_GEN[g]:
+                        m.GENS_BY_ENERGY_dict[f].append(g)
+                else:
+                    m.GENS_BY_ENERGY_dict[m.gen_energy_source[g]].append(g)
+        result = m.GENS_BY_ENERGY_dict.pop(e)
+        if not m.GENS_BY_ENERGY_dict:
+            del m.GENS_BY_ENERGY_dict
         return result
     mod.GENS_BY_ENERGY_SOURCE = Set(
         mod.ENERGY_SOURCES,
-        initialize=_GENS_BY_ENERGY_SOURCE_init
+        initialize=GENS_BY_ENERGY_SOURCE_init
     )
     mod.GENS_BY_NON_FUEL_ENERGY_SOURCE = Set(
         mod.NON_FUEL_ENERGY_SOURCES,
