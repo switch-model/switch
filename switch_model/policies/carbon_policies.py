@@ -26,7 +26,9 @@ def define_components(model):
         "Emissions from this model must be less than this cap. "
         "This is specified in metric tonnes of CO2 per year."))
     model.Enforce_Carbon_Cap = Constraint(model.PERIODS,
-        rule=lambda m, p: m.AnnualEmissions[p] <= m.carbon_cap_tco2_per_yr[p],
+        rule=lambda m, p:
+            Constraint.Skip if m.carbon_cap_tco2_per_yr[p] == float('inf')
+            else m.AnnualEmissions[p] <= m.carbon_cap_tco2_per_yr[p],
         doc=("Enforces the carbon cap for generation-related emissions."))
     # Make sure the model has a dual suffix for determining implicit carbon costs
     if not hasattr(model, "dual"):
@@ -50,7 +52,7 @@ def load_inputs(model, switch_data, inputs_dir):
     Expected input files:
     carbon_policies.tab
         PERIOD, carbon_cap_tco2_per_yr, carbon_cost_dollar_per_tco2
-    
+
     """
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'carbon_policies.tab'),
@@ -72,12 +74,12 @@ def post_solve(model, outdir):
     values will not be exported.
     """
     def get_row(model, period):
-        row = [period, model.AnnualEmissions[period], 
+        row = [period, model.AnnualEmissions[period],
                model.carbon_cap_tco2_per_yr[period]]
         # Only print the carbon cap dual value if it exists and if the problem
         # is purely linear.
         if not model.has_discrete_variables() and model.Enforce_Carbon_Cap[period] in model.dual:
-            row.append(model.dual[model.Enforce_Carbon_Cap[period]] / 
+            row.append(model.dual[model.Enforce_Carbon_Cap[period]] /
                        model.bring_annual_costs_to_base_year[period])
         else:
             row.append('.')
@@ -89,7 +91,7 @@ def post_solve(model, outdir):
     reporting.write_table(
         model, model.PERIODS,
         output_file=os.path.join(outdir, "emissions.txt"),
-        headings=("PERIOD", "AnnualEmissions_tCO2_per_yr", 
+        headings=("PERIOD", "AnnualEmissions_tCO2_per_yr",
                   "carbon_cap_tco2_per_yr", "carbon_cap_dual_future_dollar_per_tco2",
                   "carbon_cost_dollar_per_tco2", "carbon_cost_annual_total"),
         values=get_row)

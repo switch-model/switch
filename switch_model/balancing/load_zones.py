@@ -68,7 +68,7 @@ def define_components(mod):
     use zone_expected_coincident_peak_demand as well as load timeseries. Do not
     specify this parameter if you wish for the model to endogenously determine
     capacity requirements after accounting for both load and Distributed
-    Energy Resources (DER). 
+    Energy Resources (DER).
 
     Derived parameters:
 
@@ -92,9 +92,9 @@ def define_components(mod):
         mod.LOAD_ZONES,
         default=lambda m, z: z)
     mod.min_data_check('LOAD_ZONES', 'zone_demand_mw')
-    if 'Distributed_Power_Withdrawals' in dir(mod):
+    try:
         mod.Distributed_Power_Withdrawals.append('zone_demand_mw')
-    else:
+    except AttributeError:
         mod.Zone_Power_Withdrawals.append('zone_demand_mw')
 
     mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS = Set(
@@ -181,7 +181,7 @@ def load_inputs(mod, switch_data, inputs_dir):
 def post_solve(instance, outdir):
     """
     Export results.
-    
+
     load_balance.txt is a wide table of energy balance components for every
     zone and timepoint. Each component registered with
     Zone_Power_Injections and Zone_Power_Withdrawals will

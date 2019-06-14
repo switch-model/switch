@@ -185,49 +185,25 @@ def define_components(mod):
     mod.trans_efficiency = Param(
         mod.TRANSMISSION_LINES,
         within=PercentFraction)
-    mod.BLD_YRS_FOR_EXISTING_TX = Set(
-        dimen=2,
-        initialize=lambda m: set(
-            (tx, 'Legacy') for tx in m.TRANSMISSION_LINES))
     mod.existing_trans_cap = Param(
         mod.TRANSMISSION_LINES,
         within=NonNegativeReals)
-    # Note: we don't do a min_data_check for BLD_YRS_FOR_EXISTING_TX, because it may be empty for
-    # models that start with no pre-existing transmission (e.g., island interconnect scenarios).
     mod.min_data_check(
         'trans_length_km', 'trans_efficiency', 'existing_trans_cap')
     mod.trans_new_build_allowed = Param(
         mod.TRANSMISSION_LINES, within=Boolean, default=True)
-    mod.NEW_TRANS_BLD_YRS = Set(
+    mod.TRANS_BLD_YRS = Set(
         dimen=2,
         initialize=mod.TRANSMISSION_LINES * mod.PERIODS,
         filter=lambda m, tx, p: m.trans_new_build_allowed[tx])
-    mod.BLD_YRS_FOR_TX = Set(
-        dimen=2,
-        initialize=lambda m: m.BLD_YRS_FOR_EXISTING_TX | m.NEW_TRANS_BLD_YRS)
-    mod.TX_BUILDS_IN_PERIOD = Set(
-        mod.PERIODS,
-        within=mod.BLD_YRS_FOR_TX,
-        initialize=lambda m, p: set(
-            (tx, bld_yr) for (tx, bld_yr) in m.BLD_YRS_FOR_TX
-            if bld_yr == 'Legacy' or bld_yr <= p))
-
-    def bounds_BuildTx(model, tx, bld_yr):
-        if((tx, bld_yr) in model.BLD_YRS_FOR_EXISTING_TX):
-            return (model.existing_trans_cap[tx],
-                    model.existing_trans_cap[tx])
-        else:
-            return (0, None)
-    mod.BuildTx = Var(
-        mod.BLD_YRS_FOR_TX,
-        within=NonNegativeReals,
-        bounds=bounds_BuildTx)
+    mod.BuildTx = Var(mod.TRANS_BLD_YRS, within=NonNegativeReals)
     mod.TxCapacityNameplate = Expression(
         mod.TRANSMISSION_LINES, mod.PERIODS,
         rule=lambda m, tx, period: sum(
             m.BuildTx[tx, bld_yr]
-            for (tx2, bld_yr) in m.BLD_YRS_FOR_TX
-            if tx2 == tx and (bld_yr == 'Legacy' or bld_yr <= period)))
+            for bld_yr in m.PERIODS
+            if bld_yr <= period and (tx, bld_yr) in m.TRANS_BLD_YRS
+        ) + m.existing_trans_cap[tx])
     mod.trans_derating_factor = Param(
         mod.TRANSMISSION_LINES,
         within=PercentFraction,
@@ -238,9 +214,8 @@ def define_components(mod):
             m.TxCapacityNameplate[tx, period] * m.trans_derating_factor[tx]))
     mod.trans_terrain_multiplier = Param(
         mod.TRANSMISSION_LINES,
-        within=Reals,
-        default=1,
-        validate=lambda m, val, tx: val >= 0.5 and val <= 3)
+        within=NonNegativeReals,
+        default=1)
     mod.trans_capital_cost_per_mw_km = Param(
         within=NonNegativeReals,
         default=1000)
@@ -268,8 +243,10 @@ def define_components(mod):
     mod.TxFixedCosts = Expression(
         mod.PERIODS,
         rule=lambda m, p: sum(
-            m.BuildTx[tx, bld_yr] * m.trans_cost_annual[tx]
-            for (tx, bld_yr) in m.TX_BUILDS_IN_PERIOD[p]))
+            m.TxCapacityNameplate[tx, p] * m.trans_cost_annual[tx]
+            for tx in m.TRANSMISSION_LINES
+        )
+    )
     mod.Cost_Components_Per_Period.append('TxFixedCosts')
 
     def init_DIRECTIONAL_TX(model):

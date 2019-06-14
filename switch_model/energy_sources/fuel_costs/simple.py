@@ -51,7 +51,7 @@ def define_components(mod):
             p in m.PERIODS))
     mod.fuel_cost = Param(
         mod.ZONE_FUEL_PERIODS,
-        within=PositiveReals)
+        within=NonNegativeReals)
     mod.min_data_check('ZONE_FUEL_PERIODS', 'fuel_cost')
 
     mod.GEN_TP_FUELS_UNAVAILABLE = Set(
@@ -71,9 +71,9 @@ def define_components(mod):
             for (g, t2, f) in m.GEN_TP_FUELS:
                 if (m.gen_load_zone[g], f, m.tp_period[t2]) in m.ZONE_FUEL_PERIODS:
                     m.FuelCostsPerTP_dict[t2] += (
-                        m.GenFuelUseRate[g, t2, f] 
+                        m.GenFuelUseRate[g, t2, f]
                         * m.fuel_cost[m.gen_load_zone[g], f, m.tp_period[t2]])
-        # return a result from the dictionary and pop the element each time 
+        # return a result from the dictionary and pop the element each time
         # to release memory
         return m.FuelCostsPerTP_dict.pop(t)
     mod.FuelCostsPerTP = Expression(mod.TIMEPOINTS, rule=FuelCostsPerTP_rule)

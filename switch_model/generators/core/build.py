@@ -195,7 +195,7 @@ def define_components(mod):
     mod.gen_load_zone = Param(mod.GENERATION_PROJECTS, within=mod.LOAD_ZONES)
     mod.gen_max_age = Param(mod.GENERATION_PROJECTS, within=PositiveIntegers)
     mod.gen_is_variable = Param(mod.GENERATION_PROJECTS, within=Boolean)
-    mod.gen_is_baseload = Param(mod.GENERATION_PROJECTS, within=Boolean)
+    mod.gen_is_baseload = Param(mod.GENERATION_PROJECTS, within=Boolean, default=False)
     mod.gen_is_cogen = Param(mod.GENERATION_PROJECTS, within=Boolean, default=False)
     mod.gen_is_distributed = Param(mod.GENERATION_PROJECTS, within=Boolean, default=False)
     mod.gen_scheduled_outage_rate = Param(mod.GENERATION_PROJECTS,
@@ -203,8 +203,7 @@ def define_components(mod):
     mod.gen_forced_outage_rate = Param(mod.GENERATION_PROJECTS,
         within=PercentFraction, default=0)
     mod.min_data_check('GENERATION_PROJECTS', 'gen_tech', 'gen_energy_source',
-        'gen_load_zone', 'gen_max_age', 'gen_is_variable',
-        'gen_is_baseload')
+        'gen_load_zone', 'gen_max_age', 'gen_is_variable')
 
     """Construct GENS_* indexed sets efficiently with a
     'construction dictionary' pattern: on the first call, make a single
@@ -249,7 +248,7 @@ def define_components(mod):
 
     mod.CAPACITY_LIMITED_GENS = Set(within=mod.GENERATION_PROJECTS)
     mod.gen_capacity_limit_mw = Param(
-        mod.CAPACITY_LIMITED_GENS, within=PositiveReals)
+        mod.CAPACITY_LIMITED_GENS, within=NonNegativeReals)
     mod.DISCRETELY_SIZED_GENS = Set(within=mod.GENERATION_PROJECTS)
     mod.gen_unit_size = Param(
         mod.DISCRETELY_SIZED_GENS, within=PositiveReals)
@@ -523,7 +522,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'generation_projects_info.tab'),
         auto_select=True,
-        optional_params=['gen_dbid', 'gen_scheduled_outage_rate',
+        optional_params=['gen_dbid', 'gen_is_baseload', 'gen_scheduled_outage_rate',
         'gen_forced_outage_rate', 'gen_capacity_limit_mw', 'gen_unit_size',
         'gen_ccs_energy_load', 'gen_ccs_capture_efficiency',
         'gen_min_build_capacity', 'gen_is_cogen', 'gen_is_distributed'],

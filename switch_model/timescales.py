@@ -217,8 +217,8 @@ def define_components(mod):
     """
 
     mod.PERIODS = Set(ordered=True)
-    mod.period_start = Param(mod.PERIODS, within=PositiveReals)
-    mod.period_end = Param(mod.PERIODS, within=PositiveReals)
+    mod.period_start = Param(mod.PERIODS, within=NonNegativeReals)
+    mod.period_end = Param(mod.PERIODS, within=NonNegativeReals)
     mod.min_data_check('PERIODS', 'period_start', 'period_end')
 
     mod.TIMESERIES = Set(ordered=True)
@@ -236,15 +236,17 @@ def define_components(mod):
     mod.tp_timestamp = Param(mod.TIMEPOINTS, default=lambda m, t: t)
 
     # Derived sets and parameters
-    # note: the first four are calculated early so they
+    # note: the first five are calculated early so they
     # can be used for the add_one_to_period_end_rule
 
+    mod.tp_duration_hrs = Param(
+        mod.TIMEPOINTS,
+        initialize=lambda m, t: m.ts_duration_of_tp[m.tp_ts[t]])
     mod.tp_weight = Param(
         mod.TIMEPOINTS,
         within=PositiveReals,
         initialize=lambda m, t: (
-            m.ts_duration_of_tp[m.tp_ts[t]] *
-            m.ts_scale_to_period[m.tp_ts[t]]))
+            m.tp_duration_hrs[t] * m.ts_scale_to_period[m.tp_ts[t]]))
     mod.TPS_IN_TS = Set(
         mod.TIMESERIES,
         ordered=True,
@@ -308,9 +310,6 @@ def define_components(mod):
         within=PositiveReals,
         initialize=lambda m, t: (
             m.tp_weight[t] / m.period_length_years[m.tp_period[t]]))
-    mod.tp_duration_hrs = Param(
-        mod.TIMEPOINTS,
-        initialize=lambda m, t: m.ts_duration_of_tp[m.tp_ts[t]])
     # Identify previous step for each timepoint, for use in tracking
     # unit commitment or storage. We use circular indexing (.prevw() method)
     # for the timepoints within a timeseries to give consistency between the

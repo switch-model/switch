@@ -348,16 +348,16 @@ def define_components(m):
     gen_reserve_type_max_share specifies the maximum amount of committed
     capacity that can be used to provide each type of reserves. It is indexed
     by GEN_SPINNING_RESERVE_TYPES. This is read from generation_projects_reserve_availability.tab
-    and defaults to 1 if not specified.
+    and defaults to 1 if not specified. (Not currently implemented.)
 
     SPINNING_RESERVE_CAPABLE_GEN_TPS is a subset of GEN_TPS of generators that can
     provide spinning reserves based on generation_projects_reserve_capability.tab.
 
-    CommitGenSpinningReservesUp[(g,t) in SPINNING_SPINNING_RESERVE_CAPABLE_GEN_TPS] is a
+    CommitGenSpinningReservesUp[(r,g,t) in SPINNING_SPINNING_RESERVE_CAPABLE_GEN_TPS] is a
     decision variable of how much upward spinning reserve capacity to commit
     (in MW).
 
-    CommitGenSpinningReservesDown[(g,t) in SPINNING_SPINNING_RESERVE_CAPABLE_GEN_TPS] is a
+    CommitGenSpinningReservesDown[(r,g,t) in SPINNING_SPINNING_RESERVE_CAPABLE_GEN_TPS] is a
     corresponding variable for downward spinning reserves.
 
     CommitGenSpinningReservesUp_Limit[(g,t) in SPINNING_SPINNING_RESERVE_CAPABLE_GEN_TPS] and
@@ -388,8 +388,12 @@ def define_components(m):
     # reserve types that are supplied by generation projects
     # and generation projects that can provide reserves
     # note: these are also the indexing sets of the above set arrays; maybe that could be used?
-    m.SPINNING_RESERVE_TYPES_FROM_GENS = Set(initialize=lambda m: set(rt for (g, rt) in m.GEN_SPINNING_RESERVE_TYPES))
-    m.SPINNING_RESERVE_CAPABLE_GENS = Set(initialize=lambda m: set(g for (g, rt) in m.GEN_SPINNING_RESERVE_TYPES))
+    m.SPINNING_RESERVE_TYPES_FROM_GENS = Set(
+        initialize=lambda m: set(rt for (g, rt) in m.GEN_SPINNING_RESERVE_TYPES)
+    )
+    m.SPINNING_RESERVE_CAPABLE_GENS = Set(
+        initialize=lambda m: set(g for (g, rt) in m.GEN_SPINNING_RESERVE_TYPES)
+    )
 
     # slice GEN_SPINNING_RESERVE_TYPES both ways for later use
     def rule(m):
@@ -451,31 +455,26 @@ def define_components(m):
     )
 
     # Calculate total spinning reserves from generation projects,
-    # and add to the list of reserve provisions
+    # and add to the list of reserve provisions.
+    # Note: this is done in a BuildAction because we don't know the indexing
+    # set until the model is constructed
     def rule(m):
-        d = m.TotalGenSpinningReserves_dict = defaultdict(float)
+        up = defaultdict(float)
+        down = defaultdict(float)
         for g, rt in m.GEN_SPINNING_RESERVE_TYPES:
             ba = m.zone_balancing_area[m.gen_load_zone[g]]
             for tp in m.TPS_FOR_GEN[g]:
-                d[rt, 'up', ba, tp] += m.CommitGenSpinningReservesUp[rt, g, tp]
-                d[rt, 'down', ba, tp] += m.CommitGenSpinningReservesDown[rt, g, tp]
+                up[rt, ba, tp] += m.CommitGenSpinningReservesUp[rt, g, tp]
+                down[rt, ba, tp] += m.CommitGenSpinningReservesDown[rt, g, tp]
+        m.TotalGenSpinningReservesUp = Expression(up.keys(), initialize=dict(up))
+        m.TotalGenSpinningReservesDown = Expression(down.keys(), initialize=dict(down))
+        # construct these, so they can be used immediately
+        for c in [m.TotalGenSpinningReservesUp, m.TotalGenSpinningReservesDown]:
+            c.index_set().construct()
+            c.construct()
+        m.Spinning_Reserve_Up_Provisions.append('TotalGenSpinningReservesUp')
+        m.Spinning_Reserve_Down_Provisions.append('TotalGenSpinningReservesDown')
     m.TotalGenSpinningReserves_aggregate = BuildAction(rule=rule)
-
-    m.TotalGenSpinningReservesUp = Expression(
-        m.SPINNING_RESERVE_TYPES_FROM_GENS,
-        m.BALANCING_AREA_TIMEPOINTS,
-        rule=lambda m, rt, ba, tp:
-            m.TotalGenSpinningReserves_dict.pop((rt, 'up', ba, tp), 0.0)
-    )
-    m.TotalGenSpinningReservesDown = Expression(
-        m.SPINNING_RESERVE_TYPES_FROM_GENS,
-        m.BALANCING_AREA_TIMEPOINTS,
-        rule=lambda m, rt, ba, tp:
-            m.TotalGenSpinningReserves_dict.pop((rt, 'down', ba, tp), 0.0)
-    )
-
-    m.Spinning_Reserve_Up_Provisions.append('TotalGenSpinningReservesUp')
-    m.Spinning_Reserve_Down_Provisions.append('TotalGenSpinningReservesDown')
 
     # define reserve requirements
     if m.options.fixed_contingency:

@@ -1,6 +1,6 @@
+from pyomo.environ import *
 import os
 from pprint import pprint
-from pyomo.environ import *
 import switch_model.utilities as utilities
 from util import get
 
@@ -15,6 +15,9 @@ def define_arguments(argparser):
     argparser.add_argument('--rps-deactivate',
         dest='rps_level', action='store_const', const='deactivate',
         help="Deactivate RPS.")
+    argparser.add_argument('--rps-exact',
+        dest='rps_level', action='store_const', const='exact',
+        help="Require exact satisfaction of RPS target (no excess or shortfall).")
     argparser.add_argument('--rps-no-new-renewables',
         dest='rps_level', action='store_const', const='no_new_renewables',
         help="Deactivate RPS and don't allow any new renewables except to replace existing capacity.")
@@ -64,10 +67,11 @@ def define_components(m):
     # RPS calculation
     ##################
 
-    m.f_rps_eligible = Param(m.FUELS, within=Binary)
+    m.f_rps_eligible = Param(m.FUELS, within=Binary, default=False)
 
     m.RPS_ENERGY_SOURCES = Set(initialize=lambda m:
-        [s for s in m.NON_FUEL_ENERGY_SOURCES if s != 'Battery'] + [f for f in m.FUELS if m.f_rps_eligible[f]]
+        [s for s in m.NON_FUEL_ENERGY_SOURCES if s.lower() != 'battery']
+        + [f for f in m.FUELS if m.f_rps_eligible[f]]
     )
 
     m.RPS_YEARS = Set(ordered=True)
@@ -135,14 +139,16 @@ def define_components(m):
         )
     )
 
-    if m.options.rps_level == 'activate':
-        # we completely skip creating the constraint if the RPS is not activated.
-        # this makes it easy for other modules to check whether there's an RPS in effect
-        # (if we deactivated the RPS after it is constructed, then other modules would
-        # have to postpone checking until then)
-        m.RPS_Enforce = Constraint(m.PERIODS, rule=lambda m, per:
-            m.RPSEligiblePower[per] >= m.rps_target_for_period[per] * m.RPSTotalPower[per]
-        )
+    # note: we completely skip creating the constraint if the RPS is not activated.
+    # this makes it easy for other modules to check whether there's an RPS in effect
+    # (if we deactivated the RPS after it is constructed, then other modules would
+    # have to postpone checking until then)
+    if m.options.rps_level in {'activate', 'exact'}:
+        if m.options.rps_level == 'exact':
+            rule = lambda m, p: m.RPSEligiblePower[p] == m.rps_target_for_period[p] * m.RPSTotalPower[p]
+        else:
+            rule = lambda m, p: m.RPSEligiblePower[p] >= m.rps_target_for_period[p] * m.RPSTotalPower[p]
+        m.RPS_Enforce = Constraint(m.PERIODS, rule=rule)
     elif m.options.rps_level == 'no_new_renewables':
         # prevent construction of any new exclusively-renewable projects, but allow
         # replacement of existing ones
