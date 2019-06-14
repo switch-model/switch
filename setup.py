@@ -62,13 +62,14 @@ setup(
         'testfixtures', # used for standard tests
         'pandas',       # used for input upgrades and testing that functionality
     ],
-    # note: rpy2 discontinued support for Python 2 as of rpy2 2.9.0, but 
+    # note: rpy2 discontinued support for Python 2 as of rpy2 2.9.0, but
     # Switch currently requires Python 2
     extras_require={
         # packages used for advanced demand response, progressive hedging
         'advanced': ['numpy', 'scipy', 'rpy2<2.9.0', 'sympy'],
+        'dev': ['ipdb'],
         'plotting': ['ggplot'],
-        'database_access': ['psycopg2']
+        'database_access': ['psycopg2-binary']
     },
     entry_points={
         'console_scripts': ['switch = switch_model.main:main']

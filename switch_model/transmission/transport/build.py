@@ -282,17 +282,12 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     transmission_lines.tab
         TRANSMISSION_LINE, trans_lz1, trans_lz2, trans_length_km,
-        trans_efficiency, existing_trans_cap
-
-    The next files are optional. If they are not included or if any rows
-    are missing, those parameters will be set to default values as
-    described in documentation. If you only want to override some
-    columns and not others in trans_optional_params, put a dot . in the
-    columns that you don't want to override.
-
-    trans_optional_params.tab
-        TRANSMISSION_LINE, trans_dbid, trans_derating_factor,
-        trans_terrain_multiplier, trans_new_build_allowed
+        trans_efficiency, existing_trans_cap, trans_dbid,
+        trans_derating_factor, trans_terrain_multiplier,
+        trans_new_build_allowed
+    The last 4 columns of transmission_lines.tab are optional. If the
+    columns are missing or if cells contain a dot (.), those parameters
+    will be set to default values as described in documentation.
 
     Note that the next file is formatted as .dat, not as .tab. The
     distribution_loss_rate parameter should only be inputted if the
