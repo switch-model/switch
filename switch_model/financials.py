@@ -212,7 +212,7 @@ def define_components(mod):
 
     """
 
-    mod.base_financial_year = Param(within=PositiveIntegers)
+    mod.base_financial_year = Param(within=PositiveReals)
     mod.interest_rate = Param(within=NonNegativeReals)
     mod.discount_rate = Param(
         within=NonNegativeReals, default=mod.interest_rate)
