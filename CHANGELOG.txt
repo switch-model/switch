@@ -1,4 +1,49 @@
 -------------------------------------------------------------------------------
+Switch 2.0.3
+-------------------------------------------------------------------------------
+
+- Users can now provide data in variable_capacity_factors.tab and
+  hydro_timeseries.tab for times before projects are built or after they are
+  retired without raising an error. However, the extra datapoints will be
+  ignored.
+- Various parts of the code have better formatting, documentation and
+  performance.
+- switch_model.hawaii.smooth_dispatch is now compatible with Pyomo 5.6 and
+  later.
+- A new '--exact' option in switch_model.hawaii.rps forces the system to
+  exactly meet the RPS target and no more. This is useful for studying the cost
+  of adopting various levels of renewable power, including levels below the
+  least-cost system design (i.e., cases where low shares of renewable power
+  cause higher system costs).
+- A bug was fixed when calculating the cost of water spillage in
+  switch_model.generators.extensions.hydro_system.
+- Final reservoir level in switch_model.generators.extensions.hydro_system
+  is now stored in a varaible called ReservoirFinalVol. The ReservoirSurplus
+  variable has been eliminated.
+- Bounds on a number of inputs have been relaxed to allow unusual or edge cases.
+  In particular, a number of variables can now be zero instead of strictly
+  positive. This allows zero costs, zero capacity limits, zero-based year
+  counting, etc.
+- The  gen_is_baseload parameter is now optional, with a default value of False
+  (0).
+- NEW_TRANS_BLD_YRS has been renamed to TRANS_BLD_YRS.
+- setup.py now lists an optional dependency on rpy2<3.9 instead of rpy2, because
+  later versions of rpy2 require Python 3, which Switch doesn't support yet.
+  This only affects the iterative demand response module.
+- A new GENS_BY_ENERGY_SOURCE set can be used to identify all the generators
+  that use any energy source, either a fuel or a non-fuel energy source.
+  GENS_BY_FUEL and GENS_BY_NON_FUEL_ENERGY_SOURCE also still exist.
+- We have begun migrating toward using `initialize` instead of `rule` when
+  initializing Pyomo components, and recommend that users do the same in their
+  custom modules. This matches the current Pyomo API documentation. `rule` also
+  works for now, but `initialize` should be more future proof.
+- The discrete-build requirement is now enforced on generators with
+  predetermined build quantities, in addition to optimized generators.
+- The optional psycopg2 dependency has been changed to psycopg2-binary.
+- The --debug option now uses the ipdb debugger if available; otherwise it falls
+  back to pdb.
+
+-------------------------------------------------------------------------------
 Switch 2.0.2
 -------------------------------------------------------------------------------
 
