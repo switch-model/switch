@@ -256,11 +256,22 @@ def define_components(mod):
         within=NonNegativeReals,
         initialize=init_gen_availability)
 
+    mod.VARIABLE_GEN_TPS_RAW = Set(
+        dimen=2,
+        within=mod.VARIABLE_GENS * mod.TIMEPOINTS,
+    )
     mod.gen_max_capacity_factor = Param(
-        mod.VARIABLE_GEN_TPS,
+        mod.VARIABLE_GEN_TPS_RAW,
         within=Reals,
         validate=lambda m, val, g, t: -1 < val < 2)
-    mod.min_data_check('gen_max_capacity_factor')
+    # Validate that a gen_max_capacity_factor has been defined for every
+    # variable gen / timepoint that we need. Extra cap factors (like beyond an
+    # existing plant's lifetime) shouldn't cause any problems. 
+    # This replaces: mod.min_data_check('gen_max_capacity_factor') from when
+    # gen_max_capacity_factor was indexed by VARIABLE_GEN_TPS.
+    mod.have_minimal_gen_max_capacity_factors = BuildCheck(
+        mod.VARIABLE_GEN_TPS,
+        rule=lambda m, g, t: (g,t) in m.VARIABLE_GEN_TPS_RAW)
 
     mod.GenFuelUseRate = Var(
         mod.GEN_TP_FUELS,
@@ -315,7 +326,8 @@ def load_inputs(mod, switch_data, inputs_dir):
         optional=True,
         filename=os.path.join(inputs_dir, 'variable_capacity_factors.tab'),
         autoselect=True,
-        param=(mod.gen_max_capacity_factor))
+        index=mod.VARIABLE_GEN_TPS_RAW,        
+        param=(mod.gen_max_capacity_factor,))
 
 
 def post_solve(instance, outdir):
