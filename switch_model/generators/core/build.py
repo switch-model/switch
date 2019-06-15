@@ -325,7 +325,7 @@ def define_components(mod):
     mod.min_data_check('gen_predetermined_cap')
 
 
-    def _gen_build_can_operate_in_period(m, g, build_year, period):
+    def gen_build_can_operate_in_period(m, g, build_year, period):
         if build_year in m.PERIODS:
             online = m.period_start[build_year]
         else:
@@ -345,7 +345,7 @@ def define_components(mod):
         ordered=True,
         initialize=lambda m, g, bld_yr: set(
             period for period in m.PERIODS
-            if _gen_build_can_operate_in_period(m, g, bld_yr, period)))
+            if gen_build_can_operate_in_period(m, g, bld_yr, period)))
     # The set of build years that could be online in the given period
     # for the given project.
     mod.BLD_YRS_FOR_GEN_PERIOD = Set(
@@ -353,7 +353,7 @@ def define_components(mod):
         initialize=lambda m, g, period: set(
             bld_yr for (gen, bld_yr) in m.GEN_BLD_YRS
             if gen == g and
-               _gen_build_can_operate_in_period(m, g, bld_yr, period)))
+               gen_build_can_operate_in_period(m, g, bld_yr, period)))
     # The set of periods when a generator is available to run
     mod.PERIODS_FOR_GEN = Set(
         mod.GENERATION_PROJECTS,
