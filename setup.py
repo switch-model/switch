@@ -47,7 +47,8 @@ setup(
     'Operating System :: MacOS :: MacOS X',
     'Operating System :: POSIX :: Linux',
     'Operating System :: Unix',
-    'Programming Language :: Python',
+    'Programming Language :: Python :: 2.7',
+    'Programming Language :: Python :: 2 :: Only',
     'Topic :: Scientific/Engineering',
     'Topic :: Software Development :: Libraries :: Python Modules'
     ],
