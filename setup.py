@@ -35,6 +35,7 @@ setup(
     platforms=["any"],
     description='SWITCH Power System Planning Model',
     long_description=read('README'),
+    long_description_content_type="text/markdown",
     classifiers=[
     'Development Status :: 5 - Production/Stable',
     'Environment :: Console',
