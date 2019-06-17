@@ -28,6 +28,7 @@ from __future__ import print_function
 import time, sys, collections, os
 from textwrap import dedent
 from switch_model import __version__ as switch_version
+from switch_model.utilities import iteritems
 
 # NOTE: instead of using the python csv writer, this directly writes tables to
 # file in the pyomo .tab format. This uses tabs between columns and the standard
@@ -1017,7 +1018,7 @@ def write_indexed_set_dat_file(output_file, set_name, query, arguments):
                 sn=set_name,
                 idx=', '.join(k),
                 items=' '.join(v))
-            for k, v in data_dict.iteritems()
+            for k, v in iteritems(data_dict)
         ])
 
     print("time taken: {dur:.2f}s".format(dur=time.time()-start))

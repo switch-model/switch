@@ -38,7 +38,7 @@ def upgrade_input_dir(inputs_dir):
         'gen_inc_heat_rates.tab': [('project', 'GENERATION_PROJECT')]
     }
 
-    for fname, old_new_pairs in old_new_column_names_in_file.iteritems():
+    for fname, old_new_pairs in old_new_column_names_in_file.items():
         for old, new in old_new_pairs:
             rename_column(fname, old_col_name=old, new_col_name=new)
 

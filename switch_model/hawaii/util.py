@@ -1,4 +1,5 @@
 from __future__ import print_function
+from switch_model.utilities import string_types
 import csv, sys, time, itertools
 from pyomo.environ import value
 import __main__ as main
@@ -7,10 +8,10 @@ import __main__ as main
 # (if not, there will be no __main__.__file__)
 interactive_session = not hasattr(main, '__file__')
 
-csv.register_dialect("ampl-tab", 
-    delimiter="\t", 
+csv.register_dialect("ampl-tab",
+    delimiter="\t",
     lineterminator="\n",
-    doublequote=False, escapechar="\\", 
+    doublequote=False, escapechar="\\",
     quotechar='"', quoting=csv.QUOTE_MINIMAL,
     skipinitialspace = False
 )
@@ -51,7 +52,7 @@ def unpack_elements(tup):
     This is used to flatten the product of a multi-dimensional index with anything else."""
     l=[]
     for t in tup:
-        if isinstance(t, basestring):
+        if isinstance(t, string_types):
             l.append(t)
         else:
             try:

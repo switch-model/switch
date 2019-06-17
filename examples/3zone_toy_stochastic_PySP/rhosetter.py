@@ -16,10 +16,11 @@ resource allocation problems. Computational  Management Science.
 from __future__ import print_function
 from pyomo.repn import generate_canonical_repn
 from pyomo.environ import Objective
+from switch_model.utilities import iteritems
 
 def ph_rhosetter_callback(ph, scenario_tree, scenario):
     # This Rho coefficient is set to 1.0 to implement the CP(1.0) strategy
-    # that Watson & Woodruff report as a good trade off between convergence 
+    # that Watson & Woodruff report as a good trade off between convergence
     # to the extensive form optimum and number of PH iterations.
     rho_coefficient = 1.0
 
@@ -55,19 +56,19 @@ def ph_rhosetter_callback(ph, scenario_tree, scenario):
             alias = "x" + str(id(component))
             component_by_alias[alias] = component
             CostExpression_as_str = CostExpression_as_str.replace(cname, alias)
-    
+
         # We can parse with sympify now that the var+indexes have clean names
         CostExpression_parsed = sympify(CostExpression_as_str)
 
         cost_coefficients = {}
         var_names = {}
-        for (alias, component) in component_by_alias.iteritems():
+        for (alias, component) in iteritems(component_by_alias):
             variable_id = symbol_map.getSymbol(component)
             cost_coefficients[variable_id] = CostExpression_parsed.coeff(alias)
             var_names[variable_id] = component.name
         return (cost_coefficients, var_names)
 
-    
+
     def coef_via_pyomo(CostExpression):
         canonical_repn = generate_canonical_repn(CostExpression.expr)
         cost_coefficients = {}
@@ -77,12 +78,12 @@ def ph_rhosetter_callback(ph, scenario_tree, scenario):
             cost_coefficients[variable_id] = canonical_repn.linear[index]
             var_names[variable_id] = variable.name
         return (cost_coefficients, var_names)
-    
-    
+
+
     def test(CostExpression):
         from testfixtures import compare
 
-        (coefficients_sympify, var_names_sympify) = coef_via_sympify(CostExpression) 
+        (coefficients_sympify, var_names_sympify) = coef_via_sympify(CostExpression)
         (coefficients_pyomo, var_names_pyomo) = coef_via_pyomo(CostExpression)
 
         compare(var_names_sympify, var_names_pyomo)
@@ -101,7 +102,7 @@ def ph_rhosetter_callback(ph, scenario_tree, scenario):
     # This test passed, so I'm disabling the slower sympify function for now.
     # test(objective)
     (cost_coefficients, var_names) = coef_via_pyomo(objective)
-    
+
     for variable_id in cost_coefficients:
         set_rho = False
         for tree_node in scenario._node_list:

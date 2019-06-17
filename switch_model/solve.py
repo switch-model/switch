@@ -3,7 +3,11 @@
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 from __future__ import print_function
 import sys, os, time, shlex, re, inspect, textwrap, types
-import cPickle as pickle
+try:
+    # Python 2
+    import cPickle as pickle
+except ImportError:
+    import pickle
 
 from pyomo.environ import *
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition

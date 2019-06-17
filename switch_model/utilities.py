@@ -11,6 +11,15 @@ import __main__ as main
 from pyomo.environ import *
 import pyomo.opt
 
+# Define string_types (same as six.string_types). This is useful for
+# distinguishing between strings and other iterables.
+try:
+    # Python 2
+    string_types = (basestring,)
+except NameError:
+    # Python 3
+    string_types = (str,)
+
 # Check whether this is an interactive session (determined by whether
 # __main__ has a __file__ attribute). Scripts can check this value to
 # determine what level of output to display.
@@ -104,7 +113,7 @@ def get_modules(model):
 
 def make_iterable(item):
     """Return an iterable for the one or more items passed."""
-    if isinstance(item, basestring):
+    if isinstance(item, string_types):
         i = iter([item])
     else:
         try:
@@ -173,7 +182,7 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
     """
     # helper function to convert values to strings,
     # putting quotes around values that start as strings
-    quote_str = lambda v: '"{}"'.format(v) if isinstance(v, basestring) else '{}'.format(str(v))
+    quote_str = lambda v: '"{}"'.format(v) if isinstance(v, string_types) else '{}'.format(str(v))
     # helper function to create delimited lists from single items or iterables of any data type
     from switch_model.reporting import make_iterable
     join_space = lambda items: ' '.join(map(str, make_iterable(items)))  # space-separated list
@@ -331,12 +340,13 @@ def check_mandatory_components(model, *mandatory_model_components):
                     format(component_name))
         elif o_class == 'IndexedParam':
             if len(obj) != len(obj._index):
-            	missing_index_elements = [v for v in set(obj._index) - set( obj.sparse_keys())]
+                missing_index_elements = [v for v in set(obj._index) - set( obj.sparse_keys())]
                 raise ValueError(
-                    ("Values are not provided for every element of the "
-                     "mandatory parameter '{}'. "
-                     "Missing data for {} values, including: {}"
-                    ).format(component_name, len(missing_index_elements), missing_index_elements[:10]))
+                    "Values are not provided for every element of the "
+                    "mandatory parameter '{}'. "
+                    "Missing data for {} values, including: {}"
+                    .format(component_name, len(missing_index_elements), missing_index_elements[:10])
+                )
         elif o_class == 'IndexedSet':
             if len(obj) != len(obj._index):
                 raise ValueError(
@@ -429,7 +439,7 @@ def load_aug(switch_data, optional=False, auto_select=False,
     # optional_params may include Param objects instead of names. In
     # those cases, convert objects to names.
     for (i, p) in enumerate(optional_params):
-        if not isinstance(p, basestring):
+        if not isinstance(p, string_types):
             optional_params[i] = p.name
     # Expand the list optional parameters to include any parameter that
     # has default() defined. I need to allow an explicit list of default

@@ -269,7 +269,7 @@ def define_components(m):
     def MakeGenTechDicts_rule(m):
         # get unit sizes of all technologies
         unit_sizes = m.gen_tech_unit_size_dict = defaultdict(float)
-        for g, unit_size in m.gen_unit_size.iteritems():
+        for g, unit_size in m.gen_unit_size.items():
             tech = m.gen_tech[g]
             if tech in unit_sizes:
                 if unit_sizes[tech] != unit_size:
@@ -278,7 +278,7 @@ def define_components(m):
                 unit_sizes[tech] = unit_size
         # get predetermined capacity for all technologies
         predet_cap = m.gen_tech_predetermined_cap_dict = defaultdict(float)
-        for (g, per), cap in m.gen_predetermined_cap.iteritems():
+        for (g, per), cap in m.gen_predetermined_cap.items():
             tech = m.gen_tech[g]
             predet_cap[tech, per] += cap
     m.MakeGenTechDicts = BuildAction(rule=MakeGenTechDicts_rule)

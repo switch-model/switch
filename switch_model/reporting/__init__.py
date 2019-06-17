@@ -19,13 +19,18 @@ dependency on load_zones.
 
 """
 from __future__ import print_function
+from switch_model.utilities import string_types
 dependencies = 'switch_model.financials'
 
 
 import os
 import csv
 import itertools
-import cPickle as pickle
+try:
+    # Python 2
+    import cPickle as pickle
+except ImportError:
+    import pickle
 from pyomo.environ import value, Var, Expression
 from switch_model.utilities import make_iterable
 
@@ -98,7 +103,7 @@ def unpack_elements(items):
     This is used to flatten the product of a multi-dimensional index with anything else."""
     l=[]
     for x in items:
-        if isinstance(x, basestring):
+        if isinstance(x, string_types):
             l.append(x)
         else:
             try:
@@ -141,7 +146,7 @@ def save_generic_results(instance, outdir, sorted_output):
                 index_name = var.index_set().name
                 # Write column headings
                 writer.writerow(['%s_%d' % (index_name, i + 1)
-                                 for i in xrange(var.index_set().dimen)] +
+                                 for i in range(var.index_set().dimen)] +
                                 [var.name])
                 # Results are saved in a random order by default for
                 # increased speed. Sorting is available if wanted.

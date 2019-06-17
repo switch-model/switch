@@ -115,7 +115,7 @@ rename_modules = {
     'switch_mod.local_td': 'switch_mod.transmission.local_td',
     'switch_mod.balancing_areas': 'switch_mod.balancing.operating_reserves.areas',
     'switch_mod.export.dump': 'switch_mod.reporting.dump',
-    'switch_mod.generators.hydro_simple': 
+    'switch_mod.generators.hydro_simple':
         'switch_mod.generators.extensions.hydro_simple',
     'switch_mod.generators.hydro_system':
         'switch_mod.generators.extensions.hydro_system',
@@ -158,15 +158,15 @@ def upgrade_input_dir(inputs_dir):
         if optional_file and not os.path.isfile(old_path):
             return
         shutil.move(old_path, new_path)
-    
+
     def rename_column(file_name, old_col_name, new_col_name, optional_file=True):
         path = os.path.join(inputs_dir, file_name)
         if optional_file and not os.path.isfile(path):
             return
         df = pandas.read_csv(path, na_values=['.'], sep='\t')
         df.rename(columns={old_col_name: new_col_name}, inplace=True)
-        df.to_csv(path, sep='\t', na_rep='.', index=False)        
-    
+        df.to_csv(path, sep='\t', na_rep='.', index=False)
+
     rename_file('modules', 'modules.txt')
     modules_path = os.path.join(inputs_dir, 'modules.txt')
     if not os.path.isfile(modules_path):
@@ -190,10 +190,10 @@ def upgrade_input_dir(inputs_dir):
            'timescales' in module_list or
            'switch_mod.timescales' in module_list):
         module_list.insert(0, 'switch_mod')
-    
+
     new_module_list=[]
     for module in module_list:
-        # add prefix if appropriate 
+        # add prefix if appropriate
         # (standardizes names for further processing)
         if module_prefix + module in old_modules:
             module = module_prefix + module
@@ -224,7 +224,7 @@ def upgrade_input_dir(inputs_dir):
     else:
         load_zone_df['lz_cost_multipliers'] = 1
     load_zone_keep_cols = [c for c in load_zone_df if c != 'lz_cost_multipliers']
-    load_zone_df.to_csv(load_zone_path, sep='\t', na_rep='.', 
+    load_zone_df.to_csv(load_zone_path, sep='\t', na_rep='.',
                         index=False, columns=load_zone_keep_cols)
 
     ###
@@ -249,7 +249,7 @@ def upgrade_input_dir(inputs_dir):
         'g_min_load_fraction': 'proj_min_load_fraction.default',
         'g_startup_fuel': 'proj_startup_fuel.default',
         'g_startup_om': 'proj_startup_om.default',
-        'g_ccs_capture_efficiency': 'proj_ccs_capture_efficiency.default', 
+        'g_ccs_capture_efficiency': 'proj_ccs_capture_efficiency.default',
         'g_ccs_energy_load': 'proj_ccs_energy_load.default'
     }
     drop_cols = [c for c in gen_info_df if c not in gen_info_col_renames]
@@ -329,7 +329,7 @@ def upgrade_input_dir(inputs_dir):
             dat_cols = [c for c in new_g_builds if c not in idx_cols]
             col_order = idx_cols + dat_cols
             project_build_df = new_g_builds[col_order]
-        columns_with_defaults = ['proj_overnight_cost', 'proj_fixed_om', 
+        columns_with_defaults = ['proj_overnight_cost', 'proj_fixed_om',
                                  'proj_storage_energy_overnight_cost']
         update_cols_with_defaults(project_build_df, columns_with_defaults)
         project_build_df.to_csv(project_build_path, sep='\t', na_rep='.', index=False)
@@ -364,9 +364,9 @@ def upgrade_input_dir(inputs_dir):
                 'incremental_heat_rate_mbtu_per_mwhr', 'fuel_use_rate_mmbtu_per_h']
         proj_hr_df.to_csv(proj_hr_path, sep='\t', na_rep='.', index=False, columns=cols)
         os.remove(g_hr_path)
-    
+
     # Done with restructuring. Now apply component renaming.
-    
+
     old_new_file_names = {
         'proj_existing_builds.tab':'gen_build_predetermined.tab',
         'project_info.tab':'generation_projects_info.tab',
@@ -376,10 +376,10 @@ def upgrade_input_dir(inputs_dir):
         'lz_peak_loads.tab':'zone_coincident_peak_demand.tab',
         'lz_to_regional_fuel_market.tab':'zone_to_regional_fuel_market.tab'
     }
-    
-    for old, new in old_new_file_names.iteritems():
+
+    for old, new in old_new_file_names.items():
         rename_file(old, new)
-    
+
     old_new_column_names_in_file = {
         'gen_build_predetermined.tab':[
         ('proj_existing_cap','gen_predetermined_cap')
@@ -425,8 +425,8 @@ def upgrade_input_dir(inputs_dir):
         ('proj_max_capacity_factor','gen_max_capacity_factor')
         ]
     }
-    
-    for fname, old_new_pairs in old_new_column_names_in_file.iteritems():
+
+    for fname, old_new_pairs in old_new_column_names_in_file.items():
         for old_new_pair in old_new_pairs:
             old = old_new_pair[0]
             new = old_new_pair[1]
