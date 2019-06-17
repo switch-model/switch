@@ -5,6 +5,7 @@
 This module enables exporting basic plots and tables with processed information.
 
 """
+from __future__ import print_function
 import switch_model.reporting as export
 import pandas as pd
 import os, time, sys
@@ -69,7 +70,7 @@ def post_solve(mod, outdir):
     if not os.path.exists(summaries_dir):
         os.makedirs(summaries_dir)
     else:
-        print "Summaries directory exists, clearing it..."
+        print("Summaries directory exists, clearing it...")
         for f in os.listdir(summaries_dir):
             os.unlink(os.path.join(summaries_dir, f))
             
@@ -214,7 +215,7 @@ def post_solve(mod, outdir):
             plt.close()
         plots.close()
 
-    print "Printing summaries:\n==================="
+    print("Printing summaries:\n===================")
     start=time.time()
 
     # print "renewable energy production"
@@ -261,7 +262,7 @@ def post_solve(mod, outdir):
         index = 'gentech'
         
         table_name = "cummulative_capacity_by_tech_periods"
-        print table_name+" ..."
+        print(table_name+" ...")
         table = export.write_table(
             mod, mod.GENERATION_TECHNOLOGIES,
             output_file=os.path.join(summaries_dir, table_name+".csv"),
@@ -275,7 +276,7 @@ def post_solve(mod, outdir):
         plot_inv_decision(table_name, table, n_elements, index, True)
         
         table_name = "capacity_installed_by_tech_periods"
-        print table_name+" ..."
+        print(table_name+" ...")
         table = export.write_table(
             mod, mod.GENERATION_TECHNOLOGIES,
             output_file=os.path.join(summaries_dir, table_name+".csv"),
@@ -293,7 +294,7 @@ def post_solve(mod, outdir):
         index = 'path'
         
         table_name = "cummulative_transmission_by_path_periods"
-        print table_name+" ..."
+        print(table_name+" ...")
         table = export.write_table(
             mod, True, mod.TRANSMISSION_LINES,
             output_file=os.path.join(summaries_dir, table_name+".csv"),
@@ -303,7 +304,7 @@ def post_solve(mod, outdir):
         #plot_inv_decision(table_name, table, n_elements, index, True)
         
         table_name = "transmission_installation_by_path_periods"
-        print table_name+" ..."
+        print(table_name+" ...")
         table = export.write_table(
             mod, True, mod.TRANSMISSION_LINES,
             output_file=os.path.join(summaries_dir, table_name+".csv"),
@@ -334,7 +335,7 @@ def post_solve(mod, outdir):
             return tup
 
         table_name = "dispatch_proj_by_tech_tps"
-        print table_name+" ..."
+        print(table_name+" ...")
         table = export.write_table(
             mod, True, mod.TIMEPOINTS,
             output_file=os.path.join(summaries_dir, table_name+".csv"),
@@ -357,7 +358,7 @@ def post_solve(mod, outdir):
             return tup
         
         table_name = "reservoir_final_vols_tp"
-        print table_name+" ..."
+        print(table_name+" ...")
         table = export.write_table(
             mod, True, mod.TIMEPOINTS,
             output_file=os.path.join(summaries_dir, table_name+".csv"),
@@ -390,7 +391,7 @@ def post_solve(mod, outdir):
             return tup
 
         table_name = "hydro_dispatch_special_nodes_tp"
-        print table_name+" ..."
+        print(table_name+" ...")
         table = export.write_table(
             mod, True, mod.TIMEPOINTS,
             output_file=os.path.join(summaries_dir, table_name+".csv"),
@@ -411,7 +412,7 @@ def post_solve(mod, outdir):
                         tup += ('',)
             return tup
         table_name = "reservoir_vols_load_block"
-        print table_name+" ..."
+        print(table_name+" ...")
         tab = export.write_table(
             mod, True, mod.YEARMONTHS,
             output_file=os.path.join(summaries_dir, table_name+".csv"),
@@ -491,7 +492,7 @@ def post_solve(mod, outdir):
     """
     Writing Objective Function value.
     """
-    print "total_system_costs.txt..."
+    print("total_system_costs.txt...")
     with open(os.path.join(summaries_dir, "total_system_costs.txt"),'w+') as f:
         f.write("Total Expected System Costs: %.2f \n" % mod.SystemCost())
         f.write("Total Investment Costs: %.2f \n" % sum(
@@ -506,7 +507,7 @@ def post_solve(mod, outdir):
                 f.write("    Operational Costs of scenario %s with probability %s: %.2f\n" % (s, mod.scenario_probability[s], calc_tp_costs_in_period_one_scenario(mod, p, s)))
   
     
-    print "\nTime taken writing summaries: %.2f s." % (time.time()-start)
+    print("\nTime taken writing summaries: %.2f s." % (time.time()-start))
 
 
 

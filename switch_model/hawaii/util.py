@@ -1,3 +1,4 @@
+from __future__ import print_function
 import csv, sys, time, itertools
 from pyomo.environ import value
 import __main__ as main
@@ -66,14 +67,14 @@ def write_table(model, *indexes, **kwargs):
     """Write an output table in one shot - headers and body."""
     output_file = kwargs["output_file"]
 
-    print "Writing {file} ...".format(file=output_file),
+    print("Writing {file} ...".format(file=output_file), end=' ')
     sys.stdout.flush()  # display the part line to the user
     start=time.time()
 
     create_table(**kwargs)
     append_table(model, *indexes, **kwargs)
 
-    print "time taken: {dur:.2f}s".format(dur=time.time()-start)
+    print("time taken: {dur:.2f}s".format(dur=time.time()-start))
 
 def get(component, index, default=None):
     """Return an element from an indexed component, or the default value if the index is invalid."""

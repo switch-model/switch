@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 from pyomo.environ import *
 
@@ -147,11 +148,11 @@ def define_components(m):
     # note: this could be generalized to fractions between 0% and 100% BAU
     if m.options.ev_timing == "optimal":
         if m.options.verbose:
-            print "Charging EVs at best time each day."
+            print("Charging EVs at best time each day.")
         # no extra code needed
     elif m.options.ev_timing == "bau":
         if m.options.verbose:
-            print "Charging EVs at business-as-usual times of day."
+            print("Charging EVs at business-as-usual times of day.")
         # give full weight to BAU bid (number 0)
         m.ChargeEVs_bau = Constraint(
             m.LOAD_ZONES, m.EV_BID_NUMS, m.TIMESERIES,

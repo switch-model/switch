@@ -4,10 +4,12 @@
 """
 Defines timescales for investment and dispatch for the SWITCH-Pyomo model.
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
 import os
 from pyomo.environ import *
-import utilities
+from . import utilities
 
 hours_per_year = 8766
 
@@ -325,12 +327,12 @@ def define_components(mod):
         tol = 0.01
         if(hours_in_period > (1 + tol) * m.period_length_hours[p] or
            hours_in_period < (1 - tol) * m.period_length_hours[p]):
-            print ("validate_time_weights_rule failed for period " +
+            print(("validate_time_weights_rule failed for period " +
                    "'{period:.0f}'. Expected {period_h:0.2f}, based on " +
                    "length in years, but the sum of timepoint weights " +
                    "is {ds_h:0.2f}.\n"
                    ).format(period=p, period_h=m.period_length_hours[p],
-                            ds_h=hours_in_period)
+                            ds_h=hours_in_period))
             return 0
         return 1
     mod.validate_time_weights = BuildCheck(
@@ -343,11 +345,11 @@ def define_components(mod):
             p_end = m.period_start[p] + m.period_length_years[p]
             p_next = m.period_start[m.PERIODS.next(p)]
             if abs(p_next - p_end) > tol:
-                print (
+                print((
                     "validate_period_lengths_rule failed for period"
                     + "'{p:.0f}'. Period ends at {p_end}, but next period"
                     + "begins at {p_next}."
-                ).format(p=p, p_end=p_end, p_next=p_next)
+                ).format(p=p, p_end=p_end, p_next=p_next))
                 return False
         return True
     mod.validate_period_lengths = BuildCheck(

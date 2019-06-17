@@ -5,6 +5,7 @@
 Defines financial parameters for the SWITCH-Pyomo model.
 
 """
+from __future__ import print_function
 from pyomo.environ import *
 import os
 import pandas as pd
@@ -23,10 +24,12 @@ def capital_recovery_factor(ir, t):
     percent interest rate on $100.
 
     >>> crf = capital_recovery_factor(.07,20)
-    >>> print ("Capital recovery factor for a loan with a 7 percent annual " +
-    ...        "interest rate, paid over 20 years is {crf:0.5f}. If the " +
-    ...        "principal was $100, loan payments would be ${lp:0.2f}").\
-            format(crf=crf, lp=100 * crf) # doctest: +NORMALIZE_WHITESPACE
+    >>> print(
+    ...     "Capital recovery factor for a loan with a 7 percent annual "
+    ...     "interest rate, paid over 20 years is {crf:0.5f}. If the "
+    ...     "principal was $100, loan payments would be ${lp:0.2f}"
+    ...     .format(crf=crf, lp=100 * crf)
+    ... ) # doctest: +NORMALIZE_WHITESPACE
     Capital recovery factor for a loan with a 7 percent annual interest\
     rate, paid over 20 years is 0.09439. If the principal was $100, loan\
     payments would be $9.44
@@ -44,9 +47,11 @@ def uniform_series_to_present_value(dr, t):
     use an interest rate for a capital recovery factor and a discount
     rate for this.
     Example usage:
-    >>> print ("Net present value of a $10 / yr annuity paid for 20 years, " +
-    ...        "assuming a 5 percent discount rate is ${npv:0.2f}").\
-        format(npv=10 * uniform_series_to_present_value(.05,20))
+    >>> print(
+    ...     "Net present value of a $10 / yr annuity paid for 20 years, "
+    ...     "assuming a 5 percent discount rate is ${npv:0.2f}"
+    ...     .format(npv=10 * uniform_series_to_present_value(.05, 20))
+    ... )
     Net present value of a $10 / yr annuity paid for 20 years, assuming a 5 percent discount rate is $124.62
 
     Test for calculation validity compared to CRF using 7 decimal points

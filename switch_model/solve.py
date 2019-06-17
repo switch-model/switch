@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
+from __future__ import print_function
 import sys, os, time, shlex, re, inspect, textwrap, types
 import cPickle as pickle
 
@@ -60,7 +61,7 @@ def main(args=None, return_model=False, return_instance=False):
             if do_upgrade:
                 upgrade_inputs(module_options.inputs_dir)
             else:
-                print "Inputs need upgrade. Consider `switch upgrade --help`. Exiting."
+                print("Inputs need upgrade. Consider `switch upgrade --help`. Exiting.")
                 stop_logging_output()
                 return -1
 
@@ -92,14 +93,14 @@ def main(args=None, return_model=False, return_instance=False):
         iterate_modules = get_iteration_list(model)
 
         if model.options.verbose:
-            print "\n======================================================================="
-            print "SWITCH model created in {:.2f} s.\nArguments:".format(timer.step_time())
-            print ", ".join(k+"="+repr(v) for k, v in model.options.__dict__.items() if v)
-            print "Modules:\n"+", ".join(m for m in modules)
+            print("\n=======================================================================")
+            print("SWITCH model created in {:.2f} s.\nArguments:".format(timer.step_time()))
+            print(", ".join(k+"="+repr(v) for k, v in model.options.__dict__.items() if v))
+            print("Modules:\n"+", ".join(m for m in modules))
             if iterate_modules:
-                print "Iteration modules:", iterate_modules
-            print "=======================================================================\n"
-            print "Loading inputs..."
+                print("Iteration modules:", iterate_modules)
+            print("=======================================================================\n")
+            print("Loading inputs...")
 
         # create an instance (also reports time spent reading data and loading into model)
         instance = model.load_inputs()
@@ -108,7 +109,7 @@ def main(args=None, return_model=False, return_instance=False):
 
         instance.pre_solve()
         if instance.options.verbose:
-            print "Total time spent constructing model: {:.2f} s.\n".format(timer.step_time())
+            print("Total time spent constructing model: {:.2f} s.\n".format(timer.step_time()))
 
         # return the instance as-is if requested
         if return_instance:
@@ -138,16 +139,16 @@ def main(args=None, return_model=False, return_instance=False):
             # solve the model (reports time for each step as it goes)
             if iterate_modules:
                 if instance.options.verbose:
-                    print "Iterating model..."
+                    print("Iterating model...")
                 iterate(instance, iterate_modules)
             else:
                 results = solve(instance)
                 if instance.options.verbose:
-                    print ""
-                    print results.solver.message
-                    print "Optimization termination condition was {}.".format(
-                        results.solver.termination_condition)
-                    print ""
+                    print("")
+                    print(results.solver.message)
+                    print("Optimization termination condition was {}.".format(
+                        results.solver.termination_condition))
+                    print("")
 
                 if instance.options.verbose:
                     timer.step_time() # restart counter for next step
@@ -161,10 +162,10 @@ def main(args=None, return_model=False, return_instance=False):
         # (repeated if model is reloaded, to automatically run any new export code)
         if not instance.options.no_post_solve:
             if instance.options.verbose:
-                print "Executing post solve functions..."
+                print("Executing post solve functions...")
             instance.post_solve()
             if instance.options.verbose:
-                print "Post solve processing completed in {:.2f} s.".format(timer.step_time())
+                print("Post solve processing completed in {:.2f} s.".format(timer.step_time()))
 
     # end of LogOutput block
 
@@ -316,7 +317,7 @@ def reload_prior_solution_from_tabs(instance):
                     val = int(val)
                 v.value = val
         if instance.options.verbose:
-            print 'Loaded variable {} values into instance.'.format(var.name)
+            print('Loaded variable {} values into instance.'.format(var.name))
 
 
 def iterate(m, iterate_modules, depth=0):
@@ -381,9 +382,9 @@ def iterate(m, iterate_modules, depth=0):
 
             j += 1
         if converged:
-            print "Iteration of {ms} was completed after {j} rounds.".format(ms=iterate_modules[depth], j=j)
+            print("Iteration of {ms} was completed after {j} rounds.".format(ms=iterate_modules[depth], j=j))
         else:
-            print "Iteration of {ms} was stopped after {j} iterations without convergence.".format(ms=iterate_modules[depth], j=j)
+            print("Iteration of {ms} was stopped after {j} iterations without convergence.".format(ms=iterate_modules[depth], j=j))
     return
 
 def iterate_module_func(m, module, func, converged):
@@ -568,7 +569,7 @@ def get_module_list(args):
     if module_list_file is None:
         # note: this could be a RuntimeError, but then users can't do "switch solve --help" in a random directory
         # (alternatively, we could provide no warning at all, since the user can specify --include-modules in the arguments)
-        print "WARNING: No module list found. Please create a modules.txt file with a list of modules to use for the model."
+        print("WARNING: No module list found. Please create a modules.txt file with a list of modules to use for the model.")
         modules = []
     else:
         # if it exists, the module list contains one module name per row (no .py extension)
@@ -703,7 +704,7 @@ def solve(model):
     # solve the model
     if model.options.verbose:
         timer = StepTimer()
-        print "\nSolving model..."
+        print("\nSolving model...")
 
     if model.options.tempdir is not None:
         # from https://software.sandia.gov/downloads/pub/pyomo/PyomoOnlineDocs.html#_changing_the_temporary_directory
@@ -714,19 +715,19 @@ def solve(model):
     #import pdb; pdb.set_trace()
 
     if model.options.verbose:
-        print "Solved model. Total time spent in solver: {:2f} s.".format(timer.step_time())
+        print("Solved model. Total time spent in solver: {:2f} s.".format(timer.step_time()))
 
     # Treat infeasibility as an error, rather than trying to load and save the results
     # (note: in this case, results.solver.status may be SolverStatus.warning instead of
     # SolverStatus.error)
     if (results.solver.termination_condition == TerminationCondition.infeasible):
         if hasattr(model, "iis"):
-            print "Model was infeasible; irreducibly inconsistent set (IIS) returned by solver:"
-            print "\n".join(sorted(c.name for c in model.iis))
+            print("Model was infeasible; irreducibly inconsistent set (IIS) returned by solver:")
+            print("\n".join(sorted(c.name for c in model.iis)))
         else:
-            print "Model was infeasible; if the solver can generate an irreducibly inconsistent set (IIS),"
-            print "more information may be available by setting the appropriate flags in the "
-            print 'solver_options_string and calling this script with "--suffixes iis".'
+            print("Model was infeasible; if the solver can generate an irreducibly inconsistent set (IIS),")
+            print("more information may be available by setting the appropriate flags in the ")
+            print('solver_options_string and calling this script with "--suffixes iis".')
         raise RuntimeError("Infeasible model")
 
     # Raise an error if the solver failed to produce a solution
@@ -745,12 +746,12 @@ def solve(model):
     # but this seems pretty foolproof (if undocumented).
     if len(model.solutions[-1]._entry['variable']) == 0:
         # no solution returned
-        print "Solver terminated without a solution."
-        print "  Solver Status: ", results.solver.status
-        print "  Solution Status: ", model.solutions[-1].status
-        print "  Termination Condition: ", results.solver.termination_condition
+        print("Solver terminated without a solution.")
+        print("  Solver Status: ", results.solver.status)
+        print("  Solution Status: ", model.solutions[-1].status)
+        print("  Termination Condition: ", results.solver.termination_condition)
         if model.options.solver == 'glpk' and results.solver.termination_condition == TerminationCondition.other:
-            print "Hint: glpk has been known to classify infeasible problems as 'other'."
+            print("Hint: glpk has been known to classify infeasible problems as 'other'.")
         raise RuntimeError("Solver failed to find an optimal solution.")
 
     # Report any warnings; these are written to stderr so users can find them in
@@ -787,8 +788,8 @@ def retrieve_cplex_mip_duals():
                 # see http://www-01.ibm.com/support/docview.wss?uid=swg21399941
                 # and http://www-01.ibm.com/support/docview.wss?uid=swg21400009
             )
-            print "changed CPLEX solve script to the following:"
-            print command.script
+            print("changed CPLEX solve script to the following:")
+            print(command.script)
         else:
             print (
                 "Unable to patch CPLEX solver script to retrieve duals "

@@ -1,4 +1,5 @@
 from __future__ import division
+from __future__ import print_function
 import os
 from pyomo.environ import *
 
@@ -32,9 +33,9 @@ def define_components(m):
         raise ValueError('Unrecognized value for environment variable USE_PSIP_PLAN={} (should be 0 or 1)'.format(psip_env_var))
 
     if psip:
-        print "Using PSIP construction plan."
+        print("Using PSIP construction plan.")
     else:
-        print "Relaxing PSIP construction plan."
+        print("Relaxing PSIP construction plan.")
     
     # force conversion to LNG in 2021
     # force use of containerized LNG
@@ -109,7 +110,7 @@ def define_components(m):
         b[0] = int(b[0])    # year
         b[2] = float(b[2])  # quantity
         b = tuple(b)
-        print "Forcing build: {}".format(b)
+        print("Forcing build: {}".format(b))
         technology_targets_definite.append(b)
     
     if psip:

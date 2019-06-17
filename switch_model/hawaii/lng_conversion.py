@@ -1,4 +1,5 @@
 """Don't allow use of LNG unless the cost of conversion is paid."""
+from __future__ import print_function
 
 # TODO: store source data in a .dat file and read it in here
 
@@ -97,7 +98,7 @@ def define_components(m):
             result = action
         else:
             if m.options.verbose:
-                print "{} activation of tier {}.".format('Forcing' if action else 'Blocking', (rfm, per, tier))
+                print("{} activation of tier {}.".format('Forcing' if action else 'Blocking', (rfm, per, tier)))
             result = (m.RFMSupplyTierActivate[rfm, per, tier] == action)
         return result
     m.Force_LNG_Tier = Constraint(m.LNG_RFM_SUPPLY_TIERS, rule=Force_LNG_Tier_rule)

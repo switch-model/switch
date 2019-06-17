@@ -10,6 +10,7 @@ it back to the bid function when needed.
 note: we also take advantage of this assumption and store a reference to the
 current demand_module in this module (rather than storing it in the model itself)
 """
+from __future__ import print_function
 
 # TODO: create a new module to handle total-cost pricing.
 # That should apply a simple tax to every retail kWh sold (zone_demand_mw or FlexibleDemand)
@@ -76,10 +77,10 @@ def define_components(m):
         global scipy
         import scipy.optimize
     except ImportError:
-        print "="*80
-        print "Unable to load scipy package, which is used by the demand response system."
-        print "Please install this via 'conda install scipy' or 'pip install scipy'."
-        print "="*80
+        print("="*80)
+        print("Unable to load scipy package, which is used by the demand response system.")
+        print("Please install this via 'conda install scipy' or 'pip install scipy'.")
+        print("="*80)
         raise
 
     # Make sure the model has dual and rc suffixes
@@ -157,7 +158,7 @@ def define_components(m):
     # would also work).
     m.DR_Load_Zone_Shared_Bid_Weight = Constraint(
         m.DR_BID_LIST, m.LOAD_ZONES, m.TIMESERIES, rule=lambda m, b, z, ts:
-            m.DRBidWeight[b, z, ts] == m.DRBidWeight[b, iter(m.LOAD_ZONES).next(), ts]
+            m.DRBidWeight[b, z, ts] == m.DRBidWeight[b, next(iter(m.LOAD_ZONES)), ts]
     )
 
     # For flat-price models, we have to use the same weight for all timeseries within the
@@ -375,10 +376,10 @@ def pre_iterate(m):
         #     for tp in m.TPS_IN_TS[ts]
         # ))
 
-        print ""
-        print 'previous direct cost: ${:,.0f}'.format(prev_direct_cost)
-        print 'previous welfare cost: ${:,.0f}'.format(prev_welfare_cost)
-        print ""
+        print("")
+        print('previous direct cost: ${:,.0f}'.format(prev_direct_cost))
+        print('previous welfare cost: ${:,.0f}'.format(prev_welfare_cost))
+        print("")
 
     # get the next bid and attach it to the model
     update_demand(m)
@@ -423,13 +424,13 @@ def pre_iterate(m):
         #     for tp in m.TPS_IN_TS[ts]
         # ))
 
-        print ""
-        print 'best direct cost: ${:,.0f}'.format(best_direct_cost)
-        print 'best bid benefit: ${:,.0f}'.format(best_bid_benefit)
-        print ""
+        print("")
+        print('best direct cost: ${:,.0f}'.format(best_direct_cost))
+        print('best bid benefit: ${:,.0f}'.format(best_bid_benefit))
+        print("")
 
-        print "lower bound=${:,.0f}, previous cost=${:,.0f}, optimality gap (vs direct cost)={}" \
-            .format(best_cost, prev_cost, (prev_cost-best_cost)/abs(prev_direct_cost))
+        print("lower bound=${:,.0f}, previous cost=${:,.0f}, optimality gap (vs direct cost)={}" \
+            .format(best_cost, prev_cost, (prev_cost-best_cost)/abs(prev_direct_cost)))
         if prev_cost < best_cost:
             print (
                 "WARNING: final cost is below reported lower bound; "
@@ -483,10 +484,10 @@ def pre_iterate(m):
     return converged
 
 def post_iterate(m):
-    print "\n\n======================================================="
-    print "Solved model"
-    print "======================================================="
-    print "Total cost: ${v:,.0f}".format(v=value(m.SystemCost))
+    print("\n\n=======================================================")
+    print("Solved model")
+    print("=======================================================")
+    print("Total cost: ${v:,.0f}".format(v=value(m.SystemCost)))
 
 
     # TODO:
@@ -496,10 +497,10 @@ def post_iterate(m):
 
     SystemCost = value(m.SystemCost)    # calculate once to save time
     if m.prev_SystemCost is None:
-        print "prev_SystemCost=<n/a>, SystemCost={:,.0f}, ratio=<n/a>".format(SystemCost)
+        print("prev_SystemCost=<n/a>, SystemCost={:,.0f}, ratio=<n/a>".format(SystemCost))
     else:
-        print "prev_SystemCost={:,.0f}, SystemCost={:,.0f}, ratio={}" \
-            .format(m.prev_SystemCost, SystemCost, SystemCost/m.prev_SystemCost)
+        print("prev_SystemCost={:,.0f}, SystemCost={:,.0f}, ratio={}" \
+            .format(m.prev_SystemCost, SystemCost, SystemCost/m.prev_SystemCost))
 
     tag = m.options.scenario_name
     outputs_dir = m.options.outputs_dir
@@ -571,12 +572,12 @@ def update_demand(m):
     """
     first_run = (m.base_data is None)
 
-    print "attaching new demand bid to model"
+    print("attaching new demand bid to model")
     if first_run:
         calibrate_model(m)
     else:   # not first run
         if m.options.verbose:
-            print "m.DRBidWeight:"
+            print("m.DRBidWeight:")
             pprint([(z, ts, [(b, value(m.DRBidWeight[b, z, ts])) for b in m.DR_BID_LIST])
                 for z in m.LOAD_ZONES
                 for ts in m.TIMESERIES])
@@ -586,7 +587,7 @@ def update_demand(m):
 
     # add the new bids to the model
     if m.options.verbose:
-        print "adding bids to model"
+        print("adding bids to model")
         # print "first day (z, ts, prices, demand, wtp) ="
         # pprint(bids[0])
     add_bids(m, bids)
@@ -854,7 +855,7 @@ def revenue_imbalance(flat_price, m, load_zone, period, dynamic_prices):
         )
     imbalance = dynamic_price_revenue - flat_price_revenue
 
-    print "{}, {}: price ${} produces revenue imbalance of ${}/year".format(load_zone, period, flat_price, imbalance)
+    print("{}, {}: price ${} produces revenue imbalance of ${}/year".format(load_zone, period, flat_price, imbalance))
 
     return imbalance
 
@@ -886,8 +887,8 @@ def add_bids(m, bids):
                 m.dr_bid[b, z, tp, prod] = demand[prod][i]
                 m.dr_price[b, z, tp, prod] = prices[prod][i]
 
-    print "len(m.DR_BID_LIST): {l}".format(l=len(m.DR_BID_LIST))
-    print "m.DR_BID_LIST: {b}".format(b=[x for x in m.DR_BID_LIST])
+    print("len(m.DR_BID_LIST): {l}".format(l=len(m.DR_BID_LIST)))
+    print("m.DR_BID_LIST: {b}".format(b=[x for x in m.DR_BID_LIST]))
 
     # reconstruct the components that depend on m.DR_BID_LIST, m.dr_bid_benefit and m.dr_bid
     m.DRBidWeight.reconstruct()
@@ -1141,7 +1142,7 @@ def write_dual_costs(m):
     outfile = os.path.join(outputs_dir, "dual_costs{t}.tsv".format(t=tag))
     dual_data = []
     start_time = time.time()
-    print "Writing {} ... ".format(outfile),
+    print("Writing {} ... ".format(outfile), end=' ')
 
     def add_dual(const, lbound, ubound, duals, prefix='', offset=0.0):
         if const in duals:
@@ -1189,7 +1190,7 @@ def write_dual_costs(m):
     with open(outfile, 'w') as f:
         f.write('\t'.join(['constraint', 'direction', 'bound', 'dual', 'total_cost']) + '\n')
         f.writelines('\t'.join(map(str, r)) + '\n' for r in dual_data)
-    print "time taken: {dur:.2f}s".format(dur=time.time()-start_time)
+    print("time taken: {dur:.2f}s".format(dur=time.time()-start_time))
 
 def filename_tag(m):
     if m.options.scenario_name:

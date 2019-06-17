@@ -4,6 +4,7 @@
 """
 Utility functions for SWITCH-pyomo.
 """
+from __future__ import print_function
 
 import os, types, importlib, re, sys, argparse, time, datetime
 import __main__ as main
@@ -146,7 +147,7 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=True):
         if hasattr(module, 'load_inputs'):
             module.load_inputs(model, data, inputs_dir)
     if model.options.verbose:
-        print "Data read in {:.2f} s.\n".format(timer.step_time())
+        print("Data read in {:.2f} s.\n".format(timer.step_time()))
 
     # At some point, pyomo deprecated 'create' in favor of 'create_instance'.
     # Determine which option is available and use that.
@@ -155,7 +156,7 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=True):
     else:
         instance = model.create(data)
     if model.options.verbose:
-        print "Instance created from data in {:.2f} s.\n".format(timer.step_time())
+        print("Instance created from data in {:.2f} s.\n".format(timer.step_time()))
 
     if attach_data_portal:
         instance.DataPortal = data
@@ -655,7 +656,7 @@ class LogOutput(object):
             self.stderr = sys.stderr
             sys.stdout = TeeStream(sys.stdout, self.log_file)
             sys.stderr = TeeStream(sys.stderr, self.log_file)
-            print "logging output to " + str(log_file_path)
+            print("logging output to " + str(log_file_path))
     def __exit__(self, type, value, traceback):
         """ restore original output streams and close log file """
         if self.logs_dir is not None:

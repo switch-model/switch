@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 from __future__ import print_function
+from __future__ import absolute_import
 
 import argparse
 import os
@@ -10,10 +11,10 @@ from distutils.version import StrictVersion
 
 import switch_model
 
-import upgrade_2_0_0b1
-import upgrade_2_0_0b2
-import upgrade_2_0_0b4
-import upgrade_2_0_1
+from . import upgrade_2_0_0b1
+from . import upgrade_2_0_0b2
+from . import upgrade_2_0_0b4
+from . import upgrade_2_0_1
 
 # Available upgrade code. This needs to be in consecutive order so
 # upgrade_inputs can incrementally apply the upgrades.

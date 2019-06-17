@@ -1,5 +1,6 @@
+from __future__ import absolute_import
 from pyomo.environ import *
-from util import get
+from .util import get
 
 def define_components(m):
     """

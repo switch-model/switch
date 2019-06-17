@@ -18,6 +18,7 @@ dependency on load_zones.
 
 
 """
+from __future__ import print_function
 dependencies = 'switch_model.financials'
 
 
@@ -86,10 +87,10 @@ def write_table(instance, *indexes, **kwargs):
                 format_row(row=values(instance, *x))
                 for x in itertools.product(*indexes)
             )
-            print "DEPRECATION WARNING: switch_model.reporting.write_table() was called with a function"
-            print "that expects multidimensional index values to be stored in tuples, but Switch now unpacks"
-            print "these tuples automatically. Please update your code to work with unpacked index values."
-            print "Problem occured with {}.".format(values.func_code)
+            print("DEPRECATION WARNING: switch_model.reporting.write_table() was called with a function")
+            print("that expects multidimensional index values to be stored in tuples, but Switch now unpacks")
+            print("these tuples automatically. Please update your code to work with unpacked index values.")
+            print("Problem occured with {}.".format(values.__code__))
 
 def unpack_elements(items):
     """Unpack any multi-element objects within items, to make a single flat list.

@@ -10,6 +10,8 @@ it back to the bid function when needed.
 note: we also take advantage of this assumption and store a reference to the
 current demand_module in this module (rather than storing it in the model itself)
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
 import os, sys, time
 from pprint import pprint
@@ -17,8 +19,8 @@ from pyomo.environ import *
 import switch_model.utilities as utilities
 demand_module = None    # will be set via command-line options
 
-import util
-from util import get
+from . import util
+from .util import get
 
 def define_arguments(argparser):
     argparser.add_argument("--dr-flat-pricing", action='store_true', default=False,
@@ -255,8 +257,8 @@ def pre_iterate(m):
             for ts in m.TIMESERIES
             for tp in m.TPS_IN_TS[ts]
         ))
-        print "lower bound={}, previous cost={}, ratio={}".format(
-            best_cost, prev_cost, prev_cost/best_cost)
+        print("lower bound={}, previous cost={}, ratio={}".format(
+            best_cost, prev_cost, prev_cost/best_cost))
 
     # Check for convergence -- optimality gap is less than 0.1% of best possible cost 
     # (which may be negative)
@@ -268,10 +270,10 @@ def pre_iterate(m):
     return converged
 
 def post_iterate(m):
-    print "\n\n======================================================="
-    print "Solved model"
-    print "======================================================="
-    print "Total cost: ${v:,.0f}".format(v=value(m.SystemCost))
+    print("\n\n=======================================================")
+    print("Solved model")
+    print("=======================================================")
+    print("Total cost: ${v:,.0f}".format(v=value(m.SystemCost)))
 
 
     # TODO: 
@@ -280,10 +282,10 @@ def post_iterate(m):
     # report the final prices, only the prices prior to the final model run)
 
     SystemCost = value(m.SystemCost)    # calculate once to save time
-    print "prev_SystemCost={}, SystemCost={}, ratio={}".format(
+    print("prev_SystemCost={}, SystemCost={}, ratio={}".format(
         m.prev_SystemCost, SystemCost, 
         None if m.prev_SystemCost is None else SystemCost/m.prev_SystemCost
-    )
+    ))
 
     tag = m.options.scenario_name
     outputs_dir = m.options.outputs_dir
@@ -345,7 +347,7 @@ def update_demand(m):
     """
     first_run = (m.base_data is None)
 
-    print "attaching new demand bid to model"
+    print("attaching new demand bid to model")
     if first_run:
         calibrate_model(m)
         
@@ -355,7 +357,7 @@ def update_demand(m):
         #     for b in m.DR_BID_LIST
         #     for z in m.LOAD_ZONES
         #     for ts in m.TIMESERIES]
-        print "m.DRBidWeight:"
+        print("m.DRBidWeight:")
         pprint([(z, ts, [(b, value(m.DRBidWeight[b, z, ts])) for b in m.DR_BID_LIST])
             for z in m.LOAD_ZONES
             for ts in m.TIMESERIES])
@@ -365,7 +367,7 @@ def update_demand(m):
     # get new bids from the demand system at the current prices
     bids = get_bids(m)
     
-    print "adding bids to model"
+    print("adding bids to model")
     # print "first day (z, ts, prices, demand, wtp) ="
     # pprint(bids[0])
     # add the new bids to the model
@@ -613,8 +615,8 @@ def add_bids(m, bids):
             m.dr_bid[b, z, timepoints[i+1]] = d
             m.dr_price[b, z, timepoints[i+1]] = prices[i]
 
-    print "len(m.DR_BID_LIST): {l}".format(l=len(m.DR_BID_LIST))
-    print "m.DR_BID_LIST: {b}".format(b=[x for x in m.DR_BID_LIST])
+    print("len(m.DR_BID_LIST): {l}".format(l=len(m.DR_BID_LIST)))
+    print("m.DR_BID_LIST: {b}".format(b=[x for x in m.DR_BID_LIST]))
 
     # reconstruct the components that depend on m.DR_BID_LIST, m.dr_bid_benefit and m.dr_bid
     m.DRBidWeight.reconstruct()
@@ -793,7 +795,7 @@ def write_dual_costs(m):
     outfile = os.path.join(outputs_dir, "dual_costs{t}.tsv".format(t=tag))
     dual_data = []
     start_time = time.time()
-    print "Writing {} ... ".format(outfile),
+    print("Writing {} ... ".format(outfile), end=' ')
     
     def add_dual(const, lbound, ubound, duals):
         if const in duals:
@@ -828,7 +830,7 @@ def write_dual_costs(m):
     with open(outfile, 'w') as f:
         f.write('\t'.join(['constraint', 'direction', 'bound', 'dual', 'total_cost']) + '\n')
         f.writelines('\t'.join(map(str, r)) + '\n' for r in dual_data)
-    print "time taken: {dur:.2f}s".format(dur=time.time()-start_time)
+    print("time taken: {dur:.2f}s".format(dur=time.time()-start_time))
 
 def filename_tag(m):
     if m.options.scenario_name:

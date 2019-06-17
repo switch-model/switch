@@ -34,6 +34,7 @@ TODO: Implement this in a more generalized way in order to support multistage
 optimizations.
 
 """
+from __future__ import print_function
 from pyomo.repn import generate_canonical_repn
 from pyomo.environ import Objective
 

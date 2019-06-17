@@ -1,3 +1,4 @@
+from __future__ import print_function
 # TODO: make this get data from the redr server via an HTTP api instead of psycopg2, as follows:
 
 # create a .rpy script on the redr server that can accept form data (the args dict) via POST
@@ -135,9 +136,9 @@ def write_tables(**args):
             args
         )
         if len(list(cur)) == 0:
-            print "================================================================"
-            print "WARNING: no records found in {} for tech_scen_id='{}'".format(table, args['tech_scen_id'])
-            print "================================================================"
+            print("================================================================")
+            print("WARNING: no records found in {} for tech_scen_id='{}'".format(table, args['tech_scen_id']))
+            print("================================================================")
             time.sleep(2)
     del cur
 
@@ -614,7 +615,7 @@ def write_tables(**args):
 
     # skip this step if the user specifies "skip_cf" in the arguments (to speed up execution)
     if args.get("skip_cf", False):
-        print "SKIPPING variable_capacity_factors.tab"
+        print("SKIPPING variable_capacity_factors.tab")
     else:
         write_table('variable_capacity_factors.tab', """
             SELECT
@@ -808,7 +809,7 @@ def write_tables(**args):
         # per load zone and timestep, which is larger than the renewable
         # capacity factor data)
         if args.get("skip_ev_bids", False):
-            print "SKIPPING ev_charging_bids.tab"
+            print("SKIPPING ev_charging_bids.tab")
         else:
             write_table('ev_charging_bids.tab', """
                 SELECT
@@ -909,12 +910,12 @@ def db_cursor():
             global psycopg2
             import psycopg2
         except ImportError:
-            print dedent("""
+            print(dedent("""
                 ############################################################################################
                 Unable to import psycopg2 module to access database server.
                 Please install this module via 'conda install psycopg2' or 'pip install psycopg2'.
                 ############################################################################################
-                """)
+                """))
             raise
         try:
             pghost='redr.eng.hawaii.edu'
@@ -922,7 +923,7 @@ def db_cursor():
             con = psycopg2.connect(database='switch', host=pghost) #, user='switch_user')
 
         except psycopg2.OperationalError:
-            print dedent("""
+            print(dedent("""
                 ############################################################################################
                 Error while connecting to switch database on postgres server {server}.
                 Please ensure that the PGUSER environment variable is set with your postgres username
@@ -930,7 +931,7 @@ def db_cursor():
                 or in %APPDATA%\postgresql\pgpass.conf (Windows).
                 See http://www.postgresql.org/docs/9.1/static/libpq-pgpass.html for more details.
                 ############################################################################################
-                """.format(server=pghost))
+                """.format(server=pghost)))
             raise
     return con.cursor()
 
@@ -940,7 +941,7 @@ def write_dat_file(output_file, args_to_write, arguments):
 
     if any(arg in arguments for arg in args_to_write):
         output_file = make_file_path(output_file, arguments)
-        print "Writing {file} ...".format(file=output_file),
+        print("Writing {file} ...".format(file=output_file), end=' ')
         sys.stdout.flush()  # display the part line to the user
         start=time.time()
 
@@ -950,13 +951,13 @@ def write_dat_file(output_file, args_to_write, arguments):
                 for name in args_to_write if name in arguments
             ])
 
-        print "time taken: {dur:.2f}s".format(dur=time.time()-start)
+        print("time taken: {dur:.2f}s".format(dur=time.time()-start))
 
 def write_table(output_file, query, arguments):
     output_file = make_file_path(output_file, arguments)
     cur = db_cursor()
 
-    print "Writing {file} ...".format(file=output_file),
+    print("Writing {file} ...".format(file=output_file), end=' ')
     sys.stdout.flush()  # display the part line to the user
 
     start=time.time()
@@ -968,13 +969,13 @@ def write_table(output_file, query, arguments):
         # write the query results (cur is used as an iterator here to get all the rows one by one)
         writerows(f, cur)
 
-    print "time taken: {dur:.2f}s".format(dur=time.time()-start)
+    print("time taken: {dur:.2f}s".format(dur=time.time()-start))
 
 def write_tab_file(output_file, headers, data, arguments={}):
     "Write a tab file using the headers and data supplied."
     output_file = make_file_path(output_file, arguments)
 
-    print "Writing {file} ...".format(file=output_file),
+    print("Writing {file} ...".format(file=output_file), end=' ')
     sys.stdout.flush()  # display the part line to the user
 
     start=time.time()
@@ -983,7 +984,7 @@ def write_tab_file(output_file, headers, data, arguments={}):
         writerow(f, headers)
         writerows(f, data)
 
-    print "time taken: {dur:.2f}s".format(dur=time.time()-start)
+    print("time taken: {dur:.2f}s".format(dur=time.time()-start))
 
 
 def write_indexed_set_dat_file(output_file, set_name, query, arguments):
@@ -994,7 +995,7 @@ def write_indexed_set_dat_file(output_file, set_name, query, arguments):
     be multiple rows with the same values in the index columns.)"""
 
     output_file = make_file_path(output_file, arguments)
-    print "Writing {file} ...".format(file=output_file),
+    print("Writing {file} ...".format(file=output_file), end=' ')
     sys.stdout.flush()  # display the part line to the user
 
     start=time.time()
@@ -1019,7 +1020,7 @@ def write_indexed_set_dat_file(output_file, set_name, query, arguments):
             for k, v in data_dict.iteritems()
         ])
 
-    print "time taken: {dur:.2f}s".format(dur=time.time()-start)
+    print("time taken: {dur:.2f}s".format(dur=time.time()-start))
 
 
 def stringify(val):

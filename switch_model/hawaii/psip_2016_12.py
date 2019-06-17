@@ -1,4 +1,5 @@
 from __future__ import division
+from __future__ import print_function
 from collections import defaultdict
 from textwrap import dedent
 import os
@@ -45,9 +46,9 @@ def define_components(m):
 
     if m.options.verbose:
         if psip:
-            print "Using PSIP construction plan."
+            print("Using PSIP construction plan.")
         else:
-            print "Relaxing PSIP construction plan."
+            print("Relaxing PSIP construction plan.")
 
     # don't allow addition of anything other than those specified here
     # force retirement of AES at end of 2022
@@ -110,7 +111,7 @@ def define_components(m):
         b[0] = int(b[0])    # year
         b[2] = float(b[2])  # quantity
         b = tuple(b)
-        print "Forcing build: {}".format(b)
+        print("Forcing build: {}".format(b))
         technology_targets_definite.append(b)
 
     # technologies proposed in PSIP but which may not be built if a better plan is found.

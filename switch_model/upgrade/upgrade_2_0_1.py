@@ -5,6 +5,7 @@
 Upgrade input directories from 2.0.0b4 (final beta) to 2.0.1. (There were no changes for 2.0.0.)
 This just moves some modules, as listed in the rename_modules variable.
 """
+from __future__ import print_function
 
 import os, shutil, argparse
 import pandas
@@ -141,6 +142,6 @@ def update_modules(inputs_dir):
     # report any significant changes in the previously active modules
     for module in old_module_list:
         try:
-            print "ATTENTION: {}".format(module_messages[module])
+            print("ATTENTION: {}".format(module_messages[module]))
         except KeyError:
             pass

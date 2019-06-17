@@ -21,6 +21,7 @@ calculation of the first stage costs, resulting in different RootNode costs
 per scenario, which is incongruent.
 
 """
+from __future__ import print_function
 
 inputs_dir = "inputs"
 
@@ -32,7 +33,7 @@ import switch_model.solve
 import sys, os
 from pyomo.environ import *
 
-print "loading model..."
+print("loading model...")
 
 # Ideally, we would use the main codebase to generate the model, but the
 # mandatory switch argument parser is interferring with pysp's command line tools
@@ -82,4 +83,4 @@ model.OperationCost = Expression(rule=lambda m:
 		   ) * m.bring_annual_costs_to_base_year[p]
 	for p in m.PERIODS))
 
-print "model successfully loaded..."
+print("model successfully loaded...")

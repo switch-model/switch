@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """Script to handle switch <cmd> calls from the command line."""
+from __future__ import print_function
 
 import sys, os
 import switch_model
@@ -25,7 +26,7 @@ def main():
         sys.argv[0] += " " + cmd
         del sys.argv[1]
         if cmd == "--version":
-            print "Switch model version " + switch_model.__version__
+            print("Switch model version " + switch_model.__version__)
             return 0
         if cmd == "solve":
             from .solve import main
@@ -37,8 +38,8 @@ def main():
             from switch_model.upgrade import main
         main()
     else:
-        print "Usage: {} {{{}}} ...".format(os.path.basename(sys.argv[0]), ", ".join(cmds))
-        print "Use one of these commands with --help for more information."
+        print("Usage: {} {{{}}} ...".format(os.path.basename(sys.argv[0]), ", ".join(cmds)))
+        print("Use one of these commands with --help for more information.")
     
 if __name__ == "__main__":
     main()

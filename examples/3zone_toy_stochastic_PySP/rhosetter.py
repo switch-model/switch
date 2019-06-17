@@ -13,6 +13,7 @@ Progressive hedging innovations for a class of stochastic  mixed-integer
 resource allocation problems. Computational  Management Science.
 
 """
+from __future__ import print_function
 from pyomo.repn import generate_canonical_repn
 from pyomo.environ import Objective
 
@@ -26,7 +27,7 @@ def ph_rhosetter_callback(ph, scenario_tree, scenario):
     symbol_map = scenario_instance._ScenarioTreeSymbolMap
     objective = scenario_instance.component_data_objects(
         Objective, active=True, descend_into=True )
-    objective = objective.next()
+    objective = next(objective)
 
     def coef_via_sympify(CostExpression):
         # This function may be depricated, and is the only place that uses

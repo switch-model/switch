@@ -9,6 +9,7 @@ An alternative approach would be to store calibration data in a particular
 environment or object in R, and return that to Python. Then that could be
 returned by the python calibrate() function and attached to the model.
 """
+from __future__ import print_function
 
 def define_arguments(argparser):
     argparser.add_argument("--dr-elasticity-scenario", type=int, default=3,
@@ -24,20 +25,20 @@ def define_components(m):
         global np
         import numpy as np
     except ImportError:
-        print "="*80
-        print "Unable to load numpy package, which is used by the r_demand_system module."
-        print "Please install this via 'conda install numpy' or 'pip install numpy'."
-        print "="*80
+        print("="*80)
+        print("Unable to load numpy package, which is used by the r_demand_system module.")
+        print("Please install this via 'conda install numpy' or 'pip install numpy'.")
+        print("="*80)
         raise
     try:
         global rpy2  # not actually needed outside this function
         import rpy2.robjects
         import rpy2.robjects.numpy2ri
     except ImportError:
-        print "="*80
-        print "Unable to load rpy2 package, which is used by the r_demand_system module."
-        print "Please install this via 'conda install rpy2' or 'pip install rpy2'."
-        print "="*80
+        print("="*80)
+        print("Unable to load rpy2 package, which is used by the r_demand_system module.")
+        print("Please install this via 'conda install rpy2' or 'pip install rpy2'.")
+        print("="*80)
         raise
     # initialize the R environment
     global r

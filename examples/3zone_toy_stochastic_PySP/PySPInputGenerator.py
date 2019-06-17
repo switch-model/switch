@@ -47,6 +47,7 @@ with different uncertainties. In case their names are changed, the
 scenario_list should be modified to reflect those changes.
 
 """
+from __future__ import print_function
 # Inputs directory relative to the location of this script.
 inputs_dir = "inputs"
 # ScenarioStructure.dat and RootNode.dat will be saved to a
@@ -70,16 +71,16 @@ import switch_model.solve
 import sys, os
 from pyomo.environ import *
 
-print "creating model for scenario input generation..."
+print("creating model for scenario input generation...")
 
 module_list = switch_model.solve.get_module_list(args=None)
 model = utilities.create_model(module_list)
 
-print "model successfully created..."
+print("model successfully created...")
 
-print "loading inputs into model..."
+print("loading inputs into model...")
 instance = model.load_inputs(inputs_dir=inputs_dir)
-print "inputs successfully loaded..."
+print("inputs successfully loaded...")
       
 def save_dat_files():
 
@@ -90,7 +91,7 @@ def save_dat_files():
     # RootNode.dat
 
     dat_file = os.path.join(inputs_dir, pysp_subdir, "RootNode.dat")
-    print "creating and saving {}...".format(dat_file)
+    print("creating and saving {}...".format(dat_file))
     utilities.save_inputs_as_dat(model, instance, save_path=dat_file,
         sorted_output=model.options.sorted_output)
     
@@ -98,7 +99,7 @@ def save_dat_files():
     # ScenarioStructure.dat
 
     scen_file = os.path.join(inputs_dir, pysp_subdir, "ScenarioStructure.dat")
-    print "creating and saving {}...".format(scen_file)
+    print("creating and saving {}...".format(scen_file))
 
     with open(scen_file, "w") as f:
         # Data will be defined in a Node basis to avoid redundancies

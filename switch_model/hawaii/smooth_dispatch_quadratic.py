@@ -1,5 +1,6 @@
 """Minimize excess renewable production (dissipated in transmission losses) and
 smooth out demand response and EV charging as much as possible."""
+from __future__ import print_function
 
 from pyomo.environ import *
 import switch_model.solve
@@ -11,8 +12,8 @@ def define_components(m):
         # glpk and cbc can't handle quadratic problem used for smoothing
         m.options.smooth_dispatch = False
         if m.options.verbose:
-            print "Not smoothing dispatch because {} cannot solve a quadratic model.".format(m.options.solver)
-            print "Remove hawaii.smooth_dispatch from modules.txt and iterate.txt to avoid this message."
+            print("Not smoothing dispatch because {} cannot solve a quadratic model.".format(m.options.solver))
+            print("Remove hawaii.smooth_dispatch from modules.txt and iterate.txt to avoid this message.")
 
     # add an alternative objective function that smoothes out time-shiftable energy sources and sinks
     if m.options.smooth_dispatch:
@@ -47,18 +48,18 @@ def define_components(m):
             for var in components_to_smooth:
                 if hasattr(m, var):
                     if m.options.verbose:
-                        print "Will smooth {}.".format(var)
+                        print("Will smooth {}.".format(var))
                     comp = getattr(m, var)
                     obj += sum(comp[z, t]*comp[z, t] for z in m.LOAD_ZONES for t in m.TIMEPOINTS)
             # include standard storage generators too
             if hasattr(m, 'STORAGE_GEN_TPS'):
-                print "Will smooth charging and discharging of standard storage."
+                print("Will smooth charging and discharging of standard storage.")
                 obj += sum(m.ChargeStorage[g, tp]*m.ChargeStorage[g, tp] for g, tp in m.STORAGE_GEN_TPS)
                 obj += sum(m.DispatchGen[g, tp]*m.DispatchGen[g, tp] for g, tp in m.STORAGE_GEN_TPS)
             # also maximize up reserves, which will (a) minimize arbitrary burning off of renewables
             # (e.g., via storage) and (b) give better representation of the amount of reserves actually available
             if hasattr(m, 'Spinning_Reserve_Up_Provisions') and hasattr(m, 'GEN_SPINNING_RESERVE_TYPES'): # advanced module
-                print "Will maximize provision of up reserves."
+                print("Will maximize provision of up reserves.")
                 reserve_weight = {'contingency': 0.9, 'regulation': 1.1}
                 for comp_name in m.Spinning_Reserve_Up_Provisions:
                     component = getattr(m, comp_name)
@@ -105,14 +106,14 @@ def post_iterate(m):
                             and m.DischargeBattery[z, t].value > 0
         ]
         if len(double_charge) > 0:
-            print ""
-            print "WARNING: batteries are simultaneously charged and discharged in some hours."
-            print "This is usually done to relax the biofuel limit."
+            print("")
+            print("WARNING: batteries are simultaneously charged and discharged in some hours.")
+            print("This is usually done to relax the biofuel limit.")
             for (z, t, c, d) in double_charge:
-                print 'ChargeBattery[{z}, {t}]={c}, DischargeBattery[{z}, {t}]={d}'.format(
+                print('ChargeBattery[{z}, {t}]={c}, DischargeBattery[{z}, {t}]={d}'.format(
                     z=z, t=m.tp_timestamp[t],
                     c=c, d=d
-                )
+                ))
 
     if m.options.smooth_dispatch:
         # setup model for next iteration
@@ -146,7 +147,7 @@ def pre_smooth_solve(m):
     fix_obj_expression(m.Minimize_System_Cost)
     m.Minimize_System_Cost.deactivate()
     m.Smooth_Free_Variables.activate()
-    print "smoothing free variables..."
+    print("smoothing free variables...")
 
 def post_smooth_solve(m):
     """ restore original model state """

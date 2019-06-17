@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 from pyomo.environ import *
 from switch_model import timescales
@@ -65,11 +66,11 @@ def define_components(m):
     # set rules for when to charge EVs
     if m.options.ev_timing == "optimal":
         if m.options.verbose:
-            print "Charging EVs at best time each day."
+            print("Charging EVs at best time each day.")
         # no extra code needed
     elif m.options.ev_timing == "flat":
         if m.options.verbose:
-            print "Charging EVs as baseload."
+            print("Charging EVs as baseload.")
         m.ChargeEVs_flat = Constraint(
             m.LOAD_ZONES, m.TIMEPOINTS, 
             rule=lambda m, z, tp:
@@ -77,7 +78,7 @@ def define_components(m):
         )
     elif m.options.ev_timing == "bau":
         if m.options.verbose:
-            print "Charging EVs at business-as-usual times of day."
+            print("Charging EVs at business-as-usual times of day.")
         m.ChargeEVs_bau = Constraint(
             m.LOAD_ZONES, m.TIMEPOINTS, 
             rule=lambda m, z, tp:

@@ -1,8 +1,10 @@
+from __future__ import print_function
+from __future__ import absolute_import
 from pyomo.environ import *
 import os
 from pprint import pprint
 import switch_model.utilities as utilities
-from util import get
+from .util import get
 
 def define_arguments(argparser):
     argparser.add_argument('--biofuel-limit', type=float, default=1.0,
@@ -245,7 +247,7 @@ def define_DispatchGenRenewableMW(m):
             # only using full load heat rate; use simpler allocation strategy
             m.options.rps_allocation = 'full_load_heat_rate'
         if m.options.verbose:
-            print "Using {} method to allocate DispatchGenRenewableMW".format(m.options.rps_allocation)
+            print("Using {} method to allocate DispatchGenRenewableMW".format(m.options.rps_allocation))
 
     if m.options.rps_allocation == 'full_load_heat_rate':
         simple_DispatchGenRenewableMW(m)
