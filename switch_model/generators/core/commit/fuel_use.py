@@ -103,7 +103,7 @@ def define_components(mod):
     mod.FUEL_USE_SEGMENTS_FOR_GEN = Set(
         mod.FUEL_BASED_GENS,
         dimen=2)
-    
+
     # Use BuildAction to populate a set's default values.
     def FUEL_USE_SEGMENTS_FOR_GEN_default_rule(m, g):
         if g not in m.FUEL_USE_SEGMENTS_FOR_GEN:
@@ -236,7 +236,7 @@ def _parse_inc_heat_rate_file(path, id_column):
     full_load_hr = {}
     # Scan the file and stuff the data into dictionaries for easy access.
     # Parse the file and stuff data into dictionaries indexed by units.
-    with open(path, 'rb') as hr_file:
+    with open(path, 'r') as hr_file:
         dat = list(csv.DictReader(hr_file, delimiter='\t'))
         for row in dat:
             u = row[id_column]

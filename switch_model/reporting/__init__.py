@@ -58,7 +58,7 @@ def write_table(instance, *indexes, **kwargs):
     values = kwargs["values"]
     digits = kwargs.get('digits', 6)
 
-    with open(output_file, 'wb') as f:
+    with open(output_file, 'w') as f:
         w = csv.writer(f, dialect="ampl-tab")
         # write header row
         w.writerow(list(headings))
@@ -135,7 +135,7 @@ def save_generic_results(instance, outdir, sorted_output):
 
     for var in components:
         output_file = os.path.join(outdir, '%s.tab' % var.name)
-        with open(output_file, 'wb') as fh:
+        with open(output_file, 'w') as fh:
             writer = csv.writer(fh, dialect='ampl-tab')
             if var.is_indexed():
                 index_name = var.index_set().name
