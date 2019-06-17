@@ -34,6 +34,14 @@ def define_components(mod):
     period; derived from period_length_years with an average of 8766
     hours per year.
 
+    CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD is an indexed set of all periods before
+    or including the index key. This is used for calculations that must index
+    over previous and current periods. This is typically used for simple asset
+    capacity calculations, where all capacity is assumed to be kept online at
+    the same fixed cost once it is built, i.e. rebuilt/refurbished at same cost
+    as retirement approaches (currently used for local and interzonal
+    transmission and distribution).
+
     TIMESERIES denote blocks of consecutive timepoints within a period.
     An individual time series could represent a single day, a week, a
     month or an entire year. This replaces the DATE construct in the old
@@ -297,6 +305,12 @@ def define_components(mod):
     mod.period_length_hours = Param(
         mod.PERIODS,
         initialize=lambda m, p: m.period_length_years[p] * hours_per_year)
+
+    mod.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD = Set(
+        mod.PERIODS, ordered=True,
+        initialize=lambda m, p:
+            [p2 for p2 in m.PERIODS if m.PERIODS.ord(p2) <= m.PERIODS.ord(p)]
+    )
 
     mod.ts_scale_to_year = Param(
         mod.TIMESERIES,

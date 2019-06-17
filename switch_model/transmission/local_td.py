@@ -71,36 +71,22 @@ def define_components(mod):
 
     LOCAL_TD PATHWAY
 
-    LOCAL_TD_BLD_YRS is the set of load zones with local
-    transmission and distribution and years in which construction has or
-    could occur. This set includes past and potential future builds. All
-    future builds must come online in the first year of an investment
-    period. This set is composed of two elements with members:
-    (load_zone, build_year). For existing capacity where the build year
-    is unknown or spread out over time, build_year is set to 'Legacy'.
+    existing_local_td[z in LOAD_ZONES] is the amount of local transmission and
+    distribution capacity in MW that is in place prior to the start of the
+    study. This is assumed to remain in service throughout the study.
 
-    EXISTING_LOCAL_TD_BLD_YRS is a subset of LOCAL_TD_BLD_YRS that
-    lists builds that happened before the first investment period. For
-    most datasets the build year is unknown, so it is always set to
-    'Legacy'.
+    BuildLocalTD[load_zone, period] is a decision variable
+    describing how much local transmission and distribution to add in each load
+    zone during each study period.
 
-    existing_local_td[z in LOAD_ZONES] is the amount of local
-    transmission and distribution capacity in MW that has already been
-    built.
-
-    BuildLocalTD[(z, bld_yr) in LOCAL_TD_BLD_YRS] is a decision
-    variable describing how much local transmission and distribution to
-    build in a load zone. For existing builds, this variable is locked
-    to existing capacity. Without demand response, the optimal value of
-    this variable is trivially computed based on the load zone's peak
-    expected load. With demand response, this decision becomes less
-    obvious in high solar conditions where it may be desirable to shift
-    some demand from evening into afternoon to coincide with the solar
-    peak.
-
-    LocalTDCapacity[z, period] is an expression that describes how much
-    local transmission and distribution has been built to date in each
-    load zone.
+    LocalTDCapacity[z, period] is an expression that describes how much local
+    transmission and distribution has been built to date in each load zone.
+    Without demand response or distributed generation, the optimal value of this
+    expression is simply the load zone's peak expected load. With demand
+    response or distributed generation, this decision becomes less obvious. Then
+    Switch will consider scheduling load to absorb peak utility-scale solar,
+    increasing local T&D requirements, or adding more distributed solar,
+    potentially decreasing local T&D requirements.
 
     distribution_loss_rate is the ratio of average losses for local T&D. This
     value is relative to delivered energy, so the total energy needed is load
@@ -120,59 +106,33 @@ def define_components(mod):
     will be replaced at the end of its life, so these costs will
     continue indefinitely.
 
-    LOCAL_TD_BUILDS_IN_PERIOD[p in PERIODS] is an indexed set that
-    describes which local transmission & distribution builds will be
-    operational in a given period. Currently, local T & D lines are kept
-    online indefinitely, with parts being replaced as they wear out.
-    LOCAL_TD_BUILDS_IN_PERIOD[p] will return a subset of (z,
-    bld_yr) in LOCAL_TD_BLD_YRS. Same idea as
-    TX_BUILDS_IN_PERIOD, but with a different scope.
-
     --- NOTES ---
 
-    SWITCH-Pyomo treats all transmission and distribution (long-
-    distance or local) the same. Any capacity that is built will be kept
-    online indefinitely. At the end of its financial lifetime, existing
-    capacity will be retired and rebuilt, so the annual cost of a line
-    upgrade will remain constant in every future year. See notes in the
-    trans_build module for a more detailed comparison to the old
-    SWITCH-WECC model.
+    Switch 2 treats all transmission and distribution (long- distance or local)
+    the same. Any capacity that is built will be kept online indefinitely. At
+    the end of its financial lifetime, existing capacity will be retired and
+    rebuilt, so the annual cost of a line upgrade will remain constant in every
+    future year. See notes in the trans_build module for a more detailed
+    comparison to Switch 1.
 
     """
 
     # Local T&D
-    mod.EXISTING_LOCAL_TD_BLD_YRS = Set(
-        dimen=2,
-        initialize=lambda m: set((z, 'Legacy') for z in m.LOAD_ZONES))
     mod.existing_local_td = Param(mod.LOAD_ZONES, within=NonNegativeReals)
     mod.min_data_check('existing_local_td')
-    mod.LOCAL_TD_BLD_YRS = Set(
-        dimen=2,
-        initialize=lambda m: set(
-            (m.LOAD_ZONES * m.PERIODS) | m.EXISTING_LOCAL_TD_BLD_YRS))
-    mod.LOCAL_TD_BUILDS_IN_PERIOD = Set(
-        mod.PERIODS,
-        within=mod.LOCAL_TD_BLD_YRS,
-        initialize=lambda m, p: set(
-            (z, bld_yr) for (z, bld_yr) in m.LOCAL_TD_BLD_YRS
-            if bld_yr <= p))
 
-    def bounds_BuildLocalTD(model, z, bld_yr):
-        if((z, bld_yr) in model.EXISTING_LOCAL_TD_BLD_YRS):
-            return (model.existing_local_td[z],
-                    model.existing_local_td[z])
-        else:
-            return (0, None)
     mod.BuildLocalTD = Var(
-        mod.LOCAL_TD_BLD_YRS,
-        within=NonNegativeReals,
-        bounds=bounds_BuildLocalTD)
+        mod.LOAD_ZONES, mod.PERIODS,
+        within=NonNegativeReals)
     mod.LocalTDCapacity = Expression(
         mod.LOAD_ZONES, mod.PERIODS,
-        rule=lambda m, z, period: sum(
-            m.BuildLocalTD[z, bld_yr]
-            for (z2, bld_yr) in m.LOCAL_TD_BLD_YRS
-            if z2 == z and (bld_yr == 'Legacy' or bld_yr <= period)))
+        rule=lambda m, z, period:
+            m.existing_local_td[z]
+            + sum(
+                m.BuildLocalTD[z, bld_yr]
+                for bld_yr in m.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD[period]
+        )
+    )
     mod.distribution_loss_rate = Param(default=0.053)
 
     mod.Meet_Local_TD = Constraint(
@@ -188,8 +148,8 @@ def define_components(mod):
         mod.PERIODS,
         doc="Summarize annual local T&D costs for the objective function.",
         rule=lambda m, p: sum(
-            m.BuildLocalTD[z, bld_yr] * m.local_td_annual_cost_per_mw[z]
-            for (z, bld_yr) in m.LOCAL_TD_BUILDS_IN_PERIOD[p]))
+            m.LocalTDCapacity[z, p] * m.local_td_annual_cost_per_mw[z]
+            for z in m.LOAD_ZONES))
     mod.Cost_Components_Per_Period.append('LocalTDFixedCosts')
 
 
