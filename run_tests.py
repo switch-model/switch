@@ -30,8 +30,8 @@ class TestLoader(unittest.TestLoader):
     # The unittest module does not have built-in support for finding
     # doctests.  In order to run the doctests, we need a custom
     # TestLoader that overrides loadTestsFromModule().
-    def loadTestsFromModule(self, module):
-        test_suite = super(TestLoader, self).loadTestsFromModule(module)
+    def loadTestsFromModule(self, module, **kwargs):
+        test_suite = super(TestLoader, self).loadTestsFromModule(module, **kwargs)
 
         docstring = module.__doc__
         if not docstring:
@@ -47,11 +47,12 @@ class TestLoader(unittest.TestLoader):
 
 def main():
     script_dir = os.path.join(os.getcwd(), os.path.dirname(__file__))
+    # print('old argv: {}'.format(sys.argv))
     argv = [sys.argv[0],
             'discover',
-            '--top-level-dir', script_dir,
+            '--top-level-directory', script_dir,
             '--pattern', '*.py'] + sys.argv[1:]
-    unittest.TestProgram(testLoader=TestLoader(), argv=argv)
+    unittest.TestProgram(testLoader=TestLoader(), argv=argv, module=None)
 
 
 if __name__ == '__main__':
