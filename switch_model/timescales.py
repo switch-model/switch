@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
-Defines timescales for investment and dispatch for the SWITCH-Pyomo model.
+Defines timescales for investment and dispatch for the Switch model.
 """
 from __future__ import print_function
 from __future__ import absolute_import
@@ -45,7 +45,7 @@ def define_components(mod):
     TIMESERIES denote blocks of consecutive timepoints within a period.
     An individual time series could represent a single day, a week, a
     month or an entire year. This replaces the DATE construct in the old
-    SWITCH code and is meant to be more versatile. The following parameters
+    Switch code and is meant to be more versatile. The following parameters
     describe attributes of a timeseries.
 
     ts_period[ts]: The period a timeseries falls in.
@@ -74,7 +74,7 @@ def define_components(mod):
     typically on the order of one or more hours, so costs associated
     with timepoints are specified in hourly units, and the weights of
     timepoints are specified in units of hours. TIMEPOINTS replaces the
-    HOURS construct in some of the old versions of SWITCH. The order of
+    HOURS construct in some of the old versions of Switch. The order of
     timepoints is provided by their ordering in their input file
     according to the standard Pyomo/AMPL conventions. To maintain
     sanity, we recommend sorting your input file by timestamp. Each

@@ -27,7 +27,7 @@ def define_components(mod):
     that the aggregate fuel consumption with respect to energy
     production can be approximated as a line with a 0 intercept. This
     estimation method has been known to result in excessive cycling of
-    Combined Cycle Gas Turbines in the SWITCH-WECC model.
+    Combined Cycle Gas Turbines in the Switch-WECC model.
 
     DispatchUpperLimit[(g, t) in GEN_TPS] is an
     expression that defines the upper bounds of dispatch subject to

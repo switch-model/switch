@@ -3,7 +3,7 @@
 
 """
 Defines model components to describe both fuels and non-fuel energy sources
-for the SWITCH-Pyomo model.
+for the Switch model.
 
 """
 
@@ -43,7 +43,7 @@ def define_components(mod):
     including carbon intensity, costs, etc. These are described below.
     Fuels may be abbreviated as f in parameter names and indexes.
 
-    In this formulation of SWITCH, fuels are described in terms of heat
+    In this formulation of Switch, fuels are described in terms of heat
     content rather than mass. This simplifies some aspects of modeling,
     but it could be equally valid to describe fuels in terms of $/mass,
     heat_content/mass (high- heating value and low heating value),

@@ -145,7 +145,7 @@ def define_components(mod):
     --- NOTES ---
 
     The cost stream over time for transmission lines differs from the
-    SWITCH-WECC model. The SWITCH-WECC model assumed new transmission
+    Switch-WECC model. The Switch-WECC model assumed new transmission
     had a financial lifetime of 20 years, which was the length of the
     loan term. During this time, fixed operations & maintenance costs
     were also incurred annually and these were estimated to be 3 percent
@@ -153,18 +153,18 @@ def define_components(mod):
     from the 2009 WREZ transmission model transmission data costs for
     existing transmission maintenance .. most of those lines were old
     and their capital loans had been paid off, so the O&M were the costs
-    of keeping them operational. SWITCH-WECC basically assumed the lines
+    of keeping them operational. Switch-WECC basically assumed the lines
     could be kept online indefinitely with that O&M budget, with
     components of the lines being replaced as needed. This payment
     schedule and lifetimes was assumed to hold for both existing and new
     lines. This made the annual costs change over time, which could
-    create edge effects near the end of the study period. SWITCH-WECC
+    create edge effects near the end of the study period. Switch-WECC
     had different cost assumptions for local T&D; capital expenses and
     fixed O&M expenses were rolled in together, and those were assumed
     to continue indefinitely. This basically assumed that local T&D would
     be replaced at the end of its financial lifetime.
 
-    SWITCH-Pyomo treats all transmission and distribution (long-
+    Switch treats all transmission and distribution (long-
     distance or local) the same. Any capacity that is built will be kept
     online indefinitely. At the end of its financial lifetime, existing
     capacity will be retired and rebuilt, so the annual cost of a line

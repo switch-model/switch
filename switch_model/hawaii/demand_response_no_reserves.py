@@ -386,7 +386,7 @@ def update_demand(m):
 
 
 def total_direct_costs_per_year(m, period):
-    """Return undiscounted total cost per year, during each period, as calculated by SWITCH,
+    """Return undiscounted total cost per year, during each period, as calculated by Switch,
     including everything except DR_Welfare_Cost.
 
     note: during the first iteration, this doesn't include "other_costs", but in later
@@ -493,7 +493,7 @@ def calibrate_model(m):
     global annual_revenue   # save a copy for debugging later
     """
     Calibrate the demand system and add it to the model.
-    Also calculate other_costs (utility costs not modeled by SWITCH).
+    Also calculate other_costs (utility costs not modeled by Switch).
     """
 
     # base_data consists of a list of tuples showing (load_zone, timeseries, base_load (list) and base_price)
@@ -524,7 +524,7 @@ def calibrate_model(m):
             for z in m.LOAD_ZONES for tp in m.TIMEPOINTS
     }
 
-    # calculate costs that are included in the base prices but not reflected in SWITCH.
+    # calculate costs that are included in the base prices but not reflected in Switch.
     # note: during the first iteration, other_costs = 0, so this calculates a value for
     # other_costs that will bring total_direct_costs_per_year() up to the baseline
     # annual_revenue level.

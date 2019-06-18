@@ -60,8 +60,8 @@ def define_components(m):
 
     # force battery installations directly (since they're not currently a standard tech)
 
-    # NOTE: RESOLVE used different wind and solar profiles from SWITCH.
-    # SWITCH profiles seem to be more accurate, so we optimize against them
+    # NOTE: RESOLVE used different wind and solar profiles from Switch.
+    # Switch profiles seem to be more accurate, so we optimize against them
     # and show that this may give (small) savings vs. the RESOLVE plan.
 
     # TODO: Should I use Switch to investigate how much of HECO's poor performance is due

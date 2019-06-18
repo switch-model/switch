@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
-Defines financial parameters for the SWITCH-Pyomo model.
+Defines financial parameters for the Switch model.
 
 """
 from __future__ import print_function
@@ -123,7 +123,7 @@ def define_components(mod):
     from those terms.
 
     base_financial_year is used for net present value calculations. All
-    dollar amounts reported by SWITCH are in real dollars of this base
+    dollar amounts reported by Switch are in real dollars of this base
     year. Future dollars are brought back to this dollar-year via the
     discount_rate.
 
@@ -175,7 +175,7 @@ def define_components(mod):
     equivalent to a bill of $100 today.
 
     While quite alarming in theory, in practice the choice of discount
-    rate had virtually no impact on the future costs that SWITCH-WECC
+    rate had virtually no impact on the future costs that Switch-WECC
     reports when I performed sensitivity runs in the range of 0-10
     percent discount rates. This is likely due to steadily increasing
     load and decreasing emission targets in our scenarios providing few

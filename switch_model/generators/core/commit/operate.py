@@ -3,7 +3,7 @@
 
 """
 Defines model components to describe unit commitment of projects for the
-SWITCH-Pyomo model. This module is mutually exclusive with the
+Switch model. This module is mutually exclusive with the
 operations.no_commit module which specifies simplified dispatch
 constraints. If you want to use this module directly in a list of switch
 modules (instead of including the package operations.unitcommit), you will also

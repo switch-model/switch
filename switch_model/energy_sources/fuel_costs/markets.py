@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
-Defines model components to describe fuel markets for the SWITCH-Pyomo
+Defines model components to describe fuel markets for the Switch
 model.
 
 """
@@ -117,7 +117,7 @@ def define_components(mod):
     single load zone with a single supply tier that has no upper bound.
     See load_inputs() function documentation below for more details.
 
-    In SWITCH-WECC, biomass regional fuel markets are defined for each
+    In Switch-WECC, biomass regional fuel markets are defined for each
     load area due to relatively high transportation costs, while natural
     gas regional fuel markets span the entire WECC region reflecting the
     interconnectedness of the pipelines. Prices can differ between load
@@ -132,16 +132,16 @@ def define_components(mod):
     over all load zones in the regional fuel market. The model could be
     adjusted to aggregate consumption over other time scales, but
     currently only annual aggregation is implemented for supply curves.
-    This version of SWITCH does not distinguish costs incurred by
+    This version of Switch does not distinguish costs incurred by
     different fuel consumers within a regional fuel market.
 
-    This version of SWITCH does not include producer surplus, so the
+    This version of Switch does not include producer surplus, so the
     aggregate cost paid for a given level of consumption does not
-    reflect a market clearing price. SWITCH looks for societally and
+    reflect a market clearing price. Switch looks for societally and
     technically optimal solutions on the efficiency frontier that
     minimizes total costs, while trying to avoid embedding assumptions
     about market structure and dynamics. There are two primary
-    motivations for this approach. First, many applications of SWITCH
+    motivations for this approach. First, many applications of Switch
     are for non-markets contexts of regulated utilities or state-owned
     utilities. Second, we don't currently know how electricity markets
     should be structured in high-renewable futures to incentivize
@@ -157,7 +157,7 @@ def define_components(mod):
     know what the future of energy institutions or markets will hold,
     and I don't want to limit the technical possibilities with market
     structures from the past. One of our hopes is results from
-    optimization models such as  SWITCH can inform future market and
+    optimization models such as  Switch can inform future market and
     institutional restructuring to ensure that our societal goals are
     achieved cost-effectively.
 

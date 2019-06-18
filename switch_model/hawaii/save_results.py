@@ -1,6 +1,6 @@
 """Save results of current model in customized files.
 
-Add this module to a standard SWITCH model, and the post_solve() callback will
+Add this module to a standard Switch model, and the post_solve() callback will
 be called automatically to store results.
 """
 

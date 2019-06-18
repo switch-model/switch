@@ -3,7 +3,7 @@
 
 """
 Defines model components to describe local transmission & distribution
-build-outs for the SWITCH-Pyomo model. This adds a virtual "distribution node"
+build-outs for the Switch model. This adds a virtual "distribution node"
 to each load zone that is connected to the zone's central node via a
 distribution pathway that incurs distribution losses. Distributed Energy
 Resources (DER) impact the energy balance at the distribution node, avoiding

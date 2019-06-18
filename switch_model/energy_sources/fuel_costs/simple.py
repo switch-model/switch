@@ -3,7 +3,7 @@
 
 """
 
-A simple description of flat fuel costs for the SWITCH-Pyomo model that
+A simple description of flat fuel costs for the Switch model that
 serves as an alternative to the more complex fuel_markets with tiered
 supply curves. This is mutually exclusive with the fuel_markets module.
 

@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 """
 This file should only include the version. Do not import any packages or
-modules here because this file needs to be executed before SWITCH is
+modules here because this file needs to be executed before Switch is
 installed and executed in environments that don't have any dependencies
 installed.
 """

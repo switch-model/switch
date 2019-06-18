@@ -5,7 +5,7 @@ from switch_model.financials import capital_recovery_factor as crf
 
 def define_arguments(argparser):
     argparser.add_argument("--ph-mw", type=float, default=None,
-        help="Force construction of a certain total capacity of pumped storage hydro during one or more periods chosen by SWITCH")
+        help="Force construction of a certain total capacity of pumped storage hydro during one or more periods chosen by Switch")
     argparser.add_argument("--ph-year", type=int, default=None,
         help="Force all pumped storage hydro to be constructed during one particular year (must be in the list of periods)")
 

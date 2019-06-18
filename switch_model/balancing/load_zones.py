@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
-Defines load zone parameters for the SWITCH-Pyomo model.
+Defines load zone parameters for the Switch model.
 """
 import os
 from pyomo.environ import *

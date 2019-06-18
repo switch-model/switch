@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2, which is in the LICENSE file.
 
 """
-Defines a simple Demand Response Shift Service for the SWITCH-Pyomo model.
+Defines a simple Demand Response Shift Service for the Switch model.
 Load in a certain load zone may be shifted between timepoints belonging to the
 same timeseries at no cost, which allows assessing the potential value of
 demand shifting. This does not include a Shed Service (curtailment of load), 

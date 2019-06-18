@@ -3,7 +3,7 @@
 
 """
 Defines model components to describe transmission dispatch for the
-SWITCH-Pyomo model.
+Switch model.
 """
 
 from pyomo.environ import *

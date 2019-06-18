@@ -605,7 +605,7 @@ def update_demand(m):
 
 
 def total_direct_costs_per_year(m, period):
-    """Return undiscounted total cost per year, during each period, as calculated by SWITCH,
+    """Return undiscounted total cost per year, during each period, as calculated by Switch,
     including everything except DR_Welfare_Cost.
 
     This code comes from financials.calc_sys_costs_per_period(), excluding discounting

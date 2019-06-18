@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
-Utility functions for SWITCH-pyomo.
+Utility functions for Switch.
 """
 from __future__ import print_function
 

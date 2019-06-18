@@ -62,7 +62,7 @@ def calc_annual_costs_in_period(m, p):
 		getattr(m, annual_cost)[p]
 		for annual_cost in m.Cost_Components_Per_Period)
 
-# In the current version of Switch-Pyomo, all annual costs are defined 
+# In the current version of Switch, all annual costs are defined 
 # by First Stage decision variables, such as fixed O&M and capital 
 # costs, which are caused by the BuildProj, BuildTrans and BuildLocalTD
 # variables, all of which are considered as first stage decisions in this

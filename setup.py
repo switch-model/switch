@@ -1,8 +1,8 @@
-"""Setup script for SWITCH.
+"""Setup script for Switch.
 
 Use "pip install --upgrade ." to install a copy in the site packages directory.
 
-Use "pip install --upgrade --editable ." to install SWITCH to be run from its
+Use "pip install --upgrade --editable ." to install Switch to be run from its
 current location.
 
 Optional dependencies can be added during the initial install or later by
@@ -33,7 +33,7 @@ setup(
     url='http://switch-model.org',
     license='Apache v2',
     platforms=["any"],
-    description='SWITCH Power System Planning Model',
+    description='Switch Power System Planning Model',
     long_description=read('README'),
     long_description_content_type="text/markdown",
     classifiers=[

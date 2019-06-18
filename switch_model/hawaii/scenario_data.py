@@ -535,7 +535,7 @@ def write_tables(**args):
     # get part load heat rate curves if requested
     # note: we sort lexicographically by power output and fuel consumption, in case
     # there are segments where power or fuel consumption steps up while the other stays constant
-    # That is nonconvex and not currently supported by SWITCH, but could potentially be used
+    # That is nonconvex and not currently supported by Switch, but could potentially be used
     # in the future by assigning binary variables for activating each segment.
     # note: for sqlite, you could use "CONCAT(technology, ' ', output_mw, ' ', fuel_consumption_mmbtu_per_h) AS key"
     # TODO: rename fuel_consumption_mmbtu_per_h to fuel_use_mmbtu_per_h here and in import_data.py

@@ -3,7 +3,7 @@
 
 """
 Defines model components to describe generation projects build-outs for
-the SWITCH-Pyomo model. This module requires either generators.core.unitcommit or
+the Switch model. This module requires either generators.core.unitcommit or
 generators.core.no_commit to constrain project dispatch to either committed or
 installed capacity.
 

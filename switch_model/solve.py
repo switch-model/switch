@@ -98,7 +98,7 @@ def main(args=None, return_model=False, return_instance=False):
 
         if model.options.verbose:
             print("\n=======================================================================")
-            print("SWITCH model created in {:.2f} s.\nArguments:".format(timer.step_time()))
+            print("Switch model created in {:.2f} s.\nArguments:".format(timer.step_time()))
             print(", ".join(k+"="+repr(v) for k, v in model.options.__dict__.items() if v))
             print("Modules:\n"+", ".join(m for m in modules))
             if iterate_modules:
