@@ -435,7 +435,7 @@ def define_arguments(argparser):
     # note: pyomo has a --solver-suffix option but it is not clear
     # whether that does the same thing as --suffix defined here,
     # so we don't reuse the same name.
-    argparser.add_argument("--suffixes", "--suffix", nargs="+", action='extend', default=['rc','dual','slack'],
+    argparser.add_argument("--suffixes", "--suffix", nargs="+", action='extend', default=[],
         help="Extra suffixes to add to the model and exchange with the solver (e.g., iis, rc, dual, or slack)")
 
     # Define solver-related arguments
