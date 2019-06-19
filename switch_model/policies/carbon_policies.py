@@ -17,6 +17,7 @@ Note: carbon_cost_dollar_per_tco2 defaults to 0 (no cost) for any data that
 is unspecified.
 
 """
+from __future__ import division
 import os
 from pyomo.environ import Set, Param, Expression, Constraint, Suffix
 import switch_model.reporting as reporting

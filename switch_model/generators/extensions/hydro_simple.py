@@ -21,6 +21,7 @@ using the advanced framework, but the advanced framework would take longer to
 read and understand. To really take advantage of it, you'll also need more
 data than we usually have available.
 """
+from __future__ import division
 # ToDo: Refactor this code to move the core components into a
 # switch_model.hydro.core module, the simplist components into
 # switch_model.hydro.simple, and the advanced components into

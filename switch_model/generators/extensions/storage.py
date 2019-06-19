@@ -257,7 +257,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     # Base the set of storage projects on storage efficiency being specified.
     # TODO: define this in a more normal way
     switch_data.data()['STORAGE_GENS'] = {
-        None: switch_data.data(name='gen_storage_efficiency').keys()}
+        None: list(switch_data.data(name='gen_storage_efficiency').keys())}
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'gen_build_costs.tab'),
         auto_select=True,

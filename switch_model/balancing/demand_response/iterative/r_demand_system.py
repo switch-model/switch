@@ -1,8 +1,8 @@
 """
-Bridge to R demand system. 
+Bridge to R demand system.
 
-Note that calibration data is stored in the R instance, and rpy2 only 
-creates one instance. So this module can only be used with one model 
+Note that calibration data is stored in the R instance, and rpy2 only
+creates one instance. So this module can only be used with one model
 at a time (or at least only with models that use the same calibration data).
 
 An alternative approach would be to store calibration data in a particular
@@ -46,10 +46,10 @@ def define_components(m):
     # turn on automatic numpy <-> r conversion
     rpy2.robjects.numpy2ri.activate()
     # alternatively, we could use numpy2ri(np.array(...)), but it's easier
-    # to use the automatic conversions. 
-    # If we wanted to be more explicit about conversions, it would probably 
+    # to use the automatic conversions.
+    # If we wanted to be more explicit about conversions, it would probably
     # be best to switch to using the rpy2.rinterface to build up the r objects
-    # from a low level, e.g., rinterface.StrSexpVector(load_zones) to get a 
+    # from a low level, e.g., rinterface.StrSexpVector(load_zones) to get a
     # string vector, other tools to get an array and add dimnames, etc.
 
     # load the R script specified by the user (must have calibrate() and bid() functions)
@@ -78,12 +78,12 @@ def calibrate(m, base_data):
     load_zones = unique_list(z for (z, ts, base_loads, base_prices) in base_data)
     time_series = unique_list(ts for (z, ts, base_loads, base_prices) in base_data)
     # maybe this should use the hour of day from the model, but this is good enough for now
-    hours_of_day = range(1, 1+len(base_data[0][2]))
-    
+    hours_of_day = list(range(1, 1+len(base_data[0][2])))
+
     # create r arrays of base loads and prices, with indices = (hour of day, time series, load zone)
     base_loads = make_r_value_array(base_load_dict, hours_of_day, time_series, load_zones)
     base_prices = make_r_value_array(base_price_dict, hours_of_day, time_series, load_zones)
-    
+
     # calibrate the demand system within R
     r.calibrate(base_loads, base_prices, m.options.dr_elasticity_scenario)
 
@@ -91,11 +91,11 @@ def calibrate(m, base_data):
 def bid(m, load_zone, timeseries, prices):
     """Accept a vector of prices in a particular load_zone during a particular day (time_series).
     Return a tuple showing hourly load levels and willingness to pay for those loads."""
-    
+
     bid = r.bid(
         str(load_zone), str(timeseries), 
-        np.array(prices['energy']), 
-        np.array(prices['energy up']), 
+        np.array(prices['energy']),
+        np.array(prices['energy up']),
         np.array(prices['energy down']),
         m.options.dr_elasticity_scenario
     )
@@ -105,7 +105,7 @@ def bid(m, load_zone, timeseries, prices):
         'energy down': list(bid[2]),
     }
     wtp = bid[3][0] # everything is a vector in R, so we have to take the first element
-    
+
     return (demand, wtp)
 
 
@@ -119,8 +119,8 @@ def test_calib():
     ]
     calibrate(base_data)
     r.print_calib()
-    
-    
+
+
 def unique_list(seq):
     # from http://stackoverflow.com/questions/480214/how-do-you-remove-duplicates-from-a-list-in-python-whilst-preserving-order
     seen = set()

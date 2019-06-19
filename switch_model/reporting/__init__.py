@@ -150,7 +150,7 @@ def save_generic_results(instance, outdir, sorted_output):
                                 [var.name])
                 # Results are saved in a random order by default for
                 # increased speed. Sorting is available if wanted.
-                items = sorted(var.items()) if sorted_output else var.items()
+                items = sorted(var.items()) if sorted_output else list(var.items())
                 for key, obj in items:
                     writer.writerow(tuple(make_iterable(key)) + (get_value(obj),))
             else:
@@ -218,7 +218,7 @@ def save_cost_components(m, outdir):
         ))
     write_table(
         m,
-        cost_dict.keys(),
+        list(cost_dict.keys()),
         output_file=os.path.join(outdir, "cost_components.tab"),
         headings=('component', 'npv_cost'),
         values=lambda m, c: (c, cost_dict[c]),

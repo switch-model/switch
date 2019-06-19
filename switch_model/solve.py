@@ -2,6 +2,11 @@
 # Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 from __future__ import print_function
+
+from pyomo.environ import *
+from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
+import pyomo.version
+
 import sys, os, time, shlex, re, inspect, textwrap, types
 try:
     # Python 2
@@ -9,9 +14,11 @@ try:
 except ImportError:
     import pickle
 
-from pyomo.environ import *
-from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
-import pyomo.version
+try:
+    # Python 2
+    input = raw_input
+except NameError:
+    pass
 
 from switch_model.utilities import (
     create_model, _ArgumentParser, StepTimer, make_iterable, LogOutput, warn
@@ -59,9 +66,10 @@ def main(args=None, return_model=False, return_instance=False):
         if(os.path.exists(module_options.inputs_dir) and
            do_inputs_need_upgrade(module_options.inputs_dir)):
             do_upgrade = query_yes_no(
-                ("Warning! Your inputs directory needs to be upgraded. "
-                 "Do you want to auto-upgrade now? We'll keep a backup of "
-                 "this current version."))
+                "Warning! Your inputs directory needs to be upgraded. "
+                "Do you want to auto-upgrade now? We'll keep a backup of "
+                "this current version."
+            )
             if do_upgrade:
                 upgrade_inputs(module_options.inputs_dir)
             else:
@@ -185,7 +193,7 @@ def main(args=None, return_model=False, return_instance=False):
             "=======================================================================\n"
         )
         import code
-        code.interact(banner=banner, local=dict(globals().items() + locals().items()))
+        code.interact(banner=banner, local=dict(list(globals().items()) + list(locals().items())))
 
 
 def reload_prior_solution_from_pickle(instance, outdir):
@@ -847,7 +855,7 @@ def save_results(instance, outdir):
 
 
 def query_yes_no(question, default="yes"):
-    """Ask a yes/no question via raw_input() and return their answer.
+    """Ask a yes/no question via input() and return their answer.
 
     "question" is a string that is presented to the user.
     "default" is the presumed answer if the user just hits <Enter>.
@@ -869,7 +877,7 @@ def query_yes_no(question, default="yes"):
 
     while True:
         sys.stdout.write(question + prompt)
-        choice = raw_input().lower()
+        choice = input().lower()
         if default is not None and choice == '':
             return valid[default]
         elif choice in valid:

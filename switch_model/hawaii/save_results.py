@@ -3,6 +3,7 @@
 Add this module to a standard Switch model, and the post_solve() callback will
 be called automatically to store results.
 """
+from __future__ import division
 
 # TODO: eventually make this code more generic, e.g., create a general reporting module
 # with functions like

@@ -2,6 +2,7 @@
 Defines types of reserve target and components that contribute to reserves,
 and enforces the reserve targets.
 """
+from __future__ import division
 import os
 from pyomo.environ import *
 

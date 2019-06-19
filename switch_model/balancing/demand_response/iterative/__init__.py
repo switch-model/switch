@@ -11,6 +11,7 @@ note: we also take advantage of this assumption and store a reference to the
 current demand_module in this module (rather than storing it in the model itself)
 """
 from __future__ import print_function
+from __future__ import division
 
 # TODO: create a new module to handle total-cost pricing.
 # That should apply a simple tax to every retail kWh sold (zone_demand_mw or FlexibleDemand)
@@ -154,8 +155,7 @@ def define_components(m):
     # weights for all zones. (Otherwise the model will try to micromanage load in each
     # zone, but that won't be reflected in the prices we report.)
     # Note: LOAD_ZONES is not an ordered set, so we have to use a trick to get a single
-    # arbitrary one to refer to (list(m.LOAD_ZONES)[0] or m.LOAD_ZONES.iterkeys().next()
-    # would also work).
+    # arbitrary one to refer to (list(m.LOAD_ZONES)[0] would also work).
     m.DR_Load_Zone_Shared_Bid_Weight = Constraint(
         m.DR_BID_LIST, m.LOAD_ZONES, m.TIMESERIES, rule=lambda m, b, z, ts:
             m.DRBidWeight[b, z, ts] == m.DRBidWeight[b, next(iter(m.LOAD_ZONES)), ts]

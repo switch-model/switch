@@ -8,6 +8,7 @@ generators.core.no_commit to constrain project dispatch to either committed or
 installed capacity.
 
 """
+from __future__ import division
 
 import os, collections
 from pyomo.environ import *

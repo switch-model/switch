@@ -12,6 +12,7 @@ current demand_module in this module (rather than storing it in the model itself
 """
 from __future__ import print_function
 from __future__ import absolute_import
+from __future__ import division
 
 import os, sys, time
 from pprint import pprint

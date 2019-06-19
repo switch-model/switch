@@ -2,6 +2,7 @@
 Special modeling for Lake Wilson - relax daily energy balance by 10 MW to account
 for net inflow.
 """
+from __future__ import division
 from pyomo.environ import *
 
 def define_components(m):

@@ -9,6 +9,7 @@ constraints. If you want to use this module directly in a list of switch
 modules (instead of including the package operations.unitcommit), you will also
 need to include the module operations.unitcommit.fuel_use.
 """
+from __future__ import division
 
 import os, itertools
 from pyomo.environ import *
@@ -276,7 +277,8 @@ def define_components(mod):
     mod.Total_StartupGenCapacity_OM_Costs = Expression(
         mod.TIMEPOINTS,
         rule=lambda m, t: sum(
-            m.gen_startup_om[g] * m.StartupGenCapacity[g, t] / m.tp_duration_hrs[t]
+            m.gen_startup_om[g] * m.StartupGenCapacity[g, t]
+            / m.tp_duration_hrs[t]
             for g in m.GENS_IN_PERIOD[m.tp_period[t]]
         )
     )
@@ -312,8 +314,8 @@ def define_components(mod):
 
         # how many timepoints must the project stay on/off once it's
         # started/shutdown?
-        # note: StartupGenCapacity and ShutdownGenCapacity are assumed to occur at the start of
-        # the timepoint
+        # note: StartupGenCapacity and ShutdownGenCapacity are assumed to
+        # occur at the start of the timepoint
         n_tp = int(round(
             (m.gen_min_uptime[g] if up else m.gen_min_downtime[g])
             / m.tp_duration_hrs[tp]
@@ -331,7 +333,10 @@ def define_components(mod):
                     # (all recent startups are still online)
                     m.CommitGen[g, tp]
                     >=
-                    sum(m.StartupGenCapacity[g, tp_prev(m, tp, i)] for i in range(n_tp))
+                    sum(
+                        m.StartupGenCapacity[g, tp_prev(m, tp, i)]
+                        for i in range(n_tp)
+                    )
                 )
             else:
                 # Find the largest fraction of capacity that could have
@@ -351,14 +356,19 @@ def define_components(mod):
                     m.GenCapacityInTP[g, tp] * committable_fraction
                     - m.CommitGen[g, tp]
                     >=
-                    sum(m.ShutdownGenCapacity[g, tp_prev(m, tp, i)] for i in range(n_tp))
+                    sum(
+                        m.ShutdownGenCapacity[g, tp_prev(m, tp, i)]
+                        for i in range(n_tp)
+                    )
                 )
         return rule
     mod.Enforce_Min_Uptime = Constraint(
-        mod.UPTIME_CONSTRAINED_GEN_TPS, rule=lambda *a: min_time_rule(*a, up=True)
+        mod.UPTIME_CONSTRAINED_GEN_TPS,
+        rule=lambda *a: min_time_rule(*a, up=True)
     )
     mod.Enforce_Min_Downtime = Constraint(
-        mod.DOWNTIME_CONSTRAINED_GEN_TPS, rule=lambda *a: min_time_rule(*a, up=False)
+        mod.DOWNTIME_CONSTRAINED_GEN_TPS,
+        rule=lambda *a: min_time_rule(*a, up=False)
     )
 
     # Dispatch limits relative to committed capacity.
@@ -410,7 +420,8 @@ def load_inputs(mod, switch_data, inputs_dir):
     row, insert a dot . into the other columns.
 
     generation_projects_info.tab
-        GENERATION_PROJECT, gen_min_load_fraction, gen_startup_fuel, gen_startup_om
+        GENERATION_PROJECT, gen_min_load_fraction, gen_startup_fuel,
+        gen_startup_om
 
     Note: If you need to specify minimum loading fraction or startup
     costs for a non-fuel based generator, you must put a dot . in the

@@ -619,7 +619,7 @@ def warn(message):
     """
     sys.stderr.write("WARNING: " + message + '\n')
 
-class TeeStream:
+class TeeStream(object):
     """
     Virtual stream that writes output to both stream1 and stream2. Attributes
     of stream1 will be reported to callers if needed. For example, specifying

@@ -1,3 +1,4 @@
+from __future__ import division
 def calibrate(base_data, dr_elasticity_scenario=3):
     """Accept a list of tuples showing [base hourly loads], and [base hourly prices] for each 
     location (load_zone) and date (time_series). Store these for later reference by bid().

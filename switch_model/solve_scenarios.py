@@ -197,7 +197,7 @@ def scenarios_to_run():
             all_done = True
             # cache a list of scenarios that have been run, to avoid trying to checkout every one.
             # This list is found by retrieving the names of the lock-directories.
-            already_run = filter(os.path.isdir, os.listdir("."))
+            already_run = {f for f in os.listdir(".") if os.path.isdir(f)}
             for scenario_name, base_args in get_scenario_dict().items():
                 scenario_args = scenario_option_file_args + base_args + scenario_cmd_line_args
                 if scenario_name not in already_run and checkout(scenario_name):

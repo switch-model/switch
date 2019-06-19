@@ -6,6 +6,7 @@ Defines financial parameters for the Switch model.
 
 """
 from __future__ import print_function
+from __future__ import division
 from pyomo.environ import *
 import os
 import pandas as pd

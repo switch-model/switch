@@ -1,3 +1,4 @@
+from __future__ import division
 import os
 from pyomo.environ import *
 from switch_model.financials import capital_recovery_factor as crf

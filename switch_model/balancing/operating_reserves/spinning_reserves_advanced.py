@@ -466,8 +466,8 @@ def define_components(m):
             for tp in m.TPS_FOR_GEN[g]:
                 up[rt, ba, tp] += m.CommitGenSpinningReservesUp[rt, g, tp]
                 down[rt, ba, tp] += m.CommitGenSpinningReservesDown[rt, g, tp]
-        m.TotalGenSpinningReservesUp = Expression(up.keys(), initialize=dict(up))
-        m.TotalGenSpinningReservesDown = Expression(down.keys(), initialize=dict(down))
+        m.TotalGenSpinningReservesUp = Expression(list(up.keys()), initialize=dict(up))
+        m.TotalGenSpinningReservesDown = Expression(list(down.keys()), initialize=dict(down))
         # construct these, so they can be used immediately
         for c in [m.TotalGenSpinningReservesUp, m.TotalGenSpinningReservesDown]:
             c.index_set().construct()
@@ -577,11 +577,11 @@ def define_dynamic_components(m):
 
     m.SPINNING_RESERVE_REQUIREMENT_UP_BALANCING_AREA_TIMEPOINTS = Set(
         dimen=3,
-        rule=lambda m: m.Spinning_Reserve_Up_Requirements_dict.keys()
+        rule=lambda m: list(m.Spinning_Reserve_Up_Requirements_dict.keys())
     )
     m.SPINNING_RESERVE_REQUIREMENT_DOWN_BALANCING_AREA_TIMEPOINTS = Set(
         dimen=3,
-        rule=lambda m: m.Spinning_Reserve_Down_Requirements_dict.keys()
+        rule=lambda m: list(m.Spinning_Reserve_Down_Requirements_dict.keys())
     )
 
     # satisfy all spinning reserve requirements

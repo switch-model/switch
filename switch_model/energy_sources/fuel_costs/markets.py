@@ -6,6 +6,7 @@ Defines model components to describe fuel markets for the Switch
 model.
 
 """
+from __future__ import division
 
 import os
 import csv

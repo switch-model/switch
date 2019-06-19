@@ -541,13 +541,13 @@ def load_inputs(mod, switch_data, inputs_dir):
     # a value
     if 'gen_capacity_limit_mw' in switch_data.data():
         switch_data.data()['CAPACITY_LIMITED_GENS'] = {
-            None: switch_data.data(name='gen_capacity_limit_mw').keys()}
+            None: list(switch_data.data(name='gen_capacity_limit_mw').keys())}
     if 'gen_unit_size' in switch_data.data():
         switch_data.data()['DISCRETELY_SIZED_GENS'] = {
-            None: switch_data.data(name='gen_unit_size').keys()}
+            None: list(switch_data.data(name='gen_unit_size').keys())}
     if 'gen_ccs_capture_efficiency' in switch_data.data():
         switch_data.data()['CCS_EQUIPPED_GENS'] = {
-            None: switch_data.data(name='gen_ccs_capture_efficiency').keys()}
+            None: list(switch_data.data(name='gen_ccs_capture_efficiency').keys())}
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, 'gen_build_predetermined.tab'),

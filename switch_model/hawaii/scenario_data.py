@@ -491,14 +491,16 @@ def write_tables(**args):
     # spinning_reserves_advanced (if wanted; otherwise defaults to just "spinning"
     if 'max_reserve_capability' in args or args.get('write_generation_projects_reserve_capability', False):
 
-        # args['max_reserve_capability'] is a list of tuples of (technology, reserve_type)
-        # (assumed equivalent to 'regulation' if not specified)
-        # We unzip it to use with the unnest function (psycopg2 passes lists of tuples
-        # as arrays of tuples, and unnest would keeps those as tuples)
+        # args['max_reserve_capability'] is a list of tuples of (technology,
+        # reserve_type) (assumed equivalent to 'regulation' if not specified)
+        # We unzip it to use with the unnest function (psycopg2 passes lists of
+        # tuples as arrays of tuples, and unnest would keep those as tuples)
         try:
-            reserve_technologies, reserve_types = map(list, zip(*args['max_reserve_capability']))
+            reserve_technologies = [r[0] for r in args['max_reserve_capability']]
+            reserve_types = [r[1] for r in args['max_reserve_capability']]
         except KeyError:
-            reserve_technologies, reserve_types = [], []
+            reserve_technologies = []
+            reserve_types = []
         res_args = args.copy()
         res_args['reserve_technologies']=reserve_technologies
         res_args['reserve_types']=reserve_types
@@ -711,7 +713,7 @@ def write_tables(**args):
         write_tab_file(
             'battery_capital_cost.tab',
             headers=[bat_years, bat_cost],
-            data=zip(args[bat_years], args[bat_cost]),
+            data=list(zip(args[bat_years], args[bat_cost])),
             arguments=args
         )
 
@@ -1044,4 +1046,4 @@ def writerows(f, rows):
 
 def tuple_dict(keys, vals):
     "Create a tuple of dictionaries, one for each row in vals, using the specified keys."
-    return tuple(zip(keys, row) for row in vals)
+    return tuple(list(zip(keys, row)) for row in vals)

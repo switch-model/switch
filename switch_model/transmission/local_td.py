@@ -9,6 +9,7 @@ distribution pathway that incurs distribution losses. Distributed Energy
 Resources (DER) impact the energy balance at the distribution node, avoiding
 losses from the distribution network.
 """
+from __future__ import division
 
 import os
 from pyomo.environ import *
@@ -137,9 +138,11 @@ def define_components(mod):
 
     mod.Meet_Local_TD = Constraint(
         mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS,
-        rule=lambda m, z, period: (
-            m.LocalTDCapacity[z, period] >=
-                m.zone_expected_coincident_peak_demand[z, period]/(1-m.distribution_loss_rate)))
+        rule=lambda m, z, period:
+            m.LocalTDCapacity[z, period] * (1-m.distribution_loss_rate)
+            >=
+            m.zone_expected_coincident_peak_demand[z, period]
+    )
     mod.local_td_annual_cost_per_mw = Param(
         mod.LOAD_ZONES,
         within=NonNegativeReals)

@@ -60,7 +60,7 @@ def make_test(example_dir):
         try:
             # Custom python modules may be in the example's working directory
             sys.path.append(example_dir)
-            args = switch_model.solve.get_option_file_args(dir=example_dir, 
+            args = switch_model.solve.get_option_file_args(dir=example_dir,
                 extra_args=[
                     '--inputs-dir', os.path.join(example_dir, 'inputs'),
                     '--outputs-dir', temp_dir])

@@ -55,11 +55,11 @@ def ph_rhosetter_callback(ph, scenario_tree, scenario):
     def coef_via_sympify(CostExpression):
         # This function may be depricated, and is the only place that uses
         # these packages, so put their definition here to make them more optional.
-        import StringIO
+        import io
         from re import findall
         from sympy import sympify
 
-        string_out = StringIO.StringIO()
+        string_out = io.StringIO()
         CostExpression.expr.to_string(ostream=string_out)
         CostExpression_as_str = string_out.getvalue()
         string_out.close()

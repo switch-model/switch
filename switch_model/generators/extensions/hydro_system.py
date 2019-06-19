@@ -27,6 +27,7 @@ investment periods, and have their levels externally determined at the
 beginning and end of investment periods.
 
 """
+from __future__ import division
 
 import os
 from pyomo.environ import *
