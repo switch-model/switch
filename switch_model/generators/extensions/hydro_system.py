@@ -380,11 +380,11 @@ def define_components(mod):
         if wn in m.RESERVOIRS:
             p = m.tp_period[t]
             if t == m.TPS_IN_PERIOD[p].last():
-                next_volume = m.ReservoirFinalVol[wn, p]
+                end_of_tp_volume = m.ReservoirFinalVol[wn, p]
             else:
-                next_volume = m.ReservoirVol[wn, m.TPS_IN_PERIOD[p].next(t)]
+                end_of_tp_volume = m.ReservoirVol[wn, m.TPS_IN_PERIOD[p].next(t)]
             reservoir_fill_rate = (
-                (next_volume - m.ReservoirVol[wn, t]) * 1000000.0 /
+                (end_of_tp_volume - m.ReservoirVol[wn, t]) * 1000000.0 /
                 (m.tp_duration_hrs[t] * 3600))
         # Conservation of mass flow
         return (
