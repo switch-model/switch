@@ -93,7 +93,7 @@ def bid(m, load_zone, timeseries, prices):
     Return a tuple showing hourly load levels and willingness to pay for those loads."""
 
     bid = r.bid(
-        str(load_zone), str(timeseries), 
+        str(load_zone), str(timeseries),
         np.array(prices['energy']),
         np.array(prices['energy up']),
         np.array(prices['energy down']),

@@ -7,7 +7,7 @@ from switch_model import timescales
 def define_arguments(argparser):
     argparser.add_argument("--ev-timing", choices=['bau', 'flat', 'optimal'], default='optimal',
         help="Rule for when to charge EVs -- business-as-usual (upon arrival), flat around the clock, or optimal (default).")
-    argparser.add_argument('--ev-reserve-types', nargs='+', default=['spinning'], 
+    argparser.add_argument('--ev-reserve-types', nargs='+', default=['spinning'],
         help=
             "Type(s) of reserves to provide from electric-vehicle charging (e.g., 'contingency' or 'regulation')."
             "Default is generic 'spinning'. Specify 'none' to disable. Only takes effect with '--ev-timing optimal'."
@@ -17,9 +17,9 @@ def define_components(m):
     # setup various parameters describing the EV and ICE fleet each year
     for p in ["ev_share", "ice_miles_per_gallon", "ev_miles_per_kwh", "ev_extra_cost_per_vehicle_year", "n_all_vehicles", "vmt_per_vehicle"]:
         setattr(m, p, Param(m.LOAD_ZONES, m.PERIODS))
-    
+
     m.ev_bau_mw = Param(m.LOAD_ZONES, m.TIMEPOINTS)
-    
+
     # calculate the extra annual cost (non-fuel) of having EVs, relative to ICEs (mostly for batteries, could also be chargers)
     m.ev_extra_annual_cost = Param(m.PERIODS, initialize=lambda m, p:
         sum(m.ev_extra_cost_per_vehicle_year[z, p] * m.ev_share[z, p] * m.n_all_vehicles[z, p] for z in m.LOAD_ZONES)
@@ -55,12 +55,12 @@ def define_components(m):
 
     # decide when to provide the EV energy
     m.ChargeEVs = Var(m.LOAD_ZONES, m.TIMEPOINTS, within=NonNegativeReals)
-    
+
     # make sure to charge all EVs at some point during the day
     # (they must always consume the same amount per day as under business-as-usual,
     # but there may be some room to reschedule it.)
     m.ChargeEVs_min = Constraint(m.LOAD_ZONES, m.TIMESERIES, rule=lambda m, z, ts:
-        sum(m.ChargeEVs[z, tp] for tp in m.TPS_IN_TS[ts]) * m.ts_duration_of_tp[ts] 
+        sum(m.ChargeEVs[z, tp] for tp in m.TPS_IN_TS[ts]) * m.ts_duration_of_tp[ts]
         == m.ev_mwh_ts[z, ts]
     )
 
@@ -73,7 +73,7 @@ def define_components(m):
         if m.options.verbose:
             print("Charging EVs as baseload.")
         m.ChargeEVs_flat = Constraint(
-            m.LOAD_ZONES, m.TIMEPOINTS, 
+            m.LOAD_ZONES, m.TIMEPOINTS,
             rule=lambda m, z, tp:
                 m.ChargeEVs[z, tp] == m.ev_mwh_ts[z, m.tp_ts[tp]] / m.ts_duration_hrs[m.tp_ts[tp]]
         )
@@ -81,7 +81,7 @@ def define_components(m):
         if m.options.verbose:
             print("Charging EVs at business-as-usual times of day.")
         m.ChargeEVs_bau = Constraint(
-            m.LOAD_ZONES, m.TIMEPOINTS, 
+            m.LOAD_ZONES, m.TIMEPOINTS,
             rule=lambda m, z, tp:
                 m.ChargeEVs[z, tp] == m.ev_bau_mw[z, tp]
         )
@@ -98,11 +98,11 @@ def define_components(m):
             # calculate available slack from EV charging
             # (from supply perspective, so "up" means less load)
             m.EVSlackUp = Expression(
-                m.BALANCING_AREA_TIMEPOINTS, 
+                m.BALANCING_AREA_TIMEPOINTS,
                 rule=lambda m, b, t:
                     sum(m.ChargeEVs[z, t] for z in m.ZONES_IN_BALANCING_AREA[b])
             )
-            # note: we currently ignore down-reserves (option of increasing consumption) 
+            # note: we currently ignore down-reserves (option of increasing consumption)
             # from EVs since it's not clear how high they could go; we could revisit this if
             # down-reserves have a positive price at equilibrium (probabably won't)
             if hasattr(m, 'GEN_SPINNING_RESERVE_TYPES'):
@@ -118,8 +118,8 @@ def define_components(m):
                 )
                 # constrain reserve provision within available slack
                 m.Limit_EVSpinningReserveUp = Constraint(
-                    m.BALANCING_AREA_TIMEPOINTS, 
-                    rule=lambda m, ba, tp: 
+                    m.BALANCING_AREA_TIMEPOINTS,
+                    rule=lambda m, ba, tp:
                         sum(
                             m.EVSpinningReserveUp[rt, ba, tp]
                             for rt in m.EV_SPINNING_RESERVE_TYPES
@@ -138,14 +138,14 @@ def define_components(m):
 
 def load_inputs(m, switch_data, inputs_dir):
     """
-    Import ev data from .tab files. 
+    Import ev data from .tab files.
     """
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'ev_fleet_info.tab'),
         auto_select=True,
         param=[
-            getattr(m, p) 
-                for p in 
+            getattr(m, p)
+                for p in
                 ["ev_share", "ice_miles_per_gallon", "ev_miles_per_kwh", "ev_extra_cost_per_vehicle_year", "n_all_vehicles", "vmt_per_vehicle"]
         ]
     )

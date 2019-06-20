@@ -7,9 +7,9 @@ def define_components(m):
 
     # TODO: move this set into a parameter list in fuels.tab, e.g, 'banned_after', which can be a year or NULL
     m.FUEL_BANS = Set(dimen=2, initialize=[('LSFO', 2017)])
-    
-    m.BANNED_FUEL_DISPATCH_POINTS = Set(dimen=3, initialize=lambda m: 
-        [(g, tp, f) 
+
+    m.BANNED_FUEL_DISPATCH_POINTS = Set(dimen=3, initialize=lambda m:
+        [(g, tp, f)
             for (f, y) in m.FUEL_BANS
                 for g in m.GENS_BY_FUEL[f] # if not m.gen_is_cogen[g]
                     for pe in m.PERIODS if m.period_end[pe] >= y

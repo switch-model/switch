@@ -34,7 +34,7 @@ class UtilitiesTest(unittest.TestCase):
             compare(reloaded_data.data(), instance.DataPortal.data())
         finally:
             shutil.rmtree(temp_dir)
-    
+
     def test_check_mandatory_components(self):
         from pyomo.environ import ConcreteModel, Param, Set
         from switch_model.utilities import check_mandatory_components
@@ -56,7 +56,7 @@ class UtilitiesTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             check_mandatory_components(mod, 'paramC', 'paramD')
 
-    
+
     def test_min_data_check(self):
         from switch_model.utilities import _add_min_data_check
         from pyomo.environ import AbstractModel, Param, Set

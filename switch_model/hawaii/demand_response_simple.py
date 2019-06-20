@@ -61,7 +61,7 @@ def define_components(m):
             m.DemandResponseSlackDown = Expression(m.BALANCING_AREA_TIMEPOINTS, rule=lambda m, b, tp:
                 sum(
                     # difference between scheduled load and max allowed
-                    m.demand_response_max_increase * m.zone_demand_mw[z, tp] 
+                    m.demand_response_max_increase * m.zone_demand_mw[z, tp]
                     - m.ShiftDemand[z, tp]
                     for z in m.ZONES_IN_BALANCING_AREA[b]
                 )

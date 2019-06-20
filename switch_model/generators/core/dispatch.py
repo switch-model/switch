@@ -267,7 +267,7 @@ def define_components(mod):
         validate=lambda m, val, g, t: -1 < val < 2)
     # Validate that a gen_max_capacity_factor has been defined for every
     # variable gen / timepoint that we need. Extra cap factors (like beyond an
-    # existing plant's lifetime) shouldn't cause any problems. 
+    # existing plant's lifetime) shouldn't cause any problems.
     # This replaces: mod.min_data_check('gen_max_capacity_factor') from when
     # gen_max_capacity_factor was indexed by VARIABLE_GEN_TPS.
     mod.have_minimal_gen_max_capacity_factors = BuildCheck(
@@ -327,7 +327,7 @@ def load_inputs(mod, switch_data, inputs_dir):
         optional=True,
         filename=os.path.join(inputs_dir, 'variable_capacity_factors.tab'),
         autoselect=True,
-        index=mod.VARIABLE_GEN_TPS_RAW,        
+        index=mod.VARIABLE_GEN_TPS_RAW,
         param=(mod.gen_max_capacity_factor,))
 
 

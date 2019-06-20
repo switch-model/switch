@@ -16,7 +16,7 @@ and Markets laboratory at Pontificia Universidad Católica de Chile.
 Where possible, I have used the same set and variable names to hopefully
 make it easier to merge that into the codebase later. The Chilean branch
 has a hydro model that includes water networks that connect dams via waterways
-and ground infiltration. It should be possible to describe a simple system 
+and ground infiltration. It should be possible to describe a simple system
 using the advanced framework, but the advanced framework would take longer to
 read and understand. To really take advantage of it, you'll also need more
 data than we usually have available.
@@ -37,31 +37,31 @@ dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
 
 def define_components(mod):
     """
-    
+
     HYDRO_GENS is the set of dispatchable hydro projects. This is a subet
     of GENERATION_PROJECTS, and is determined by the inputs file hydro_timeseries.tab.
     Members of this set can be called either g, or hydro_g.
-    
+
     HYDRO_GEN_TS is the set of Hydro projects and timeseries for which
-    minimum and average flow are specified. Members of this set can be 
+    minimum and average flow are specified. Members of this set can be
     abbreviated as (project, timeseries) or (g, ts).
-    
+
     HYDRO_GEN_TPS is the set of Hydro projects and available
     dispatch points. This is a filtered version of GEN_TPS that
     only includes hydro projects.
 
     hydro_min_flow_mw[(g, ts) in HYDRO_GEN_TS] is a parameter that
-    determines minimum flow levels, specified in units of MW dispatch. 
-    
+    determines minimum flow levels, specified in units of MW dispatch.
+
     hydro_avg_flow_mw[(g, ts) in HYDRO_GEN_TS] is a parameter that
     determines average flow levels, specified in units of MW dispatch.
 
     Enforce_Hydro_Min_Flow[(g, t) in HYDRO_GEN_TPS] is a
     constraint that enforces minimum flow levels for each timepoint.
-    
+
     Enforce_Hydro_Avg_Flow[(g, ts) in HYDRO_GEN_TS] is a constraint
     that enforces average flow levels across each timeseries.
-    
+
     """
 
     mod.HYDRO_GEN_TS_RAW = Set(
@@ -121,7 +121,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     entries for each dispatchable hydro project. The set of hydro projects
     is derived from this file, and this file should cover all time periods
     in which the hydro plant can operate.
-    
+
     Run-of-River hydro projects should not be included in this file; RoR
     hydro is treated like any other variable renewable resource, and
     expects data in variable_capacity_factors.tab.

@@ -73,9 +73,9 @@ def define_components(mod):
 
     def TXPowerNet_calculation(m, z, tp):
         return (
-            sum(m.TxPowerReceived[zone_from, z, tp] 
+            sum(m.TxPowerReceived[zone_from, z, tp]
                 for zone_from in m.TX_CONNECTIONS_TO_ZONE[z]) -
-            sum(m.TxPowerSent[z, zone_to, tp] 
+            sum(m.TxPowerSent[z, zone_to, tp]
                 for zone_to in m.TX_CONNECTIONS_TO_ZONE[z]))
     mod.TXPowerNet = Expression(
         mod.LOAD_ZONES, mod.TIMEPOINTS,

@@ -9,8 +9,8 @@ def define_arguments(argparser):
         help="Penalty to charge per MWh of unserved load. Usually set high enough to force unserved load to zero (default is $10,000/MWh).")
 
 def define_components(m):
-    # create an unserved load variable with a high penalty cost, 
-    # to avoid infeasibilities when 
+    # create an unserved load variable with a high penalty cost,
+    # to avoid infeasibilities when
     # evaluating scenarios that are on the edge of infeasibility
     # cost per MWh for unserved load (high)
     if m.options.unserved_load_penalty is not None:
@@ -24,7 +24,7 @@ def define_components(m):
     m.UnservedLoad = Var(m.LOAD_ZONES, m.TIMEPOINTS, within=NonNegativeReals)
     # total cost for unserved load
     m.UnservedLoadPenalty = Expression(m.TIMEPOINTS, rule=lambda m, tp:
-        m.tp_duration_hrs[tp] 
+        m.tp_duration_hrs[tp]
         * sum(m.UnservedLoad[z, tp] * m.unserved_load_penalty_per_mwh for z in m.LOAD_ZONES)
     )
     # add the unserved load to the model's energy balance
@@ -38,7 +38,7 @@ def define_components(m):
     # total cost for unserved reserves (90% as high as cost of unserved load,
     # to make the model prefer to serve load when possible)
     m.UnservedReservePenalty = Expression(m.TIMEPOINTS, rule=lambda m, tp:
-        m.tp_duration_hrs[tp] 
+        m.tp_duration_hrs[tp]
         * 0.9
         * m.unserved_load_penalty_per_mwh
         * (m.UnservedUpReserves[tp] + m.UnservedDownReserves[tp])

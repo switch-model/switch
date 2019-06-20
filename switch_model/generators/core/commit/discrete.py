@@ -50,7 +50,7 @@ def define_components(mod):
 
     mod.DISCRETE_GEN_TPS = Set(
         dimen=2,
-        initialize=lambda m: 
+        initialize=lambda m:
             [(g, t) for g in m.DISCRETELY_SIZED_GENS for t in m.TPS_FOR_GEN[g]]
     )
     mod.CommitGenUnits = Var(
@@ -59,5 +59,5 @@ def define_components(mod):
     mod.Commit_Units_Consistency = Constraint(
         mod.DISCRETE_GEN_TPS,
         rule=lambda m, g, t: (
-            m.CommitGen[g, t] == m.CommitGenUnits[g, t] * 
+            m.CommitGen[g, t] == m.CommitGenUnits[g, t] *
             m.gen_unit_size[g] * m.gen_availability[g]))

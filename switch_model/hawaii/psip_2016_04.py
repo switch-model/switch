@@ -4,22 +4,22 @@ import os
 from pyomo.environ import *
 
 def define_arguments(argparser):
-    argparser.add_argument('--psip-force', action='store_true', default=True, 
+    argparser.add_argument('--psip-force', action='store_true', default=True,
         help="Force following of PSIP plans (retiring AES and building certain technologies).")
-    argparser.add_argument('--psip-relax', dest='psip_force', action='store_false', 
+    argparser.add_argument('--psip-relax', dest='psip_force', action='store_false',
         help="Relax PSIP plans, to find a more optimal strategy.")
-    argparser.add_argument('--psip-minimal-renewables', action='store_true', default=False, 
+    argparser.add_argument('--psip-minimal-renewables', action='store_true', default=False,
         help="Use only the amount of renewables shown in PSIP plans, and no more (should be combined with --psip-relax).")
-    argparser.add_argument('--force-build', nargs=3, default=None, 
+    argparser.add_argument('--force-build', nargs=3, default=None,
         help="Force construction of at least a certain quantity of a particular technology during certain years. Space-separated list of year, technology and quantity.")
 
 def define_components(m):
     ###################
     # resource rules to match HECO's 2016-04-01 PSIP
-    ##################    
-    
+    ##################
+
     # decide whether to enforce the PSIP preferred plan
-    # if an environment variable is set, that takes precedence 
+    # if an environment variable is set, that takes precedence
     # (e.g., on a cluster to override options.txt)
     psip_env_var = os.environ.get('USE_PSIP_PLAN')
     if psip_env_var is None:
@@ -36,34 +36,34 @@ def define_components(m):
         print("Using PSIP construction plan.")
     else:
         print("Relaxing PSIP construction plan.")
-    
+
     # force conversion to LNG in 2021
     # force use of containerized LNG
     # don't allow addition of anything other than those specified here
     # force retirement of AES in 2021
-    
+
     # targets for individual generation technologies
     # (year, technology, MW added)
     # TODO: allow either CentralFixedPV or CentralTrackingPV for utility-scale solar
     # (not urgent now, since CentralFixedPV is not currently in the model)
 
     # technologies that are definitely being built (we assume near-term
-    # are underway and military projects are being built for their own 
+    # are underway and military projects are being built for their own
     # reasons)
-    technology_targets_definite = [ 
+    technology_targets_definite = [
         (2016, 'CentralTrackingPV', 27.6),  # Waianae Solar by Eurus Energy America
         (2018, 'IC_Schofield', 54.0),
         (2018, 'IC_Barge', 100.0),         # JBPHH plant
-        (2021, 'IC_MCBH', 27.0), 
+        (2021, 'IC_MCBH', 27.0),
         # Distributed PV from Figure J-19
         (2016, 'DistPV',  443.993468266547 - 210), # net of 210 MW of pre-existing DistPV
         (2017, 'DistPV',  92.751756737742),
         (2018, 'DistPV',  27.278236032368),
         (2019, 'DistPV',  26.188129564885),
     ]
-    # technologies proposed in PSIP but which may not be built if a 
+    # technologies proposed in PSIP but which may not be built if a
     # better plan is found
-    technology_targets_psip = [     
+    technology_targets_psip = [
         (2018, 'OnshoreWind', 24),      # NPM wind
         (2018, 'CentralTrackingPV', 109.6),  # replacement for canceled SunEdison projects
         (2018, 'OnshoreWind', 10),      # CBRE wind
@@ -112,7 +112,7 @@ def define_components(m):
         b = tuple(b)
         print("Forcing build: {}".format(b))
         technology_targets_definite.append(b)
-    
+
     if psip:
         technology_targets = technology_targets_definite + technology_targets_psip
     else:
@@ -129,15 +129,15 @@ def define_components(m):
         return target
     m.technology_target = Param(m.PERIODS, m.GENERATION_TECHNOLOGIES, initialize=technology_target_init)
 
-    # with PSIP: BuildGen is zero except for technology_targets 
+    # with PSIP: BuildGen is zero except for technology_targets
     #     (sum during each period or before first period)
     # without PSIP: BuildGen is >= definite targets
     def Enforce_Technology_Target_rule(m, per, tech):
         """Enforce targets for each technology; exact target for PSIP cases, minimum target for non-PSIP."""
-                
-        def adjust_psip_credit(g, target): 
+
+        def adjust_psip_credit(g, target):
             if g in m.DISCRETELY_SIZED_GENS and target > 0.0:
-                # Rescale so that the n integral units that come closest 
+                # Rescale so that the n integral units that come closest
                 # to the target gets counted as the n.n fractional units
                 # needed to exactly meet the target.
                 # This is needed because some of the targets are based on
@@ -145,15 +145,15 @@ def define_components(m):
                 return (target / m.gen_unit_size[g]) / round(target / m.gen_unit_size[g])
             else:
                 return 1.0
-        
+
         target = m.technology_target[per, tech]
         build = sum(
             m.BuildGen[g, per] * adjust_psip_credit(g, target)
-            for g in m.GENERATION_PROJECTS 
+            for g in m.GENERATION_PROJECTS
             if m.gen_tech[g] == tech and (g, per) in m.GEN_BLD_YRS
         )
 
-        if type(build) is int and build == 0:    
+        if type(build) is int and build == 0:
             # no matching projects found
             if target == 0:
                 return Constraint.Skip
@@ -186,12 +186,12 @@ def define_components(m):
         Constraint.Skip if (aes_g, tp) not in m.GEN_TPS
         else (m.DispatchGen[aes_g, tp] <= m.OperateAES[m.tp_period[tp]] * aes_size)
     )
-    m.AESDeactivateFixedCost = Expression(m.PERIODS, rule=lambda m, per: 
+    m.AESDeactivateFixedCost = Expression(m.PERIODS, rule=lambda m, per:
         0.0 if per not in m.AES_OPERABLE_PERIODS
         else - m.OperateAES[per] * aes_size * m.gen_fixed_om[aes_g, aes_bld_year]
     )
     m.Cost_Components_Per_Period.append('AESDeactivateFixedCost')
-    
+
     if psip:
         # keep AES active until 2022 or just before; deactivate after that
         m.PSIP_Retire_AES = Constraint(m.AES_OPERABLE_PERIODS, rule=lambda m, per:
@@ -201,10 +201,10 @@ def define_components(m):
 
         # before 2040: no biodiesel, and only 100-300 GWh of non-LNG fossil fuels
         # period including 2040-2045: <= 300 GWh of oil; unlimited biodiesel or LNG
-        
+
         # no biodiesel before 2040 (then phased in fast enough to meet the RPS)
         m.EARLY_BIODIESEL_MARKETS = Set(dimen=2, initialize=lambda m: [
-            (rfm, per) 
+            (rfm, per)
                 for per in m.PERIODS if per + m.period_length_years[per] <= 2040
                     for rfm in m.REGIONAL_FUEL_MARKETS if m.rfm_fuel == 'Biodiesel'
         ])
@@ -239,7 +239,7 @@ def define_components(m):
         #     else
         #         Constraint.Skip
         # )
-        
+
         # force LNG conversion in 2021 (modeled on similar constraint in lng_conversion.py)
         # This could have extra code to skip the constraint if there are no periods after 2021,
         # but it is unlikely ever to be run that way.
@@ -251,10 +251,10 @@ def define_components(m):
         #             min(per for per in m.PERIODS if per + m.period_length_years[per] > 2021)
         #         ] == 1
         #     )
-        
+
         # # Kahe 5, Kahe 6, Kalaeloa and CC_383 only burn LNG after 2021
         # # This is not used because it creates a weird situation where HECO runs less-efficient non-LNG
-        # # plants instead of more efficient LNG-capable plants on oil. 
+        # # plants instead of more efficient LNG-capable plants on oil.
         # # there may be a faster way to build this, but it's not clear what
         # m.PSIP_Force_LNG_Use = Constraint(m.GEN_TP_FUELS, rule=lambda m, g, tp, fuel:
         #     (m.GenFuelUseRate[g, tp, fuel] == 0)
@@ -267,11 +267,11 @@ def define_components(m):
 
         # don't allow construction of any advanced technologies (e.g., batteries, pumped hydro, fuel cells)
         advanced_tech_vars = [
-            "BuildBattery", 
+            "BuildBattery",
             "BuildPumpedHydroMW", "BuildAnyPumpedHydro",
             "BuildElectrolyzerMW", "BuildLiquifierKgPerHour", "BuildLiquidHydrogenTankKg",
             "BuildFuelCellMW",
-        ]    
+        ]
         def no_advanced_tech_rule_factory(v):
             return lambda m, *k: (getattr(m, v)[k] == 0)
         for v in advanced_tech_vars:

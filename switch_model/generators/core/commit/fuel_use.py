@@ -283,8 +283,8 @@ def _parse_inc_heat_rate_file(path, id_column):
         if u not in ihr_dat:
             # no heat rate segments specified; plant can only be off or on at full power
             # create a dummy curve at full heat rate
-            fuel_rate_segments[u] = [(0.0, fuel / output)]
             output, fuel = next(iter(fr_points.items()))
+            fuel_rate_segments[u] = [(0.0, fuel / output)]
             min_cap_factor[u] = 1.0
             full_load_hr[u] = fuel / output
             continue

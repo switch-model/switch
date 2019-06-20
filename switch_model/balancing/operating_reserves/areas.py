@@ -21,11 +21,11 @@ def define_components(mod):
     BALANCING_AREAS is the set of balancing areas in which operational
     reserves must be met. These are the unique names specified in the
     zone_balancing_area[z] parameter. This can be abbreviated as b for indexes.
-    
+
     ZONES_IN_BALANCING_AREA[b] is the set of load zones in a given balancing
     area.
-    
-    BALANCING_AREA_TIMEPOINTS is the cross product of BALANCING_AREAS and 
+
+    BALANCING_AREA_TIMEPOINTS is the cross product of BALANCING_AREAS and
     TIMEPOINTS.
 
     """
@@ -38,7 +38,7 @@ def define_components(mod):
         initialize=lambda m, b: (
             z for z in m.LOAD_ZONES if m.zone_balancing_area[z] == b))
     mod.BALANCING_AREA_TIMEPOINTS = Set(
-        initialize=mod.BALANCING_AREAS * mod.TIMEPOINTS)        
+        initialize=mod.BALANCING_AREAS * mod.TIMEPOINTS)
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -46,7 +46,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     Import balancing_area data. The following files are expected in the input
     directory:
 
-    load_zones.tab 
+    load_zones.tab
         LOAD_ZONE, ..., zone_balancing_area
 
     """

@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
-Upgrade input directories between versions. 
+Upgrade input directories between versions.
 See version-specific upgrade scripts for change details.
 
 The main entry point is the switch console tool. See:
@@ -17,7 +17,7 @@ API Synopsis:
         switch_model.upgrade.upgrade_inputs(inputs_dir)
 
     print switch_model.upgrade.get_input_version(inputs_dir)
-    
+
     switch_model.upgrade.scan_and_upgrade(examples_dir)
 
 """

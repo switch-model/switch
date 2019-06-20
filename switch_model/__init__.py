@@ -14,7 +14,7 @@ zone and period, or fuel_markets which specifies a tiered supply curve.
 Also, an additional module is required to constrain project dispatch -
 either operations.no_commit or operations.unitcommit.
 
-Most applications of Switch will also benefit from optional modules such as 
+Most applications of Switch will also benefit from optional modules such as
 transmission, local_td, reserves, etc.
 """
 from .version import __version__

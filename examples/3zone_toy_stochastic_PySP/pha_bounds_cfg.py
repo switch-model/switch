@@ -6,7 +6,7 @@
 
 def pysp_boundsetter_callback(self, scenario_tree, scenario):
     m = scenario._instance 	# see pyomo/pysp/scenariotree/tree_structure.py
- 
+
     # BuildLocalTD
     for lz, bld_yr in m.LOCAL_TD_BUILD_YEARS - m.EXISTING_LOCAL_TD_BLD_YRS:
         m.BuildLocalTD[lz, bld_yr].setub(2 * m.lz_peak_demand_mw[lz, bld_yr])
