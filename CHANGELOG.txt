@@ -1,4 +1,52 @@
 -------------------------------------------------------------------------------
+Switch 2.0.4
+-------------------------------------------------------------------------------
+
+This release introduces compatibility with Python 3. As of version 2.0.4, Switch
+can now be run with either Python 2.7 or Python 3 (likely to work with 2.7.10+;
+has been tested on 2.7.16 and 3.7.3).
+
+This release will prompt to upgrade your model inputs directory, but the only
+change it makes is to update switch_inputs_version.txt to 2.0.4.
+
+This release includes the following updates:
+
+- Code has been updated in many places to achieve Python 2/3
+  cross-compatibility. Future contributors should ensure that their code is
+  compatible with both Python 2 and 3 (e.g., use
+  switch_model.utilities.iteritems(dict) instead of dict.iteritems(), be
+  prepared for results from dict.keys(), dict.vars(), map(), range(), zip(),
+  etc., to be either generators or lists, and use `from __future__ import
+  division` whenever doing division).
+- Installation instructions in INSTALL have been updated. We now recommend that
+  users install dependencies using the conda command first, then install Switch
+  using pip. This follows practices recommended in
+  https://www.anaconda.com/using-pip-in-a-conda-environment/ and should minimize
+  problems caused by incompatibilities between conda and pip.
+- Output files (.csv, .tab, .tsv, and .txt) are now consistently written using
+  the local system's line endings (LF on Mac or Linux, CRLF on Windows).
+  Previously, most of these were written with only LF line endings on Windows.
+- A bug was fixed in switch_model.transmission.local_td that prevented the
+  carrying cost of Legacy local T&D capacity from being included in the
+  objective function. As a result, users of this module will find that Switch
+  now reports higher total costs than previously. However, this should not
+  affect any of the decisions that Switch makes.
+- To make switch_model.transmission.local_td module compatible with Python 3,
+  "Legacy" was removed from the list of build years for local T&D capacity
+  (Pyomo sorts index keys when solving the model, and Python 3 cannot sort lists
+  that mix strings and numbers). Legacy capacity is now read directly from the
+  existing_local_td[z] parameter when needed. This does not change the behavior
+  of Switch, but "Legacy" rows are no longer written to the BuildLocalTD.tab
+  output file. The LOCAL_TD_BLD_YRS set has also been removed. LOAD_ZONES *
+  PERIODS can be used instead.
+- A new indexed set, CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD[p] has been added.
+  This is useful for simple online capacity calculations for assets that cannot
+  be retired during the study (e.g., AssetCapacity[p] = sum(BuildCapacity[v] for
+  v in CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD[p]))
+- Code has been cleaned up a bit internally (e.g., removed trailing whitespace,
+  changed "SWITCH" or "SWITCH-Pyomo" to "Switch")
+
+-------------------------------------------------------------------------------
 Switch 2.0.3
 -------------------------------------------------------------------------------
 

@@ -15,22 +15,19 @@ from . import upgrade_2_0_0b1
 from . import upgrade_2_0_0b2
 from . import upgrade_2_0_0b4
 from . import upgrade_2_0_1
+from . import upgrade_2_0_4
 
 # Available upgrade code. This needs to be in consecutive order so
 # upgrade_inputs can incrementally apply the upgrades.
 upgrade_plugins = [
-    (upgrade_2_0_0b1,
-     upgrade_2_0_0b1.upgrades_from,
-     upgrade_2_0_0b1.upgrades_to),
-    (upgrade_2_0_0b2,
-     upgrade_2_0_0b2.upgrades_from,
-     upgrade_2_0_0b2.upgrades_to),
-    (upgrade_2_0_0b4,
-     upgrade_2_0_0b4.upgrades_from,
-     upgrade_2_0_0b4.upgrades_to),
-    (upgrade_2_0_1,
-     upgrade_2_0_1.upgrades_from,
-     upgrade_2_0_1.upgrades_to),
+    (mod, mod.upgrades_from, mod.upgrades_to)
+    for mod in [
+        upgrade_2_0_0b1,
+        upgrade_2_0_0b2,
+        upgrade_2_0_0b4,
+        upgrade_2_0_1,
+        upgrade_2_0_4
+    ]
 ]
 
 # Not every code revision requires an update; this is the last revision that did.
