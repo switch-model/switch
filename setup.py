@@ -20,7 +20,10 @@ version_path = os.path.join(os.path.dirname(__file__), 'switch_model', 'version.
 version = {}
 with open(version_path) as f:
     exec(f.read(), version)
-__version__ = version['__version__']
+# __version__ = version['__version__']
+
+# special numbering for this post-release, just used for distribution
+__version__ = '2.0.3.1'
 
 def read(*rnames):
     return open(os.path.join(os.path.dirname(__file__), *rnames)).read()
