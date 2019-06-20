@@ -14,11 +14,13 @@ components they define, and what input files they expect.
 
 TESTING
 To test the entire codebase, run this command from the root directory:
-	python run_tests.py
+
+python run_tests.py
 
 EXAMPLES
 To run an example, navigate to an example directory and run the command:
-	switch solve --verbose --log-run
+
+switch solve --verbose --log-run
 
 CONFIGURING YOUR OWN MODELS
 
