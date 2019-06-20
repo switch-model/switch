@@ -31,7 +31,7 @@ setup(
     maintainer='Switch Authors',
     maintainer_email='authors@switch-model.org',
     url='http://switch-model.org',
-    license='Apache v2',
+    license='Apache License 2.0',
     platforms=["any"],
     description='Switch Power System Planning Model',
     long_description=read('README'),
