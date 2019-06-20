@@ -31,10 +31,11 @@ setup(
     maintainer='Switch Authors',
     maintainer_email='authors@switch-model.org',
     url='http://switch-model.org',
-    license='Apache v2',
+    license='Apache License 2.0',
     platforms=["any"],
-    description='SWITCH Power System Planning Model',
+    description='Switch Power System Planning Model',
     long_description=read('README'),
+    long_description_content_type="text/markdown",
     classifiers=[
     'Development Status :: 5 - Production/Stable',
     'Environment :: Console',
@@ -60,6 +61,7 @@ setup(
     ],
     install_requires=[
         'Pyomo>=4.4.1', # We need a version that works with glpk 4.60+
+        'pint',         # needed by Pyomo when we run our tests, but not included
         'testfixtures', # used for standard tests
         'pandas',       # used for input upgrades and testing that functionality
     ],
