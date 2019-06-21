@@ -63,9 +63,9 @@ def post_solve(mod, outdir):
     # Import optional dependencies here instead of at the top of the file to
     # avoid breaking tests for installations that don't use this functionality
     import matplotlib.pyplot as plt
-    from numpy import nan
     from cycler import cycler
     from matplotlib.backends.backend_pdf import PdfPages
+    nan = float("nan")
 
     summaries_dir = os.path.join(outdir,"Summaries")
     if not os.path.exists(summaries_dir):
