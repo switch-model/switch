@@ -62,6 +62,7 @@ setup(
     ],
     install_requires=[
         'Pyomo>=4.4.1', # We need a version that works with glpk 4.60+
+        'pint',         # needed by Pyomo when we run our tests, but not included
         'testfixtures', # used for standard tests
         'pandas',       # used for input upgrades and testing that functionality
     ],
