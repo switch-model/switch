@@ -25,8 +25,8 @@ except ImportError:
     newPyomo = False
 
 def ph_rhosetter_callback(ph, scenario_tree, scenario):
-    # Derive coefficients from active objective
-    cost_expr = next(scenario_instance.component_data_objects(
+    # Derive coefficients from active objective    
+    cost_expr = next(scenario._instance.component_data_objects(
         Objective, active=True, descend_into=True
     ))
     set_rho_values(ph, scenario_tree, scenario, cost_expr)
@@ -47,11 +47,11 @@ def set_rho_values(ph, scenario_tree, scenario, cost_expr):
     symbol_map = scenario_instance._ScenarioTreeSymbolMap
 
     if newPyomo:
-        standard_repn = generate_standard_repn(CostExpression.expr)
+        standard_repn = generate_standard_repn(cost_expr.expr)
         if standard_repn.nonlinear_vars or standard_repn.quadratic_vars:
             raise ValueError("This code does not work with nonlinear models.")
     else:
-        standard_repn = generate_canonical_repn(CostExpression.expr)
+        standard_repn = generate_canonical_repn(cost_expr.expr)
         standard_repn.linear_vars = standard_repn.variables
         standard_repn.linear_coefs = standard_repn.linear
 
