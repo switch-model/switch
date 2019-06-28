@@ -22,10 +22,10 @@ TODO: Implement this in a more generalized way in order to support multistage
 optimizations.
 
 """
-from .rhosetter import set_rho_values
+from rhosetter import set_rho_values
 
 def ph_rhosetter_callback(ph, scenario_tree, scenario):
     # This component name must match the expression used for first stage
     # costs defined in the ReferenceModel.
-    cost_expr = scenario_instance.find_component("InvestmentCost")
+    cost_expr = scenario._instance.find_component("InvestmentCost")
     set_rho_values(ph, scenario_tree, scenario, cost_expr)

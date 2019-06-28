@@ -1,0 +1,6 @@
+Investment, RootNode, Scenario_HighFuelCosts, InvestmentCost, None, 88817984.79585345
+Investment, RootNode, Scenario_LowFuelCosts, InvestmentCost, None, 88817984.79585345
+Investment, RootNode, Scenario_MediumFuelCosts, InvestmentCost, None, 88817984.79585345
+Operation, HighFuelCosts, Scenario_HighFuelCosts, OperationCost, None, 61643438.60287769
+Operation, LowFuelCosts, Scenario_LowFuelCosts, OperationCost, None, 29198834.595621757
+Operation, MediumFuelCosts, Scenario_MediumFuelCosts, OperationCost, None, 48898450.08842314
