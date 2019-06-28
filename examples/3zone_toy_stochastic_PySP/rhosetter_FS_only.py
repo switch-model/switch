@@ -22,6 +22,7 @@ TODO: Implement this in a more generalized way in order to support multistage
 optimizations.
 
 """
+# The rhosetter module should be in the same directory as this file.
 from rhosetter import set_rho_values
 
 def ph_rhosetter_callback(ph, scenario_tree, scenario):
