@@ -279,7 +279,8 @@ def post_solve(instance, outdir):
         values=lambda m, g, bld_yr: (
             g, bld_yr, m.gen_load_zone[g],
             m.BuildGen[g, bld_yr], m.BuildStorageEnergy[g, bld_yr],
-            m.GenCapacity[g, bld_yr], m.StorageEnergyCapacity[g, bld_yr]
+            (m.GenCapacity[g, bld_yr] if bld_yr in m.PERIODS else m.BuildGen[g, bld_yr]),
+            (m.StorageEnergyCapacity[g, bld_yr] if bld_yr in m.PERIODS else m.BuildStorageEnergy[g, bld_yr])
             ))
     reporting.write_table(
         instance, instance.STORAGE_GEN_TPS,
