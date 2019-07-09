@@ -16,13 +16,6 @@ from pyomo.environ import *
 from switch_model.reporting import write_table
 import pandas as pd
 
-try:
-    from ggplot import *
-
-    can_plot = True
-except:
-    can_plot = False
-
 dependencies = (
     "switch_model.timescales",
     "switch_model.balancing.load_zones",
@@ -480,18 +473,37 @@ def post_solve(instance, outdir):
         ],
     )
 
-    if can_plot:
+    try:
+        import plotnine as p9
+
         annual_summary_plot = (
-            ggplot(
+            p9.ggplot(
                 annual_summary.reset_index(),
-                aes(
+                p9.aes(
+                    x="period",
+                    weight="Energy_GWh_typical_yr",
+                    fill="factor(gen_energy_source)",
+                ),
+            )
+            + p9.geom_bar(position="stack")
+            + p9.scale_y_continuous(name="Energy (GWh/yr)")
+            + p9.theme_bw()
+        )
+        save_as = os.path.join(outdir, "dispatch_annual_summary_fuel.pdf")
+        annual_summary_plot.save(filename=save_as)
+
+        annual_summary_plot = (
+            p9.ggplot(
+                annual_summary.reset_index(),
+                p9.aes(
                     x="period", weight="Energy_GWh_typical_yr", fill="factor(gen_tech)"
                 ),
             )
-            + geom_bar(position="stack")
-            + scale_y_continuous(name="Energy (GWh/yr)")
-            + theme_bw()
+            + p9.geom_bar(position="stack")
+            + p9.scale_y_continuous(name="Energy (GWh/yr)")
+            + p9.theme_bw()
         )
-        annual_summary_plot.save(
-            filename=os.path.join(outdir, "dispatch_annual_summary.pdf")
-        )
+        save_as = os.path.join(outdir, "dispatch_annual_summary_tech.pdf")
+        annual_summary_plot.save(filename=save_as)
+    except (ImportError, RuntimeError) as err:
+        pass
