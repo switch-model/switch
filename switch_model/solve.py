@@ -432,59 +432,77 @@ def define_arguments(argparser):
 
     # iteration options
     argparser.add_argument(
-        "--iterate-list", default=None,
-        help="Text file with a list of modules to iterate until converged (default is iterate.txt); "
-             "each row is one level of iteration, and there can be multiple modules on each row"
+        "--iterate-list", dest="iterate_list", default=None,
+        help="Text file with a list of modules to iterate until converged "
+             "(default is iterate.txt); each row is one level of iteration, "
+             "and there can be multiple modules on each row"
     )
     argparser.add_argument(
-        "--max-iter", type=int, default=None,
-        help="Maximum number of iterations to complete at each level for iterated models"
+        "--max-iter", dest="max_iter", type=int, default=None,
+        help="Maximum number of iterations to complete at each level for "
+             "iterated models"
     )
 
     # scenario information
     argparser.add_argument(
-        "--scenario-name", default="", help="Name of research scenario represented by this model"
+        "--scenario-name", dest="scenario_name", default="", 
+        help="Name of research scenario represented by this model"
     )
 
     # note: pyomo has a --solver-suffix option but it is not clear
     # whether that does the same thing as --suffix defined here,
     # so we don't reuse the same name.
-    argparser.add_argument("--suffixes", "--suffix", nargs="+", action='extend', default=[],
-        help="Extra suffixes to add to the model and exchange with the solver (e.g., iis, rc, dual, or slack)")
+    argparser.add_argument(
+        "--suffixes", "--suffix", dest="suffixes", nargs="+", action='extend', 
+        default=[],
+        help="Extra suffixes to add to the model and exchange with the solver "
+             "(e.g., iis, rc, dual, or slack)")
 
     # Define solver-related arguments
     # These are a subset of the arguments offered by "pyomo solve --solver=cplex --help"
-    argparser.add_argument("--solver", default="glpk",
+    argparser.add_argument(
+        "--solver", default="glpk",
         help='Name of Pyomo solver to use for the model (default is "glpk")')
-    argparser.add_argument("--solver-manager", default="serial",
-        help='Name of Pyomo solver manager to use for the model ("neos" to use remote NEOS server)')
-    argparser.add_argument("--solver-io", default=None, help="Method for Pyomo to use to communicate with solver")
+    argparser.add_argument(
+        "--solver-manager", dest="solver_manager", default="serial",
+        help='Name of Pyomo solver manager to use for the model '
+             '("neos" to use remote NEOS server)')
+    argparser.add_argument(
+        "--solver-io", dest="solver_io", default=None, 
+        help="Method for Pyomo to use to communicate with solver")
     # note: pyomo has a --solver-options option but it is not clear
     # whether that does the same thing as --solver-options-string so we don't reuse the same name.
-    argparser.add_argument("--solver-options-string", default=None,
-        help='A quoted string of options to pass to the model solver. Each option must be of the form option=value. '
+    argparser.add_argument(
+        "--solver-options-string", dest="solver_options_string", default=None,
+        help='A quoted string of options to pass to the model solver. '
+             'Each option must be of the form option=value. '
             '(e.g., --solver-options-string "mipgap=0.001 primalopt=\'\' advance=2 threads=1")')
-    argparser.add_argument("--keepfiles", action='store_true', default=None,
-        help="Keep temporary files produced by the solver (may be useful with --symbolic-solver-labels)")
+    argparser.add_argument(
+        "--keepfiles", action='store_true', default=None,
+        help="Keep temporary files produced by the solver "
+             "(may be useful with --symbolic-solver-labels)")
     argparser.add_argument(
         "--stream-output", "--stream-solver", action='store_true', dest="tee", default=None,
-        help="Display information from the solver about its progress (usually combined with a suitable --solver-options-string)")
+        help="Display information from the solver about its progress "
+             "(usually combined with a suitable --solver-options-string)")
     argparser.add_argument(
         "--no-stream-output", "--no-stream-solver", action='store_false', dest="tee", default=None,
         help="Don't display information from the solver about its progress")
     argparser.add_argument(
-        "--symbolic-solver-labels", action='store_true', default=None,
+        "--symbolic-solver-labels", action='store_true', dest='symbolic_solver_labels', 
+        default=None, 
         help='Use symbol names derived from the model when interfacing with the solver. '
             'See "pyomo solve --solver=x --help" for more details.')
-    argparser.add_argument("--tempdir", default=None,
-        help='The name of a directory to hold temporary files produced by the solver. '
-             'This is usually paired with --keepfiles and --symbolic-solver-labels.')
     argparser.add_argument(
-        '--retrieve-cplex-mip-duals', default=False, action='store_true',
-        help=(
-            "Patch Pyomo's solver script for cplex to re-solve and retrieve "
-            "dual values for mixed-integer programs."
-        )
+        "--tempdir", default=None,
+        help='The name of a directory to hold temporary files produced by the '
+             'solver. This is usually paired with --keepfiles and '
+             '--symbolic-solver-labels.')
+    argparser.add_argument(
+        '--retrieve-cplex-mip-duals', dest="retrieve_cplex_mip_duals",
+        default=False, action='store_true',
+        help="Patch Pyomo's solver script for cplex to re-solve and retrieve "
+             "dual values for mixed-integer programs."
     )
 
     # NOTE: the following could potentially be made into standard arguments for all models,
@@ -497,8 +515,9 @@ def define_arguments(argparser):
     #     help='Directory containing input files (default is "inputs")')
     argparser.add_argument(
         "--input-alias", "--input-aliases", dest="input_aliases", nargs='+', default=[],
-        help='List of input file substitutions, in form of standard_file.csv=alternative_file.csv, '
-        'useful for sensitivity studies with different inputs.')
+        help='List of input file substitutions, in form of '
+             'standard_file.csv=alternative_file.csv, useful for sensitivity '
+             'studies with different inputs.')
     argparser.add_argument("--outputs-dir", default="outputs",
         help='Directory to write output files (default is "outputs")')
 
@@ -517,19 +536,24 @@ def define_arguments(argparser):
         help='Show debugging-level information about model preparation and solution')
     argparser.add_argument(
         '--quiet', '-q', dest='verbose', action='store_false',
-        help="Don't show information about model preparation and solution (cancels --verbose setting)")
+        help="Don't show information about model preparation and solution "
+             "(cancels --verbose setting)")
     argparser.add_argument(
         '--no-post-solve', default=False, action='store_true',
-        help="Don't run post-solve code on the completed model (i.e., reporting functions).")
+        help="Don't run post-solve code on the completed model "
+             "(i.e., reporting functions).")
     argparser.add_argument(
         '--reload-prior-solution', default=False, action='store_true',
-        help='Load a previously saved solution; useful for re-running post-solve code or interactively exploring the model (via --interact).')
+        help='Load a previously saved solution; useful for re-running '
+             'post-solve code or interactively exploring the model '
+             '(via --interact).')
     argparser.add_argument(
         '--no-save-solution', default=False, action='store_true',
         help="Don't save solution after model is solved.")
     argparser.add_argument(
         '--interact', default=False, action='store_true',
-        help='Enter interactive shell after solving the instance to enable inspection of the solved model.')
+        help='Enter interactive shell after solving the instance to enable '
+             'inspection of the solved model.')
 
 
 def add_module_args(parser):
@@ -545,7 +569,8 @@ def add_module_args(parser):
     parser.add_argument(
         "--exclude-modules", "--exclude-module", dest="include_exclude_modules", nargs='+',
         action='exclude', default=[],
-        help="Module(s) to remove from the model after processing --module-list file and prior --include-modules arguments"
+        help="Module(s) to remove from the model after processing "
+             "--module-list file and prior --include-modules arguments"
     )
     # note: we define --inputs-dir here because it may be used to specify the location of
     # the module list, which is needed before it is loaded.
@@ -557,12 +582,15 @@ def add_pre_module_args(parser):
     """
     Add arguments needed before any modules are loaded.
     """
-    parser.add_argument("--log-run", dest="log_run_to_file", default=False, action="store_true",
-                        help="Log output to a file.")
-    parser.add_argument("--logs-dir", dest="logs_dir", default="logs",
-                        help='Directory containing log files (default is "logs"')
-    parser.add_argument("--debug", action="store_true", default=False,
-                        help='Automatically start pdb debugger on exceptions')
+    parser.add_argument(
+        "--log-run", dest="log_run_to_file", default=False, action="store_true",
+        help="Log output to a file.")
+    parser.add_argument(
+        "--logs-dir", dest="logs_dir", default="logs",
+        help='Directory containing log files (default is "logs"')
+    parser.add_argument(
+        "--debug", action="store_true", default=False,
+        help='Automatically start pdb debugger on exceptions')
 
 
 def parse_pre_module_options(args):
@@ -754,7 +782,11 @@ def solve(model):
         else:
             print("Model was infeasible; if the solver can generate an irreducibly inconsistent set (IIS),")
             print("more information may be available by setting the appropriate flags in the ")
-            print('solver_options_string and calling this script with "--suffixes iis".')
+            print('--solver-options-string and calling this script with "--suffixes iis".')
+        # This infeasibility logging module could be nice, but it doesn't work 
+        # for my solvers and produces extraneous messages.
+        # import pyomo.util.infeasible
+        # pyomo.util.infeasible.log_infeasible_constraints(model)
         raise RuntimeError("Infeasible model")
 
     # Raise an error if the solver failed to produce a solution
