@@ -10,8 +10,13 @@ from pyomo.environ import *
 from switch_model.financials import capital_recovery_factor as crf
 from switch_model.reporting import write_table
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
-    'switch_model.financials', 'switch_model.energy_sources.properties.properties'
+dependencies = (
+    "switch_model.timescales",
+    "switch_model.balancing.load_zones",
+    "switch_model.financials",
+    "switch_model.energy_sources.properties.properties",
+)
+
 
 def define_components(mod):
     """
@@ -187,30 +192,43 @@ def define_components(mod):
     mod.GENERATION_PROJECTS = Set()
     mod.gen_dbid = Param(mod.GENERATION_PROJECTS, default=lambda m, g: g)
     mod.gen_tech = Param(mod.GENERATION_PROJECTS)
-    mod.GENERATION_TECHNOLOGIES = Set(initialize=lambda m:
-        {m.gen_tech[g] for g in m.GENERATION_PROJECTS}
+    mod.GENERATION_TECHNOLOGIES = Set(
+        initialize=lambda m: {m.gen_tech[g] for g in m.GENERATION_PROJECTS}
     )
-    mod.gen_energy_source = Param(mod.GENERATION_PROJECTS,
-        validate=lambda m,val,g: val in m.ENERGY_SOURCES or val == "multiple")
+    mod.gen_energy_source = Param(
+        mod.GENERATION_PROJECTS,
+        validate=lambda m, val, g: val in m.ENERGY_SOURCES or val == "multiple",
+    )
     mod.gen_load_zone = Param(mod.GENERATION_PROJECTS, within=mod.LOAD_ZONES)
     mod.gen_max_age = Param(mod.GENERATION_PROJECTS, within=PositiveIntegers)
     mod.gen_is_variable = Param(mod.GENERATION_PROJECTS, within=Boolean)
     mod.gen_is_baseload = Param(mod.GENERATION_PROJECTS, within=Boolean, default=False)
     mod.gen_is_cogen = Param(mod.GENERATION_PROJECTS, within=Boolean, default=False)
-    mod.gen_is_distributed = Param(mod.GENERATION_PROJECTS, within=Boolean, default=False)
-    mod.gen_scheduled_outage_rate = Param(mod.GENERATION_PROJECTS,
-        within=PercentFraction, default=0)
-    mod.gen_forced_outage_rate = Param(mod.GENERATION_PROJECTS,
-        within=PercentFraction, default=0)
-    mod.min_data_check('GENERATION_PROJECTS', 'gen_tech', 'gen_energy_source',
-        'gen_load_zone', 'gen_max_age', 'gen_is_variable')
+    mod.gen_is_distributed = Param(
+        mod.GENERATION_PROJECTS, within=Boolean, default=False
+    )
+    mod.gen_scheduled_outage_rate = Param(
+        mod.GENERATION_PROJECTS, within=PercentFraction, default=0
+    )
+    mod.gen_forced_outage_rate = Param(
+        mod.GENERATION_PROJECTS, within=PercentFraction, default=0
+    )
+    mod.min_data_check(
+        "GENERATION_PROJECTS",
+        "gen_tech",
+        "gen_energy_source",
+        "gen_load_zone",
+        "gen_max_age",
+        "gen_is_variable",
+    )
 
     """Construct GENS_* indexed sets efficiently with a
     'construction dictionary' pattern: on the first call, make a single
     traversal through all generation projects to generate a complete index,
     use that for subsequent lookups, and clean up at the last call."""
+
     def GENS_IN_ZONE_init(m, z):
-        if not hasattr(m, 'GENS_IN_ZONE_dict'):
+        if not hasattr(m, "GENS_IN_ZONE_dict"):
             m.GENS_IN_ZONE_dict = {_z: [] for _z in m.LOAD_ZONES}
             for g in m.GENERATION_PROJECTS:
                 m.GENS_IN_ZONE_dict[m.gen_load_zone[g]].append(g)
@@ -218,22 +236,21 @@ def define_components(mod):
         if not m.GENS_IN_ZONE_dict:
             del m.GENS_IN_ZONE_dict
         return result
-    mod.GENS_IN_ZONE = Set(
-        mod.LOAD_ZONES,
-        initialize=GENS_IN_ZONE_init
-    )
+
+    mod.GENS_IN_ZONE = Set(mod.LOAD_ZONES, initialize=GENS_IN_ZONE_init)
     mod.VARIABLE_GENS = Set(
-        initialize=mod.GENERATION_PROJECTS,
-        filter=lambda m, g: m.gen_is_variable[g])
+        initialize=mod.GENERATION_PROJECTS, filter=lambda m, g: m.gen_is_variable[g]
+    )
     mod.VARIABLE_GENS_IN_ZONE = Set(
         mod.LOAD_ZONES,
-        initialize=lambda m, z: [g for g in m.GENS_IN_ZONE[z] if m.gen_is_variable[g]])
+        initialize=lambda m, z: [g for g in m.GENS_IN_ZONE[z] if m.gen_is_variable[g]],
+    )
     mod.BASELOAD_GENS = Set(
-        initialize=mod.GENERATION_PROJECTS,
-        filter=lambda m, g: m.gen_is_baseload[g])
+        initialize=mod.GENERATION_PROJECTS, filter=lambda m, g: m.gen_is_baseload[g]
+    )
 
     def GENS_BY_TECHNOLOGY_init(m, t):
-        if not hasattr(m, 'GENS_BY_TECH_dict'):
+        if not hasattr(m, "GENS_BY_TECH_dict"):
             m.GENS_BY_TECH_dict = {_t: [] for _t in m.GENERATION_TECHNOLOGIES}
             for g in m.GENERATION_PROJECTS:
                 m.GENS_BY_TECH_dict[m.gen_tech[g]].append(g)
@@ -241,50 +258,53 @@ def define_components(mod):
         if not m.GENS_BY_TECH_dict:
             del m.GENS_BY_TECH_dict
         return result
+
     mod.GENS_BY_TECHNOLOGY = Set(
-        mod.GENERATION_TECHNOLOGIES,
-        initialize=GENS_BY_TECHNOLOGY_init
+        mod.GENERATION_TECHNOLOGIES, initialize=GENS_BY_TECHNOLOGY_init
     )
 
     mod.CAPACITY_LIMITED_GENS = Set(within=mod.GENERATION_PROJECTS)
     mod.gen_capacity_limit_mw = Param(
-        mod.CAPACITY_LIMITED_GENS, within=NonNegativeReals)
+        mod.CAPACITY_LIMITED_GENS, within=NonNegativeReals
+    )
     mod.DISCRETELY_SIZED_GENS = Set(within=mod.GENERATION_PROJECTS)
-    mod.gen_unit_size = Param(
-        mod.DISCRETELY_SIZED_GENS, within=PositiveReals)
+    mod.gen_unit_size = Param(mod.DISCRETELY_SIZED_GENS, within=PositiveReals)
     mod.CCS_EQUIPPED_GENS = Set(within=mod.GENERATION_PROJECTS)
     mod.gen_ccs_capture_efficiency = Param(
-        mod.CCS_EQUIPPED_GENS, within=PercentFraction)
-    mod.gen_ccs_energy_load = Param(
-        mod.CCS_EQUIPPED_GENS, within=PercentFraction)
+        mod.CCS_EQUIPPED_GENS, within=PercentFraction
+    )
+    mod.gen_ccs_energy_load = Param(mod.CCS_EQUIPPED_GENS, within=PercentFraction)
 
     mod.gen_uses_fuel = Param(
         mod.GENERATION_PROJECTS,
         initialize=lambda m, g: (
-            m.gen_energy_source[g] in m.FUELS
-                or m.gen_energy_source[g] == "multiple"))
+            m.gen_energy_source[g] in m.FUELS or m.gen_energy_source[g] == "multiple"
+        ),
+    )
     mod.NON_FUEL_BASED_GENS = Set(
-        initialize=mod.GENERATION_PROJECTS,
-        filter=lambda m, g: not m.gen_uses_fuel[g])
+        initialize=mod.GENERATION_PROJECTS, filter=lambda m, g: not m.gen_uses_fuel[g]
+    )
     mod.FUEL_BASED_GENS = Set(
-        initialize=mod.GENERATION_PROJECTS,
-        filter=lambda m, g: m.gen_uses_fuel[g])
+        initialize=mod.GENERATION_PROJECTS, filter=lambda m, g: m.gen_uses_fuel[g]
+    )
 
-    mod.gen_full_load_heat_rate = Param(
-        mod.FUEL_BASED_GENS,
-        within=NonNegativeReals)
+    mod.gen_full_load_heat_rate = Param(mod.FUEL_BASED_GENS, within=NonNegativeReals)
     mod.MULTIFUEL_GENS = Set(
         initialize=mod.GENERATION_PROJECTS,
-        filter=lambda m, g: m.gen_energy_source[g] == "multiple")
+        filter=lambda m, g: m.gen_energy_source[g] == "multiple",
+    )
     mod.FUELS_FOR_MULTIFUEL_GEN = Set(mod.MULTIFUEL_GENS, within=mod.FUELS)
-    mod.FUELS_FOR_GEN = Set(mod.FUEL_BASED_GENS,
+    mod.FUELS_FOR_GEN = Set(
+        mod.FUEL_BASED_GENS,
         initialize=lambda m, g: (
             m.FUELS_FOR_MULTIFUEL_GEN[g]
             if g in m.MULTIFUEL_GENS
-            else [m.gen_energy_source[g]]))
+            else [m.gen_energy_source[g]]
+        ),
+    )
 
     def GENS_BY_ENERGY_SOURCE_init(m, e):
-        if not hasattr(m, 'GENS_BY_ENERGY_dict'):
+        if not hasattr(m, "GENS_BY_ENERGY_dict"):
             m.GENS_BY_ENERGY_dict = {_e: [] for _e in m.ENERGY_SOURCES}
             for g in m.GENERATION_PROJECTS:
                 if g in m.FUEL_BASED_GENS:
@@ -296,34 +316,32 @@ def define_components(mod):
         if not m.GENS_BY_ENERGY_dict:
             del m.GENS_BY_ENERGY_dict
         return result
+
     mod.GENS_BY_ENERGY_SOURCE = Set(
-        mod.ENERGY_SOURCES,
-        initialize=GENS_BY_ENERGY_SOURCE_init
+        mod.ENERGY_SOURCES, initialize=GENS_BY_ENERGY_SOURCE_init
     )
     mod.GENS_BY_NON_FUEL_ENERGY_SOURCE = Set(
-        mod.NON_FUEL_ENERGY_SOURCES,
-        initialize=lambda m, s: m.GENS_BY_ENERGY_SOURCE[s]
+        mod.NON_FUEL_ENERGY_SOURCES, initialize=lambda m, s: m.GENS_BY_ENERGY_SOURCE[s]
     )
     mod.GENS_BY_FUEL = Set(
-        mod.FUELS,
-        initialize=lambda m, f: m.GENS_BY_ENERGY_SOURCE[f]
+        mod.FUELS, initialize=lambda m, f: m.GENS_BY_ENERGY_SOURCE[f]
     )
 
-    mod.PREDETERMINED_GEN_BLD_YRS = Set(
-        dimen=2)
+    mod.PREDETERMINED_GEN_BLD_YRS = Set(dimen=2)
     mod.GEN_BLD_YRS = Set(
         dimen=2,
         validate=lambda m, g, bld_yr: (
-            (g, bld_yr) in m.PREDETERMINED_GEN_BLD_YRS or
-            (g, bld_yr) in m.GENERATION_PROJECTS * m.PERIODS))
+            (g, bld_yr) in m.PREDETERMINED_GEN_BLD_YRS
+            or (g, bld_yr) in m.GENERATION_PROJECTS * m.PERIODS
+        ),
+    )
     mod.NEW_GEN_BLD_YRS = Set(
-        dimen=2,
-        initialize=lambda m: m.GEN_BLD_YRS - m.PREDETERMINED_GEN_BLD_YRS)
+        dimen=2, initialize=lambda m: m.GEN_BLD_YRS - m.PREDETERMINED_GEN_BLD_YRS
+    )
     mod.gen_predetermined_cap = Param(
-        mod.PREDETERMINED_GEN_BLD_YRS,
-        within=NonNegativeReals)
-    mod.min_data_check('gen_predetermined_cap')
-
+        mod.PREDETERMINED_GEN_BLD_YRS, within=NonNegativeReals
+    )
+    mod.min_data_check("gen_predetermined_cap")
 
     def gen_build_can_operate_in_period(m, g, build_year, period):
         if build_year in m.PERIODS:
@@ -331,9 +349,7 @@ def define_components(mod):
         else:
             online = build_year
         retirement = online + m.gen_max_age[g]
-        return (
-            online <= m.period_start[period] < retirement
-        )
+        return online <= m.period_start[period] < retirement
         # This is probably more correct, but is a different behavior
         # mid_period = m.period_start[period] + 0.5 * m.period_length_years[period]
         # return online <= m.period_start[period] and mid_period <= retirement
@@ -344,36 +360,44 @@ def define_components(mod):
         within=mod.PERIODS,
         ordered=True,
         initialize=lambda m, g, bld_yr: set(
-            period for period in m.PERIODS
-            if gen_build_can_operate_in_period(m, g, bld_yr, period)))
+            period
+            for period in m.PERIODS
+            if gen_build_can_operate_in_period(m, g, bld_yr, period)
+        ),
+    )
     # The set of build years that could be online in the given period
     # for the given project.
     mod.BLD_YRS_FOR_GEN_PERIOD = Set(
-        mod.GENERATION_PROJECTS, mod.PERIODS,
+        mod.GENERATION_PROJECTS,
+        mod.PERIODS,
         initialize=lambda m, g, period: set(
-            bld_yr for (gen, bld_yr) in m.GEN_BLD_YRS
-            if gen == g and
-               gen_build_can_operate_in_period(m, g, bld_yr, period)))
+            bld_yr
+            for (gen, bld_yr) in m.GEN_BLD_YRS
+            if gen == g and gen_build_can_operate_in_period(m, g, bld_yr, period)
+        ),
+    )
     # The set of periods when a generator is available to run
     mod.PERIODS_FOR_GEN = Set(
         mod.GENERATION_PROJECTS,
-        initialize=lambda m, g: [p for p in m.PERIODS if len(m.BLD_YRS_FOR_GEN_PERIOD[g, p]) > 0]
+        initialize=lambda m, g: [
+            p for p in m.PERIODS if len(m.BLD_YRS_FOR_GEN_PERIOD[g, p]) > 0
+        ],
     )
 
     def bounds_BuildGen(model, g, bld_yr):
-        if((g, bld_yr) in model.PREDETERMINED_GEN_BLD_YRS):
-            return (model.gen_predetermined_cap[g, bld_yr],
-                    model.gen_predetermined_cap[g, bld_yr])
-        elif(g in model.CAPACITY_LIMITED_GENS):
+        if (g, bld_yr) in model.PREDETERMINED_GEN_BLD_YRS:
+            return (
+                model.gen_predetermined_cap[g, bld_yr],
+                model.gen_predetermined_cap[g, bld_yr],
+            )
+        elif g in model.CAPACITY_LIMITED_GENS:
             # This does not replace Max_Build_Potential because
             # Max_Build_Potential applies across all build years.
             return (0, model.gen_capacity_limit_mw[g])
         else:
             return (0, None)
-    mod.BuildGen = Var(
-        mod.GEN_BLD_YRS,
-        within=NonNegativeReals,
-        bounds=bounds_BuildGen)
+
+    mod.BuildGen = Var(mod.GEN_BLD_YRS, within=NonNegativeReals, bounds=bounds_BuildGen)
     # Some projects are retired before the first study period, so they
     # don't appear in the objective function or any constraints.
     # In this case, pyomo may leave the variable value undefined even
@@ -384,9 +408,10 @@ def define_components(mod):
     # projects here.
     def BuildGen_assign_default_value(m, g, bld_yr):
         m.BuildGen[g, bld_yr] = m.gen_predetermined_cap[g, bld_yr]
+
     mod.BuildGen_assign_default_value = BuildAction(
-        mod.PREDETERMINED_GEN_BLD_YRS,
-        rule=BuildGen_assign_default_value)
+        mod.PREDETERMINED_GEN_BLD_YRS, rule=BuildGen_assign_default_value
+    )
 
     # note: in pull request 78, commit e7f870d..., GEN_PERIODS
     # was mistakenly redefined as GENERATION_PROJECTS * PERIODS.
@@ -399,36 +424,41 @@ def define_components(mod):
     # and 'C-Coal_ST' in m.GENS_IN_PERIOD[2020] and 'C-Coal_ST' not in m.GENS_IN_PERIOD[2030]
     mod.GEN_PERIODS = Set(
         dimen=2,
-        initialize=lambda m:
-            [(g, p) for g in m.GENERATION_PROJECTS for p in m.PERIODS_FOR_GEN[g]])
+        initialize=lambda m: [
+            (g, p) for g in m.GENERATION_PROJECTS for p in m.PERIODS_FOR_GEN[g]
+        ],
+    )
 
     mod.GenCapacity = Expression(
-        mod.GENERATION_PROJECTS, mod.PERIODS,
+        mod.GENERATION_PROJECTS,
+        mod.PERIODS,
         rule=lambda m, g, period: sum(
-            m.BuildGen[g, bld_yr]
-            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, period]))
+            m.BuildGen[g, bld_yr] for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, period]
+        ),
+    )
 
     mod.Max_Build_Potential = Constraint(
-        mod.CAPACITY_LIMITED_GENS, mod.PERIODS,
-        rule=lambda m, g, p: (
-            m.gen_capacity_limit_mw[g] >= m.GenCapacity[g, p]))
+        mod.CAPACITY_LIMITED_GENS,
+        mod.PERIODS,
+        rule=lambda m, g, p: (m.gen_capacity_limit_mw[g] >= m.GenCapacity[g, p]),
+    )
 
     # The following components enforce minimum capacity build-outs.
     # Note that this adds binary variables to the model.
-    mod.gen_min_build_capacity = Param (mod.GENERATION_PROJECTS,
-        within=NonNegativeReals, default=0)
+    mod.gen_min_build_capacity = Param(
+        mod.GENERATION_PROJECTS, within=NonNegativeReals, default=0
+    )
     mod.NEW_GEN_WITH_MIN_BUILD_YEARS = Set(
         initialize=mod.NEW_GEN_BLD_YRS,
-        filter=lambda m, g, p: (
-            m.gen_min_build_capacity[g] > 0))
-    mod.BuildMinGenCap = Var(
-        mod.NEW_GEN_WITH_MIN_BUILD_YEARS,
-        within=Binary)
+        filter=lambda m, g, p: (m.gen_min_build_capacity[g] > 0),
+    )
+    mod.BuildMinGenCap = Var(mod.NEW_GEN_WITH_MIN_BUILD_YEARS, within=Binary)
     mod.Enforce_Min_Build_Lower = Constraint(
         mod.NEW_GEN_WITH_MIN_BUILD_YEARS,
         rule=lambda m, g, p: (
-            m.BuildMinGenCap[g, p] * m.gen_min_build_capacity[g]
-            <= m.BuildGen[g, p]))
+            m.BuildMinGenCap[g, p] * m.gen_min_build_capacity[g] <= m.BuildGen[g, p]
+        ),
+    )
 
     # Define a constant for enforcing binary constraints on project capacity
     # The value of 100 GW should be larger than any expected build size. For
@@ -440,40 +470,47 @@ def define_components(mod):
     mod.Enforce_Min_Build_Upper = Constraint(
         mod.NEW_GEN_WITH_MIN_BUILD_YEARS,
         rule=lambda m, g, p: (
-            m.BuildGen[g, p] <= m.BuildMinGenCap[g, p] *
-                mod._gen_max_cap_for_binary_constraints))
+            m.BuildGen[g, p]
+            <= m.BuildMinGenCap[g, p] * mod._gen_max_cap_for_binary_constraints
+        ),
+    )
 
     # Costs
-    mod.gen_variable_om = Param (mod.GENERATION_PROJECTS, within=NonNegativeReals)
-    mod.gen_connect_cost_per_mw = Param(mod.GENERATION_PROJECTS, within=NonNegativeReals)
-    mod.min_data_check('gen_variable_om', 'gen_connect_cost_per_mw')
+    mod.gen_variable_om = Param(mod.GENERATION_PROJECTS, within=NonNegativeReals)
+    mod.gen_connect_cost_per_mw = Param(
+        mod.GENERATION_PROJECTS, within=NonNegativeReals
+    )
+    mod.min_data_check("gen_variable_om", "gen_connect_cost_per_mw")
 
-    mod.gen_overnight_cost = Param(
-        mod.GEN_BLD_YRS,
-        within=NonNegativeReals)
-    mod.gen_fixed_om = Param(
-        mod.GEN_BLD_YRS,
-        within=NonNegativeReals)
-    mod.min_data_check('gen_overnight_cost', 'gen_fixed_om')
+    mod.gen_overnight_cost = Param(mod.GEN_BLD_YRS, within=NonNegativeReals)
+    mod.gen_fixed_om = Param(mod.GEN_BLD_YRS, within=NonNegativeReals)
+    mod.min_data_check("gen_overnight_cost", "gen_fixed_om")
 
     # Derived annual costs
     mod.gen_capital_cost_annual = Param(
         mod.GEN_BLD_YRS,
         initialize=lambda m, g, bld_yr: (
-            (m.gen_overnight_cost[g, bld_yr] +
-                m.gen_connect_cost_per_mw[g]) *
-            crf(m.interest_rate, m.gen_max_age[g])))
+            (m.gen_overnight_cost[g, bld_yr] + m.gen_connect_cost_per_mw[g])
+            * crf(m.interest_rate, m.gen_max_age[g])
+        ),
+    )
 
     mod.GenCapitalCosts = Expression(
-        mod.GENERATION_PROJECTS, mod.PERIODS,
+        mod.GENERATION_PROJECTS,
+        mod.PERIODS,
         rule=lambda m, g, p: sum(
             m.BuildGen[g, bld_yr] * m.gen_capital_cost_annual[g, bld_yr]
-            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]))
+            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]
+        ),
+    )
     mod.GenFixedOMCosts = Expression(
-        mod.GENERATION_PROJECTS, mod.PERIODS,
+        mod.GENERATION_PROJECTS,
+        mod.PERIODS,
         rule=lambda m, g, p: sum(
             m.BuildGen[g, bld_yr] * m.gen_fixed_om[g, bld_yr]
-            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]))
+            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]
+        ),
+    )
     # Summarize costs for the objective function. Units should be total
     # annual future costs in $base_year real dollars. The objective
     # function will convert these to base_year Net Present Value in
@@ -482,8 +519,10 @@ def define_components(mod):
         mod.PERIODS,
         rule=lambda m, p: sum(
             m.GenCapitalCosts[g, p] + m.GenFixedOMCosts[g, p]
-            for g in m.GENERATION_PROJECTS))
-    mod.Cost_Components_Per_Period.append('TotalGenFixedCosts')
+            for g in m.GENERATION_PROJECTS
+        ),
+    )
+    mod.Cost_Components_Per_Period.append("TotalGenFixedCosts")
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -520,47 +559,74 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     """
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'generation_projects_info.csv'),
+        filename=os.path.join(inputs_dir, "generation_projects_info.csv"),
         auto_select=True,
-        optional_params=['gen_dbid', 'gen_is_baseload', 'gen_scheduled_outage_rate',
-        'gen_forced_outage_rate', 'gen_capacity_limit_mw', 'gen_unit_size',
-        'gen_ccs_energy_load', 'gen_ccs_capture_efficiency',
-        'gen_min_build_capacity', 'gen_is_cogen', 'gen_is_distributed'],
+        optional_params=[
+            "gen_dbid",
+            "gen_is_baseload",
+            "gen_scheduled_outage_rate",
+            "gen_forced_outage_rate",
+            "gen_capacity_limit_mw",
+            "gen_unit_size",
+            "gen_ccs_energy_load",
+            "gen_ccs_capture_efficiency",
+            "gen_min_build_capacity",
+            "gen_is_cogen",
+            "gen_is_distributed",
+        ],
         index=mod.GENERATION_PROJECTS,
-        param=(mod.gen_dbid, mod.gen_tech, mod.gen_energy_source,
-               mod.gen_load_zone, mod.gen_max_age, mod.gen_is_variable,
-               mod.gen_is_baseload, mod.gen_scheduled_outage_rate,
-               mod.gen_forced_outage_rate, mod.gen_capacity_limit_mw,
-               mod.gen_unit_size, mod.gen_ccs_energy_load,
-               mod.gen_ccs_capture_efficiency, mod.gen_full_load_heat_rate,
-               mod.gen_variable_om, mod.gen_min_build_capacity,
-               mod.gen_connect_cost_per_mw, mod.gen_is_cogen,
-               mod.gen_is_distributed))
+        param=(
+            mod.gen_dbid,
+            mod.gen_tech,
+            mod.gen_energy_source,
+            mod.gen_load_zone,
+            mod.gen_max_age,
+            mod.gen_is_variable,
+            mod.gen_is_baseload,
+            mod.gen_scheduled_outage_rate,
+            mod.gen_forced_outage_rate,
+            mod.gen_capacity_limit_mw,
+            mod.gen_unit_size,
+            mod.gen_ccs_energy_load,
+            mod.gen_ccs_capture_efficiency,
+            mod.gen_full_load_heat_rate,
+            mod.gen_variable_om,
+            mod.gen_min_build_capacity,
+            mod.gen_connect_cost_per_mw,
+            mod.gen_is_cogen,
+            mod.gen_is_distributed,
+        ),
+    )
     # Construct sets of capacity-limited, ccs-capable and unit-size-specified
     # projects. These sets include projects for which these parameters have
     # a value
-    if 'gen_capacity_limit_mw' in switch_data.data():
-        switch_data.data()['CAPACITY_LIMITED_GENS'] = {
-            None: list(switch_data.data(name='gen_capacity_limit_mw').keys())}
-    if 'gen_unit_size' in switch_data.data():
-        switch_data.data()['DISCRETELY_SIZED_GENS'] = {
-            None: list(switch_data.data(name='gen_unit_size').keys())}
-    if 'gen_ccs_capture_efficiency' in switch_data.data():
-        switch_data.data()['CCS_EQUIPPED_GENS'] = {
-            None: list(switch_data.data(name='gen_ccs_capture_efficiency').keys())}
+    if "gen_capacity_limit_mw" in switch_data.data():
+        switch_data.data()["CAPACITY_LIMITED_GENS"] = {
+            None: list(switch_data.data(name="gen_capacity_limit_mw").keys())
+        }
+    if "gen_unit_size" in switch_data.data():
+        switch_data.data()["DISCRETELY_SIZED_GENS"] = {
+            None: list(switch_data.data(name="gen_unit_size").keys())
+        }
+    if "gen_ccs_capture_efficiency" in switch_data.data():
+        switch_data.data()["CCS_EQUIPPED_GENS"] = {
+            None: list(switch_data.data(name="gen_ccs_capture_efficiency").keys())
+        }
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'gen_build_predetermined.csv'),
+        filename=os.path.join(inputs_dir, "gen_build_predetermined.csv"),
         auto_select=True,
         index=mod.PREDETERMINED_GEN_BLD_YRS,
-        param=(mod.gen_predetermined_cap))
+        param=(mod.gen_predetermined_cap),
+    )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'gen_build_costs.csv'),
+        filename=os.path.join(inputs_dir, "gen_build_costs.csv"),
         auto_select=True,
         index=mod.GEN_BLD_YRS,
-        param=(mod.gen_overnight_cost, mod.gen_fixed_om))
+        param=(mod.gen_overnight_cost, mod.gen_fixed_om),
+    )
     # read FUELS_FOR_MULTIFUEL_GEN from gen_multiple_fuels.dat if available
-    multi_fuels_path = os.path.join(inputs_dir, 'gen_multiple_fuels.dat')
+    multi_fuels_path = os.path.join(inputs_dir, "gen_multiple_fuels.dat")
     if os.path.isfile(multi_fuels_path):
         switch_data.load(filename=multi_fuels_path)
 
@@ -571,12 +637,25 @@ def post_solve(m, outdir):
         sorted(m.GEN_PERIODS) if m.options.sorted_output else m.GEN_PERIODS,
         output_file=os.path.join(outdir, "gen_cap.csv"),
         headings=(
-            "GENERATION_PROJECT", "PERIOD",
-            "gen_tech", "gen_load_zone", "gen_energy_source",
-            "GenCapacity", "GenCapitalCosts", "GenFixedOMCosts"),
+            "GENERATION_PROJECT",
+            "PERIOD",
+            "gen_tech",
+            "gen_load_zone",
+            "gen_energy_source",
+            "GenCapacity",
+            "GenCapitalCosts",
+            "GenFixedOMCosts",
+        ),
         # Indexes are provided as a tuple, so put (g,p) in parentheses to
         # access the two components of the index individually.
         values=lambda m, g, p: (
-            g, p,
-            m.gen_tech[g], m.gen_load_zone[g], m.gen_energy_source[g],
-            m.GenCapacity[g, p], m.GenCapitalCosts[g, p], m.GenFixedOMCosts[g, p]))
+            g,
+            p,
+            m.gen_tech[g],
+            m.gen_load_zone[g],
+            m.gen_energy_source[g],
+            m.GenCapacity[g, p],
+            m.GenCapitalCosts[g, p],
+            m.GenFixedOMCosts[g, p],
+        ),
+    )

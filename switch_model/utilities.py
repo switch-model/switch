@@ -6,6 +6,7 @@ Utility functions for Switch.
 """
 from __future__ import print_function
 
+import logging
 import os, types, importlib, re, sys, argparse, time, datetime
 import __main__ as main
 from pyomo.environ import *
@@ -23,12 +24,14 @@ except NameError:
 # Check whether this is an interactive session (determined by whether
 # __main__ has a __file__ attribute). Scripts can check this value to
 # determine what level of output to display.
-interactive_session = not hasattr(main, '__file__')
+interactive_session = not hasattr(main, "__file__")
+
 
 def define_AbstractModel(*module_list, **kwargs):
     # stub to provide old functionality as we move to a simpler calling convention
     args = kwargs.get("args", sys.argv[1:])
     return create_model(module_list, args)
+
 
 def create_model(module_list=None, args=sys.argv[1:]):
     """
@@ -70,6 +73,7 @@ def create_model(module_list=None, args=sys.argv[1:]):
     # Load modules
     if module_list is None:
         import switch_model.solve
+
         module_list = switch_model.solve.get_module_list(args)
     model.module_list = module_list
     for m in module_list:
@@ -87,26 +91,30 @@ def create_model(module_list=None, args=sys.argv[1:]):
     # Define and parse model configuration options
     argparser = _ArgumentParser(allow_abbrev=False)
     for module in model.get_modules():
-        if hasattr(module, 'define_arguments'):
+        if hasattr(module, "define_arguments"):
             module.define_arguments(argparser)
     model.options = argparser.parse_args(args)
+    if model.options.verbose:
+        logging.basicConfig(level=model.options.verbose)
+    else:
+        logging.basicConfig(level=logging.ERROR)
 
     # Define model components
     for module in model.get_modules():
-        if hasattr(module, 'define_dynamic_lists'):
+        if hasattr(module, "define_dynamic_lists"):
             module.define_dynamic_lists(model)
     for module in model.get_modules():
-        if hasattr(module, 'define_components'):
+        if hasattr(module, "define_components"):
             module.define_components(model)
     for module in model.get_modules():
-        if hasattr(module, 'define_dynamic_components'):
+        if hasattr(module, "define_dynamic_components"):
             module.define_dynamic_components(model)
 
     return model
 
 
 def get_modules(model):
-    """ Return a list of loaded module objects for this model. """
+    """Return a list of loaded module objects for this model."""
     for m in model.module_list:
         yield sys.modules[m]
 
@@ -123,14 +131,17 @@ def make_iterable(item):
             i = iter([item])
     return i
 
+
 class StepTimer(object):
     """
     Keep track of elapsed time for steps of a process.
     Use timer = StepTimer() to create a timer, then retrieve elapsed time and/or
     reset the timer at each step by calling timer.step_time()
     """
+
     def __init__(self):
         self.start_time = time.time()
+
     def step_time(self):
         """
         Reset timer to current time and return time elapsed since last step.
@@ -138,6 +149,7 @@ class StepTimer(object):
         last_start = self.start_time
         self.start_time = now = time.time()
         return now - last_start
+
 
 def load_inputs(model, inputs_dir=None, attach_data_portal=True):
     """
@@ -153,14 +165,14 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=True):
     data = DataPortal(model=model)
     data.load_aug = types.MethodType(load_aug, data)
     for module in model.get_modules():
-        if hasattr(module, 'load_inputs'):
+        if hasattr(module, "load_inputs"):
             module.load_inputs(model, data, inputs_dir)
     if model.options.verbose:
         print("Data read in {:.2f} s.\n".format(timer.step_time()))
 
     # At some point, pyomo deprecated 'create' in favor of 'create_instance'.
     # Determine which option is available and use that.
-    if hasattr(model, 'create_instance'):
+    if hasattr(model, "create_instance"):
         instance = model.create_instance(data)
     else:
         instance = model.create(data)
@@ -172,8 +184,13 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=True):
     return instance
 
 
-def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
-    exclude=[], sorted_output=False):
+def save_inputs_as_dat(
+    model,
+    instance,
+    save_path="inputs/complete_inputs.dat",
+    exclude=[],
+    sorted_output=False,
+):
     """
     Save input data to a .dat file for use with PySP or other command line
     tools that have not been fully integrated with DataPortal.
@@ -182,26 +199,34 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
     """
     # helper function to convert values to strings,
     # putting quotes around values that start as strings
-    quote_str = lambda v: '"{}"'.format(v) if isinstance(v, string_types) else '{}'.format(str(v))
+    quote_str = (
+        lambda v: '"{}"'.format(v)
+        if isinstance(v, string_types)
+        else "{}".format(str(v))
+    )
     # helper function to create delimited lists from single items or iterables of any data type
     from switch_model.reporting import make_iterable
-    join_space = lambda items: ' '.join(map(str, make_iterable(items)))  # space-separated list
-    join_comma = lambda items: ','.join(map(str, make_iterable(items)))  # comma-separated list
+
+    join_space = lambda items: " ".join(
+        map(str, make_iterable(items))
+    )  # space-separated list
+    join_comma = lambda items: ",".join(
+        map(str, make_iterable(items))
+    )  # comma-separated list
 
     with open(save_path, "w") as f:
         for component_name in instance.DataPortal.data():
             if component_name in exclude:
-                continue    # don't write data for components in exclude list
-                            # (they're in scenario-specific files)
+                continue  # don't write data for components in exclude list
+                # (they're in scenario-specific files)
             component = getattr(model, component_name)
             comp_class = type(component).__name__
             component_data = instance.DataPortal.data(name=component_name)
-            if comp_class == 'SimpleSet' or comp_class == 'OrderedSimpleSet':
+            if comp_class == "SimpleSet" or comp_class == "OrderedSimpleSet":
                 f.write(
-                    "set {} := {};\n"
-                    .format(component_name, join_space(component_data))
+                    "set {} := {};\n".format(component_name, join_space(component_data))
                 )
-            elif comp_class == 'IndexedParam':
+            elif comp_class == "IndexedParam":
                 if component_data:  # omit components for which no data were provided
                     f.write("param {} := \n".format(component_name))
                     for key, value in (
@@ -211,18 +236,22 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
                     ):
                         f.write(" {} {}\n".format(join_space(key), quote_str(value)))
                     f.write(";\n")
-            elif comp_class == 'SimpleParam':
+            elif comp_class == "SimpleParam":
                 f.write("param {} := {};\n".format(component_name, component_data))
-            elif comp_class == 'IndexedSet':
+            elif comp_class == "IndexedSet":
                 for key, vals in iteritems(component_data):
                     f.write(
-                        "set {}[{}] := {};\n"
-                        .format(component_name, join_comma(key), join_space(vals))
+                        "set {}[{}] := {};\n".format(
+                            component_name, join_comma(key), join_space(vals)
+                        )
                     )
             else:
                 raise ValueError(
-                    "Error! Component type {} not recognized for model element '{}'.".
-                    format(comp_class, component_name))
+                    "Error! Component type {} not recognized for model element '{}'.".format(
+                        comp_class, component_name
+                    )
+                )
+
 
 def pre_solve(instance, outputs_dir=None):
     """
@@ -230,8 +259,9 @@ def pre_solve(instance, outputs_dir=None):
     This function can be used to adjust the instance after it is created and before it is solved.
     """
     for module in instance.get_modules():
-        if hasattr(module, 'pre_solve'):
+        if hasattr(module, "pre_solve"):
             module.pre_solve(instance)
+
 
 def post_solve(instance, outputs_dir=None):
     """
@@ -248,7 +278,7 @@ def post_solve(instance, outputs_dir=None):
     # (the latter may occur when there are problems with licenses, etc)
 
     for module in instance.get_modules():
-        if hasattr(module, 'post_solve'):
+        if hasattr(module, "post_solve"):
             module.post_solve(instance, outputs_dir)
 
 
@@ -284,9 +314,13 @@ def min_data_check(model, *mandatory_model_components):
     """
     model.__num_min_data_checks += 1
     new_data_check_name = "min_data_check_" + str(model.__num_min_data_checks)
-    setattr(model, new_data_check_name, BuildCheck(
-        rule=lambda m: check_mandatory_components(
-            m, *mandatory_model_components)))
+    setattr(
+        model,
+        new_data_check_name,
+        BuildCheck(
+            rule=lambda m: check_mandatory_components(m, *mandatory_model_components)
+        ),
+    )
 
 
 def _add_min_data_check(model):
@@ -295,7 +329,7 @@ def _add_min_data_check(model):
     object if it has not already been added. Also add a counter to keep
     track of what to name the next check that is added.
     """
-    if getattr(model, 'min_data_check', None) is None:
+    if getattr(model, "min_data_check", None) is None:
         model.__num_min_data_checks = 0
         model.min_data_check = types.MethodType(min_data_check, model)
 
@@ -307,6 +341,7 @@ def has_discrete_variables(model):
         for variable in model.component_objects(Var, active=True)
         for v in all_elements(variable)
     )
+
 
 def check_mandatory_components(model, *mandatory_model_components):
     """
@@ -333,34 +368,48 @@ def check_mandatory_components(model, *mandatory_model_components):
     for component_name in mandatory_model_components:
         obj = getattr(model, component_name)
         o_class = type(obj).__name__
-        if o_class == 'SimpleSet' or o_class == 'OrderedSimpleSet':
+        if o_class == "SimpleSet" or o_class == "OrderedSimpleSet":
             if len(obj) == 0:
                 raise ValueError(
-                    "No data is defined for the mandatory set '{}'.".
-                    format(component_name))
-        elif o_class == 'IndexedParam':
+                    "No data is defined for the mandatory set '{}'.".format(
+                        component_name
+                    )
+                )
+        elif o_class == "IndexedParam":
             if len(obj) != len(obj._index):
-                missing_index_elements = [v for v in set(obj._index) - set( obj.sparse_keys())]
+                missing_index_elements = [
+                    v for v in set(obj._index) - set(obj.sparse_keys())
+                ]
                 raise ValueError(
                     "Values are not provided for every element of the "
                     "mandatory parameter '{}'. "
-                    "Missing data for {} values, including: {}"
-                    .format(component_name, len(missing_index_elements), missing_index_elements[:10])
+                    "Missing data for {} values, including: {}".format(
+                        component_name,
+                        len(missing_index_elements),
+                        missing_index_elements[:10],
+                    )
                 )
-        elif o_class == 'IndexedSet':
+        elif o_class == "IndexedSet":
             if len(obj) != len(obj._index):
                 raise ValueError(
-                    ("Sets are not defined for every index of " +
-                     "the mandatory indexed set '{}'").format(component_name))
-        elif o_class == 'SimpleParam':
+                    (
+                        "Sets are not defined for every index of "
+                        + "the mandatory indexed set '{}'"
+                    ).format(component_name)
+                )
+        elif o_class == "SimpleParam":
             if obj.value is None:
                 raise ValueError(
-                    "Value not provided for mandatory parameter '{}'".
-                    format(component_name))
+                    "Value not provided for mandatory parameter '{}'".format(
+                        component_name
+                    )
+                )
         else:
             raise ValueError(
-                "Error! Object type {} not recognized for model element '{}'.".
-                format(o_class, component_name))
+                "Error! Object type {} not recognized for model element '{}'.".format(
+                    o_class, component_name
+                )
+            )
     return True
 
 
@@ -379,8 +428,9 @@ class InputError(Exception):
         return repr(self.value)
 
 
-def load_aug(switch_data, optional=False, auto_select=False,
-             optional_params=[], **kwds):
+def load_aug(
+    switch_data, optional=False, auto_select=False, optional_params=[], **kwds
+):
     """
     This is a wrapper for the DataPortal object that accepts additional
     keywords. This currently supports a flag for the file being optional.
@@ -395,32 +445,34 @@ def load_aug(switch_data, optional=False, auto_select=False,
     # immediately where the data come from for each component). This can
     # also support auto-documenting of parameters and input files.
 
-    path = kwds['filename']
+    path = kwds["filename"]
     # Skip if the file is missing
     if optional and not os.path.isfile(path):
         return
     # If this is a .dat file, then skip the rest of this fancy business; we'll
     # only check if the file is missing and optional for .csv files.
     filename, extension = os.path.splitext(path)
-    if extension == '.dat':
+    if extension == ".dat":
         switch_data.load(**kwds)
         return
 
     # copy the optional_params to avoid side-effects when the list is altered below
-    optional_params=list(optional_params)
+    optional_params = list(optional_params)
     # Parse header and first row
     with open(path) as infile:
         headers_line = infile.readline()
         second_line = infile.readline()
-    file_is_empty = (headers_line == '')
-    file_has_no_data_rows = (second_line == '')
-    suffix = path.split('.')[-1]
-    if suffix in {'tab', 'tsv'}:
-        separator = '\t'
-    elif suffix == 'csv':
-        separator = ','
+    file_is_empty = headers_line == ""
+    file_has_no_data_rows = second_line == ""
+    suffix = path.split(".")[-1]
+    if suffix in {"tab", "tsv"}:
+        separator = "\t"
+    elif suffix == "csv":
+        separator = ","
     else:
-        raise switch_model.utilities.InputError('Unrecognized file type for input file {}'.format(path))
+        raise switch_model.utilities.InputError(
+            "Unrecognized file type for input file {}".format(path)
+        )
     # TODO: parse this more formally, e.g. using csv module
     headers = headers_line.strip().split(separator)
     # Skip if the file is empty.
@@ -429,14 +481,14 @@ def load_aug(switch_data, optional=False, auto_select=False,
     # Try to get a list of parameters. If param was given as a
     # singleton or a tuple, make it into a list that can be edited.
     params = []
-    if 'param' in kwds:
+    if "param" in kwds:
         # Tuple -> list
-        if isinstance(kwds['param'], tuple):
-            kwds['param'] = list(kwds['param'])
+        if isinstance(kwds["param"], tuple):
+            kwds["param"] = list(kwds["param"])
         # Singleton -> list
-        elif not isinstance(kwds['param'], list):
-            kwds['param'] = [kwds['param']]
-        params = kwds['param']
+        elif not isinstance(kwds["param"], list):
+            kwds["param"] = [kwds["param"]]
+        params = kwds["param"]
     # optional_params may include Param objects instead of names. In
     # those cases, convert objects to names.
     for (i, p) in enumerate(optional_params):
@@ -452,8 +504,8 @@ def load_aug(switch_data, optional=False, auto_select=False,
             optional_params.append(p.name)
     # How many index columns do we expect?
     # Grab the dimensionality of the index param if it was provided.
-    if 'index' in kwds:
-        num_indexes = kwds['index'].dimen
+    if "index" in kwds:
+        num_indexes = kwds["index"].dimen
     # Next try the first parameter's index.
     elif len(params) > 0:
         try:
@@ -471,34 +523,35 @@ def load_aug(switch_data, optional=False, auto_select=False,
     # within the file (e.g., "cost" and "limit"). We could also require the data file
     # to be called "rfm_supply_tier.csv" for greater consistency/predictability.
     if auto_select:
-        if 'select' in kwds:
-            raise InputError('You may not specify a select parameter if ' +
-                             'auto_select is set to True.')
-        kwds['select'] = headers[0:num_indexes]
-        kwds['select'].extend([p.name for p in params])
+        if "select" in kwds:
+            raise InputError(
+                "You may not specify a select parameter if "
+                + "auto_select is set to True."
+            )
+        kwds["select"] = headers[0:num_indexes]
+        kwds["select"].extend([p.name for p in params])
     # Check to see if expected column names are in the file. If a column
     # name is missing and its parameter is optional, then drop it from
     # the select & param lists.
-    if 'select' in kwds:
-        if isinstance(kwds['select'], tuple):
-            kwds['select'] = list(kwds['select'])
+    if "select" in kwds:
+        if isinstance(kwds["select"], tuple):
+            kwds["select"] = list(kwds["select"])
         del_items = []
-        for (i, col) in enumerate(kwds['select']):
+        for (i, col) in enumerate(kwds["select"]):
             p_i = i - num_indexes
             if col not in headers:
-                if(len(params) > p_i >= 0 and
-                   params[p_i].name in optional_params):
+                if len(params) > p_i >= 0 and params[p_i].name in optional_params:
                     del_items.append((i, p_i))
                 else:
                     raise InputError(
-                        'Column {} not found in file {}.'
-                        .format(col, path))
+                        "Column {} not found in file {}.".format(col, path)
+                    )
         # When deleting entries from select & param lists, go from last
         # to first so that the indexes won't get messed up as we go.
         del_items.sort(reverse=True)
         for (i, p_i) in del_items:
-            del kwds['select'][i]
-            del kwds['param'][p_i]
+            del kwds["select"][i]
+            del kwds["param"][p_i]
 
     if optional and file_has_no_data_rows:
         # Skip the file.  Note that we are only doing this after having
@@ -532,7 +585,10 @@ else:
                     # see https://bugs.python.org/issue14910#msg204678
                     def new_get_option_tuples(self, option_string):
                         return []
-                    self._get_option_tuples = types.MethodType(new_get_option_tuples, self)
+
+                    self._get_option_tuples = types.MethodType(
+                        new_get_option_tuples, self
+                    )
                 else:
                     raise RuntimeError(
                         "Incompatible argparse module detected. This software requires "
@@ -543,36 +599,43 @@ else:
             kwargs.pop("allow_abbrev", None)
             return argparse.ArgumentParser.__init__(self, *args, **kwargs)
 
+
 class ExtendAction(argparse.Action):
     """Create or extend list with the provided items"""
+
     # from https://stackoverflow.com/a/41153081/3830997
     def __call__(self, parser, namespace, values, option_string=None):
         items = getattr(namespace, self.dest) or []
         items.extend(values)
         setattr(namespace, self.dest, items)
 
+
 class IncludeAction(argparse.Action):
     """Flag the specified items for inclusion in the model"""
+
     def __call__(self, parser, namespace, values, option_string=None):
         items = getattr(namespace, self.dest) or []
-        items.append(('include', values))
+        items.append(("include", values))
         setattr(namespace, self.dest, items)
+
+
 class ExcludeAction(argparse.Action):
     """Flag the specified items for exclusion from the model"""
+
     def __call__(self, parser, namespace, values, option_string=None):
         items = getattr(namespace, self.dest) or []
-        items.append(('exclude', values))
+        items.append(("exclude", values))
         setattr(namespace, self.dest, items)
+
 
 # Test whether we need to issue warnings about the Python parsing bug.
 # (applies to at least Python 2.7.11 and 3.6.2)
 # This bug messes up solve-scenarios if the user specifies
 # --scenario x --solver-options-string="a=b c=d"
 test_parser = argparse.ArgumentParser()
-test_parser.add_argument('--arg1', nargs='+', default=[])
+test_parser.add_argument("--arg1", nargs="+", default=[])
 bad_equal_parser = (
-    len(test_parser.parse_known_args(['--arg1', 'a', '--arg2=a=1 b=2'])[1])
-    == 0
+    len(test_parser.parse_known_args(["--arg1", "a", "--arg2=a=1 b=2"])[1]) == 0
 )
 
 # TODO: merge the _ArgumentParserAllowAbbrev code into this class
@@ -583,11 +646,12 @@ class _ArgumentParser(_ArgumentParserAllowAbbrev):
     - allows use of 'extend', 'include' and 'exclude' actions to accumulate lists
       with multiple calls
     """
+
     def __init__(self, *args, **kwargs):
         super(_ArgumentParser, self).__init__(*args, **kwargs)
-        self.register('action', 'extend', ExtendAction)
-        self.register('action', 'include', IncludeAction)
-        self.register('action', 'exclude', ExcludeAction)
+        self.register("action", "extend", ExtendAction)
+        self.register("action", "include", IncludeAction)
+        self.register("action", "exclude", ExcludeAction)
 
     def parse_known_args(self, args=None, namespace=None):
         # parse_known_args parses arguments like --list-arg a b --other-arg="something with space"
@@ -596,29 +660,30 @@ class _ArgumentParser(_ArgumentParserAllowAbbrev):
         # We issue a warning to avoid this.
         if bad_equal_parser and args is not None:
             for a in args:
-                if a.startswith('--') and '=' in a:
+                if a.startswith("--") and "=" in a:
                     print(
                         "Warning: argument '{}' may be parsed incorrectly. It is "
-                        "safer to use ' ' instead of '=' as a separator."
-                        .format(a)
+                        "safer to use ' ' instead of '=' as a separator.".format(a)
                     )
                     time.sleep(2)  # give users a chance to see it
         return super(_ArgumentParser, self).parse_known_args(args, namespace)
 
 
 def approx_equal(a, b, tolerance=0.01):
-    return abs(a-b) <= (abs(a) + abs(b)) / 2.0 * tolerance
+    return abs(a - b) <= (abs(a) + abs(b)) / 2.0 * tolerance
 
 
 def default_solver():
-    return pyomo.opt.SolverFactory('glpk')
+    return pyomo.opt.SolverFactory("glpk")
+
 
 def warn(message):
     """
     Send warning message to sys.stderr.
     Unlike warnings.warn, this does not add the current line of code to the message.
     """
-    sys.stderr.write("WARNING: " + message + '\n')
+    sys.stderr.write("WARNING: " + message + "\n")
+
 
 class TeeStream(object):
     """
@@ -627,9 +692,11 @@ class TeeStream(object):
     `sys.stdout=TeeStream(sys.stdout, log_file_handle)` will copy
     output destined for sys.stdout to log_file_handle as well.
     """
+
     def __init__(self, stream1, stream2):
         self.stream1 = stream1
         self.stream2 = stream2
+
     def __getattr__(self, *args, **kwargs):
         """
         Provide stream1 attributes when attributes are requested for this class.
@@ -637,12 +704,15 @@ class TeeStream(object):
         methods, etc.
         """
         return getattr(self.stream1, *args, **kwargs)
+
     def write(self, *args, **kwargs):
         self.stream1.write(*args, **kwargs)
         self.stream2.write(*args, **kwargs)
+
     def flush(self, *args, **kwargs):
         self.stream1.flush(*args, **kwargs)
         self.stream2.flush(*args, **kwargs)
+
 
 class LogOutput(object):
     """
@@ -651,16 +721,18 @@ class LogOutput(object):
     date and time. Directory will be created if needed, and file will be overwritten
     if it already exists (unlikely).
     """
+
     def __init__(self, logs_dir):
         self.logs_dir = logs_dir
+
     def __enter__(self):
-        """ start copying output to log file """
+        """start copying output to log file"""
         if self.logs_dir is not None:
             if not os.path.exists(self.logs_dir):
                 os.makedirs(self.logs_dir)
             log_file_path = os.path.join(
                 self.logs_dir,
-                datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".log"
+                datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".log",
             )
             self.log_file = open(log_file_path, "w", buffering=1)
             self.stdout = sys.stdout
@@ -668,17 +740,19 @@ class LogOutput(object):
             sys.stdout = TeeStream(sys.stdout, self.log_file)
             sys.stderr = TeeStream(sys.stderr, self.log_file)
             print("logging output to " + str(log_file_path))
+
     def __exit__(self, type, value, traceback):
-        """ restore original output streams and close log file """
+        """restore original output streams and close log file"""
         if self.logs_dir is not None:
             sys.stdout = self.stdout
             sys.stderr = self.stderr
             self.log_file.close()
 
+
 def iteritems(obj):
-    """ Iterator of key, value pairs for obj;
-    equivalent to obj.items() on Python 3+ and obj.iteritems() on Python 2 """
+    """Iterator of key, value pairs for obj;
+    equivalent to obj.items() on Python 3+ and obj.iteritems() on Python 2"""
     try:
         return obj.iteritems()
-    except AttributeError: # Python 3+
+    except AttributeError:  # Python 3+
         return obj.items()

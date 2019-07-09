@@ -1,7 +1,9 @@
 from pyomo.environ import *
 
+
 def define_components(m):
     """Make various changes to the model to support hawaii-specific modules."""
+
 
 # # TODO: combine the following changes into a pull request for Pyomo
 # # patch Pyomo's table-reading function to allow .csv files with headers but no data

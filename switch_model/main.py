@@ -9,6 +9,7 @@ import switch_model
 
 # print "running {} as {}.".format(__file__, __name__)
 
+
 def main():
     cmds = ["solve", "solve-scenarios", "test", "upgrade", "--version"]
     if len(sys.argv) >= 2 and sys.argv[1] in cmds:
@@ -38,8 +39,13 @@ def main():
             from switch_model.upgrade import main
         main()
     else:
-        print("Usage: {} {{{}}} ...".format(os.path.basename(sys.argv[0]), ", ".join(cmds)))
+        print(
+            "Usage: {} {{{}}} ...".format(
+                os.path.basename(sys.argv[0]), ", ".join(cmds)
+            )
+        )
         print("Use one of these commands with --help for more information.")
+
 
 if __name__ == "__main__":
     main()
