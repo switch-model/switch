@@ -28,8 +28,10 @@ from __future__ import division
 # switch_model.hydro.water_network. That should set a good example
 # for other people who want to do other custom handling of hydro.
 
-from pyomo.environ import *
+import logging
 import os
+
+from pyomo.environ import *
 
 dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
     'switch_model.financials', 'switch_model.energy_sources.properties.properties', \
@@ -88,6 +90,34 @@ def define_components(mod):
     mod.have_minimal_hydro_params = BuildCheck(
         mod.HYDRO_GEN_TS,
         rule=lambda m, g, ts: (g,ts) in m.HYDRO_GEN_TS_RAW)
+    # Generate a warning if the input files specify timeseries for renewable
+    # plant capacity factors that extend beyond the expected lifetime of the
+    # plant. This could be caused by simple logic to build input files, or
+    # could indicate that the user expects those plants to operate longer
+    # than indicated.
+    def _warn_on_extra_HYDRO_GEN_TS(m):
+        extra_indexes = set(m.HYDRO_GEN_TS_RAW) - set(m.HYDRO_GEN_TS)
+        num_impacted_generators = len(set([g for g,t in extra_indexes]))
+        extraneous = {g: [] for (g,t) in extra_indexes}
+        for (g,t) in extra_indexes:
+            extraneous[g].append(t)
+        pprint = "\n".join(
+            "* {}: {}".format(g, tps) for g, tps in extraneous.items())
+        warning_msg = (
+            "{} hydro plants have data specified "
+            "in timeseries after they are slated for retirement. This "
+            "could indicate a benign issue where the process that built "
+            "the dataset used simplified logic and/or didn't know the "
+            "scheduled retirement date. If you expect those datapoints to "
+            "be useful, then those plants need longer lifetimes (or "
+            "options to build new capacity when the old capacity reaches "
+            "the provided end-of-life date).\n".format(num_impacted_generators))
+        if extra_indexes:
+            logging.warning(warning_msg)
+            logging.info("Plants with extra timepoints:\n{}".format(pprint))
+        return(True)
+    mod.warn_on_extra_HYDRO_GEN_TS = BuildCheck(
+        rule=_warn_on_extra_HYDRO_GEN_TS)
 
     # To do: Add validation check that timeseries data are specified for every
     # valid timepoint.

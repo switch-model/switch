@@ -6,6 +6,7 @@ Utility functions for Switch.
 """
 from __future__ import print_function
 
+import logging
 import os, types, importlib, re, sys, argparse, time, datetime
 import __main__ as main
 from pyomo.environ import *
@@ -90,7 +91,11 @@ def create_model(module_list=None, args=sys.argv[1:]):
         if hasattr(module, 'define_arguments'):
             module.define_arguments(argparser)
     model.options = argparser.parse_args(args)
-
+    if model.options.verbose:
+        logging.basicConfig(level=model.options.verbose)
+    else:
+        logging.basicConfig(level=logging.ERROR)
+    
     # Define model components
     for module in model.get_modules():
         if hasattr(module, 'define_dynamic_lists'):

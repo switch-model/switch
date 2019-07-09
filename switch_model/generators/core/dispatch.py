@@ -10,6 +10,7 @@ installed capacity.
 """
 from __future__ import division
 
+import logging
 import os, collections
 from pyomo.environ import *
 from switch_model.reporting import write_table
@@ -273,6 +274,35 @@ def define_components(mod):
     mod.have_minimal_gen_max_capacity_factors = BuildCheck(
         mod.VARIABLE_GEN_TPS,
         rule=lambda m, g, t: (g,t) in m.VARIABLE_GEN_TPS_RAW)
+    
+    # Generate a warning if the input files specify timeseries for renewable
+    # plant capacity factors that extend beyond the expected lifetime of the
+    # plant. This could be caused by simple logic to build input files, or
+    # could indicate that the user expects those plants to operate longer
+    # than indicated.
+    def _warn_on_extra_VARIABLE_GEN_TPS(m):
+        extra_indexes = set(m.VARIABLE_GEN_TPS_RAW) - set(m.VARIABLE_GEN_TPS)
+        num_impacted_generators = len(set([g for g,t in extra_indexes]))
+        extraneous = {g: [] for (g,t) in extra_indexes}
+        for (g,t) in extra_indexes:
+            extraneous[g].append(t)
+        pprint = "\n".join(
+            "* {}: {}".format(g, tps) for g, tps in extraneous.items())
+        warning_msg = (
+            "{} renewable generators have capacity factors specified "
+            "in timepoints after they are slated for retirement. This "
+            "could indicate a benign issue where the process that built "
+            "the dataset used simplified logic and/or didn't know the "
+            "scheduled retirement date. If you expect those datapoints to "
+            "be useful, then those plants need longer lifetimes (or "
+            "options to build new capacity when the old capacity reaches "
+            "the provided end-of-life date).\n".format(num_impacted_generators))
+        if extra_indexes:
+            logging.warning(warning_msg)
+            logging.info("Plants with extra timepoints:\n{}".format(pprint))
+        return(True)
+    mod.warn_on_extra_VARIABLE_GEN_TPS = BuildCheck(
+        rule=_warn_on_extra_VARIABLE_GEN_TPS)
 
     mod.GenFuelUseRate = Var(
         mod.GEN_TP_FUELS,
