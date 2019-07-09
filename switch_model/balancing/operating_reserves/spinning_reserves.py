@@ -121,8 +121,8 @@ def define_arguments(argparser):
         choices = ["Hawaii", "3+5"],
         help=("Choose rules for spinning reserves requirements as a function "
               "of variable renewable power and load. Hawaii uses rules "
-              "bootstrapped from the GE RPS study, and '3+5' requires 3% of "
-              "load and 5% of variable renewable output, based on the heuristic "
+              "bootstrapped from the GE RPS study, and '3+5' requires 3%% of "
+              "load and 5%% of variable renewable output, based on the heuristic "
               "described in the 2010 Western Wind and Solar Integration Study.")
     )
 
