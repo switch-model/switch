@@ -76,7 +76,7 @@ setup(
             'sympy'
         ],
         'dev': ['ipdb'],
-        'plotting': ['ggplot'],
+        'plotting': ['plotnine'],
         'database_access': ['psycopg2-binary']
     },
     entry_points={
