@@ -3,10 +3,7 @@
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 from __future__ import print_function
 
-from pyomo.environ import *
-from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
-import pyomo.version
-
+import logging
 import sys, os, time, shlex, re, inspect, textwrap, types
 
 try:
@@ -20,6 +17,10 @@ try:
     input = raw_input
 except NameError:
     pass
+
+from pyomo.environ import *
+from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
+import pyomo.version
 
 import switch_model
 from switch_model.utilities import (
@@ -615,20 +616,20 @@ def define_arguments(argparser):
 
     # General purpose arguments
     argparser.add_argument(
-        "--verbose",
-        "-v",
-        dest="verbose",
-        default=False,
-        action="store_true",
-        help="Show information about model preparation and solution",
-    )
+        '--verbose', '-v', dest='verbose', default=False, 
+        action='store_const', const=logging.WARNING,
+        help='Show information about model preparation and solution')
     argparser.add_argument(
-        "--quiet",
-        "-q",
-        dest="verbose",
-        action="store_false",
-        help="Don't show information about model preparation and solution (cancels --verbose setting)",
-    )
+        '--very-verbose', '-vv', dest='verbose', default=False, 
+        action='store_const', const=logging.INFO,
+        help='Show more information about model preparation and solution')
+    argparser.add_argument(
+        '--very-very-verbose', '-vvv', dest='verbose', default=False, 
+        action='store_const', const=logging.DEBUG,
+        help='Show debugging-level information about model preparation and solution')
+    argparser.add_argument(
+        '--quiet', '-q', dest='verbose', action='store_false',
+        help="Don't show information about model preparation and solution (cancels --verbose setting)")
     argparser.add_argument(
         "--no-post-solve",
         default=False,
