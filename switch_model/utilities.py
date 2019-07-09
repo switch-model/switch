@@ -98,7 +98,7 @@ def create_model(module_list=None, args=sys.argv[1:]):
         logging.basicConfig(level=model.options.verbose)
     else:
         logging.basicConfig(level=logging.ERROR)
-    
+
     # Define model components
     for module in model.get_modules():
         if hasattr(module, "define_dynamic_lists"):

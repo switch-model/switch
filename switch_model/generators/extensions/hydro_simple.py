@@ -34,9 +34,15 @@ import os
 
 from pyomo.environ import *
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
-    'switch_model.financials', 'switch_model.energy_sources.properties.properties', \
-    'switch_model.generators.core.build', 'switch_model.generators.core.dispatch'
+dependencies = (
+    "switch_model.timescales",
+    "switch_model.balancing.load_zones",
+    "switch_model.financials",
+    "switch_model.energy_sources.properties.properties",
+    "switch_model.generators.core.build",
+    "switch_model.generators.core.dispatch",
+)
+
 
 def define_components(mod):
     """
@@ -91,8 +97,8 @@ def define_components(mod):
     # horizon or beyond a plant's lifetime) can safely be ignored to make it
     # easier to create input files.
     mod.have_minimal_hydro_params = BuildCheck(
-        mod.HYDRO_GEN_TS,
-        rule=lambda m, g, ts: (g,ts) in m.HYDRO_GEN_TS_RAW)
+        mod.HYDRO_GEN_TS, rule=lambda m, g, ts: (g, ts) in m.HYDRO_GEN_TS_RAW
+    )
     # Generate a warning if the input files specify timeseries for renewable
     # plant capacity factors that extend beyond the expected lifetime of the
     # plant. This could be caused by simple logic to build input files, or
@@ -100,12 +106,11 @@ def define_components(mod):
     # than indicated.
     def _warn_on_extra_HYDRO_GEN_TS(m):
         extra_indexes = set(m.HYDRO_GEN_TS_RAW) - set(m.HYDRO_GEN_TS)
-        num_impacted_generators = len(set([g for g,t in extra_indexes]))
-        extraneous = {g: [] for (g,t) in extra_indexes}
-        for (g,t) in extra_indexes:
+        num_impacted_generators = len(set([g for g, t in extra_indexes]))
+        extraneous = {g: [] for (g, t) in extra_indexes}
+        for (g, t) in extra_indexes:
             extraneous[g].append(t)
-        pprint = "\n".join(
-            "* {}: {}".format(g, tps) for g, tps in extraneous.items())
+        pprint = "\n".join("* {}: {}".format(g, tps) for g, tps in extraneous.items())
         warning_msg = (
             "{} hydro plants have data specified "
             "in timeseries after they are slated for retirement. This "
@@ -114,13 +119,14 @@ def define_components(mod):
             "scheduled retirement date. If you expect those datapoints to "
             "be useful, then those plants need longer lifetimes (or "
             "options to build new capacity when the old capacity reaches "
-            "the provided end-of-life date).\n".format(num_impacted_generators))
+            "the provided end-of-life date).\n".format(num_impacted_generators)
+        )
         if extra_indexes:
             logging.warning(warning_msg)
             logging.info("Plants with extra timepoints:\n{}".format(pprint))
-        return(True)
-    mod.warn_on_extra_HYDRO_GEN_TS = BuildCheck(
-        rule=_warn_on_extra_HYDRO_GEN_TS)
+        return True
+
+    mod.warn_on_extra_HYDRO_GEN_TS = BuildCheck(rule=_warn_on_extra_HYDRO_GEN_TS)
 
     # To do: Add validation check that timeseries data are specified for every
     # valid timepoint.
