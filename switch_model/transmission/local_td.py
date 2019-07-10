@@ -12,6 +12,8 @@ losses from the distribution network.
 from __future__ import division
 
 import os
+
+import pandas as pd
 from pyomo.environ import *
 
 dependencies = (
@@ -65,7 +67,7 @@ def define_components(mod):
     the perspective of the central grid. We currently prohibit injections into
     the central grid because it would create a mathematical loophole for
     "spilling power" and we currently lack use cases that need this. We cannot
-    use a single unsigned variable for this without introducing errrors in
+    use a single unsigned variable for this without introducing errors in
     calculating Local T&D line losses. WithdrawFromCentralGrid is added to the
     load_zone power balance, and has a corresponding expression from the
     perspective of the distributed node:
@@ -226,3 +228,55 @@ def load_inputs(mod, switch_data, inputs_dir):
         auto_select=True,
         param=(mod.existing_local_td, mod.local_td_annual_cost_per_mw),
     )
+
+
+def post_solve(instance, outdir):
+    """
+    Export results.
+
+    local_td_energy_balance_wide.csv is a wide table of energy balance
+    components for every zone and timepoint. Each component registered with
+    Distributed_Power_Injections and Distributed_Power_Withdrawals will become
+    a column. Values of Distributed_Power_Withdrawals will be multiplied by -1
+    during export. The columns in this file can vary based on which modules
+    are included in your model.
+
+    local_td_energy_balance.csv is the same data in "tidy" form with a constant
+    number of columns.
+
+    """
+    wide_dat = []
+    for z, t in instance.ZONE_TIMEPOINTS:
+        record = {"load_zone": z, "timestamp": t}
+        for component in instance.Distributed_Power_Injections:
+            record[component] = value(getattr(instance, component)[z, t])
+        for component in instance.Distributed_Power_Withdrawals:
+            record[component] = value(-1.0 * getattr(instance, component)[z, t])
+        wide_dat.append(record)
+    wide_df = pd.DataFrame(wide_dat)
+    wide_df.set_index(["load_zone", "timestamp"], inplace=True)
+    wide_df.to_csv(os.path.join(outdir, "local_td_energy_balance_wide.csv"))
+
+    normalized_dat = []
+    for z, t in instance.ZONE_TIMEPOINTS:
+        for component in instance.Distributed_Power_Injections:
+            record = {
+                "load_zone": z,
+                "timestamp": t,
+                "component": component,
+                "injects_or_withdraws": "injects",
+                "value": value(getattr(instance, component)[z, t]),
+            }
+            normalized_dat.append(record)
+        for component in instance.Distributed_Power_Withdrawals:
+            record = {
+                "load_zone": z,
+                "timestamp": t,
+                "component": component,
+                "injects_or_withdraws": "withdraws",
+                "value": value(-1.0 * getattr(instance, component)[z, t]),
+            }
+            normalized_dat.append(record)
+    df = pd.DataFrame(normalized_dat)
+    df.set_index(["load_zone", "timestamp", "component"], inplace=True)
+    df.to_csv(os.path.join(outdir, "local_td_energy_balance.csv"))
