@@ -221,20 +221,33 @@ def main(args=None, return_model=False, return_instance=False):
 
     if instance.options.interact:
         m = instance  # present the solved model as 'm' for convenience
-        banner = (
-            "\n"
-            "=======================================================================\n"
-            "Entering interactive Python shell.\n"
-            "Abstract model is in 'model' variable; \n"
-            "Solved instance is in 'instance' and 'm' variables.\n"
-            "Type ctrl-d or exit() to exit shell.\n"
-            "=======================================================================\n"
+        hr = os.linesep + "=" * 60 + os.linesep
+        banner_msg = os.linesep.join(
+            [
+                "Entering interactive Python shell.",
+                "Abstract model is in 'model' variable;",
+                "Solved instance is in 'instance' and 'm' variables.",
+                "Type ctrl-d or exit() to exit shell.",
+            ]
         )
-        import code
+        try:
+            import IPython
 
-        code.interact(
-            banner=banner, local=dict(list(globals().items()) + list(locals().items()))
-        )
+            banner_msg += os.linesep + "Use tab to auto-complete"
+            banner = hr + banner_msg + hr
+            IPython.embed(
+                banner1=banner,
+                exit_msg="Leaving interactive interpretter, returning to program.",
+                colors=instance.options.interact_color,
+            )
+        except ImportError:
+            import code
+
+            banner = hr + banner_msg + hr
+            code.interact(
+                banner=banner,
+                local=dict(list(globals().items()) + list(locals().items())),
+            )
 
 
 def reload_prior_solution_from_pickle(instance, outdir):
@@ -694,6 +707,18 @@ def define_arguments(argparser):
         help="Enter interactive shell after solving the instance to enable "
         "inspection of the solved model.",
     )
+    try:
+        import IPython
+
+        argparser.add_argument(
+            "--interact-color",
+            dest="interact_color",
+            default="NoColor",
+            help="Use this color scheme with the interactive shell."
+            "Options: NoColor, LightBG, Linux",
+        )
+    except ImportError:
+        pass
 
 
 def add_module_args(parser):
