@@ -13,6 +13,13 @@ from switch_model.reporting import write_table
 dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
     'switch_model.financials', 'switch_model.energy_sources.properties.properties'
 
+def define_arguments(argparser):
+    argparser.add_argument(
+        '--enforce-binary-retirement', dest='enforce_binary_retirement',
+        default=False, action='store_true',
+        help="Whether to enforce all-or-nothing retirement, introducing one "
+             "integer variable per retirement decision.")
+
 def define_components(mod):
     """
 
@@ -100,6 +107,27 @@ def define_components(mod):
     capacity online in a given period. This is the sum of installed capacity
     minus all retirements.
 
+    gen_can_retire_early[g, build_year] is a binary parameter that describes
+    whether existing capacity (or other pre-determined capacity) can be
+    retired early. It is optional and defaults to False.
+
+    RetireGen[g, build_year, period] is a decision variable with units of MW
+    that describes whether to retire existing capacity at the start a period
+    where it otherwise would have been operational. Once a RetireGen decision
+    is made, it will continue for all future periods via the
+    Retirement_Permanence constraint. This will eliminate fixed O&M costs, and
+    have no impact on capital repayment costs. Note, this can be activated for
+    any predetermined capacity, not just existing capacity.
+
+    RetireGenAllOrNothing[g, build_year, period] is a binary decision variable
+    that constrains RetireGen to all-or-nothing decisions. It will be skipped
+    unless --enforce-binary-retirement is specified as a command line argument.
+    This is linked to RetireGen via the Enforce_Binary_Retirement constraint.
+
+    GEN_EARLY_RETIREMENTS is a set of (g, build_year, period) for which
+    RetireGen decisions can be made, and is defined based on the values
+    of gen_can_retire_early.
+
     Max_Build_Potential[g] is a constraint defined for each project
     that enforces maximum capacity limits for resource-limited projects.
 
@@ -179,10 +207,6 @@ def define_components(mod):
     Proj_Fixed_Costs_Annual[g, period] for all projects that could be
     online in the target period. This aggregation is performed for the
     benefit of the objective function.
-
-    TODO:
-    - Allow early capacity retirements with savings on fixed O&M
-
     """
     mod.GENERATION_PROJECTS = Set()
     mod.gen_dbid = Param(mod.GENERATION_PROJECTS, default=lambda m, g: g)
@@ -402,11 +426,57 @@ def define_components(mod):
         initialize=lambda m:
             [(g, p) for g in m.GENERATION_PROJECTS for p in m.PERIODS_FOR_GEN[g]])
 
+    mod.gen_can_retire_early = Param(
+        mod.GEN_BLD_YRS,
+        within=Binary,
+        default=False)
+    mod.GEN_EARLY_RETIREMENTS = Set(
+        dimen=3,
+        initialize = lambda m: set([
+            (g, bld_yr, p)
+            for (g, bld_yr) in m.GEN_BLD_YRS
+                if m.gen_can_retire_early[g, bld_yr]
+            for p in m.PERIODS_FOR_GEN_BLD_YR[g, bld_yr]
+        ]),
+        doc="A sparse index set for RetireGen decisions")
+    mod.RetireGen = Var(
+        mod.GEN_EARLY_RETIREMENTS,
+        within=NonNegativeReals,
+        bounds=lambda m, g, bld_yr, p: (0, m.gen_predetermined_cap[g, bld_yr]))
+    mod.Retirement_Permanence = Constraint(
+        mod.GEN_EARLY_RETIREMENTS,
+        rule=lambda m, g, bld_yr, p: (
+            m.RetireGen[g, bld_yr, p] >= m.RetireGen[g, bld_yr, m.PERIODS.prev(p)]
+            if p != m.PERIODS.first() and (
+                (g, bld_yr, m.PERIODS.prev(p)) in m.GEN_EARLY_RETIREMENTS)
+            else Constraint.Skip))
+    if mod.options.enforce_binary_retirement:
+        mod.RetireGenAllOrNothing = Var(
+            mod.GEN_EARLY_RETIREMENTS,
+            within=Binary)
+        mod.Enforce_Binary_Retirement = Constraint(
+            mod.GEN_EARLY_RETIREMENTS,
+            rule=lambda m, g, bld_yr, p: (
+                m.RetireGen[g, bld_yr, p] == m.RetireGenAllOrNothing[g, bld_yr, p] *
+                    m.gen_predetermined_cap[g, bld_yr]))
+
+
     mod.GenCapacity = Expression(
         mod.GENERATION_PROJECTS, mod.PERIODS,
-        rule=lambda m, g, period: sum(
-            m.BuildGen[g, bld_yr]
-            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, period]))
+        rule=lambda m, g, p: (
+            sum(m.BuildGen[g, bld_yr] 
+                for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]
+            ) - 
+            sum(m.RetireGen[g, bld_yr, p]
+                for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g,p]
+                if m.gen_can_retire_early[g, bld_yr]
+            )))
+    mod.RETIRE_YRS_FOR_GEN_PERIOD = Set(
+        mod.GENERATION_PROJECTS, mod.PERIODS,
+        initialize=lambda m, g, p: [
+            bld_yr for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g,p]
+            if m.gen_can_retire_early[g, bld_yr]
+        ])
 
     mod.Max_Build_Potential = Constraint(
         mod.CAPACITY_LIMITED_GENS, mod.PERIODS,
@@ -472,8 +542,13 @@ def define_components(mod):
     mod.GenFixedOMCosts = Expression(
         mod.GENERATION_PROJECTS, mod.PERIODS,
         rule=lambda m, g, p: sum(
-            m.BuildGen[g, bld_yr] * m.gen_fixed_om[g, bld_yr]
-            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]))
+            m.gen_fixed_om[g, bld_yr] * (
+                m.BuildGen[g, bld_yr] - (
+                    m.RetireGen[g, bld_yr, p]
+                    if (g, bld_yr, p) in m.GEN_EARLY_RETIREMENTS
+                    else 0
+                )
+            ) for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]))
     # Summarize costs for the objective function. Units should be total
     # annual future costs in $base_year real dollars. The objective
     # function will convert these to base_year Net Present Value in
@@ -552,8 +627,9 @@ def load_inputs(mod, switch_data, inputs_dir):
         optional=True,
         filename=os.path.join(inputs_dir, 'gen_build_predetermined.csv'),
         auto_select=True,
+        optional_params=['gen_can_retire_early'],
         index=mod.PREDETERMINED_GEN_BLD_YRS,
-        param=(mod.gen_predetermined_cap))
+        param=(mod.gen_predetermined_cap, mod.gen_can_retire_early))
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'gen_build_costs.csv'),
         auto_select=True,
