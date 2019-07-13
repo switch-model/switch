@@ -387,37 +387,63 @@ def post_solve(instance, outdir):
         )
     )
 
-
-    dispatch_normalized_dat = [{
-        "generation_project": g,
-        "gen_dbid": instance.gen_dbid[g],
-        "gen_tech": instance.gen_tech[g],
-        "gen_load_zone": instance.gen_load_zone[g],
-        "gen_energy_source": instance.gen_energy_source[g],
-        "timestamp": instance.tp_timestamp[t],
-        "tp_weight_in_year_hrs": instance.tp_weight_in_year[t],
-        "period": instance.tp_period[t],
-        "DispatchGen_MW": value(instance.DispatchGen[g, t]),
-        "Energy_GWh_typical_yr": value(
-            instance.DispatchGen[g, t] * instance.tp_weight_in_year[t] / 1000),
-        "VariableCost_per_yr": value(
-            instance.DispatchGen[g, t] * instance.gen_variable_om[g] *
-            instance.tp_weight_in_year[t]),
-        "DispatchEmissions_tCO2_per_typical_yr": value(sum(
-            instance.DispatchEmissions[g, t, f] * instance.tp_weight_in_year[t]
-              for f in instance.FUELS_FOR_GEN[g]
-        )) if instance.gen_uses_fuel[g] else 0
-    } for g, t in instance.GEN_TPS ]
+    dispatch_normalized_dat = []
+    for g, t in instance.GEN_TPS:
+        record = {
+            "generation_project": g,
+            "gen_dbid": instance.gen_dbid[g],
+            "gen_tech": instance.gen_tech[g],
+            "gen_load_zone": instance.gen_load_zone[g],
+            "gen_energy_source": instance.gen_energy_source[g],
+            "timestamp": instance.tp_timestamp[t],
+            "tp_weight_in_year_hrs": instance.tp_weight_in_year[t],
+            "period": instance.tp_period[t],
+            "DispatchGen_MW": value(instance.DispatchGen[g, t]),
+            "Energy_GWh_typical_yr": value(
+                instance.DispatchGen[g, t] * instance.tp_weight_in_year[t] / 1000),
+            "VariableCost_per_yr": value(
+                instance.DispatchGen[g, t] * instance.gen_variable_om[g] *
+                instance.tp_weight_in_year[t]),
+            "DispatchEmissions_tCO2_per_typical_yr": value(sum(
+                instance.DispatchEmissions[g, t, f] * instance.tp_weight_in_year[t]
+                  for f in instance.FUELS_FOR_GEN[g]
+            )) if instance.gen_uses_fuel[g] else 0
+        }
+        try:
+            try:
+                record['ChargeStorage_MW'] = -1.0*value(
+                    instance.ChargeStorage[g,t])
+                record['Store_GWh_typical_yr'] = value(
+                    instance.ChargeStorage[g, t] * 
+                    instance.tp_weight_in_year[t] / 1000
+                )
+                record['Discharge_GWh_typical_yr'] = record['Energy_GWh_typical_yr']
+                record['Energy_GWh_typical_yr'] -= record['Store_GWh_typical_yr']
+            except KeyError:
+                #record['ChargeStorage_MW'] = None
+                pass
+        except AttributeError:
+            pass
+        dispatch_normalized_dat.append(record)
     dispatch_full_df = pd.DataFrame(dispatch_normalized_dat)
     dispatch_full_df.set_index(["generation_project", "timestamp"], inplace=True)
     dispatch_full_df.to_csv(os.path.join(outdir, "dispatch.csv"))
 
+    summary_columns=[
+        "Energy_GWh_typical_yr",
+        "VariableCost_per_yr",
+        "DispatchEmissions_tCO2_per_typical_yr"
+    ]
+    if 'ChargeStorage' in dir(instance):
+        summary_columns.extend([
+            'Store_GWh_typical_yr',
+            'Discharge_GWh_typical_yr'
+        ])
 
     annual_summary = dispatch_full_df.groupby(['gen_tech', "gen_energy_source", "period"]).sum()
     annual_summary.to_csv(
         os.path.join(outdir, "dispatch_annual_summary.csv"),
-        columns=["Energy_GWh_typical_yr", "VariableCost_per_yr",
-                 "DispatchEmissions_tCO2_per_typical_yr"])
+        columns=summary_columns)
 
 
     zonal_annual_summary = dispatch_full_df.groupby(
@@ -425,8 +451,7 @@ def post_solve(instance, outdir):
     ).sum()
     zonal_annual_summary.to_csv(
         os.path.join(outdir, "dispatch_zonal_annual_summary.csv"),
-        columns=["Energy_GWh_typical_yr", "VariableCost_per_yr",
-                 "DispatchEmissions_tCO2_per_typical_yr"]
+        columns=summary_columns
     )
 
     try:
