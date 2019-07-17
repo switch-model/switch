@@ -456,6 +456,16 @@ def post_solve(instance, outdir):
 
     try:
         import plotnine as p9
+        # Try to filter out spurious warnings from plotnine
+        import warnings
+        warnings.filterwarnings(
+            'ignore',
+            category=UserWarning,
+            module='plotnine.*')
+        warnings.filterwarnings(
+            'ignore',
+            category=DeprecationWarning,
+            module='plotnine.*')
 
         annual_summary_plot = p9.ggplot(
                 annual_summary.reset_index(),
