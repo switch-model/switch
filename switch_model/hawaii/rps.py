@@ -802,7 +802,7 @@ def load_inputs(m, switch_data, inputs_dir):
         switch_data.load_aug(
             optional=True,
             filename=os.path.join(inputs_dir, 'rps_targets.csv'),
-            autoselect=True,
+            auto_select=True,
             index=m.RPS_YEARS,
             param=(m.rps_target,))
     else:

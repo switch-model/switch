@@ -136,7 +136,7 @@ def load_inputs(mod, switch_data, inputs_dir):
         param=(mod.f_rps_eligible,))
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'rps_targets.csv'),
-        autoselect=True,
+        auto_select=True,
         index=mod.RPS_PERIODS,
         param=(mod.rps_target,))
 
