@@ -12,9 +12,11 @@ from __future__ import division
 
 import logging
 import os, collections
-from pyomo.environ import *
-from switch_model.reporting import write_table
+
 import pandas as pd
+from pyomo.environ import *
+
+from switch_model.reporting import write_table
 
 dependencies = (
     "switch_model.timescales",
@@ -417,6 +419,7 @@ def post_solve(instance, outdir):
 
     dispatch_normalized_dat = []
     for g, t in instance.GEN_TPS:
+        p = instance.tp_period[t]
         record = {
             "generation_project": g,
             "gen_dbid": instance.gen_dbid[g],
@@ -443,6 +446,9 @@ def post_solve(instance, outdir):
             )
             if instance.gen_uses_fuel[g]
             else 0,
+            "GenCapacity_MW": value(instance.GenCapacity[g, p]),
+            "GenCapitalCosts": value(instance.GenCapitalCosts[g, p]),
+            "GenFixedOMCosts": value(instance.GenFixedOMCosts[g, p]),
         }
         try:
             try:
@@ -452,37 +458,94 @@ def post_solve(instance, outdir):
                 )
                 record["Discharge_GWh_typical_yr"] = record["Energy_GWh_typical_yr"]
                 record["Energy_GWh_typical_yr"] -= record["Store_GWh_typical_yr"]
+                record["is_storage"] = True
             except KeyError:
-                # record['ChargeStorage_MW'] = None
-                pass
+                record["ChargeStorage_MW"] = float("NaN")
+                record["Store_GWh_typical_yr"] = float("NaN")
+                record["Discharge_GWh_typical_yr"] = float("NaN")
+                record["is_storage"] = False
         except AttributeError:
             pass
         dispatch_normalized_dat.append(record)
     dispatch_full_df = pd.DataFrame(dispatch_normalized_dat)
     dispatch_full_df.set_index(["generation_project", "timestamp"], inplace=True)
-    dispatch_full_df.to_csv(os.path.join(outdir, "dispatch.csv"))
+    dispatch_full_df.to_csv(os.path.join(outdir, "dispatch.csv"), columns=[])
 
     summary_columns = [
         "Energy_GWh_typical_yr",
         "VariableCost_per_yr",
         "DispatchEmissions_tCO2_per_typical_yr",
+        "GenCapacity_MW",
+        "GenCapitalCosts",
+        "GenFixedOMCosts",
+        "capacity_factor",
     ]
     if "ChargeStorage" in dir(instance):
         summary_columns.extend(["Store_GWh_typical_yr", "Discharge_GWh_typical_yr"])
 
-    annual_summary = dispatch_full_df.groupby(
-        ["gen_tech", "gen_energy_source", "period"]
-    ).sum()
-    annual_summary.to_csv(
-        os.path.join(outdir, "dispatch_annual_summary.csv"), columns=summary_columns
+    # Annual summary of each generator
+    gen_sum = dispatch_full_df.groupby(
+        [
+            "generation_project",
+            "gen_dbid",
+            "gen_tech",
+            "gen_load_zone",
+            "gen_energy_source",
+            "period",
+            "GenCapacity_MW",
+            "GenCapitalCosts",
+            "GenFixedOMCosts",
+        ]
+    ).sum(min_count=1, skipna=False)
+    gen_sum.reset_index(inplace=True)
+    gen_sum.set_index(
+        inplace=True,
+        keys=[
+            "generation_project",
+            "gen_dbid",
+            "gen_tech",
+            "gen_load_zone",
+            "gen_energy_source",
+            "period",
+        ],
+    )
+    gen_sum["Energy_out_avg_MW"] = (
+        gen_sum["Energy_GWh_typical_yr"] * 1000 / gen_sum["tp_weight_in_year_hrs"]
+    )
+    try:
+        idx = gen_sum["is_storage"].astype(bool)
+        gen_sum.loc[idx, "Energy_out_avg_MW"] = (
+            gen_sum.loc[idx, "Discharge_GWh_typical_yr"]
+            * 1000
+            / gen_sum.loc[idx, "tp_weight_in_year_hrs"]
+        )
+    except KeyError:
+        pass
+
+    def add_cap_factor(df):
+        df["capacity_factor"] = df["Energy_out_avg_MW"] / df["GenCapacity_MW"]
+        no_cap = df["GenCapacity_MW"] == 0
+        df.loc[no_cap, "capacity_factor"] = 0
+        return df
+
+    gen_sum = add_cap_factor(gen_sum)
+    gen_sum.to_csv(
+        os.path.join(outdir, "gen_project_annual_summary.csv"), columns=summary_columns
     )
 
-    zonal_annual_summary = dispatch_full_df.groupby(
+    zone_sum = gen_sum.groupby(
         ["gen_tech", "gen_load_zone", "gen_energy_source", "period"]
     ).sum()
-    zonal_annual_summary.to_csv(
+    zone_sum = add_cap_factor(zone_sum)
+    zone_sum.to_csv(
         os.path.join(outdir, "dispatch_zonal_annual_summary.csv"),
         columns=summary_columns,
+    )
+
+    annual_summary = zone_sum.groupby(["gen_tech", "gen_energy_source", "period"]).sum()
+    annual_summary = add_cap_factor(annual_summary)
+    annual_summary.to_csv(
+        os.path.join(outdir, "dispatch_annual_summary.csv"), columns=summary_columns
     )
 
     try:
