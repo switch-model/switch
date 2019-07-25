@@ -22,11 +22,23 @@ should be possible to describe a simple system using the advanced framework,
 but the advanced framework would take longer to read and understand. To really
 take advantage of it, you'll also need more data than we usually have
 available.
+
+This module can model pumped hydro systems if the storage module is listed
+after simple_hydro in modules.txt, and pumped hydro generation projects are
+flagged via gen_is_pumped_hydro. The current implementation of pumped_hydro
+implicitly assumes that the lower reservoir always has sufficient water in it
+for pumping uphill into storage. Existing resevoir energy capacity can be
+constrained via gen_predetermined_storage_energy_mwh as needed. If existing
+reservoir energy capacity is never a binding constraint for day-to-day
+operations of pumped hydro, leave gen_predetermined_storage_energy_mwh
+unspecified, and set gen_storage_energy_overnight_cost to 0 and the
+optimization will set the energy value to a conveniently large value.
+
 """
 # ToDo: Refactor this code to move the core components into a
 # switch_model.hydro.core module, the simplest components into
 # switch_model.hydro.simple, and the advanced components into
-# switch_model.hydro.water_network. That should set a good example
+# switch_model.hydro.water_network. That could set a good example
 # for other people who want to do other custom handling of hydro.
 
 from __future__ import division
@@ -51,8 +63,18 @@ def define_components(mod):
     GENERATION_PROJECTS, and is determined by the inputs file
     hydro_timeseries.csv.
 
+    gen_is_pumped_hydro[g in GENERATION_PROJECTS] is an optional parameter
+    that denotes whether a hydro project includes pumped storage. To use this
+    pumped hydro implementation, you must include the storage module after
+    hydro_simple in modules.txt. The storage module will look for storage
+    generators flagged as pumped hydro and will define custom constraints for
+    their dispatch & storage that takes into account stream flow.
+
     HYDRO_GEN_TS is the set of Hydro projects and timeseries for which
     minimum and average flow are specified.
+
+    HYDRO_NONPUMPED_GEN_TS is a subset of HYDRO_GEN_TS for hydro projects that
+    do not include pumped storage, and is used to establish flow constraints.
 
     HYDRO_GEN_TPS is the set of Hydro projects and available
     dispatch points. This is a filtered version of GEN_TPS that
@@ -76,7 +98,11 @@ def define_components(mod):
     Enforce_Hydro_Avg_Flow[(g, ts) in HYDRO_NONPUMPED_GEN_TS] is a constraint
     that enforces average flow levels across each timeseries. It requires the
     average of dispatched and spilled hydro over the course of a timeseries
-    must equal to the corresponding hydro_avg_flow_mw parameter.
+    must equal to the corresponding hydro_avg_flow_mw parameter. The
+    corresponding constraint for pumped hydro is defined in the storage
+    module (after storage decision variables are available), via an augmented
+    version of the Track_State_Of_Charge constraint that adds average incoming
+    streamflow and subtracts any spilled power.
     """
 
     mod.HYDRO_GEN_TS_RAW = Set(
@@ -87,13 +113,23 @@ def define_components(mod):
     )
     mod.HYDRO_GENS = Set(
         initialize=lambda m: set(g for (g, ts) in m.HYDRO_GEN_TS_RAW),
-        doc="Dispatchable hydro projects")
+        doc="Dispatchable hydro projects (both pumped & non-pumped)")
+    mod.gen_is_pumped_hydro = Param(
+        mod.GENERATION_PROJECTS, 
+        within=Boolean, 
+        default=False,
+        validate=lambda m, value, g: (value == False) or (g in m.HYDRO_GENS))
+
     mod.HYDRO_GEN_TS = Set(
         dimen=2,
         initialize=lambda m: set(
             (g, m.tp_ts[tp])
                 for g in m.HYDRO_GENS
                     for tp in m.TPS_FOR_GEN[g]))
+    mod.HYDRO_NONPUMPED_GEN_TS = Set(
+        dimen=2,
+        initialize=mod.HYDRO_GEN_TS,
+        filter=lambda m, g, ts: m.gen_is_pumped_hydro[g] == False)
     mod.HYDRO_GEN_TPS = Set(
         initialize=mod.GEN_TPS,
         filter=lambda m, g, t: g in m.HYDRO_GENS)
@@ -125,8 +161,8 @@ def define_components(mod):
             "could indicate a benign issue where the process that built "
             "the dataset used simplified logic and/or didn't know the "
             "scheduled operating dates. If you expect those datapoints to "
-            "be useful, then those plants need to either come online earlier "
-            ", have longer lifetimes, or have options to build new capacity "
+            "be useful, then those plants need to either come online earlier, "
+            "have longer lifetimes, or have options to build new capacity "
             "when the old capacity reaches the provided end-of-life date."
             "\n".format(num_impacted_generators))
         if extra_indexes:
@@ -153,13 +189,25 @@ def define_components(mod):
         mod.HYDRO_GEN_TPS,
         within=NonNegativeReals)
     mod.Enforce_Hydro_Avg_Flow = Constraint(
-        mod.HYDRO_GEN_TS,
+        mod.HYDRO_NONPUMPED_GEN_TS,
         rule=lambda m, g, ts: (
             sum(m.DispatchGen[g, t] + m.SpillHydro[g,t]
                 for t in m.TPS_IN_TS[ts]
             ) == m.hydro_avg_flow_mw[g, ts] * m.ts_num_tps[ts]))
 
     mod.min_data_check('hydro_min_flow_mw', 'hydro_avg_flow_mw')
+
+    def storage_module_avail_for_pumped_hydro_check(m):
+        no_pumped_hydro = all(
+            value(m.gen_is_pumped_hydro[g]) == False
+            for g in m.GENERATION_PROJECTS)
+        has_storage = (
+            'switch_model.generators.extensions.storage' in m.module_list)
+        return (no_pumped_hydro or has_storage)
+    mod.storage_module_avail_for_pumped_hydro = BuildCheck(
+        rule=storage_module_avail_for_pumped_hydro_check,
+        doc="Ensure that the user has included the storage module if they are"
+            "attempting to model pumped hydro.")
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -177,6 +225,15 @@ def load_inputs(mod, switch_data, inputs_dir):
         hydro_generation_project, timeseries, hydro_min_flow_mw,
         hydro_avg_flow_mw
 
+    To model pumped hydro projects that use both river flows and pumped
+    storage, include the storage module in modules.txt after the hydro_simple
+    module. You will also need to populate the gen_is_pumped_hydro &
+    gen_storage_efficiency columns of generation_projects_info.tab for the
+    pumped hydro projects.
+
+    generation_projects_info.csv
+        GENERATION_PROJECT, ..., gen_is_pumped_hydro
+
     """
     switch_data.load_aug(
         optional=True,
@@ -185,3 +242,8 @@ def load_inputs(mod, switch_data, inputs_dir):
         index=mod.HYDRO_GEN_TS_RAW,
         param=(mod.hydro_min_flow_mw, mod.hydro_avg_flow_mw)
     )
+    switch_data.load_aug(
+        filename=os.path.join(inputs_dir, 'generation_projects_info.csv'),
+        auto_select=True,
+        optional_params=['gen_is_pumped_hydro'],
+        param=(mod.gen_is_pumped_hydro,))
