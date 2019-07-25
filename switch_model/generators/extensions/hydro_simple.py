@@ -24,7 +24,7 @@ data than we usually have available.
 from __future__ import division
 
 # ToDo: Refactor this code to move the core components into a
-# switch_model.hydro.core module, the simplist components into
+# switch_model.hydro.core module, the simplest components into
 # switch_model.hydro.simple, and the advanced components into
 # switch_model.hydro.water_network. That should set a good example
 # for other people who want to do other custom handling of hydro.
@@ -175,7 +175,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, "hydro_timeseries.csv"),
-        autoselect=True,
+        auto_select=True,
         index=mod.HYDRO_GEN_TS_RAW,
         param=(mod.hydro_min_flow_mw, mod.hydro_avg_flow_mw),
     )

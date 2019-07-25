@@ -93,6 +93,6 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, "dr_data.csv"),
-        autoselect=True,
+        auto_select=True,
         param=(mod.dr_shift_down_limit, mod.dr_shift_up_limit),
     )
