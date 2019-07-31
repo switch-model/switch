@@ -275,14 +275,17 @@ def define_dynamic_components(model):
 
 def load_inputs(model, switch_data, inputs_dir):
     """
-    reserve_capacity_value.csv
+    Files or columns marked with * are optional. See notes above on default
+    values.
+    
+    reserve_capacity_value.csv*
         GEN, TIMEPOINT, gen_capacity_value
 
-    planning_reserve_requirement_zones.csv
-        PLANNING_RESERVE_REQUIREMENTS, prr_cap_reserve_margin, prr_enforcement_timescale
+    planning_reserve_requirements.csv*
+        PLANNING_RESERVE_REQUIREMENTS, prr_cap_reserve_margin*, prr_enforcement_timescale*
 
     generation_projects_info.csv
-        ..., gen_can_provide_cap_reserves
+        ..., gen_can_provide_cap_reserves*
 
     planning_reserve_requirement_zones.csv
         PRR, ZONE
@@ -297,7 +300,9 @@ def load_inputs(model, switch_data, inputs_dir):
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'planning_reserve_requirements.csv'),
         auto_select=True,
+        optional=True,
         index=model.PLANNING_RESERVE_REQUIREMENTS,
+        optional_params=['gen_can_provide_cap_reserves', "prr_enforcement_timescale"],
         param=(model.prr_cap_reserve_margin, model.prr_enforcement_timescale)
     )
     switch_data.load_aug(
