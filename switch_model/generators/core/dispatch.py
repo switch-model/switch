@@ -469,7 +469,7 @@ def post_solve(instance, outdir):
         dispatch_normalized_dat.append(record)
     dispatch_full_df = pd.DataFrame(dispatch_normalized_dat)
     dispatch_full_df.set_index(["generation_project", "timestamp"], inplace=True)
-    dispatch_full_df.to_csv(os.path.join(outdir, "dispatch.csv"), columns=[])
+    dispatch_full_df.to_csv(os.path.join(outdir, "dispatch.csv"))
 
     summary_columns = [
         "Energy_GWh_typical_yr",
