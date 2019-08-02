@@ -334,15 +334,28 @@ def define_components(mod):
         mod.GEN_TP_FUELS_UNAVAILABLE,
         rule=lambda m, g, t, f: m.GenFuelUseRate[g, t, f] == 0)
 
-
-    # Calculate average fuel costs to allow post-optimization inspection
-    # and cost allocation.
     mod.AverageFuelCosts = Expression(
         mod.REGIONAL_FUEL_MARKETS, mod.PERIODS,
+        doc="Average fuel costs to allow post-optimization inspection "
+            "and cost allocation.",
         rule=lambda m, rfm, p: (
-            rfm_annual_costs(m, rfm, p) /
-            sum(m.ConsumeFuelTier[rfm_st]
-                for rfm_st in m.SUPPLY_TIERS_FOR_RFM_PERIOD[rfm, p])))
+            rfm_annual_costs(m, rfm, p) / (
+                # Avoid divide-by-zero errors if no fuel is consumed.
+                m.FuelConsumptionInMarket[rfm, p] + 0.0001
+            )
+        )
+    ) 
+
+    def GenFuelCosts_rule(m, g, t, f):
+        rfm = m.zone_rfm[m.gen_load_zone[g], f]
+        p = m.tp_period[t]
+        return m.GenFuelUseRate[g, t, f] * m.AverageFuelCosts[rfm, p]
+    mod.GenFuelCosts = Expression(
+        mod.GEN_TP_FUELS,
+        doc="Average cost of fuel consumption, $/hr for post-optimization "
+            "reporting.",
+        rule=GenFuelCosts_rule        
+    )
 
 
 def load_inputs(mod, switch_data, inputs_dir):
