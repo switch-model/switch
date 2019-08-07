@@ -286,14 +286,17 @@ def define_components(mod):
         pprint = "\n".join(
             "* {}: {}".format(g, tps) for g, tps in extraneous.items())
         warning_msg = (
-            "{} renewable generators have capacity factors specified "
-            "in timepoints after they are slated for retirement. This "
-            "could indicate a benign issue where the process that built "
-            "the dataset used simplified logic and/or didn't know the "
-            "scheduled retirement date. If you expect those datapoints to "
-            "be useful, then those plants need longer lifetimes (or "
-            "options to build new capacity when the old capacity reaches "
-            "the provided end-of-life date).\n".format(num_impacted_generators))
+            "{} renewable generators with predetermined builds have capacity "
+            "factors specified in timepoints in periods when they are not "
+            "operating (either after retirement, or before construction is "
+            "complete). This could indicate a benign issue where the process "
+            "that built the dataset used simplified logic and/or didn't know "
+            "the scheduled operational dates. If you expect those datapoints "
+            "to be useful, then those plants need to either come online "
+            "earlier, have longer lifetimes, or have options to build new "
+            "new capacity when the old capacity reaches the provided "
+            "end-of-life date."
+            "\n".format(num_impacted_generators))
         if extra_indexes:
             logging.warning(warning_msg)
             logging.info("Plants with extra timepoints:\n{}".format(pprint))
