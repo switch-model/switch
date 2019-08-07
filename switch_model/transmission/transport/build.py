@@ -5,10 +5,13 @@
 Defines transmission build-outs.
 """
 
+import logging
 import os
-from pyomo.environ import *
-from switch_model.financials import capital_recovery_factor as crf
+
 import pandas as pd
+from pyomo.environ import *
+
+from switch_model.financials import capital_recovery_factor as crf
 
 dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
     'switch_model.financials'
@@ -180,6 +183,27 @@ def define_components(mod):
     # (e.g., island interconnect scenarios). However, presence of this column will still be
     # checked by load_data_aug.
     mod.min_data_check('trans_lz1', 'trans_lz2')
+
+    def _check_tx_duplicate_paths(m):
+        forward_paths = set([
+            (m.trans_lz1[tx], m.trans_lz2[tx]) for tx in m.TRANSMISSION_LINES
+        ])
+        reverse_paths = set([
+            (m.trans_lz2[tx], m.trans_lz1[tx]) for tx in m.TRANSMISSION_LINES            
+        ])
+        overlap = forward_paths.intersection(reverse_paths)
+        if overlap:
+            logging.error(
+                "Transmission lines have bi-directional paths specified "
+                "in input files. They are expected to specify a single path "
+                "per pair of connected load zones. "
+                "(Ex: either A->B or B->A, but not both). "
+                "Over-specified lines: {}".format(overlap))
+            return(False)
+        else:
+            return(True)
+    mod.check_tx_duplicate_paths = BuildCheck(rule=_check_tx_duplicate_paths)
+
     mod.trans_dbid = Param(mod.TRANSMISSION_LINES, default=lambda m, tx: tx)
     mod.trans_length_km = Param(mod.TRANSMISSION_LINES, within=NonNegativeReals)
     mod.trans_efficiency = Param(
