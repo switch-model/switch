@@ -347,7 +347,10 @@ def define_components(mod):
     ) 
 
     def GenFuelCosts_rule(m, g, t, f):
-        rfm = m.zone_rfm[m.gen_load_zone[g], f]
+        try:
+            rfm = m.zone_rfm[m.gen_load_zone[g], f]
+        except KeyError: # Fuel is unavailable
+            return 0.0
         p = m.tp_period[t]
         return m.GenFuelUseRate[g, t, f] * m.AverageFuelCosts[rfm, p]
     mod.GenFuelCosts = Expression(
