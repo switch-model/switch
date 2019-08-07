@@ -350,6 +350,7 @@ def define_components(mod):
         initialize=lambda m, t: (
             m.tp_weight[t] / m.period_length_years[m.tp_period[t]]
         ),
+        doc="This weight scales a timepoint to an annual average.",
     )
     # Identify previous step for each timepoint, for use in tracking
     # unit commitment or storage. We use circular indexing (.prevw() method)
