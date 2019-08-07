@@ -54,30 +54,22 @@ def define_components(mod):
     indicating whether new transmission build-outs are allowed along a
     transmission line. This optional parameter defaults to True.
 
-    BLD_YRS_FOR_TX is the set of transmission lines and years in
-    which they have been or could be built. This set includes past and
-    potential future builds. All future builds must come online in the
-    first year of an investment period. This set is composed of two
-    elements with members: (tx, build_year). For existing transmission
-    where the build years are not known, build_year is set to 'Legacy'.
-
-    BLD_YRS_FOR_EXISTING_TX is a subset of BLD_YRS_FOR_TX that lists
-    builds that happened before the first investment period. For most
-    datasets the build year is unknown, so is it always set to 'Legacy'.
+    TRANS_BLD_YRS is the set of transmission lines and future years in
+    which they could be built. This set is composed of two
+    elements with members: (tx, build_year). In a prior implementation,
+    this set also contained existing transmission (with build_year typically
+    set to 'Legacy'), but this changed in commit 868ca08 on June 13, 2019.
 
     existing_trans_cap[tx in TRANSMISSION_LINES] is a parameter that
-    describes how many MW of capacity has been installed before the
+    describes how many MW of capacity was been installed before the
     start of the study.
 
-    NEW_TRANS_BLD_YRS is a subset of BLD_YRS_FOR_TX that describes
-    potential builds.
-
-    BuildTx[(tx, bld_yr) in BLD_YRS_FOR_TX] is a decision variable
+    BuildTx[(tx, bld_yr) in TRANS_BLD_YRS] is a decision variable
     that describes the transfer capacity in MW installed on a corridor
     in a given build year. For existing builds, this variable is locked
     to the existing capacity.
 
-    TxCapacityNameplate[(tx, bld_yr) in BLD_YRS_FOR_TX] is an expression
+    TxCapacityNameplate[(tx, bld_yr) in TRANS_BLD_YRS] is an expression
     that returns the total nameplate transfer capacity of a transmission
     line in a given period. This is the sum of existing and newly-build
     capacity.
@@ -88,7 +80,7 @@ def define_components(mod):
     is optional and defaults to 1. This parameter should be in the
     range of 0 to 1, being 0 a value that disables the line completely.
 
-    TxCapacityNameplateAvailable[(tx, bld_yr) in BLD_YRS_FOR_TX] is an
+    TxCapacityNameplateAvailable[(tx, bld_yr) in TRANS_BLD_YRS] is an
     expression that returns the available transfer capacity of a
     transmission line in a given period, taking into account the
     nameplate capacity and derating factor.
@@ -132,18 +124,6 @@ def define_components(mod):
 
     trans_d_line[trans_d] is the transmission line associated with this
     directional path.
-
-    TX_BUILDS_IN_PERIOD[p in PERIODS] is an indexed set that
-    describes which transmission builds will be operational in a given
-    period. Currently, transmission lines are kept online indefinitely,
-    with parts being replaced as they wear out.
-
-    TX_BUILDS_IN_PERIOD[p] will return a subset of (tx, bld_yr)
-    in BLD_YRS_FOR_TX.
-
-    --- Delayed implementation ---
-
-    is_dc_line ... Do I even need to implement this?
 
     --- NOTES ---
 
