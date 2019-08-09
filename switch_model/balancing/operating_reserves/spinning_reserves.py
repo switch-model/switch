@@ -365,13 +365,24 @@ def define_components(m):
     corresponding variable for downward spinning reserves.
 
     CommitGenSpinningReservesUp_Limit[(g,t) in SPINNING_RESERVE_GEN_TPS] and
-    CommitGenSpinningReservesDown_Limit constraint the CommitGenSpinningReserves
-    variables based on DispatchSlackUp and DispatchSlackDown.
+    CommitGenSpinningReservesDown_Limit constrain the
+    CommitGenSpinningReserves variables based on DispatchSlackUp and
+    DispatchSlackDown (and ChargeStorage, as applicable).
 
     CommittedSpinningReserveUp[(b,t) in BALANCING_AREA_TIMEPOINTS] and
     CommittedSpinningReserveDown are expressions summarizing the
     CommitGenSpinningReserves variables for generators within each balancing
     area.
+
+    CommitGenSpinningReservesUp and CommitGenSpinningReservesDown are
+    variables instead of aliases to DispatchSlackUp & DispatchSlackDown
+    because they may need to take on lower values to reduce the
+    project-level contigencies, especially when discrete unit commitment is
+    enabled, and committed capacity may exceed the amount of capacity that
+    is strictly needed. Having these as variables also flags them for
+    automatic export in model dumps and tab files, and opens up the
+    possibility of further customizations like adding variable costs for
+    spinning reserve provision.
 
     Depending on the configuration parameters unit_contingency,
     project_contingency and spinning_requirement_rule, other components may be
@@ -389,15 +400,6 @@ def define_components(m):
         dimen=2,
         initialize=m.GEN_TPS,
         filter=lambda m, g, t: m.gen_can_provide_spinning_reserves[g])
-    # CommitGenSpinningReservesUp and CommitGenSpinningReservesDown are
-    # variables instead of aliases to DispatchSlackUp & DispatchSlackDown
-    # because they may need to take on lower values to reduce the
-    # project-level contigencies, especially when discrete unit commitment is
-    # enabled, and committed capacity may exceed the amount of capacity that
-    # is strictly needed. Having these as variables also flags them for
-    # automatic export in model dumps and tab files, and opens up the
-    # possibility of further customizations like adding variable costs for
-    # spinning reserve provision.
     m.CommitGenSpinningReservesUp = Var(
         m.SPINNING_RESERVE_GEN_TPS,
         within=NonNegativeReals
@@ -406,15 +408,38 @@ def define_components(m):
         m.SPINNING_RESERVE_GEN_TPS,
         within=NonNegativeReals
     )
+    m.CommitGenSpinningReservesSlackUp = Var(
+        m.SPINNING_RESERVE_GEN_TPS,
+        within=NonNegativeReals,
+        doc="Denotes the upward slack in spinning reserves that could be used "
+            "for quickstart reserves, or possibly other reserve products."
+    )
     m.CommitGenSpinningReservesUp_Limit = Constraint(
         m.SPINNING_RESERVE_GEN_TPS,
-        rule=lambda m, g, t: \
-            m.CommitGenSpinningReservesUp[g,t] <= m.DispatchSlackUp[g, t]
+        rule=lambda m, g, t: (
+            m.CommitGenSpinningReservesUp[g,t] + 
+            m.CommitGenSpinningReservesSlackUp[g,t]
+            == m.DispatchSlackUp[g, t] + 
+            # storage can give more up response by stopping charging
+            (m.ChargeStorage[g, t] 
+                if g in getattr(m, 'STORAGE_GENS', []) 
+                else 0.0
+            )
+        )
     )
     m.CommitGenSpinningReservesDown_Limit = Constraint(
         m.SPINNING_RESERVE_GEN_TPS,
         rule=lambda m, g, t: \
-            m.CommitGenSpinningReservesDown[g,t] <= m.DispatchSlackDown[g, t]
+            m.CommitGenSpinningReservesDown[g,t] <= m.DispatchSlackDown[g, t] +
+            # storage could give more down response by raising ChargeStorage
+            # to the maximum rate
+            ( 
+                (m.DispatchUpperLimit[g, t] * m.gen_store_to_release_ratio[g] 
+                 - m.ChargeStorage[g, t]
+                )
+                if g in getattr(m, 'STORAGE_GENS', [])
+                else 0.0
+            )
     )
 
     # Sum of spinning reserve capacity per balancing area and timepoint..
@@ -438,7 +463,7 @@ def define_components(m):
             )
     )
     m.Spinning_Reserve_Down_Provisions.append('CommittedSpinningReserveDown')
-
+    
     if m.options.unit_contingency:
         gen_unit_contingency(m)
     if m.options.project_contingency:
