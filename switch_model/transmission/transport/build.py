@@ -280,16 +280,16 @@ def load_inputs(mod, switch_data, inputs_dir):
     Import data related to transmission builds. The following files are
     expected in the input directory:
 
-    transmission_lines.tab
+    transmission_lines.csv
         TRANSMISSION_LINE, trans_lz1, trans_lz2, trans_length_km,
         trans_efficiency, existing_trans_cap, trans_dbid,
         trans_derating_factor, trans_terrain_multiplier,
         trans_new_build_allowed
-    The last 4 columns of transmission_lines.tab are optional. If the
+    The last 4 columns of transmission_lines.csv are optional. If the
     columns are missing or if cells contain a dot (.), those parameters
     will be set to default values as described in documentation.
 
-    Note that the next file is formatted as .dat, not as .tab. The
+    Note that the next file is formatted as .dat, not as .csv. The
     distribution_loss_rate parameter should only be inputted if the
     local_td module is loaded in the simulation. If this parameter is
     specified a value in trans_params.dat and local_td is not included
@@ -302,10 +302,10 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     """
 
-    # TODO: send issue / pull request to Pyomo to allow .tab files with
+    # TODO: send issue / pull request to Pyomo to allow .csv files with
     # no rows after header (fix bugs in pyomo.core.plugins.data.text)
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'transmission_lines.tab'),
+        filename=os.path.join(inputs_dir, 'transmission_lines.csv'),
         select=(
             'TRANSMISSION_LINE', 'trans_lz1', 'trans_lz2',
             'trans_length_km', 'trans_efficiency', 'existing_trans_cap',

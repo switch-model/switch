@@ -419,7 +419,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     If you only want to override default values for certain columns in a
     row, insert a dot . into the other columns.
 
-    generation_projects_info.tab
+    generation_projects_info.csv
         GENERATION_PROJECT, gen_min_load_fraction, gen_startup_fuel,
         gen_startup_om
 
@@ -427,20 +427,20 @@ def load_inputs(mod, switch_data, inputs_dir):
     costs for a non-fuel based generator, you must put a dot . in the
     gen_startup_fuel column to avoid an error.
 
-    gen_timepoint_commit_bounds.tab
+    gen_timepoint_commit_bounds.csv
         GENERATION_PROJECT, TIMEPOINT, gen_min_commit_fraction_TP,
         gen_max_commit_fraction_TP, gen_min_load_fraction_TP
 
     """
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'generation_projects_info.tab'),
+        filename=os.path.join(inputs_dir, 'generation_projects_info.csv'),
         auto_select=True,
         param=(mod.gen_min_load_fraction, mod.gen_startup_fuel,
                mod.gen_startup_om, mod.gen_min_uptime, mod.gen_min_downtime))
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'gen_timepoint_commit_bounds.tab'),
+        filename=os.path.join(inputs_dir, 'gen_timepoint_commit_bounds.csv'),
         auto_select=True,
         param=(mod.gen_min_commit_fraction,
             mod.gen_max_commit_fraction, mod.gen_min_load_fraction_TP))

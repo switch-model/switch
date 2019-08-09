@@ -5,7 +5,7 @@ def define_components(m):
     prevent non-cogen plants from burning pure LSFO after 2017 due to MATS emission restrictions
     """
 
-    # TODO: move this set into a parameter list in fuels.tab, e.g, 'banned_after', which can be a year or NULL
+    # TODO: move this set into a parameter list in fuels.csv, e.g, 'banned_after', which can be a year or NULL
     m.FUEL_BANS = Set(dimen=2, initialize=[('LSFO', 2017)])
 
     m.BANNED_FUEL_DISPATCH_POINTS = Set(dimen=3, initialize=lambda m:

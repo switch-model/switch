@@ -51,12 +51,12 @@ def load_inputs(model, switch_data, inputs_dir):
     to interpret meaningfully.
 
     Expected input files:
-    carbon_policies.tab
+    carbon_policies.csv
         PERIOD, carbon_cap_tco2_per_yr, carbon_cost_dollar_per_tco2
 
     """
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'carbon_policies.tab'),
+        filename=os.path.join(inputs_dir, 'carbon_policies.csv'),
         optional=True,
         optional_params=(model.carbon_cap_tco2_per_yr, model.carbon_cost_dollar_per_tco2),
         auto_select=True,

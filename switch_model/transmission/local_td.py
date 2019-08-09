@@ -205,15 +205,15 @@ def load_inputs(mod, switch_data, inputs_dir):
     """
 
     Import local transmission & distribution data. The following files
-    are expected in the input directory. load_zones.tab will
+    are expected in the input directory. load_zones.csv will
     contain additional columns that are used by the load_zones module.
 
-    load_zones.tab
+    load_zones.csv
         load_zone, existing_local_td, local_td_annual_cost_per_mw
 
     """
 
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'load_zones.tab'),
+        filename=os.path.join(inputs_dir, 'load_zones.csv'),
         auto_select=True,
         param=(mod.existing_local_td, mod.local_td_annual_cost_per_mw))

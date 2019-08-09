@@ -351,19 +351,19 @@ def load_inputs(mod, switch_data, inputs_dir):
     Import fuel market data. The following files are expected in the
     input directory:
 
-    regional_fuel_markets.tab:
+    regional_fuel_markets.csv:
         regional_fuel_market, fuel
 
-    fuel_supply_curves.tab
+    fuel_supply_curves.csv
         regional_fuel_market, period, tier, unit_cost, max_avail_at_cost
 
-    zone_to_regional_fuel_market.tab
+    zone_to_regional_fuel_market.csv
         load_zone, regional_fuel_market
 
     The next file is optional. If unspecified, zone_fuel_cost_adder will
     default to 0 for all load zones and periods.
 
-    zone_fuel_cost_diff.tab
+    zone_fuel_cost_diff.csv
         load_zone, fuel, period, fuel_cost_adder
 
     The next file is also optional. This file allows simple
@@ -374,7 +374,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     this  file is accomplished through the internal
     _load_simple_cost_data function.
 
-    fuel_cost.tab
+    fuel_cost.csv
         load_zone, fuel, period, fuel_cost
 
     """
@@ -383,21 +383,21 @@ def load_inputs(mod, switch_data, inputs_dir):
     # message if some columns are not found.
 
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'regional_fuel_markets.tab'),
+        filename=os.path.join(inputs_dir, 'regional_fuel_markets.csv'),
         select=('regional_fuel_market', 'fuel'),
         index=mod.REGIONAL_FUEL_MARKETS,
         param=(mod.rfm_fuel))
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'fuel_supply_curves.tab'),
+        filename=os.path.join(inputs_dir, 'fuel_supply_curves.csv'),
         select=('regional_fuel_market', 'period', 'tier', 'unit_cost',
                 'max_avail_at_cost'),
         index=mod.RFM_SUPPLY_TIERS,
         param=(mod.rfm_supply_tier_cost, mod.rfm_supply_tier_limit))
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'zone_to_regional_fuel_market.tab'),
+        filename=os.path.join(inputs_dir, 'zone_to_regional_fuel_market.csv'),
         set=mod.ZONE_RFMS)
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'zone_fuel_cost_diff.tab'),
+        filename=os.path.join(inputs_dir, 'zone_fuel_cost_diff.csv'),
         optional=True,
         select=('load_zone', 'fuel', 'period', 'fuel_cost_adder'),
         param=(mod.zone_fuel_cost_adder))
@@ -405,7 +405,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     # Load a simple specifications of costs if the file exists. The
     # actual loading, error checking, and casting into a supply curve is
     # slightly complicated, so I moved that logic to a separate function.
-    path = os.path.join(inputs_dir, 'fuel_cost.tab')
+    path = os.path.join(inputs_dir, 'fuel_cost.csv')
     if os.path.isfile(path):
         _load_simple_cost_data(mod, switch_data, path)
 
@@ -422,15 +422,15 @@ def _load_simple_cost_data(mod, switch_data, path):
             # Basic data validity checks
             if z not in switch_data.data(name='LOAD_ZONES'):
                 raise ValueError(
-                    "Load zone " + z + " in zone_simple_fuel_cost.tab is not " +
-                    "a known load zone from load_zones.tab.")
+                    "Load zone " + z + " in zone_simple_fuel_cost.csv is not " +
+                    "a known load zone from load_zones.csv.")
             if f not in switch_data.data(name='FUELS'):
                 raise ValueError(
-                    "Fuel " + f + " in zone_simple_fuel_cost.tab is not " +
-                    "a known fuel from fuels.tab.")
+                    "Fuel " + f + " in zone_simple_fuel_cost.csv is not " +
+                    "a known fuel from fuels.csv.")
             if p not in switch_data.data(name='PERIODS'):
                 raise ValueError(
-                    "Period " + p + " in zone_simple_fuel_cost.tab is not " +
+                    "Period " + p + " in zone_simple_fuel_cost.csv is not " +
                     "a known investment period.")
             # Make sure they aren't overriding a supply curve or
             # regional fuel market defined in previous files.
@@ -442,15 +442,15 @@ def _load_simple_cost_data(mod, switch_data, path):
                         "' was already registered with the regional fuel " +
                         "market '" + rfm + "', so you cannot " +
                         "specify a simple fuel cost for it in " +
-                        "zone_simple_fuel_cost.tab. You either need to delete " +
-                        "that entry from zone_to_regional_fuel_market.tab, or " +
-                        "remove those entries in zone_simple_fuel_cost.tab.")
+                        "zone_simple_fuel_cost.csv. You either need to delete " +
+                        "that entry from zone_to_regional_fuel_market.csv, or " +
+                        "remove those entries in zone_simple_fuel_cost.csv.")
             # Make a new single-load zone regional fuel market.
             rfm = z + "_" + f
             if rfm in switch_data.data(name='REGIONAL_FUEL_MARKETS'):
                 raise ValueError(
                     "Trying to construct a simple Regional Fuel Market " +
-                    "called " + rfm + " from data in zone_simple_fuel_cost.tab" +
+                    "called " + rfm + " from data in zone_simple_fuel_cost.csv" +
                     ", but an RFM of that name already exists. Bailing out!")
         # Scan again and actually import the data
         for row in simple_cost_dat:

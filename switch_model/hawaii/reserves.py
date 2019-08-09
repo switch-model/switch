@@ -255,7 +255,7 @@ def define_dynamic_components(m):
 
 # def load_inputs(m, switch_data, inputs_dir):
 #     switch_data.load_aug(
-#         filename=os.path.join(inputs_dir, 'reserve_requirements.tab'),
+#         filename=os.path.join(inputs_dir, 'reserve_requirements.csv'),
 #         auto_select=True,
 #         param=(m.RegulatingReserveRequirementMW))
 

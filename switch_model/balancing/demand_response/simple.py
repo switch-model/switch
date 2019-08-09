@@ -82,13 +82,13 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     Import demand response-specific data from an input directory.
 
-    dr_data.tab
+    dr_data.csv
         LOAD_ZONE, TIMEPOINT, dr_shift_down_limit, dr_shift_up_limit
 
     """
 
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'dr_data.tab'),
+        filename=os.path.join(inputs_dir, 'dr_data.csv'),
         autoselect=True,
         param=(mod.dr_shift_down_limit, mod.dr_shift_up_limit))

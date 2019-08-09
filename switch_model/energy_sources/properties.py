@@ -122,13 +122,13 @@ def load_inputs(mod, switch_data, inputs_dir):
     This could be theoretically derived from any energy sources in the
     generator_energy_sources file that are not listed in the fuels
     table, but that would mean any mispelled fuel or fuel that was
-    unlisted in fuels.tab would be automatically classified as a free
+    unlisted in fuels.csv would be automatically classified as a free
     renewable source.
 
-    non_fuel_energy_sources.tab
+    non_fuel_energy_sources.csv
         energy_source
 
-    fuels.tab
+    fuels.csv
         fuel, co2_intensity, upstream_co2_intensity
 
     """
@@ -138,11 +138,11 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'non_fuel_energy_sources.tab'),
+        filename=os.path.join(inputs_dir, 'non_fuel_energy_sources.csv'),
         set=('NON_FUEL_ENERGY_SOURCES'))
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'fuels.tab'),
+        filename=os.path.join(inputs_dir, 'fuels.csv'),
         select=('fuel', 'co2_intensity', 'upstream_co2_intensity'),
         index=mod.FUELS,
         param=(mod.f_co2_intensity, mod.f_upstream_co2_intensity))

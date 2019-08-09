@@ -148,13 +148,13 @@ def load_inputs(mod, switch_data, inputs_dir):
     optional parameter, use a dot . for its value. Optional columns and
     files are noted with a *.
 
-    load_zones.tab
+    load_zones.csv
         LOAD_ZONE, zone_ccs_distance_km*, zone_dbid*
 
-    loads.tab
+    loads.csv
         LOAD_ZONE, TIMEPOINT, zone_demand_mw
 
-    zone_coincident_peak_demand.tab*
+    zone_coincident_peak_demand.csv*
         LOAD_ZONE, PERIOD, zone_expected_coincident_peak_demand
 
     """
@@ -162,17 +162,17 @@ def load_inputs(mod, switch_data, inputs_dir):
     # column names, be indifferent to column order, and throw an error
     # message if some columns are not found.
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'load_zones.tab'),
+        filename=os.path.join(inputs_dir, 'load_zones.csv'),
         auto_select=True,
         index=mod.LOAD_ZONES,
         param=(mod.zone_ccs_distance_km, mod.zone_dbid))
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'loads.tab'),
+        filename=os.path.join(inputs_dir, 'loads.csv'),
         auto_select=True,
         param=(mod.zone_demand_mw))
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'zone_coincident_peak_demand.tab'),
+        filename=os.path.join(inputs_dir, 'zone_coincident_peak_demand.csv'),
         index=mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS,
         select=('LOAD_ZONE', 'PERIOD', 'zone_expected_coincident_peak_demand'),
         param=(mod.zone_expected_coincident_peak_demand))

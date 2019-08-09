@@ -238,7 +238,7 @@ def post_solve(mod, outdir):
     #             renergy[s] += mod.DispatchProj[pr,tp,s].value*mod.tp_weight[tp] / 1000000.0
     #         for pr in mod.PROJECTS_ACTIVE_IN_TIMEPOINT[tp]:
     #             energy[s] += mod.DispatchProj[pr,tp,s].value*mod.tp_weight[tp]/1000000.0
-    # with open(os.path.join(summaries_dir, "rps.tab"),'w') as f:
+    # with open(os.path.join(summaries_dir, "rps.csv"),'w') as f:
     #     for p in mod.PERIODS:
     #         ener = sum(energy[s]*mod.scenario_probability[s] for s in mod.PERIOD_SCENARIOS[p])
     #         rpsener = sum((rpsenergy[s]/energy[s]*100.0)*mod.scenario_probability[s] for s in mod.PERIOD_SCENARIOS[p])

@@ -39,7 +39,7 @@ def define_components(mod):
     """
 
     HYDRO_GENS is the set of dispatchable hydro projects. This is a subet
-    of GENERATION_PROJECTS, and is determined by the inputs file hydro_timeseries.tab.
+    of GENERATION_PROJECTS, and is determined by the inputs file hydro_timeseries.csv.
     Members of this set can be called either g, or hydro_g.
 
     HYDRO_GEN_TS is the set of Hydro projects and timeseries for which
@@ -117,23 +117,23 @@ def define_components(mod):
 def load_inputs(mod, switch_data, inputs_dir):
     """
 
-    Import hydro data. The single file hydro_timeseries.tab needs to contain
+    Import hydro data. The single file hydro_timeseries.csv needs to contain
     entries for each dispatchable hydro project. The set of hydro projects
     is derived from this file, and this file should cover all time periods
     in which the hydro plant can operate.
 
     Run-of-River hydro projects should not be included in this file; RoR
     hydro is treated like any other variable renewable resource, and
-    expects data in variable_capacity_factors.tab.
+    expects data in variable_capacity_factors.csv.
 
-    hydro_timeseries.tab
+    hydro_timeseries.csv
         hydro_generation_project, timeseries, hydro_min_flow_mw,
         hydro_avg_flow_mw
 
     """
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'hydro_timeseries.tab'),
+        filename=os.path.join(inputs_dir, 'hydro_timeseries.csv'),
         autoselect=True,
         index=mod.HYDRO_GEN_TS_RAW,
         param=(mod.hydro_min_flow_mw, mod.hydro_avg_flow_mw)

@@ -48,9 +48,9 @@ def define_components(m):
 
     # user can study different LNG durations by specifying a tier to activate and
     # a start and end date. Both the capital recovery and fixed costs for this tier are
-    # bundled into the market's fixed cost, which means a different fuel_supply_curves.tab
+    # bundled into the market's fixed cost, which means a different fuel_supply_curves.csv
     # file is needed for each LNG duration (i.e., the tiers must be forced on or off
-    # for a particular duration which matches the fuel_supply_curves.tab). This is
+    # for a particular duration which matches the fuel_supply_curves.csv). This is
     # brittle and requires trying all permutations to find the optimum, which is not
     # good. A better way would be to specify capital costs separately from fixed costs,
     # and add a flag to force the model to recover capital costs completely within the

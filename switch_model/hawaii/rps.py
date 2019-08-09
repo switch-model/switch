@@ -46,7 +46,7 @@ def define_arguments(argparser):
     argparser.add_argument('--rps-targets', nargs='*', default=None,
         help="Targets to use for RPS, specified as --rps-targets year1 level1 year2 level2 ..., "
         "where years are transition years and levels are fractions between 0 and 1. "
-        "If not specified, values from rps_targets.tab will be used."
+        "If not specified, values from rps_targets.csv will be used."
     )
 
 # TODO: make this work with progressive hedging as follows:
@@ -795,13 +795,13 @@ def quadratic1_DispatchGenRenewableMW(m):
 def load_inputs(m, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'fuels.tab'),
+        filename=os.path.join(inputs_dir, 'fuels.csv'),
         select=('fuel', 'rps_eligible'),
         param=(m.f_rps_eligible,))
     if m.options.rps_targets is None:
         switch_data.load_aug(
             optional=True,
-            filename=os.path.join(inputs_dir, 'rps_targets.tab'),
+            filename=os.path.join(inputs_dir, 'rps_targets.csv'),
             autoselect=True,
             index=m.RPS_YEARS,
             param=(m.rps_target,))

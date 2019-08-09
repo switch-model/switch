@@ -448,22 +448,22 @@ def load_inputs(mod, switch_data, inputs_dir):
     Import hydro data to model hydroelectric projects in reservoirs and
     in series.
 
-    The files water_nodes.tab, reservoirs.tab, water_connections.tab and
-    hydro_generation_projects.tab are mandatory, since they specify the hydraulic
+    The files water_nodes.csv, reservoirs.csv, water_connections.csv and
+    hydro_generation_projects.csv are mandatory, since they specify the hydraulic
     system's topology and basic characterization.
 
-    Files water_node_tp_flows, reservoir_tp_data.tab and min_eco_flows.tab
+    Files water_node_tp_flows, reservoir_tp_data.csv and min_eco_flows.csv
     are optional, since they specify information in a timepoint basis that
     has constant values to default to.
 
     Run-of-River hydro projects should not be included in this file; RoR
     hydro is treated like any other variable renewable resource, and
-    expects data in variable_capacity_factors.tab.
+    expects data in variable_capacity_factors.csv.
 
     """
 
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'water_nodes.tab'),
+        filename=os.path.join(inputs_dir, 'water_nodes.csv'),
         auto_select=True,
         index=mod.WATER_NODES,
         optional_params=['mod.wnode_constant_inflow',
@@ -472,39 +472,39 @@ def load_inputs(mod, switch_data, inputs_dir):
             mod.wnode_constant_consumption))
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'water_node_tp_flows.tab'),
+        filename=os.path.join(inputs_dir, 'water_node_tp_flows.csv'),
         auto_select=True,
         optional_params=['mod.wnode_tp_inflow', 'mod.wnode_tp_consumption'],
         param=(mod.wnode_tp_inflow, mod.wnode_tp_consumption))
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'reservoirs.tab'),
+        filename=os.path.join(inputs_dir, 'reservoirs.csv'),
         auto_select=True,
         index=mod.RESERVOIRS,
         param=(mod.res_min_vol, mod.res_max_vol,
             mod.initial_res_vol, mod.final_res_vol))
-    if os.path.exists(os.path.join(inputs_dir, 'reservoir_tp_data.tab')):
+    if os.path.exists(os.path.join(inputs_dir, 'reservoir_tp_data.csv')):
         raise NotImplementedError(
             "Code needs to be added to hydro_system module to enforce "
             "reservoir volume limits per timepoint."
         )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'reservoir_tp_data.tab'),
+        filename=os.path.join(inputs_dir, 'reservoir_tp_data.csv'),
         optional=True,
         auto_select=True,
         optional_params=['mod.res_max_vol_tp', 'mod.res_min_vol_tp'],
         param=(mod.res_max_vol_tp, mod.res_min_vol_tp))
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'water_connections.tab'),
+        filename=os.path.join(inputs_dir, 'water_connections.csv'),
         auto_select=True,
         index=mod.WATER_CONNECTIONS,
         param=(mod.water_node_from, mod.water_node_to, mod.wc_capacity))
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'min_eco_flows.tab'),
+        filename=os.path.join(inputs_dir, 'min_eco_flows.csv'),
         auto_select=True,
         param=(mod.min_eco_flow))
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'hydro_generation_projects.tab'),
+        filename=os.path.join(inputs_dir, 'hydro_generation_projects.csv'),
         auto_select=True,
         index=mod.HYDRO_GENS,
         param=(mod.hydro_efficiency, mod.hydraulic_location))

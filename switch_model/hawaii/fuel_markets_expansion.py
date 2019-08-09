@@ -99,6 +99,6 @@ def define_components(m):
 def load_inputs(m, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'fuel_supply_curves.tab'),
+        filename=os.path.join(inputs_dir, 'fuel_supply_curves.csv'),
         select=('regional_fuel_market', 'period', 'tier', 'fixed_cost', 'max_age'),
         param=(m.rfm_supply_tier_fixed_cost,m.rfm_supply_tier_max_age))

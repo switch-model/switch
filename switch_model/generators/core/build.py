@@ -492,7 +492,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     Import data describing project builds. The following files are
     expected in the input directory.
 
-    generation_projects_info.tab has mandatory and optional columns. The
+    generation_projects_info.csv has mandatory and optional columns. The
     operations.gen_dispatch module will also look for additional columns in
     this file. You may drop optional columns entirely or mark blank
     values with a dot '.' for select rows for which the column does not
@@ -509,18 +509,18 @@ def load_inputs(mod, switch_data, inputs_dir):
     The following file lists existing builds of projects, and is
     optional for simulations where there is no existing capacity:
 
-    gen_build_predetermined.tab
+    gen_build_predetermined.csv
         GENERATION_PROJECT, build_year, gen_predetermined_cap
 
     The following file is mandatory, because it sets cost parameters for
     both existing and new project buildouts:
 
-    gen_build_costs.tab
+    gen_build_costs.csv
         GENERATION_PROJECT, build_year, gen_overnight_cost, gen_fixed_om
 
     """
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'generation_projects_info.tab'),
+        filename=os.path.join(inputs_dir, 'generation_projects_info.csv'),
         auto_select=True,
         optional_params=['gen_dbid', 'gen_is_baseload', 'gen_scheduled_outage_rate',
         'gen_forced_outage_rate', 'gen_capacity_limit_mw', 'gen_unit_size',
@@ -550,12 +550,12 @@ def load_inputs(mod, switch_data, inputs_dir):
             None: list(switch_data.data(name='gen_ccs_capture_efficiency').keys())}
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'gen_build_predetermined.tab'),
+        filename=os.path.join(inputs_dir, 'gen_build_predetermined.csv'),
         auto_select=True,
         index=mod.PREDETERMINED_GEN_BLD_YRS,
         param=(mod.gen_predetermined_cap))
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'gen_build_costs.tab'),
+        filename=os.path.join(inputs_dir, 'gen_build_costs.csv'),
         auto_select=True,
         index=mod.GEN_BLD_YRS,
         param=(mod.gen_overnight_cost, mod.gen_fixed_om))
@@ -569,7 +569,7 @@ def post_solve(m, outdir):
     write_table(
         m,
         sorted(m.GEN_PERIODS) if m.options.sorted_output else m.GEN_PERIODS,
-        output_file=os.path.join(outdir, "gen_cap.tab"),
+        output_file=os.path.join(outdir, "gen_cap.csv"),
         headings=(
             "GENERATION_PROJECT", "PERIOD",
             "gen_tech", "gen_load_zone", "gen_energy_source",

@@ -275,38 +275,38 @@ def define_dynamic_components(model):
 
 def load_inputs(model, switch_data, inputs_dir):
     """
-    reserve_capacity_value.tab
+    reserve_capacity_value.csv
         GEN, TIMEPOINT, gen_capacity_value
 
-    planning_reserve_requirement_zones.tab
+    planning_reserve_requirement_zones.csv
         PLANNING_RESERVE_REQUIREMENTS, prr_cap_reserve_margin, prr_enforcement_timescale
 
-    generation_projects_info.tab
+    generation_projects_info.csv
         ..., gen_can_provide_cap_reserves
 
-    planning_reserve_requirement_zones.tab
+    planning_reserve_requirement_zones.csv
         PRR, ZONE
 
     """
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'reserve_capacity_value.tab'),
+        filename=os.path.join(inputs_dir, 'reserve_capacity_value.csv'),
         optional=True,
         auto_select=True,
         param=(model.gen_capacity_value)
     )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'planning_reserve_requirements.tab'),
+        filename=os.path.join(inputs_dir, 'planning_reserve_requirements.csv'),
         auto_select=True,
         index=model.PLANNING_RESERVE_REQUIREMENTS,
         param=(model.prr_cap_reserve_margin, model.prr_enforcement_timescale)
     )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'generation_projects_info.tab'),
+        filename=os.path.join(inputs_dir, 'generation_projects_info.csv'),
         auto_select=True,
         optional_params=['gen_can_provide_cap_reserves'],
         param=(model.gen_can_provide_cap_reserves)
     )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'planning_reserve_requirement_zones.tab'),
+        filename=os.path.join(inputs_dir, 'planning_reserve_requirement_zones.csv'),
         set=model.PRR_ZONES
     )

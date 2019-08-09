@@ -138,12 +138,12 @@ def define_components(m):
 
 def load_inputs(m, switch_data, inputs_dir):
     """
-    Import battery data from .dat and .tab files.
+    Import battery data from .dat and .csv files.
     """
     switch_data.load(filename=os.path.join(inputs_dir, 'batteries.dat'))
     switch_data.load_aug(
         optional=False,
-        filename=os.path.join(inputs_dir, 'battery_capital_cost.tab'),
+        filename=os.path.join(inputs_dir, 'battery_capital_cost.csv'),
         autoselect=True,
         index=m.BATTERY_CAPITAL_COST_YEARS,
         param=(m.battery_capital_cost_per_mwh_capacity_by_year,))

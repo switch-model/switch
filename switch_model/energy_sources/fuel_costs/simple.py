@@ -86,13 +86,13 @@ def load_inputs(mod, switch_data, inputs_dir):
     Import simple fuel cost data. The following files are expected in
     the input directory:
 
-    fuel_cost.tab
+    fuel_cost.csv
         load_zone, fuel, period, fuel_cost
 
     """
 
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'fuel_cost.tab'),
+        filename=os.path.join(inputs_dir, 'fuel_cost.csv'),
         select=('load_zone', 'fuel', 'period', 'fuel_cost'),
         index=mod.ZONE_FUEL_PERIODS,
         param=[mod.fuel_cost])

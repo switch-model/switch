@@ -374,24 +374,24 @@ def define_components(mod):
 
 def load_inputs(mod, switch_data, inputs_dir):
     """
-    Import data for timescales from .tab files.  The inputs_dir
+    Import data for timescales from .csv files.  The inputs_dir
     should contain the following files with these columns. The
     columns may be in any order and extra columns will be ignored.
 
-    periods.tab
+    periods.csv
         INVESTMENT_PERIOD, period_start, period_end
 
-    timeseries.tab
+    timeseries.csv
         TIMESERIES, period, ts_duration_of_tp, ts_num_tps,
         ts_scale_to_period
 
-    The order of rows in timepoints.tab indicates the order of the
+    The order of rows in timepoints.csv indicates the order of the
     timepoints per Pyomo and AMPL convention. To maintain your sanity,
     we highly recommend that you sort your input file chronologically by
     timestamp. Note: timestamp is solely used as a label and be in any
     format.
 
-    timepoints.tab
+    timepoints.csv
         timepoint_id, timestamp, timeseries
 
     """
@@ -399,19 +399,19 @@ def load_inputs(mod, switch_data, inputs_dir):
     # names, be indifferent to column order, and throw an error message if
     # some columns are not found.
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'periods.tab'),
+        filename=os.path.join(inputs_dir, 'periods.csv'),
         select=('INVESTMENT_PERIOD', 'period_start', 'period_end'),
         index=mod.PERIODS,
         param=(mod.period_start, mod.period_end))
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'timeseries.tab'),
+        filename=os.path.join(inputs_dir, 'timeseries.csv'),
         select=('TIMESERIES', 'ts_period', 'ts_duration_of_tp',
                 'ts_num_tps', 'ts_scale_to_period'),
         index=mod.TIMESERIES,
         param=(mod.ts_period, mod.ts_duration_of_tp,
                mod.ts_num_tps, mod.ts_scale_to_period))
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'timepoints.tab'),
+        filename=os.path.join(inputs_dir, 'timepoints.csv'),
         select=('timepoint_id', 'timestamp', 'timeseries'),
         index=mod.TIMEPOINTS,
         param=(mod.tp_timestamp, mod.tp_ts))

@@ -139,7 +139,7 @@ def save_generic_results(instance, outdir, sorted_output):
         components += [getattr(instance, c) for c in instance.options.save_expressions]
 
     for var in components:
-        output_file = os.path.join(outdir, '%s.tab' % var.name)
+        output_file = os.path.join(outdir, '%s.csv' % var.name)
         with open(output_file, 'w') as fh:
             writer = csv.writer(fh, dialect='ampl-tab')
             if var.is_indexed():
@@ -219,7 +219,7 @@ def save_cost_components(m, outdir):
     write_table(
         m,
         list(cost_dict.keys()),
-        output_file=os.path.join(outdir, "cost_components.tab"),
+        output_file=os.path.join(outdir, "cost_components.csv"),
         headings=('component', 'npv_cost'),
         values=lambda m, c: (c, cost_dict[c]),
         digits=16

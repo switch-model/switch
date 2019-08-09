@@ -4,7 +4,7 @@ def define_components(m):
     """Make various changes to the model to support hawaii-specific modules."""
 
 # # TODO: combine the following changes into a pull request for Pyomo
-# # patch Pyomo's table-reading function to allow .tab files with headers but no data
+# # patch Pyomo's table-reading function to allow .csv files with headers but no data
 # import os, re
 # def new_tab_read(self):
 #     if not os.path.exists(self.filename):
@@ -18,7 +18,7 @@ def define_components(m):
 #             if tokens != ['']:
 #                 tmp.append(tokens)
 #         if len(tmp) == 0:
-#             raise IOError("Empty *.tab file")
+#             raise IOError("Empty *.csv file")
 #         else:  # removed strange special handling for one-row files
 #             self._set_data(tmp[0], tmp[1:])
 #     except:

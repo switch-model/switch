@@ -136,7 +136,7 @@ def define_components(m):
 def load_inputs(m, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'pumped_hydro.tab'),
+        filename=os.path.join(inputs_dir, 'pumped_hydro.csv'),
         autoselect=True,
         index=m.PH_GENS,
         param=(

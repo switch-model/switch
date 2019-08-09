@@ -517,14 +517,14 @@ def load_inputs(m, switch_data, inputs_dir):
     """
     All files & columns are optional.
 
-    generation_projects_info.tab
+    generation_projects_info.csv
         GENERATION_PROJECTS, ... gen_can_provide_spinning_reserves
 
     spinning_reserve_params.dat may override the default value of
-    contingency_safety_factor. Note that is is a .dat file, not a .tab file.
+    contingency_safety_factor. Note that is is a .dat file, not a .csv file.
     """
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'generation_projects_info.tab'),
+        filename=os.path.join(inputs_dir, 'generation_projects_info.csv'),
         auto_select=True,
         optional_params=['gen_can_provide_spinning_reserves'],
         param=(m.gen_can_provide_spinning_reserves)

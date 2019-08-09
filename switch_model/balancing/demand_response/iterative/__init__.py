@@ -672,7 +672,7 @@ def calibrate_model(m):
     # that correspond to the load forecasts for each period, then store scale factors
     # in system_load_scale to convert 2007-08 monthly prices into monthly prices for other
     # years (same technique as rescaling the loads, but only adjusting the mean), then
-    # report base prices for each timepoint along with the loads in loads.tab.
+    # report base prices for each timepoint along with the loads in loads.csv.
     # For now, we just assume the base price was $180/MWh, which is HECO's average price in
     # 2007 according to EIA form 826.
     # TODO: add in something for the fixed costs, to make marginal cost commensurate with the base_price

@@ -175,13 +175,13 @@ def load_inputs(mod, switch_data, inputs_dir):
     load heat22 rate. If no specific data is provided for a project, it
     will default to its generation technology.
 
-    gen_inc_heat_rates.tab
+    gen_inc_heat_rates.csv
         project, power_start_mw, power_end_mw,
         incremental_heat_rate_mbtu_per_mwhr, fuel_use_rate_mmbtu_per_h
 
     """
 
-    path = os.path.join(inputs_dir, 'gen_inc_heat_rates.tab')
+    path = os.path.join(inputs_dir, 'gen_inc_heat_rates.csv')
     if os.path.isfile(path):
         (fuel_rate_segments, min_load, full_hr) = _parse_inc_heat_rate_file(
             path, id_column="GENERATION_PROJECT")

@@ -31,11 +31,15 @@ from switch_model import __version__ as switch_version
 from switch_model.utilities import iteritems
 
 # NOTE: instead of using the python csv writer, this directly writes tables to
-# file in the pyomo .tab format. This uses tabs between columns and the standard
-# line break for the system it is run on. This does the following translations (only):
+# file in a customized, pyomo-friendly .csv format. This uses commas between columns
+# and the standard line break for the system it is run on. This does the following
+# translations (only):
 # - If a value contains double quotes, they get doubled.
-# - If a value contains a single quote, tab or space character, the value gets enclosed in double quotes.
-#   (Note that pyomo doesn't allow quoting (and therefore spaces) in column headers.)
+# - If a value contains a single quote, comma, tab or space character, the value gets
+#   enclosed in double quotes.
+#   (Note that pyomo doesn't allow quoting (and therefore spaces) in column headers
+#   (and maybe not even in values) in tab files; we haven't tested
+#   whether it's possible with .csv files.)
 # - null values are converted to . (the pyomo/ampl standard for missing data)
 # - any other values are simply passed to str().
 
@@ -101,7 +105,7 @@ def write_tables(**args):
     # note: despite the comments above, this rounded period_end to
     # the nearest whole number until 2018-02-17. This was removed to
     # support fractional years for monthly batches in production-cost models.
-    write_table('periods.tab',
+    write_table('periods.csv',
         with_period_length + """
         SELECT p.period AS "INVESTMENT_PERIOD",
                 p.period as period_start,
@@ -111,7 +115,7 @@ def write_tables(**args):
             ORDER by 1;
     """, args)
 
-    write_table('timeseries.tab', """
+    write_table('timeseries.csv', """
         SELECT study_date as "TIMESERIES", period as ts_period,
             ts_duration_of_tp, ts_num_tps, ts_scale_to_period
         FROM study_date
@@ -119,7 +123,7 @@ def write_tables(**args):
         ORDER BY 1;
     """, args)
 
-    write_table('timepoints.tab', """
+    write_table('timepoints.csv', """
         SELECT h.study_hour as timepoint_id,
                 to_char(date_time + (period - extract(year from date_time)) * interval '1 year',
                     'YYYY-MM-DD-HH24:MI') as timestamp,
@@ -206,17 +210,17 @@ def write_tables(**args):
     # note: we don't provide the following fields in this version:
     # zone_cost_multipliers, zone_ccs_distance_km, zone_dbid,
     # existing_local_td, local_td_annual_cost_per_mw
-    write_table('load_zones.tab', """
+    write_table('load_zones.csv', """
         SELECT load_zone as "LOAD_ZONE"
         FROM load_zone
         WHERE load_zone in %(load_zones)s
     """, args)
 
-    # NOTE: we don't provide zone_peak_loads.tab (sometimes used by local_td.py) in this version.
+    # NOTE: we don't provide zone_peak_loads.csv (sometimes used by local_td.py) in this version.
 
     # get system loads, scaled from the historical years to the model years
     # note: 'offset' is a keyword in postgresql, so we use double-quotes to specify the column name
-    write_table('loads.tab', """
+    write_table('loads.csv', """
         SELECT
             l.load_zone AS "LOAD_ZONE",
             study_hour AS "TIMEPOINT",
@@ -237,14 +241,14 @@ def write_tables(**args):
     #########################
     # fuels
 
-    write_table('non_fuel_energy_sources.tab', """
+    write_table('non_fuel_energy_sources.csv', """
         SELECT DISTINCT fuel AS "NON_FUEL_ENERGY_SOURCES"
             FROM study_generator_info
             WHERE fuel NOT IN (SELECT fuel_type FROM fuel_costs);
     """, args)
 
     # gather info on fuels
-    write_table('fuels.tab', """
+    write_table('fuels.csv', """
         SELECT DISTINCT replace(c.fuel_type, ' ', '_') AS fuel, co2_intensity, 0.0 AS upstream_co2_intensity, rps_eligible
         FROM fuel_costs c JOIN energy_source_properties p on (p.energy_source = c.fuel_type)
         WHERE load_zone in %(load_zones)s AND fuel_scen_id=%(fuel_scen_id)s
@@ -255,7 +259,7 @@ def write_tables(**args):
     # rps targets
 
     write_tab_file(
-        'rps_targets.tab',
+        'rps_targets.csv',
         headers=('year', 'rps_target'),
         data=[(y, args['rps_targets'][y]) for y in sorted(args['rps_targets'].keys())],
         arguments=args
@@ -287,7 +291,7 @@ def write_tables(**args):
         else:
             lng_selector = "false"
 
-        write_table('fuel_cost.tab',
+        write_table('fuel_cost.csv',
             with_period_length + """
             SELECT load_zone, replace(fuel_type, ' ', '_') as fuel, p.period,
                 avg(
@@ -307,7 +311,7 @@ def write_tables(**args):
     else:
         # advanced fuel markets with LNG expansion options (used by forward-looking models)
         # (use fuel_markets module)
-        write_table('regional_fuel_markets.tab', """
+        write_table('regional_fuel_markets.csv', """
             SELECT DISTINCT
                 concat('Hawaii_', replace(fuel_type, ' ', '_')) AS regional_fuel_market,
                 replace(fuel_type, ' ', '_') AS fuel
@@ -315,7 +319,7 @@ def write_tables(**args):
             WHERE load_zone in %(load_zones)s AND fuel_scen_id = %(fuel_scen_id)s;
         """, args)
 
-        write_table('fuel_supply_curves.tab',
+        write_table('fuel_supply_curves.csv',
             with_period_length + """
             SELECT concat('Hawaii_', replace(fuel_type, ' ', '_')) as regional_fuel_market,
                 replace(fuel_type, ' ', '_') as fuel,
@@ -334,7 +338,7 @@ def write_tables(**args):
             ORDER BY 1, 2, 3, 4;
         """, args)
 
-        write_table('zone_to_regional_fuel_market.tab', """
+        write_table('zone_to_regional_fuel_market.csv', """
             SELECT DISTINCT load_zone, concat('Hawaii_', replace(fuel_type, ' ', '_')) AS regional_fuel_market
             FROM fuel_costs
             WHERE load_zone in %(load_zones)s AND fuel_scen_id = %(fuel_scen_id)s;
@@ -388,7 +392,7 @@ def write_tables(**args):
 
     # if needed, follow the query below with another one that specifies
     # COALESCE(gen_connect_cost_per_mw, 0.0) AS gen_connect_cost_per_mw
-    write_table('generation_projects_info.tab', """
+    write_table('generation_projects_info.csv', """
         SELECT
             "GENERATION_PROJECT",
             load_zone AS gen_load_zone,
@@ -417,7 +421,7 @@ def write_tables(**args):
         ORDER BY 2, 3, 1;
     """.format(fo=forced_outage_rate, flhr=full_load_heat_rate), args)
 
-    write_table('gen_build_predetermined.tab', """
+    write_table('gen_build_predetermined.csv', """
         SELECT
             "GENERATION_PROJECT",
             build_year,
@@ -436,7 +440,7 @@ def write_tables(**args):
     # generator_costs_by_year. If they have costs in both, they will both
     # get passed through to the data table, and Switch will raise an error
     # (as it should, because costs are ambiguous in this case).
-    write_table('gen_build_costs.tab', """
+    write_table('gen_build_costs.csv', """
         WITH gen_build_costs AS (
             SELECT
                 i.technology,
@@ -506,7 +510,7 @@ def write_tables(**args):
         res_args['reserve_types']=reserve_types
 
         # note: casting is needed if the lists are empty; see https://stackoverflow.com/a/41893576/3830997
-        write_table('generation_projects_reserve_capability.tab', """
+        write_table('generation_projects_reserve_capability.csv', """
             WITH reserve_capability (technology, reserve_type) as (
                 SELECT
                     UNNEST(%(reserve_technologies)s::varchar(40)[]) AS technology,
@@ -543,7 +547,7 @@ def write_tables(**args):
     # TODO: rename fuel_consumption_mmbtu_per_h to fuel_use_mmbtu_per_h here and in import_data.py
 
     if args.get('use_incremental_heat_rates', False):
-        write_table('gen_inc_heat_rates.tab', """
+        write_table('gen_inc_heat_rates.csv', """
             WITH part_load AS (
                 SELECT
                     row_number() OVER (ORDER BY technology, output_mw, fuel_consumption_mmbtu_per_h) AS key,
@@ -618,9 +622,9 @@ def write_tables(**args):
 
     # skip this step if the user specifies "skip_cf" in the arguments (to speed up execution)
     if args.get("skip_cf", False):
-        print("SKIPPING variable_capacity_factors.tab")
+        print("SKIPPING variable_capacity_factors.csv")
     else:
-        write_table('variable_capacity_factors.tab', """
+        write_table('variable_capacity_factors.csv', """
             SELECT
                 "GENERATION_PROJECT",
                 study_hour as timepoint,
@@ -650,7 +654,7 @@ def write_tables(**args):
 
     # TODO: create data files showing reserve rules
 
-    write_table('gen_timepoint_commit_bounds.tab', """
+    write_table('gen_timepoint_commit_bounds.csv', """
         SELECT * FROM (
             SELECT "GENERATION_PROJECT",
                 study_hour AS "TIMEPOINT",
@@ -679,7 +683,7 @@ def write_tables(**args):
     # --- Not used ---
 
     #
-    # write_table('trans_lines.tab', """
+    # write_table('trans_lines.csv', """
     #     SELECT load_area_start AS load_zone_start, load_area_end AS load_zone_end,
     #         tid, length_km AS transmission_length_km, efficiency AS transmission_efficiency,
     #         existing_mw_from AS existing_transmission_from,
@@ -711,7 +715,7 @@ def write_tables(**args):
     if bat_years in args and bat_cost in args:
         # annual costs were provided -- write those to a tab file
         write_tab_file(
-            'battery_capital_cost.tab',
+            'battery_capital_cost.csv',
             headers=[bat_years, bat_cost],
             data=list(zip(args[bat_years], args[bat_cost])),
             arguments=args
@@ -721,7 +725,7 @@ def write_tables(**args):
     # EV annual energy consumption (original, basic version)
     # print "ev_scenario:", args.get('ev_scenario', None)
     if args.get('ev_scenario', None) is not None:
-        write_table('ev_fleet_info.tab', """
+        write_table('ev_fleet_info.csv', """
             SELECT load_zone as "LOAD_ZONE", period as "PERIOD",
                 ev_share, ice_miles_per_gallon, ev_miles_per_kwh, ev_extra_cost_per_vehicle_year,
                 n_all_vehicles, vmt_per_vehicle
@@ -733,7 +737,7 @@ def write_tables(**args):
         """, args)
         # power consumption for each hour of the day under business-as-usual charging
         # note: the charge weights have a mean value of 1.0, but go up and down in different hours
-        write_table('ev_bau_load.tab', """
+        write_table('ev_bau_load.csv', """
             SELECT
                 load_zone AS "LOAD_ZONE",
                 study_hour AS "TIMEPOINT",
@@ -752,7 +756,7 @@ def write_tables(**args):
     #########################
     # EV annual energy consumption (advanced, frozen Dantzig-Wolfe version)
     if args.get('ev_scenario', None) is not None:
-        write_table('ev_share.tab', """
+        write_table('ev_share.csv', """
             SELECT
                 load_zone as "LOAD_ZONE", period as "PERIOD",
                 ev_share
@@ -762,7 +766,7 @@ def write_tables(**args):
                 AND ev_scenario = %(ev_scenario)s
             ORDER BY 1, 2;
         """, args)
-        write_table('ev_fleet_info_advanced.tab', """
+        write_table('ev_fleet_info_advanced.csv', """
             WITH detailed_fleet AS (
                 SELECT
                     a.load_zone AS "LOAD_ZONE",
@@ -812,9 +816,9 @@ def write_tables(**args):
         # per load zone and timestep, which is larger than the renewable
         # capacity factor data)
         if args.get("skip_ev_bids", False):
-            print("SKIPPING ev_charging_bids.tab")
+            print("SKIPPING ev_charging_bids.csv")
         else:
-            write_table('ev_charging_bids.tab', """
+            write_table('ev_charging_bids.csv', """
                 SELECT
                     b.load_zone AS "LOAD_ZONE",
                     CONCAT_WS('_', 'All', "ICE fuel", 'Vehicles') AS "VEHICLE_TYPE",
@@ -838,7 +842,7 @@ def write_tables(**args):
 
     if "pumped_hydro_headers" in args:
         write_tab_file(
-            'pumped_hydro.tab',
+            'pumped_hydro.csv',
             headers=args["pumped_hydro_headers"],
             data=args["pumped_hydro_projects"],
             arguments=args
@@ -852,7 +856,7 @@ def write_tables(**args):
 
     #########################
     # hydrogen
-    # TODO: put these data in a database and write a .tab file instead
+    # TODO: put these data in a database and write a .csv file instead
     write_dat_file(
         'hydrogen.dat',
         sorted([k for k in args if k.startswith('hydrogen_') or k.startswith('liquid_hydrogen_')]),
@@ -873,9 +877,9 @@ def write_tables(**args):
 # the two functions below could be used as the start of a system
 # to write placeholder files for any files in the current scenario
 # that match the base files. This could be used to avoid creating large
-# files (variable_cap_factor.tab) for alternative scenarios that are
-# otherwise very similar. i.e., placeholder .tab or .dat files could
-# be written with just the line 'include ../variable_cap_factor.tab' or
+# files (variable_cap_factor.csv) for alternative scenarios that are
+# otherwise very similar. i.e., placeholder .csv or .dat files could
+# be written with just the line 'include ../variable_cap_factor.csv' or
 # 'include ../financial.dat'.
 
 def any_alt_args_in_list(args, l):
@@ -1031,7 +1035,7 @@ def stringify(val):
         out = '.'
     elif type(val) is str:
         out = val.replace('"', '""')
-        if any(char in out for char in [' ', '\t', '"', "'"]):
+        if any(char in out for char in [' ', '\t', '"', "'", ',']):
             out = '"' + out + '"'
     else:
         out = str(val)

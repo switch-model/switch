@@ -232,12 +232,12 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     Import storage parameters. Optional columns are noted with a *.
 
-    generation_projects_info.tab
+    generation_projects_info.csv
         GENERATION_PROJECT, ...
         gen_storage_efficiency, gen_store_to_release_ratio*,
         gen_storage_energy_to_power_ratio*, gen_storage_max_cycles_per_year*
 
-    gen_build_costs.tab
+    gen_build_costs.csv
         GENERATION_PROJECT, build_year, ...
         gen_storage_energy_overnight_cost
 
@@ -250,7 +250,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     # gen_storage_efficiency has been specified, then require valid settings for all
     # STORAGE_GENS.
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'generation_projects_info.tab'),
+        filename=os.path.join(inputs_dir, 'generation_projects_info.csv'),
         auto_select=True,
         optional_params=['gen_store_to_release_ratio', 'gen_storage_energy_to_power_ratio', 'gen_storage_max_cycles_per_year'],
         param=(mod.gen_storage_efficiency, mod.gen_store_to_release_ratio, mod.gen_storage_energy_to_power_ratio, mod.gen_storage_max_cycles_per_year))
@@ -259,7 +259,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.data()['STORAGE_GENS'] = {
         None: list(switch_data.data(name='gen_storage_efficiency').keys())}
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'gen_build_costs.tab'),
+        filename=os.path.join(inputs_dir, 'gen_build_costs.csv'),
         auto_select=True,
         param=(mod.gen_storage_energy_overnight_cost))
 

@@ -291,13 +291,13 @@ def replace_method(class_ref, method_name, new_source_code):
 
 def reload_prior_solution_from_tabs(instance):
     """
-    Assign values to all model variables from <variable>.tab files saved after
+    Assign values to all model variables from <variable>.csv files saved after
     previous solution. (Not currently used.)
     """
     import csv
     var_objects = instance.component_objects(Var)
     for var in var_objects:
-        var_file = os.path.join(instance.options.outputs_dir, '{}.tab'.format(var.name))
+        var_file = os.path.join(instance.options.outputs_dir, '{}.csv'.format(var.name))
         if not os.path.isfile(var_file):
             raise RuntimeError(
                 "Tab output file for variable {} cannot be found in outputs "
@@ -491,7 +491,7 @@ def define_arguments(argparser):
     #     help='Directory containing input files (default is "inputs")')
     argparser.add_argument(
         "--input-alias", "--input-aliases", dest="input_aliases", nargs='+', default=[],
-        help='List of input file substitutions, in form of standard_file.tab=alternative_file.tab, '
+        help='List of input file substitutions, in form of standard_file.csv=alternative_file.csv, '
         'useful for sensitivity studies with different inputs.')
     argparser.add_argument("--outputs-dir", default="outputs",
         help='Directory to write output files (default is "outputs")')

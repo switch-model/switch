@@ -342,16 +342,16 @@ def define_components(m):
     requirements. This is defaults to 1.0.
 
     GEN_SPINNING_RESERVE_TYPES is a set of all allowed reserve types for each generation
-    project. This is read from generation_projects_reserve_availability.tab.
+    project. This is read from generation_projects_reserve_availability.csv.
     If that file doesn't exist, this defaults to GENERATION_PROJECTS x {"spinning"}
 
     gen_reserve_type_max_share specifies the maximum amount of committed
     capacity that can be used to provide each type of reserves. It is indexed
-    by GEN_SPINNING_RESERVE_TYPES. This is read from generation_projects_reserve_availability.tab
+    by GEN_SPINNING_RESERVE_TYPES. This is read from generation_projects_reserve_availability.csv
     and defaults to 1 if not specified. (Not currently implemented.)
 
     SPINNING_RESERVE_CAPABLE_GEN_TPS is a subset of GEN_TPS of generators that can
-    provide spinning reserves based on generation_projects_reserve_capability.tab.
+    provide spinning reserves based on generation_projects_reserve_capability.csv.
 
     CommitGenSpinningReservesUp[(r,g,t) in SPINNING_SPINNING_RESERVE_CAPABLE_GEN_TPS] is a
     decision variable of how much upward spinning reserve capacity to commit
@@ -605,13 +605,13 @@ def load_inputs(m, switch_data, inputs_dir):
     """
     All files & columns are optional.
 
-    generation_projects_reserve_capability.tab
+    generation_projects_reserve_capability.csv
         GENERATION_PROJECTS, RESERVE_TYPES, [gen_reserve_type_max_share]
 
     spinning_reserve_params.dat may override the default value of
-    contingency_safety_factor. Note that this is a .dat file, not a .tab file.
+    contingency_safety_factor. Note that this is a .dat file, not a .csv file.
     """
-    path=os.path.join(inputs_dir, 'generation_projects_reserve_capability.tab')
+    path=os.path.join(inputs_dir, 'generation_projects_reserve_capability.csv')
     switch_data.load_aug(
         filename=path,
         optional=True,

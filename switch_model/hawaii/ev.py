@@ -138,10 +138,10 @@ def define_components(m):
 
 def load_inputs(m, switch_data, inputs_dir):
     """
-    Import ev data from .tab files.
+    Import ev data from .csv files.
     """
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'ev_fleet_info.tab'),
+        filename=os.path.join(inputs_dir, 'ev_fleet_info.csv'),
         auto_select=True,
         param=[
             getattr(m, p)
@@ -149,10 +149,10 @@ def load_inputs(m, switch_data, inputs_dir):
                 ["ev_share", "ice_miles_per_gallon", "ev_miles_per_kwh", "ev_extra_cost_per_vehicle_year", "n_all_vehicles", "vmt_per_vehicle"]
         ]
     )
-    # print "loading ev_bau_load.tab"
+    # print "loading ev_bau_load.csv"
     # import pdb; pdb.set_trace()
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'ev_bau_load.tab'),
+        filename=os.path.join(inputs_dir, 'ev_bau_load.csv'),
         auto_select=True,
         param=m.ev_bau_mw
     )

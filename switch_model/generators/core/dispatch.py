@@ -318,14 +318,14 @@ def load_inputs(mod, switch_data, inputs_dir):
     variable_capacity_factors can be skipped if no variable
     renewable projects are considered in the optimization.
 
-    variable_capacity_factors.tab
+    variable_capacity_factors.csv
         GENERATION_PROJECT, timepoint, gen_max_capacity_factor
 
     """
 
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'variable_capacity_factors.tab'),
+        filename=os.path.join(inputs_dir, 'variable_capacity_factors.csv'),
         autoselect=True,
         index=mod.VARIABLE_GEN_TPS_RAW,
         param=(mod.gen_max_capacity_factor,))
