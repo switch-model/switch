@@ -59,6 +59,12 @@ def define_components(mod):
     given investment period. This is only defined for storage technologies.
     Note that this describes the energy component and the overnight_cost
     describes the power component.
+    
+    gen_predetermined_storage_energy_mwh[(g, bld_yr) in
+    PREDETERMINED_GEN_BLD_YRS] is the amount of storage that has either been
+    installed previously, or is slated for installation and is not a free
+    decision variable. This is analogous to gen_predetermined_cap, but in
+    units of energy of storage capacity (MWh) rather than power (MW). 
 
     BuildStorageEnergy[(g, bld_yr) in STORAGE_GEN_BLD_YRS]
     is a decision of how much energy capacity to build onto a storage
@@ -128,9 +134,19 @@ def define_components(mod):
         mod.STORAGE_GEN_BLD_YRS,
         within=NonNegativeReals)
     mod.min_data_check('gen_storage_energy_overnight_cost')
+    mod.gen_predetermined_storage_energy_mwh = Param(
+        mod.PREDETERMINED_GEN_BLD_YRS,
+        within=NonNegativeReals)
+    def bounds_BuildStorageEnergy(m, g, bld_yr):
+        if((g, bld_yr) in m.gen_predetermined_storage_energy_mwh):
+            return (m.gen_predetermined_storage_energy_mwh[g, bld_yr],
+                    m.gen_predetermined_storage_energy_mwh[g, bld_yr])
+        else:
+            return (0, None)
     mod.BuildStorageEnergy = Var(
         mod.STORAGE_GEN_BLD_YRS,
-        within=NonNegativeReals)
+        within=NonNegativeReals,
+        bounds=bounds_BuildStorageEnergy)
 
     # Summarize capital costs of energy storage for the objective function.
     mod.StorageEnergyInstallCosts = Expression(
@@ -240,6 +256,10 @@ def load_inputs(mod, switch_data, inputs_dir):
     gen_build_costs.csv
         GENERATION_PROJECT, build_year, ...
         gen_storage_energy_overnight_cost
+    
+    gen_build_predetermined.tab
+        GENERATION_PROJECT, build_year, ..., 
+        gen_predetermined_storage_energy_mwh*
 
     """
 
@@ -262,6 +282,11 @@ def load_inputs(mod, switch_data, inputs_dir):
         filename=os.path.join(inputs_dir, 'gen_build_costs.csv'),
         auto_select=True,
         param=(mod.gen_storage_energy_overnight_cost))
+    switch_data.load_aug(
+        optional=True,
+        filename=os.path.join(inputs_dir, 'gen_build_predetermined.tab'),
+        auto_select=True,
+        param=(mod.gen_predetermined_storage_energy_mwh))
 
 
 def post_solve(instance, outdir):
