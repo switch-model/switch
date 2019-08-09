@@ -3,6 +3,8 @@
 """
 This is an advanced version of the basic spinning_reserves reserves module, and
 can be used in place of it (not in addition to).
+
+Specifically, this module can differentiate spinning reserve products into regulating reserves, contigency reserves, and potentially other reserve types.
 """
 import os
 from collections import defaultdict
@@ -488,17 +490,26 @@ def define_components(m):
     m.CommitGenSpinningReservesDown = Var(
         m.SPINNING_RESERVE_TYPE_GEN_TPS, within=NonNegativeReals
     )
+    m.CommitGenSpinningReservesSlackUp = Var(
+        m.SPINNING_RESERVE_CAPABLE_GEN_TPS,
+        within=NonNegativeReals,
+        doc="Denotes the upward slack in spinning reserves that could be used "
+        "for quickstart reserves, or possibly other reserve products.",
+    )
 
     # constrain reserve provision appropriately
     m.CommitGenSpinningReservesUp_Limit = Constraint(
         m.SPINNING_RESERVE_CAPABLE_GEN_TPS,
-        rule=lambda m, g, tp: sum(
-            m.CommitGenSpinningReservesUp[rt, g, tp]
-            for rt in m.SPINNING_RESERVE_TYPES_FOR_GEN[g]
-        )
-        <= m.DispatchSlackUp[g, tp]
-        # storage can give more up response by stopping charging
-        + (m.ChargeStorage[g, tp] if g in getattr(m, "STORAGE_GENS", []) else 0.0),
+        rule=lambda m, g, tp: (
+            sum(
+                m.CommitGenSpinningReservesUp[rt, g, tp]
+                for rt in m.SPINNING_RESERVE_TYPES_FOR_GEN[g]
+            )
+            + m.CommitGenSpinningReservesSlackUp[g, tp]
+            == m.DispatchSlackUp[g, tp]
+            # storage can give more up response by stopping charging
+            + (m.ChargeStorage[g, tp] if g in getattr(m, "STORAGE_GENS", []) else 0.0)
+        ),
     )
     m.CommitGenSpinningReservesDown_Limit = Constraint(
         m.SPINNING_RESERVE_CAPABLE_GEN_TPS,
