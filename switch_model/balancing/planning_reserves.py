@@ -205,7 +205,9 @@ def define_components(model):
         if not m.gen_can_provide_cap_reserves[g]:
             return 0.0
         elif g in m.VARIABLE_GENS:
-            return m.gen_max_capacity_factor[g, t]
+            # This can be > 1 (Ex solar on partly cloudy days). Take a
+            # conservative approach of capping at 100% of nameplate capacity.
+            return min(1.0, m.gen_max_capacity_factor[g, t])
         else:
             return 1.0
 
@@ -232,10 +234,8 @@ def define_components(model):
         ]
         for g in GENS:
             # Storage is only credited with its expected output
-            # Note: this code appears to have no users, since it references
-            # DispatchGen, which doesn't exist (should be m.DispatchGen).
             if g in getattr(m, "STORAGE_GENS", set()):
-                reserve_cap += DispatchGen[g, t] - m.ChargeStorage[g, t]
+                reserve_cap += m.DispatchGen[g, t] - m.ChargeStorage[g, t]
             # If local_td is included with DER modeling, avoid allocating
             # distributed generation to central grid capacity because it will
             # be credited with adjusting load at the distribution node.
