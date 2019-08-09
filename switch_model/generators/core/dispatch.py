@@ -311,8 +311,8 @@ def define_components(mod):
             "the scheduled operational dates. If you expect those datapoints "
             "to be useful, then those plants need to either come online "
             "earlier, have longer lifetimes, or have options to build new "
-            "new capacity when the old capacity reaches the provided "
-            "end-of-life date."
+            "capacity when the old capacity reaches the provided end-of-life "
+            "date."
             "\n".format(num_impacted_generators)
         )
         if extra_indexes:
