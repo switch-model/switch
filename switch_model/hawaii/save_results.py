@@ -150,7 +150,7 @@ def write_results(m, outputs_dir):
     tag = "_" + m.options.scenario_name if m.options.scenario_name else ""
 
     util.write_table(m,
-        output_file=os.path.join(outputs_dir, "summary{t}.tsv".format(t=tag)),
+        output_file=os.path.join(outputs_dir, "summary{t}.csv".format(t=tag)),
         headings=summary_headers(m),
         values=lambda m: summary_values(m)
     )
@@ -176,7 +176,7 @@ def write_results(m, outputs_dir):
 
     # # write out results
     # util.write_table(m, m.TIMEPOINTS,
-    #     output_file=os.path.join(outputs_dir, "dispatch{t}.tsv".format(t=tag)),
+    #     output_file=os.path.join(outputs_dir, "dispatch{t}.csv".format(t=tag)),
     #     headings=("timepoint_label",)+tuple(m.GENERATION_PROJECTS),
     #     values=lambda m, t: (m.tp_timestamp[t],) + tuple(
     #         util.get(m.DispatchGen, (p, t), 0.0)
@@ -194,7 +194,7 @@ def write_results(m, outputs_dir):
     avg_ts_scale = float(sum(m.ts_scale_to_year[ts] for ts in m.TIMESERIES))/len(m.TIMESERIES)
     util.write_table(
         m, m.LOAD_ZONES, m.TIMEPOINTS,
-        output_file=os.path.join(outputs_dir, "energy_sources{t}.tsv".format(t=tag)),
+        output_file=os.path.join(outputs_dir, "energy_sources{t}.csv".format(t=tag)),
         headings=
             ("load_zone", "period", "timepoint_label")
             +tuple(m.FUELS)
@@ -255,7 +255,7 @@ def write_results(m, outputs_dir):
         # write the reserve values
         util.write_table(
             m, m.BALANCING_AREAS, m.TIMEPOINTS,
-            output_file=os.path.join(outputs_dir, "up_reserve_sources{t}.tsv".format(t=tag)),
+            output_file=os.path.join(outputs_dir, "up_reserve_sources{t}.csv".format(t=tag)),
             headings=
                 ("balancing_area", "period", "timepoint_label")
                 +tuple(m.FUELS)
@@ -313,7 +313,7 @@ def write_results(m, outputs_dir):
     sorted_projects = tuple(sorted(g for g in m.GENERATION_PROJECTS))
     util.write_table(
         m, m.TIMEPOINTS,
-        output_file=os.path.join(outputs_dir, "gen_dispatch{t}.tsv".format(t=tag)),
+        output_file=os.path.join(outputs_dir, "gen_dispatch{t}.csv".format(t=tag)),
         headings=("period", "timepoint_label")+sorted_projects,
         values=lambda m, t:
             (m.tp_period[t], m.tp_timestamp[t])
@@ -353,7 +353,7 @@ def write_results(m, outputs_dir):
     )
 
     util.write_table(m, m.LOAD_ZONES, m.PERIODS,
-        output_file=os.path.join(outputs_dir, "capacity_by_technology{t}.tsv".format(t=tag)),
+        output_file=os.path.join(outputs_dir, "capacity_by_technology{t}.csv".format(t=tag)),
         headings=("load_zone", "period") + built_tech + ("hydro", "batteries", "fuel cells"),
         values=lambda m, z, pe: (z, pe,) + tuple(
             sum(
@@ -369,7 +369,7 @@ def write_results(m, outputs_dir):
         )
     )
     util.write_table(m, m.LOAD_ZONES, m.PERIODS,
-        output_file=os.path.join(outputs_dir, "capacity_by_energy_source{t}.tsv".format(t=tag)),
+        output_file=os.path.join(outputs_dir, "capacity_by_energy_source{t}.csv".format(t=tag)),
         headings=("load_zone", "period") + built_energy_source + ("hydro", "batteries", "fuel cells"),
         values=lambda m, z, pe: (z, pe,) + tuple(
             sum(
@@ -386,7 +386,7 @@ def write_results(m, outputs_dir):
     )
 
     util.write_table(m, m.LOAD_ZONES, m.PERIODS,
-        output_file=os.path.join(outputs_dir, "production_by_technology{t}.tsv".format(t=tag)),
+        output_file=os.path.join(outputs_dir, "production_by_technology{t}.csv".format(t=tag)),
         headings=("load_zone", "period") + built_tech + ad_hoc_sources,
         values=lambda m, z, pe:
             (z, pe,)
@@ -416,7 +416,7 @@ def write_results(m, outputs_dir):
     # by pandas or an Excel pivot table.
     # For now, we go with option 1.
     util.write_table(m, m.LOAD_ZONES, m.PERIODS,
-        output_file=os.path.join(outputs_dir, "production_by_energy_source{t}.tsv".format(t=tag)),
+        output_file=os.path.join(outputs_dir, "production_by_energy_source{t}.csv".format(t=tag)),
         headings=
             ("load_zone", "period")
             + tuple(m.FUELS)
@@ -556,7 +556,7 @@ def write_results(m, outputs_dir):
     #     return values
     #
     # util.write_table(m, m.LOAD_ZONES, m.PERIODS,
-    #     output_file=os.path.join(outputs_dir, "cost_breakdown{t}.tsv".format(t=tag)),
+    #     output_file=os.path.join(outputs_dir, "cost_breakdown{t}.csv".format(t=tag)),
     #     headings=("load_zone", "period") + tuple(t+"_mw_added" for t in built_tech)
     #         + ("batteries_mw_added", "batteries_mwh_added", "hydro_mw_added")
     #         + ( "h2_electrolyzer_mw_added", "h2_liquifier_kg_per_hour_added",
@@ -578,7 +578,7 @@ def write_results(m, outputs_dir):
     # )
 
     # util.write_table(m, m.PERIODS,
-    #     output_file=os.path.join(outputs_dir, "capacity{t}.tsv".format(t=t)),
+    #     output_file=os.path.join(outputs_dir, "capacity{t}.csv".format(t=t)),
     #     headings=("period",)+built_gens,
     #     values=lambda m, pe: (pe,) + tuple(m.GenCapacity[g, pe] for g in built_gens)
     # )
@@ -586,7 +586,7 @@ def write_results(m, outputs_dir):
 
     if hasattr(m, 'RFMSupplyTierActivate'):
         util.write_table(m, m.RFM_SUPPLY_TIERS,
-            output_file=os.path.join(outputs_dir, "rfm_activate{t}.tsv".format(t=tag)),
+            output_file=os.path.join(outputs_dir, "rfm_activate{t}.csv".format(t=tag)),
             headings=("market", "period", "tier", "activate"),
             values=lambda m, r, p, st: (r, p, st, m.RFMSupplyTierActivate[r, p, st])
         )
