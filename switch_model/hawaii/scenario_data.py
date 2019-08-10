@@ -69,6 +69,13 @@ def write_tables(**args):
     if 'ev_scen_id' in args:
         raise ValueError("ev_scen_id argument is no longer supported; use ev_scenario instead.")
 
+    if 'cap_cost_scen_id' in args and 'tech_scen_id' not in args:
+        print(
+            'DEPRECATION WARNING: The "cap_cost_scen_id" argument has been '
+            'renamed to "tech_scen_id". Please update your code.'
+        )
+        args['tech_scen_id'] = args['cap_cost_scen_id']
+
     # write version marker file
     with open(make_file_path('switch_inputs_version.txt', args), 'w') as f:
         f.write(switch_version)
