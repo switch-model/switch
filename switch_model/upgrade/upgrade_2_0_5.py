@@ -47,11 +47,15 @@ def upgrade_input_dir(inputs_dir):
         # We also have to set index_col=False to avoid converting the first column
         # to an index in these cases.
         try:
-            df = pandas.read_csv(old_path, na_values=['.'], sep=r"\s+")
+            df = pandas.read_csv(old_path, na_values=['.'], sep=r'\s+')
             df.to_csv(new_path, sep=',', na_rep='.', index=False)
             os.remove(old_path)
         except Exception as e:
-            print("ERROR converting {} to {}:\n{}".format(old_path, new_path, e))
+            print(
+                '\nERROR converting {} to {}:\n{}'
+                .format(old_path, new_path, e.message)
+            )
+            raise
 
 # These functions are not used in the 2.0.5 upgrade, but kept here for the future
 def rename_file(old_name, new_name, optional_file=True):
