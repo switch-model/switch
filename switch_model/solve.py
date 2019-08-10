@@ -20,6 +20,7 @@ try:
 except NameError:
     pass
 
+import switch_model
 from switch_model.utilities import (
     create_model, _ArgumentParser, StepTimer, make_iterable, LogOutput, warn
 )
@@ -106,12 +107,15 @@ def main(args=None, return_model=False, return_instance=False):
 
         if model.options.verbose:
             print("\n=======================================================================")
-            print("Switch model created in {:.2f} s.\nArguments:".format(timer.step_time()))
+            print("Switch {}, http://switch-model.org".format(switch_model.__version__))
+            print("=======================================================================")
+            print("Arguments:")
             print(", ".join(k+"="+repr(v) for k, v in model.options.__dict__.items() if v))
             print("Modules:\n"+", ".join(m for m in modules))
             if iterate_modules:
                 print("Iteration modules:", iterate_modules)
             print("=======================================================================\n")
+            print("Model created in {:.2f} s.".format(timer.step_time()))
             print("Loading inputs...")
 
         # create an instance (also reports time spent reading data and loading into model)
@@ -157,9 +161,10 @@ def main(args=None, return_model=False, return_instance=False):
                 results = solve(instance)
                 if instance.options.verbose:
                     print("")
-                    print(results.solver.message)
                     print("Optimization termination condition was {}.".format(
                         results.solver.termination_condition))
+                    if str(results.solver.message) != '<undefined>':
+                        print('Solver message: {}'.format(results.solver.message))
                     print("")
 
                 if instance.options.verbose:
@@ -716,7 +721,7 @@ def solve(model):
     # solve the model
     if model.options.verbose:
         timer = StepTimer()
-        print("\nSolving model...")
+        print("Solving model...")
 
     if model.options.tempdir is not None:
         # from https://software.sandia.gov/downloads/pub/pyomo/PyomoOnlineDocs.html#_changing_the_temporary_directory
