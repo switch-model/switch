@@ -1,0 +1,9 @@
+GENERATION_PROJECT,timepoint,gen_max_capacity_factor
+S-Residential_PV,1,0.57
+S-Commercial_PV,1,0.57
+S-Central_PV-1,1,0.61
+S-Central_PV-2,1,0.64
+S-Residential_PV,2,0.0
+S-Commercial_PV,2,0.0
+S-Central_PV-1,2,0.0
+S-Central_PV-2,2,0.0

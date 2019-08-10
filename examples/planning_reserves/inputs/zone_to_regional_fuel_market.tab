@@ -1,9 +1,0 @@
-load_zone	regional_fuel_market
-North	All_DistOil
-Central	All_DistOil
-South	All_DistOil
-North	All_NG
-Central	All_NG
-South	All_NG
-North	North_Bio
-South	South_Bio
