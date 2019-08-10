@@ -64,7 +64,7 @@ def rename_column(file_name, old_col_name, new_col_name, optional_file=True):
     path = os.path.join(inputs_dir, file_name)
     if optional_file and not os.path.isfile(path):
         return
-    df = pandas.read_csv(path, na_values=['.'], sep='\t')
+    df = pandas.read_csv(path, na_values=['.'], sep=r"\s+", index_col=False)
     df.rename(columns={old_col_name: new_col_name}, inplace=True)
     df.to_csv(path, sep='\t', na_rep='.', index=False)
 

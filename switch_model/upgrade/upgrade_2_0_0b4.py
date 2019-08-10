@@ -30,7 +30,7 @@ def upgrade_input_dir(inputs_dir):
         path = os.path.join(inputs_dir, file_name)
         if optional_file and not os.path.isfile(path):
             return
-        df = pandas.read_csv(path, na_values=['.'], sep='\t')
+        df = pandas.read_csv(path, na_values=['.'], sep=r"\s+", index_col=False)
         df.rename(columns={old_col_name: new_col_name}, inplace=True)
         df.to_csv(path, sep='\t', na_rep='.', index=False)
 
@@ -46,9 +46,9 @@ def upgrade_input_dir(inputs_dir):
     trans_lines_path = os.path.join(inputs_dir, 'transmission_lines.tab')
     trans_opt_path = os.path.join(inputs_dir, 'trans_optional_params.tab')
     if os.path.isfile(trans_lines_path) and os.path.isfile(trans_lines_path):
-        trans_lines = pandas.read_csv(trans_lines_path, na_values=['.'], sep='\t')
+        trans_lines = pandas.read_csv(trans_lines_path, na_values=['.'], sep=r'\s+')
         if os.path.isfile(trans_opt_path):
-            trans_opt = pandas.read_csv(trans_opt_path, na_values=['.'], sep='\t')
+            trans_opt = pandas.read_csv(trans_opt_path, na_values=['.'], sep=r'\s+')
             trans_lines = trans_lines.merge(trans_opt, on='TRANSMISSION_LINE', how='left')
         trans_lines.to_csv(trans_lines_path, sep='\t', na_rep='.', index=False)
         if os.path.isfile(trans_opt_path):
