@@ -266,13 +266,13 @@ def load_inputs(mod, switch_data, inputs_dir):
 
 def post_solve(instance, outdir):
     """
-    Export storage build information to storage_builds.txt, and storage
-    dispatch info to storage_dispatch.txt
+    Export storage build information to storage_builds.csv, and storage
+    dispatch info to storage_dispatch.csv
     """
     import switch_model.reporting as reporting
     reporting.write_table(
         instance, instance.STORAGE_GEN_BLD_YRS,
-        output_file=os.path.join(outdir, "storage_builds.txt"),
+        output_file=os.path.join(outdir, "storage_builds.csv"),
         headings=("generation_project", "period", "load_zone",
                   "IncrementalPowerCapacityMW", "IncrementalEnergyCapacityMWh",
                   "OnlinePowerCapacityMW", "OnlineEnergyCapacityMWh" ),
@@ -283,7 +283,7 @@ def post_solve(instance, outdir):
             ))
     reporting.write_table(
         instance, instance.STORAGE_GEN_TPS,
-        output_file=os.path.join(outdir, "storage_dispatch.txt"),
+        output_file=os.path.join(outdir, "storage_dispatch.csv"),
         headings=("generation_project", "timepoint", "load_zone",
                   "ChargeMW", "DischargeMW", "StateOfCharge"),
         values=lambda m, g, t: (

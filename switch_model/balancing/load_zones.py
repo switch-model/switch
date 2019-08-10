@@ -182,7 +182,7 @@ def post_solve(instance, outdir):
     """
     Export results.
 
-    load_balance.txt is a wide table of energy balance components for every
+    load_balance.csv is a wide table of energy balance components for every
     zone and timepoint. Each component registered with
     Zone_Power_Injections and Zone_Power_Withdrawals will
     become a column.
@@ -190,7 +190,7 @@ def post_solve(instance, outdir):
     """
     write_table(
         instance, instance.LOAD_ZONES, instance.TIMEPOINTS,
-        output_file=os.path.join(outdir, "load_balance.txt"),
+        output_file=os.path.join(outdir, "load_balance.csv"),
         headings=("load_zone", "timestamp",) + tuple(
             instance.Zone_Power_Injections +
             instance.Zone_Power_Withdrawals),

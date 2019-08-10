@@ -412,7 +412,7 @@ def load_inputs(mod, switch_data, inputs_dir):
 
 def _load_simple_cost_data(mod, switch_data, path):
     with open(path, 'r') as simple_cost_file:
-        simple_cost_dat = list(csv.DictReader(simple_cost_file, delimiter='\t'))
+        simple_cost_dat = list(csv.DictReader(simple_cost_file, delimiter=','))
         # Scan once for error checking
         for row in simple_cost_dat:
             z = row['load_zone']

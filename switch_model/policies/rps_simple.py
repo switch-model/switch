@@ -161,7 +161,7 @@ def post_solve(instance, outdir):
         return row
     reporting.write_table(
         instance, instance.RPS_PERIODS,
-        output_file=os.path.join(outdir, "rps_energy.txt"),
+        output_file=os.path.join(outdir, "rps_energy.csv"),
         headings=("PERIOD", "RPSFuelEnergyGWh", "RPSNonFuelEnergyGWh",
             "TotalGenerationInPeriodGWh", "RPSGenFraction",
             "TotalSalesInPeriodGWh", "RPSSalesFraction"),

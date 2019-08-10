@@ -536,7 +536,7 @@ def post_solve(mod, outdir):
     #                 m.discount_rate, m.period_length_years[m.tp_period[tp]]) * future_to_present_value(
     #                 m.discount_rate, (m.period_start[m.tp_period[tp]] - m.base_financial_year)))
     #         ))
-    #     df = pd.read_csv('outputs/Summaries/marginal_costs_lz_tp.csv',sep='\t')
+    #     df = pd.read_csv('outputs/Summaries/marginal_costs_lz_tp.csv',sep=',')
     #     lz_dfs = []
     #     for lz in mod.LOAD_ZONES:
     #         lz_dfs.append(df[df.load_zones == lz].drop(['load_zones','timepoint'],axis=1).reset_index(drop=True))

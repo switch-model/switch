@@ -35,8 +35,8 @@ from pyomo.environ import value, Var, Expression
 from switch_model.utilities import make_iterable
 
 csv.register_dialect(
-    "ampl-tab",
-    delimiter="\t",
+    "switch-csv",
+    delimiter=",",
     lineterminator="\n",
     doublequote=False, escapechar="\\",
     quotechar='"', quoting=csv.QUOTE_MINIMAL,
@@ -64,7 +64,7 @@ def write_table(instance, *indexes, **kwargs):
     digits = kwargs.get('digits', 6)
 
     with open(output_file, 'w') as f:
-        w = csv.writer(f, dialect="ampl-tab")
+        w = csv.writer(f, dialect="switch-csv")
         # write header row
         w.writerow(list(headings))
         # write the data
@@ -141,7 +141,7 @@ def save_generic_results(instance, outdir, sorted_output):
     for var in components:
         output_file = os.path.join(outdir, '%s.csv' % var.name)
         with open(output_file, 'w') as fh:
-            writer = csv.writer(fh, dialect='ampl-tab')
+            writer = csv.writer(fh, dialect='switch-csv')
             if var.is_indexed():
                 index_name = var.index_set().name
                 # Write column headings

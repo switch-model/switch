@@ -8,8 +8,8 @@ import __main__ as main
 # (if not, there will be no __main__.__file__)
 interactive_session = not hasattr(main, '__file__')
 
-csv.register_dialect("ampl-tab",
-    delimiter="\t",
+csv.register_dialect("switch-csv",
+    delimiter=",",
     lineterminator="\n",
     doublequote=False, escapechar="\\",
     quotechar='"', quoting=csv.QUOTE_MINIMAL,
@@ -22,7 +22,7 @@ def create_table(**kwargs):
     headings = kwargs["headings"]
 
     with open(output_file, 'w') as f:
-        w = csv.writer(f, dialect="ampl-tab")
+        w = csv.writer(f, dialect="switch-csv")
         # write header row
         w.writerow(list(headings))
 
@@ -36,7 +36,7 @@ def append_table(model, *indexes, **kwargs):
     # this is a list of lists, even if only one list was specified
     idx = itertools.product(*indexes)
     with open(output_file, 'a') as f:
-        w = csv.writer(f, dialect="ampl-tab")
+        w = csv.writer(f, dialect="switch-csv")
         # write the data
         # import pdb
         # if 'rfm' in output_file:

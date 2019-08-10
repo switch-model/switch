@@ -1042,7 +1042,7 @@ def stringify(val):
     return out
 
 def writerow(f, row):
-    f.write('\t'.join(stringify(c) for c in row) + '\n')
+    f.write(','.join(stringify(c) for c in row) + '\n')
 
 def writerows(f, rows):
     for r in rows:

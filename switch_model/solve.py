@@ -289,7 +289,7 @@ def replace_method(class_ref, method_name, new_source_code):
     setattr(class_ref, method_name, new_func)
 
 
-def reload_prior_solution_from_tabs(instance):
+def reload_prior_solution_from_csvs(instance):
     """
     Assign values to all model variables from <variable>.csv files saved after
     previous solution. (Not currently used.)
@@ -309,7 +309,7 @@ def reload_prior_solution_from_tabs(instance):
         except StopIteration:
             key_types = []  # no keys
         with open(var_file,'r') as f:
-            reader = csv.reader(f, delimiter='\t')
+            reader = csv.reader(f, delimiter=',')
             next(reader) # skip headers
             for row in reader:
                 index = tuple(t(k) for t, k in zip(key_types, row[:-1]))

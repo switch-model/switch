@@ -335,7 +335,7 @@ def post_solve(instance, outdir):
     """
     Exported files:
 
-    dispatch-wide.txt - Dispatch results timepoints in "wide" format with
+    dispatch-wide.csv - Dispatch results timepoints in "wide" format with
     timepoints as rows, generation projects as columns, and dispatch level
     as values
 
@@ -353,7 +353,7 @@ def post_solve(instance, outdir):
     """
     write_table(
         instance, instance.TIMEPOINTS,
-        output_file=os.path.join(outdir, "dispatch-wide.txt"),
+        output_file=os.path.join(outdir, "dispatch-wide.csv"),
         headings=("timestamp",)+tuple(sorted(instance.GENERATION_PROJECTS)),
         values=lambda m, t: (m.tp_timestamp[t],) + tuple(
             m.DispatchGen[p, t] if (p, t) in m.GEN_TPS

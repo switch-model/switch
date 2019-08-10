@@ -508,7 +508,7 @@ def post_iterate(m):
     # report information on most recent bid
     if m.iteration_number == 0:
         util.create_table(
-            output_file=os.path.join(outputs_dir, "bid_{t}.tsv".format(t=tag)),
+            output_file=os.path.join(outputs_dir, "bid_{t}.csv".format(t=tag)),
             headings=
                 (
                     "bid_num", "load_zone", "timeseries", "timepoint",
@@ -522,7 +522,7 @@ def post_iterate(m):
     b = m.DR_BID_LIST.last()    # current bid
     util.append_table(
         m, m.LOAD_ZONES, m.TIMEPOINTS,
-        output_file=os.path.join(outputs_dir, "bid_{t}.tsv".format(t=tag)),
+        output_file=os.path.join(outputs_dir, "bid_{t}.csv".format(t=tag)),
         values=lambda m, z, tp:
             (
                 b,
@@ -543,11 +543,11 @@ def post_iterate(m):
     # store the current bid weights for future reference
     if m.iteration_number == 0:
         util.create_table(
-            output_file=os.path.join(outputs_dir, "bid_weights_{t}.tsv".format(t=tag)),
+            output_file=os.path.join(outputs_dir, "bid_weights_{t}.csv".format(t=tag)),
             headings=("iteration", "load_zone", "timeseries", "bid_num", "weight")
         )
     util.append_table(m, m.LOAD_ZONES, m.TIMESERIES, m.DR_BID_LIST,
-        output_file=os.path.join(outputs_dir, "bid_weights_{t}.tsv".format(t=tag)),
+        output_file=os.path.join(outputs_dir, "bid_weights_{t}.csv".format(t=tag)),
         values=lambda m, z, ts, b: (len(m.DR_BID_LIST), z, ts, b, m.DRBidWeight[b, z, ts])
     )
 
@@ -931,7 +931,7 @@ def reconstruct_energy_balance(m):
 
 def write_batch_results(m):
     # append results to the batch results file, creating it if needed
-    output_file = os.path.join(m.options.outputs_dir, "demand_response_summary.tsv")
+    output_file = os.path.join(m.options.outputs_dir, "demand_response_summary.csv")
 
     # create a file to hold batch results if it doesn't already exist
     # note: we retain this file across scenarios so it can summarize all results,
@@ -1072,7 +1072,7 @@ def write_results(m):
 
     util.write_table(
         m, m.LOAD_ZONES, m.TIMEPOINTS,
-        output_file=os.path.join(outputs_dir, "energy_sources{t}.tsv".format(t=tag)),
+        output_file=os.path.join(outputs_dir, "energy_sources{t}.csv".format(t=tag)),
         headings=
             ("load_zone", "period", "timepoint_label")
             +tuple(m.FUELS)
@@ -1126,20 +1126,20 @@ def write_dual_costs(m):
     outputs_dir = m.options.outputs_dir
     tag = filename_tag(m)
 
-    # with open(os.path.join(outputs_dir, "producer_surplus{t}.tsv".format(t=tag)), 'w') as f:
+    # with open(os.path.join(outputs_dir, "producer_surplus{t}.csv".format(t=tag)), 'w') as f:
     #     for g, per in m.Max_Build_Potential:
     #         const = m.Max_Build_Potential[g, per]
     #         surplus = const.upper() * m.dual[const]
     #         if surplus != 0.0:
-    #             f.write('\t'.join([const.name, str(surplus)]) + '\n')
+    #             f.write(','.join([const.name, str(surplus)]) + '\n')
     #     # import pdb; pdb.set_trace()
     #     for g, year in m.BuildGen:
     #         var = m.BuildGen[g, year]
     #         if var.ub is not None and var.ub > 0.0 and value(var) > 0.0 and var in m.rc and m.rc[var] != 0.0:
     #             surplus = var.ub * m.rc[var]
-    #             f.write('\t'.join([var.name, str(surplus)]) + '\n')
+    #             f.write(','.join([var.name, str(surplus)]) + '\n')
 
-    outfile = os.path.join(outputs_dir, "dual_costs{t}.tsv".format(t=tag))
+    outfile = os.path.join(outputs_dir, "dual_costs{t}.csv".format(t=tag))
     dual_data = []
     start_time = time.time()
     print("Writing {} ... ".format(outfile), end=' ')
@@ -1188,8 +1188,8 @@ def write_dual_costs(m):
     dual_data.sort(key=lambda r: (not r[0].startswith('DR_Convex_'), r[3] >= 0)+r)
 
     with open(outfile, 'w') as f:
-        f.write('\t'.join(['constraint', 'direction', 'bound', 'dual', 'total_cost']) + '\n')
-        f.writelines('\t'.join(map(str, r)) + '\n' for r in dual_data)
+        f.write(','.join(['constraint', 'direction', 'bound', 'dual', 'total_cost']) + '\n')
+        f.writelines(','.join(map(str, r)) + '\n' for r in dual_data)
     print("time taken: {dur:.2f}s".format(dur=time.time()-start_time))
 
 def filename_tag(m):

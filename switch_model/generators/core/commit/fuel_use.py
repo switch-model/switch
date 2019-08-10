@@ -238,7 +238,7 @@ def _parse_inc_heat_rate_file(path, id_column):
     # Scan the file and stuff the data into dictionaries for easy access.
     # Parse the file and stuff data into dictionaries indexed by units.
     with open(path, 'r') as hr_file:
-        dat = list(csv.DictReader(hr_file, delimiter='\t'))
+        dat = list(csv.DictReader(hr_file, delimiter=','))
         for row in dat:
             u = row[id_column]
             p1 = float(row['power_start_mw'])

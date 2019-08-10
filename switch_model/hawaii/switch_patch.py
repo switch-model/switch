@@ -14,7 +14,7 @@ def define_components(m):
 #         tmp=[]
 #         for line in self.FILE:
 #             line=line.strip()
-#             tokens = re.split("[\t ]+",line)
+#             tokens = re.split("[,\t ]+",line)
 #             if tokens != ['']:
 #                 tmp.append(tokens)
 #         if len(tmp) == 0:
