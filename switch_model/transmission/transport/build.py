@@ -107,7 +107,7 @@ def define_components(mod):
     transmission model transmission data. At the end of this time,
     we assume transmission lines will be rebuilt at the same cost.
 
-    trans_fixed_om_fraction is describes the fixed Operations and
+    trans_fixed_om_fraction describes the fixed Operations and
     Maintenance costs as a fraction of capital costs. This optional
     parameter defaults to 0.03 based on 2009 WREZ transmission model
     transmission data costs for existing transmission maintenance.
@@ -289,17 +289,14 @@ def load_inputs(mod, switch_data, inputs_dir):
     columns are missing or if cells contain a dot (.), those parameters
     will be set to default values as described in documentation.
 
-    Note that the next file is formatted as .dat, not as .csv. The
-    distribution_loss_rate parameter should only be inputted if the
-    local_td module is loaded in the simulation. If this parameter is
-    specified a value in trans_params.dat and local_td is not included
-    in the module list, then an error will be raised.
+    Note that in the next file, parameter names are written on the first
+    row (as usual), and the single value for each parameter is written in
+    the second row. The distribution_loss_rate parameter is read by the
+    local_td module (if used).
 
-    trans_params.dat
+    trans_params.csv
         trans_capital_cost_per_mw_km, trans_lifetime_yrs,
         trans_fixed_om_fraction, distribution_loss_rate
-
-
     """
 
     # TODO: send issue / pull request to Pyomo to allow .csv files with
@@ -324,9 +321,14 @@ def load_inputs(mod, switch_data, inputs_dir):
             mod.trans_terrain_multiplier, mod.trans_new_build_allowed
         )
     )
-    trans_params_path = os.path.join(inputs_dir, 'trans_params.dat')
-    if os.path.isfile(trans_params_path):
-        switch_data.load(filename=trans_params_path)
+    switch_data.load_aug(
+        filename=os.path.join(inputs_dir, 'trans_params.csv'),
+        optional=True, auto_select=True,
+        param=(
+            mod.trans_capital_cost_per_mw_km, mod.trans_lifetime_yrs,
+            mod.trans_fixed_om_fraction, mod.distribution_loss_rate
+        )
+    )
 
 
 def post_solve(instance, outdir):

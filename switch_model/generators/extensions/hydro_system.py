@@ -508,6 +508,8 @@ def load_inputs(mod, switch_data, inputs_dir):
         auto_select=True,
         index=mod.HYDRO_GENS,
         param=(mod.hydro_efficiency, mod.hydraulic_location))
-    spillage_penalty_path = os.path.join(inputs_dir, 'spillage_penalty.dat')
-    if os.path.isfile(spillage_penalty_path):
-        switch_data.load(filename=spillage_penalty_path)
+    switch_data.load_aug(
+        filename=os.path.join(inputs_dir, 'spillage_penalty.csv'),
+        optional=True, auto_select=True,
+        param=(mod.spillage_penalty,)
+    )

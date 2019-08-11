@@ -221,7 +221,7 @@ def define_components(mod):
     mod.base_financial_year = Param(within=NonNegativeReals)
     mod.interest_rate = Param(within=NonNegativeReals)
     mod.discount_rate = Param(
-        within=NonNegativeReals, default=mod.interest_rate)
+        within=NonNegativeReals, default=lambda m: value(m.interest_rate))
     mod.min_data_check('base_financial_year', 'interest_rate')
     mod.bring_annual_costs_to_base_year = Param(
         mod.PERIODS,
@@ -307,11 +307,17 @@ def define_dynamic_components(mod):
 
 def load_inputs(mod, switch_data, inputs_dir):
     """
-    Import base financial data from a .dat file. The inputs_dir should
-    contain the file financials.dat that gives parameter values for
+    Import base financial data from a .csv file. The inputs_dir should
+    contain the file financials.csv that gives parameter values for
     base_financial_year, interest_rate and optionally discount_rate.
+    The names of parameters go on the first row and the values go on
+    the second.
     """
-    switch_data.load(filename=os.path.join(inputs_dir, 'financials.dat'))
+    switch_data.load_aug(
+        filename=os.path.join(inputs_dir, 'financials.csv'),
+        optional=False, auto_select=True,
+        param=(mod.base_financial_year, mod.interest_rate, mod.discount_rate)
+    )
 
 def post_solve(instance, outdir):
     m = instance

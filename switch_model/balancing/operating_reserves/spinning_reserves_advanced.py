@@ -608,8 +608,9 @@ def load_inputs(m, switch_data, inputs_dir):
     generation_projects_reserve_capability.csv
         GENERATION_PROJECTS, RESERVE_TYPES, [gen_reserve_type_max_share]
 
-    spinning_reserve_params.dat may override the default value of
-    contingency_safety_factor. Note that this is a .dat file, not a .csv file.
+    spinning_reserve_params.csv may override the default value of
+    contingency_safety_factor. Note that this only contains one header row
+    and one data row.
     """
     path=os.path.join(inputs_dir, 'generation_projects_reserve_capability.csv')
     switch_data.load_aug(
@@ -627,6 +628,7 @@ def load_inputs(m, switch_data, inputs_dir):
             [(g, "spinning") for g in gen_projects]
 
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'spinning_reserve_params.dat'),
-        optional=True,
+        filename=os.path.join(inputs_dir, 'spinning_reserve_params.csv'),
+        optional=True, auto_select=True,
+        param=(m.contingency_safety_factor,)
     )

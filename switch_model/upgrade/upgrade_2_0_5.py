@@ -10,6 +10,8 @@ number and show the module-change messages.
 import os, shutil, argparse, glob
 import pandas
 import switch_model.upgrade
+from pyomo.environ import DataPortal
+
 
 upgrades_from = '2.0.4'
 upgrades_to = '2.0.5'
@@ -38,24 +40,60 @@ def upgrade_input_dir(inputs_dir):
 
     # Convert all .tab input files to .csv (maybe it should
     # work with a list of specific files instead?)
-
     for old_path in glob.glob(os.path.join(inputs_dir, '*.tab')):
         new_path = old_path[:-4] + '.csv'
+        convert_tab_to_csv(old_path, new_path)
+    # Convert certain .tab input files to .csv
+    # These are all simple ampl/pyomo files with only un-indexed parameters
+    for f in [
+            'financials.dat', 'trans_params.dat', 'spillage_penalty.dat',
+            'spinning_reserve_params.dat', 'lost_load_cost.dat', 'hydrogen.dat'
+        ]:
+        old_path = os.path.join(inputs_dir, f)
+        new_path = old_path[:-4] + '.csv'
+        if os.path.exists(old_path):
+            convert_dat_to_csv(old_path, new_path)
+
+def convert_tab_to_csv(old_path, new_path):
+    # Note: we assume the old file is a simple ampl/pyomo dat file, with only
+    # non-indexed parameters (that is the case for all the ones listed above)
+    try:
         # Allow any whitespace as a delimiter because that is how ampl/pyomo .tab
         # files work, and some of our older examples use spaces instead of tabs
         # (e.g., tests/upgrade_dat/copperplate1/inputs/variable_capacity_factors.tab).
-        # We also have to set index_col=False to avoid converting the first column
-        # to an index in these cases.
-        try:
-            df = pandas.read_csv(old_path, na_values=['.'], sep=r'\s+')
-            df.to_csv(new_path, sep=',', na_rep='.', index=False)
-            os.remove(old_path)
-        except Exception as e:
-            print(
-                '\nERROR converting {} to {}:\n{}'
-                .format(old_path, new_path, e.message)
-            )
-            raise
+        df = pandas.read_csv(old_path, na_values=['.'], sep=r'\s+')
+        df.to_csv(new_path, sep=',', na_rep='.', index=False)
+        os.remove(old_path)
+    except Exception as e:
+        print(
+            '\nERROR converting {} to {}:\n{}'
+            .format(old_path, new_path, e.message)
+        )
+        raise
+
+def convert_dat_to_csv(old_path, new_path):
+    # define a dummy "model" where every "parameter" reports a dimension of 0.
+    # otherwise Pyomo assumes they have dim=1 and looks for index values.
+    class DummyModel():
+        def __getattr__(self, pname):
+            return DummyParam()
+    class DummyParam():
+        def dim(self):
+            return 0
+
+    try:
+        data = DataPortal(model=DummyModel())
+        data.load(filename=old_path)
+        # this happens to be in a pandas-friendly format
+        df = pandas.DataFrame(data.data())
+        df.to_csv(new_path, sep=',', na_rep='.', index=False)
+        os.remove(old_path)
+    except Exception as e:
+        print(
+            '\nERROR converting {} to {}:\n{}'
+            .format(old_path, new_path, e.message)
+        )
+        raise
 
 # These functions are not used in the 2.0.5 upgrade, but kept here for the future
 def rename_file(old_name, new_name, optional_file=True):

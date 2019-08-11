@@ -458,7 +458,7 @@ def load_aug(switch_data, optional=False, auto_select=False,
     elif len(params) > 0:
         try:
             num_indexes = params[0].index_set().dimen
-        except ValueError:
+        except (ValueError, AttributeError):
             num_indexes = 0
     # Default to 0 if both methods failed.
     else:

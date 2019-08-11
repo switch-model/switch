@@ -205,8 +205,8 @@ def write_tables(**args):
     # financials
 
     # this just uses a dat file, not a table (and the values are not in a database for now)
-    write_dat_file(
-        'financials.dat',
+    write_simple_csv(
+        'financials.csv',
         ['base_financial_year', 'interest_rate', 'discount_rate'],
         args
     )
@@ -265,7 +265,7 @@ def write_tables(**args):
     #########################
     # rps targets
 
-    write_tab_file(
+    write_csv_file(
         'rps_targets.csv',
         headers=('year', 'rps_target'),
         data=[(y, args['rps_targets'][y]) for y in sorted(args['rps_targets'].keys())],
@@ -714,14 +714,14 @@ def write_tables(**args):
     bat_cost = 'battery_capital_cost_per_mwh_capacity_by_year'
     non_cost_bat_vars = sorted([k for k in args if k.startswith('battery_') and k not in [bat_years, bat_cost]])
     if non_cost_bat_vars:
-        write_dat_file(
-            'batteries.dat',
+        write_simple_csv(
+            'batteries.csv',
             non_cost_bat_vars,
             args
         )
     if bat_years in args and bat_cost in args:
         # annual costs were provided -- write those to a tab file
-        write_tab_file(
+        write_csv_file(
             'battery_capital_cost.csv',
             headers=[bat_years, bat_cost],
             data=list(zip(args[bat_years], args[bat_cost])),
@@ -848,15 +848,15 @@ def write_tables(**args):
     # TODO: put these data in a database with hydro_scen_id's and pull them from there
 
     if "pumped_hydro_headers" in args:
-        write_tab_file(
+        write_csv_file(
             'pumped_hydro.csv',
             headers=args["pumped_hydro_headers"],
             data=args["pumped_hydro_projects"],
             arguments=args
         )
 
-    # write_dat_file(
-    #     'pumped_hydro.dat',
+    # write_simple_csv(
+    #     'pumped_hydro.csv',
     #     [k for k in args if k.startswith('pumped_hydro_')],
     #     args
     # )
@@ -864,8 +864,8 @@ def write_tables(**args):
     #########################
     # hydrogen
     # TODO: put these data in a database and write a .csv file instead
-    write_dat_file(
-        'hydrogen.dat',
+    write_simple_csv(
+        'hydrogen.csv',
         sorted([k for k in args if k.startswith('hydrogen_') or k.startswith('liquid_hydrogen_')]),
         args
     )
@@ -949,21 +949,30 @@ def db_cursor():
             raise
     return con.cursor()
 
-def write_dat_file(output_file, args_to_write, arguments):
-    """ write a simple .dat file with the arguments specified in args_to_write,
-    drawn from the arguments dictionary"""
+def write_simple_csv(output_file, args_to_write, arguments):
+    """ write a simple .csv file with the arguments specified in args_to_write,
+    drawn from the arguments dictionary. This includes one row with all the
+    parameter names and a second row with their values.
+    (previously write_dat_file())"""
 
-    if any(arg in arguments for arg in args_to_write):
+    start=time.time()
+
+    # collect data for the two rows (if any)
+    headers = []
+    values = []
+    for name in args_to_write:
+        if name in arguments:
+            headers.append(name)
+            values.append(str(arguments[name]))
+
+    if headers:
         output_file = make_file_path(output_file, arguments)
         print("Writing {file} ...".format(file=output_file), end=' ')
         sys.stdout.flush()  # display the part line to the user
-        start=time.time()
 
         with open(output_file, 'w') as f:
-            f.writelines([
-                'param ' + name + ' := ' + str(arguments[name]) + ';\n'
-                for name in args_to_write if name in arguments
-            ])
+            f.write(','.join(headers) + '\n')
+            f.write(','.join(values) + '\n')
 
         print("time taken: {dur:.2f}s".format(dur=time.time()-start))
 
@@ -985,7 +994,7 @@ def write_table(output_file, query, arguments):
 
     print("time taken: {dur:.2f}s".format(dur=time.time()-start))
 
-def write_tab_file(output_file, headers, data, arguments={}):
+def write_csv_file(output_file, headers, data, arguments={}):
     "Write a tab file using the headers and data supplied."
     output_file = make_file_path(output_file, arguments)
 
@@ -1000,6 +1009,23 @@ def write_tab_file(output_file, headers, data, arguments={}):
 
     print("time taken: {dur:.2f}s".format(dur=time.time()-start))
 
+def write_dat_file(output_file, args_to_write, arguments):
+    """ write a simple .dat file with the arguments specified in args_to_write,
+    drawn from the arguments dictionary"""
+
+    if any(arg in arguments for arg in args_to_write):
+        output_file = make_file_path(output_file, arguments)
+        print("Writing {file} ...".format(file=output_file), end=' ')
+        sys.stdout.flush()  # display the part line to the user
+        start=time.time()
+
+        with open(output_file, 'w') as f:
+            f.writelines([
+                'param ' + name + ' := ' + str(arguments[name]) + ';\n'
+                for name in args_to_write if name in arguments
+            ])
+
+        print("time taken: {dur:.2f}s".format(dur=time.time()-start))
 
 def write_indexed_set_dat_file(output_file, set_name, query, arguments):
     """Write a .dat file defining an indexed set, based on the query provided.

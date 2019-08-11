@@ -260,8 +260,31 @@ def define_hydrogen_components(m):
 
 def load_inputs(m, switch_data, inputs_dir):
     """
-    Import hydrogen data from a .dat file.
+    Import hydrogen data from a .csv file.
     TODO: change this to allow multiple storage technologies.
     """
     if not m.options.no_hydrogen:
-        switch_data.load(filename=os.path.join(inputs_dir, 'hydrogen.dat'))
+        switch_data.load_aug(
+            filename=os.path.join(inputs_dir, 'hydrogen.csv'),
+            optional=False, auto_select=True,
+            param=(
+                m.hydrogen_electrolyzer_capital_cost_per_mw,
+                m.hydrogen_electrolyzer_fixed_cost_per_mw_year,
+                m.hydrogen_electrolyzer_kg_per_mwh,
+                m.hydrogen_electrolyzer_life_years,
+                m.hydrogen_electrolyzer_variable_cost_per_kg,
+                m.hydrogen_fuel_cell_capital_cost_per_mw,
+                m.hydrogen_fuel_cell_fixed_cost_per_mw_year,
+                m.hydrogen_fuel_cell_life_years,
+                m.hydrogen_fuel_cell_mwh_per_kg,
+                m.hydrogen_fuel_cell_variable_cost_per_mwh,
+                m.hydrogen_liquifier_capital_cost_per_kg_per_hour,
+                m.hydrogen_liquifier_fixed_cost_per_kg_hour_year,
+                m.hydrogen_liquifier_life_years,
+                m.hydrogen_liquifier_mwh_per_kg,
+                m.hydrogen_liquifier_variable_cost_per_kg,
+                m.liquid_hydrogen_tank_capital_cost_per_kg,
+                m.liquid_hydrogen_tank_life_years,
+                m.liquid_hydrogen_tank_minimum_size_kg,
+            )
+        )
