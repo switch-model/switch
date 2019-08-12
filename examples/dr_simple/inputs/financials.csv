@@ -1,2 +1,4 @@
-base_financial_year,discount_rate,interest_rate
-2015,0.05,0.07
+name,value
+base_financial_year,2015
+interest_rate,0.07
+discount_rate,0.05

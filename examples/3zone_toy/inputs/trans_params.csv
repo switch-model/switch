@@ -1,2 +1,5 @@
-trans_capital_cost_per_mw_km,trans_lifetime_yrs,trans_fixed_om_fraction,distribution_loss_rate
-1000.0,20,0.03,0.053
+name,value
+trans_capital_cost_per_mw_km,1000
+trans_lifetime_yrs,20
+trans_fixed_om_fraction,0.03
+distribution_loss_rate,0.053
