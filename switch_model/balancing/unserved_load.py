@@ -9,7 +9,10 @@ strictly required in all cases.
 """
 
 import os
+
 from pyomo.environ import *
+
+from switch_model.utilities import load_key_value_inputfile
 
 dependencies = 'switch_model.timescales',\
     'switch_model.balancing.load_areas', 'switch_model.financials'
@@ -48,17 +51,16 @@ def define_components(mod):
 def load_inputs(mod, switch_data, inputs_dir):
     """
     The cost penalty of unserved load in units of $/MWh is the only parameter
-    that can be inputted. The following file is not mandatory, because the
-    parameter defaults to a value of 500 $/MWh. This file contains one header
-    row and one data row.
-
-    optional input files:
-        lost_load_cost.csv
-            unserved_load_penalty
+    that can be inputted. lost_load_cost.csv is optional, because 
+    unserved_load_penalty defaults to a value of 500 $/MWh. 
+    
+    lost_load_cost.csv: 
+        headers = name,value
+        allowed parameters: unserved_load_penalty
 
     """
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'lost_load_cost.csv'),
-        optional=True, auto_select=True,
-        param=(mod.unserved_load_penalty,)
+    load_key_value_inputfile(
+        switch_data,
+        optional=True,
+        filename=os.path.join(inputs_dir, 'lost_load_cost.csv')
     )

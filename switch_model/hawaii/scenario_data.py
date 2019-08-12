@@ -27,8 +27,12 @@ from __future__ import print_function
 
 import time, sys, collections, os
 from textwrap import dedent
+
+import pandas
+
 from switch_model import __version__ as switch_version
 from switch_model.utilities import iteritems
+from switch_model.utilities import load_key_value_inputfile
 
 # NOTE: instead of using the python csv writer, this directly writes tables to
 # file in a customized, pyomo-friendly .csv format. This uses commas between columns
@@ -951,28 +955,25 @@ def db_cursor():
 
 def write_simple_csv(output_file, args_to_write, arguments):
     """ write a simple .csv file with the arguments specified in args_to_write,
-    drawn from the arguments dictionary. This includes one row with all the
-    parameter names and a second row with their values.
+    drawn from the arguments dictionary. This has two columns (name & value),
+    with one row per parameter.
     (previously write_dat_file())"""
 
     start=time.time()
 
-    # collect data for the two rows (if any)
-    headers = []
-    values = []
+    # collect data for the two columns (if any)
+    headers = ["name", "value"]
+    dat = []
     for name in args_to_write:
         if name in arguments:
-            headers.append(name)
-            values.append(str(arguments[name]))
+            dat.append((str(name), str(arguments[name])))
 
-    if headers:
+    if dat:
         output_file = make_file_path(output_file, arguments)
         print("Writing {file} ...".format(file=output_file), end=' ')
         sys.stdout.flush()  # display the part line to the user
-
-        with open(output_file, 'w') as f:
-            f.write(','.join(headers) + '\n')
-            f.write(','.join(values) + '\n')
+        df = pandas.DataFrame(dat, columns=headers)
+        df.to_csv(output_file)
 
         print("time taken: {dur:.2f}s".format(dur=time.time()-start))
 

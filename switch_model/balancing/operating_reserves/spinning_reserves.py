@@ -87,7 +87,10 @@ Exposition, 2014 IEEE. http://www.nrel.gov/docs/fy14osti/61016.pdf
 
 """
 import os
+
 from pyomo.environ import *
+
+from switch_model.utilities import load_key_value_inputfile
 
 dependencies = (
     'switch_model.timescales',
@@ -521,8 +524,9 @@ def load_inputs(m, switch_data, inputs_dir):
         GENERATION_PROJECTS, ... gen_can_provide_spinning_reserves
 
     spinning_reserve_params.csv may override the default value of
-    contingency_safety_factor. Note that this only contains one
-    header row and one data row.
+    contingency_safety_factor. This should have column headers "name,value"
+    with one parameter per row.
+
     """
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'generation_projects_info.csv'),
@@ -530,8 +534,8 @@ def load_inputs(m, switch_data, inputs_dir):
         optional_params=['gen_can_provide_spinning_reserves'],
         param=(m.gen_can_provide_spinning_reserves)
     )
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'spinning_reserve_params.csv'),
-        optional=True, auto_select=True,
-        param=(m.contingency_safety_factor,)
+    load_key_value_inputfile(
+        switch_data,
+        optional=True,
+        filename=os.path.join(inputs_dir, 'spinning_reserve_params.csv')
     )

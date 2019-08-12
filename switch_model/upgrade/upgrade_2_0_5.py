@@ -2,16 +2,19 @@
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
-Upgrade input directories from 2.0.1 to 2.0.4. (There were no changes for 2.0.2
-or 2.0.3.) This doesn't actually do anything except update the data version
-number and show the module-change messages.
+Upgrade input directories from 2.0.4 to 2.0.5: convert all standard inputs to
+csv files.
 """
 
-import os, shutil, argparse, glob
+import argparse
+import glob
+import os
+import shutil
+
 import pandas
-import switch_model.upgrade
 from pyomo.environ import DataPortal
 
+import switch_model.upgrade
 
 upgrades_from = '2.0.4'
 upgrades_to = '2.0.5'
@@ -25,7 +28,8 @@ module_messages = {
     # old_module: message
     'switch_model':
         'Beginning with Switch 2.0.5, all inputs must be in .csv files and all '
-        'outputs will be written to .csv files.',
+        'outputs will be written to .csv files. '
+        '.dat files become csv files with two columns: "name" & "value".',
 }
 
 def upgrade_input_dir(inputs_dir):
@@ -43,8 +47,8 @@ def upgrade_input_dir(inputs_dir):
     for old_path in glob.glob(os.path.join(inputs_dir, '*.tab')):
         new_path = old_path[:-4] + '.csv'
         convert_tab_to_csv(old_path, new_path)
-    # Convert certain .tab input files to .csv
-    # These are all simple ampl/pyomo files with only un-indexed parameters
+    # Convert certain .dat input files to .csv
+    # These are all simple pyomo '.dat' files with only un-indexed parameters
     for f in [
             'financials.dat', 'trans_params.dat', 'spillage_penalty.dat',
             'spinning_reserve_params.dat', 'lost_load_cost.dat', 'hydrogen.dat'
@@ -85,7 +89,8 @@ def convert_dat_to_csv(old_path, new_path):
         data = DataPortal(model=DummyModel())
         data.load(filename=old_path)
         # this happens to be in a pandas-friendly format
-        df = pandas.DataFrame(data.data())
+        dat = [(str(k), str(v)) for k,v in data.items()]
+        df = pandas.DataFrame(dat, columns=["name", "value"])
         df.to_csv(new_path, sep=',', na_rep='.', index=False)
         os.remove(old_path)
     except Exception as e:

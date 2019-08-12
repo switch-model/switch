@@ -30,7 +30,10 @@ beginning and end of investment periods.
 from __future__ import division
 
 import os
+
 from pyomo.environ import *
+
+from switch_model.utilities import load_key_value_inputfile
 
 dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
     'switch_model.financials', 'switch_model.energy_sources.properties.properties', \
@@ -460,6 +463,9 @@ def load_inputs(mod, switch_data, inputs_dir):
     hydro is treated like any other variable renewable resource, and
     expects data in variable_capacity_factors.csv.
 
+    The optional file spillage_penalty.csv may override the default value of
+    spillage_penalty. This should have column headers "name,value" with one
+    parameter per row.
     """
 
     switch_data.load_aug(
@@ -508,8 +514,8 @@ def load_inputs(mod, switch_data, inputs_dir):
         auto_select=True,
         index=mod.HYDRO_GENS,
         param=(mod.hydro_efficiency, mod.hydraulic_location))
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'spillage_penalty.csv'),
-        optional=True, auto_select=True,
-        param=(mod.spillage_penalty,)
+    load_key_value_inputfile(
+        switch_data,
+        optional=True,
+        filename=os.path.join(inputs_dir, 'spillage_penalty.csv')
     )

@@ -6,9 +6,12 @@ Defines transmission build-outs.
 """
 
 import os
-from pyomo.environ import *
-from switch_model.financials import capital_recovery_factor as crf
+
 import pandas as pd
+from pyomo.environ import *
+
+from switch_model.financials import capital_recovery_factor as crf
+from switch_model.utilities import load_key_value_inputfile
 
 dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
     'switch_model.financials'
@@ -276,29 +279,26 @@ def define_components(mod):
 
 def load_inputs(mod, switch_data, inputs_dir):
     """
-
     Import data related to transmission builds. The following files are
-    expected in the input directory:
+    expected in the input directory. Optional files and columns are marked
+    with *. If optional columns are missing or if cells contain a dot (.),
+    those parameters will be set to default values as described in
+    documentation.
 
     transmission_lines.csv
         TRANSMISSION_LINE, trans_lz1, trans_lz2, trans_length_km,
-        trans_efficiency, existing_trans_cap, trans_dbid,
-        trans_derating_factor, trans_terrain_multiplier,
-        trans_new_build_allowed
-    The last 4 columns of transmission_lines.csv are optional. If the
-    columns are missing or if cells contain a dot (.), those parameters
-    will be set to default values as described in documentation.
+        trans_efficiency, existing_trans_cap, trans_dbid*,
+        trans_derating_factor*, trans_terrain_multiplier*,
+        trans_new_build_allowed*
 
-    Note that in the next file, parameter names are written on the first
-    row (as usual), and the single value for each parameter is written in
-    the second row. The distribution_loss_rate parameter is read by the
-    local_td module (if used).
+    trans_params.csv has two columns: name,value with one parameter per row.
+    The distribution_loss_rate parameter is read by the local_td module (if
+    used).
 
-    trans_params.csv
+    trans_params.csv*
         trans_capital_cost_per_mw_km, trans_lifetime_yrs,
         trans_fixed_om_fraction, distribution_loss_rate
     """
-
     # TODO: send issue / pull request to Pyomo to allow .csv files with
     # no rows after header (fix bugs in pyomo.core.plugins.data.text)
     switch_data.load_aug(
@@ -321,13 +321,10 @@ def load_inputs(mod, switch_data, inputs_dir):
             mod.trans_terrain_multiplier, mod.trans_new_build_allowed
         )
     )
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'trans_params.csv'),
-        optional=True, auto_select=True,
-        param=(
-            mod.trans_capital_cost_per_mw_km, mod.trans_lifetime_yrs,
-            mod.trans_fixed_om_fraction, mod.distribution_loss_rate
-        )
+    load_key_value_inputfile(
+        switch_data,
+        optional=True,
+        filename=os.path.join(inputs_dir, 'trans_params.csv')
     )
 
 

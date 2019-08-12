@@ -4,11 +4,13 @@
 This is an advanced version of the basic spinning_reserves reserves module, and
 can be used in place of it (not in addition to).
 """
-import os
 from collections import defaultdict
-from pyomo.environ import *
-from switch_model.utilities import iteritems
+import os
 
+from pyomo.environ import *
+
+from switch_model.utilities import iteritems
+from switch_model.utilities import load_key_value_inputfile
 
 dependencies = (
     'switch_model.timescales',
@@ -609,8 +611,8 @@ def load_inputs(m, switch_data, inputs_dir):
         GENERATION_PROJECTS, RESERVE_TYPES, [gen_reserve_type_max_share]
 
     spinning_reserve_params.csv may override the default value of
-    contingency_safety_factor. Note that this only contains one header row
-    and one data row.
+    contingency_safety_factor. This should have column headers "name,value"
+    with one parameter per row.
     """
     path=os.path.join(inputs_dir, 'generation_projects_reserve_capability.csv')
     switch_data.load_aug(
@@ -627,8 +629,8 @@ def load_inputs(m, switch_data, inputs_dir):
         switch_data.data()['GEN_SPINNING_RESERVE_TYPES'][None] = \
             [(g, "spinning") for g in gen_projects]
 
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'spinning_reserve_params.csv'),
-        optional=True, auto_select=True,
-        param=(m.contingency_safety_factor,)
+    load_key_value_inputfile(
+        switch_data,
+        optional=True,
+        filename=os.path.join(inputs_dir, 'spinning_reserve_params.csv')
     )

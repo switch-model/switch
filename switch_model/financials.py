@@ -7,9 +7,12 @@ Defines financial parameters for the Switch model.
 """
 from __future__ import print_function
 from __future__ import division
-from pyomo.environ import *
 import os
+
 import pandas as pd
+from pyomo.environ import *
+
+from switch_model.utilities import load_key_value_inputfile
 
 dependencies = 'switch_model.timescales'
 
@@ -309,14 +312,12 @@ def load_inputs(mod, switch_data, inputs_dir):
     """
     Import base financial data from a .csv file. The inputs_dir should
     contain the file financials.csv that gives parameter values for
-    base_financial_year, interest_rate and optionally discount_rate.
-    The names of parameters go on the first row and the values go on
-    the second.
+    base_financial_year, interest_rate and optionally discount_rate. 
+    These should be specified one-per row, with column headers "name,value"
     """
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'financials.csv'),
-        optional=False, auto_select=True,
-        param=(mod.base_financial_year, mod.interest_rate, mod.discount_rate)
+    load_key_value_inputfile(
+        switch_data,
+        filename=os.path.join(inputs_dir, 'financials.csv')
     )
 
 def post_solve(instance, outdir):

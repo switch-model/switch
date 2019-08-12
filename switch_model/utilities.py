@@ -6,8 +6,17 @@ Utility functions for Switch.
 """
 from __future__ import print_function
 
-import os, types, importlib, re, sys, argparse, time, datetime
-import __main__ as main
+import argparse
+import datetime
+import importlib
+import os
+import re
+import sys
+import tempfile
+import time
+import types
+
+import pandas as pd
 from pyomo.environ import *
 import pyomo.opt
 
@@ -19,11 +28,6 @@ try:
 except NameError:
     # Python 3
     string_types = (str,)
-
-# Check whether this is an interactive session (determined by whether
-# __main__ has a __file__ attribute). Scripts can check this value to
-# determine what level of output to display.
-interactive_session = not hasattr(main, '__file__')
 
 def define_AbstractModel(*module_list, **kwargs):
     # stub to provide old functionality as we move to a simpler calling convention
@@ -379,12 +383,44 @@ class InputError(Exception):
         return repr(self.value)
 
 
+def load_key_value_inputfile(switch_data, optional=False, **kwds):
+    """
+    This function supports parsing csv files with key, value columns that 
+    replace simple .dat files.
+    """
+    # Skip if the file is missing
+    path = kwds['filename']
+    if optional and not os.path.isfile(path):
+        return
+    # Implement via Pyomo's .dat file parser to ensure proper typecasting.
+    df = pd.read_csv(path, dtype=str)
+    tmp_dat = tempfile.NamedTemporaryFile(suffix='.dat', delete=False).name
+    with open(tmp_dat, 'w+') as out:
+        for idx, row in df.iterrows():
+            out.write("param {} := {};\n".format(
+                row['name'], row['value']))
+    kwds['filename'] = tmp_dat
+    switch_data.load(**kwds)
+    os.remove(tmp_dat)
+
 def load_aug(switch_data, optional=False, auto_select=False,
              optional_params=[], **kwds):
     """
     This is a wrapper for the DataPortal object that accepts additional
-    keywords. This currently supports a flag for the file being optional.
-    The name load_aug() is not great and may be changed.
+    keywords. The name is an abbreviation of load_augmented.
+
+    * optional: Indicates the input file is entirely optional. If absent, the
+    sets and/or parameters will either be blank or set to their default values
+    as defined in the model.
+    * optional_params: Indicates specific parameter columns are optional, and
+    will be skipped during loading if they are not present in the input file.
+    * auto_select: Automatically select columns from the input file based on
+    requested parameter names, and adjust ordering as needed in case the input
+    file has different column ordering than a module's load_aug() function call.
+    
+    Note: Only the first parameter (`optional`) is applicable for `.dat` files.
+    
+    To do: Come up with a better name for this function.
     """
     # TODO:
     # Allow user to specify filename when defining parameters and sets.
