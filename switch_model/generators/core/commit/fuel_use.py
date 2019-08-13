@@ -2,41 +2,36 @@
 # Licensed under the Apache License, Version 2, which is in the LICENSE file.
 
 """
+This module models fuel use with part load heat rate curves (AKA Input/Output
+curves, AKA Incremental Heat Rate), and provides best-effort defaults when
+detailed heat rate data is unavailable. It has a prerequisite of
+switch_model.generators.core.commit.operate
 
-This module describes fuel use with considerations of unit commitment
-and incremental heat rates using piecewise linear expressions. If you
-want to use this module directly in a list of switch modules (instead of
-including the package project.unitcommit), you will also need to include
-the module operations.unitcommit.commit
+This module can accept data in two formats: 
+1) Part load heat rates that are a series of points: capacity_factor, heat_rate
+2) Incremental heat rate tables as described in
+https://web.archive.org/web/20180329012345/http://www.energy.ca.gov/papers/98-04-07_HEATRATE.PDF
+
+However it comes in, the data is converted into one or more line segments per
+generator, and fuel use is constrained to be above all of the lines. This
+works well since heat rate curves for thermal power plants tend to either be
+linear (single line segment) or concave up. If you need to model heat rate 
+curves that are concave down or non-convex, you will need to write a 
+new module to constrain the fuel use, likely using integer variables or
+non-linear programming.
 
 If you haven't worked with incremental heat rates before, you may want
 to start by reading a background document on incremental heat rates such
-as: http://www.energy.ca.gov/papers/98-04-07_HEATRATE.PDF
+as: https://web.archive.org/web/20180329012345/http://www.energy.ca.gov/papers/98-04-07_HEATRATE.PDF
 
 Incremental heat rates are a way of approximating an "input-output
 curve" (heat input vs electricity output) with a series of line
 segments. These curves are typically drawn with electricity output on
 the x-axis (Power, MW) and fuel use rates on the y-axis (MMBTU/h). These
 curves are drawn from the minimum to maximum power output levels for a
-given generator, and most generators cannot run at 0 output. The slope
-of each line segment is the incremental heat rate at that point in units
-of MMBTU/MWh.
-
-Data for incremental heat rates is typically formatted in a heterogenous
-manner. The first data point is the first point on the curve - the
-minimum loading level (MW) and its corresponding fuel use rate
-(MMBTU/h). Subsequent data points provide subseqent loading levels in MW
-and slopes, or incremental heat rates in MMBTU/MWh. This format was
-designed to make certain economic calculations easy, not to draw input-
-output curves, but you can calculate subsequent points on the curve from
-this information.
-
-Fuel requirements for most generators can be approximated very well with
-simple models of a single line segment, but the gold standard is to use
-several line segments that have increasing slopes. In the future, we may
-include a simpler model that uses a single line segment, but we are just
-implementing the complex piecewise linear form initially to satisfy key
-stakeholders.
+given generator, and most thermal generators cannot run at 0 output. The slope
+of each line segment is the incremental heat rate at that point in units of
+MMBTU/MWh.
 
 There are two basic ways to model a piecewise linear relationship like
 this in linear programming. The first approach (which we don't use in
@@ -62,31 +57,29 @@ for fuel use.
 """
 from __future__ import division
 
-import os
-from pyomo.environ import *
 import csv
+import os
+
+import pandas
+from pyomo.environ import *
+
 from switch_model.utilities import approx_equal
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
-    'switch_model.financials', 'switch_model.energy_sources.properties.properties', \
-    'switch_model.generators.core.build', 'switch_model.generators.core.dispatch',\
-    'switch_model.generators.core.commit.operate'
+dependencies = (
+    'switch_model.timescales',
+    'switch_model.balancing.load_zones',
+    'switch_model.financials',
+    'switch_model.energy_sources.properties.properties',
+    'switch_model.generators.core.build',
+    'switch_model.generators.core.dispatch',
+    'switch_model.generators.core.commit.operate',
+)
 
 def define_components(mod):
     """
-
-    This function adds components to a Pyomo abstract model object to
-    describe fuel consumption in the context of unit commitment. Unless
-    otherwise stated, all power capacity is specified in units of MW and
-    all sets and parameters are mandatory.
-
-    Typically incremental heat rates tables specify "blocks" where each
-    block includes power output in MW and heat requirements in MMBTU/hr
-    to move from the prior block to the current block. If you plot these
-    points and connect the dots, you have a piecewise linear function
-    that goes from at least minimum loading level to maximum loading
-    level. Data is read in in that format, then processed to describe
-    the individual line segments.
+    This function ties fuel consumption to unit commitment. Unless otherwise
+    stated, all power capacity is specified in units of MW and all sets and
+    parameters are mandatory.
 
     FUEL_USE_SEGMENTS_FOR_GEN[g in FUEL_BASED_GENS] is a set of line
     segments that collectively describe fuel requirements for a given
@@ -96,16 +89,29 @@ def define_components(mod):
     normalize the y-intercept by capacity so that we can scale it to
     arbitrary sizes of generation, or stacks of individual generation
     units. This code can be used in conjunction with discrete unit sizes
-    but it not dependent on that. This set is optional. It will default to
+    but it not dependent on that. This set is optional, and will default to
     an intercept of 0 and a slope equal to its full load heat rate.
-
+    
+    GEN_TPS_FUEL_PIECEWISE_CONS_SET is a set of (g, t, intercept, slope) that
+    describes the fuel use constraints for every thermal generator in every
+    timepoint.
+    
+    GenFuelUseRate_Calculate[GEN_TPS_FUEL_PIECEWISE_CONS_SET] constrains fuel
+    use to be above each line segment, relative to the unit commitment and
+    dispatch decision variables. Any fuel required for starting up a generator
+    is also taken into account.
+    
+    For multi-fuel generators, we make the simplifying assumption that the
+    heat rate curve is constant with regards to differing types of fuel
+    input.. basically assuming that heat (MBTU) matters more than the source
+    of heat
     """
 
     mod.FUEL_USE_SEGMENTS_FOR_GEN = Set(
         mod.FUEL_BASED_GENS,
         dimen=2)
 
-    # Use BuildAction to populate a set's default values.
+    # Sets don't support defaults, so use BuildAction to build defaults.
     def FUEL_USE_SEGMENTS_FOR_GEN_default_rule(m, g):
         if g not in m.FUEL_USE_SEGMENTS_FOR_GEN:
             heat_rate = m.gen_full_load_heat_rate[g]
@@ -126,35 +132,58 @@ def define_components(mod):
         mod.GEN_TPS_FUEL_PIECEWISE_CONS_SET,
         rule=lambda m, g, t, intercept, incremental_heat_rate: (
             sum(m.GenFuelUseRate[g, t, f] for f in m.FUELS_FOR_GEN[g]) >=
-            # Do the startup
+            # Startup fuel is a one-shot fuel expenditure, but the rest of
+            # this expression has a units of heat/hr, so convert startup fuel
+            # requirements into an average over this timepoint.
             m.StartupGenCapacity[g, t] * m.gen_startup_fuel[g] / m.tp_duration_hrs[t] +
             intercept * m.CommitGen[g, t] +
             incremental_heat_rate * m.DispatchGen[g, t]))
 
-# TODO: switch to defining heat rates as a collection of (output_mw, fuel_mmbtu_per_h) points;
-# read those directly as normal sets, then derive the project heat rate curves from those
-# within define_components.
-# This will simplify data preparation (the current format is hard to produce from any
-# normalized database) and the import code and help the readability of this file.
 
 def load_inputs(mod, switch_data, inputs_dir):
     """
+    Import a fuel use curve to describe fuel use under partial loading
+    conditions.
 
-    Import data to support modeling fuel use under partial loading
-    conditions with piecewise linear incremental heat rates.
+    Plants that lack detailed data will default to a single line segment with
+    a y-intercept of 0 and a slope equal to the full load head rate. This
+    default tends to underestimate fuel use steam turbines or combined cycle
+    plants under partial loading conditions, which generally have y-intercepts
+    above 0.
 
-    These files are formatted differently than most to match the
-    standard format of incremental heat rates. This format is peculiar
-    because it formats data records that describes a fuel use curve in
-    two disticnt ways. The first record is the first point on the curve,
-    but all subsequent records are slopes and x-domain for each line
-    segment. For a given generation technology or project, the relevant
-    data should be formatted like so:
+    We support two ways of specifying a fuel use curve as a series of line
+    segments. Both files are optional; you may specify either one, but not
+    both. In both cases, data is converted into FUEL_USE_SEGMENTS_FOR_GEN
+    whose format is described above.
+
+    1) gen_part_load_heat_rates.csv is normalized and includes a series of
+       points: gen_loading_level, gen_heat_rate_at_loading_level.
+    2) gen_inc_heat_rates.csv is non-normalized and includes an initial point
+       plus subsequent slopes for a prototypical plant. Supposedly this format
+       was common at one point, but I don't know how widespread it is today.
+
+    gen_part_load_heat_rates.csv
+        GENERATION_PROJECT, gen_loading_level, gen_heat_rate_at_loading_level
+    
+    gen_loading_level describes the fractional loading level (0 to 1).
+    gen_heat_rate_at_loading_level describes the heat rate at the given
+    loading level in units of MMBTU/MWh.
+    Minimally, each plant should specify two points to describe a single line
+    from minimum to maximum loading conditions.
+
+    gen_inc_heat_rates.csv
+        GENERATION_PROJECT, power_start_mw, power_end_mw,
+        incremental_heat_rate_mbtu_per_mwhr, fuel_use_rate_mmbtu_per_h
+
+    In gen_inc_heat_rates.csv, the first record is the first point on the
+    curve, but all subsequent records are slopes and x-domain for each line
+    segment. For a given generation technology or project, the relevant data
+    should be formatted like so:
 
     power_start_mw  power_end_mw   ihr   fuel_use_rate
-    min_load             .          .       value
-    min_load          mid_load1   value       .
-    mid_load1         max_load    value       .
+    min_load             .          .       y-value
+    min_load          mid_load1   slope       .
+    mid_load1         max_load    slope       .
 
     The first row provides the first point on the input/output curve.
     Literal dots should be included to indicate blanks.
@@ -163,166 +192,182 @@ def load_inputs(mod, switch_data, inputs_dir):
     The column ihr indicates incremental heat rate in MMBTU/MWh.
     Any number of line segments will be accepted.
     All text should be replaced with actual numerical values.
-
-    I chose this format to a) be relatively consistent with standard
-    data that is easiest to find, b) make it difficult to misinterpret
-    the meaning of the data, and c) allow all of the standard data to be
-    included in a single file.
-
-    The following files are optional. If no representative data is
-    provided for a generation technology, it will default to a single
-    line segment with an intercept of 0 and a slope equal to the full
-    load heat22 rate. If no specific data is provided for a project, it
-    will default to its generation technology.
-
-    gen_inc_heat_rates.csv
-        project, power_start_mw, power_end_mw,
-        incremental_heat_rate_mbtu_per_mwhr, fuel_use_rate_mmbtu_per_h
-
     """
+    path1 = os.path.join(inputs_dir, 'gen_part_load_heat_rates.csv')
+    path2 = os.path.join(inputs_dir, 'gen_inc_heat_rates.csv')
+    if os.path.isfile(path1):
+        fuel_rate_segments, min_loading_levels, full_hr = \
+            _parse_part_load_hr_file(path1)
+    elif os.path.isfile(path2):
+        fuel_rate_segments, min_loading_levels, full_hr = \
+            _parse_inc_hr_file(path2)
+    else:
+        return
 
-    path = os.path.join(inputs_dir, 'gen_inc_heat_rates.csv')
-    if os.path.isfile(path):
-        (fuel_rate_segments, min_load, full_hr) = _parse_inc_heat_rate_file(
-            path, id_column="GENERATION_PROJECT")
-        # Check implied minimum loading level for consistency with
-        # gen_min_load_fraction if gen_min_load_fraction was provided. If
-        # gen_min_load_fraction wasn't provided, set it to implied minimum
-        # loading level.
-        for g in min_load:
-            if 'gen_min_load_fraction' not in switch_data.data():
-                switch_data.data()['gen_min_load_fraction'] = {}
-            dp_dict = switch_data.data(name='gen_min_load_fraction')
-            if g in dp_dict:
-                min_load_dat = dp_dict[g]
-                if not approx_equal(min_load[g], min_load_dat):
-                    raise ValueError((
-                        "gen_min_load_fraction is inconsistant with " +
-                        "incremental heat rate data for project " +
-                        "{}.").format(g))
-            else:
-                dp_dict[g] = min_load[g]
-        # Same thing, but for full load heat rate.
-        for g in full_hr:
-            if 'gen_full_load_heat_rate' not in switch_data.data():
-                switch_data.data()['gen_full_load_heat_rate'] = {}
-            dp_dict = switch_data.data(name='gen_full_load_heat_rate')
-            if g in dp_dict:
-                full_hr_dat = dp_dict[g]
-                if abs((full_hr[g] - full_hr_dat) / full_hr_dat) > 0.01:
-                    raise ValueError((
-                        "gen_full_load_heat_rate is inconsistant with " +
-                        "incremental heat rate data for project " +
-                        "{}.").format(g))
-            else:
-                dp_dict[g] = full_hr[g]
-        # Copy parsed data into the data portal.
-        switch_data.data()['FUEL_USE_SEGMENTS_FOR_GEN'] = fuel_rate_segments
+    switch_data.data()['FUEL_USE_SEGMENTS_FOR_GEN'] = fuel_rate_segments
+    
+    # Check implied minimum loading level for consistency with
+    # gen_min_load_fraction if gen_min_load_fraction was provided. If
+    # gen_min_load_fraction wasn't provided, set it to implied minimum
+    # loading level.
+    if 'gen_min_load_fraction' not in switch_data.data():
+        switch_data.data()['gen_min_load_fraction'] = {}
+    data_portal_dat = switch_data.data(name='gen_min_load_fraction')
+    for g, min_load in min_loading_levels.items():
+        if g in data_portal_dat:
+            assert approx_equal(min_load, data_portal_dat[g]), (
+                "gen_min_load_fraction is inconsistant with "
+                "incremental heat rate data for project "
+                "{}.".format(g)
+            )
+        else:
+            data_portal_dat[g] = min_load
+
+    # Same thing, but for full load heat rate.
+    if 'gen_full_load_heat_rate' not in switch_data.data():
+        switch_data.data()['gen_full_load_heat_rate'] = {}
+    data_portal_dat = switch_data.data(name='gen_full_load_heat_rate')
+    for g, hr in full_hr.items():
+        if g in data_portal_dat:
+            assert approx_equal(hr, data_portal_dat[g]), (
+                "gen_full_load_heat_rate is inconsistant with partial "
+                "loading heat rate data for generation project "
+                "{}.".format(g)
+            )
+        else:
+            data_portal_dat[g] = hr
 
 
-def _parse_inc_heat_rate_file(path, id_column):
+def _parse_part_load_hr_file(path):
+    df = pandas.read_csv(path)
+    df.sort_values(by=['GENERATION_PROJECT', 'gen_loading_level'], inplace=True)
+    fuel_rate_segments = {}
+    full_load_hr = {}
+    min_cap_factor = {}
+    for g, df_g in df.groupby('GENERATION_PROJECT'):
+        cap_factor0, heat_rate0, slope0 = None, None, None
+        fuel_rate_segments[g] = []
+        for idx, row in df_g.iterrows():
+            if cap_factor0 is None:
+                _, cap_factor0, heat_rate0 = row
+                min_cap_factor[g] = cap_factor0
+                continue
+            _, cap_factor, heat_rate = row
+            slope = (heat_rate - heat_rate0) / (cap_factor-cap_factor0)
+            intercept = heat_rate0 - cap_factor0 * slope
+            fuel_rate_segments[g].append((intercept, slope))
+            if slope0:
+                assert slope >= slope0, (
+                    "The incremental heat rate for {}, loading level {}-{} in "
+                    "file {} is smaller than the last segment, which violates "
+                    "this module's concave-up assumptions."
+                    "".format(g, cap_factor0, cap_factor, path)
+                )
+            cap_factor0, heat_rate0, slope0 = cap_factor, heat_rate, slope
+        full_load_hr[g] = heat_rate
+    return (fuel_rate_segments, min_cap_factor, full_load_hr)
+
+def _parse_inc_hr_file(path):
     """
     Parse tabular incremental heat rate data, calculate a series of
     lines that describe each segment, and perform various error checks.
     """
-    # fuel_rate_points[unit] = {min_power: fuel_use_rate}
+    # All dictionaries are indexed by generation project.
+    # fuel_rate_points[g] = {power: fuel_use_rate}
     fuel_rate_points = {}
-    # fuel_rate_segments[unit] = [(intercept1, slope1), (int2, slope2)...]
+    # ihr_dat stores incremental heat rate records as a list for each gen
+    ihr_dat = {}
+    # fuel_rate_segments[g] = [(intercept1, slope1), (int2, slope2)...]
     # Stores the description of each linear segment of a fuel rate curve.
     fuel_rate_segments = {}
-    # ihr_dat stores incremental heat rate records as a list for each unit
-    ihr_dat = {}
-    # min_cap_factor[unit] and full_load_hr[unit] are for error checking.
+    # min_cap_factor[g] and full_load_hr[g] are used for default values and/or
+    # error checking.
     min_cap_factor = {}
     full_load_hr = {}
-    # Scan the file and stuff the data into dictionaries for easy access.
     # Parse the file and stuff data into dictionaries indexed by units.
     with open(path, 'r') as hr_file:
         dat = list(csv.DictReader(hr_file, delimiter=','))
         for row in dat:
-            u = row[id_column]
+            g = row['GENERATION_PROJECT']
             p1 = float(row['power_start_mw'])
             p2 = row['power_end_mw']
             ihr = row['incremental_heat_rate_mbtu_per_mwhr']
             fr = row['fuel_use_rate_mmbtu_per_h']
-            # Does this row give the first point?
+            # Row looks like the first point.
             if(p2 == '.' and ihr == '.'):
                 fr = float(fr)
-                if(u in fuel_rate_points):
-                    raise ValueError(
-                        "Error processing incremental heat rates for " +
-                        u + " in " + path + ". More than one row has " +
-                        "a fuel use rate specified.")
-                fuel_rate_points[u] = {p1: fr}
-            # Does this row give a line segment?
+                assert g not in fuel_rate_points, (
+                    "Error processing incremental heat rates for gen {} in {}."
+                    "More than one row has a fuel use rate specified."
+                    "".format(g, path)
+                )
+                fuel_rate_points[g] = {p1: fr}
+            # Row looks like a line segment.
             elif(fr == '.'):
                 p2 = float(p2)
                 ihr = float(ihr)
-                if(u not in ihr_dat):
-                    ihr_dat[u] = []
-                ihr_dat[u].append((p1, p2, ihr))
-            # Throw an error if the row's format is not recognized.
+                if(g not in ihr_dat):
+                    ihr_dat[g] = []
+                ihr_dat[g].append((p1, p2, ihr))
             else:
                 raise ValueError(
-                    "Error processing incremental heat rates for row " +
-                    u + " in " + path + ". Row format not recognized for " +
-                    "row " + str(row) + ". See documentation for acceptable " +
-                    "formats.")
+                    "Error processing incremental heat rates for gen {} in {}."
+                    "Row format not recognized for row {}. See documentation "
+                    "for acceptable formats.".format(g, path, str(row))
+                )
 
-    # Make sure that each project that has incremental heat rates defined
+    # Ensure that each project that has incremental heat rates defined
     # also has a starting point defined.
     missing_starts = [k for k in ihr_dat if k not in fuel_rate_points]
-    if missing_starts:
-        raise ValueError(
-            'No starting point(s) are defined for incremental heat rate curves '
-            'for the following technologies: {}'.format(','.join(missing_starts)))
+    assert not missing_starts, (
+        'No starting point(s) are defined for incremental heat rate curves '
+        'for the following generators: {}'.format(','.join(missing_starts))
+    )
 
     # Construct a convex combination of lines describing a fuel use
-    # curve for each representative unit "u".
-    for u, fr_points in fuel_rate_points.items():
-        if u not in ihr_dat:
-            # no heat rate segments specified; plant can only be off or on at full power
-            # create a dummy curve at full heat rate
+    # curve for each representative unit "g".
+    for g, fr_points in fuel_rate_points.items():
+        if g not in ihr_dat:
+            # No heat rate segments specified; plant can only be off or on at
+            # full power. Create a dummy curve at full heat rate
             output, fuel = next(iter(fr_points.items()))
-            fuel_rate_segments[u] = [(0.0, fuel / output)]
-            min_cap_factor[u] = 1.0
-            full_load_hr[u] = fuel / output
+            fuel_rate_segments[g] = [(0.0, fuel / output)]
+            min_cap_factor[g] = 1.0
+            full_load_hr[g] = fuel / output
             continue
 
-        fuel_rate_segments[u] = []
+        fuel_rate_segments[g] = []
         # Sort the line segments by their domains.
-        ihr_dat[u].sort()
+        ihr_dat[g].sort()
         # Assume that the maximum power output is the rated capacity.
-        (junk, capacity, junk) = ihr_dat[u][len(ihr_dat[u])-1]
+        (junk, capacity, junk) = ihr_dat[g][len(ihr_dat[g])-1]
         # Retrieve the first incremental heat rate for error checking.
-        (min_power, junk, ihr_prev) = ihr_dat[u][0]
-        min_cap_factor[u] = min_power / capacity
+        (min_power, junk, ihr_prev) = ihr_dat[g][0]
+        min_cap_factor[g] = min_power / capacity
         # Process each line segment.
-        for (p_start, p_end, ihr) in ihr_dat[u]:
+        for (p_start, p_end, ihr) in ihr_dat[g]:
             # Error check: This incremental heat rate cannot be less than
             # the previous one.
-            if ihr_prev > ihr:
-                raise ValueError((
-                    "Error processing incremental heat rates for " +
-                    "{} in file {}. The incremental heat rate " +
-                    "between power output levels {}-{} is less than " +
-                    "that of the prior line segment.").format(
-                        u, path, p_start, p_end))
+            assert ihr_prev <= ihr, (
+                "Error processing incremental heat rates for {} in file {}. "
+                "The incremental heat rate between power output levels {}-{} "
+                "is less than that of the prior line segment."
+                "".format(g, path, p_start, p_end)
+            )
             # Error check: This segment needs to start at an existing point.
-            if p_start not in fr_points:
-                raise ValueError((
-                    "Error processing incremental heat rates for " +
-                    "{} in file {}. The incremental heat rate " +
-                    "between power output levels {}-{} does not start at a " +
-                    "previously defined point or line segment.").format(
-                        u, path, p_start, p_end))
+            assert p_start in fr_points, (
+                "Error processing incremental heat rates for {} in file {}. "
+                "The incremental heat rate between power output levels {}-{} "
+                "does not start at a previously defined point or line segment."
+                "".format(g, path, p_start, p_end)
+            )
             # Calculate the y-intercept then normalize it by the capacity.
             intercept_norm = (fr_points[p_start] - ihr * p_start) / capacity
             # Save the line segment's definition.
-            fuel_rate_segments[u].append((intercept_norm, ihr))
+            fuel_rate_segments[g].append((intercept_norm, ihr))
             # Add a point for the end of the segment for the next iteration.
             fr_points[p_end] = fr_points[p_start] + (p_end - p_start) * ihr
             ihr_prev = ihr
         # Calculate the max load heat rate for error checking
-        full_load_hr[u] = fr_points[capacity] / capacity
+        full_load_hr[g] = fr_points[capacity] / capacity
     return (fuel_rate_segments, min_cap_factor, full_load_hr)

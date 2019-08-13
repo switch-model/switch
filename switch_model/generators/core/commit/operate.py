@@ -3,11 +3,9 @@
 
 """
 Defines model components to describe unit commitment of projects for the
-Switch model. This module is mutually exclusive with the
-operations.no_commit module which specifies simplified dispatch
-constraints. If you want to use this module directly in a list of switch
-modules (instead of including the package operations.unitcommit), you will also
-need to include the module operations.unitcommit.fuel_use.
+Switch model. This module is mutually exclusive with the operations.no_commit
+module which specifies simplified dispatch constraints. This module has a 
+post-requisite of switch_model.generators.core.commit.fuel_use.
 """
 from __future__ import division
 
@@ -15,14 +13,16 @@ import os, itertools
 from pyomo.environ import *
 
 dependencies = (
-    'switch_model.timescales', 'switch_model.balancing.load_zones',
-    'switch_model.financials', 'switch_model.energy_sources.properties.properties',
-    'switch_model.generators.core.build', 'switch_model.generators.core.dispatch'
+    'switch_model.timescales', 
+    'switch_model.balancing.load_zones',
+    'switch_model.financials',
+    'switch_model.energy_sources.properties.properties',
+    'switch_model.generators.core.build',
+    'switch_model.generators.core.dispatch',
 )
 
 def define_components(mod):
     """
-
     Adds components to a Pyomo abstract model object to describe
     unit commitment for projects. Unless otherwise stated, all power
     capacity is specified in units of MW and all sets and parameters
