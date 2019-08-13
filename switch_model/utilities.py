@@ -94,6 +94,13 @@ def create_model(module_list=None, args=sys.argv[1:]):
         if hasattr(module, "define_arguments"):
             module.define_arguments(argparser)
     model.options = argparser.parse_args(args)
+    if model.options.logging_level:
+        # Values of --logging-level are limited to standard logging levels.
+        # For python >= 3.2, we could store the --logging-level string
+        # directly into model.options.verbose. For lower versions, we need to
+        # convert to a constant from the logging package.
+        level = getattr(logging, model.options.logging_level)
+        model.options.verbose = level
     if model.options.verbose:
         logging.basicConfig(level=model.options.verbose)
     else:
