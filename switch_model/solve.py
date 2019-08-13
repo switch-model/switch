@@ -535,19 +535,32 @@ def define_arguments(argparser):
     argparser.add_argument(
         '--verbose', '-v', dest='verbose', default=False, 
         action='store_const', const=logging.WARNING,
-        help='Show information about model preparation and solution')
+        help='Show information about model preparation and solution. '
+             '(print status updates and log messages of "WARNING" or above)')
     argparser.add_argument(
         '--very-verbose', '-vv', dest='verbose', default=False, 
         action='store_const', const=logging.INFO,
-        help='Show more information about model preparation and solution')
+        help='Show more information about model preparation and solution'
+             '(print status updates and log messages of "INFO" or above)')
     argparser.add_argument(
         '--very-very-verbose', '-vvv', dest='verbose', default=False, 
         action='store_const', const=logging.DEBUG,
-        help='Show debugging-level information about model preparation and solution')
+        help='Show debugging-level information about model preparation '
+             'and solutions (print status updates and log messages of "INFO" '
+             'or above)')
+    # The choices for --logging-level must be constrained to standard logging
+    # levels: https://docs.python.org/3/library/logging.html#levels
+    argparser.add_argument(
+        '--logging-level', dest='logging_level', 
+        default=None,
+        choices = ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"],
+        help='An alternative method of specifying which logging level to '
+             'display (you may use this instead of -v, -vv, or -vvv).')
     argparser.add_argument(
         '--quiet', '-q', dest='verbose', action='store_false',
         help="Don't show information about model preparation and solution "
-             "(cancels --verbose setting)")
+             "(cancels --verbose settings, and disables logging messages "
+             "for everything short of errors)")
     argparser.add_argument(
         '--no-post-solve', default=False, action='store_true',
         help="Don't run post-solve code on the completed model "
