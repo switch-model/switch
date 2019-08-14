@@ -1,4 +1,32 @@
 -------------------------------------------------------------------------------
+Switch 2.0.5
+-------------------------------------------------------------------------------
+This release standardizes all inputs and outputs as .csv files.
+
+As usual, when  you first solve an older model, Switch will prompt to backup and
+upgrade the  inputs directory. If you accept, it will convert the existing
+tab-delimited *.tab files and most ampl-format *.dat files to comma-delimited
+*.csv files. It is recommended that you update your model data preparation
+scripts to create .csv files directly. Note that non-indexed parameters should
+now be stored in .csv files with a header row listing the parameter names and a
+single data row showing their values.
+
+All multi-value outputs from Switch are also now in comma-delimited .csv files,
+instead of a mix of .csv, .tab and .txt files. (total_cost.txt is unchanged)
+
+This release also includes includes the following minor updates:
+
+- Updated installation instructions
+- Switch version number and website are now shown in the startup banner when
+  running with --verbose flag; solve messages have also been improved slightly
+- Some parsing errors for *.tab files have been fixed in the upgrade scripts;
+  this may cause errors during the upgrade process for input files that use
+  spaces instead of tabs and were previously upgraded by Switch, producing
+  malformed files.
+- Fixed several bugs in the documentation and execution of the stochastic
+  examples that use the PySP module of the Pyomo package
+
+-------------------------------------------------------------------------------
 Switch 2.0.4
 -------------------------------------------------------------------------------
 
