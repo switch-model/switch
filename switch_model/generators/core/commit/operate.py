@@ -344,16 +344,8 @@ def define_components(mod):
     # capacity, and then get around the min-downtime rule by turning on other
     # capacity which is actually forced off by gen_max_commit_fraction, e.g.,
     # due to a maintenance outage.
-    # Josiah's response: Any forced maintenance outage encoded by
-    # gen_max_commit_fraction will be directly reflected into
-    # ShutdownGenCapacity and subject to minimum downtime, if that capacity
-    # was online when the maintenance event started. If sufficient capacity
-    # was offline prior to maintenance, then min downtime would not need to be
-    # tracked separately. I don't see a separate band of capacity that needs
-    # to be implicitly tracked. The way I read it, the max(...) term would
-    # overestimate available capacity if prior timepoints in the window had
-    # more capacity available. I think the max(...) term needs to be replaced
-    # by m.CommitUpperLimit[g, t].
+    # The max() term & documentation is confusing to Josiah. 
+    # See https://github.com/switch-model/switch/issues/123 for discussion.
     mod.Enforce_Min_Downtime = Constraint(
         mod.DOWNTIME_CONSTRAINED_GEN_TPS, 
         doc=("All recently shutdown capacity remains offline: "
@@ -364,7 +356,6 @@ def define_components(mod):
             # We can't use max(CommitUpperLimit) and fit within LP guidelines,
             # so rederive the CommitUpperLimit expression and apply max to a
             # constant. 
-            # See above for explanation and confusion around this term.
             (
                 m.GenCapacityInTP[g, t] * m.gen_availability[g] *
                 max(m.gen_max_commit_fraction[g, t_prior]
