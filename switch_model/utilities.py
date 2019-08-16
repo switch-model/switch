@@ -12,6 +12,8 @@ import __main__ as main
 from pyomo.environ import *
 import pyomo.opt
 
+import switch_model
+
 # Define string_types (same as six.string_types). This is useful for
 # distinguishing between strings and other iterables.
 try:
@@ -262,6 +264,12 @@ def post_solve(instance, outputs_dir=None):
     for module in instance.get_modules():
         if hasattr(module, 'post_solve'):
             module.post_solve(instance, outputs_dir)
+
+    # Save the precise version used to solve this problem.
+    version_path = os.path.join(outputs_dir, 'software_version.txt')
+    with open(version_path, 'w') as f:
+        f.write("This problem was solved with switch version {}.{}".format(
+            switch_model.__version__, os.linesep))
 
 
 def min_data_check(model, *mandatory_model_components):
