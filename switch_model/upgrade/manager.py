@@ -7,7 +7,7 @@ from __future__ import absolute_import
 import argparse
 import os
 import shutil
-from distutils.version import StrictVersion
+from pkg_resources import parse_version
 
 import switch_model
 
@@ -35,7 +35,7 @@ upgrade_plugins = [
 # Not every code revision requires an update; this is the last revision that did.
 last_required_update = upgrade_plugins[-1][-1]
 
-code_version = StrictVersion(switch_model.__version__)
+code_version = parse_version(switch_model.__version__)
 version_file = "switch_inputs_version.txt"
 # verbose = False
 verbose = True
@@ -101,7 +101,7 @@ def do_inputs_need_upgrade(inputs_dir):
     # Not every code revision requires an update, so just hard-code the last
     # revision that required an update.
     inputs_version = get_input_version(inputs_dir)
-    return StrictVersion(inputs_version) < StrictVersion(last_required_update)
+    return parse_version(inputs_version) < parse_version(last_required_update)
 
 
 def _backup(inputs_dir):
@@ -130,16 +130,16 @@ def upgrade_inputs(inputs_dir, backup=True, assign_current_version=False):
             _backup(inputs_dir)
         # Successively apply the upgrade scripts as needed.
         for (upgrader, v_from, v_to) in upgrade_plugins:
-            inputs_v = StrictVersion(get_input_version(inputs_dir))
+            inputs_v = parse_version(get_input_version(inputs_dir))
             # note: the next line catches datasets created by/for versions of Switch that
             # didn't require input directory upgrades
-            if StrictVersion(v_from) <= inputs_v < StrictVersion(v_to):
+            if parse_version(v_from) <= inputs_v < parse_version(v_to):
                 print_verbose("\tUpgrading from " + v_from + " to " + v_to)
                 upgrader.upgrade_input_dir(inputs_dir)
         upgraded = True
 
     if (
-        StrictVersion(last_required_update) < StrictVersion(switch_model.__version__)
+        parse_version(last_required_update) < parse_version(switch_model.__version__)
         and assign_current_version
     ):
         # user requested writing of current version number, even if no upgrade is needed
