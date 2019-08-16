@@ -15,7 +15,7 @@ renewable resources. This lumps together regulating reserves, load following
 reserves, and contingency reserves without distinguishing their timescales or
 required response duration. Operating reserves at timescales with slower
 responses for load following or longer-term recovery from contingencies are not
-included here.
+included here, but can be accounted for with the quickstart module.
 
 Most regions and countries use distinct terminology for reserves products and
 distinct procedures for determining reserve requirements. This module provides
