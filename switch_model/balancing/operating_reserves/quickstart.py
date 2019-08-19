@@ -13,6 +13,11 @@ probably be adapted readily if needed.
 For more discussion of operating reserve considerations and modeling
 approaches, see the spinning_reserves module.
 
+To do (wish list):
+
+1) Define additional rules for quickstart reserve requirements.
+2) Add an optional parameter to specify how much capacity of a generation unit can be used to provide quickstart reserves (defaults to GenCapacity if units are MW, or 1.0 if units are fraction of available capacity). This could give us modeling flexibility to adapt to different definitions of quickstart reserves (some markets are more stringent than others), as well as to include different technologies. E.g. one might model a CCGT with the capability of providing quickstart reserves using only the Gas Turbines, or model a BESS system with the capability of providing quickstart reserves up to a certain fraction of its capacity (because the other fraction is reserved for energy arbitrage, for instance).
+
 """
 import os
 from pyomo.environ import *
