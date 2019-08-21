@@ -438,7 +438,7 @@ class InputError(Exception):
 
 
 def load_aug(
-    switch_data, optional=False, auto_select=False, optional_params=[], **kwargs
+    switch_data, optional=False, auto_select=None, optional_params=[], **kwargs
 ):
     """
     This is a wrapper for the DataPortal object that accepts additional
@@ -454,7 +454,7 @@ def load_aug(
     * auto_select: Automatically select columns from the input file based on
     requested parameter names, and adjust ordering as needed in case the input
     file has different column ordering than a module's load_aug() function
-    call.
+    call. By default this is enabled unless `select` was specified in kwargs.
 
     Note: optional_params & auto_select are ignored for `.dat` files.
 
@@ -552,6 +552,8 @@ def load_aug(
     # could all get the prefix "rfm_supply_tier_". Then they could get shorter names
     # within the file (e.g., "cost" and "limit"). We could also require the data file
     # to be called "rfm_supply_tier.csv" for greater consistency/predictability.
+    if auto_select is None and "select" not in kwargs:
+        auto_select = True
     assert not (
         auto_select and ("select" in kwargs)
     ), "You may not specify both select and auto_select."

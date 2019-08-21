@@ -165,20 +165,16 @@ def load_inputs(mod, switch_data, inputs_dir):
     # message if some columns are not found.
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "load_zones.csv"),
-        auto_select=True,
         index=mod.LOAD_ZONES,
         param=(mod.zone_ccs_distance_km, mod.zone_dbid),
     )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "loads.csv"),
-        auto_select=True,
-        param=(mod.zone_demand_mw),
+        filename=os.path.join(inputs_dir, "loads.csv"), param=(mod.zone_demand_mw)
     )
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, "zone_coincident_peak_demand.csv"),
         index=mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS,
-        select=("LOAD_ZONE", "PERIOD", "zone_expected_coincident_peak_demand"),
         param=(mod.zone_expected_coincident_peak_demand),
     )
 

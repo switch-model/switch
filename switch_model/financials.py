@@ -321,7 +321,6 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "financials.csv"),
         optional=False,
-        auto_select=True,
         param=(mod.base_financial_year, mod.interest_rate, mod.discount_rate),
     )
 

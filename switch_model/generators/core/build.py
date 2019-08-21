@@ -560,7 +560,6 @@ def load_inputs(mod, switch_data, inputs_dir):
     """
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "generation_projects_info.csv"),
-        auto_select=True,
         optional_params=[
             "gen_dbid",
             "gen_is_baseload",
@@ -615,13 +614,11 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, "gen_build_predetermined.csv"),
-        auto_select=True,
         index=mod.PREDETERMINED_GEN_BLD_YRS,
         param=(mod.gen_predetermined_cap),
     )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "gen_build_costs.csv"),
-        auto_select=True,
         index=mod.GEN_BLD_YRS,
         param=(mod.gen_overnight_cost, mod.gen_fixed_om),
     )

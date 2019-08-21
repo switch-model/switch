@@ -298,7 +298,6 @@ def load_inputs(mod, switch_data, inputs_dir):
     # STORAGE_GENS.
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "generation_projects_info.csv"),
-        auto_select=True,
         optional_params=[
             "gen_store_to_release_ratio",
             "gen_storage_energy_to_power_ratio",
@@ -318,13 +317,11 @@ def load_inputs(mod, switch_data, inputs_dir):
     }
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "gen_build_costs.csv"),
-        auto_select=True,
         param=(mod.gen_storage_energy_overnight_cost),
     )
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, "gen_build_predetermined.tab"),
-        auto_select=True,
         param=(mod.gen_predetermined_storage_energy_mwh),
     )
 
