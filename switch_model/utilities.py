@@ -6,9 +6,16 @@ Utility functions for Switch.
 """
 from __future__ import print_function
 
+import argparse
+import datetime
+import importlib
+import os
+import re
+import sys
 import logging
-import os, types, importlib, re, sys, argparse, time, datetime
-import __main__ as main
+import time
+import types
+
 from pyomo.environ import *
 import pyomo.opt
 
@@ -20,11 +27,6 @@ try:
 except NameError:
     # Python 3
     string_types = (str,)
-
-# Check whether this is an interactive session (determined by whether
-# __main__ has a __file__ attribute). Scripts can check this value to
-# determine what level of output to display.
-interactive_session = not hasattr(main, '__file__')
 
 def define_AbstractModel(*module_list, **kwargs):
     # stub to provide old functionality as we move to a simpler calling convention
@@ -392,33 +394,54 @@ class InputError(Exception):
 
 
 def load_aug(switch_data, optional=False, auto_select=False,
-             optional_params=[], **kwds):
+             optional_params=[], **kwargs):
     """
     This is a wrapper for the DataPortal object that accepts additional
-    keywords. This currently supports a flag for the file being optional.
-    The name load_aug() is not great and may be changed.
-    """
-    # TODO:
-    # Allow user to specify filename when defining parameters and sets.
-    # Also allow user to specify the name(s) of the column(s) in each set.
-    # Then use those automatically to pull data from the right file (and to
-    # write correct index column names in the generic output files).
-    # This will simplify code and ease comprehension (user can see
-    # immediately where the data come from for each component). This can
-    # also support auto-documenting of parameters and input files.
+    keywords to allow optional files, optional columns, and auto-select
+    columns based on parameter names. The name is an abbreviation of
+    load_augmented.
 
-    path = kwds['filename']
-    # Skip if the file is missing
+    * optional: Indicates the input file is entirely optional. If absent, the
+    sets and/or parameters will either be blank or set to their default values
+    as defined in the model.
+    * optional_params: Indicates specific parameter columns are optional, and
+    will be skipped during loading if they are not present in the input file.
+    * auto_select: Automatically select columns from the input file based on
+    requested parameter names, and adjust ordering as needed in case the input
+    file has different column ordering than a module's load_aug() function
+    call.
+    
+    Note: optional_params & auto_select are ignored for `.dat` files.
+    
+    To do: 
+    * Come up with a better name for this function.
+    * Streamline the API so each param is specified exactly once, either in
+    param or optional_param, and use the same style for each (component
+    objects rather than component names). Alternatively, have an option to
+    auto-detect whether a param is optional based on whether it has a default
+    value specified.
+    * Replace this function with more auto-detection. Allow user to specify
+    filename when defining parameters and sets. Also allow user to specify the
+    name(s) of the column(s) in each set. Then use those automatically to pull
+    data from the right file (and to write correct index column names in the
+    generic output files). This will simplify code and ease comprehension
+    (user can see immediately where the data come from for each component).
+    This can also support auto-documenting of parameters and input files.
+    """
+
+    path = kwargs['filename']
+    # Skip if an optional file is unavailable
     if optional and not os.path.isfile(path):
         return
+
     # If this is a .dat file, then skip the rest of this fancy business; we'll
     # only check if the file is missing and optional for .csv files.
     filename, extension = os.path.splitext(path)
     if extension == '.dat':
-        switch_data.load(**kwds)
+        switch_data.load(**kwargs)
         return
 
-    # copy the optional_params to avoid side-effects when the list is altered below
+    # copy optional_params to avoid side-effects when the list is altered below
     optional_params=list(optional_params)
     # Parse header and first row
     with open(path) as infile:
@@ -432,7 +455,8 @@ def load_aug(switch_data, optional=False, auto_select=False,
     elif suffix == 'csv':
         separator = ','
     else:
-        raise switch_model.utilities.InputError('Unrecognized file type for input file {}'.format(path))
+        raise switch_model.utilities.InputError(
+            'Unrecognized file type for input file {}'.format(path))
     # TODO: parse this more formally, e.g. using csv module
     headers = headers_line.strip().split(separator)
     # Skip if the file is empty.
@@ -441,14 +465,14 @@ def load_aug(switch_data, optional=False, auto_select=False,
     # Try to get a list of parameters. If param was given as a
     # singleton or a tuple, make it into a list that can be edited.
     params = []
-    if 'param' in kwds:
+    if 'param' in kwargs:
         # Tuple -> list
-        if isinstance(kwds['param'], tuple):
-            kwds['param'] = list(kwds['param'])
+        if isinstance(kwargs['param'], tuple):
+            kwargs['param'] = list(kwargs['param'])
         # Singleton -> list
-        elif not isinstance(kwds['param'], list):
-            kwds['param'] = [kwds['param']]
-        params = kwds['param']
+        elif not isinstance(kwargs['param'], list):
+            kwargs['param'] = [kwargs['param']]
+        params = kwargs['param']
     # optional_params may include Param objects instead of names. In
     # those cases, convert objects to names.
     for (i, p) in enumerate(optional_params):
@@ -464,8 +488,8 @@ def load_aug(switch_data, optional=False, auto_select=False,
             optional_params.append(p.name)
     # How many index columns do we expect?
     # Grab the dimensionality of the index param if it was provided.
-    if 'index' in kwds:
-        num_indexes = kwds['index'].dimen
+    if 'index' in kwargs:
+        num_indexes = kwargs['index'].dimen
     # Next try the first parameter's index.
     elif len(params) > 0:
         try:
@@ -482,20 +506,19 @@ def load_aug(switch_data, optional=False, auto_select=False,
     # could all get the prefix "rfm_supply_tier_". Then they could get shorter names
     # within the file (e.g., "cost" and "limit"). We could also require the data file
     # to be called "rfm_supply_tier.csv" for greater consistency/predictability.
+    assert not(auto_select and ('select' in kwargs)), (
+        'You may not specify both select and auto_select.')
     if auto_select:
-        if 'select' in kwds:
-            raise InputError('You may not specify a select parameter if ' +
-                             'auto_select is set to True.')
-        kwds['select'] = headers[0:num_indexes]
-        kwds['select'].extend([p.name for p in params])
+        kwargs['select'] = headers[0:num_indexes]
+        kwargs['select'].extend([p.name for p in params])
     # Check to see if expected column names are in the file. If a column
     # name is missing and its parameter is optional, then drop it from
     # the select & param lists.
-    if 'select' in kwds:
-        if isinstance(kwds['select'], tuple):
-            kwds['select'] = list(kwds['select'])
+    if 'select' in kwargs:
+        if isinstance(kwargs['select'], tuple):
+            kwargs['select'] = list(kwargs['select'])
         del_items = []
-        for (i, col) in enumerate(kwds['select']):
+        for (i, col) in enumerate(kwargs['select']):
             p_i = i - num_indexes
             if col not in headers:
                 if(len(params) > p_i >= 0 and
@@ -509,8 +532,8 @@ def load_aug(switch_data, optional=False, auto_select=False,
         # to first so that the indexes won't get messed up as we go.
         del_items.sort(reverse=True)
         for (i, p_i) in del_items:
-            del kwds['select'][i]
-            del kwds['param'][p_i]
+            del kwargs['select'][i]
+            del kwargs['param'][p_i]
 
     if optional and file_has_no_data_rows:
         # Skip the file.  Note that we are only doing this after having
@@ -518,7 +541,7 @@ def load_aug(switch_data, optional=False, auto_select=False,
         return
     # All done with cleaning optional bits. Pass the updated arguments
     # into the DataPortal.load() function.
-    switch_data.load(**kwds)
+    switch_data.load(**kwargs)
 
 
 # Define an argument parser that accepts the allow_abbrev flag to
