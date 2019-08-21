@@ -137,7 +137,6 @@ def load_inputs(m, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, 'pumped_hydro.csv'),
-        auto_select=True,
         index=m.PH_GENS,
         param=(
             m.ph_load_zone, m.ph_capital_cost_per_mw, m.ph_project_life, m.ph_fixed_om_percent,

@@ -237,17 +237,14 @@ def load_inputs(m, switch_data, inputs_dir):
     """
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'ev_share.csv'),
-        auto_select=True,
         param=m.ev_share
     )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'ev_fleet_info_advanced.csv'),
-        auto_select=True,
         param=[getattr(m, p) for p in ev_zone_type_period_params]
     )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'ev_charging_bids.csv'),
-        auto_select=True,
         param=m.ev_bid_by_type,
         index=m.EV_ZONE_TYPE_BID_TP
     )

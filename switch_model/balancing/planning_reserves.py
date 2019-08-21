@@ -294,12 +294,10 @@ def load_inputs(model, switch_data, inputs_dir):
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'reserve_capacity_value.csv'),
         optional=True,
-        auto_select=True,
         param=(model.gen_capacity_value)
     )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'planning_reserve_requirements.csv'),
-        auto_select=True,
         optional=True,
         index=model.PLANNING_RESERVE_REQUIREMENTS,
         optional_params=['gen_can_provide_cap_reserves', "prr_enforcement_timescale"],
@@ -307,7 +305,6 @@ def load_inputs(model, switch_data, inputs_dir):
     )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'generation_projects_info.csv'),
-        auto_select=True,
         optional_params=['gen_can_provide_cap_reserves'],
         param=(model.gen_can_provide_cap_reserves)
     )

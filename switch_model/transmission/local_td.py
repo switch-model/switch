@@ -217,7 +217,6 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'load_zones.csv'),
-        auto_select=True,
         param=(mod.existing_local_td, mod.local_td_annual_cost_per_mw))
 
 def post_solve(instance, outdir):

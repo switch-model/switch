@@ -551,12 +551,11 @@ def load_inputs(m, switch_data, inputs_dir):
     """
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'generation_projects_info.csv'),
-        auto_select=True,
         optional_params=['gen_can_provide_spinning_reserves'],
         param=(m.gen_can_provide_spinning_reserves)
     )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'spinning_reserve_params.csv'),
-        optional=True, auto_select=True,
+        optional=True,
         param=(m.contingency_safety_factor,)
     )

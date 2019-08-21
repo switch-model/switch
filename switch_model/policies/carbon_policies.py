@@ -59,7 +59,6 @@ def load_inputs(model, switch_data, inputs_dir):
         filename=os.path.join(inputs_dir, 'carbon_policies.csv'),
         optional=True,
         optional_params=(model.carbon_cap_tco2_per_yr, model.carbon_cost_dollar_per_tco2),
-        auto_select=True,
         param=(model.carbon_cap_tco2_per_yr, model.carbon_cost_dollar_per_tco2))
 
 

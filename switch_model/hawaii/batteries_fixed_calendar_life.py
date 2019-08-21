@@ -144,6 +144,5 @@ def load_inputs(m, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=False,
         filename=os.path.join(inputs_dir, 'battery_capital_cost.csv'),
-        auto_select=True,
         index=m.BATTERY_CAPITAL_COST_YEARS,
         param=(m.battery_capital_cost_per_mwh_capacity_by_year,))

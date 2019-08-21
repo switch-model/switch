@@ -181,7 +181,6 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, 'hydro_timeseries.csv'),
-        auto_select=True,
         index=mod.HYDRO_GEN_TS_RAW,
         param=(mod.hydro_min_flow_mw, mod.hydro_avg_flow_mw)
     )

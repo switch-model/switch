@@ -624,7 +624,6 @@ def load_inputs(m, switch_data, inputs_dir):
     switch_data.load_aug(
         filename=path,
         optional=True,
-        auto_select=True,
         optional_params=['gen_reserve_type_max_share]'],
         index=m.GEN_SPINNING_RESERVE_TYPES,
         param=(m.gen_reserve_type_max_share)
@@ -637,6 +636,6 @@ def load_inputs(m, switch_data, inputs_dir):
 
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'spinning_reserve_params.csv'),
-        optional=True, auto_select=True,
+        optional=True,
         param=(m.contingency_safety_factor,)
     )

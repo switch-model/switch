@@ -266,7 +266,7 @@ def load_inputs(m, switch_data, inputs_dir):
     if not m.options.no_hydrogen:
         switch_data.load_aug(
             filename=os.path.join(inputs_dir, 'hydrogen.csv'),
-            optional=False, auto_select=True,
+            optional=False,
             param=(
                 m.hydrogen_electrolyzer_capital_cost_per_mw,
                 m.hydrogen_electrolyzer_fixed_cost_per_mw_year,

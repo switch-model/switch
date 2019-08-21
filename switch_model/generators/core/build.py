@@ -521,7 +521,6 @@ def load_inputs(mod, switch_data, inputs_dir):
     """
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'generation_projects_info.csv'),
-        auto_select=True,
         optional_params=['gen_dbid', 'gen_is_baseload', 'gen_scheduled_outage_rate',
         'gen_forced_outage_rate', 'gen_capacity_limit_mw', 'gen_unit_size',
         'gen_ccs_energy_load', 'gen_ccs_capture_efficiency',
@@ -551,12 +550,10 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, 'gen_build_predetermined.csv'),
-        auto_select=True,
         index=mod.PREDETERMINED_GEN_BLD_YRS,
         param=(mod.gen_predetermined_cap))
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'gen_build_costs.csv'),
-        auto_select=True,
         index=mod.GEN_BLD_YRS,
         param=(mod.gen_overnight_cost, mod.gen_fixed_om))
     # read FUELS_FOR_MULTIFUEL_GEN from gen_multiple_fuels.dat if available
