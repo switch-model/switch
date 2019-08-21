@@ -385,7 +385,6 @@ def load_inputs(m, switch_data, inputs_dir):
         switch_data.load_aug(
             filename=os.path.join(inputs_dir, "hydrogen.csv"),
             optional=False,
-            auto_select=True,
             param=(
                 m.hydrogen_electrolyzer_capital_cost_per_mw,
                 m.hydrogen_electrolyzer_fixed_cost_per_mw_year,

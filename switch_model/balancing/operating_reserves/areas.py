@@ -60,6 +60,5 @@ def load_inputs(mod, switch_data, inputs_dir):
     # message if some columns are not found.
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "load_zones.csv"),
-        auto_select=True,
         param=(mod.zone_balancing_area),
     )

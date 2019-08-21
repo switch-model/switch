@@ -459,7 +459,6 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "water_nodes.csv"),
-        auto_select=True,
         index=mod.WATER_NODES,
         optional_params=["mod.wnode_constant_inflow", "mod.wnode_constant_consumption"],
         param=(
@@ -471,13 +470,11 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, "water_node_tp_flows.csv"),
-        auto_select=True,
         optional_params=["mod.wnode_tp_inflow", "mod.wnode_tp_consumption"],
         param=(mod.wnode_tp_inflow, mod.wnode_tp_consumption),
     )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "reservoirs.csv"),
-        auto_select=True,
         index=mod.RESERVOIRS,
         param=(
             mod.res_min_vol,
@@ -494,31 +491,26 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "reservoir_tp_data.csv"),
         optional=True,
-        auto_select=True,
         optional_params=["mod.res_max_vol_tp", "mod.res_min_vol_tp"],
         param=(mod.res_max_vol_tp, mod.res_min_vol_tp),
     )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "water_connections.csv"),
-        auto_select=True,
         index=mod.WATER_CONNECTIONS,
         param=(mod.water_node_from, mod.water_node_to, mod.wc_capacity),
     )
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, "min_eco_flows.csv"),
-        auto_select=True,
         param=(mod.min_eco_flow),
     )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "hydro_generation_projects.csv"),
-        auto_select=True,
         index=mod.HYDRO_GENS,
         param=(mod.hydro_efficiency, mod.hydraulic_location),
     )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "spillage_penalty.csv"),
         optional=True,
-        auto_select=True,
         param=(mod.spillage_penalty,),
     )

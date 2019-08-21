@@ -180,7 +180,6 @@ def load_inputs(m, switch_data, inputs_dir):
     """
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "ev_fleet_info.csv"),
-        auto_select=True,
         param=[
             getattr(m, p)
             for p in [
@@ -196,7 +195,5 @@ def load_inputs(m, switch_data, inputs_dir):
     # print "loading ev_bau_load.csv"
     # import pdb; pdb.set_trace()
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "ev_bau_load.csv"),
-        auto_select=True,
-        param=m.ev_bau_mw,
+        filename=os.path.join(inputs_dir, "ev_bau_load.csv"), param=m.ev_bau_mw
     )

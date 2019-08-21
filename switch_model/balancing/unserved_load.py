@@ -63,6 +63,5 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "lost_load_cost.csv"),
         optional=True,
-        auto_select=True,
         param=(mod.unserved_load_penalty,),
     )

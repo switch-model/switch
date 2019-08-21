@@ -382,7 +382,6 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, "variable_capacity_factors.csv"),
-        auto_select=True,
         index=mod.VARIABLE_GEN_TPS_RAW,
         param=(mod.gen_max_capacity_factor,),
     )

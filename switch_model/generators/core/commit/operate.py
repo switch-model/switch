@@ -441,7 +441,6 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, "generation_projects_info.csv"),
-        auto_select=True,
         param=(
             mod.gen_min_load_fraction,
             mod.gen_startup_fuel,
@@ -453,7 +452,6 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, "gen_timepoint_commit_bounds.csv"),
-        auto_select=True,
         param=(
             mod.gen_min_commit_fraction,
             mod.gen_max_commit_fraction,

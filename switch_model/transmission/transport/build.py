@@ -313,18 +313,6 @@ def load_inputs(mod, switch_data, inputs_dir):
     # no rows after header (fix bugs in pyomo.core.plugins.data.text)
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "transmission_lines.csv"),
-        select=(
-            "TRANSMISSION_LINE",
-            "trans_lz1",
-            "trans_lz2",
-            "trans_length_km",
-            "trans_efficiency",
-            "existing_trans_cap",
-            "trans_dbid",
-            "trans_derating_factor",
-            "trans_terrain_multiplier",
-            "trans_new_build_allowed",
-        ),
         index=mod.TRANSMISSION_LINES,
         optional_params=(
             "trans_dbid",
@@ -347,7 +335,6 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "trans_params.csv"),
         optional=True,
-        auto_select=True,
         param=(
             mod.trans_capital_cost_per_mw_km,
             mod.trans_lifetime_yrs,

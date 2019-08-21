@@ -434,19 +434,11 @@ def load_inputs(mod, switch_data, inputs_dir):
     # some columns are not found.
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "periods.csv"),
-        select=("INVESTMENT_PERIOD", "period_start", "period_end"),
         index=mod.PERIODS,
         param=(mod.period_start, mod.period_end),
     )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "timeseries.csv"),
-        select=(
-            "TIMESERIES",
-            "ts_period",
-            "ts_duration_of_tp",
-            "ts_num_tps",
-            "ts_scale_to_period",
-        ),
         index=mod.TIMESERIES,
         param=(
             mod.ts_period,

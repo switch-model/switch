@@ -100,7 +100,6 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "fuel_cost.csv"),
-        select=("load_zone", "fuel", "period", "fuel_cost"),
         index=mod.ZONE_FUEL_PERIODS,
         param=[mod.fuel_cost],
     )
