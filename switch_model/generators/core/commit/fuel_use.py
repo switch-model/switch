@@ -9,8 +9,10 @@ switch_model.generators.core.commit.operate
 
 This module can accept data in two formats: 
 1) Part load heat rates that are a series of points: capacity_factor, heat_rate
-2) Incremental heat rate tables as described in
-https://web.archive.org/web/20180329012345/http://www.energy.ca.gov/papers/98-04-07_HEATRATE.PDF
+2) Incremental heat rate tables as described in "THE USE OF HEAT RATES IN
+PRODUCTION COST MODELING AND MARKET MODELING" (1998, California Energy
+Commission staff report)
+https://listserver.energy.ca.gov/papers/98-04-07_HEATRATE.PDF
 
 However it comes in, the data is converted into one or more line segments per
 generator, and fuel use is constrained to be above all of the lines. This
@@ -22,7 +24,7 @@ non-linear programming.
 
 If you haven't worked with incremental heat rates before, you may want
 to start by reading a background document on incremental heat rates such
-as: https://web.archive.org/web/20180329012345/http://www.energy.ca.gov/papers/98-04-07_HEATRATE.PDF
+as: https://listserver.energy.ca.gov/papers/98-04-07_HEATRATE.PDF
 
 Incremental heat rates are a way of approximating an "input-output
 curve" (heat input vs electricity output) with a series of line
