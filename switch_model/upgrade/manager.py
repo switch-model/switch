@@ -17,6 +17,7 @@ from . import upgrade_2_0_0b4
 from . import upgrade_2_0_1
 from . import upgrade_2_0_4
 from . import upgrade_2_0_5
+from . import upgrade_2_0_6dev1
 
 # Available upgrade code. This needs to be in consecutive order so
 # upgrade_inputs can incrementally apply the upgrades.
@@ -28,7 +29,8 @@ upgrade_plugins = [
         upgrade_2_0_0b4,
         upgrade_2_0_1,
         upgrade_2_0_4,
-        upgrade_2_0_5
+        upgrade_2_0_5,
+        upgrade_2_0_6dev1
     ]
 ]
 

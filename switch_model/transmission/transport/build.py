@@ -2,9 +2,20 @@
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
-Defines transmission build-outs.
-"""
+Defines transmission build-outs for a transport model with separate builds in
+each direction.
 
+To do:
+* Consolidate the cost component inputs into a single capital cost per
+transmission line direction ($/MW-capacity). Have users estimate cost of
+upgrading corridors using whatever method makes the most sense for them.
+Provide suggestions based on distance and a default value of $1000/MW-km.
+* Rename parameters to use the prefix of tx instead of trans for brevity, and
+normalize existing_trans_cap to tx_existing_cap
+* Investigate shifting TRANSMISSION_LINES to a 2-dimensional set of zone_from,
+zone_to. If Pyomo gives us the choice of using tx or (z_from,z_to) when
+iterating & indexing, that would be a win-win for readability and simplicity.
+"""
 import logging
 import os
 
@@ -13,8 +24,34 @@ from pyomo.environ import *
 
 from switch_model.financials import capital_recovery_factor as crf
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
+dependencies = (
+    'switch_model.timescales',
+    'switch_model.balancing.load_zones',
     'switch_model.financials'
+)
+post_requisite = (
+    'switch_model.transmission.transport.dispatch',
+)
+
+def define_arguments(argparser):
+    """Skip this until we figure out a reasonable way of splitting costs for
+    assymetric build-outs. The only use case I know for assymetric ratings is
+    reliability constraints for existing transmission pathways (not individual
+    lines). However, for new builds, we lack information about what would
+    bring about asymmetrical rating, or how to divide costs into a power
+    ratings for one direction vs the other.
+    
+    For the moment, just stick with all new builds must be symmetric, and
+    divide costs of builds evenly in each direction."""
+    pass
+#     group = argparser.add_argument_group(__name__)
+#     group.add_argument('--allow-new-tx-asymmetrical-builds', default=False,
+#         dest='tx_new_builds_asymmetric', action='store_true',
+#         help=("By default, new transmission builds must be symmetrical in "
+#               "each direction of a line; this option drops that constraint.")
+#     )
+#     if m.options.tx_new_builds_asymmetric:
+#         # do something...
 
 def define_components(mod):
     """
@@ -22,20 +59,13 @@ def define_components(mod):
     stated, all power capacity is specified in units of MW and all sets and
     parameters are mandatory.
 
+    TRANSMISSION_LINES is the complete set of transmission pathways connecting
+    load zones. Each member of this set is a one dimensional identifier such
+    as "A-B" or "B-A". Transmission is usually abbreviated as trans & tx in
+    parameter names & indexes.
 
-    TRANSMISSION_LINES is the complete set of transmission pathways
-    connecting load zones. Each member of this set is a one dimensional
-    identifier such as "A-B". This set has no regard for directionality
-    of transmission lines and will generate an error if you specify two
-    lines that move in opposite directions such as (A to B) and (B to
-    A). Another derived set - TRANS_LINES_DIRECTIONAL - stores
-    directional information. Transmission may be abbreviated as trans or
-    tx in parameter names or indexes.
-
-    trans_lz1[tx] and trans_lz2[tx] specify the load zones at either end
-    of a transmission line. The order of 1 and 2 is unimportant, but you
-    are encouraged to be consistent to simplify merging information back
-    into external databases.
+    trans_lz_send[tx] and trans_lz_receive[tx] specify the load zones at
+    either end of a transmission line.
 
     trans_dbid[tx in TRANSMISSION_LINES] is an external database
     identifier for each transmission line. This is an optional parameter
@@ -62,10 +92,10 @@ def define_components(mod):
     describes how many MW of capacity was been installed before the
     start of the study.
 
-    BuildTx[(tx, bld_yr) in TRANS_BLD_YRS] is a decision variable
-    that describes the transfer capacity in MW installed on a corridor
-    in a given build year. For existing builds, this variable is locked
-    to the existing capacity.
+    BuildTx[(tx, bld_yr) in TRANS_BLD_YRS] is a decision variable that
+    describes the transfer capacity in MW installed on a corridor in a given
+    build year. For pre-determined builds, this variable is locked to the
+    specified capacity.
 
     TxCapacityNameplate[(tx, bld_yr) in TRANS_BLD_YRS] is an expression
     that returns the total nameplate transfer capacity of a transmission
@@ -105,23 +135,10 @@ def define_components(mod):
     parameter defaults to 0.03 based on 2009 WREZ transmission model
     transmission data costs for existing transmission maintenance.
 
-    trans_cost_hourly[tx TRANSMISSION_LINES] is the cost of building
+    trans_cost_annual[tx TRANSMISSION_LINES] is the cost of building
     transmission lines in units of $BASE_YEAR / MW- transfer-capacity /
-    hour. This derived parameter is based on the total annualized
-    capital and fixed O&M costs, then divides that by hours per year to
-    determine the portion of costs incurred hourly.
-
-    DIRECTIONAL_TX is a derived set of directional paths that
-    electricity can flow along transmission lines. Each element of this
-    set is a two-dimensional entry that describes the origin and
-    destination of the flow: (load_zone_from, load_zone_to). Every
-    transmission line will generate two entries in this set. Members of
-    this set are abbreviated as trans_d where possible, but may be
-    abbreviated as tx in situations where brevity is important and it is
-    unlikely to be confused with the overall transmission line.
-
-    trans_d_line[trans_d] is the transmission line associated with this
-    directional path.
+    year. This derived parameter is based on the total annualized
+    capital and fixed O&M costs.
 
     --- NOTES ---
 
@@ -154,33 +171,48 @@ def define_components(mod):
     """
 
     mod.TRANSMISSION_LINES = Set()
-    mod.trans_lz1 = Param(mod.TRANSMISSION_LINES, within=mod.LOAD_ZONES)
-    mod.trans_lz2 = Param(mod.TRANSMISSION_LINES, within=mod.LOAD_ZONES)
-    # we don't do a min_data_check for TRANSMISSION_LINES, because it may be empty for model
-    # configurations that are sometimes run with interzonal transmission and sometimes not
-    # (e.g., island interconnect scenarios). However, presence of this column will still be
-    # checked by load_data_aug.
-    mod.min_data_check('trans_lz1', 'trans_lz2')
+    mod.trans_lz_send = Param(mod.TRANSMISSION_LINES, within=mod.LOAD_ZONES)
+    mod.trans_lz_receive = Param(mod.TRANSMISSION_LINES, within=mod.LOAD_ZONES)
+    # we don't do a min_data_check for TRANSMISSION_LINES, because it may be
+    # empty for model configurations that are sometimes run with interzonal
+    # transmission and sometimes not (e.g., island interconnect scenarios).
+    # However, presence of this column will still be checked by load_data_aug.
+    # Counterpoint: It seems cleaner to exclude this module from those
+    # scenarios, and require TRANSMISSION_LINES to have data for this module.
+    mod.min_data_check('trans_lz_send', 'trans_lz_receive')
 
-    def _check_tx_duplicate_paths(m):
-        forward_paths = set([
-            (m.trans_lz1[tx], m.trans_lz2[tx]) for tx in m.TRANSMISSION_LINES
-        ])
-        reverse_paths = set([
-            (m.trans_lz2[tx], m.trans_lz1[tx]) for tx in m.TRANSMISSION_LINES            
-        ])
-        overlap = forward_paths.intersection(reverse_paths)
-        if overlap:
-            logging.error(
-                "Transmission lines have bi-directional paths specified "
-                "in input files. They are expected to specify a single path "
-                "per pair of connected load zones. "
-                "(Ex: either A->B or B->A, but not both). "
-                "Over-specified lines: {}".format(overlap))
-            return(False)
-        else:
-            return(True)
-    mod.check_tx_duplicate_paths = BuildCheck(rule=_check_tx_duplicate_paths)
+    # Use BuildAction to populate a set's default values.
+    def _TX_CONNECTED_ZONES_init(m):
+        all_paths = set()
+        m._zones_to_tx_dat = {}
+        for tx in m.TRANSMISSION_LINES:
+            zones = (m.trans_lz_send[tx], m.trans_lz_receive[tx])
+            all_paths.add(zones)
+            m._zones_to_tx_dat[zones] = tx
+        opposite_paths = set([(z2, z1) for (z1, z2) in all_paths])
+        missing = opposite_paths - all_paths
+        assert not missing, (
+            "Transmission lines do not have pairs in each direction in input "
+            "files. Missing expected lines: {}".format(missing)
+        )
+        m.TX_CONNECTED_ZONES_set = all_paths
+    mod.TX_CONNECTED_ZONES_init = BuildAction(rule=_TX_CONNECTED_ZONES_init)
+    mod.TX_CONNECTED_ZONES = Set(
+        dimen=2,
+        within=mod.LOAD_ZONES * mod.LOAD_ZONES,
+        initialize=lambda m: m.TX_CONNECTED_ZONES_set)
+    mod.zones_to_tx = Param(
+        mod.TX_CONNECTED_ZONES,
+        within=mod.TRANSMISSION_LINES,
+        initialize=lambda m, z1, z2: m._zones_to_tx_dat[z1, z2])
+
+    mod.trans_reverse = Param(
+        mod.TRANSMISSION_LINES,
+        doc="The transmission line in the opposite direction.",
+        initialize=lambda m, tx: (
+            m.zones_to_tx[m.trans_lz_receive[tx], m.trans_lz_send[tx]]
+        )
+    )
 
     mod.trans_dbid = Param(mod.TRANSMISSION_LINES, default=lambda m, tx: tx)
     mod.trans_length_km = Param(mod.TRANSMISSION_LINES, within=NonNegativeReals)
@@ -199,6 +231,12 @@ def define_components(mod):
         initialize=mod.TRANSMISSION_LINES * mod.PERIODS,
         filter=lambda m, tx, p: m.trans_new_build_allowed[tx])
     mod.BuildTx = Var(mod.TRANS_BLD_YRS, within=NonNegativeReals)
+    mod.Tx_New_Builds_Symmetric = Constraint(
+        mod.TRANS_BLD_YRS,
+        rule=lambda m, tx, bld_yr: (
+            m.BuildTx[tx, bld_yr] == m.BuildTx[m.trans_reverse[tx], bld_yr]
+        )
+    )
     mod.TxCapacityNameplate = Expression(
         mod.TRANSMISSION_LINES, mod.PERIODS,
         rule=lambda m, tx, period: sum(
@@ -231,12 +269,15 @@ def define_components(mod):
     # Multiply capital costs by capital recover factor to get annual
     # payments. Add annual fixed O&M that are expressed as a fraction of
     # overnight costs.
+    # Divide costs by 2 to reflect symmetrical bi-directional builds. 
     mod.trans_cost_annual = Param(
         mod.TRANSMISSION_LINES,
         within=NonNegativeReals,
         initialize=lambda m, tx: (
-            m.trans_capital_cost_per_mw_km * m.trans_terrain_multiplier[tx] *
-            m.trans_length_km[tx] * (crf(m.interest_rate, m.trans_lifetime_yrs) +
+            m.trans_capital_cost_per_mw_km / 2.0 *
+            m.trans_terrain_multiplier[tx] *
+            m.trans_length_km[tx] * 
+            (crf(m.interest_rate, m.trans_lifetime_yrs) +
                 m.trans_fixed_om_fraction)))
     # An expression to summarize annual costs for the objective
     # function. Units should be total annual future costs in $base_year
@@ -251,29 +292,13 @@ def define_components(mod):
     )
     mod.Cost_Components_Per_Period.append('TxFixedCosts')
 
-    def init_DIRECTIONAL_TX(model):
-        tx_dir = set()
-        for tx in model.TRANSMISSION_LINES:
-            tx_dir.add((model.trans_lz1[tx], model.trans_lz2[tx]))
-            tx_dir.add((model.trans_lz2[tx], model.trans_lz1[tx]))
-        return tx_dir
-    mod.DIRECTIONAL_TX = Set(
-        dimen=2,
-        initialize=init_DIRECTIONAL_TX)
     mod.TX_CONNECTIONS_TO_ZONE = Set(
         mod.LOAD_ZONES,
-        initialize=lambda m, lz: set(
-            z for z in m.LOAD_ZONES if (z,lz) in m.DIRECTIONAL_TX))
-
-    def init_trans_d_line(m, zone_from, zone_to):
-        for tx in m.TRANSMISSION_LINES:
-            if((m.trans_lz1[tx] == zone_from and m.trans_lz2[tx] == zone_to) or
-               (m.trans_lz2[tx] == zone_from and m.trans_lz1[tx] == zone_to)):
-                return tx
-    mod.trans_d_line = Param(
-        mod.DIRECTIONAL_TX,
-        within=mod.TRANSMISSION_LINES,
-        initialize=init_trans_d_line)
+        initialize=lambda m, z_receive: set([
+            z_send for z_send in m.LOAD_ZONES
+            if (z_send,z_receive) in m.TX_CONNECTED_ZONES
+        ])
+    )
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -283,7 +308,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     a *.
 
     transmission_lines.csv
-        TRANSMISSION_LINE, trans_lz1, trans_lz2, trans_length_km,
+        TRANSMISSION_LINE, trans_lz_send, trans_lz_receive, trans_length_km,
         trans_efficiency, existing_trans_cap, trans_dbid*,
         trans_derating_factor*, trans_terrain_multiplier*,
         trans_new_build_allowed*
@@ -300,19 +325,14 @@ def load_inputs(mod, switch_data, inputs_dir):
     # no rows after header (fix bugs in pyomo.core.plugins.data.text)
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'transmission_lines.csv'),
-        select=(
-            'TRANSMISSION_LINE', 'trans_lz1', 'trans_lz2',
-            'trans_length_km', 'trans_efficiency', 'existing_trans_cap',
-            'trans_dbid', 'trans_derating_factor',
-            'trans_terrain_multiplier', 'trans_new_build_allowed'
-        ),
+        auto_select=True,
         index=mod.TRANSMISSION_LINES,
         optional_params=(
             'trans_dbid', 'trans_derating_factor',
             'trans_terrain_multiplier', 'trans_new_build_allowed'
         ),
         param=(
-            mod.trans_lz1, mod.trans_lz2,
+            mod.trans_lz_send, mod.trans_lz_receive,
             mod.trans_length_km, mod.trans_efficiency, mod.existing_trans_cap,
             mod.trans_dbid, mod.trans_derating_factor,
             mod.trans_terrain_multiplier, mod.trans_new_build_allowed
@@ -340,8 +360,8 @@ def post_solve(instance, outdir):
         {
         	"TRANSMISSION_LINE": tx,
         	"PERIOD": p,
-        	"trans_lz1": mod.trans_lz1[tx],
-        	"trans_lz2": mod.trans_lz2[tx],
+        	"trans_lz_send": mod.trans_lz_send[tx],
+        	"trans_lz_receive": mod.trans_lz_receive[tx],
         	"trans_dbid": mod.trans_dbid[tx],
         	"trans_length_km": mod.trans_length_km[tx],
         	"trans_efficiency": mod.trans_efficiency[tx],
