@@ -165,7 +165,7 @@ lower bounds set in the core mathematical model, bounds can be added in a
 configuration file which is named pha_bounds_cfg.py in this example. To run
 progressive hedging with a linear solver such as glpk, use the following command:
 
-    >>>runph --model-location=. --instance-directory=inputs/pysp_inputs \
+    >>>runph --model-directory  . --instance-directory=inputs/pysp_inputs \
         --solver=glpk --default-rho=1000.0 --traceback \
         --rho-cfgfile=rhosetter.py \
         --solution-writer=pyomo.pysp.plugins.csvsolutionwriter \
@@ -178,9 +178,9 @@ decisions are similar, but slightly different.
 
 Another equivalent way of solving this example is to run the command:
 
-    >>>runph --model-location=. --instance-directory=inputs/pysp_inputs \
+    >>>runph --model-directory . --instance-directory=inputs/pysp_inputs \
         --solver=gurobi --default-rho=1000.0 --traceback \
-        --rho-cfgfile=rhosetter-FS-only.py \
+        --rho-cfgfile=rhosetter_FS_only.py \
         --solution-writer=pyomo.pysp.plugins.csvsolutionwriter \
         --output-scenario-tree-solution
 
