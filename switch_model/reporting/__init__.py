@@ -193,7 +193,7 @@ def get_value(obj):
 
 def save_total_cost_value(instance, outdir):
     with open(os.path.join(outdir, 'total_cost.txt'), 'w') as fh:
-        fh.write('{}\n'.format(value(instance.SystemCost)))
+        fh.write('{:.3f}\n'.format(value(instance.SystemCost)))
 
 
 def save_cost_components(m, outdir):
