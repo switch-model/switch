@@ -230,7 +230,23 @@ def define_components(mod):
         dimen=2,
         initialize=mod.TRANSMISSION_LINES * mod.PERIODS,
         filter=lambda m, tx, p: m.trans_new_build_allowed[tx])
-    mod.BuildTx = Var(mod.TRANS_BLD_YRS, within=NonNegativeReals)
+    mod.PREDETERMINED_TX_BLD_YRS = Set(
+        dimen=2,
+        within=mod.TRANS_BLD_YRS)
+    mod.trans_predetermined_cap = Param(
+        mod.PREDETERMINED_TX_BLD_YRS,
+        within=NonNegativeReals)
+    def bounds_BuildTx(m, tx, bld_yr):
+        try:
+            cap = m.trans_predetermined_cap[tx, bld_yr]
+            bounds = (cap, cap)
+        except KeyError:
+            bounds = (0, None)
+        return bounds
+    mod.BuildTx = Var(
+        mod.TRANS_BLD_YRS,
+        within=NonNegativeReals,
+        bounds=bounds_BuildTx)
     mod.Tx_New_Builds_Symmetric = Constraint(
         mod.TRANS_BLD_YRS,
         rule=lambda m, tx, bld_yr: (
@@ -313,6 +329,13 @@ def load_inputs(mod, switch_data, inputs_dir):
         trans_derating_factor*, trans_terrain_multiplier*,
         trans_new_build_allowed*
 
+    Predetermined transmission builds should only list builds during study
+    periods. Existing transmission needs to be listed in transmission_lines.csv
+    This is a different style than predetermined generation builds. 
+
+    trans_build_predetermined.csv*
+        TRANSMISSION_LINE, PERIOD, trans_predetermined_cap
+
     Note that in the next file, parameter names are written on the first
     row (as usual), and the single value for each parameter is written in
     the second row.
@@ -336,6 +359,15 @@ def load_inputs(mod, switch_data, inputs_dir):
             mod.trans_length_km, mod.trans_efficiency, mod.existing_trans_cap,
             mod.trans_dbid, mod.trans_derating_factor,
             mod.trans_terrain_multiplier, mod.trans_new_build_allowed
+        )
+    )
+    switch_data.load_aug(
+        filename=os.path.join(inputs_dir, 'trans_build_predetermined.csv'),
+        optional=True,
+        auto_select=True,
+        index=mod.PREDETERMINED_TX_BLD_YRS,
+        param=(
+            mod.trans_predetermined_cap,
         )
     )
     switch_data.load_aug(
