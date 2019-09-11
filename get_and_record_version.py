@@ -32,16 +32,16 @@ def get_git_version():
     fmt = '{tag}+{gitsha}{dirty}'
 
     git_version = subprocess.check_output(git_command, shell=True).decode('utf-8').strip()
-    parts = git_version.split('-')
-    # FYI, if it can't find a tag for whatever reason, len may be 1 or 2
-    assert len(parts) in (3, 4), (
+    match = re.match("(tags/)?(.*)-([\d]+)-g([0-9a-f]+)(-dirty)?", git_version)
+    assert match, (
         "Trouble parsing git version output. Got {}, expected 3 or 4 things "
         "separated by dashes. This has been caused by the repository having no "
         "available tags, which was solved by fetching from the main repo:\n"
         "`git remote add main https://github.com/switch-model/switch.git && "
         "git fetch --all`".format(git_version)
     )
-    if len(parts) == 4:
+    parts = match.groups()[1:]
+    if parts[-1] == '-dirty':
         dirty = '+localmod'
     else:
         dirty = ''
