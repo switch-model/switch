@@ -6,14 +6,17 @@ import subprocess
 
 """
 Define a precise package version that includes any git digests for any commits
-made subsequently to a package release. 
+made subsequently to a package release. The base version (2.0.4 in this
+example) is obtained from the last tag that starts with "2". version. Also use
+the git-standard "dirty" suffix instead of "localmod" for installations from
+code that hasn't been committed.
 
 Example: 
-1) Some commits have been made subsequent to an official release (possibly on
+1) 112 commits were made subsequent to an official release (possibly on
 a branch), plus some uncommitted modifications. The version would be:
-v1.0.4+{gitsha}+localmod
-2) Same scenario, but no uncommitted modifications: v1.0.4+{gitsha}
-3) No commits since the last official release: v1.0.4
+2.0.4+112+{gitsha}+dirty
+2) Same scenario, but no uncommitted modifications: 2.0.4+112+{gitsha}
+3) No commits since the last tagged release: 2.0.4
 
 These functions are encoded into a separate file from setup.py to support
 including precise versions in docker tags.
@@ -22,33 +25,35 @@ including precise versions in docker tags.
 def get_git_version():
     """
     Try to get git version like '{tag}+{gitsha}', with the added suffix
-    "+localmod" if the git repo has had any uncommitted modifications. 
+    "+dirty" if the git repo has had any uncommitted modifications. 
     The "+{gitsha}" suffix will be dropped if this is the tagged version.
     Code adapted from setuptools_git_version which has an MIT license.
         https://pypi.org/project/setuptools-git-version/
-    Note: Only look for tags that start with "2." to avoid tags like "demo-v1.0.1".
+    Note: Only look for tags that start with "2." to avoid tags of
+    non-released versions.
     """
-    git_command = "git describe --tags --long --match '2.*' --dirty --always"
-    fmt = '{tag}+{gitsha}{dirty}'
+    git_command = "git describe --all --long --match '2.*' --dirty --always"
+    fmt = '{base_v}+{count}+{gitsha}{dirty}'
 
     git_version = subprocess.check_output(git_command, shell=True).decode('utf-8').strip()
+    # The prefix tags/ may not appear in every context, and should be ignored.
     match = re.match("(tags/)?(.*)-([\d]+)-g([0-9a-f]+)(-dirty)?", git_version)
     assert match, (
         "Trouble parsing git version output. Got {}, expected 3 or 4 things "
-        "separated by dashes. This has been caused by the repository having no "
-        "available tags, which was solved by fetching from the main repo:\n"
+        "separated by dashes. This has been encountered when the local git repo "
+        "lacks tags, which can be solved by fetching from the main repo:\n"
         "`git remote add main https://github.com/switch-model/switch.git && "
         "git fetch --all`".format(git_version)
     )
     parts = match.groups()[1:]
     if parts[-1] == '-dirty':
-        dirty = '+localmod'
+        dirty = '+dirty'
     else:
         dirty = ''
-    tag, count, sha = parts[:3]
+    base_v, count, sha = parts[:3]
     if count == '0' and not dirty:
-        return tag
-    return fmt.format(tag=tag, gitsha=sha.lstrip('g'), dirty=dirty)
+        return base_v
+    return fmt.format(base_v=base_v, count=count, gitsha=sha, dirty=dirty)
 
 def get_and_record_version(repo_path):
     """
