@@ -116,7 +116,10 @@ def define_components(mod):
         extraneous = {g: [] for (g, t) in extra_indexes}
         for (g, t) in extra_indexes:
             extraneous[g].append(t)
-        pprint = "\n".join("* {}: {}".format(g, tps) for g, tps in extraneous.items())
+        pprint = "\n".join(
+            "* {}: {} to {}".format(g, min(tps), max(tps))
+            for g, tps in extraneous.items()
+        )
         warning_msg = (
             "{} hydro plants with predetermined builds have timeseries data "
             "in periods when they are not operating (either after retirement, "
