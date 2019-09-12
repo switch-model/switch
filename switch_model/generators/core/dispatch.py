@@ -284,7 +284,8 @@ def define_components(mod):
         for (g,t) in extra_indexes:
             extraneous[g].append(t)
         pprint = "\n".join(
-            "* {}: {}".format(g, tps) for g, tps in extraneous.items())
+            "* {}: {} to {}".format(g, min(tps), max(tps))
+            for g, tps in extraneous.items())
         warning_msg = (
             "{} renewable generators with predetermined builds have capacity "
             "factors specified in timepoints in periods when they are not "
