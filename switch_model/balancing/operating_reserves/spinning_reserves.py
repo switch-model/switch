@@ -125,6 +125,12 @@ def define_arguments(argparser):
               "load and 5% of variable renewable output, based on the heuristic "
               "described in the 2010 Western Wind and Solar Integration Study.")
     )
+    group.add_argument('--spinning-reserves-no-vars', default=False,
+        dest='spinning_reserves_no_vars', action='store_true',
+        help=("Implement spinning reserves as aliases to aliases to "
+              "DispatchSlackUp & DispatchSlackDown rather than decision "
+              "variables to reduce problem size.")
+    )
 
 
 
@@ -389,33 +395,42 @@ def define_components(m):
         dimen=2,
         initialize=m.GEN_TPS,
         filter=lambda m, g, t: m.gen_can_provide_spinning_reserves[g])
-    # CommitGenSpinningReservesUp and CommitGenSpinningReservesDown are
-    # variables instead of aliases to DispatchSlackUp & DispatchSlackDown
-    # because they may need to take on lower values to reduce the
-    # project-level contigencies, especially when discrete unit commitment is
-    # enabled, and committed capacity may exceed the amount of capacity that
-    # is strictly needed. Having these as variables also flags them for
-    # automatic export in model dumps and tab files, and opens up the
-    # possibility of further customizations like adding variable costs for
-    # spinning reserve provision.
-    m.CommitGenSpinningReservesUp = Var(
-        m.SPINNING_RESERVE_GEN_TPS,
-        within=NonNegativeReals
-    )
-    m.CommitGenSpinningReservesDown = Var(
-        m.SPINNING_RESERVE_GEN_TPS,
-        within=NonNegativeReals
-    )
-    m.CommitGenSpinningReservesUp_Limit = Constraint(
-        m.SPINNING_RESERVE_GEN_TPS,
-        rule=lambda m, g, t: \
-            m.CommitGenSpinningReservesUp[g,t] <= m.DispatchSlackUp[g, t]
-    )
-    m.CommitGenSpinningReservesDown_Limit = Constraint(
-        m.SPINNING_RESERVE_GEN_TPS,
-        rule=lambda m, g, t: \
-            m.CommitGenSpinningReservesDown[g,t] <= m.DispatchSlackDown[g, t]
-    )
+    if m.options.spinning_reserves_no_vars:
+        m.CommitGenSpinningReservesUp = Expression(
+            m.SPINNING_RESERVE_GEN_TPS,
+            rule=lambda mod, g, t: mod.DispatchSlackUp[g, t]
+        )
+        m.CommitGenSpinningReservesDown = Expression(
+            m.SPINNING_RESERVE_GEN_TPS,
+            rule=lambda mod, g, t: mod.DispatchSlackDown[g, t]
+        )        
+    else:
+        m.CommitGenSpinningReservesUp = Var(
+            m.SPINNING_RESERVE_GEN_TPS,
+            within=NonNegativeReals
+        )
+        m.CommitGenSpinningReservesDown = Var(
+            m.SPINNING_RESERVE_GEN_TPS,
+            within=NonNegativeReals
+        )
+        m.CommitGenSpinningReservesSlackUp = Var(
+            m.SPINNING_RESERVE_GEN_TPS,
+            within=NonNegativeReals,
+            doc="Denotes the upward slack in spinning reserves that could be used "
+                "for quickstart reserves, or possibly other reserve products."
+        )
+        m.CommitGenSpinningReservesUp_Limit = Constraint(
+            m.SPINNING_RESERVE_GEN_TPS,
+            rule=lambda m, g, t: (
+                m.CommitGenSpinningReservesUp[g,t] <= m.DispatchSlackUp[g, t]
+            )
+        )
+        m.CommitGenSpinningReservesDown_Limit = Constraint(
+            m.SPINNING_RESERVE_GEN_TPS,
+            rule=lambda m, g, t: (
+                m.CommitGenSpinningReservesDown[g,t] <= m.DispatchSlackDown[g, t]
+            )
+        )
 
     # Sum of spinning reserve capacity per balancing area and timepoint..
     m.CommittedSpinningReserveUp = Expression(
