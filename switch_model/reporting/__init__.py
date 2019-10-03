@@ -57,6 +57,13 @@ def define_arguments(argparser):
         help="Write generic variable result values in sorted order",
     )
     argparser.add_argument(
+        "--skip-generic-output",
+        default=False,
+        action="store_true",
+        dest="skip_generic_output",
+        help="Skip exporting generic variable results",
+    )
+    argparser.add_argument(
         "--save-expressions",
         "--save-expression",
         dest="save_expressions",
@@ -137,7 +144,8 @@ def post_solve(instance, outdir):
     """
     Minimum output generation for all model runs.
     """
-    save_generic_results(instance, outdir, instance.options.sorted_output)
+    if not instance.options.skip_generic_output:
+        save_generic_results(instance, outdir, instance.options.sorted_output)
     save_total_cost_value(instance, outdir)
     save_cost_components(instance, outdir)
 
