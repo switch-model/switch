@@ -122,14 +122,29 @@ def define_components(mod):
             for (intercept, slope) in m.FUEL_USE_SEGMENTS_FOR_GEN[g]
         ]
     )
+    def GenFuelUseRate_Calculate_rule(m, g, t, intercept, inc_heat_rate):
+        # If there is only a single line segment, fully constrain fuel use so
+        # it can be simplified out of the model during pre-processing.
+        # Otherwise, set it as an inequality.
+        # If Startup variables are not defined, then skip startup fuel use.
+        fuel_req = intercept * m.CommitGen[g, t] + inc_heat_rate * m.DispatchGen[g, t]
+        try:
+            # Startup fuel is a one-shot fuel expenditure, but the rest of
+            # this expression has a units of heat/hr, so convert startup fuel
+            # requirements into an average over this timepoint.
+            fuel_req += m.StartupGenCapacity[g, t] * m.gen_startup_fuel[g] / m.tp_duration_hrs[t]       
+        except (AttributeError, KeyError):
+            pass
+        fuel_used = sum(m.GenFuelUseRate[g, t, f] for f in m.FUELS_FOR_GEN[g])
+        if len(m.FUEL_USE_SEGMENTS_FOR_GEN[g]) > 1:
+            rule = fuel_used >= fuel_req
+        else:
+            rule = fuel_used == fuel_req
+        return rule
     mod.GenFuelUseRate_Calculate = Constraint(
         mod.GEN_TPS_FUEL_PIECEWISE_CONS_SET,
-        rule=lambda m, g, t, intercept, incremental_heat_rate: (
-            sum(m.GenFuelUseRate[g, t, f] for f in m.FUELS_FOR_GEN[g]) >=
-            # Do the startup
-            m.StartupGenCapacity[g, t] * m.gen_startup_fuel[g] / m.tp_duration_hrs[t] +
-            intercept * m.CommitGen[g, t] +
-            incremental_heat_rate * m.DispatchGen[g, t]))
+        rule=GenFuelUseRate_Calculate_rule
+    )
 
 # TODO: switch to defining heat rates as a collection of (output_mw, fuel_mmbtu_per_h) points;
 # read those directly as normal sets, then derive the project heat rate curves from those
