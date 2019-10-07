@@ -484,6 +484,7 @@ def post_solve(instance, outdir):
         "GenCapacity_MW",
         "GenCapitalCosts",
         "GenFixedOMCosts",
+        "LCOE_dollar_per_MWh",
         "capacity_factor",
     ]
     if "ChargeStorage" in dir(instance):
@@ -518,6 +519,7 @@ def post_solve(instance, outdir):
     gen_sum["Energy_out_avg_MW"] = (
         gen_sum["Energy_GWh_typical_yr"] * 1000 / gen_sum["tp_weight_in_year_hrs"]
     )
+    hrs_per_yr = gen_sum.iloc[0]["tp_weight_in_year_hrs"]
     try:
         idx = gen_sum["is_storage"].astype(bool)
         gen_sum.loc[idx, "Energy_out_avg_MW"] = (
@@ -528,13 +530,20 @@ def post_solve(instance, outdir):
     except KeyError:
         pass
 
-    def add_cap_factor(df):
+    def add_cap_factor_and_lcoe(df):
         df["capacity_factor"] = df["Energy_out_avg_MW"] / df["GenCapacity_MW"]
         no_cap = df["GenCapacity_MW"] == 0
         df.loc[no_cap, "capacity_factor"] = 0
+
+        df["LCOE_dollar_per_MWh"] = (
+            df["GenCapitalCosts"] + df["GenFixedOMCosts"] + df["VariableCost_per_yr"]
+        ) / (df["Energy_out_avg_MW"] * hrs_per_yr)
+        no_energy = df["Energy_out_avg_MW"] == 0
+        df.loc[no_energy, "LCOE_dollar_per_MWh"] = 0
+
         return df
 
-    gen_sum = add_cap_factor(gen_sum)
+    gen_sum = add_cap_factor_and_lcoe(gen_sum)
     gen_sum.to_csv(
         os.path.join(outdir, "gen_project_annual_summary.csv"), columns=summary_columns
     )
@@ -542,14 +551,14 @@ def post_solve(instance, outdir):
     zone_sum = gen_sum.groupby(
         ["gen_tech", "gen_load_zone", "gen_energy_source", "period"]
     ).sum()
-    zone_sum = add_cap_factor(zone_sum)
+    zone_sum = add_cap_factor_and_lcoe(zone_sum)
     zone_sum.to_csv(
         os.path.join(outdir, "dispatch_zonal_annual_summary.csv"),
         columns=summary_columns,
     )
 
     annual_summary = zone_sum.groupby(["gen_tech", "gen_energy_source", "period"]).sum()
-    annual_summary = add_cap_factor(annual_summary)
+    annual_summary = add_cap_factor_and_lcoe(annual_summary)
     annual_summary.to_csv(
         os.path.join(outdir, "dispatch_annual_summary.csv"), columns=summary_columns
     )
