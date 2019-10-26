@@ -2,9 +2,8 @@
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
-Upgrade input directories from 2.0.1 to 2.0.4. (There were no changes for 2.0.2
-or 2.0.3.) This doesn't actually do anything except update the data version
-number and show the module-change messages.
+Upgrade input directories from 2.0.4 to 2.0.5: convert all standard inputs to
+csv files.
 """
 
 import os, shutil, argparse, glob

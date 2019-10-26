@@ -8,8 +8,12 @@ Switch model.
 
 from pyomo.environ import *
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
-    'switch_model.financials', 'switch_model.transmission.transport.build'
+dependencies = (
+    'switch_model.timescales',
+    'switch_model.balancing.load_zones',
+    'switch_model.financials',
+    'switch_model.transmission.transport.build'
+)
 
 def define_components(mod):
     """
@@ -23,7 +27,7 @@ def define_components(mod):
 
     TRANS_TIMEPOINTS describes the scope that transmission dispatch
     decisions must be made over. It is defined as the set of
-    DIRECTIONAL_TX crossed with TIMEPOINTS. It is indexed as
+    TX_CONNECTED_ZONES crossed with TIMEPOINTS. It is indexed as
     (load_zone_from, load_zone_to, timepoint) and may be abbreviated as
     [z_from, zone_to, tp] for brevity.
 
@@ -50,7 +54,7 @@ def define_components(mod):
 
     mod.TRANS_TIMEPOINTS = Set(
         dimen=3,
-        initialize=lambda m: m.DIRECTIONAL_TX * m.TIMEPOINTS
+        initialize=lambda m: m.TX_CONNECTED_ZONES * m.TIMEPOINTS
     )
     mod.DispatchTx = Var(mod.TRANS_TIMEPOINTS, within=NonNegativeReals)
 
@@ -58,7 +62,8 @@ def define_components(mod):
         mod.TRANS_TIMEPOINTS,
         rule=lambda m, zone_from, zone_to, tp: (
             m.DispatchTx[zone_from, zone_to, tp] <=
-            m.TxCapacityNameplateAvailable[m.trans_d_line[zone_from, zone_to],
+            
+            m.TxCapacityNameplateAvailable[m.zones_to_tx[zone_from, zone_to],
                                      m.tp_period[tp]]))
 
     mod.TxPowerSent = Expression(
@@ -69,7 +74,7 @@ def define_components(mod):
         mod.TRANS_TIMEPOINTS,
         rule=lambda m, zone_from, zone_to, tp: (
             m.DispatchTx[zone_from, zone_to, tp] *
-            m.trans_efficiency[m.trans_d_line[zone_from, zone_to]]))
+            m.trans_efficiency[m.zones_to_tx[zone_from, zone_to]]))
 
     def TXPowerNet_calculation(m, z, tp):
         return (
