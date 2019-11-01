@@ -137,6 +137,9 @@ def define_components(mod):
     for the given project in the given period. For some project-period
     combinations, this will be an empty set.
 
+    PERIODS_FOR_GEN[g] is the set of all periods when generation project
+    g could potentially be operated.
+
     GEN_PERIODS describes periods in which generation projects
     could be operational. Unlike the related sets above, it is not
     indexed. Instead it is specified as a set of (g, period)
