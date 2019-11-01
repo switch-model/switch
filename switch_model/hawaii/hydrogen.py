@@ -181,31 +181,29 @@ def define_hydrogen_components(m):
         <= m.LiquifierCapacityKgPerHour[z, m.tp_period[t]],
     )
 
-    # minimum size for hydrogen tank
-    m.BuildAnyLiquidHydrogenTank = Var(m.LOAD_ZONES, m.PERIODS, within=Binary)
-    m.Set_BuildAnyLiquidHydrogenTank_Flag = Constraint(
-        m.LOAD_ZONES,
-        m.PERIODS,
-        rule=lambda m, z, p: Constraint.Skip
-        if m.liquid_hydrogen_tank_minimum_size_kg == 0.0
-        else (
-            m.BuildLiquidHydrogenTankKg[z, p]
-            <= 1000
-            * m.BuildAnyLiquidHydrogenTank[z, p]
-            * m.liquid_hydrogen_tank_minimum_size_kg
-        ),
-    )
-    m.Build_Minimum_Liquid_Hydrogen_Tank = Constraint(
-        m.LOAD_ZONES,
-        m.PERIODS,
-        rule=lambda m, z, p: Constraint.Skip
-        if m.liquid_hydrogen_tank_minimum_size_kg == 0.0
-        else (
-            m.BuildLiquidHydrogenTankKg[z, p]
-            >= m.BuildAnyLiquidHydrogenTank[z, p]
-            * m.liquid_hydrogen_tank_minimum_size_kg
-        ),
-    )
+    # Enforce minimum size for hydrogen tank if specified. We only define these
+    # variables and constraints if needed, to avoid warnings about variables
+    # with no values assigned.
+    def action(m):
+        if m.liquid_hydrogen_tank_minimum_size_kg != 0.0:
+            m.BuildAnyLiquidHydrogenTank = Var(m.LOAD_ZONES, m.PERIODS, within=Binary)
+            m.Set_BuildAnyLiquidHydrogenTank_Flag = Constraint(
+                m.LOAD_ZONES,
+                m.PERIODS,
+                rule=lambda m, z, p: m.BuildLiquidHydrogenTankKg[z, p]
+                <= 1000
+                * m.BuildAnyLiquidHydrogenTank[z, p]
+                * m.liquid_hydrogen_tank_minimum_size_kg,
+            )
+            m.Build_Minimum_Liquid_Hydrogen_Tank = Constraint(
+                m.LOAD_ZONES,
+                m.PERIODS,
+                rule=lambda m, z, p: m.BuildLiquidHydrogenTankKg[z, p]
+                >= m.BuildAnyLiquidHydrogenTank[z, p]
+                * m.liquid_hydrogen_tank_minimum_size_kg,
+            )
+
+    m.Apply_liquid_hydrogen_tank_minimum_size = BuildAction(rule=action)
 
     # maximum amount that hydrogen fuel cells can contribute to system reserves
     # Note: we assume we can't use fuel cells for reserves unless we've also built at least half
