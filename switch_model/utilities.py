@@ -398,6 +398,44 @@ class InputError(Exception):
     def __str__(self):
         return repr(self.value)
 
+def apply_input_aliases(switch_data, path):
+    """
+    Translate filenames based on --input-alias[es] arguments.
+
+    Filename substitutions are specified like
+    --input-aliases ev_share.csv=ev_share.ev_flat.csv rps.csv=rps.2030.csv
+
+    Filename 'none' will be converted to an empty string and usually be ignored.
+
+    This enables use of alternative files to study sensitivities without
+    creating complete input directories for each permutation.
+    """
+    try:
+        file_aliases = switch_data.file_aliases
+    except AttributeError:
+        file_aliases = switch_data.file_aliases = {
+            standard: alternative
+            for standard, alternative in (
+                pair.split('=') for pair in switch_data._model.options.input_aliases
+            )
+        }
+    root, filename = os.path.split(path)
+    if filename in file_aliases:
+        if file_aliases[filename].lower() == 'none':
+            path = ''
+        else:
+            # Note: We could use os.path.normpath() to clean up paths like
+            # 'inputs/../inputs_alt', but leaving them as-is may make it more
+            # clear that an alias is in use if errors crop up later.
+            old_path, path = path, os.path.join(root, file_aliases[filename])
+            if not os.path.isfile(path):
+                # catch alias naming errors (should always point to a real file)
+                raise ValueError(
+                    'Alias "{}" specified for file "{}" does not exist. '
+                    'Specify {}=none if you want to supply no data.'
+                    .format(path, old_path, filename)
+                )
+    return path
 
 def load_aug(switch_data, optional=False, auto_select=False,
              optional_params=[], **kwargs):
@@ -435,7 +473,20 @@ def load_aug(switch_data, optional=False, auto_select=False,
     This can also support auto-documenting of parameters and input files.
     """
 
+    # TODO:
+    # Allow user to specify filename when defining parameters and sets.
+    # Also allow user to specify the name(s) of the column(s) in each set.
+    # Then use those automatically to pull data from the right file (and to
+    # write correct index column names in the generic output files).
+    # This will simplify code and ease comprehension (user can see
+    # immediately where the data come from for each component). This can
+    # also support auto-documenting of parameters and input files.
+
+    # convert filename if needed
+    kwargs['filename'] = apply_input_aliases(switch_data, kwargs['filename'])
+    # store filename in local variable for easier access
     path = kwargs['filename']
+
     # Skip if an optional file is unavailable
     if optional and not os.path.isfile(path):
         return
