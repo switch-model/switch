@@ -1,6 +1,8 @@
 from __future__ import absolute_import
+from __future__ import print_function
 from pyomo.environ import *
 from .util import get
+import time
 
 def define_components(m):
     """
@@ -33,14 +35,47 @@ def define_components(m):
         (y, 'CentralTrackingPV'): 0.1
         for y in range(2023, 2051)
     })
-    itc_rates.update({  # clone the CentralTrackingPV entries
-        (y, 'CentralFixedPV'): itc_rates[y, 'CentralTrackingPV']
-        for y in range(2018, 2051)
-    })
     itc_rates.update({
         (y, 'Geothermal'): 0.1
         for y in range(2018, 2051)
     })
+
+    # clone entries for similar technologies
+    clones = [
+        ('DistPV', 'FlatDistPV'),
+        ('DistPV', 'SlopedDistPV'),
+        ('CentralTrackingPV', 'CentralFixedPV')
+    ]
+    for src, dest in clones:
+        itc_rates.update({
+            (y, dest): rate
+            for (y, tech), rate in itc_rates.items()
+            if tech == src
+        })
+
+    def rule(m):
+        subsidized_techs = {k for (y, k) in itc_rates}
+        missing_techs = [
+            t
+            for t in m.GENERATION_TECHNOLOGIES
+            if (
+                any(x in t.lower() for x in ['pv', 'solar', 'wind', 'geo'])
+                and t not in subsidized_techs
+            )
+        ]
+        if missing_techs:
+            print("")
+            print("="*80)
+            print(
+                "WARNING: these technologies are not listed in {}\n"
+                "but may need to be: \n"
+                "{}"
+                .format(__name__, ', '.join(missing_techs))
+            )
+            print("="*80)
+            print("")
+            time.sleep(3)
+    m.fed_subsidies_check_techs = BuildAction(rule=rule)
 
     # model the renewable investment tax credit as simply prorating the annual capital cost
     m.Federal_Investment_Tax_Credit_Annual = Expression(
