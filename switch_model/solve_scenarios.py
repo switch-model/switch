@@ -274,15 +274,12 @@ def last_index(lst, val):
 def get_scenario_dict():
     # note: we read the list from the disk each time so that we get a fresher
     # version if the standard list is changed during a long solution effort.
+    # This ignores comments in the scenario list (possibly starting mid-line),
+    # just like switch solve does in options.txt.
     with open(scenario_list_file, "r") as f:
-        scenario_list_text = [r.strip() for r in f.read().splitlines()]
-        scenario_list_text = [
-            r for r in scenario_list_text if r and not r.startswith("#")
-        ]
-
-    # note: text.splitlines() omits newlines and ignores presence/absence of \n at end of the text
-    # shlex.split() breaks an command-line-style argument string into a list like sys.argv
-    scenario_list = [shlex.split(r) for r in scenario_list_text]
+        scenario_list = [shlex.split(r, comments=True) for r in f.read().splitlines()]
+    # drop any empty lines
+    scenario_list = [s for s in scenario_list if s]
     return OrderedDict((get_scenario_name(s), s) for s in scenario_list)
 
 
