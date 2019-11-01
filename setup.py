@@ -15,12 +15,10 @@ Use "pip uninstall switch" to uninstall switch from your system.
 import os
 from setuptools import setup, find_packages
 
-# Get the version number. Strategy #3 from https://packaging.python.org/single_source_version/
-version_path = os.path.join(os.path.dirname(__file__), 'switch_model', 'version.py')
-version = {}
-with open(version_path) as f:
-    exec(f.read(), version)
-__version__ = version['__version__']
+from get_and_record_version import get_and_record_version
+
+repo_path = os.path.dirname(os.path.realpath(__file__))
+__version__ = get_and_record_version(repo_path)
 
 def read(*rnames):
     return open(os.path.join(os.path.dirname(__file__), *rnames)).read()
@@ -55,6 +53,9 @@ setup(
         'Topic :: Software Development :: Libraries :: Python Modules'
     ],
     packages=find_packages(include=['switch_model', 'switch_model.*']),
+	package_data = {
+		'switch_model': ['data/*']
+	},
     keywords=[
         'renewable', 'power', 'energy', 'electricity',
         'production cost', 'capacity expansion',
@@ -65,6 +66,7 @@ setup(
         'pint',         # needed by Pyomo when we run our tests, but not included
         'testfixtures', # used for standard tests
         'pandas',       # used for input upgrades and testing that functionality
+        'setuptools', # For parsing version numbers; it is part of almost all python distributions, but not guaranteed. 
     ],
     extras_require={
         # packages used for advanced demand response, progressive hedging

@@ -8,3 +8,4 @@ venv
 build*/
 dist*/
 autodoc*
+switch_model/data/installed_version.txt
