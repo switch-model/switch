@@ -401,10 +401,16 @@ def iterate(m, iterate_modules, depth=0):
 
         # note: the modules in iterate_modules were also specified in the model's
         # module list, and have already been loaded, so they are accessible via sys.modules
-        # This prepends 'switch_model.' if needed, to be consistent with modules.txt.
-        current_modules = [
-            sys.modules[module_name if module_name in sys.modules else 'switch_model.' + module_name]
-            for module_name in iterate_modules[depth]]
+        current_modules = []
+        for module_name in iterate_modules[depth]:
+            try:
+                current_modules.append(sys.modules[module_name])
+            except KeyError:
+                raise ValueError(
+                    "Module {} specified in iterate.txt has not been loaded. "
+                    "It should be added to modules.txt as well."
+                    .format(module_name)
+                )
 
         j = 0
         converged = False
@@ -653,6 +659,18 @@ def parse_pre_module_options(args):
     return pre_module_args
 
 
+def parse_list_file(file):
+    """ Read all items from `file` into a list, removing white space at either
+    end of line, blank lines and anything after "#" """
+    with open(file) as f:
+        items = [
+            r.split('#', 1)[0].strip()
+            for r in f.read().splitlines()
+        ]
+    items = [i for i in items if i]
+    return items
+
+
 def get_module_list(args):
     # parse module options
     parser = _ArgumentParser(allow_abbrev=False, add_help=False)
@@ -678,11 +696,9 @@ def get_module_list(args):
     else:
         # if it exists, the module list contains one module name per row (no .py extension)
         # we strip whitespace from either end (because those errors can be annoyingly hard to debug).
-        # We also omit blank lines and lines that start with "#"
+        # We also omit blank lines and anything after "#".
         # Otherwise take the module names as given.
-        with open(module_list_file) as f:
-            modules = [r.strip() for r in f.read().splitlines()]
-        modules = [m for m in modules if m and not m.startswith("#")]
+        modules = parse_list_file(module_list_file)
 
     # adjust modules as requested by the user
     # include_exclude_modules format: [('include', [mod1, mod2]), ('exclude', [mod3])]
@@ -716,27 +732,26 @@ def get_iteration_list(m):
     if iterate_list_file is None:
         iterate_modules = []
     else:
-        with open(iterate_list_file) as f:
-            iterate_rows = f.read().splitlines()
-            iterate_rows = [r.strip() for r in iterate_rows]
-            iterate_rows = [r for r in iterate_rows if r and not r.startswith("#")]
+        iterate_rows = parse_list_file(iterate_list_file)
         # delimit modules at the same level with space(s), tab(s) or comma(s)
         iterate_modules = [re.sub("[ \t,]+", " ", r).split(" ") for r in iterate_rows]
     return iterate_modules
 
-def get_option_file_args(dir='.', extra_args=[]):
 
+def get_option_file_args(dir='.', extra_args=[]):
+    """
+    Retrieve base arguments from options.txt (if present). These can be on
+    multiple lines to ease editing, and comments starting with "#" (possibly
+    mid-line) will be ignored.
+    """
     args = []
-    # retrieve base arguments from options.txt (if present)
-    # note: these can be on multiple lines to ease editing,
-    # and lines can be commented out with #
     options_path = os.path.join(dir, "options.txt")
     if os.path.exists(options_path):
         with open(options_path) as f:
             base_options = f.read().splitlines()
         for r in base_options:
-            if not r.lstrip().startswith("#"):
-                args.extend(shlex.split(r))
+            args.extend(shlex.split(r, comments=True))
+
     args.extend(extra_args)
     return args
 
