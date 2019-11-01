@@ -289,9 +289,14 @@ def write_results(m, outputs_dir):
             else (0.0, 0.0)
         )
         + (
-            util.get(m.dual, m.Zone_Energy_Balance[z, t], 0.0)
-            / m.bring_timepoint_costs_to_base_year[t],
-            # note: this uses 0.0 if no dual available, i.e., with glpk solver
+            (
+                (
+                    m.dual[m.Zone_Energy_Balance[z, t]]
+                    / m.bring_timepoint_costs_to_base_year[t]
+                )
+                if m.Zone_Energy_Balance[z, t] in m.dual
+                else ""  # no dual available, e.g., with glpk solver
+            ),
             "peak" if m.ts_scale_to_year[m.tp_ts[t]] < avg_ts_scale else "typical",
         ),
     )
@@ -360,15 +365,21 @@ def write_results(m, outputs_dir):
                 for component in m.Spinning_Reserve_Up_Requirements
             )
             + tuple(
-                util.get(
-                    m.dual,
-                    util.get(
-                        m.Satisfy_Spinning_Reserve_Up_Requirement, (rt, ba, t), None
-                    ),
-                    0.0,  # note: this uses 0.0 if no dual available, i.e., with glpk solver
+                (
+                    ""
+                    if val is None  # no dual available, i.e., with glpk solver
+                    else val / m.bring_timepoint_costs_to_base_year[t]
                 )
-                / m.bring_timepoint_costs_to_base_year[t]
-                for rt in m.SPINNING_RESERVE_TYPES_FROM_GENS
+                for val in [
+                    util.get(
+                        m.dual,
+                        util.get(
+                            m.Satisfy_Spinning_Reserve_Up_Requirement, (rt, ba, t), None
+                        ),
+                        None,
+                    )
+                    for rt in sorted(m.SPINNING_RESERVE_TYPES_FROM_GENS)
+                ]
             )
             + (
                 (
