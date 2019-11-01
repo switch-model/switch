@@ -23,23 +23,31 @@ def define_components(mod):
     parameter is mandatory. Unless otherwise specified, all dollar
     values are real dollars in BASE_YEAR.
 
-    ZONE_FUEL_PERIODS is a set that describes fuel availability. Each
-    element of the set is (load_zone, fuel, period).
+    ZONE_FUEL_PERIODS is a set of (load_zone, fuel, period) for which fuel_cost
+    has been provided. Can be overridden by fuel_cost_per_period.
 
     fuel_cost[(z, f, p) in ZONE_FUEL_PERIODS] describes flat fuel costs
     for each supply of fuel. Costs can vary by load zone and period.
 
-    GEN_TP_FUELS_UNAVAILABLE is a subset of
-    GEN_TP_FUELS that describes which points don't have fuel
-    available.
+    ZONE_FUEL_TIMEPOINTS is a set of (load_zone, fuel, period) for which
+    fuel_cost_per_timepoint has been specified.
 
-    Enforce_Fuel_Unavailability[(g, t, f) in
-    GEN_TP_FUELS_UNAVAILABLE] is a constraint that restricts
-    GenFuelUseRate to 0 for in load zones and periods where the
-    projects' fuel is unavailable.
+    fuel_cost_per_timepoint[(z, f, t) in ZONE_FUEL_TIMEPOINTS] describes flat
+    fuel costs for each supply of fuel. Costs can vary by load zone and
+    timepoint. Overrides per-period fuel_cost if both are specified.
 
-    FuelCostsPerTP[t in TIMEPOINTS] is an expression that summarizes fuel
-    costs for the objective function.
+    Note that fuels can only be used in the locations and times for which
+    fuel_cost and/or fuel_cost_per_timepoint have been specified.
+
+    GEN_TP_FUELS_UNAVAILABLE is a subset of GEN_TP_FUELS that describes which
+    points don't have fuel available.
+
+    Enforce_Fuel_Unavailability[(g, t, f) in GEN_TP_FUELS_UNAVAILABLE] is a
+    constraint that restricts GenFuelUseRate to 0 for in load zones and periods
+    where the projects' fuel is unavailable.
+
+    FuelCostsPerTP[t in TIMEPOINTS] is an expression that summarizes fuel costs
+    for the objective function.
 
     """
 

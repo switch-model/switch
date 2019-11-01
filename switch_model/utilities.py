@@ -359,8 +359,8 @@ def check_mandatory_components(model, *mandatory_model_components):
                     "No data is defined for the mandatory set '{}'.".
                     format(component_name))
         elif o_class == 'IndexedParam':
-            if len(obj) != len(obj._index):
-                missing_index_elements = [v for v in set(obj._index) - set( obj.sparse_keys())]
+            if len(obj) != len(obj.index_set()):
+                missing_index_elements = list(obj.index_set() - obj.sparse_keys())
                 raise ValueError(
                     "Values are not provided for every element of the "
                     "mandatory parameter '{}'. "
@@ -368,7 +368,7 @@ def check_mandatory_components(model, *mandatory_model_components):
                     .format(component_name, len(missing_index_elements), missing_index_elements[:10])
                 )
         elif o_class == 'IndexedSet':
-            if len(obj) != len(obj._index):
+            if len(obj) != len(obj.index_set()):
                 raise ValueError(
                     ("Sets are not defined for every index of " +
                      "the mandatory indexed set '{}'").format(component_name))

@@ -262,7 +262,7 @@ def write_results(m, outputs_dir):
                 +tuple(m.NON_FUEL_ENERGY_SOURCES)
                 +tuple(m.Spinning_Reserve_Up_Provisions)
                 +tuple(m.Spinning_Reserve_Up_Requirements)
-                +tuple("marginal_cost_"+rt for rt in m.SPINNING_RESERVE_TYPES_FROM_GENS)
+                +tuple("marginal_cost_"+rt for rt in sorted(m.SPINNING_RESERVE_TYPES_FROM_GENS))
                 +("peak_day",),
             values=lambda m, ba, t:
                 (ba, m.tp_period[t], m.tp_timestamp[t])
