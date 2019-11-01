@@ -272,8 +272,8 @@ def last_index(lst, val):
 
 
 def get_scenario_dict():
-    # note: we read the list from the disk each time so that we get a fresher version
-    # if the standard list is changed during a long solution effort.
+    # note: we read the list from the disk each time so that we get a fresher
+    # version if the standard list is changed during a long solution effort.
     with open(scenario_list_file, "r") as f:
         scenario_list_text = [r.strip() for r in f.read().splitlines()]
         scenario_list_text = [

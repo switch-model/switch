@@ -649,20 +649,13 @@ def define_arguments(argparser):
     # argparser.add_argument("--inputs-dir", default="inputs",
     #     help='Directory containing input files (default is "inputs")')
     argparser.add_argument(
-        "--input-alias",
-        "--input-aliases",
-        dest="input_aliases",
-        nargs="+",
-        default=[],
-        help="List of input file substitutions, in form of "
-        "standard_file.csv=alternative_file.csv, useful for sensitivity "
-        "studies with different inputs.",
-    )
-    argparser.add_argument(
-        "--outputs-dir",
-        default="outputs",
-        help='Directory to write output files (default is "outputs")',
-    )
+        "--input-alias", "--input-aliases", dest="input_aliases",
+        nargs='+', default=[], action='extend'
+        help='List of input file substitutions, in form of '
+             'standard_file.csv=alternative_file.csv, useful for sensitivity '
+             'studies with alternative inputs.')
+    argparser.add_argument("--outputs-dir", default="outputs",
+        help='Directory to write output files (default is "outputs")')
 
     argparser.add_argument(
         "--no-post-solve",
