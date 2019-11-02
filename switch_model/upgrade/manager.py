@@ -17,6 +17,7 @@ from . import upgrade_2_0_0b4
 from . import upgrade_2_0_1
 from . import upgrade_2_0_4
 from . import upgrade_2_0_5
+from . import upgrade_2_0_6
 
 # Available upgrade code. This needs to be in consecutive order so
 # upgrade_inputs can incrementally apply the upgrades.
