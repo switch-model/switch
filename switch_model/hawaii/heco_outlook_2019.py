@@ -446,20 +446,20 @@ def define_components(m):
     gen_info = pd.read_csv(
         os.path.join(m.options.inputs_dir, "generation_projects_info.csv")
     )
-    gen_info["psip_gen_tech"] = gen_info["gen_tech"].map(tech_tech_group)
-    gen_info = gen_info[gen_info["psip_gen_tech"].notna()]
+    gen_info["tech_group"] = gen_info["gen_tech"].map(tech_tech_group)
+    gen_info = gen_info[gen_info["tech_group"].notna()]
     # existing technologies are also subject to rebuilding
     existing_techs = (
         pd.read_csv(os.path.join(m.options.inputs_dir, "gen_build_predetermined.csv"))
         .merge(gen_info, how="inner")
-        .groupby(["build_year", "psip_gen_tech"])["gen_predetermined_cap"]
+        .groupby(["build_year", "tech_group"])["gen_predetermined_cap"]
         .sum()
         .reset_index()
     )
     assert not any(
         is_battery(t) for i, y, t, q in existing_techs.itertuples()
     ), "Must update {} to handle pre-existing batteries.".format(__name__)
-    ages = gen_info.groupby("psip_gen_tech")["gen_max_age"].agg(["min", "max", "mean"])
+    ages = gen_info.groupby("tech_group")["gen_max_age"].agg(["min", "max", "mean"])
     assert all(ages["min"] == ages["max"]), "Some psip technologies have mixed ages."
     last_period = pd.read_csv(os.path.join(m.options.inputs_dir, "periods.csv")).iloc[
         -1, 0
@@ -473,12 +473,17 @@ def define_components(m):
         if is_renewable(t) or is_battery(t)
     ] + tech_group_targets
     tech_life = dict()
-    for build_year, tech, cap in rebuildable_targets:
-        max_age = ages.loc[tech, "mean"]
-        tech_life[tech] = max_age
+    for build_year, tech_group, cap in rebuildable_targets:
+        if tech_group not in ages.index:
+            raise ValueError(
+                "A target has been specified for {} but there are no matching "
+                "technologies in generation_projects_info.csv.".format(tech_group)
+            )
+        max_age = ages.loc[tech_group, "mean"]
+        tech_life[tech_group] = max_age
         rebuild = 1
         while build_year + rebuild * max_age <= last_period:
-            tech_group_targets.append((build_year + rebuild * max_age, tech, cap))
+            tech_group_targets.append((build_year + rebuild * max_age, tech_group, cap))
             rebuild += 1
     del gen_info, existing_techs, ages, rebuildable_targets
 
