@@ -179,7 +179,7 @@ def define_components(m):
         # - all of these seem unlikely, but we have to ask HECO to find out; PLEXOS files are unclear.
 
         # installations based on changes in installed capacity shown in
-        # data/HECO Plans/PSIP-WebDAV/2017-01-31 Response to Parties IRs/CA-IR-1/Input and Output Files by Case/E3 Company Defined Cases/Market DGPV (Reference)/OA_NOLNG/planned_installed_capacities.tab
+        # /s/data/HECO Plans/PSIP-WebDAV/2017-01-31 Response to Parties IRs/CA-IR-1/Input and Output Files by Case/E3 and Company Defined Cases/Market DGPV (Reference)/OA_NOLNG/planned_installed_capacities.tab
         # Also see Figure J-10 of 2016-12-23 PSIP (Vol. 3), which matches these levels (excluding FIT(?)).
         # Note: code further below adds in reconstruction of early installations
         (2020, "DistPV", 606.3-444),  # net of 444 installed as of 2016 (in existing generators workbook)
@@ -190,6 +190,9 @@ def define_components(m):
         (2040, "DistPV", 1163.4-1015.4),
         (2045, "DistPV", 1307.9-1163.4),
     ]
+    TODO("""
+        Need to convert DistPV target into a joint target for FlatDistPV and SlopedDistPV.
+    """)
 
     # Rebuild renewable projects at retirement (20 years), as specified in the PSIP
     # note: this doesn't include DistPV, because those are part of a forecast, not a plan, so they already
@@ -222,7 +225,11 @@ def define_components(m):
     ]
     existing_techs += technology_targets_definite
     existing_techs += technology_targets_psip
-    # rebuild all renewables at retirement (20 years for RE, 15 years for batteries)
+    TODO("""
+        Need to read lifetime of projects and rebuild at retirement.
+    """)
+    # rebuild everything at retirement
+
     rebuild_targets = [
         (y+20, tech, cap) for y, tech, cap in existing_techs if is_renewable(tech)
     ] + [
@@ -322,7 +329,7 @@ def define_components(m):
                     "Model will be infeasible.".format(tech, per)
                 )
                 return Constraint.Infeasible
-        elif psip and per <= m.options.psip_relax_after:
+        elif psip and (m.options.psip_relax_after is None or per <= m.options.psip_relax_after):
             return (build == target)
         elif m.options.psip_minimal_renewables and tech in m.RENEWABLE_TECHNOLOGIES:
             # only build the specified amount of renewables, no more
