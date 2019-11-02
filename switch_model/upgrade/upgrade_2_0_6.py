@@ -1,39 +1,30 @@
 # Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
-
-"""
-Upgrade input directories from 2.0.1 to 2.0.4. (There were no changes for 2.0.2
-or 2.0.3.) This doesn't actually do anything except update the data version
-number and show the module-change messages.
-"""
-
 import os, shutil, argparse, glob
-import pandas
+import pandas as pd
 import switch_model.upgrade
 from pyomo.environ import DataPortal
-
 
 upgrades_from = "2.0.5"
 upgrades_to = "2.0.6"
 
 replace_modules = {
+    # modules to be replaced in the module list
     # old_module: [new_module1, new_module2, ...],
     "switch_model.hawaii.psip_2016_12": ["switch_model.hawaii.heco_outlook_2019"],
-    "switch_model.hawaii.r_demand_system": [
-        "switch_model.balancing.demand_response.iterative.r_demand_system"
-    ],
-    "switch_model.hawaii.reserves": [
-        "switch_model.balancing.operating_reserves.areas",
-        "switch_model.balancing.operating_reserves.spinning_reserves",
-    ],
 }
 
 module_messages = {
-    # description of significant changes to particular modules (other than moving)
+    # description of significant changes to particular modules other than
+    # moving/renaming
     # old_module: message
     # 'switch_model.energy_sources.fuel_costs.simple':
     #     'The fuel_cost.fuel_cost input column has been renamed to '
     #     'fuel_cost_per_period.period_fuel_cost.'
+    "switch_model.generators.core.build": "Beginning with this version of Switch, gen_multiple_fuels.dat should "
+    "be replaced with gen_multiple_fuels.csv. The .csv file should have "
+    "two columns: GENERATION_PROJECT and fuel. It should have one row for "
+    "each allowed fuel for each multi-fuel generator.",
 }
 
 
@@ -41,14 +32,19 @@ def upgrade_input_dir(inputs_dir):
     """
     Upgrade the input directory.
     """
+    # Write a new version text file. We do this early so that if the update
+    # fails and then the user tries again it won't try to upgrade a second time,
+    # overwriting their backup.
+    switch_model.upgrade._write_input_version(inputs_dir, upgrades_to)
+
     # rename modules and report changes
     update_modules(inputs_dir)
 
+    # convert the multi-fuels file to csv format (this is the last .dat input)
+    convert_gen_multiple_fuels_to_csv(inputs_dir)
+
     # rename_file('fuel_cost.csv', 'fuel_cost_per_period.csv')
     # rename_column('fuel_cost_per_period.csv', 'fuel_cost', 'period_fuel_cost')
-
-    # Write a new version text file.
-    switch_model.upgrade._write_input_version(inputs_dir, upgrades_to)
 
 
 def rename_file(old_name, new_name, optional_file=True):
@@ -63,7 +59,7 @@ def rename_column(file_name, old_col_name, new_col_name, optional_file=True):
     path = os.path.join(inputs_dir, file_name)
     if optional_file and not os.path.isfile(path):
         return
-    df = pandas.read_csv(path, na_values=["."], sep=",")  # for 2.0.5+
+    df = pd.read_csv(path, na_values=["."], sep=",")  # for 2.0.5+
     df.rename(columns={old_col_name: new_col_name}, inplace=True)
     df.to_csv(path, sep=",", na_rep=".", index=False)
 
@@ -123,3 +119,44 @@ def update_modules(inputs_dir):
             )
         except KeyError:
             pass
+
+
+def convert_gen_multiple_fuels_to_csv(inputs_dir):
+    old_path = os.path.join(inputs_dir, "gen_multiple_fuels.dat")
+    new_path = os.path.join(inputs_dir, "gen_multiple_fuels.csv")
+
+    if os.path.exists(old_path):
+        old_df = read_dat_file(old_path)
+        # df has one row for each gen; gen is the index and a list of fuels is the value
+        # unpack list of allowed fuels for each generator
+        gen_fuels = [
+            (gen, fuel) for gen, fuels in old_df.itertuples() for fuel in fuels
+        ]
+        new_df = pd.DataFrame.from_records(
+            gen_fuels, columns=["GENERATION_PROJECT", "fuel"]
+        )
+        new_df.to_csv(new_path, sep=",", na_rep=".", index=False)
+        os.remove(old_path)
+
+
+def read_dat_file(path):
+    # define a dummy "model" where every "parameter" reports a dimension of 0.
+    # otherwise Pyomo assumes they have dim=1 and looks for index values.
+    class DummyModel:
+        def __getattr__(self, pname):
+            return DummyParam()
+
+    class DummyParam:
+        def dim(self):
+            return 0
+
+    try:
+        data = DataPortal(model=DummyModel())
+        data.load(filename=path)
+        # this happens to be in a pd-friendly format
+        df = pd.DataFrame(data.data())
+    except Exception as e:
+        print("\nERROR reading {}:\n{}".format(path, e.message))
+        raise
+    else:
+        return df

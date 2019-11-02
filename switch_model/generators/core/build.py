@@ -296,7 +296,23 @@ def define_components(mod):
         initialize=mod.GENERATION_PROJECTS,
         filter=lambda m, g: m.gen_energy_source[g] == "multiple",
     )
-    mod.FUELS_FOR_MULTIFUEL_GEN = Set(mod.MULTIFUEL_GENS, within=mod.FUELS)
+    mod.MULTI_FUEL_GEN_FUELS = Set(
+        dimen=2, validate=lambda m, g, f: g in m.MULTIFUEL_GENS and f in m.FUELS
+    )
+
+    def FUELS_FOR_MULTIFUEL_GEN_init(m, g):
+        if not hasattr(m, "FUELS_FOR_MULTIFUEL_GEN_dict"):
+            m.FUELS_FOR_MULTIFUEL_GEN_dict = {_g: [] for _g in m.MULTIFUEL_GENS}
+            for _g, f in m.MULTI_FUEL_GEN_FUELS:
+                m.FUELS_FOR_MULTIFUEL_GEN_dict[_g].append(f)
+        result = m.FUELS_FOR_MULTIFUEL_GEN_dict.pop(g)
+        if not m.FUELS_FOR_MULTIFUEL_GEN_dict:
+            del m.FUELS_FOR_MULTIFUEL_GEN_dict
+        return result
+
+    mod.FUELS_FOR_MULTIFUEL_GEN = Set(
+        mod.MULTIFUEL_GENS, within=mod.FUELS, initialize=FUELS_FOR_MULTIFUEL_GEN_init
+    )
     mod.FUELS_FOR_GEN = Set(
         mod.FUEL_BASED_GENS,
         initialize=lambda m, g: (
@@ -628,10 +644,13 @@ def load_inputs(mod, switch_data, inputs_dir):
         index=mod.GEN_BLD_YRS,
         param=(mod.gen_overnight_cost, mod.gen_fixed_om),
     )
-    # read FUELS_FOR_MULTIFUEL_GEN from gen_multiple_fuels.dat if available
-    multi_fuels_path = os.path.join(inputs_dir, "gen_multiple_fuels.dat")
-    if os.path.isfile(multi_fuels_path):
-        switch_data.load(filename=multi_fuels_path)
+    switch_data.load_aug(
+        optional=True,
+        filename=os.path.join(inputs_dir, "gen_multiple_fuels.csv"),
+        auto_select=True,
+        index=mod.MULTI_FUEL_GEN_FUELS,
+        param=tuple(),
+    )
 
 
 def post_solve(m, outdir):

@@ -30,6 +30,7 @@ upgrade_plugins = [
         upgrade_2_0_1,
         upgrade_2_0_4,
         upgrade_2_0_5,
+        upgrade_2_0_6,
     ]
 ]
 
