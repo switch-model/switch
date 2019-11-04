@@ -33,7 +33,8 @@ option_file_args = solve.get_option_file_args()
 cmd_line_args = sys.argv[1:]
 
 # Parse scenario-manager-related command-line arguments.
-# Other command-line arguments will be passed through to solve.py via scenario_cmd_line_args
+# Other command-line arguments will be passed through to solve.py via
+# scenario_cmd_line_args
 parser = _ArgumentParser(
     allow_abbrev=False, description="Solve one or more Switch scenarios."
 )
@@ -45,7 +46,6 @@ parser.add_argument(
     default=[],
     action="extend",
 )
-# parser.add_argument('--scenarios', nargs='+', default=[])
 parser.add_argument("--scenario-list", default="scenarios.txt")
 parser.add_argument("--scenario-queue", default="scenario_queue")
 parser.add_argument("--job-id", default=None)
@@ -58,6 +58,11 @@ scenario_manager_args = parser.parse_known_args(args=option_file_args + cmd_line
 # get lists of other arguments to pass through to standard solve routine
 scenario_option_file_args = parser.parse_known_args(args=option_file_args)[1]
 scenario_cmd_line_args = parser.parse_known_args(args=cmd_line_args)[1]
+
+# create a logger for this module's output based on default arguments
+logger = solve.make_logger(
+    solve.parse_pre_module_options(scenario_option_file_args + scenario_cmd_line_args)
+)
 
 requested_scenarios = scenario_manager_args.scenarios
 scenario_list_file = scenario_manager_args.scenario_list
@@ -154,7 +159,7 @@ def main(args=None):
     unlock_running_scenarios()
 
     for (scenario_name, args) in scenarios_to_run():
-        print(
+        logger.warn(  # not strictly a warning, but often nice to see in the log
             "\n\n=======================================================================\n"
             + "running scenario {s}\n".format(s=scenario_name)
             + "arguments: {}\n".format(args)
@@ -223,16 +228,15 @@ def scenarios_to_run():
                 else:
                     if scenario_name not in skipped and scenario_name not in ran:
                         skipped.append(scenario_name)
-                        if is_verbose(scenario_args):
-                            print(
-                                "Skipping {} because it was already run.".format(
-                                    scenario_name
-                                )
+                        logger.info(
+                            "Skipping {} because it was already run.".format(
+                                scenario_name
                             )
+                        )
                 # move on to the next candidate
         # no more scenarios to run
         if skipped and not ran:
-            print(
+            logger.warn(
                 "Skipping all scenarios because they have already been solved. "
                 "If you would like to run these scenarios again, "
                 "please remove the {sq} directory or its contents. (rm -rf {sq})".format(
@@ -265,16 +269,6 @@ def last_index(lst, val):
         return len(lst) - lst[::-1].index(val) - 1
     except ValueError:
         return -1
-
-
-def is_verbose(scenario_args):
-    # check options settings for --verbose flag
-    # we can't use parse_arg, because we need to process both --verbose and --quiet
-    # note: this duplicates settings in switch_model.solve, so it may fall out of date
-    return last_index(scenario_args, "--verbose") >= last_index(
-        scenario_args, "--quiet"
-    )
-    # return parse_arg("--verbose", action='store_true', default=False, args=scenario_args)
 
 
 def get_scenario_dict():

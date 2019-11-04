@@ -35,7 +35,7 @@ def define_AbstractModel(*module_list, **kwargs):
     return create_model(module_list, args)
 
 
-def create_model(module_list=None, args=sys.argv[1:]):
+def create_model(module_list=None, args=sys.argv[1:], logger=None):
     """
 
     Construct a Pyomo AbstractModel using the Switch modules or packages
@@ -81,6 +81,16 @@ def create_model(module_list=None, args=sys.argv[1:]):
     for m in module_list:
         importlib.import_module(m)
 
+    # Each model usually has its own logger, passed in by switch_model.solve,
+    # because users may specify different logging settings for each model. If
+    # needed, we attach a default logger, since all modules assume there's one
+    # in place.
+    if logger is None:
+        import logging
+
+        logger = logging.getLogger("Switch Default Logger")
+    model.logger = logger
+
     # Bind utility functions to the model as class objects
     # Should we be formally extending their class instead?
     _add_min_data_check(model)
@@ -96,17 +106,6 @@ def create_model(module_list=None, args=sys.argv[1:]):
         if hasattr(module, "define_arguments"):
             module.define_arguments(argparser)
     model.options = argparser.parse_args(args)
-    if model.options.logging_level:
-        # Values of --logging-level are limited to standard logging levels.
-        # For python >= 3.2, we could store the --logging-level string
-        # directly into model.options.verbose. For lower versions, we need to
-        # convert to a constant from the logging package.
-        level = getattr(logging, model.options.logging_level)
-        model.options.verbose = level
-    if model.options.verbose:
-        logging.basicConfig(level=model.options.verbose)
-    else:
-        logging.basicConfig(level=logging.ERROR)
 
     # Define model components
     for module in model.get_modules():
@@ -744,10 +743,11 @@ class TeeStream(object):
 
 class LogOutput(object):
     """
-    Copy output sent to stdout or stderr to a log file in the specified directory.
-    Takes no action if directory is None. Log file is named based on the current
-    date and time. Directory will be created if needed, and file will be overwritten
-    if it already exists (unlikely).
+    Copy output sent to stdout or stderr to a log file in the specified
+    directory. Takes no action if directory is None. Log file is named based on
+    the current date and time. Directory will be created if needed, and file
+    will have microseconds added to the name if needed to avoid overwriting
+    existing any existing file.
     """
 
     def __init__(self, logs_dir):
@@ -756,17 +756,12 @@ class LogOutput(object):
     def __enter__(self):
         """start copying output to log file"""
         if self.logs_dir is not None:
-            if not os.path.exists(self.logs_dir):
-                os.makedirs(self.logs_dir)
-            log_file_path = os.path.join(
-                self.logs_dir,
-                datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".log",
-            )
+            log_file_path = self.make_file_path()
             self.log_file = open(log_file_path, "w", buffering=1)
             self.stdout = sys.stdout
             self.stderr = sys.stderr
             sys.stdout = TeeStream(sys.stdout, self.log_file)
-            sys.stderr = TeeStream(sys.stderr, self.log_file)
+            # sys.stderr = TeeStream(sys.stderr, self.log_file)
             print("logging output to " + str(log_file_path))
 
     def __exit__(self, type, value, traceback):
@@ -775,6 +770,29 @@ class LogOutput(object):
             sys.stdout = self.stdout
             sys.stderr = self.stderr
             self.log_file.close()
+
+    def make_file_path(self):
+        """
+        Create a log file on disk and return the file name (guaranteed unique).
+        When this function returns, the file exists but is empty and closed.
+        """
+        path = lambda format: os.path.join(
+            self.logs_dir, datetime.datetime.now().strftime(format) + ".log"
+        )
+        # make sure logs directory exists
+        if not os.path.exists(self.logs_dir):
+            os.makedirs(self.logs_dir)
+        file_path = path("%Y-%m-%d_%H-%M-%S")
+        while True:
+            try:
+                f = os.open(file_path, os.O_CREAT | os.O_EXCL)
+                # succeeded
+                os.close(f)
+                break
+            except FileExistsError:
+                # try again with microseconds in name and a little delay
+                file_path = path("%Y-%m-%d_%H-%M-%S.%f")
+        return file_path
 
 
 def iteritems(obj):
