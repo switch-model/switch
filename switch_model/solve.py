@@ -4,7 +4,7 @@
 from __future__ import print_function
 
 import logging
-import sys, os, time, shlex, re, inspect, textwrap, types
+import sys, os, time, shlex, re, inspect, textwrap, types, threading
 try:
     # Python 2
     import cPickle as pickle
@@ -52,7 +52,18 @@ def main(args=None, return_model=False, return_instance=False):
             pm()
         sys.excepthook = debug
 
+    # Create a unique logger for this model (other models may have different
+    # logging settings and may exist at the same time as this one).
+    logger = make_logger(pre_module_options)
+
     # Write output to a log file if logging option is specified
+    # TODO: change all our non-interactive output to report via the logger, then
+    # use logger.addHandler(logging.FileHandler(log_file_path)) in make_logger()
+    # and drop the LogOutput context manager. (That will also enable logging of
+    # messages from solve_scenarios.py to the default log file.) This may
+    # require context code anyway to copy all stdout and stderr to the logger
+    # while also emitting it on stdout and stderr, e.g., to correctly log
+    # tracebacks or messages from Pyomo code or tracebacks from our code.
     if pre_module_options.log_run_to_file:
         logs_dir = pre_module_options.logs_dir
     else:
@@ -60,7 +71,17 @@ def main(args=None, return_model=False, return_instance=False):
 
     with LogOutput(logs_dir):
 
-        # Look out for outdated inputs. This has to happen before modules.txt is
+        logger.warn("Need to set verbosity and logging correctly for solve_scenarios.py.")
+
+        # Warn users about deprecated flags; we know this earlier but don't have
+        # a working logger to report it until here.
+        if '--verbose' in args or '--quiet' in args:
+            logger.warn(
+                "The --verbose and --quiet flags will be removed in a future "
+                "version of Switch. Please use --log-level instead."
+            )
+
+        # Check for outdated inputs. This has to happen before modules.txt is
         # parsed to avoid errors from incompatible files.
         parser = _ArgumentParser(allow_abbrev=False, add_help=False)
         add_module_args(parser)
@@ -88,7 +109,10 @@ def main(args=None, return_model=False, return_instance=False):
         patch_pyomo()
 
         # Define the model
-        model = create_model(modules, args=args)
+        model = create_model(modules, args=args, logger=logger)
+
+        # Apply verbose flag to support code that still uses it
+        model.options.verbose = logger.isEnabledFor(logging.INFO)
 
         # Add any suffixes specified on the command line (usually only iis)
         add_extra_suffixes(model)
@@ -208,7 +232,7 @@ def main(args=None, return_model=False, return_instance=False):
             import code
             banner = hr + banner_msg + hr
             code.interact(
-                banner=banner, 
+                banner=banner,
                 local=dict(list(globals().items()) + list(locals().items())))
 
 
@@ -455,7 +479,7 @@ def define_arguments(argparser):
 
     # scenario information
     argparser.add_argument(
-        "--scenario-name", dest="scenario_name", default="", 
+        "--scenario-name", dest="scenario_name", default="",
         help="Name of research scenario represented by this model"
     )
 
@@ -463,7 +487,7 @@ def define_arguments(argparser):
     # whether that does the same thing as --suffix defined here,
     # so we don't reuse the same name.
     argparser.add_argument(
-        "--suffixes", "--suffix", dest="suffixes", nargs="+", action='extend', 
+        "--suffixes", "--suffix", dest="suffixes", nargs="+", action='extend',
         default=[],
         help="Extra suffixes to add to the model and exchange with the solver "
              "(e.g., iis, rc, dual, or slack)")
@@ -478,7 +502,7 @@ def define_arguments(argparser):
         help='Name of Pyomo solver manager to use for the model '
              '("neos" to use remote NEOS server)')
     argparser.add_argument(
-        "--solver-io", dest="solver_io", default=None, 
+        "--solver-io", dest="solver_io", default=None,
         help="Method for Pyomo to use to communicate with solver")
     # note: pyomo has a --solver-options option but it is not clear
     # whether that does the same thing as --solver-options-string so we don't reuse the same name.
@@ -499,8 +523,8 @@ def define_arguments(argparser):
         "--no-stream-output", "--no-stream-solver", action='store_false', dest="tee", default=None,
         help="Don't display information from the solver about its progress")
     argparser.add_argument(
-        "--symbolic-solver-labels", action='store_true', dest='symbolic_solver_labels', 
-        default=None, 
+        "--symbolic-solver-labels", action='store_true', dest='symbolic_solver_labels',
+        default=None,
         help='Use symbol names derived from the model when interfacing with the solver. '
             'See "pyomo solve --solver=x --help" for more details.')
     argparser.add_argument(
@@ -515,6 +539,7 @@ def define_arguments(argparser):
              "dual values for mixed-integer programs."
     )
 
+    # General purpose arguments
     # NOTE: the following could potentially be made into standard arguments for all models,
     # e.g. by defining them in a define_standard_arguments() function in switch.utilities.py
 
@@ -531,36 +556,6 @@ def define_arguments(argparser):
     argparser.add_argument("--outputs-dir", default="outputs",
         help='Directory to write output files (default is "outputs")')
 
-    # General purpose arguments
-    argparser.add_argument(
-        '--verbose', '-v', dest='verbose', default=False, 
-        action='store_const', const=logging.WARNING,
-        help='Show information about model preparation and solution. '
-             '(print status updates and log messages of "WARNING" or above)')
-    argparser.add_argument(
-        '--very-verbose', '-vv', dest='verbose', default=False, 
-        action='store_const', const=logging.INFO,
-        help='Show more information about model preparation and solution'
-             '(print status updates and log messages of "INFO" or above)')
-    argparser.add_argument(
-        '--very-very-verbose', '-vvv', dest='verbose', default=False, 
-        action='store_const', const=logging.DEBUG,
-        help='Show debugging-level information about model preparation '
-             'and solutions (print status updates and log messages of "INFO" '
-             'or above)')
-    # The choices for --logging-level must be constrained to standard logging
-    # levels: https://docs.python.org/3/library/logging.html#levels
-    argparser.add_argument(
-        '--logging-level', dest='logging_level', 
-        default=None,
-        choices = ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"],
-        help='An alternative method of specifying which logging level to '
-             'display (you may use this instead of -v, -vv, or -vvv).')
-    argparser.add_argument(
-        '--quiet', '-q', dest='verbose', action='store_false',
-        help="Don't show information about model preparation and solution "
-             "(cancels --verbose settings, and disables logging messages "
-             "for everything short of errors)")
     argparser.add_argument(
         '--no-post-solve', default=False, action='store_true',
         help="Don't run post-solve code on the completed model "
@@ -580,7 +575,7 @@ def define_arguments(argparser):
     try:
         import IPython
         argparser.add_argument(
-            '--interact-color', dest="interact_color", default="NoColor", 
+            '--interact-color', dest="interact_color", default="NoColor",
             help='Use this color scheme with the interactive shell.'
                  'Options: NoColor, LightBG, Linux')
     except ImportError:
@@ -619,8 +614,32 @@ def add_pre_module_args(parser):
     parser.add_argument(
         "--logs-dir", dest="logs_dir", default="logs",
         help='Directory containing log files (default is "logs"')
+
+    # Standard logging levels from
+    # https://docs.python.org/3/library/logging.html#levels
+    # Code should use logger.warn() for errors that can be recovered from,
+    # logger.info() for high-level sequence-of-events reporting and
+    # logger.debug() for detailed diagnostic information.
+    # logger.error() should be used to explain an error in more detail if
+    # needed at the same time as the code raises an exception.
     parser.add_argument(
-        "--debug", action="store_true", default=False,
+        '--log-level', dest='log_level', default='warning',
+        choices = ['error', 'warning', 'info', 'debug'],
+        help='Amount of detail to include in on-screen logging and log files. '
+             'Default is "warning".')
+    # Deprecated logging flags are retained for now so we can warn users to
+    # change their settings.
+    parser.add_argument(
+        '--verbose', dest='log_level', action='store_const', const='info',
+        help='Obsolete logging flag; use --log-level info or '
+             '--log-level debug instead.')
+    parser.add_argument(
+        '--quiet', dest='log_level', action='store_const', const='warning',
+        help='Obsolete logging flag; use --log-level warning or '
+             '--log-level error insead.')
+
+    parser.add_argument(
+        '--debug', action='store_true', default=False,
         help='Automatically start pdb debugger on exceptions')
 
 
@@ -683,8 +702,9 @@ def get_module_list(args):
                         'previously included.'.format(module_name)
                     )
 
-    # add this module, since it has callbacks, e.g. define_arguments for iteration and suffixes
-    modules.append("switch_model.solve")
+    # add this module, since it has callbacks, e.g. define_arguments for
+    # iteration and suffixes
+    modules.append(__name__)
 
     return modules
 
@@ -814,7 +834,7 @@ def solve(model):
             print("Model was infeasible; if the solver can generate an irreducibly inconsistent set (IIS),")
             print("more information may be available by setting the appropriate flags in the ")
             print('--solver-options-string and calling this script with "--suffixes iis".')
-        # This infeasibility logging module could be nice, but it doesn't work 
+        # This infeasibility logging module could be nice, but it doesn't work
         # for my solvers and produces extraneous messages.
         # import pyomo.util.infeasible
         # pyomo.util.infeasible.log_infeasible_constraints(model)
@@ -860,6 +880,39 @@ def solve(model):
     # solutions later.
     model.last_results = results
     return results
+
+
+instance_number = 0
+instance_number_lock = threading.Lock()
+def make_logger(parsed_args):
+    """
+    Create a unique logger to attach to a model instance.
+
+    This module may be kept in memory and used to create multiple instances with
+    different logging settings (e.g., via switch solve-scenarios), so we need to
+    create a unique logger for each model. This is also used by solve_scenarios
+    to create a logger for its own output.
+    """
+    global instance_number
+    # Create a unique name to avoid reloading a logger created in a previous
+    # call to logging.getLogger. This name only needs to be unique within this
+    # process because if users call this function in separate processes they
+    # will not see the loggers each other have created (logging module is not
+    # multiprocessing-aware). So process-level locking is adequate.
+    with instance_number_lock:
+        instance_number += 1
+        if instance_number == 1:
+            # typical case, solving one model and quitting
+            instance_name = "Switch"
+        else:
+            instance_name = "Switch instance {}".format(instance_number)
+    logger = logging.getLogger(instance_name)
+    # Follow user-specified logging level (converted to standard key)
+    logger.setLevel(parsed_args.log_level.upper())
+    # Always log to stdout (not stderr)
+    logger.addHandler(logging.StreamHandler(sys.stdout))
+    return logger
+
 
 def retrieve_cplex_mip_duals():
     """patch Pyomo's solver to retrieve duals and reduced costs for MIPs
