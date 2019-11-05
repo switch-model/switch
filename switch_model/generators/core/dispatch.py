@@ -17,6 +17,7 @@ import pandas as pd
 from pyomo.environ import *
 
 from switch_model.reporting import write_table
+from switch_model.utilities import one_line
 
 dependencies = (
     "switch_model.timescales",
@@ -290,42 +291,51 @@ def define_components(mod):
         mod.VARIABLE_GEN_TPS, rule=lambda m, g, t: (g, t) in m.VARIABLE_GEN_TPS_RAW
     )
 
-    # Generate a warning if the input files specify timeseries for renewable
-    # plant capacity factors that extend beyond the expected lifetime of the
-    # plant. This could be caused by simple logic to build input files, or
-    # could indicate that the user expects those plants to operate longer
-    # than indicated.
-    def _warn_on_extra_VARIABLE_GEN_TPS(m):
-        extra_indexes = set(m.VARIABLE_GEN_TPS_RAW) - set(m.VARIABLE_GEN_TPS)
-        num_impacted_generators = len(set([g for g, t in extra_indexes]))
-        extraneous = {g: [] for (g, t) in extra_indexes}
-        for (g, t) in extra_indexes:
-            extraneous[g].append(t)
-        pprint = "\n".join(
-            "* {}: {} to {}".format(g, min(tps), max(tps))
-            for g, tps in extraneous.items()
-        )
-        warning_msg = (
-            "{} renewable generators with predetermined builds have capacity "
-            "factors specified in timepoints in periods when they are not "
-            "operating (either after retirement, or before construction is "
-            "complete). This could indicate a benign issue where the process "
-            "that built the dataset used simplified logic and/or didn't know "
-            "the scheduled operational dates. If you expect those datapoints "
-            "to be useful, then those plants need to either come online "
-            "earlier, have longer lifetimes, or have options to build new "
-            "capacity when the old capacity reaches the provided end-of-life "
-            "date."
-            "\n".format(num_impacted_generators)
-        )
-        if extra_indexes:
-            logging.warning(warning_msg)
-            logging.info("Plants with extra timepoints:\n{}".format(pprint))
-        return True
+    if mod.logger.isEnabledFor(logging.INFO):
+        # Tell user if the input files specify timeseries for renewable plant
+        # capacity factors that extend beyond the lifetime of the plant.
+        def rule(m):
+            extra_indexes = m.VARIABLE_GEN_TPS_RAW - m.VARIABLE_GEN_TPS
+            if extra_indexes:
+                num_impacted_generators = len(set(g for g, t in extra_indexes))
+                extraneous = {g: [] for (g, t) in extra_indexes}
+                for (g, t) in extra_indexes:
+                    extraneous[g].append(t)
+                pprint = "\n".join(
+                    "* {}: {} to {}".format(g, min(tps), max(tps))
+                    for g, tps in extraneous.items()
+                )
+                # basic message for everyone at info level
+                msg = one_line(
+                    """
+                    {} generation project[s] have data in
+                    variable_capacity_factors.csv for timepoints when they are
+                    not operable, either before construction is possible or
+                    after retirement.
+                """.format(
+                        num_impacted_generators
+                    )
+                )
+                if m.logger.isEnabledFor(logging.DEBUG):
+                    # more detailed message
+                    msg += one_line(
+                        """
+                         You can avoid this message by only placing data in
+                        variable_capacity_factors.csv for active periods for
+                        each project. If you expect these project[s] to be
+                        operable during  all the timepoints currently in
+                        variable_capacity_factors.csv, then they need to either
+                        come online earlier, have longer lifetimes, or have
+                        options to build new capacity when the old capacity
+                        reaches its maximum age.
+                    """
+                    )
+                    msg += " Plants with extra timepoints:\n{}".format(pprint)
+                else:
+                    msg += " Use --log-level debug for more details."
+                m.logger.info(msg + "\n")
 
-    mod.warn_on_extra_VARIABLE_GEN_TPS = BuildCheck(
-        rule=_warn_on_extra_VARIABLE_GEN_TPS
-    )
+        mod.notify_on_extra_VARIABLE_GEN_TPS = BuildAction(rule=rule)
 
     mod.GenFuelUseRate = Var(
         mod.GEN_TP_FUELS,

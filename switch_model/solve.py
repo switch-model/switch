@@ -80,10 +80,6 @@ def main(args=None, return_model=False, return_instance=False):
 
     with LogOutput(logs_dir):
 
-        logger.warn(
-            "Need to set verbosity and logging correctly for solve_scenarios.py."
-        )
-
         # Warn users about deprecated flags; we know this earlier but don't have
         # a working logger to report it until here.
         if "--verbose" in args or "--quiet" in args:

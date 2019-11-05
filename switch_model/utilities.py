@@ -15,6 +15,7 @@ import sys
 import logging
 import time
 import types
+import textwrap
 
 from pyomo.environ import *
 import pyomo.opt
@@ -288,6 +289,10 @@ def post_solve(instance, outputs_dir=None):
     for module in instance.get_modules():
         if hasattr(module, "post_solve"):
             module.post_solve(instance, outputs_dir)
+
+
+def one_line(message):
+    return textwrap.dedent(message).replace(" \n", " ").replace("\n", " ").strip()
 
 
 def min_data_check(model, *mandatory_model_components):
