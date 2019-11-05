@@ -575,43 +575,32 @@ def post_solve(instance, outdir):
 
     try:
         import plotnine as p9
-
-        # Try to filter out spurious warnings from plotnine
+    except ImportError:
+        pass
+    else:
+        # plotnine was imported successfully
+        # Filter out spurious warnings from plotnine
         import warnings
 
-        warnings.filterwarnings("ignore", category=UserWarning, module="plotnine.*")
-        warnings.filterwarnings(
-            "ignore", category=DeprecationWarning, module="plotnine.*"
-        )
+        for c in [UserWarning, DeprecationWarning, RuntimeWarning, FutureWarning]:
+            warnings.filterwarnings("ignore", category=c, module="plotnine.*")
 
-        annual_summary_plot = (
-            p9.ggplot(
-                annual_summary.reset_index(),
-                p9.aes(
-                    x="period",
-                    weight="Energy_GWh_typical_yr",
-                    fill="factor(gen_energy_source)",
-                ),
+        plots = [
+            ("gen_energy_source", "dispatch_annual_summary_fuel.pdf"),
+            ("gen_tech", "dispatch_annual_summary_tech.pdf"),
+        ]
+        for y, outfile in plots:
+            annual_summary_plot = (
+                p9.ggplot(
+                    annual_summary.reset_index(),
+                    p9.aes(
+                        x="period",
+                        weight="Energy_GWh_typical_yr",
+                        fill="factor({})".format(y),
+                    ),
+                )
+                + p9.geom_bar(position="stack")
+                + p9.scale_y_continuous(name="Energy (GWh/yr)")
+                + p9.theme_bw()
             )
-            + p9.geom_bar(position="stack")
-            + p9.scale_y_continuous(name="Energy (GWh/yr)")
-            + p9.theme_bw()
-        )
-        save_as = os.path.join(outdir, "dispatch_annual_summary_fuel.pdf")
-        annual_summary_plot.save(filename=save_as)
-
-        annual_summary_plot = (
-            p9.ggplot(
-                annual_summary.reset_index(),
-                p9.aes(
-                    x="period", weight="Energy_GWh_typical_yr", fill="factor(gen_tech)"
-                ),
-            )
-            + p9.geom_bar(position="stack")
-            + p9.scale_y_continuous(name="Energy (GWh/yr)")
-            + p9.theme_bw()
-        )
-        save_as = os.path.join(outdir, "dispatch_annual_summary_tech.pdf")
-        annual_summary_plot.save(filename=save_as)
-    except (ImportError, RuntimeError) as err:
-        pass
+            annual_summary_plot.save(filename=os.path.join(outdir, outfile))
