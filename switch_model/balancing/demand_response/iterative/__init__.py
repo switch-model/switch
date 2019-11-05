@@ -35,8 +35,6 @@ import switch_model.utilities as utilities
 from switch_model.hawaii.save_results import DispatchGenByFuel
 import switch_model.hawaii.util as util
 
-from switch_model.balancing.demand_response_simple import register_demand_response_reserves
-
 demand_module = None    # will be set via command-line options
 
 def define_arguments(argparser):
@@ -953,6 +951,67 @@ def reconstruct_energy_balance(m):
         for k in old_Energy_Balance:
             # change dual entries to match new Energy_Balance objects
             m.dual[m.Zone_Energy_Balance[k]] = m.dual.pop(old_Energy_Balance[k])
+
+
+def register_demand_response_reserves(m):
+    if m.options.demand_response_reserve_types == []:
+        if hasattr(m, 'Spinning_Reserve_Up_Provisions'):
+            m.options.demand_response_reserve_types == ['spinning']
+        else:
+            m.options.demand_response_reserve_types == ['none']
+
+    if [rt.lower() for rt in m.options.demand_response_reserve_types] != ['none']:
+        # Register with spinning reserves
+        if not hasattr(m, 'Spinning_Reserve_Up_Provisions'):
+            raise ValueError(
+                "--demand-response-reserve-types is set to a value other than "
+                "'none' ({}). This requires that a spinning reserve module be "
+                "specified in modules.txt."
+                .format(m.options.demand_response_reserve_types)
+            )
+
+        if hasattr(m, 'GEN_SPINNING_RESERVE_TYPES'):
+            # using advanced formulation, index by reserve type, balancing area, timepoint
+            # define variables for each type of reserves to be provided
+            # choose how to allocate the slack between the different reserve products
+            m.DR_SPINNING_RESERVE_TYPES = Set(
+                initialize=m.options.demand_response_reserve_types
+            )
+            m.DemandResponseSpinningReserveUp = Var(
+                m.DR_SPINNING_RESERVE_TYPES, m.BALANCING_AREA_TIMEPOINTS,
+                within=NonNegativeReals
+            )
+            m.DemandResponseSpinningReserveDown = Var(
+                m.DR_SPINNING_RESERVE_TYPES, m.BALANCING_AREA_TIMEPOINTS,
+                within=NonNegativeReals
+            )
+            # constrain reserve provision within available slack
+            m.Limit_DemandResponseSpinningReserveUp = Constraint(
+                m.BALANCING_AREA_TIMEPOINTS,
+                rule=lambda m, ba, tp:
+                    sum(
+                        m.DemandResponseSpinningReserveUp[rt, ba, tp]
+                        for rt in m.DR_SPINNING_RESERVE_TYPES
+                    ) <= m.DemandResponseSlackUp[ba, tp]
+            )
+            m.Limit_DemandResponseSpinningReserveDown = Constraint(
+                m.BALANCING_AREA_TIMEPOINTS,
+                rule=lambda m, ba, tp:
+                    sum(
+                        m.DemandResponseSpinningReserveDown[rt, ba, tp]
+                        for rt in m.DR_SPINNING_RESERVE_TYPES
+                    ) <= m.DemandResponseSlackDown[ba, tp]
+            )
+            m.Spinning_Reserve_Up_Provisions.append('DemandResponseSpinningReserveUp')
+            m.Spinning_Reserve_Down_Provisions.append('DemandResponseSpinningReserveDown')
+        else:
+            # using older formulation, only one type of spinning reserves, indexed by balancing area, timepoint
+            if m.options.demand_response_reserve_types != ['spinning']:
+                raise ValueError(
+                    'Unable to use reserve types other than "spinning" with simple spinning reserves module.'
+                )
+            m.Spinning_Reserve_Up_Provisions.append('DemandResponseSlackUp')
+            m.Spinning_Reserve_Down_Provisions.append('DemandResponseSlackDown')
 
 
 def write_batch_results(m):
