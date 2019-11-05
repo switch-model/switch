@@ -491,7 +491,8 @@ def post_solve(instance, outdir):
         ]
     )
     gen_sum["Energy_out_avg_MW"] = (
-        gen_sum["Energy_GWh_typical_yr"] * 1000 / gen_sum["tp_weight_in_year_hrs"]
+        gen_sum["Energy_GWh_typical_yr"] * 1000
+        / gen_sum["tp_weight_in_year_hrs"]
     )
     hrs_per_yr = gen_sum.iloc[0]["tp_weight_in_year_hrs"]
     try:
@@ -546,39 +547,31 @@ def post_solve(instance, outdir):
 
     try:
         import plotnine as p9
-        # Try to filter out spurious warnings from plotnine
-        import warnings
-        warnings.filterwarnings(
-            'ignore',
-            category=UserWarning,
-            module='plotnine.*')
-        warnings.filterwarnings(
-            'ignore',
-            category=DeprecationWarning,
-            module='plotnine.*')
-
-        annual_summary_plot = p9.ggplot(
-                annual_summary.reset_index(),
-                p9.aes(x='period',
-                    weight="Energy_GWh_typical_yr",
-                    fill="factor(gen_energy_source)")
-            ) + \
-            p9.geom_bar(position="stack") + \
-            p9.scale_y_continuous(name='Energy (GWh/yr)') + \
-            p9.theme_bw()
-        save_as = os.path.join(outdir, "dispatch_annual_summary_fuel.pdf")
-        annual_summary_plot.save(filename=save_as)
-
-        annual_summary_plot = p9.ggplot(
-                annual_summary.reset_index(),
-                p9.aes(x='period',
-                    weight="Energy_GWh_typical_yr",
-                    fill="factor(gen_tech)")
-            ) + \
-            p9.geom_bar(position="stack") + \
-            p9.scale_y_continuous(name='Energy (GWh/yr)') + \
-            p9.theme_bw()
-        save_as = os.path.join(outdir, "dispatch_annual_summary_tech.pdf")
-        annual_summary_plot.save(filename=save_as)
-    except (ImportError, RuntimeError) as err:
+    except ImportError:
         pass
+    else:
+        # plotnine was imported successfully
+        # Filter out spurious warnings from plotnine
+        import warnings
+        for c in [UserWarning, DeprecationWarning, RuntimeWarning, FutureWarning]:
+            warnings.filterwarnings('ignore', category=c, module='plotnine.*')
+
+        plots = [
+            ('gen_energy_source', 'dispatch_annual_summary_fuel.pdf'),
+            ('gen_tech', 'dispatch_annual_summary_tech.pdf'),
+        ]
+        for y, outfile in plots:
+            annual_summary_plot = (
+                p9.ggplot(
+                    annual_summary.reset_index(),
+                    p9.aes(
+                        x='period',
+                        weight="Energy_GWh_typical_yr",
+                        fill="factor({})".format(y)
+                    )
+                )
+                + p9.geom_bar(position="stack")
+                + p9.scale_y_continuous(name='Energy (GWh/yr)')
+                + p9.theme_bw()
+            )
+            annual_summary_plot.save(filename=os.path.join(outdir, outfile))
