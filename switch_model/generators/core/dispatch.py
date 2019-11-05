@@ -288,9 +288,8 @@ def define_components(mod):
     # This replaces: mod.min_data_check('gen_max_capacity_factor') from when
     # gen_max_capacity_factor was indexed by VARIABLE_GEN_TPS.
     mod.have_minimal_gen_max_capacity_factors = BuildCheck(
-        mod.VARIABLE_GEN_TPS,
-        rule=lambda m, g, t: (g,t) in m.VARIABLE_GEN_TPS_RAW)
-
+        mod.VARIABLE_GEN_TPS, rule=lambda m, g, t: (g, t) in m.VARIABLE_GEN_TPS_RAW
+    )
 
     if mod.logger.isEnabledFor(logging.INFO):
         # Tell user if the input files specify timeseries for renewable plant
@@ -298,23 +297,29 @@ def define_components(mod):
         def rule(m):
             extra_indexes = m.VARIABLE_GEN_TPS_RAW - m.VARIABLE_GEN_TPS
             if extra_indexes:
-                num_impacted_generators = len(set(g for g,t in extra_indexes))
-                extraneous = {g: [] for (g,t) in extra_indexes}
-                for (g,t) in extra_indexes:
+                num_impacted_generators = len(set(g for g, t in extra_indexes))
+                extraneous = {g: [] for (g, t) in extra_indexes}
+                for (g, t) in extra_indexes:
                     extraneous[g].append(t)
                 pprint = "\n".join(
                     "* {}: {} to {}".format(g, min(tps), max(tps))
-                    for g, tps in extraneous.items())
+                    for g, tps in extraneous.items()
+                )
                 # basic message for everyone at info level
-                msg = one_line("""
+                msg = one_line(
+                    """
                     {} generation project[s] have data in
                     variable_capacity_factors.csv for timepoints when they are
                     not operable, either before construction is possible or
                     after retirement.
-                """.format(num_impacted_generators))
+                """.format(
+                        num_impacted_generators
+                    )
+                )
                 if m.logger.isEnabledFor(logging.DEBUG):
                     # more detailed message
-                    msg += one_line("""
+                    msg += one_line(
+                        """
                          You can avoid this message by only placing data in
                         variable_capacity_factors.csv for active periods for
                         each project. If you expect these project[s] to be
@@ -323,11 +328,13 @@ def define_components(mod):
                         come online earlier, have longer lifetimes, or have
                         options to build new capacity when the old capacity
                         reaches its maximum age.
-                    """)
+                    """
+                    )
                     msg += " Plants with extra timepoints:\n{}".format(pprint)
                 else:
-                    msg += ' Use --log-level debug for more details.'
-                m.logger.info(msg + '\n')
+                    msg += " Use --log-level debug for more details."
+                m.logger.info(msg + "\n")
+
         mod.notify_on_extra_VARIABLE_GEN_TPS = BuildAction(rule=rule)
 
     mod.GenFuelUseRate = Var(
@@ -461,11 +468,9 @@ def post_solve(instance, outdir):
         }
         try:
             try:
-                record['ChargeStorage_MW'] = -1.0*value(
-                    instance.ChargeStorage[g,t])
-                record['Store_GWh_typical_yr'] = value(
-                    instance.ChargeStorage[g, t] *
-                    instance.tp_weight_in_year[t] / 1000
+                record["ChargeStorage_MW"] = -1.0 * value(instance.ChargeStorage[g, t])
+                record["Store_GWh_typical_yr"] = value(
+                    instance.ChargeStorage[g, t] * instance.tp_weight_in_year[t] / 1000
                 )
                 record["Discharge_GWh_typical_yr"] = record["Energy_GWh_typical_yr"]
                 record["Energy_GWh_typical_yr"] -= record["Store_GWh_typical_yr"]
@@ -528,8 +533,9 @@ def post_solve(instance, outdir):
     try:
         idx = gen_sum["is_storage"].astype(bool)
         gen_sum.loc[idx, "Energy_out_avg_MW"] = (
-            gen_sum.loc[idx, "Discharge_GWh_typical_yr"] * 1000 /
-            gen_sum.loc[idx, "tp_weight_in_year_hrs"]
+            gen_sum.loc[idx, "Discharge_GWh_typical_yr"]
+            * 1000
+            / gen_sum.loc[idx, "tp_weight_in_year_hrs"]
         )
     except KeyError:
         pass
@@ -540,9 +546,7 @@ def post_solve(instance, outdir):
         df.loc[no_cap, "capacity_factor"] = 0
 
         df["LCOE_dollar_per_MWh"] = (
-            df['GenCapitalCosts'] +
-            df['GenFixedOMCosts'] +
-            df['VariableCost_per_yr']
+            df["GenCapitalCosts"] + df["GenFixedOMCosts"] + df["VariableCost_per_yr"]
         ) / (df["Energy_out_avg_MW"] * hrs_per_yr)
         no_energy = df["Energy_out_avg_MW"] == 0
         df.loc[no_energy, "LCOE_dollar_per_MWh"] = 0
@@ -554,12 +558,9 @@ def post_solve(instance, outdir):
         os.path.join(outdir, "gen_project_annual_summary.csv"), columns=summary_columns
     )
 
-    zone_sum = gen_sum.groupby([
-        'gen_tech',
-        "gen_load_zone",
-        "gen_energy_source",
-        "period"
-    ]).sum()
+    zone_sum = gen_sum.groupby(
+        ["gen_tech", "gen_load_zone", "gen_energy_source", "period"]
+    ).sum()
     zone_sum = add_cap_factor_and_lcoe(zone_sum)
     zone_sum.to_csv(
         os.path.join(outdir, "dispatch_zonal_annual_summary.csv"),
@@ -574,39 +575,32 @@ def post_solve(instance, outdir):
 
     try:
         import plotnine as p9
-
-        # Try to filter out spurious warnings from plotnine
+    except ImportError:
+        pass
+    else:
+        # plotnine was imported successfully
+        # Filter out spurious warnings from plotnine
         import warnings
 
-        warnings.filterwarnings("ignore", category=UserWarning, module="plotnine.*")
-        warnings.filterwarnings(
-            "ignore", category=DeprecationWarning, module="plotnine.*"
-        )
+        for c in [UserWarning, DeprecationWarning, RuntimeWarning, FutureWarning]:
+            warnings.filterwarnings("ignore", category=c, module="plotnine.*")
 
-        annual_summary_plot = (
-            p9.ggplot(
-                annual_summary.reset_index(),
-                p9.aes(x='period',
-                    weight="Energy_GWh_typical_yr",
-                    fill="factor(gen_energy_source)")
-            ) + \
-            p9.geom_bar(position="stack") + \
-            p9.scale_y_continuous(name='Energy (GWh/yr)') + \
-            p9.theme_bw()
-        save_as = os.path.join(outdir, "dispatch_annual_summary_fuel.pdf")
-        annual_summary_plot.save(filename=save_as)
-
-        annual_summary_plot = (
-            p9.ggplot(
-                annual_summary.reset_index(),
-                p9.aes(x='period',
-                    weight="Energy_GWh_typical_yr",
-                    fill="factor(gen_tech)")
-            ) + \
-            p9.geom_bar(position="stack") + \
-            p9.scale_y_continuous(name='Energy (GWh/yr)') + \
-            p9.theme_bw()
-        save_as = os.path.join(outdir, "dispatch_annual_summary_tech.pdf")
-        annual_summary_plot.save(filename=save_as)
-    except (ImportError, RuntimeError) as err:
-        pass
+        plots = [
+            ("gen_energy_source", "dispatch_annual_summary_fuel.pdf"),
+            ("gen_tech", "dispatch_annual_summary_tech.pdf"),
+        ]
+        for y, outfile in plots:
+            annual_summary_plot = (
+                p9.ggplot(
+                    annual_summary.reset_index(),
+                    p9.aes(
+                        x="period",
+                        weight="Energy_GWh_typical_yr",
+                        fill="factor({})".format(y),
+                    ),
+                )
+                + p9.geom_bar(position="stack")
+                + p9.scale_y_continuous(name="Energy (GWh/yr)")
+                + p9.theme_bw()
+            )
+            annual_summary_plot.save(filename=os.path.join(outdir, outfile))
