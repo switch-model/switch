@@ -17,7 +17,7 @@ import pandas as pd
 from pyomo.environ import *
 
 from switch_model.reporting import write_table
-from switch_model.utilities import one_line
+from switch_model.utilities import unwrap
 
 dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
     'switch_model.financials', 'switch_model.energy_sources.properties', \
@@ -288,7 +288,7 @@ def define_components(mod):
                     "* {}: {} to {}".format(g, min(tps), max(tps))
                     for g, tps in extraneous.items())
                 # basic message for everyone at info level
-                msg = one_line("""
+                msg = unwrap("""
                     {} generation project[s] have data in
                     variable_capacity_factors.csv for timepoints when they are
                     not operable, either before construction is possible or
@@ -296,7 +296,7 @@ def define_components(mod):
                 """.format(num_impacted_generators))
                 if m.logger.isEnabledFor(logging.DEBUG):
                     # more detailed message
-                    msg += one_line("""
+                    msg += unwrap("""
                          You can avoid this message by only placing data in
                         variable_capacity_factors.csv for active periods for
                         each project. If you expect these project[s] to be

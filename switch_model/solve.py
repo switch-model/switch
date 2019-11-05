@@ -6,6 +6,12 @@ from __future__ import print_function
 import logging
 import sys, os, time, shlex, re, inspect, textwrap, types, threading
 try:
+    import IPython
+    has_ipython = True
+except ImportError:
+    has_ipython = False
+
+try:
     # Python 2
     import cPickle as pickle
 except ImportError:
@@ -23,7 +29,8 @@ import pyomo.version
 
 import switch_model
 from switch_model.utilities import (
-    create_model, _ArgumentParser, StepTimer, make_iterable, LogOutput, warn
+    create_model, _ArgumentParser, StepTimer, make_iterable, LogOutput,
+    warn, unwrap
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 
@@ -74,28 +81,42 @@ def main(args=None, return_model=False, return_instance=False):
         # Warn users about deprecated flags; we know this earlier but don't have
         # a working logger to report it until here.
         if '--verbose' in args or '--quiet' in args:
-            logger.warn(
-                "The --verbose and --quiet flags will be removed in a future "
-                "version of Switch. Please use --log-level instead."
-            )
+            logger.warn(unwrap("""
+                The --verbose and --quiet flags will be removed in a future
+                version of Switch. Please use --log-level instead.
+            """))
 
         # Check for outdated inputs. This has to happen before modules.txt is
         # parsed to avoid errors from incompatible files.
         parser = _ArgumentParser(allow_abbrev=False, add_help=False)
         add_module_args(parser)
         module_options = parser.parse_known_args(args=args)[0]
-        if(os.path.exists(module_options.inputs_dir) and
-           do_inputs_need_upgrade(module_options.inputs_dir)):
-            do_upgrade = query_yes_no(
-                "Warning! Your inputs directory needs to be upgraded. "
-                "Do you want to auto-upgrade now? We'll keep a backup of "
-                "this current version."
-            )
+
+        if (os.path.exists(module_options.inputs_dir) and
+                do_inputs_need_upgrade(module_options.inputs_dir)):
+            if '--help' in args or '-h' in args:
+                # don't prompt to upgrade if they're looking for help
+                print(unwrap("""
+                    Limited help is available because the inputs directory
+                    needs to be upgraded. Module-specific help will be
+                    available after upgrading the inputs directory via "switch
+                    solve" or "switch upgrade".
+                """))
+                parser.print_help()
+                return 0
+
+            do_upgrade = query_yes_no(unwrap("""
+                Warning! Your inputs directory needs to be upgraded. Do you
+                want to auto-upgrade now? We'll keep a backup of this current
+                version.
+            """))
             if do_upgrade:
                 upgrade_inputs(module_options.inputs_dir)
             else:
-                print("Inputs need upgrade. Consider `switch upgrade --help`. Exiting.")
-                stop_logging_output()
+                print(unwrap("""
+                    Inputs need to be upgraded. Consider using "switch upgrade
+                    --help". Exiting.
+                """))
                 return -1
 
         # build a module list based on configuration options, and add
@@ -211,24 +232,25 @@ def main(args=None, return_model=False, return_instance=False):
 
     if instance.options.interact:
         m = instance  # present the solved model as 'm' for convenience
-        hr = os.linesep + "="*60 + os.linesep
-        banner_msg = os.linesep.join([
-            "Entering interactive Python shell.",
+        banner = '\n'.join([
+            "",
+            "="*60,
+            "Entering interactive {} shell."
+                .format("IPython" if has_ipython else "Python"),
             "Abstract model is in 'model' variable;",
             "Solved instance is in 'instance' and 'm' variables.",
             "Type ctrl-d or exit() to exit shell.",
+            "="*60,
+            ""
         ])
-        try:
-            import IPython
-            banner_msg += os.linesep + "Use tab to auto-complete"
-            banner = hr + banner_msg + hr
+        if has_ipython:
+            banner += "\nUse tab to auto-complete"
             IPython.embed(
                 banner1=banner,
                 exit_msg="Leaving interactive interpretter, returning to program.",
                 colors=instance.options.interact_color)
-        except ImportError:
+        else:
             import code
-            banner = hr + banner_msg + hr
             code.interact(
                 banner=banner,
                 local=dict(list(globals().items()) + list(locals().items())))
@@ -470,15 +492,17 @@ def define_arguments(argparser):
 
     # iteration options
     argparser.add_argument(
-        "--iterate-list", dest="iterate_list", default=None,
-        help="Text file with a list of modules to iterate until converged "
-             "(default is iterate.txt); each row is one level of iteration, "
-             "and there can be multiple modules on each row"
+        "--iterate-list", dest="iterate_list", default=None, help="""
+            Text file with a list of modules to iterate until converged
+            (default is iterate.txt). Each row is one level of iteration, and
+            there can be multiple modules on each row.
+        """
     )
     argparser.add_argument(
-        "--max-iter", dest="max_iter", type=int, default=None,
-        help="Maximum number of iterations to complete at each level for "
-             "iterated models"
+        "--max-iter", dest="max_iter", type=int, default=None, help="""
+            Maximum number of iterations to complete at each level for iterated
+            models
+        """
     )
 
     # scenario information
@@ -492,55 +516,76 @@ def define_arguments(argparser):
     # so we don't reuse the same name.
     argparser.add_argument(
         "--suffixes", "--suffix", dest="suffixes", nargs="+", action='extend',
-        default=[],
-        help="Extra suffixes to add to the model and exchange with the solver "
-             "(e.g., iis, rc, dual, or slack)")
+        default=[], help="""
+            Extra suffixes to add to the model and exchange with the solver
+            (e.g., iis, rc, dual, or slack)
+        """
+    )
 
     # Define solver-related arguments
     # These are a subset of the arguments offered by "pyomo solve --solver=cplex --help"
     argparser.add_argument(
         "--solver", default="glpk",
-        help='Name of Pyomo solver to use for the model (default is "glpk")')
+        help='Name of Pyomo solver to use for the model (default is "glpk")'
+    )
     argparser.add_argument(
-        "--solver-manager", dest="solver_manager", default="serial",
-        help='Name of Pyomo solver manager to use for the model '
-             '("neos" to use remote NEOS server)')
+        "--solver-manager", dest="solver_manager", default="serial", help="""
+            Name of Pyomo solver manager to use for the model ("neos" to use
+            remote NEOS server)
+        """
+    )
     argparser.add_argument(
         "--solver-io", dest="solver_io", default=None,
-        help="Method for Pyomo to use to communicate with solver")
+        help="Method for Pyomo to use to communicate with solver"
+    )
     # note: pyomo has a --solver-options option but it is not clear
     # whether that does the same thing as --solver-options-string so we don't reuse the same name.
     argparser.add_argument(
         "--solver-options-string", dest="solver_options_string", default=None,
-        help='A quoted string of options to pass to the model solver. '
-             'Each option must be of the form option=value. '
-            '(e.g., --solver-options-string "mipgap=0.001 primalopt=\'\' advance=2 threads=1")')
+        help="""
+            A quoted string of options to pass to the model solver. Each option
+            must be of the form option=value. (e.g., --solver-options-string
+            "mipgap=0.001 primalopt='' advance=2 threads=1")
+        """
+    )
     argparser.add_argument(
-        "--keepfiles", action='store_true', default=None,
-        help="Keep temporary files produced by the solver "
-             "(may be useful with --symbolic-solver-labels)")
+        "--keepfiles", action='store_true', default=None, help="""
+            Keep temporary files produced by the solver (may be useful with
+            --symbolic-solver-labels)
+        """
+    )
     argparser.add_argument(
-        "--stream-output", "--stream-solver", action='store_true', dest="tee", default=None,
-        help="Display information from the solver about its progress "
-             "(usually combined with a suitable --solver-options-string)")
+        "--stream-output", "--stream-solver", action='store_true', dest="tee",
+        default=None, help="""
+            Display information from the solver about its progress (usually
+            combined with a suitable --solver-options-string)
+        """
+    )
     argparser.add_argument(
-        "--no-stream-output", "--no-stream-solver", action='store_false', dest="tee", default=None,
-        help="Don't display information from the solver about its progress")
+        "--no-stream-output", "--no-stream-solver", action='store_false',
+        dest="tee", default=None,
+        help="Don't display information from the solver about its progress"
+    )
     argparser.add_argument(
         "--symbolic-solver-labels", action='store_true', dest='symbolic_solver_labels',
-        default=None,
-        help='Use symbol names derived from the model when interfacing with the solver. '
-            'See "pyomo solve --solver=x --help" for more details.')
+        default=None, help="""
+            Use symbol names derived from the model when interfacing with the
+            solver. See "pyomo solve --solver=x --help" for more details.
+        """
+    )
     argparser.add_argument(
-        "--tempdir", default=None,
-        help='The name of a directory to hold temporary files produced by the '
-             'solver. This is usually paired with --keepfiles and '
-             '--symbolic-solver-labels.')
+        "--tempdir", default=None, help="""
+            The name of a directory to hold temporary files produced by the
+            solver. This is usually paired with --keepfiles and
+            --symbolic-solver-labels.
+        """
+    )
     argparser.add_argument(
         '--retrieve-cplex-mip-duals', dest="retrieve_cplex_mip_duals",
-        default=False, action='store_true',
-        help="Patch Pyomo's solver script for cplex to re-solve and retrieve "
-             "dual values for mixed-integer programs."
+        default=False, action='store_true', help="""
+            Patch Pyomo's solver script for cplex to re-solve and retrieve dual
+            values for mixed-integer programs.
+        """
     )
 
     # General purpose arguments
@@ -550,41 +595,48 @@ def define_arguments(argparser):
     # Define input/output options
     # note: --inputs-dir is defined in add_module_args, because it may specify the
     # location of the module list (deprecated)
-    # argparser.add_argument("--inputs-dir", default="inputs",
-    #     help='Directory containing input files (default is "inputs")')
     argparser.add_argument(
-        "--input-alias", "--input-aliases", dest="input_aliases",
-        nargs='+', default=[], action='extend'
-        help='List of input file substitutions, in form of '
-             'standard_file.csv=alternative_file.csv, useful for sensitivity '
-             'studies with alternative inputs.')
-    argparser.add_argument("--outputs-dir", default="outputs",
-        help='Directory to write output files (default is "outputs")')
-
+        '--input-alias', '--input-aliases', dest='input_aliases',
+        nargs='+', default=[], action='extend', help="""
+            List of input file substitutions, in form of
+            standard_file.csv=alternative_file.csv, useful for sensitivity
+            studies with alternative inputs.
+        """
+    )
     argparser.add_argument(
-        '--no-post-solve', default=False, action='store_true',
-        help="Don't run post-solve code on the completed model "
-             "(i.e., reporting functions).")
+        '--outputs-dir', default='outputs',
+        help='Directory to write output files (default is "outputs")'
+    )
+    argparser.add_argument(
+        '--no-post-solve', default=False, action='store_true', help="""
+            Don't run post-solve code on the completed model (i.e., reporting
+            functions).
+        """
+    )
     argparser.add_argument(
         '--reload-prior-solution', default=False, action='store_true',
-        help='Load a previously saved solution; useful for re-running '
-             'post-solve code or interactively exploring the model '
-             '(via --interact).')
+        help="""
+            Load a previously saved solution; useful for re-running
+            post-solve code or interactively exploring the model (with
+            --interact).
+        """
+    )
     argparser.add_argument(
         '--no-save-solution', default=False, action='store_true',
-        help="Don't save solution after model is solved.")
+        help="Don't save solution after model is solved."
+    )
     argparser.add_argument(
-        '--interact', default=False, action='store_true',
-        help='Enter interactive shell after solving the instance to enable '
-             'inspection of the solved model.')
-    try:
-        import IPython
+        '--interact', default=False, action='store_true', help="""
+            Enter interactive shell after solving the instance to enable
+            inspection of the solved model.
+        """
+    )
+    if has_ipython:
         argparser.add_argument(
             '--interact-color', dest="interact_color", default="NoColor",
-            help='Use this color scheme with the interactive shell.'
-                 'Options: NoColor, LightBG, Linux')
-    except ImportError:
-        pass
+            choices=['NoColor', 'LightBG', 'Linux'],
+            help='Color scheme to use with the IPython interactive shell.'
+        )
 
 
 def add_module_args(parser):
