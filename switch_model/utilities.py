@@ -291,7 +291,7 @@ def post_solve(instance, outputs_dir=None):
             module.post_solve(instance, outputs_dir)
 
 
-def one_line(message):
+def unwrap(message):
     return textwrap.dedent(message).replace(" \n", " ").replace("\n", " ").strip()
 
 
