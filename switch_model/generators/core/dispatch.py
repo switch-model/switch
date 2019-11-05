@@ -573,34 +573,33 @@ def post_solve(instance, outdir):
         os.path.join(outdir, "dispatch_annual_summary.csv"), columns=summary_columns
     )
 
-    try:
-        import plotnine as p9
-    except ImportError:
-        pass
-    else:
-        # plotnine was imported successfully
-        # Filter out spurious warnings from plotnine
-        import warnings
+    import warnings
 
-        for c in [UserWarning, DeprecationWarning, RuntimeWarning, FutureWarning]:
-            warnings.filterwarnings("ignore", category=c, module="plotnine.*")
-
-        plots = [
-            ("gen_energy_source", "dispatch_annual_summary_fuel.pdf"),
-            ("gen_tech", "dispatch_annual_summary_tech.pdf"),
-        ]
-        for y, outfile in plots:
-            annual_summary_plot = (
-                p9.ggplot(
-                    annual_summary.reset_index(),
-                    p9.aes(
-                        x="period",
-                        weight="Energy_GWh_typical_yr",
-                        fill="factor({})".format(y),
-                    ),
+    with warnings.catch_warnings():
+        # suppress warnings during import and use of plotnine
+        warnings.simplefilter("ignore")
+        try:
+            import plotnine as p9
+        except ImportError:
+            pass
+        else:
+            # plotnine was imported successfully
+            plots = [
+                ("gen_energy_source", "dispatch_annual_summary_fuel.pdf"),
+                ("gen_tech", "dispatch_annual_summary_tech.pdf"),
+            ]
+            for y, outfile in plots:
+                annual_summary_plot = (
+                    p9.ggplot(
+                        annual_summary.reset_index(),
+                        p9.aes(
+                            x="period",
+                            weight="Energy_GWh_typical_yr",
+                            fill="factor({})".format(y),
+                        ),
+                    )
+                    + p9.geom_bar(position="stack")
+                    + p9.scale_y_continuous(name="Energy (GWh/yr)")
+                    + p9.theme_bw()
                 )
-                + p9.geom_bar(position="stack")
-                + p9.scale_y_continuous(name="Energy (GWh/yr)")
-                + p9.theme_bw()
-            )
-            annual_summary_plot.save(filename=os.path.join(outdir, outfile))
+                annual_summary_plot.save(filename=os.path.join(outdir, outfile))
