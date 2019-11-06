@@ -84,7 +84,6 @@ def create_model(module_list=None, args=sys.argv[1:], logger=None):
     # needed, we attach a default logger, since all modules assume there's one
     # in place.
     if logger is None:
-        import logging
         logger = logging.getLogger("Switch Default Logger")
     model.logger = logger
 
@@ -103,6 +102,10 @@ def create_model(module_list=None, args=sys.argv[1:], logger=None):
         if hasattr(module, 'define_arguments'):
             module.define_arguments(argparser)
     model.options = argparser.parse_args(args)
+
+    # Apply verbose flag to support code that still uses it (newer code should
+    # use model.logger.isEnabledFor(logging.LEVEL)
+    model.options.verbose = logger.isEnabledFor(logging.INFO)
 
     # Define model components
     for module in model.get_modules():

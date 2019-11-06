@@ -130,9 +130,6 @@ def main(args=None, return_model=False, return_instance=False):
         # Define the model
         model = create_model(modules, args=args, logger=logger)
 
-        # Apply verbose flag to support code that still uses it
-        model.options.verbose = logger.isEnabledFor(logging.INFO)
-
         # Add any suffixes specified on the command line (usually only iis)
         add_extra_suffixes(model)
 
