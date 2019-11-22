@@ -668,8 +668,6 @@ def post_solve(m, outdir):
             "GenCapitalCosts",
             "GenFixedOMCosts",
         ),
-        # Indexes are provided as a tuple, so put (g,p) in parentheses to
-        # access the two components of the index individually.
         values=lambda m, g, p: (
             g,
             p,
@@ -677,7 +675,13 @@ def post_solve(m, outdir):
             m.gen_load_zone[g],
             m.gen_energy_source[g],
             m.GenCapacity[g, p],
-            m.GenCapitalCosts[g, p],
+            m.GenCapitalCosts[g, p]
+            + (
+                m.StorageEnergyFixedCost[g, p]
+                if hasattr(m, "StorageEnergyFixedCost")
+                and (g, p) in m.StorageEnergyFixedCost
+                else 0.0
+            ),
             m.GenFixedOMCosts[g, p],
         ),
     )
