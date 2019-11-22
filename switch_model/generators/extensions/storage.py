@@ -132,21 +132,41 @@ def define_components(mod):
         mod.STORAGE_GEN_BLD_YRS,
         within=NonNegativeReals)
 
-    # Summarize capital costs of energy storage for the objective function.
-    mod.StorageEnergyInstallCosts = Expression(
+    # Summarize capital costs of energy storage for the objective function
+    # Note: A bug in to 2.0.0b3 - 2.0.5, assigned costs that were several times
+    # too high
+    mod.StorageEnergyCapitalCost = Expression(
+        mod.STORAGE_GENS, mod.PERIODS,
+        rule=lambda m, g, p: sum(
+            m.BuildStorageEnergy[g, bld_yr]
+            * m.gen_storage_energy_overnight_cost[g, bld_yr]
+            * crf(m.interest_rate, m.gen_max_age[g])
+            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]
+        )
+    )
+    mod.StorageEnergyFixedCost = Expression(
         mod.PERIODS,
-        rule=lambda m, p: sum(m.BuildStorageEnergy[g, bld_yr] *
-                   m.gen_storage_energy_overnight_cost[g, bld_yr] *
-                   crf(m.interest_rate, m.gen_max_age[g])
-                   for (g, bld_yr) in m.STORAGE_GEN_BLD_YRS))
-    mod.Cost_Components_Per_Period.append(
-        'StorageEnergyInstallCosts')
+        rule=lambda m, p: sum(
+            m.StorageEnergyCapitalCost[g, p] for g in m.STORAGE_GENS
+        )
+    )
+    mod.Cost_Components_Per_Period.append('StorageEnergyFixedCost')
+
+    # 2.0.0b3 code:
+    # mod.StorageEnergyInstallCosts = Expression(
+    # mod.PERIODS,
+    # rule=lambda m, p: sum(m.BuildStorageEnergy[g, bld_yr] *
+    #            m.gen_storage_energy_overnight_cost[g, bld_yr] *
+    #            crf(m.interest_rate, m.gen_max_age[g])
+    #            for (g, bld_yr) in m.STORAGE_GEN_BLD_YRS))
 
     mod.StorageEnergyCapacity = Expression(
         mod.STORAGE_GENS, mod.PERIODS,
         rule=lambda m, g, period: sum(
             m.BuildStorageEnergy[g, bld_yr]
-            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, period]))
+            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, period]
+        )
+    )
 
     mod.STORAGE_GEN_TPS = Set(
         dimen=2,
