@@ -42,7 +42,7 @@ def define_components(mod):
     ZONE_FUELS is the set of fuels available in load zones. It is specified
     as set of 2-member tuples of (load_zone, fuel).
 
-    zone_rfm[z, f] is the regional fuel market that supplies a a given load
+    zone_fuel_rfm[z, f] is the regional fuel market that supplies a a given load
     zone. Regional fuel markets may be referred to as fuel regions for
     brevity. A regional fuel market could be as small as a single load
     zone or as large as the entire study region. In general, each fuel
@@ -52,7 +52,7 @@ def define_components(mod):
     that define different regional markets.
 
     ZONE_RFMS is the set of all load-zone regional fuel market combinations.
-    It is the input data from which zone_rfm[z,f] is derived.
+    It is the input data from which zone_fuel_rfm[z,f] is derived.
 
     ZONES_IN_RFM[rfm] is an indexed set that lists the load zones
     within each regional fuel market.
@@ -213,14 +213,15 @@ def define_components(mod):
         dimen=2, initialize=lambda m: set(
             (z, m.rfm_fuel[rfm]) for (z, rfm) in m.ZONE_RFMS))
 
-    def zone_rfm_init(m, load_zone, fuel):
+    def zone_fuel_rfm_init(m, load_zone, fuel):
+        # find first (only) matching rfm
         for (z, rfm) in m.ZONE_RFMS:
             if(z == load_zone and fuel == m.rfm_fuel[rfm]):
                 return rfm
-    mod.zone_rfm = Param(
+    mod.zone_fuel_rfm = Param(
         mod.ZONE_FUELS, within=mod.REGIONAL_FUEL_MARKETS,
-        initialize=zone_rfm_init)
-    mod.min_data_check('REGIONAL_FUEL_MARKETS', 'rfm_fuel', 'zone_rfm')
+        initialize=zone_fuel_rfm_init)
+    mod.min_data_check('REGIONAL_FUEL_MARKETS', 'rfm_fuel', 'zone_fuel_rfm')
     mod.ZONES_IN_RFM = Set(
         mod.REGIONAL_FUEL_MARKETS,
         initialize=lambda m, rfm: set(
@@ -268,7 +269,7 @@ def define_components(mod):
     # negative because that would create an unbounded optimization
     # problem.
     def zone_fuel_cost_adder_validate(model, val, z, fuel, p):
-        rfm = model.zone_rfm[z, fuel]
+        rfm = model.zone_fuel_rfm[z, fuel]
         for rfm_supply_tier in model.SUPPLY_TIERS_FOR_RFM_PERIOD[rfm, p]:
             if(val + model.rfm_supply_tier_cost[rfm_supply_tier] < 0 and
                model.rfm_supply_tier_limit[rfm_supply_tier] == float('inf')):
@@ -300,18 +301,14 @@ def define_components(mod):
             d = m.GENS_FOR_RFM_PERIOD_dict
         except AttributeError:
             d = m.GENS_FOR_RFM_PERIOD_dict = dict()
-            # d uses (zone, fuel, period) as key; could use (rfm, period) as key
-            # if m.zone_fuel_rfm (back-lookup) existed
             for g in m.FUEL_BASED_GENS:
                 for f in m.FUELS_FOR_GEN[g]:
                     for p_ in m.PERIODS_FOR_GEN[g]:
-                        d.setdefault((m.gen_load_zone[g], f, p_), []).append(g)
-        relevant_gens = [
-            g
-            for z in m.ZONES_IN_RFM[rfm]
-            for g in d.pop((z, m.rfm_fuel[rfm], p), []) # pop releases memory
-        ]
-        return relevant_gens
+                        # d uses (rfm, period) as key
+                        d.setdefault(
+                            (m.zone_fuel_rfm[m.gen_load_zone[g], f], p_), []
+                        ).append(g)
+        return d.pop((rfm, p), []) # pop releases memory
     mod.GENS_FOR_RFM_PERIOD = Set(
         mod.REGIONAL_FUEL_MARKETS, mod.PERIODS,
         initialize=GENS_FOR_RFM_PERIOD_rule
@@ -344,11 +341,11 @@ def define_components(mod):
                 m.FuelConsumptionInMarket[rfm, p] + 0.0001
             )
         )
-    ) 
+    )
 
     def GenFuelCosts_rule(m, g, t, f):
         try:
-            rfm = m.zone_rfm[m.gen_load_zone[g], f]
+            rfm = m.zone_fuel_rfm[m.gen_load_zone[g], f]
         except KeyError: # Fuel is unavailable
             return 0.0
         p = m.tp_period[t]
@@ -357,7 +354,7 @@ def define_components(mod):
         mod.GEN_TP_FUELS,
         doc="Average cost of fuel consumption, $/hr for post-optimization "
             "reporting.",
-        rule=GenFuelCosts_rule        
+        rule=GenFuelCosts_rule
     )
 
 
