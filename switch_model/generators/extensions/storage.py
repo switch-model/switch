@@ -59,12 +59,12 @@ def define_components(mod):
     given investment period. This is only defined for storage technologies.
     Note that this describes the energy component and the overnight_cost
     describes the power component.
-    
+
     gen_predetermined_storage_energy_mwh[(g, bld_yr) in
     PREDETERMINED_GEN_BLD_YRS] is the amount of storage that has either been
     installed previously, or is slated for installation and is not a free
     decision variable. This is analogous to gen_predetermined_cap, but in
-    units of energy of storage capacity (MWh) rather than power (MW). 
+    units of energy of storage capacity (MWh) rather than power (MW).
 
     BuildStorageEnergy[(g, bld_yr) in STORAGE_GEN_BLD_YRS]
     is a decision of how much energy capacity to build onto a storage
@@ -148,21 +148,41 @@ def define_components(mod):
         within=NonNegativeReals,
         bounds=bounds_BuildStorageEnergy)
 
-    # Summarize capital costs of energy storage for the objective function.
-    mod.StorageEnergyInstallCosts = Expression(
+    # Summarize capital costs of energy storage for the objective function
+    # Note: A bug in to 2.0.0b3 - 2.0.5, assigned costs that were several times
+    # too high
+    mod.StorageEnergyCapitalCost = Expression(
+        mod.STORAGE_GENS, mod.PERIODS,
+        rule=lambda m, g, p: sum(
+            m.BuildStorageEnergy[g, bld_yr]
+            * m.gen_storage_energy_overnight_cost[g, bld_yr]
+            * crf(m.interest_rate, m.gen_max_age[g])
+            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]
+        )
+    )
+    mod.StorageEnergyFixedCost = Expression(
         mod.PERIODS,
-        rule=lambda m, p: sum(m.BuildStorageEnergy[g, bld_yr] *
-                   m.gen_storage_energy_overnight_cost[g, bld_yr] *
-                   crf(m.interest_rate, m.gen_max_age[g])
-                   for (g, bld_yr) in m.STORAGE_GEN_BLD_YRS))
-    mod.Cost_Components_Per_Period.append(
-        'StorageEnergyInstallCosts')
+        rule=lambda m, p: sum(
+            m.StorageEnergyCapitalCost[g, p] for g in m.STORAGE_GENS
+        )
+    )
+    mod.Cost_Components_Per_Period.append('StorageEnergyFixedCost')
+
+    # 2.0.0b3 code:
+    # mod.StorageEnergyInstallCosts = Expression(
+    # mod.PERIODS,
+    # rule=lambda m, p: sum(m.BuildStorageEnergy[g, bld_yr] *
+    #            m.gen_storage_energy_overnight_cost[g, bld_yr] *
+    #            crf(m.interest_rate, m.gen_max_age[g])
+    #            for (g, bld_yr) in m.STORAGE_GEN_BLD_YRS))
 
     mod.StorageEnergyCapacity = Expression(
         mod.STORAGE_GENS, mod.PERIODS,
         rule=lambda m, g, period: sum(
             m.BuildStorageEnergy[g, bld_yr]
-            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, period]))
+            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, period]
+        )
+    )
 
     mod.STORAGE_GEN_TPS = Set(
         dimen=2,
@@ -256,9 +276,9 @@ def load_inputs(mod, switch_data, inputs_dir):
     gen_build_costs.csv
         GENERATION_PROJECT, build_year, ...
         gen_storage_energy_overnight_cost
-    
+
     gen_build_predetermined.tab
-        GENERATION_PROJECT, build_year, ..., 
+        GENERATION_PROJECT, build_year, ...,
         gen_predetermined_storage_energy_mwh*
 
     """
