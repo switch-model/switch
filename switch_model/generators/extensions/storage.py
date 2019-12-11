@@ -5,15 +5,28 @@
 This module defines storage technologies. It builds on top of generic
 generators, adding components for deciding how much energy to build into
 storage, when to charge, energy accounting, etc.
+
+To do: 
+
+* Add optional ability to exogenously constrain StateOfCharge based on
+input files. See notes under the Track_State_Of_Charge documentation below.
+* Update the PumpedHydro features to work with the hydro_system module,
+and use full mass balance accounting.
 """
 
 from pyomo.environ import *
 import os, collections
 from switch_model.financials import capital_recovery_factor as crf
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
-    'switch_model.financials', 'switch_model.energy_sources.properties', \
-    'switch_model.generators.core.build', 'switch_model.generators.core.dispatch'
+dependencies = (
+    'switch_model.timescales',
+    'switch_model.balancing.load_zones',
+    'switch_model.financials',
+    'switch_model.energy_sources.properties',
+    'switch_model.generators.core.build', 
+    'switch_model.generators.core.dispatch'
+)
+optional_prerequisites = ('switch_model.generators.extensions.hydro_simple',)
 
 def define_components(mod):
     """
@@ -35,11 +48,11 @@ def define_components(mod):
     for extended time perios, then those behaviors will need to be
     modeled in more detail.
 
-    gen_store_to_release_ratio[STORAGE_GENS] describes the maximum rate
-    that energy can be stored, expressed as a ratio of discharge power
-    capacity. This is an optional parameter and will default to 1. If a
-    storage project has 1 MW of dischage capacity and a gen_store_to_release_ratio
-    of 1.2, then it can consume up to 1.2 MW of power while charging.
+    gen_store_to_release_ratio[STORAGE_GENS] describes the maximum rate that
+    energy can be stored, expressed as a ratio of discharge power capacity.
+    This is an optional parameter and will default to 1. If a storage project
+    has 1 MW of dischage capacity and a gen_store_to_release_ratio of 1.2,
+    then it can consume up to 1.2 MW of power while charging.
 
     gen_storage_energy_to_power_ratio[STORAGE_GENS], if specified, restricts
     the storage capacity (in MWh) to be a fixed multiple of the output
@@ -66,37 +79,60 @@ def define_components(mod):
     decision variable. This is analogous to gen_predetermined_cap, but in
     units of energy of storage capacity (MWh) rather than power (MW). 
 
-    BuildStorageEnergy[(g, bld_yr) in STORAGE_GEN_BLD_YRS]
-    is a decision of how much energy capacity to build onto a storage
-    project. This is analogous to BuildGen, but for energy rather than power.
+    BuildStorageEnergy[(g, bld_yr) in STORAGE_GEN_BLD_YRS] is a decision of
+    how much energy capacity to build onto a storage project in units of MWh.
+    This is analogous to BuildGen, but for energy rather than power.
 
-    StorageEnergyInstallCosts[PERIODS] is an expression of the
-    annual costs incurred by the BuildStorageEnergy decision.
+    StorageEnergyInstallCosts[PERIODS] is an expression of the annual costs
+    incurred by the BuildStorageEnergy decision, in units of $/MWh.
 
     StorageEnergyCapacity[g, period] is an expression describing the
-    cumulative available energy capacity of BuildStorageEnergy. This is
-    analogous to GenCapacity.
+    cumulative available energy capacity of BuildStorageEnergy in units of
+    MWh. This is analogous to GenCapacity.
 
     STORAGE_GEN_TPS is the subset of GEN_TPS,
     restricted to storage projects.
 
-    ChargeStorage[(g, t) in STORAGE_GEN_TPS] is a dispatch
-    decision of how much to charge a storage project in each timepoint.
+    ChargeStorage[(g, t) in STORAGE_GEN_TPS] is a dispatch decision of how
+    much to charge a storage project in each timepoint in units of MW.
 
     StorageNetCharge[LOAD_ZONE, TIMEPOINT] is an expression describing the
-    aggregate impact of ChargeStorage in each load zone and timepoint.
+    aggregate impact of ChargeStorage in each load zone and timepoint in units
+    of MW.
 
     Charge_Storage_Upper_Limit[(g, t) in STORAGE_GEN_TPS]
     constrains ChargeStorage to available power capacity (accounting for
     gen_store_to_release_ratio)
 
-    StateOfCharge[(g, t) in STORAGE_GEN_TPS] is a variable
-    for tracking state of charge. This value stores the state of charge at
-    the end of each timepoint for each storage project.
+    StateOfCharge[(g, t) in STORAGE_GEN_TPS] is a variable for tracking state
+    of charge, in units of MWh. This value stores the state of charge at the
+    end of each timepoint for each storage project.
+    
+    Track_State_Of_Charge[(g, t) in STORAGE_GEN_TPS] constrains StateOfCharge
+    based on the StateOfCharge in the previous timepoint, ChargeStorage and
+    DispatchGen. If pumped hydro projects are available (defined in the
+    optional prerequisite simple_hydro module), this constraint will also
+    include average stream inflow and spilled water for pumped hydro projects.
 
-    Track_State_Of_Charge[(g, t) in STORAGE_GEN_TPS] constrains
-    StateOfCharge based on the StateOfCharge in the previous timepoint,
-    ChargeStorage and DispatchGen.
+    With the current circular implementation of each timeseries,
+    StateOfCharge[first] = StateOfCharge[last] + net_energy. This effectively
+    allows each timeseries to begin and end with any given charge level (0 to
+    100% of energy capacity), and the optimization process will choose a value
+    that is convenient. 
+    
+    For some applications, you may wish to constrain the StateOfCharge values
+    to pre-determined values, which would require writing a new module that
+    reads data and applies a constraint to StateOfCharge at the beginning of
+    each day - either as a fixed amount of energy (MWh) or as a fraction of
+    energy storage capacity (%). Or alternately, updating this file to include
+    that behavior as an optional feature.
+    
+    Other applications may require linking consecutive timeseries so that the
+    StateOfCharge carries over from one timeseries to the next. That would
+    require writing a new version of the timescales module and redefining
+    tp_previous to use sequential indexing rather than consecutive. Note, that
+    strategy is not required for 8760 hourly/annual production cost models;
+    those problems can define a single timeseries of an entire year. 
 
     State_Of_Charge_Upper_Limit[(g, t) in STORAGE_GEN_TPS]
     constrains StateOfCharge based on installed energy capacity.
@@ -214,10 +250,23 @@ def define_components(mod):
         within=NonNegativeReals)
 
     def Track_State_Of_Charge_rule(m, g, t):
-        return m.StateOfCharge[g, t] == \
-            m.StateOfCharge[g, m.tp_previous[t]] + \
+        new_energy = (
+            m.StateOfCharge[g, m.tp_previous[t]] + 
             (m.ChargeStorage[g, t] * m.gen_storage_efficiency[g] -
              m.DispatchGen[g, t]) * m.tp_duration_hrs[t]
+        )
+        # Try to update the energy balance for pumped hydro from the
+        # hydro_simple module, but skip it if hydro terms haven't been
+        # defined.
+        try:
+            if m.gen_is_pumped_hydro[g]:
+                ts = m.tp_ts[t]
+                new_energy += (
+                    m.hydro_avg_flow_mw[g, ts] - m.SpillHydro[g, t]
+                ) * m.tp_duration_hrs[t]
+        except AttributeError:
+            pass
+        return m.StateOfCharge[g, t] == new_energy
     mod.Track_State_Of_Charge = Constraint(
         mod.STORAGE_GEN_TPS,
         rule=Track_State_Of_Charge_rule)
@@ -257,25 +306,40 @@ def load_inputs(mod, switch_data, inputs_dir):
         GENERATION_PROJECT, build_year, ...
         gen_storage_energy_overnight_cost
     
-    gen_build_predetermined.tab
+    gen_build_predetermined.csv
         GENERATION_PROJECT, build_year, ..., 
         gen_predetermined_storage_energy_mwh*
 
     """
 
-    # TODO: maybe move these columns to a storage_gen_info file to avoid the weird index
-    # reading and avoid having to create these extra columns for all projects;
-    # Alternatively, say that these values are specified for _all_ projects (maybe with None
-    # as default) and then define STORAGE_GENS as the subset of projects for which
-    # gen_storage_efficiency has been specified, then require valid settings for all
-    # STORAGE_GENS.
+    # TODO: consider moving these columns to a storage_gen_info file to avoid
+    # avoid having to create these extra columns for all projects, and to
+    # allow unambiguous marking of storage projects without looking for
+    # non-empty gen_storage_efficiency columns. This is similar to how
+    # simple_hydro specifies input files. Pro: less empty values for
+    # non-storage projects. Con: another input file to keep track of.
+    # Alternatively, say that these values are specified for _all_ projects
+    # (maybe with None as default) and then define STORAGE_GENS as the subset
+    # of projects for which gen_storage_efficiency has been specified, then
+    # require valid settings for all STORAGE_GENS.
+    # Note: The current implementation is similar to the 2nd option above, but
+    # requires checking `g in mod.gen_storage_efficiency` rather than checking
+    # `mod.gen_storage_efficiency[g] is not None`.
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'generation_projects_info.csv'),
         auto_select=True,
-        optional_params=['gen_store_to_release_ratio', 'gen_storage_energy_to_power_ratio', 'gen_storage_max_cycles_per_year'],
-        param=(mod.gen_storage_efficiency, mod.gen_store_to_release_ratio, mod.gen_storage_energy_to_power_ratio, mod.gen_storage_max_cycles_per_year))
+        optional_params=[
+            'gen_store_to_release_ratio', 
+            'gen_storage_energy_to_power_ratio',
+            'gen_storage_max_cycles_per_year'],
+        param=(
+            mod.gen_storage_efficiency, 
+            mod.gen_store_to_release_ratio,
+            mod.gen_storage_energy_to_power_ratio,
+            mod.gen_storage_max_cycles_per_year))
     # Base the set of storage projects on storage efficiency being specified.
-    # TODO: define this in a more normal way
+    # TODO: define this in a more normal way, possibly with a binary flag
+    # gen_is_storage.
     switch_data.data()['STORAGE_GENS'] = {
         None: list(switch_data.data(name='gen_storage_efficiency').keys())}
     switch_data.load_aug(
@@ -284,7 +348,7 @@ def load_inputs(mod, switch_data, inputs_dir):
         param=(mod.gen_storage_energy_overnight_cost))
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'gen_build_predetermined.tab'),
+        filename=os.path.join(inputs_dir, 'gen_build_predetermined.csv'),
         auto_select=True,
         param=(mod.gen_predetermined_storage_energy_mwh))
 
