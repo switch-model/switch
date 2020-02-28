@@ -197,6 +197,10 @@ def get_queries(args):
         )
         args["tech_scen_id"] = args["cap_cost_scen_id"]
 
+    if "ev_charge_profile" not in args:
+        print("No ev_charge_profile specified; using das_2015")
+        args["ev_charge_profile"] = "das_2015"
+
     # fill in default arguments (use a dummy technology '-' if none supplied)
     args["exclude_technologies"] = args.get("exclude_technologies", ("-",))
 
@@ -374,7 +378,8 @@ def get_queries(args):
                 AND s.year_fore = d.period)
         WHERE l.load_zone in %(load_zones)s
             AND d.time_sample = %(time_sample)s
-            AND load_scen_id = %(load_scen_id)s;
+            AND load_scen_id = %(load_scen_id)s
+        ORDER BY 1, 2;
     """,
         args,
     )
@@ -449,6 +454,11 @@ def get_queries(args):
 
     if simple_fuel_costs:
         # simple fuel markets with no bulk LNG expansion option (use fuel_cost module)
+        print(
+            "WARNING: need to update simple fuel costs calculation to use the "
+            "average for the study period (like fuel supply curves) instead of "
+            "first-year values."
+        )
         if "use_bulk_lng_for_simple_fuel_costs" in args:
             raise ValueError(
                 "use_bulk_lng_for_simple_fuel_costs argument is no longer supported; "
@@ -633,7 +643,9 @@ def get_queries(args):
             "GENERATION_PROJECT",
             load_zone AS gen_load_zone,
             technology AS gen_tech,
-            spur_line_cost_per_mw + 1000 * substation_cost_per_kw AS gen_connect_cost_per_mw,
+            (spur_line_cost_per_mw + 1000.0 * substation_cost_per_kw)
+                * power(1.0+%(inflation_rate)s, %(base_financial_year)s-base_year)
+                AS gen_connect_cost_per_mw,
             max_capacity AS gen_capacity_limit_mw,
             unit_size as gen_unit_size,
             max_age_years as gen_max_age,
@@ -644,7 +656,9 @@ def get_queries(args):
             -- 0 as gen_is_flexible_baseload,
             cogen as gen_is_cogen,
             -- non_cycling as gen_non_cycling,
-            variable_o_m * 1000.0 AS gen_variable_om,
+            (1000.0 * variable_o_m)
+                * power(1.0+%(inflation_rate)s, %(base_financial_year)s-base_year)
+                AS gen_variable_om,
             CASE WHEN fuel IN ('SUN', 'WND', 'MSW', 'Battery', 'Hydro') THEN fuel ELSE 'multiple' END AS gen_energy_source,
             CASE WHEN fuel IN ('SUN', 'WND', 'MSW', 'Battery', 'Hydro') THEN null ELSE {flhr} END AS gen_full_load_heat_rate,
             min_uptime as gen_min_uptime,
@@ -1041,7 +1055,8 @@ def get_queries(args):
                 JOIN study_date d ON d.period = e.year
                 JOIN study_hour h USING (study_date, time_sample)
                 JOIN ev_hourly_charge_profile p
-                    ON p.hour_of_day = h.hour_of_day
+                    ON p.charge_profile = %(ev_charge_profile)s
+                        AND p.hour_of_day = h.hour_of_day
             WHERE load_zone in %(load_zones)s
                 AND time_sample = %(time_sample)s
                 AND ev_scenario = %(ev_scenario)s
