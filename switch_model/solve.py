@@ -262,6 +262,9 @@ def main(args=None, return_model=False, return_instance=False):
                 banner=banner,
                 local=dict(list(globals().items()) + list(locals().items())))
 
+    # return solved model for users who want to do other things with it
+    return instance
+
 
 def reload_prior_solution_from_pickle(instance, pickle_file):
     with open(pickle_file, 'rb') as fh:
