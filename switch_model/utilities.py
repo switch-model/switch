@@ -773,12 +773,24 @@ class TeeStream(object):
         methods, etc.
         """
         return getattr(self.stream1, *args, **kwargs)
-    def write(self, *args, **kwargs):
-        self.stream1.write(*args, **kwargs)
-        self.stream2.write(*args, **kwargs)
-    def flush(self, *args, **kwargs):
-        self.stream1.flush(*args, **kwargs)
-        self.stream2.flush(*args, **kwargs)
+    def write(self, text):
+        for f in [self.stream1, self.stream2]:
+            if f.isatty() or '\b' not in text:
+                # normal processing
+                f.write(text)
+            else:
+                for c in text:
+                    if c == '\b':
+                        # move one character before current position, to
+                        # overwrite current character like a terminal
+                        # (Python can't do f.seek(-1, 1) for some reason.)
+                        f.seek(f.tell()-1)
+                    else:
+                        f.write(c)
+        return len(text)
+    def flush(self):
+        self.stream1.flush()
+        self.stream2.flush()
 
 class LogOutput(object):
     """
@@ -829,6 +841,86 @@ class LogOutput(object):
                 file_path = path('%Y-%m-%d_%H-%M-%S.%f')
         return file_path
 
+class TimingLineCounterStream(object):
+    """
+    Virtual stream that intercepts lines like '0 seconds to construct  Set
+    PERIODS; 1 index total\n' sent from Pyomo to stdout and turns them into a
+    count of constructed components. Designed for use with
+    model.create_instance(report_timing=True)
+    """
+    match_line = re.compile(r'^[ ]*[0-9.]+ seconds to construct .* total\n$')
+
+    def __init__(self, orig_stream, model):
+        self.orig_stream = orig_stream
+        self.model = model
+        self.last_message = ''
+        self.components_completed = 0
+    def __getattr__(self, *args, **kwargs):
+        """
+        Provide orig_stream attributes when attributes are requested for this class.
+        This supports code that assumes sys.stdout is an object with its own
+        methods, etc.
+        """
+        return getattr(self.orig_stream, *args, **kwargs)
+    def write(self, text):
+        if self.last_message and self.orig_stream.isatty():
+                # Remove previous progress message; also overwrite with spaces
+                # in case it's at end of a line. We skip this when not in a
+                # terminal, e.g., in an IPython kernel.
+                self.orig_stream.write(''.join(
+                    c * len(self.last_message) for c in '\b \b'
+                ))
+        if self.match_line.match(text):
+            self.components_completed += 1
+
+            # report on progress
+            # Note: the attached model is the abstract version, not the
+            # instance currently being constructed, so we have no way to know
+            # if components are added or deleted during construction. So we just
+            # use the original component count and update if we overshoot.
+            self.last_message = '{} of {} components constructed{}'.format(
+                self.components_completed,
+                max(self.components_completed, len(self.model._decl_order)),
+                '' if self.orig_stream.isatty() else '\n'
+            )
+        else:
+            # normal text, not a timing report
+            self.orig_stream.write(text)
+        # write the current message (possibly repeating below some normal text)
+        self.orig_stream.write(self.last_message)
+
+        return len(text)
+
+class TimingLineCounter(object):
+    """
+    Intercept lines like '0 seconds to construct Set PERIODS; 1 index total'
+    sent to stdout and turn them into a percentage count, relative to size of
+    the passed model. Designed for use with model.create_instance(report_timing=True)
+    """
+    def __init__(self, model):
+        self.model = model
+    def __enter__(self):
+        self.stdout = sys.stdout
+        sys.stdout = TimingLineCounterStream(sys.stdout, self.model)
+    def __exit__(self, type, value, traceback):
+        if getattr(sys.stdout, 'last_message', ''):
+            # add newline after last status message
+            sys.stdout.last_message = ''
+            print("")
+        sys.stdout = self.stdout
+
+# test_model = lambda: None
+# test_model._decl_order = [1, 2, 3]
+# lines = """Hello world!
+#         0.01 seconds to construct Constraint Force_LNG_Tier; 260 indices total
+# Blocking activation of tier ('Hawaii_LNG', 2045, 'container_25').
+#         0.19 seconds to construct Set LNG_GEN_TIMEPOINTS; 1 index total
+# Here's another message!
+#         0.19 seconds to construct Set LNG_GEN_TIMEPOINTS; 1 index total"""
+# with CountTimingLines(test_model):
+#     for line in lines.split('\n'):
+#         print(line)
+#         time.sleep(0.5)
 
 def iteritems(obj):
     """ Iterator of key, value pairs for obj;
