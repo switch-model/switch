@@ -87,6 +87,15 @@ def main(args=None, return_model=False, return_instance=False):
         logs_dir = None  # disables logging
 
     with LogOutput(logs_dir):
+        logger.info(
+            "\n======================================================================="
+        )
+        logger.info(
+            "Switch {}, http://switch-model.org".format(switch_model.__version__)
+        )
+        logger.info(
+            "======================================================================="
+        )
 
         # Warn users about deprecated flags; we know this earlier but don't have
         # a working logger to report it until here.
@@ -176,10 +185,6 @@ def main(args=None, return_model=False, return_instance=False):
         if model.options.verbose:
             print(
                 "\n======================================================================="
-            )
-            print("Switch {}, http://switch-model.org".format(switch_model.__version__))
-            print(
-                "======================================================================="
             )
             print("Arguments:")
             print(
