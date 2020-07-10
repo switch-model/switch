@@ -19,8 +19,8 @@ def define_components(m):
         # DistPV from http://programs.dsireusa.org/system/program/detail/1235
         (2018, 'DistPV'): 0.3,
         (2019, 'DistPV'): 0.3,
-        (2020, 'DistPV'): 0.3,
-        (2021, 'DistPV'): 0.3,
+        (2020, 'DistPV'): 0.26,
+        (2021, 'DistPV'): 0.22,
         # Wind, Solar and Geothermal ITC from
         # http://programs.dsireusa.org/system/program/detail/658
         (2018, 'CentralTrackingPV'): 0.3,
