@@ -304,9 +304,9 @@ def load_inputs(mod, switch_data, inputs_dir):
         param=(mod.gen_storage_energy_overnight_cost))
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'gen_build_predetermined.tab'),
+        filename=os.path.join(inputs_dir, 'gen_build_predetermined.csv'),
         auto_select=True,
-        param=(mod.gen_predetermined_storage_energy_mwh))
+        param=mod.gen_predetermined_storage_energy_mwh)
 
 
 def post_solve(instance, outdir):
