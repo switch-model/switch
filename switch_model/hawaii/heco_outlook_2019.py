@@ -19,7 +19,7 @@ def NOTE(note):
     # time.sleep(2)
 
 def define_arguments(argparser):
-    argparser.add_argument('--psip-force', action='store_true', default=True,
+    argparser.add_argument('--psip-force', action='store_true', default=False,
         help="Force following of PSIP plans (building exact amounts of certain technologies).")
     argparser.add_argument('--psip-relax', dest='psip_force', action='store_false',
         help="Relax PSIP plans, to find a more optimal strategy.")
@@ -153,62 +153,68 @@ def define_components(m):
     #     model RFP PV+BESS and forecasted DGPV+DESS.
     # """)
     tech_group_targets_definite = [
-        # installations based on installed capacity used in RESOLVE, as shown in
-        # /s/data/HECO Plans/PSIP-WebDAV/2017-01-31 Response to Parties IRs/CA-IR-1/Input and Output Files by Case/E3 and Company Defined Cases/Market DGPV (Reference)/OA_NOLNG/planned_installed_capacities.tab
-        # Also see "Market DGPV" forecast in Figure J-10 and Table J-22 of 2016-12-23 PSIP (Vol. 3),
-        # which match these levels. Figure J-10 notes that these include FIT
-        # projects, so those are modeled separately below.
-        # Note: code further below adds in reconstruction of early installations
-        (2020, "DistPV", 606.3-444),  # net of 444 installed as of 2016 (in existing generators workbook)
-        (2022, "DistPV", 680.3-606.3),
-        (2025, "DistPV", 744.9-680.3),
-        (2030, "DistPV", 868.7-744.9),
-        (2035, "DistPV", 1015.4-868.7),
-        (2040, "DistPV", 1163.4-1015.4),
-        (2045, "DistPV", 1307.9-1163.4),
-
-        # NOTE: we add together all the different distributed PV programs in
-        # Figure J-10, on the assumption that private systems (including those
-        # on self-supply tariffs) will only be curtailed at times when the whole
-        # system is curtailed, so there's no need to model different private
-        # curtailment behavior. This is equivalent to assuming that HECO
-        # eventually offers some program to accept power from CSS and SIA
-        # systems when the system can use it, instead of forcing curtailment at
-        # those times.
-
-        # NOTE: It is unclear from PSIP (p. J-25) whether the forecasted "New Grid
-        # Export" program in Fig. J-10 corresponds to the "CGS+" tariff (can
-        # export  during day or the "Smart Export" tariff (can only export at
-        # night); both were introduced in late 2017
-        # https://www.hawaiianelectric.com/documents/products_and_services/customer_renewable_programs/20171020_hawaii_PUC_rooftop_solar_and_storage_press_release.pdf
-        # We assume this corresponds to CGS+.
-
-        # Distributed energy storage (DESS) forecasted in PSIP Table J-27, p.
-        # J-65, "O'ahu Self-Supply DESS Forecast Cumulative Installed Capacity".
-        # PSIP p. G-12 reports that distributed batteries have two hour life,
-        # but that seems short for long-term system design, so we use 4 hours.
-        (2020, "DistBattery", ((56)/4, 4)),
-        (2022, "DistBattery", ((79-56)/4, 4)),
-        (2025, "DistBattery", ((108-79)/4, 4)),
-        (2030, "DistBattery", ((157-108)/4, 4)),
-        (2035, "DistBattery", ((213-157)/4, 4)),
-        (2040, "DistBattery", ((264-213)/4, 4)),
-        (2045, "DistBattery", ((306-264)/4, 4)),
-        # TODO: We could potentially model part of the DESS as being paired with
-        # some amount of PV from the CSS pool. (PSIP p. J-25 says distributed
-        # energy storage systems (DESS) were paired with DGPV for small
-        # customers and sized optimally, but large customers were assumed not to
-        # need it because they could take daytime load reductions directly.)
-        # However, since PSIP reports that storage sizes were optimized, we
-        # assume these batteries are able to serve load as effectively as
-        # centralized batteries, so we just model them as generic batteries.
-
-        # NOTE: PSIP p. J-25 says "Additional stand-alone DESS, not necessarily
-        # paired with PV, were projected to participate in Demand Response
-        # programs". PSIP doesn't show these quantities and they are not in the
-        # RESOLVE inputs (the PV-paired DESS weren't in RESOLVE either). We
-        # assume these are part of the pool of bulk storage selected by Switch,
-        # since they participate on an economic basis.
+        # HECO June 2018 forecast, saved on shared drive in PBR docket
+        # See the following:
+        # email from Doug Codiga 11/19/19: "FW: October RWG and PWG Meeting Follow-Ups"
+        # forecasts stored in https://drive.google.com/open?id=1ToL7x-m17M2t0Cfd5k6w8no0rDiPy31l
+        # "/s/data/Generator Info/HECO Dist PV Forecast Jun 2018.xlsx"
+        # We assume all DistPV and DistBattery are used efficiently/optimally,
+        # i.e., we do not attempt to model non-optimal pairing of DistPV with
+        # DistBattery or curtailment on self-supply tariffs.
+        (2020, 'DistPV', 118.336), # net of 444 in existing capacity
+        (2021, 'DistPV', 29.51),
+        (2022, 'DistPV', 22.835),
+        (2023, 'DistPV', 19.168),
+        (2024, 'DistPV', 23.087),
+        (2025, 'DistPV', 24.322),
+        (2026, 'DistPV', 25.888),
+        (2027, 'DistPV', 27.24),
+        (2028, 'DistPV', 28.387),
+        (2029, 'DistPV', 29.693),
+        (2030, 'DistPV', 30.522),
+        (2031, 'DistPV', 31.32),
+        (2032, 'DistPV', 32.234),
+        (2033, 'DistPV', 32.42),
+        (2034, 'DistPV', 32.98),
+        (2035, 'DistPV', 33.219),
+        (2036, 'DistPV', 32.785),
+        (2037, 'DistPV', 33.175),
+        (2038, 'DistPV', 33.011),
+        (2039, 'DistPV', 33.101),
+        (2040, 'DistPV', 33.262),
+        (2041, 'DistPV', 33.457),
+        (2042, 'DistPV', 33.343),
+        (2043, 'DistPV', 34.072),
+        (2044, 'DistPV', 34.386),
+        (2045, 'DistPV', 35.038),
+        # note: HECO provides a MWh forecast; we assume inverters are large
+        # enough to charge in 4h
+        (2020, 'DistBattery', (31.941, 4)),
+        (2021, 'DistBattery', (12.968, 4)),
+        (2022, 'DistBattery', (9.693, 4)),
+        (2023, 'DistBattery', (3.135, 4)),
+        (2024, 'DistBattery', (3.732, 4)),
+        (2025, 'DistBattery', (4.542, 4)),
+        (2026, 'DistBattery', (5.324, 4)),
+        (2027, 'DistBattery', (6.115, 4)),
+        (2028, 'DistBattery', (6.719, 4)),
+        (2029, 'DistBattery', (7.316, 4)),
+        (2030, 'DistBattery', (7.913, 4)),
+        (2031, 'DistBattery', (8.355, 4)),
+        (2032, 'DistBattery', (8.723, 4)),
+        (2033, 'DistBattery', (9.006, 4)),
+        (2034, 'DistBattery', (9.315, 4)),
+        (2035, 'DistBattery', (9.49, 4)),
+        (2036, 'DistBattery', (9.556, 4)),
+        (2037, 'DistBattery', (9.688, 4)),
+        (2038, 'DistBattery', (9.777, 4)),
+        (2039, 'DistBattery', (9.827, 4)),
+        (2040, 'DistBattery', (9.874, 4)),
+        (2041, 'DistBattery', (9.939, 4)),
+        (2042, 'DistBattery', (10.098, 4)),
+        (2043, 'DistBattery', (10.238, 4)),
+        (2044, 'DistBattery', (10.37, 4)),
+        (2045, 'DistBattery', (10.478, 4)),
 
         # Na Pua Makani (NPM) wind
         # 2018/24 MW in PSIP, but still under construction in late 2019;
@@ -216,7 +222,7 @@ def define_components(m):
         # https://www.hawaiianelectric.com/clean-energy-hawaii/our-clean-energy-portfolio/renewable-project-status-board (accessed 10/22/19)
         # Listed as 27 MW with operation beginning by summer 2020 on https://www.napuamakanihawaii.org/fact-sheet/
         # TODO: Is Na Pua Makani 24 MW or 27 MW?
-        (2020, 'OnshoreWind', 27),
+        (2020, 'OnshoreWind', 24),
         # PSIP 2016: (2018, 'OnshoreWind', 24),
 
         # HECO feed-in tariff (FIT) projects under construction as of 10/22/19, from
@@ -245,8 +251,14 @@ def define_components(m):
         # of solar on all islands (5 MW on Oahu). Other techs will be included
         # in phase 2, which will begin "about two years" from 7/2018.
         # https://www.hawaiianelectric.com/regulators-approve-community-solar-plans
-        # **** Will CBRE Phase 1 solar enter service in 2020?
-        (2020, 'LargePV', 4.990),  # CBRE Phase 1
+        # In 11/19/19 data sharing, HECO reported "One project for CBRE Phase 1
+        # on O'ahu is slated to be installed by Q4 of 2019.  Five Phase 1
+        # projects are estimated to be installed in 2020 (one in Q2 2020 and
+        # four in Q4 2020).  Lastly, two projects are estimated to be installed
+        # in Q3 of 2021.". We assume all these projects are equal size.
+        (2019, 'LargePV', 4.990*1/8),  # CBRE Phase 1
+        (2020, 'LargePV', 4.990*5/8),  # CBRE Phase 1
+        (2021, 'LargePV', 4.990*2/8),  # CBRE Phase 1
         # Original CBRE program design had only 72 MW in phase 1 and 2 (leaving
         # 64 MW for phase 2), but HECO suggested increasing this to 235 MW over
         # 5 years. HECO said this was because of projected shortfalls in DER
@@ -308,6 +320,14 @@ def define_components(m):
         # There has been no further discussion of these as of 10/22/19, so we assume they are
         # replaced by storage that comes with the PV systems.
         # PSIP 2016: (2019, 'Battery_Conting', 90),
+    ] + [
+        # No new generation in 2020-2022 beyond what's shown above
+        (y, t, 0.0)
+        for y in [2020, 2021, 2022]
+        for t in [
+            'OnshoreWind', 'OffshoreWind',
+            'IC_Barge', 'IC_MCBH', 'IC_Schofield'
+        ]
     ]
 
     # add targets specified on the command line
@@ -447,12 +467,25 @@ def define_components(m):
             rebuild += 1
     del gen_info, existing_techs, ages, rebuildable_targets
 
+    # we also convert to normal python datatypes to support serialization
     tech_group_power_targets = [
-        (y, t, q[0] if type(q) is tuple else q) for y, t, q in tech_group_targets
+        (int(y), t, float(q[0] if type(q) is tuple else q))
+        for y, t, q in tech_group_targets
     ]
     tech_group_energy_targets = [
-        (y, t, q[0]*q[1]) for y, t, q in tech_group_targets if type(q) is tuple
+        (int(y), t, float(q[0]*q[1]))
+        for y, t, q in tech_group_targets if type(q) is tuple
     ]
+    # Save targets and group definitions for future reference
+    import json
+    os.makedirs(m.options.outputs_dir, exist_ok=True)  # avoid errors with new dir
+    with open(os.path.join(m.options.outputs_dir, 'heco_outlook.json'), 'w') as f:
+        json.dump({
+            'tech_group_power_targets': tech_group_power_targets,
+            'tech_group_energy_targets': tech_group_energy_targets,
+            'techs_for_tech_group': techs_for_tech_group,
+            'tech_tech_group': tech_tech_group,
+        }, f, indent=4)
 
     m.FORECASTED_TECH_GROUPS = Set(initialize=techs_for_tech_group.keys())
     m.FORECASTED_TECH_GROUP_TECHS = Set(m.FORECASTED_TECH_GROUPS, initialize=techs_for_tech_group)
