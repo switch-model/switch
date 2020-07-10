@@ -1,5 +1,13 @@
-"""Minimize excess renewable production (dissipated in transmission and battery
-losses) and smooth out demand response and EV charging as much as possible."""
+"""Minimizes excess renewable production (dissipated in transmission and battery
+losses) and smoothes out demand response and EV charging as much as possible.
+Also avoids excess allocation of surplus reserves.
+
+Simple use: add this to modules.txt, below most modules but before reporting.
+
+Advanced use: add this to modules.txt and also to iterate.txt (should
+automatically improve all reporting)
+"""
+
 from __future__ import print_function
 from __future__ import division
 
@@ -108,12 +116,29 @@ def define_dynamic_components(m):
                 m, "GEN_SPINNING_RESERVE_TYPES"
             ):  # advanced module
                 print("Will maximize provision of up reserves.")
-                reserve_weight = {"contingency": 0.9, "regulation": 1.1}
+                reserve_weight = {
+                    m.options.contingency_reserve_type: 0.9,
+                    m.options.regulating_reserve_type: 1.1,
+                }
                 for comp_name in m.Spinning_Reserve_Up_Provisions:
                     component = getattr(m, comp_name)
                     obj += -0.1 * sum(
                         reserve_weight.get(rt, 1.0) * component[rt, ba, tp]
                         for rt, ba, tp in component
+                    )
+            # also minimize contingency up reserve requirements to avoid
+            # spuriously high contingency requirements (they can be
+            # any feasible value above the largest contingency)
+            if hasattr(m, "Spinning_Reserve_Up_Requirements") and hasattr(
+                m, "GEN_SPINNING_RESERVE_TYPES"
+            ):  # advanced module
+                print("Will minimize requirement for contingency up reserves.")
+                for comp_name in m.Spinning_Reserve_Up_Requirements:
+                    component = getattr(m, comp_name)
+                    obj += sum(
+                        component[rt, ba, tp]
+                        for rt, ba, tp in component
+                        if rt == m.options.contingency_reserve_type
                     )
             # minimize absolute value of changes in the smoothed variables
             obj += sum(v for v in m.IncreaseSmoothedValue.values())
@@ -124,9 +149,7 @@ def define_dynamic_components(m):
         )
 
         # constrain smoothing objective to find unbounded ray
-        m.Bound_Obj = Constraint(
-            rule=lambda m: Smooth_Free_Variables_obj_rule(m) <= 1e9
-        )
+        # m.Bound_Obj = Constraint(rule=lambda m: Smooth_Free_Variables_obj_rule(m) <= 1e12)
 
         # leave standard objective in effect for now
         m.Smooth_Free_Variables.deactivate()
@@ -215,7 +238,7 @@ def solve(m):
     try:
         switch_model.solve.solve(m)
     except RuntimeError as e:
-        if e.message.lower() == "infeasible model":
+        if str(e).lower() == "infeasible model":
             # show a warning, but don't abort the overall post_solve process
             print(
                 "WARNING: model became infeasible when smoothing; reverting to original solution."
