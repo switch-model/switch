@@ -33,13 +33,18 @@ def define_components(m):
     )
 
     # calculate total fuel cost for ICE (non-EV) VMTs
-    # We assume gasoline for the ICE vehicles costs the same as diesel
-    # note: this is the utility price, which is actually lower than retail gasoline
     if hasattr(m, "rfm_supply_tier_cost"):
-        ice_fuel_cost_func = lambda m, z, p: m.rfm_supply_tier_cost['Hawaii_Diesel', p, 'base']
-    else:
-        ice_fuel_cost_func = lambda m, z, p: m.fuel_cost[z, "Diesel", p]
-
+        # using fuel_costs.markets
+        ice_fuel_cost_func = lambda m, z, p: m.rfm_supply_tier_cost['Hawaii_Motor_Gasoline', p, 'base']
+    elif hasattr(m, 'ZONE_FUEL_PERIODS'):
+        # using fuel_costs.simple
+        ice_fuel_cost_func = lambda m, z, p: m.fuel_cost[z, 'Motor_Gasoline', p]
+    elif hasattr(m, 'ZONE_FUEL_TIMEPOINTS'):
+        # using fuel_costs.simple_per_timepoint
+        ice_fuel_cost_func = lambda m, z, p: sum(
+            m.tp_weight[t] * m.fuel_cost_per_timepoint[z, 'Motor_Gasoline', t]
+            for t in m.TPS_IN_PERIOD[p]
+        ) / m.period_length_hours[p]
     m.ice_annual_fuel_cost = Param(m.PERIODS, initialize=lambda m, p:
         sum(
             (1.0 - m.ev_share[z, p]) * m.n_all_vehicles[z, p] * m.vmt_per_vehicle[z, p]
