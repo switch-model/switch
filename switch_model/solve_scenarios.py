@@ -20,7 +20,7 @@ scenarios_to_run() in separate processes to select the next job to run.
 
 from __future__ import print_function, absolute_import
 import sys, os, time
-import argparse, shlex, socket, io, glob
+import argparse, shlex, socket, io, glob, multiprocessing
 from collections import OrderedDict
 
 from .utilities import _ArgumentParser
@@ -160,9 +160,17 @@ def main(args=None):
         )
 
         # call the standard solve module with the arguments for this particular scenario
-        solve.main(args=args)
+        # We run this in its own process to avoid sharing module state info between
+        # model instances (e.g., a logger created in Pyomo may grab the current sys.stdout
+        # while Switch has temporarily replaced it with a timing counter stream, then
+        # keep using that for subsequent instances)
+        process = multiprocessing.Process(target=solve.main, args=(args,))
+        process.start()
+        process.join()
 
-        # another option:
+        # other options:
+        # solve.main(args)
+        # or
         # subprocess.call(shlex.split("python -m solve") + args) <- omit args from options.txt
         # it should also be possible to use a solver server, but that's not really needed
         # since this script has built-in queue management.
