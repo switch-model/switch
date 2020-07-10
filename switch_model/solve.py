@@ -248,11 +248,13 @@ def main(args=None, return_model=False, return_instance=False):
             "="*60,
             ""
         ])
-        if has_ipython:
+        # IPython support is disabled until they fix
+        # https://github.com/ipython/ipython/issues/12199
+        if has_ipython and False:
             banner += "\nUse tab to auto-complete"
             IPython.embed(
                 banner1=banner,
-                exit_msg="Leaving interactive interpretter, returning to program.",
+                exit_msg="Leaving interactive interpreter, returning to program.",
                 colors=instance.options.interact_color)
         else:
             import code
