@@ -10,6 +10,12 @@ def define_components(m):
     incorporate the effect of federal subsidies
     """
 
+    m.logger.warning(
+        "WARNING: {} module does not account for storage attached to renewable projects.".format(
+            __name__
+        )
+    )
+
     # note: wind/solar/geothermal production tax credit expires in 2017-2019,
     # so we ignore that (http://programs.dsireusa.org/system/program/detail/734)
 
@@ -70,16 +76,27 @@ def define_components(m):
 
     m.fed_subsidies_check_techs = BuildAction(rule=rule)
 
-    # model the renewable investment tax credit as simply prorating the annual capital cost
-    m.Federal_Investment_Tax_Credit_Annual = Expression(
-        m.PERIODS,
-        rule=lambda m, pe: sum(
-            -itc_rates[bld_yr, m.gen_tech[g]]
+    m.gen_investment_subsidy_fraction = Param(
+        m.GEN_BLD_YRS,
+        rule=lambda m, g, bld_yr: itc_rates.get((bld_yr, m.gen_tech[g]), 0.0),
+    )
+    # model the renewable investment tax credit as simply prorating the
+    # annual capital cost (done per generator to simplify reporting)
+    # TODO: apply to storage energy too
+    m.GenCapitalCostsSubsidy = Expression(
+        m.GEN_PERIODS,
+        rule=lambda m, g, p: sum(
+            -m.gen_investment_subsidy_fraction[g, bld_yr]
             * m.BuildGen[g, bld_yr]
             * m.gen_capital_cost_annual[g, bld_yr]
-            for g in m.NON_FUEL_BASED_GENS
-            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, pe]
-            if (bld_yr, m.gen_tech[g]) in itc_rates
+            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]
         ),
     )
-    m.Cost_Components_Per_Period.append("Federal_Investment_Tax_Credit_Annual")
+
+    m.TotalGenCapitalCostsSubsidy = Expression(
+        m.PERIODS,
+        rule=lambda m, p: sum(
+            m.GenCapitalCostsSubsidy[g, p] for g in m.GENS_IN_PERIOD[p]
+        ),
+    )
+    m.Cost_Components_Per_Period.append("TotalGenCapitalCostsSubsidy")
