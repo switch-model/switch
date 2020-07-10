@@ -328,28 +328,30 @@ def load_inputs(mod, switch_data, inputs_dir):
 
 def post_solve(instance, outdir):
     m = instance
-    # Overall electricity costs
-    normalized_dat = [
-        {
-            "PERIOD": p,
-            "SystemCostPerPeriod_NPV": value(m.SystemCostPerPeriod[p]),
-            "SystemCostPerPeriod_Real": value(
-                m.SystemCostPerPeriod[p] / m.bring_annual_costs_to_base_year[p]
-            ),
-            "EnergyCostReal_per_MWh": value(
-                m.SystemCostPerPeriod[p]
-                / m.bring_annual_costs_to_base_year[p]
-                / sum(m.zone_total_demand_in_period_mwh[z, p] for z in m.LOAD_ZONES)
-            ),
-            "SystemDemand_MWh": value(
-                sum(m.zone_total_demand_in_period_mwh[z, p] for z in m.LOAD_ZONES)
-            ),
-        }
-        for p in m.PERIODS
-    ]
-    df = pd.DataFrame(normalized_dat)
-    df.set_index(["PERIOD"], inplace=True)
-    df.to_csv(os.path.join(outdir, "electricity_cost.csv"))
+    # Overall electricity costs, if appropriate (some models may be gas-only)
+    if hasattr(m, "zone_total_demand_in_period_mwh"):
+        normalized_dat = [
+            {
+                "PERIOD": p,
+                "SystemCostPerPeriod_NPV": value(m.SystemCostPerPeriod[p]),
+                "SystemCostPerPeriod_Real": value(
+                    m.SystemCostPerPeriod[p] / m.bring_annual_costs_to_base_year[p]
+                ),
+                "EnergyCostReal_per_MWh": value(
+                    m.SystemCostPerPeriod[p]
+                    / m.bring_annual_costs_to_base_year[p]
+                    / sum(m.zone_total_demand_in_period_mwh[z, p] for z in m.LOAD_ZONES)
+                ),
+                "SystemDemand_MWh": value(
+                    sum(m.zone_total_demand_in_period_mwh[z, p] for z in m.LOAD_ZONES)
+                ),
+            }
+            for p in m.PERIODS
+        ]
+        df = pd.DataFrame(normalized_dat)
+        df.set_index(["PERIOD"], inplace=True)
+        df.to_csv(os.path.join(outdir, "electricity_cost.csv"))
+
     # Itemized annual costs
     annualized_costs = [
         {
