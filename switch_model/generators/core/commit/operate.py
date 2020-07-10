@@ -1,4 +1,4 @@
-# Copyright 2015 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2020 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2, which is in the LICENSE file.
 
 """
@@ -308,27 +308,27 @@ def define_components(mod):
         dimen=2,
         initialize=lambda m: [
             (g, t)
-            for g in m.GENERATION_PROJECTS 
+            for g in m.GENERATION_PROJECTS
                 if m.gen_min_uptime[g] > 0.0
-                for t in m.TPS_FOR_GEN[g] 
+                for t in m.TPS_FOR_GEN[g]
                     if hrs_to_num_tps(m, m.gen_min_uptime[g], t) > 0
     ])
     mod.DOWNTIME_CONSTRAINED_GEN_TPS = Set(
-        dimen=2, 
+        dimen=2,
         initialize=lambda m: [
             (g, t)
-            for g in m.GENERATION_PROJECTS 
+            for g in m.GENERATION_PROJECTS
                 if m.gen_min_downtime[g] > 0.0
-                for t in m.TPS_FOR_GEN[g] 
+                for t in m.TPS_FOR_GEN[g]
                     if hrs_to_num_tps(m, m.gen_min_downtime[g], t) > 0
     ])
     mod.Enforce_Min_Uptime = Constraint(
-        mod.UPTIME_CONSTRAINED_GEN_TPS, 
+        mod.UPTIME_CONSTRAINED_GEN_TPS,
         doc="All capacity turned on in the last x hours must still be on now",
         rule=lambda m, g, t: (
             m.CommitGen[g, t]
-            >= 
-            sum(m.StartupGenCapacity[g, t_prior] 
+            >=
+            sum(m.StartupGenCapacity[g, t_prior]
                 for t_prior in time_window(m, t, m.gen_min_uptime[g])
             )
         )
@@ -344,18 +344,18 @@ def define_components(mod):
     # capacity, and then get around the min-downtime rule by turning on other
     # capacity which is actually forced off by gen_max_commit_fraction, e.g.,
     # due to a maintenance outage.
-    # The max() term & documentation is confusing to Josiah. 
+    # The max() term & documentation is confusing to Josiah.
     # See https://github.com/switch-model/switch/issues/123 for discussion.
     mod.Enforce_Min_Downtime = Constraint(
-        mod.DOWNTIME_CONSTRAINED_GEN_TPS, 
+        mod.DOWNTIME_CONSTRAINED_GEN_TPS,
         doc=("All recently shutdown capacity remains offline: "
              "committed <= committable capacity - recent shutdowns"),
         rule=lambda m, g, t: (
-            m.CommitGen[g, t] 
-            <= 
+            m.CommitGen[g, t]
+            <=
             # We can't use max(CommitUpperLimit) and fit within LP guidelines,
             # so rederive the CommitUpperLimit expression and apply max to a
-            # constant. 
+            # constant.
             (
                 m.GenCapacityInTP[g, t] * m.gen_availability[g] *
                 max(m.gen_max_commit_fraction[g, t_prior]
@@ -363,7 +363,7 @@ def define_components(mod):
                         m, t, m.gen_min_downtime[g], add_one=True)
                 )
             )
-            - sum(m.ShutdownGenCapacity[g, t_prior] 
+            - sum(m.ShutdownGenCapacity[g, t_prior]
                   for t_prior in time_window(m, t, m.gen_min_downtime[g])
             )
         )
