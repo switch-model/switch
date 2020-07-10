@@ -65,6 +65,7 @@ def main(args=None, return_model=False, return_instance=False):
             except ImportError:
                 from pdb import pm
             traceback.print_exception(type, value, tb)
+            report_model_in_traceback(tb)
             pm()
 
         sys.excepthook = debug
@@ -1067,7 +1068,16 @@ def solve(model):
 
         TempfileManager.tempdir = model.options.tempdir
 
-    results = model.solver_manager.solve(model, opt=model.solver, **solver_args)
+    try:
+        results = model.solver_manager.solve(model, opt=model.solver, **solver_args)
+    except ValueError as err:
+        # show the solver status for obscure errors if possible
+        print("\nError during solve:\n")
+        try:
+            print(err.__traceback__.tb_frame.f_locals["results"])
+        except:
+            pass
+        raise
     # import pdb; pdb.set_trace()
 
     if model.options.verbose:
@@ -1289,6 +1299,32 @@ def query_yes_no(question, default="yes"):
             return valid[choice]
         else:
             sys.stdout.write("Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n")
+
+
+def report_model_in_traceback(tb):
+    """
+    Report on location of model in current traceback, if one can be found easily.
+    """
+    import traceback
+
+    for level, (frame, line) in enumerate(reversed(list(traceback.walk_tb(tb)))):
+        location = "\nin {}, line {}\n".format(frame.f_code.co_filename, line)
+        if level == 0:
+            location = "in the current frame"
+        elif level == 1:
+            location += "(1 level up)"
+        else:
+            location += "({} levels up)".format(level)
+        vars = frame.f_locals
+        for name, v in vars.items():
+            if isinstance(v, AbstractModel):
+                print("\nA model can be found in variable '{}'".format(name) + location)
+                return
+        for name, v in vars.items():
+            if isinstance(v, Component) and hasattr(v, "model"):
+                print("\nA model can be found in '{}.model()'".format(name) + location)
+                return
+    print("\nNo Pyomo model was found in the current stack trace.")
 
 
 ###############
