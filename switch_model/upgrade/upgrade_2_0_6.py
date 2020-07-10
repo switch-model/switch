@@ -12,18 +12,17 @@ replace_modules = {
     # modules to be replaced in the module list
     # old_module: [new_module1, new_module2, ...],
     'switch_model.hawaii.psip_2016_12':
-        ['switch_model.hawaii.heco_outlook_2019'],
+        ['switch_model.hawaii.heco_outlook_2020_06'],
+    'switch_model.hawaii.kalaeloa':
+        ['switch_model.hawaii.oahu_plants'],
 }
 
 module_messages = {
     # description of significant changes to particular modules other than
     # moving/renaming
     # old_module: message
-    # 'switch_model.energy_sources.fuel_costs.simple':
-    #     'The fuel_cost.fuel_cost input column has been renamed to '
-    #     'fuel_cost_per_period.period_fuel_cost.'
     'switch_model.generators.core.build':
-        'Beginning with this version of Switch, gen_multiple_fuels.dat should '
+        'Beginning with Switch 2.0.6, gen_multiple_fuels.dat should '
         'be replaced with gen_multiple_fuels.csv. The .csv file should have '
         'two columns: GENERATION_PROJECT and fuel. It should have one row for '
         'each allowed fuel for each multi-fuel generator.',
