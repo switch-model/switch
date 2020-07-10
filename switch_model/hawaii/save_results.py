@@ -434,14 +434,30 @@ def write_results(m, outputs_dir):
             if start <= p <= end and value(m.GenCapacity[g, p]) > 0:
                 operate_gen_in_period.add((g, p))
 
+    storage_gens = getattr(m, "STORAGE_GENS", set())
     built_tech = tuple(sorted(set(m.gen_tech[g] for g in built_gens)))
+    build_tech_and_storage = tuple(
+        sorted(
+            set(built_tech)
+            | set(m.gen_tech[g] + "_MWh" for g in built_gens if g in storage_gens)
+        )
+        + ["hydro", "fuel cells"]
+    )
+
     built_energy_source = tuple(sorted(set(gen_energy_source(g) for g in built_gens)))
 
-    battery_capacity_mw = lambda m, z, pe: (
-        (m.Battery_Capacity[z, pe] / m.battery_min_discharge_time)
-        if hasattr(m, "Battery_Capacity")
-        else 0.0
-    )
+    tech_cap = defaultdict(float)
+    for (g, p), cap in m.GenCapacity.items():
+        tech_cap[m.gen_load_zone[g], m.gen_tech[g], p] += cap
+    if hasattr(m, "StorageEnergyCapacity"):
+        for (g, p), cap in m.StorageEnergyCapacity.items():
+            tech_cap[m.gen_load_zone[g], m.gen_tech[g] + "_MWh", p] += cap
+    if hasattr(m, "Pumped_Hydro_Capacity_MW"):
+        for (z, p), cap in m.Pumped_Hydro_Capacity_MW[z, pe].items():
+            tech_cap[z, "hydro", p] += cap
+    if hasattr(m, "FuelCellCapacityMW"):
+        for (z, p), cap in m.FuelCellCapacityMW[z, pe].items():
+            tech_cap[z, "fuel cells", p] += cap
 
     util.write_table(
         m,
@@ -450,9 +466,31 @@ def write_results(m, outputs_dir):
         output_file=os.path.join(
             outputs_dir, "capacity_by_technology{t}.csv".format(t=tag)
         ),
-        headings=("load_zone", "period")
-        + built_tech
-        + ("hydro", "batteries", "fuel cells"),
+        headings=("load_zone", "period") + build_tech_and_storage,
+        values=lambda m, z, pe: (
+            (z, pe) + tuple(tech_cap[z, t, pe] for t in build_tech_and_storage)
+        ),
+    )
+    util.write_table(
+        m,
+        m.LOAD_ZONES,
+        build_tech_and_storage,
+        m.PERIODS,
+        output_file=os.path.join(
+            outputs_dir, "capacity_by_technology_vertical{t}.csv".format(t=tag)
+        ),
+        headings=("load_zone", "technology", "period", "capacity"),
+        values=lambda m, z, pe, t: (z, t, pe) + tech_cap[z, t, pe],
+    )
+
+    util.write_table(
+        m,
+        m.LOAD_ZONES,
+        m.PERIODS,
+        output_file=os.path.join(
+            outputs_dir, "capacity_used_by_technology{t}.csv".format(t=tag)
+        ),
+        headings=("load_zone", "period") + built_tech + ("hydro", "fuel cells"),
         values=lambda m, z, pe: (
             z,
             pe,
@@ -469,7 +507,6 @@ def write_results(m, outputs_dir):
             m.Pumped_Hydro_Capacity_MW[z, pe]
             if hasattr(m, "Pumped_Hydro_Capacity_MW")
             else 0,
-            battery_capacity_mw(m, z, pe),
             m.FuelCellCapacityMW[z, pe] if hasattr(m, "FuelCellCapacityMW") else 0,
         ),
     )
@@ -482,7 +519,36 @@ def write_results(m, outputs_dir):
         ),
         headings=("load_zone", "period")
         + built_energy_source
-        + ("hydro", "batteries", "fuel cells"),
+        + ("hydro", "fuel cells"),
+        values=lambda m, z, pe: (
+            z,
+            pe,
+        )
+        + tuple(
+            sum(
+                m.GenCapacity[g, pe]
+                for g in built_gens
+                if gen_energy_source(g) == s and m.gen_load_zone[g] == z
+            )
+            for s in built_energy_source
+        )
+        + (
+            m.Pumped_Hydro_Capacity_MW[z, pe]
+            if hasattr(m, "Pumped_Hydro_Capacity_MW")
+            else 0,
+            m.FuelCellCapacityMW[z, pe] if hasattr(m, "FuelCellCapacityMW") else 0,
+        ),
+    )
+    util.write_table(
+        m,
+        m.LOAD_ZONES,
+        m.PERIODS,
+        output_file=os.path.join(
+            outputs_dir, "capacity_used_by_energy_source{t}.csv".format(t=tag)
+        ),
+        headings=("load_zone", "period")
+        + built_energy_source
+        + ("hydro", "fuel cells"),
         values=lambda m, z, pe: (
             z,
             pe,
@@ -499,7 +565,6 @@ def write_results(m, outputs_dir):
             m.Pumped_Hydro_Capacity_MW[z, pe]
             if hasattr(m, "Pumped_Hydro_Capacity_MW")
             else 0,
-            battery_capacity_mw(m, z, pe),
             m.FuelCellCapacityMW[z, pe] if hasattr(m, "FuelCellCapacityMW") else 0,
         ),
     )
