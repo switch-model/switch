@@ -223,9 +223,58 @@ def define_components(m):
     ]
     TODO(
         """
-        Need to convert DistPV target into a joint target for FlatDistPV and SlopedDistPV.
+        Need to convert DistPV target into a joint target for FlatDistPV and
+        SlopedDistPV. See switch_model.heco_outlook_2019.
     """
     )
+
+    """
+    Additional notes on distributed storage (never implemented here, but
+    implemented using a later forecast in heco_outlook_2019).
+
+    # NOTE: we add together all the different distributed PV programs in
+    # Figure J-10, on the assumption that private systems (including those
+    # on self-supply tariffs) will only be curtailed at times when the whole
+    # system is curtailed, so there's no need to model different private
+    # curtailment behavior. This is equivalent to assuming that HECO
+    # eventually offers some program to accept power from CSS and SIA
+    # systems when the system can use it, instead of forcing curtailment at
+    # those times.
+
+    # NOTE: It is unclear from PSIP (p. J-25) whether the forecasted "New Grid
+    # Export" program in Fig. J-10 corresponds to the "CGS+" tariff (can
+    # export  during day or the "Smart Export" tariff (can only export at
+    # night); both were introduced in late 2017
+    # https://www.hawaiianelectric.com/documents/products_and_services/customer_renewable_programs/20171020_hawaii_PUC_rooftop_solar_and_storage_press_release.pdf
+    # We assume this corresponds to CGS+.
+
+    # Distributed energy storage (DESS) forecasted in PSIP Table J-27, p.
+    # J-65, "O'ahu Self-Supply DESS Forecast Cumulative Installed Capacity".
+    # PSIP p. G-12 reports that distributed batteries have two hour life,
+    # but that seems short for long-term system design, so we use 4 hours.
+    (2020, "DistBattery", ((56)/4, 4)),
+    (2022, "DistBattery", ((79-56)/4, 4)),
+    (2025, "DistBattery", ((108-79)/4, 4)),
+    (2030, "DistBattery", ((157-108)/4, 4)),
+    (2035, "DistBattery", ((213-157)/4, 4)),
+    (2040, "DistBattery", ((264-213)/4, 4)),
+    (2045, "DistBattery", ((306-264)/4, 4)),
+    # TODO: We could potentially model part of the DESS as being paired with
+    # some amount of PV from the CSS pool. (PSIP p. J-25 says distributed
+    # energy storage systems (DESS) were paired with DGPV for small
+    # customers and sized optimally, but large customers were assumed not to
+    # need it because they could take daytime load reductions directly.)
+    # However, since PSIP reports that storage sizes were optimized, we
+    # assume these batteries are able to serve load as effectively as
+    # centralized batteries, so we just model them as generic batteries.
+
+    # NOTE: PSIP p. J-25 says "Additional stand-alone DESS, not necessarily
+    # paired with PV, were projected to participate in Demand Response
+    # programs". PSIP doesn't show these quantities and they are not in the
+    # RESOLVE inputs (the PV-paired DESS weren't in RESOLVE either). We
+    # assume these are part of the pool of bulk storage selected by Switch,
+    # since they participate on an economic basis.
+    """
 
     # Rebuild renewable projects at retirement (20 years), as specified in the PSIP
     # note: this doesn't include DistPV, because those are part of a forecast, not a plan, so they already
