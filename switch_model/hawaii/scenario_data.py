@@ -5,6 +5,13 @@ from textwrap import dedent
 from switch_model import __version__ as switch_version
 from switch_model.utilities import iteritems
 
+# use database settings from operating environment
+# (this code isn't really needed at all, but gives us a chance to override later)
+# note: password for this user should be specified in ~/.pgpass
+pghost = os.getenv('PGHOST', '')
+pgdatabase = os.getenv('PGDATABASE', '')
+pguser = os.getenv('PGUSER', '')
+
 # TODO: switch over to Google BigQuery database
 
 # TODO: make this get data from the redr server via an HTTP api instead of psycopg2, as follows:
@@ -55,7 +62,20 @@ from switch_model.utilities import iteritems
 # NOTE: write_table() will automatically convert null values to '.',
 # so pyomo will recognize them as missing data
 
-def write_tables(args, alt_args={}, scenarios=[]):
+def write_tables(*pos_args, **kw_args):
+    if pos_args or 'args' in kw_args:
+        # pass arguments through
+        return write_tables_implementation(*pos_args, **kw_args)
+    else:
+        # called with **args (obsolete)
+        print(
+            "WARNING: write_tables should now be called with a dict of "
+            "arguments, not key-value pairs."
+        )
+        # gather the arguments back into a dictionary and call correctly
+        return write_tables_implementation(kw_args)
+
+def write_tables_implementation(args, alt_args={}, scenarios=[]):
     """
     Save base tables, alternative tables and scenarios.txt
 
@@ -173,6 +193,12 @@ def get_queries(args):
 
     Each entry in the list is a tuple of (table name, sql query code).
     """
+
+    # print(
+    #     "WARNING: need a more general way to identify non-fuel energy sources "
+    #     "in scenario_data. See references to MSW, WND, etc."
+    # )
+
     queries = []
 
     # TODO: any arguments that are defined with default values below (args.get()) could
@@ -183,19 +209,38 @@ def get_queries(args):
     args = args.copy()
 
     # catch obsolete arguments (otherwise they would be silently ignored)
-    if 'ev_scen_id' in args:
-        raise ValueError("ev_scen_id argument is no longer supported; use ev_scenario instead.")
-
-    if 'cap_cost_scen_id' in args and 'tech_scen_id' not in args:
-        print(
-            'DEPRECATION WARNING: The "cap_cost_scen_id" argument has been '
-            'renamed to "tech_scen_id". Please update your code.'
-        )
-        args['tech_scen_id'] = args['cap_cost_scen_id']
+    updated_args = [
+        ('fuel_scen_id', 'fuel_scenario'),
+        ('cap_cost_scen_id', 'tech_scenario'),
+        ('tech_scen_id', 'tech_scenario'),
+        ('load_scen_id', 'load_scenario'),
+        ('ev_scen_id', 'ev_scenario')
+    ]
+    for old, new in updated_args:
+        if old in args:
+            if new in args:
+                raise ValueError(
+                    '{} and {} arguments are redundant and ambiguous.'
+                    .format(old, new)
+                )
+            else:
+                print(
+                    'DEPRECATION WARNING: The "{}" argument has been '
+                    'renamed to "{}". Please update your code.'
+                    .format(old, new)
+                )
+            args[new] = args.pop(old)
 
     if 'ev_charge_profile' not in args:
         print('No ev_charge_profile specified; using das_2015')
         args['ev_charge_profile'] = 'das_2015'
+
+    if 'enable_must_run' in args and 'enable_must_run_before' in args:
+        raise ValueError('You may specify enable_must_run or enable_must_run_before, but not both.')
+    elif 'enable_must_run' in args:
+        args['enable_must_run_before'] = 999999 if args['enable_must_run'] else 0
+    else:
+        args['enable_must_run_before'] = args.get('enable_must_run_before', 0)
 
     # fill in default arguments (use a dummy technology '-' if none supplied)
     args['exclude_technologies'] = args.get('exclude_technologies', ('-',))
@@ -212,7 +257,7 @@ def get_queries(args):
                 period,
                 -- make a decent guess about number of years
                 SUM(ts_scale_to_period)/365.25 AS period_length
-                FROM study_date WHERE time_sample = %(time_sample)s
+                FROM timeseries WHERE time_sample = %(time_sample)s
                 GROUP BY 1
         ),
         period_length AS (
@@ -241,15 +286,15 @@ def get_queries(args):
         SELECT p.period AS "INVESTMENT_PERIOD",
                 p.period as period_start,
                 p.period + period_length as period_end
-            FROM study_periods p JOIN period_length l USING (period)
+            FROM periods p JOIN period_length l USING (period)
             WHERE time_sample = %(time_sample)s
             ORDER by 1;
     """, args)
 
     add_query(queries, 'timeseries.csv', """
-        SELECT study_date as "TIMESERIES", period as ts_period,
+        SELECT timeseries as "TIMESERIES", period as ts_period,
             ts_duration_of_tp, ts_num_tps, ts_scale_to_period
-        FROM study_date
+        FROM timeseries
         WHERE time_sample = %(time_sample)s
         ORDER BY 1;
     """, args)
@@ -257,13 +302,13 @@ def get_queries(args):
     # note: query below needs dash instead of space in date format if creating
     # .tab files, but this works well for .csv files (8/2019 and later)
     add_query(queries, 'timepoints.csv', """
-        SELECT h.study_hour as timepoint_id,
+        SELECT h.timepoint as timepoint_id,
                 to_char(date_time + (period - extract(year from date_time)) * interval '1 year',
                     'YYYY-MM-DD HH24:MI') as timestamp,
-                h.study_date as timeseries
-            FROM study_hour h JOIN study_date d USING (study_date, time_sample)
+                h.timeseries
+            FROM timepoints h JOIN timeseries d USING (timeseries, time_sample)
             WHERE h.time_sample = %(time_sample)s
-            ORDER BY period, extract(doy from date), study_hour;
+            ORDER BY period, extract(doy from date), timepoint;
     """, args)
 
     #########################
@@ -278,19 +323,19 @@ def get_queries(args):
                 CONCAT_WS('_', load_zone, p.technology, nullif(site, 'na'), nullif(orientation, 'na'))
                     AS "GENERATION_PROJECT",
                 p.*,
-                g.tech_scen_id
-            FROM project p
+                g.tech_scenario
+            FROM projects p
                 JOIN generator_info g USING (technology)
                 CROSS JOIN study_length
                 -- existing projects still in use during the study
-                LEFT JOIN proj_existing_builds e ON (
+                LEFT JOIN gen_build_predetermined e ON (
                     e.project_id = p.project_id
-                    AND e.build_year + g.max_age_years > study_start
+                    AND e.build_year + g.gen_max_age > study_start
                     AND e.build_year < study_end
                 )
                 -- projects that could be built during the study
-                LEFT JOIN generator_costs_by_year c ON (
-                    c.tech_scen_id = g.tech_scen_id
+                LEFT JOIN gen_build_costs c ON (
+                    c.tech_scenario = g.tech_scenario
                     AND c.technology = g.technology
                     AND (g.min_vintage_year IS NULL OR c.year >= g.min_vintage_year)
                     AND c.year >= study_start
@@ -298,12 +343,12 @@ def get_queries(args):
                 )
             WHERE (e.project_id IS NOT NULL OR c.technology IS NOT NULL)
                 AND p.load_zone in %(load_zones)s
-                AND g.tech_scen_id IN ('all', %(tech_scen_id)s)
+                AND g.tech_scenario IN ('all', %(tech_scenario)s)
                 AND g.technology NOT IN %(exclude_technologies)s
         ),
         study_generator_info AS (
             SELECT DISTINCT g.*
-            FROM generator_info g JOIN study_projects p USING (tech_scen_id, technology)
+            FROM generator_info g JOIN study_projects p USING (tech_scenario, technology)
         )"""
 
     #########################
@@ -323,8 +368,9 @@ def get_queries(args):
     # existing_local_td, local_td_annual_cost_per_mw
     add_query(queries, 'load_zones.csv', """
         SELECT load_zone as "LOAD_ZONE"
-        FROM load_zone
+        FROM load_zones
         WHERE load_zone in %(load_zones)s
+        ORDER BY 1;
     """, args)
 
     # NOTE: we don't provide zone_peak_loads.csv (sometimes used by local_td.py) in this version.
@@ -334,18 +380,18 @@ def get_queries(args):
     add_query(queries, 'loads.csv', """
         SELECT
             l.load_zone AS "LOAD_ZONE",
-            study_hour AS "TIMEPOINT",
+            timepoint AS "TIMEPOINT",
             GREATEST(0, system_load * scale + "offset") AS zone_demand_mw
-        FROM study_date d
-            JOIN study_hour h USING (time_sample, study_date)
-            JOIN system_load l USING (date_time)
-            JOIN system_load_scale s ON (
+        FROM timeseries d
+            JOIN timepoints h USING (time_sample, timeseries)
+            JOIN loads l USING (date_time)
+            JOIN load_scale s ON (
                 s.load_zone = l.load_zone
                 AND s.year_hist = extract(year from l.date_time)
                 AND s.year_fore = d.period)
         WHERE l.load_zone in %(load_zones)s
             AND d.time_sample = %(time_sample)s
-            AND load_scen_id = %(load_scen_id)s
+            AND load_scenario = %(load_scenario)s
         ORDER BY 1, 2;
     """, args)
 
@@ -355,22 +401,22 @@ def get_queries(args):
 
     add_query(queries, 'non_fuel_energy_sources.csv',
         "WITH " + study_info + """
-        SELECT DISTINCT fuel AS "NON_FUEL_ENERGY_SOURCES"
+        SELECT DISTINCT gen_energy_source AS "NON_FUEL_ENERGY_SOURCES"
             FROM study_generator_info
-            WHERE fuel NOT IN (SELECT fuel_type FROM fuel_costs)
+            WHERE gen_energy_source NOT IN (SELECT fuel FROM fuel_costs)
             ORDER by 1;
     """, args)
 
     # gather info on fuels
     add_query(queries, 'fuels.csv', """
         SELECT DISTINCT
-            replace(c.fuel_type, ' ', '_') AS fuel,
+            replace(c.fuel, ' ', '_') AS fuel,
             co2_intensity, 0.0 AS upstream_co2_intensity,
             rps_eligible
         FROM fuel_costs c
-            JOIN energy_source_properties p on (p.energy_source = c.fuel_type)
+            JOIN energy_sources p on (p.energy_source = c.fuel)
         WHERE load_zone in %(load_zones)s
-            AND fuel_scen_id=%(fuel_scen_id)s
+            AND fuel_scenario=%(fuel_scenario)s
         ORDER BY 1;
     """, args)
 
@@ -391,9 +437,9 @@ def get_queries(args):
     # from 2013 (forecast base year) to model base year. (ugh)
     # TODO: add a flag to fuel_costs indicating whether forecasts are real or nominal,
     # and base year, and possibly inflation rate.
-    if args['fuel_scen_id'] in ('1', '2', '3'):
+    if args['fuel_scenario'] in ('1', '2', '3'):
         raise ValueError(
-            "fuel_scen_ids '1', '2' and '3' (specified in nominal dollars) are "
+            "fuel_scenarios '1', '2' and '3' (specified in nominal dollars) are "
             "no longer supported."
         )
 
@@ -408,11 +454,6 @@ def get_queries(args):
 
     if simple_fuel_costs:
         # simple fuel markets with no bulk LNG expansion option (use fuel_cost module)
-        print(
-            "WARNING: need to update simple fuel costs calculation to use the "
-            "average for the study period (like fuel supply curves) instead of "
-            "first-year values."
-        )
         if "use_bulk_lng_for_simple_fuel_costs" in args:
             raise ValueError(
                 "use_bulk_lng_for_simple_fuel_costs argument is no longer supported; "
@@ -429,24 +470,25 @@ def get_queries(args):
         if per_timepoint_fuel_costs:
             # month column in fuel_cost table can optionally be filled in;
             # when getting per-timepoint costs, we link this month to
-            # study_date.month_of_year and average across all the years in each
+            # timeseries.month_of_year and average across all the years in each
             # period.
             add_query(queries, 'fuel_cost_per_timepoint.csv',
-                """
-                SELECT load_zone, replace(fuel_type, ' ', '_') as fuel, h.study_hour as timepoint,
+                "WITH " + period_length + """
+                SELECT load_zone, replace(fuel, ' ', '_') as fuel, h.timepoint,
                     avg(price_mmbtu
                         * power(1.0+%(inflation_rate)s, %(base_financial_year)s-c.base_year)
                         + COALESCE(fixed_cost, 0.00)
                     ) as timepoint_fuel_cost
-                FROM fuel_costs c, study_hours h
-                    JOIN study_dates d USING (study_date, time_sample)
-                    JOIN study_periods p USING (period, time_sample)
+                FROM fuel_costs c
+                    CROSS JOIN timepoints h
+                    JOIN timeseries d USING (timeseries, time_sample)
+                    JOIN periods p USING (period, time_sample)
                     JOIN period_length l USING (period)
                 WHERE load_zone in %(load_zones)s
-                    AND fuel_scen_id = %(fuel_scen_id)s
+                    AND fuel_scenario = %(fuel_scenario)s
                     AND p.time_sample = %(time_sample)s
                     AND c.month = d.month_of_year
-                    AND (fuel_type != 'LNG' OR {lng_selector})
+                    AND (fuel != 'LNG' OR {lng_selector})
                     AND c.year >= p.period AND c.year < p.period + l.period_length
                 GROUP BY 1, 2, 3
                 ORDER BY 1, 2, 3;
@@ -454,23 +496,23 @@ def get_queries(args):
                 args
             )
         else:
-            # Note: if monthly prices have been specified for this fuel_scen_id
-            # in the fuel_cost table,  they get averaged together with equal
-            # weight as part of the  general averaging across all the years of
-            # the period.
+            # Note: if monthly prices have been specified for this fuel_scenario
+            # in the fuel_cost table, they get averaged together with equal
+            # weight as part of the general averaging across all the years of
+            # the period (which is good).
             add_query(queries, 'fuel_cost.csv',
                 "WITH " + period_length + """
-                SELECT load_zone, replace(fuel_type, ' ', '_') as fuel, p.period,
+                SELECT load_zone, replace(fuel, ' ', '_') as fuel, p.period,
                     avg(
                         price_mmbtu
                         * power(1.0+%(inflation_rate)s, %(base_financial_year)s-c.base_year)
                         + COALESCE(fixed_cost, 0.00)
                     ) as fuel_cost
-                FROM fuel_costs c, study_periods p JOIN period_length l USING (period)
+                FROM fuel_costs c, periods p JOIN period_length l USING (period)
                 WHERE load_zone in %(load_zones)s
-                    AND fuel_scen_id = %(fuel_scen_id)s
+                    AND fuel_scenario = %(fuel_scenario)s
                     AND p.time_sample = %(time_sample)s
-                    AND (fuel_type != 'LNG' OR {lng_selector})
+                    AND (fuel != 'LNG' OR {lng_selector})
                     AND c.year >= p.period AND c.year < p.period + l.period_length
                 GROUP BY 1, 2, 3
                 ORDER BY 1, 2, 3;
@@ -480,25 +522,26 @@ def get_queries(args):
         # (use fuel_markets module)
         add_query(queries, 'regional_fuel_markets.csv', """
             SELECT DISTINCT
-                concat('Hawaii_', replace(fuel_type, ' ', '_')) AS regional_fuel_market,
-                replace(fuel_type, ' ', '_') AS fuel
+                concat('Hawaii_', replace(fuel, ' ', '_')) AS regional_fuel_market,
+                replace(fuel, ' ', '_') AS fuel
             FROM fuel_costs
-            WHERE load_zone in %(load_zones)s AND fuel_scen_id = %(fuel_scen_id)s;
+            WHERE load_zone in %(load_zones)s AND fuel_scenario = %(fuel_scenario)s
+            ORDER BY 1, 2;
         """, args)
 
         add_query(queries, 'fuel_supply_curves.csv',
             "WITH " + period_length + """
-            SELECT concat('Hawaii_', replace(fuel_type, ' ', '_')) as regional_fuel_market,
-                replace(fuel_type, ' ', '_') as fuel,
+            SELECT concat('Hawaii_', replace(fuel, ' ', '_')) as regional_fuel_market,
+                replace(fuel, ' ', '_') as fuel,
                 tier,
                 p.period,
                 avg(price_mmbtu * power(1.0+%(inflation_rate)s, %(base_financial_year)s-c.base_year)) as unit_cost,
                 avg(max_avail_at_cost) as max_avail_at_cost,
                 avg(fixed_cost) as fixed_cost,
                 avg(max_age) as max_age
-            FROM fuel_costs c, study_periods p JOIN period_length l USING (period)
+            FROM fuel_costs c, periods p JOIN period_length l USING (period)
             WHERE load_zone in %(load_zones)s
-                AND fuel_scen_id = %(fuel_scen_id)s
+                AND fuel_scenario = %(fuel_scenario)s
                 AND p.time_sample = %(time_sample)s
                 AND (c.year >= p.period AND c.year < p.period + l.period_length)
             GROUP BY 1, 2, 3, 4
@@ -506,9 +549,10 @@ def get_queries(args):
         """, args)
 
         add_query(queries, 'zone_to_regional_fuel_market.csv', """
-            SELECT DISTINCT load_zone, concat('Hawaii_', replace(fuel_type, ' ', '_')) AS regional_fuel_market
+            SELECT DISTINCT load_zone, concat('Hawaii_', replace(fuel, ' ', '_')) AS regional_fuel_market
             FROM fuel_costs
-            WHERE load_zone in %(load_zones)s AND fuel_scen_id = %(fuel_scen_id)s;
+            WHERE load_zone in %(load_zones)s AND fuel_scenario = %(fuel_scenario)s
+            ORDER BY 1, 2;
         """, args)
 
     # TODO: (when multi-island) add fuel_cost_adders for each zone
@@ -530,13 +574,13 @@ def get_queries(args):
         raise ValueError(
             'wind_capital_cost_escalator and pv_capital_cost_escalator arguments are '
             'no longer supported by scenario_data.write_tables(); '
-            'assign time-varying costs in the generator_costs_by_year table instead.'
+            'assign time-varying costs in the gen_build_costs table instead.'
         )
     if args.get('generator_costs_base_year', 0):
         # user supplied a generator_costs_base_year
         raise ValueError(
             'generator_costs_base_year is no longer supported by scenario_data.write_tables(); '
-            'assign base_year in the generator_costs_by_year table instead.'
+            'assign base_year in the gen_build_costs table instead.'
         )
 
 
@@ -550,10 +594,10 @@ def get_queries(args):
     if args.get('use_incremental_heat_rates', False):
         full_load_heat_rate = 'null'
     else:
-        full_load_heat_rate = '0.001*heat_rate'
+        full_load_heat_rate = '0.001*gen_full_load_heat_rate'
 
     if args.get('report_forced_outage_rates', False):
-        forced_outage_rate = 'forced_outage_rate'
+        forced_outage_rate = 'gen_forced_outage_rate'
     else:
         forced_outage_rate = '0'
 
@@ -568,24 +612,33 @@ def get_queries(args):
             (spur_line_cost_per_mw + 1000.0 * substation_cost_per_kw)
                 * power(1.0+%(inflation_rate)s, %(base_financial_year)s-base_year)
                 AS gen_connect_cost_per_mw,
-            max_capacity AS gen_capacity_limit_mw,
-            unit_size as gen_unit_size,
-            max_age_years as gen_max_age,
-            scheduled_outage_rate as gen_scheduled_outage_rate,
+            gen_capacity_limit_mw,
+            gen_unit_size,
+            gen_min_build_capacity,
+            gen_max_age,
+            gen_scheduled_outage_rate,
             {fo} as gen_forced_outage_rate,
-            intermittent as gen_is_variable,
-            baseload as gen_is_baseload,
+            gen_is_variable,
+            gen_is_baseload,
             -- 0 as gen_is_flexible_baseload,
-            cogen as gen_is_cogen,
+            gen_is_cogen,
             -- non_cycling as gen_non_cycling,
             (1000.0 * variable_o_m)
                 * power(1.0+%(inflation_rate)s, %(base_financial_year)s-base_year)
                 AS gen_variable_om,
-            CASE WHEN fuel IN ('SUN', 'WND', 'MSW', 'Battery', 'Hydro') THEN fuel ELSE 'multiple' END AS gen_energy_source,
-            CASE WHEN fuel IN ('SUN', 'WND', 'MSW', 'Battery', 'Hydro') THEN null ELSE {flhr} END AS gen_full_load_heat_rate,
-            min_uptime as gen_min_uptime,
-            min_downtime as gen_min_downtime,
-            startup_energy / unit_size as gen_startup_fuel,
+            CASE
+                WHEN gen_energy_source IN ('SUN', 'WND', 'MSW', 'Battery', 'Hydro')
+                THEN gen_energy_source
+                ELSE 'multiple'
+            END AS gen_energy_source,
+            CASE
+                WHEN gen_energy_source IN ('SUN', 'WND', 'MSW', 'Battery', 'Hydro')
+                THEN null
+                ELSE {flhr}
+            END AS gen_full_load_heat_rate,
+            gen_min_uptime,
+            gen_min_downtime,
+            gen_startup_fuel,
             gen_storage_efficiency,
             gen_storage_energy_to_power_ratio,
             gen_storage_max_cycles_per_year
@@ -598,72 +651,75 @@ def get_queries(args):
         SELECT
             "GENERATION_PROJECT",
             build_year,
-            SUM(proj_existing_cap) as gen_predetermined_cap
-        FROM study_projects JOIN proj_existing_builds USING (project_id)
+            SUM(gen_predetermined_cap) as gen_predetermined_cap
+        FROM study_projects JOIN gen_build_predetermined USING (project_id)
         GROUP BY 1, 2
         ORDER BY 1, 2;
     """, args)
 
-    # NOTE: these costs must be expressed in $/MW, $/MWh or $/MW-year,
-    # not $/kW, $/kWh or $/kW-year.
-    # NOTE: for now, we only specify storage costs per unit of power, not
-    # on per unit of energy, so we insert $0 as the energy cost here.
-    # NOTE: projects should have NULL for overnight cost and fixed O&M in
-    # proj_existing_builds if they have an entry for the same year in
-    # generator_costs_by_year. If they have costs in both, they will both
-    # get passed through to the data table, and Switch will raise an error
-    # (as it should, because costs are ambiguous in this case).
-    add_query(queries, 'gen_build_costs.csv',
-        "WITH " + study_info + "," + """
-        gen_build_costs AS (
-            SELECT
-                i.technology,
-                c.year AS build_year,
-                c.capital_cost_per_kw * 1000.0
-                    * power(1.0+%(inflation_rate)s, %(base_financial_year)s-c.base_year)
-                    AS gen_overnight_cost,
-                c.capital_cost_per_kwh * 1000.0 AS gen_storage_energy_overnight_cost,
-                c.fixed_o_m * 1000.0 * power(1.0+%(inflation_rate)s, %(base_financial_year)s-i.base_year)
-                    AS gen_fixed_o_m,
-                i.min_vintage_year  -- used for build_year filter below
-            FROM study_generator_info i
-                JOIN generator_costs_by_year c USING (technology, tech_scen_id)
-            ORDER BY 1, 2
+    def scale_inflate_cost(cost_term):
+        """
+        Generate inflation-adjusted cost expression, given a cost expression in a table;
+        assumes base_year exists in the same table.
+        """
+        table = cost_term.split('.')[0]+'.' if '.' in cost_term else ''
+        return (
+            "({cost} * 1000.0 * power(1.0+%(inflation_rate)s, %(base_financial_year)s-{table}base_year))"
+            .format(cost=cost_term, table=table)
         )
-        SELECT   -- costs specified in proj_existing_builds
+
+    add_query(queries, 'gen_build_costs.csv',
+        "WITH " + study_info + """
+        -- For projects in gen_build_predetermined, apply average cost of all
+        -- projects built in the same year (looking up generic costs if needed)
+        SELECT
             "GENERATION_PROJECT",
             b.build_year,
             SUM(
-                power(1.0+%(inflation_rate)s, %(base_financial_year)s-b.base_year)
-                * b.proj_overnight_cost * 1000.0 * proj_existing_cap
-            ) / SUM(proj_existing_cap)
+                COALESCE({b_capital_cost_per_mw}, {c_capital_cost_per_mw})
+                * gen_predetermined_cap
+            ) / SUM(gen_predetermined_cap)
                 AS gen_overnight_cost,
             null AS gen_storage_energy_overnight_cost,
             SUM(
-                power(1.0+%(inflation_rate)s, %(base_financial_year)s-b.base_year)
-                * b.proj_fixed_om * 1000.0 * proj_existing_cap
-            ) / SUM(proj_existing_cap)
+                COALESCE({b_fixed_o_m}, {c_fixed_o_m})
+                * gen_predetermined_cap
+            ) / SUM(gen_predetermined_cap)
                 AS gen_fixed_om
-        FROM study_projects p
-            JOIN proj_existing_builds b USING (project_id)
-        WHERE (b.proj_overnight_cost IS NOT NULL OR b.proj_fixed_om IS NOT NULL)
+        FROM gen_build_predetermined b
+            JOIN study_projects p USING (project_id)
+            JOIN study_generator_info i USING (technology)
+            LEFT JOIN gen_build_costs c
+                ON c.technology=i.technology AND c.year=b.build_year AND c.tech_scenario=i.tech_scenario
         GROUP BY 1, 2
         UNION
-        SELECT   -- costs specified in generator_costs_by_year
-            "GENERATION_PROJECT", c.build_year, gen_overnight_cost,
-            gen_storage_energy_overnight_cost, gen_fixed_o_m
+        -- For each project in each period after the min vintage year, if no
+        -- predetermined build is specified (above), use generic prices if
+        -- available. If no prices are found, it means the project can't
+        -- be expanded.
+        SELECT
+            "GENERATION_PROJECT",
+            c.year AS build_year,
+            {c_capital_cost_per_mw} AS gen_overnight_cost,
+            {c_capital_cost_per_mwh} AS gen_storage_energy_overnight_cost,
+            {c_fixed_o_m} AS gen_fixed_o_m
         FROM study_projects proj
-            JOIN gen_build_costs c USING (technology)
-            LEFT JOIN study_periods per ON (per.time_sample = %(time_sample)s AND c.build_year = per.period)
-            LEFT JOIN proj_existing_builds e ON (e.project_id = proj.project_id AND e.build_year = c.build_year)
+            JOIN study_generator_info i USING (technology)
+            JOIN gen_build_costs c ON c.technology=i.technology AND c.tech_scenario=i.tech_scenario
+            JOIN periods per ON (per.time_sample = %(time_sample)s AND c.year = per.period)
+            LEFT JOIN gen_build_predetermined e
+                ON e.project_id = proj.project_id AND e.build_year = c.year
         WHERE
-            -- note: this allows users to have build_year < min_vintage_year for predetermined projects
-            -- that have entries in the cost table, e.g., if they want to prespecify some, but postpone
-            -- additional construction until some later year (unlikely)
-            (per.period IS NOT NULL AND (c.min_vintage_year IS NULL OR c.build_year >= c.min_vintage_year))
-            OR e.project_id IS NOT NULL
+            e.project_id IS NULL -- no existing projects
+            AND (i.min_vintage_year IS NULL OR c.year >= i.min_vintage_year)
         ORDER BY 1, 2;
-    """, args)
+    """.format(
+        b_capital_cost_per_mw=scale_inflate_cost('b.capital_cost_per_kw'),
+        c_capital_cost_per_mw=scale_inflate_cost('c.capital_cost_per_kw'),
+        c_capital_cost_per_mwh=scale_inflate_cost('c.capital_cost_per_kwh'),
+        b_fixed_o_m=scale_inflate_cost('b.fixed_o_m'),
+        c_fixed_o_m=scale_inflate_cost('c.fixed_o_m'),
+    ), args)
 
     #########################
     # spinning_reserves_advanced (if wanted; otherwise defaults to just "spinning"
@@ -729,7 +785,7 @@ def get_queries(args):
                     technology,
                     output_mw,
                     fuel_consumption_mmbtu_per_h
-                FROM part_load_fuel_consumption JOIN study_generator_info USING (technology)
+                FROM gen_part_load_fuel JOIN study_generator_info USING (technology)
             ), prior AS (
                 SELECT a.key, MAX(b.key) AS prior_key
                 FROM part_load a JOIN part_load b ON b.technology=a.technology AND b.key < a.key
@@ -762,7 +818,7 @@ def get_queries(args):
         """, args)
 
     # This gets a list of all the fueled projects (listed as "multiple" energy sources above),
-    # and lists them as accepting any equivalent or lighter fuel. (However, cogen plants and plants
+    # and lists them as accepting any equivalent or lighter fuel. (However, plants
     # using fuels with rank 0 are not changed.) Fuels are also filtered against the list of fuels with
     # costs reported for the current scenario, so this can end up re-mapping one fuel in the database
     # (e.g., LSFO) to a similar fuel in the scenario (e.g., LSFO-Diesel-Blend), even if the original fuel
@@ -774,18 +830,18 @@ def get_queries(args):
         all_techs AS (
             SELECT
                 technology,
-                fuel as orig_fuel,
-                cogen
+                gen_energy_source as orig_fuel
             FROM study_generator_info
         ), all_fueled_techs AS (
             SELECT * from all_techs WHERE orig_fuel NOT IN ('SUN', 'WND', 'MSW', 'Battery', 'Hydro')
         ), gen_multiple_fuels AS (
             SELECT DISTINCT technology, b.energy_source as fuel
             FROM all_fueled_techs t
-                JOIN energy_source_properties a ON a.energy_source = t.orig_fuel
-                JOIN energy_source_properties b ON b.fuel_rank >= a.fuel_rank AND
+                JOIN energy_sources a ON a.energy_source = t.orig_fuel
+                JOIN energy_sources b ON b.fuel_rank >= a.fuel_rank AND
                     (a.fuel_rank > 0 OR a.energy_source = b.energy_source)    -- 0-rank can't change fuels
-                WHERE b.energy_source IN (SELECT fuel_type FROM fuel_costs WHERE fuel_scen_id = %(fuel_scen_id)s)
+                    AND (b.rps_eligible >= a.rps_eligible)   -- if rps-eligible fuel specified, only use rps-eligible fuels
+                WHERE b.energy_source IN (SELECT fuel FROM fuel_costs WHERE fuel_scenario = %(fuel_scenario)s)
         )
         SELECT "GENERATION_PROJECT", fuel
             FROM gen_multiple_fuels g JOIN study_projects p USING (technology)
@@ -804,12 +860,12 @@ def get_queries(args):
         "WITH " + study_info + """
             SELECT
                 "GENERATION_PROJECT",
-                study_hour as timepoint,
+                timepoint,
                 cap_factor as gen_max_capacity_factor
             FROM study_generator_info g
                 JOIN study_projects p USING (technology)
-                JOIN cap_factor c USING (project_id)
-                JOIN study_hour h using (date_time)
+                JOIN variable_capacity_factors c USING (project_id)
+                JOIN timepoints h using (date_time)
             WHERE time_sample = %(time_sample)s
             ORDER BY 1, 2
         """, args)
@@ -835,18 +891,19 @@ def get_queries(args):
         "WITH " + study_info + """
         SELECT * FROM (
             SELECT "GENERATION_PROJECT",
-                study_hour AS "TIMEPOINT",
-                CASE WHEN %(enable_must_run)s = 1 AND must_run = 1 THEN 1.0 ELSE null END
+                timepoint AS "TIMEPOINT",
+                CASE WHEN period < %(enable_must_run_before)s AND must_run = 1 THEN 1.0 ELSE null END
                     AS gen_min_commit_fraction,
                 null AS gen_max_commit_fraction,
                 null AS gen_min_load_fraction_TP
             FROM study_projects JOIN study_generator_info USING (technology)
-                CROSS JOIN study_hour
+                CROSS JOIN timepoints NATURAL JOIN timeseries NATURAL JOIN periods
             WHERE time_sample = %(time_sample)s
         ) AS the_data
         WHERE gen_min_commit_fraction IS NOT NULL
             OR gen_max_commit_fraction IS NOT NULL
-            OR gen_min_load_fraction_TP IS NOT NULL;
+            OR gen_min_load_fraction_TP IS NOT NULL
+        ORDER BY 1, 2;
     """, args)
 
 
@@ -868,6 +925,7 @@ def get_queries(args):
     #         existing_mw_to AS existing_transmission_to
     #     FROM trans_line
     #     WHERE load_area_start IN %(load_zones)s OR load_area_end IN %(load_zones)s
+    #     ORDER BY 1, 2;
     # """, args)
     #
     #
@@ -907,7 +965,7 @@ def get_queries(args):
             SELECT load_zone as "LOAD_ZONE", period as "PERIOD",
                 ev_share, ice_miles_per_gallon, ev_miles_per_kwh, ev_extra_cost_per_vehicle_year,
                 n_all_vehicles, vmt_per_vehicle
-            FROM ev_adoption a JOIN study_periods p on a.year = p.period
+            FROM ev_adoption a JOIN periods p on a.year = p.period
             WHERE load_zone in %(load_zones)s
                 AND time_sample = %(time_sample)s
                 AND ev_scenario = %(ev_scenario)s
@@ -915,15 +973,23 @@ def get_queries(args):
         """, args)
         # power consumption for each hour of the day under business-as-usual charging
         # note: the charge weights have a mean value of 1.0, but go up and down in different hours
+        # NOTE: This may not average out to exactly 1.0 if time sampling is not every hour.
+        # We could get mean charging during each time sample by calculating avg(ev_bau_mw)
+        # and changing the hour_of_day join to
+        # (p.hour_of_day - h.hour_of_day + 24) % 24 < ts_duration_of_tp
+        # but that would be inconsistent with how we handle loads and weather
+        # (generally point sample at start of timepoint or avg. value over first
+        # hour of timepoint; not whole timepoint)
         add_query(queries, 'ev_bau_load.csv', """
             SELECT
                 load_zone AS "LOAD_ZONE",
-                study_hour AS "TIMEPOINT",
-                charge_weight * ev_share * n_all_vehicles * vmt_per_vehicle / (1000.0 * ev_miles_per_kwh) / 8760 as ev_bau_mw
+                timepoint AS "TIMEPOINT",
+                charge_weight * ev_share * n_all_vehicles * vmt_per_vehicle
+                    / (1000.0 * ev_miles_per_kwh) / 8760 as ev_bau_mw
             FROM ev_adoption e
-                JOIN study_date d ON d.period = e.year
-                JOIN study_hour h USING (study_date, time_sample)
-                JOIN ev_hourly_charge_profile p
+                JOIN timeseries d ON d.period = e.year
+                JOIN timepoints h USING (timeseries, time_sample)
+                JOIN ev_hourly_charge_profiles p
                     ON p.charge_profile = %(ev_charge_profile)s
                         AND p.hour_of_day = h.hour_of_day
             WHERE load_zone in %(load_zones)s
@@ -939,7 +1005,7 @@ def get_queries(args):
             SELECT
                 load_zone as "LOAD_ZONE", period as "PERIOD",
                 ev_share
-            FROM ev_adoption a JOIN study_periods p on a.year = p.period
+            FROM ev_adoption a JOIN periods p on a.year = p.period
             WHERE load_zone in %(load_zones)s
                 AND time_sample = %(time_sample)s
                 AND ev_scenario = %(ev_scenario)s
@@ -969,7 +1035,7 @@ def get_queries(args):
                         + (2045-period)/25.0 * "EV extra capital cost per year 2020"
                     END AS "ev_extra_cost_per_vehicle_year"
                  FROM ev_adoption a
-                    JOIN study_periods p ON a.year = p.period
+                    JOIN periods p ON a.year = p.period
                     JOIN ev_fleet f ON f.load_zone = a.load_zone
                 WHERE a.load_zone in %(load_zones)s
                     AND time_sample = %(time_sample)s
@@ -1002,10 +1068,10 @@ def get_queries(args):
                     b.load_zone AS "LOAD_ZONE",
                     CONCAT_WS('_', 'All', "ICE fuel", 'Vehicles') AS "VEHICLE_TYPE",
                     bid_number AS "BID_NUM",
-                    study_hour AS "TIMEPOINT",
+                    timepoint AS "TIMEPOINT",
                     sum(charge_mw) AS ev_bid_by_type
-                FROM study_date d
-                    JOIN study_hour h USING (study_date, time_sample)
+                FROM timeseries d
+                    JOIN timepoints h USING (timeseries, time_sample)
                     JOIN ev_charging_bids b
                         ON b.hour = h.hour_of_day AND b.hours_per_step = d.ts_duration_of_tp
                     JOIN ev_fleet f ON b.vehicle_type=f."vehicle type" AND b.load_zone=f.load_zone
@@ -1017,7 +1083,7 @@ def get_queries(args):
 
     #########################
     # pumped hydro
-    # TODO: put these data in a database with hydro_scen_id's and pull them from there
+    # TODO: put these data in a database with hydro_scenario's and pull them from there
 
     if "pumped_hydro_headers" in args:
         add_literal_table(queries,
@@ -1078,20 +1144,23 @@ def db_cursor():
                 """))
             raise
         try:
-            pghost='redr.eng.hawaii.edu'
             # note: the connection gets created when the module loads and never gets closed (until presumably python exits)
-            con = psycopg2.connect(database='switch', host=pghost) #, user='switch_user')
+            con = psycopg2.connect(database=pgdatabase, host=pghost, user=pguser)
+            print("Reading data from database {} on server {}".format(pgdatabase, pghost))
 
         except psycopg2.OperationalError:
             print(dedent("""
                 ############################################################################################
-                Error while connecting to switch database on postgres server {server}.
-                Please ensure that the PGUSER environment variable is set with your postgres username
-                and there is a line like "*:*:*:<user>:<password>" in ~/.pgpass (which should be chmod 0600)
+                Error while connecting to database '{db}' on postgres server '{server}' as user '{user}'.
+                Please ensure that the following environment variables are set:
+                PGUSER = your postgres username
+                PGHOST = hostname or IP address of postgres server
+                PGDATABASE = name of switch database on this server.
+                There should also be a line like "*:*:*:<user>:<password>" in ~/.pgpass (which should be chmod 0600)
                 or in %APPDATA%\postgresql\pgpass.conf (Windows).
                 See http://www.postgresql.org/docs/9.1/static/libpq-pgpass.html for more details.
                 ############################################################################################
-                """.format(server=pghost)))
+                """.format(server=pghost, db=pgdatabase, user=pguser)))
             raise
     return con.cursor()
 
