@@ -141,10 +141,17 @@ def main(args=None, return_model=False, return_instance=False):
             return model
 
         if model.options.reload_prior_solution:
+            # Fail quickly if the prior solution file is not available.
             # TODO: allow a directory to be specified after --reload-prior-solution,
             # otherwise use outputs_dir.
-            if not os.path.isdir(model.options.outputs_dir):
-                raise IOError("Directory specified for prior solution does not exist.")
+            prior_solution_file = os.path.join(
+                model.options.outputs_dir, 'results.pickle'
+            )
+            if not os.path.exists(prior_solution_file):
+                raise IOError(
+                    "Prior solution {} does not exist."
+                    .format(prior_solution_file)
+                )
 
         # get a list of modules to iterate through
         iterate_modules = get_iteration_list(model)
@@ -187,7 +194,7 @@ def main(args=None, return_model=False, return_instance=False):
 
         if instance.options.reload_prior_solution:
             print('Loading prior solution...')
-            reload_prior_solution_from_pickle(instance, instance.options.outputs_dir)
+            reload_prior_solution_from_pickle(instance, prior_solution_file)
             if instance.options.verbose:
                 print(
                     'Loaded previous results into model instance in {:.2f} s.'
@@ -254,8 +261,8 @@ def main(args=None, return_model=False, return_instance=False):
                 local=dict(list(globals().items()) + list(locals().items())))
 
 
-def reload_prior_solution_from_pickle(instance, outdir):
-    with open(os.path.join(outdir, 'results.pickle'), 'rb') as fh:
+def reload_prior_solution_from_pickle(instance, pickle_file):
+    with open(pickle_file, 'rb') as fh:
          results = pickle.load(fh)
     instance.solutions.load_from(results)
     return instance
