@@ -4,7 +4,7 @@
 """
 Utility functions for Switch.
 """
-from __future__ import print_function
+from __future__ import print_function, division
 
 import argparse
 import datetime
@@ -19,6 +19,12 @@ import textwrap
 
 from pyomo.environ import *
 import pyomo.opt
+
+try:
+    # sentinel for sets with no dimension specified in Pyomo 5.7+
+    from pyomo.core.base.set import UnknownSetDimen
+except ImportError:
+    UnknownSetDimen = object()  # shouldn't ever match
 
 # Define string_types (same as six.string_types). This is useful for
 # distinguishing between strings and other iterables.
@@ -181,12 +187,27 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=True):
     if model.options.verbose:
         print("Data read in {:.2f} s.\n".format(timer.step_time()))
 
-    # At some point, pyomo deprecated 'create' in favor of 'create_instance'.
-    # Determine which option is available and use that.
-    if hasattr(model, "create_instance"):
-        instance = model.create_instance(data)
+    # TODO: if logging level is info rather than debug:
+    # set report_timing to True and capture pyomo output; count lines as they
+    # come (like "1.72 seconds to construct Constraint Enforce_Dispatch_Lower_Limit_Non_Renewable; 54912 indices total")
+    # and report % complete on our standard logger (with backspaces so it only
+    # shows one number at a time). Should be able to infer number of lines that
+    # will come by counting components or counting entries in m._decl_order
+    # (may need to update the count as this goes, because some BuildActions will
+    # add more components to the end of the component list).
+    # instance = model.create_instance(
+    #     data, report_timing=model.logger.isEnabledFor(logging.DEBUG)
+    # )
+    if model.logger.isEnabledFor(logging.DEBUG):
+        instance = model.create_instance(data, report_timing=True)
+    elif model.logger.isEnabledFor(logging.INFO):
+        with TimingLineCounter(model):
+            instance = model.create_instance(data, report_timing=True)
     else:
-        instance = model.create(data)
+        instance = model.create_instance(data, report_timing=False)
+    # Note: model.create() was replaced by model.create_instance() in Pyomo 4.1
+    # and we require at least Pyomo 4.4.
+
     if model.options.verbose:
         print("Instance created from data in {:.2f} s.\n".format(timer.step_time()))
 
@@ -392,7 +413,7 @@ def check_mandatory_components(model, *mandatory_model_components):
                 )
         elif o_class == "IndexedParam":
             if len(obj) != len(obj.index_set()):
-                missing_index_elements = list(obj.index_set() - obj.sparse_keys())
+                missing_index_elements = [k for k in obj.index_set() if k not in obj]
                 raise ValueError(
                     "Values are not provided for every element of the "
                     "mandatory parameter '{}'. "
@@ -603,6 +624,13 @@ def load_aug(
     # Default to 0 if both methods failed.
     else:
         num_indexes = 0
+
+    if num_indexes is UnknownSetDimen:
+        # Pyomo 5.7 and later use a sentinel and don't set the dimension
+        # until later (construction time?) if no dimension is specified,
+        # so we have to apply the default here
+        num_indexes = 1
+
     # Make a select list if requested. Assume the left-most columns are
     # indexes and that other columns are named after their parameters.
     # Maybe this could be extended to use a standard prefix for each data file?
