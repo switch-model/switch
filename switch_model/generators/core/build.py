@@ -122,7 +122,7 @@ def define_components(mod):
     force project build-outs to meet the minimum build requirements for
     generation technologies that have those requirements. They force BuildGen
     to be 0 when BuildMinGenCap is 0, and to be greater than
-    g_min_build_capacity when BuildMinGenCap is 1. In the latter case,
+    gen_min_build_capacity when BuildMinGenCap is 1. In the latter case,
     the upper constraint should be non-binding; the upper limit is set to 10
     times the peak non-conincident demand of the entire system.
 
@@ -577,6 +577,7 @@ def load_inputs(mod, switch_data, inputs_dir):
         GENERATION_PROJECT, build_year, gen_overnight_cost, gen_fixed_om
 
     """
+
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "generation_projects_info.csv"),
         auto_select=True,
