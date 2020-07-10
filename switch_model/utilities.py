@@ -448,15 +448,17 @@ def apply_input_aliases(switch_data, path):
                 pair.split('=') for pair in switch_data._model.options.input_aliases
             )
         }
+
     root, filename = os.path.split(path)
     if filename in file_aliases:
+        old_path = path
         if file_aliases[filename].lower() == 'none':
             path = ''
         else:
             # Note: We could use os.path.normpath() to clean up paths like
             # 'inputs/../inputs_alt', but leaving them as-is may make it more
             # clear that an alias is in use if errors crop up later.
-            old_path, path = path, os.path.join(root, file_aliases[filename])
+            path = os.path.join(root, file_aliases[filename])
             if not os.path.isfile(path):
                 # catch alias naming errors (should always point to a real file)
                 raise ValueError(
@@ -464,6 +466,8 @@ def apply_input_aliases(switch_data, path):
                     'Specify {}=none if you want to supply no data.'
                     .format(path, old_path, filename)
                 )
+        switch_data._model.logger.info('Applying alias {}={}'.format(old_path, path))
+
     return path
 
 def load_aug(switch_data, optional=False, auto_select=False,
@@ -500,6 +504,10 @@ def load_aug(switch_data, optional=False, auto_select=False,
     generic output files). This will simplify code and ease comprehension
     (user can see immediately where the data come from for each component).
     This can also support auto-documenting of parameters and input files.
+    * Maybe each input file should have the same name as the matching index set?
+      generation_projects_info -> generation_projects
+      gen_build_predetermined -> predetermined_gen_bld_yrs
+      gen_build_costs -> gen_bld_yrs
     """
 
     # TODO:
