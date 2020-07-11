@@ -295,19 +295,21 @@ def define_components(mod):
     # dispatch into market framework
 
     def GENS_FOR_RFM_PERIOD_rule(m, rfm, p):
-        # Construct and cache a set of gens for each zone/fuel/period, then
-        # return lists of gens for each rfm/period as needed
+        # Construct and cache list of gens for each rfm/period, then return them
+        # as needed
         try:
             d = m.GENS_FOR_RFM_PERIOD_dict
         except AttributeError:
             d = m.GENS_FOR_RFM_PERIOD_dict = dict()
             for g in m.FUEL_BASED_GENS:
                 for f in m.FUELS_FOR_GEN[g]:
-                    for p_ in m.PERIODS_FOR_GEN[g]:
-                        # d uses (rfm, period) as key
-                        d.setdefault(
-                            (m.zone_fuel_rfm[m.gen_load_zone[g], f], p_), []
-                        ).append(g)
+                    try:
+                        _rfm = m.zone_fuel_rfm[m.gen_load_zone[g], f]
+                    except KeyError: # no rfm provides this fuel
+                        pass
+                    else:
+                        for _p in m.PERIODS_FOR_GEN[g]:
+                            d.setdefault((_rfm, _p), []).append(g)
         return d.pop((rfm, p), []) # pop releases memory
     mod.GENS_FOR_RFM_PERIOD = Set(
         mod.REGIONAL_FUEL_MARKETS, mod.PERIODS,
