@@ -1308,21 +1308,25 @@ def report_model_in_traceback(tb):
     import traceback
 
     for level, (frame, line) in enumerate(reversed(list(traceback.walk_tb(tb)))):
-        location = "\nin {}, line {}\n".format(frame.f_code.co_filename, line)
+        file_loc = "{}, line {}".format(frame.f_code.co_filename, line)
         if level == 0:
             location = "in the current frame"
         elif level == 1:
-            location += "(1 level up)"
+            location = "in\n{}\n(1 level up)".format(file_loc)
         else:
-            location += "({} levels up)".format(level)
+            location = "in\n{}\n({} levels up)".format(file_loc, level)
         vars = frame.f_locals
         for name, v in vars.items():
-            if isinstance(v, AbstractModel):
-                print("\nA model can be found in variable '{}'".format(name) + location)
+            if isinstance(v, Model):
+                print(
+                    "\nA model can be found in variable '{}' {}".format(name, location)
+                )
                 return
         for name, v in vars.items():
             if isinstance(v, Component) and hasattr(v, "model"):
-                print("\nA model can be found in '{}.model()'".format(name) + location)
+                print(
+                    "\nA model can be found in '{}.model()' {}".format(name, location)
+                )
                 return
     print("\nNo Pyomo model was found in the current stack trace.")
 
