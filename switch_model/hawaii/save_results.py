@@ -471,6 +471,7 @@ def write_results(m, outputs_dir):
             (z, pe) + tuple(tech_cap[z, t, pe] for t in build_tech_and_storage)
         ),
     )
+
     util.write_table(
         m,
         m.LOAD_ZONES,
@@ -480,7 +481,7 @@ def write_results(m, outputs_dir):
             outputs_dir, "capacity_by_technology_vertical{t}.csv".format(t=tag)
         ),
         headings=("load_zone", "technology", "period", "capacity"),
-        values=lambda m, z, pe, t: (z, t, pe) + tech_cap[z, t, pe],
+        values=lambda m, z, t, pe: (z, t, pe, tech_cap[z, t, pe]),
     )
 
     util.write_table(
@@ -510,6 +511,7 @@ def write_results(m, outputs_dir):
             m.FuelCellCapacityMW[z, pe] if hasattr(m, "FuelCellCapacityMW") else 0,
         ),
     )
+
     util.write_table(
         m,
         m.LOAD_ZONES,
