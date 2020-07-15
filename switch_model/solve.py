@@ -4,7 +4,7 @@
 from __future__ import print_function
 
 import logging
-import sys, os, time, shlex, re, inspect, textwrap, types, threading
+import sys, os, time, shlex, re, inspect, textwrap, types, threading, json
 
 try:
     import IPython
@@ -196,7 +196,7 @@ def main(args=None, return_model=False, return_instance=False):
             print("Arguments:")
             print(
                 ", ".join(
-                    k + "=" + repr(v) for k, v in model.options.__dict__.items() if v
+                    k + "=" + repr(v) for k, v in vars(model.options).items() if v
                 )
             )
             print("Modules:\n" + ", ".join(m for m in modules))
@@ -268,10 +268,23 @@ def main(args=None, return_model=False, return_instance=False):
                 if instance.options.verbose:
                     timer.step_time()  # restart counter for next step
 
-                if not instance.options.no_save_solution:
-                    save_results(instance, instance.options.outputs_dir)
-                    if instance.options.verbose:
-                        print("Saved results in {:.2f} s.".format(timer.step_time()))
+            # save model configuration for future reference
+            file = os.path.join(instance.options.outputs_dir, "model_config.json")
+            with open(file, "w") as f:
+                json.dump(
+                    {
+                        "options": vars(instance.options),
+                        "modules": modules,
+                        "iterate_modules": iterate_modules,
+                    },
+                    f,
+                    indent=4,
+                )
+
+            if not instance.options.no_save_solution:
+                save_results(instance, instance.options.outputs_dir)
+                if instance.options.verbose:
+                    print("Saved results in {:.2f} s.".format(timer.step_time()))
 
         # report results
         # (repeated if model is reloaded, to automatically run any new export code)
