@@ -378,10 +378,10 @@ def write_results(m, outputs_dir):
         for (g, p), cap in m.StorageEnergyCapacity.items():
             tech_cap[m.gen_load_zone[g], m.gen_tech[g] + '_MWh', p] += cap
     if hasattr(m, 'Pumped_Hydro_Capacity_MW'):
-        for (z, p), cap in m.Pumped_Hydro_Capacity_MW[z, pe].items():
+        for (z, p), cap in m.Pumped_Hydro_Capacity_MW.items():
             tech_cap[z, 'hydro', p] += cap
     if hasattr(m, 'FuelCellCapacityMW'):
-        for (z, p), cap in m.FuelCellCapacityMW[z, pe].items():
+        for (z, p), cap in m.FuelCellCapacityMW.items():
             tech_cap[z, 'fuel cells', p] += cap
 
     util.write_table(m, m.LOAD_ZONES, m.PERIODS,
