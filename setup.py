@@ -61,10 +61,11 @@ setup(
         'planning', 'optimization'
     ],
     install_requires=[
-        'Pyomo>=4.4.1', # We need a version that works with glpk 4.60+
-        'pint',         # needed by Pyomo when we run our tests, but not included
-        'testfixtures', # used for standard tests
-        'pandas',       # used for input upgrades and testing that functionality
+        'Pyomo >=4.4.1, <5.6.9a0', # 4.4.1+ works with glpk 4.60+; 5.6.9 gives warning and 5.7 gives error
+        'pyutilib <6.0a0', # by default, incompatible 6.0 gets installed with Pyomo 5.6.*
+        'pint',          # needed by Pyomo when we run our tests, but not included
+        'testfixtures',  # used for standard tests
+        'pandas <1',     # used for input upgrades and some outputs
     ],
     extras_require={
         # packages used for advanced demand response, progressive hedging
