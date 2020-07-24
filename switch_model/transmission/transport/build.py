@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2020 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -22,12 +22,10 @@ dependencies = (
 
 def define_components(mod):
     """
+    Defines a transport model for inter-zone transmission. Unless otherwise
+    stated, all power capacity is specified in units of MW and all sets and
+    parameters are mandatory.
 
-    Adds components to a Pyomo abstract model object to describe bulk
-    transmission of an electric grid. This includes parameters, build
-    decisions and constraints. Unless otherwise stated, all power
-    capacity is specified in units of MW and all sets and parameters are
-    mandatory.
 
     TRANSMISSION_LINES is the complete set of transmission pathways
     connecting load zones. Each member of this set is a one dimensional
@@ -82,7 +80,7 @@ def define_components(mod):
     derating factor for each transmission line that can reflect forced
     outage rates, stability or contingency limitations. This parameter
     is optional and defaults to 1. This parameter should be in the
-    range of 0 to 1, being 0 a value that disables the line completely.
+    range of 0 to 1. A value of 0 will disables the line completely.
 
     TxCapacityNameplateAvailable[(tx, bld_yr) in TRANS_BLD_YRS] is an
     expression that returns the available transfer capacity of a
@@ -286,29 +284,24 @@ def define_components(mod):
 
 def load_inputs(mod, switch_data, inputs_dir):
     """
-
     Import data related to transmission builds. The following files are
-    expected in the input directory:
+    expected in the input directory. Optional files & columns are marked with
+    a *.
 
     transmission_lines.csv
         TRANSMISSION_LINE, trans_lz1, trans_lz2, trans_length_km,
-        trans_efficiency, existing_trans_cap, trans_dbid,
-        trans_derating_factor, trans_terrain_multiplier,
-        trans_new_build_allowed
-    The last 4 columns of transmission_lines.csv are optional. If the
-    columns are missing or if cells contain a dot (.), those parameters
-    will be set to default values as described in documentation.
+        trans_efficiency, existing_trans_cap, trans_dbid*,
+        trans_derating_factor*, trans_terrain_multiplier*,
+        trans_new_build_allowed*
 
     Note that in the next file, parameter names are written on the first
     row (as usual), and the single value for each parameter is written in
-    the second row. The distribution_loss_rate parameter is read by the
-    local_td module (if used).
+    the second row.
 
-    trans_params.csv
-        trans_capital_cost_per_mw_km, trans_lifetime_yrs,
-        trans_fixed_om_fraction, distribution_loss_rate
+    trans_params.csv*
+        trans_capital_cost_per_mw_km*, trans_lifetime_yrs*,
+        trans_fixed_om_fraction*
     """
-
     # TODO: send issue / pull request to Pyomo to allow .csv files with
     # no rows after header (fix bugs in pyomo.core.plugins.data.text)
     switch_data.load_aug(
@@ -339,7 +332,6 @@ def load_inputs(mod, switch_data, inputs_dir):
             mod.trans_capital_cost_per_mw_km,
             mod.trans_lifetime_yrs,
             mod.trans_fixed_om_fraction,
-            mod.distribution_loss_rate,
         ),
     )
 

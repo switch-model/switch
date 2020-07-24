@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2020 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 """
 Defines generation projects build-outs.
@@ -122,7 +122,7 @@ def define_components(mod):
     force project build-outs to meet the minimum build requirements for
     generation technologies that have those requirements. They force BuildGen
     to be 0 when BuildMinGenCap is 0, and to be greater than
-    g_min_build_capacity when BuildMinGenCap is 1. In the latter case,
+    gen_min_build_capacity when BuildMinGenCap is 1. In the latter case,
     the upper constraint should be non-binding; the upper limit is set to 10
     times the peak non-conincident demand of the entire system.
 
@@ -136,6 +136,9 @@ def define_components(mod):
     indexed set that identify which build years will still be online
     for the given project in the given period. For some project-period
     combinations, this will be an empty set.
+
+    PERIODS_FOR_GEN[g] is the set of all periods when generation project
+    g could potentially be operated.
 
     GEN_PERIODS describes periods in which generation projects
     could be operational. Unlike the related sets above, it is not
@@ -293,7 +296,23 @@ def define_components(mod):
         initialize=mod.GENERATION_PROJECTS,
         filter=lambda m, g: m.gen_energy_source[g] == "multiple",
     )
-    mod.FUELS_FOR_MULTIFUEL_GEN = Set(mod.MULTIFUEL_GENS, within=mod.FUELS)
+    mod.MULTI_FUEL_GEN_FUELS = Set(
+        dimen=2, validate=lambda m, g, f: g in m.MULTIFUEL_GENS and f in m.FUELS
+    )
+
+    def FUELS_FOR_MULTIFUEL_GEN_init(m, g):
+        if not hasattr(m, "FUELS_FOR_MULTIFUEL_GEN_dict"):
+            m.FUELS_FOR_MULTIFUEL_GEN_dict = {_g: [] for _g in m.MULTIFUEL_GENS}
+            for _g, f in m.MULTI_FUEL_GEN_FUELS:
+                m.FUELS_FOR_MULTIFUEL_GEN_dict[_g].append(f)
+        result = m.FUELS_FOR_MULTIFUEL_GEN_dict.pop(g)
+        if not m.FUELS_FOR_MULTIFUEL_GEN_dict:
+            del m.FUELS_FOR_MULTIFUEL_GEN_dict
+        return result
+
+    mod.FUELS_FOR_MULTIFUEL_GEN = Set(
+        mod.MULTIFUEL_GENS, within=mod.FUELS, initialize=FUELS_FOR_MULTIFUEL_GEN_init
+    )
     mod.FUELS_FOR_GEN = Set(
         mod.FUEL_BASED_GENS,
         initialize=lambda m, g: (
@@ -558,6 +577,7 @@ def load_inputs(mod, switch_data, inputs_dir):
         GENERATION_PROJECT, build_year, gen_overnight_cost, gen_fixed_om
 
     """
+
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "generation_projects_info.csv"),
         optional_params=[
@@ -622,10 +642,13 @@ def load_inputs(mod, switch_data, inputs_dir):
         index=mod.GEN_BLD_YRS,
         param=(mod.gen_overnight_cost, mod.gen_fixed_om),
     )
-    # read FUELS_FOR_MULTIFUEL_GEN from gen_multiple_fuels.dat if available
-    multi_fuels_path = os.path.join(inputs_dir, "gen_multiple_fuels.dat")
-    if os.path.isfile(multi_fuels_path):
-        switch_data.load(filename=multi_fuels_path)
+    switch_data.load_aug(
+        optional=True,
+        filename=os.path.join(inputs_dir, "gen_multiple_fuels.csv"),
+        auto_select=True,
+        index=mod.MULTI_FUEL_GEN_FUELS,
+        param=tuple(),
+    )
 
 
 def post_solve(m, outdir):
@@ -643,8 +666,6 @@ def post_solve(m, outdir):
             "GenCapitalCosts",
             "GenFixedOMCosts",
         ),
-        # Indexes are provided as a tuple, so put (g,p) in parentheses to
-        # access the two components of the index individually.
         values=lambda m, g, p: (
             g,
             p,
@@ -652,7 +673,13 @@ def post_solve(m, outdir):
             m.gen_load_zone[g],
             m.gen_energy_source[g],
             m.GenCapacity[g, p],
-            m.GenCapitalCosts[g, p],
+            m.GenCapitalCosts[g, p]
+            + (
+                m.StorageEnergyFixedCost[g, p]
+                if hasattr(m, "StorageEnergyFixedCost")
+                and (g, p) in m.StorageEnergyFixedCost
+                else 0.0
+            ),
             m.GenFixedOMCosts[g, p],
         ),
     )

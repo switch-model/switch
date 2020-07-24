@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2020 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -234,9 +234,9 @@ def define_components(mod):
 
     mod.TIMESERIES = Set(ordered=True)
     mod.ts_period = Param(mod.TIMESERIES, within=mod.PERIODS)
-    mod.ts_duration_of_tp = Param(mod.TIMESERIES, within=PositiveReals)
-    mod.ts_num_tps = Param(mod.TIMESERIES, within=PositiveIntegers)
-    mod.ts_scale_to_period = Param(mod.TIMESERIES, within=PositiveReals)
+    mod.ts_duration_of_tp = Param(mod.TIMESERIES, within=NonNegativeReals)
+    mod.ts_num_tps = Param(mod.TIMESERIES, within=NonNegativeIntegers)
+    mod.ts_scale_to_period = Param(mod.TIMESERIES, within=NonNegativeReals)
     mod.min_data_check(
         "TIMESERIES",
         "ts_period",
@@ -259,7 +259,7 @@ def define_components(mod):
     )
     mod.tp_weight = Param(
         mod.TIMEPOINTS,
-        within=PositiveReals,
+        within=NonNegativeReals,
         initialize=lambda m, t: (
             m.tp_duration_hrs[t] * m.ts_scale_to_period[m.tp_ts[t]]
         ),
@@ -346,7 +346,7 @@ def define_components(mod):
 
     mod.tp_weight_in_year = Param(
         mod.TIMEPOINTS,
-        within=PositiveReals,
+        within=NonNegativeReals,
         initialize=lambda m, t: (
             m.tp_weight[t] / m.period_length_years[m.tp_period[t]]
         ),

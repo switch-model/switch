@@ -1,10 +1,10 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2020 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
 Utility functions for Switch.
 """
-from __future__ import print_function
+from __future__ import print_function, division
 
 import argparse
 import datetime
@@ -15,9 +15,16 @@ import sys
 import logging
 import time
 import types
+import textwrap
 
 from pyomo.environ import *
 import pyomo.opt
+
+try:
+    # sentinel for sets with no dimension specified in Pyomo 5.7+
+    from pyomo.core.base.set import UnknownSetDimen
+except ImportError:
+    UnknownSetDimen = object()  # shouldn't ever match
 
 # Define string_types (same as six.string_types). This is useful for
 # distinguishing between strings and other iterables.
@@ -35,7 +42,7 @@ def define_AbstractModel(*module_list, **kwargs):
     return create_model(module_list, args)
 
 
-def create_model(module_list=None, args=sys.argv[1:]):
+def create_model(module_list=None, args=sys.argv[1:], logger=None):
     """
 
     Construct a Pyomo AbstractModel using the Switch modules or packages
@@ -81,6 +88,14 @@ def create_model(module_list=None, args=sys.argv[1:]):
     for m in module_list:
         importlib.import_module(m)
 
+    # Each model usually has its own logger, passed in by switch_model.solve,
+    # because users may specify different logging settings for each model. If
+    # needed, we attach a default logger, since all modules assume there's one
+    # in place.
+    if logger is None:
+        logger = logging.getLogger("Switch Default Logger")
+    model.logger = logger
+
     # Bind utility functions to the model as class objects
     # Should we be formally extending their class instead?
     _add_min_data_check(model)
@@ -96,17 +111,10 @@ def create_model(module_list=None, args=sys.argv[1:]):
         if hasattr(module, "define_arguments"):
             module.define_arguments(argparser)
     model.options = argparser.parse_args(args)
-    if model.options.logging_level:
-        # Values of --logging-level are limited to standard logging levels.
-        # For python >= 3.2, we could store the --logging-level string
-        # directly into model.options.verbose. For lower versions, we need to
-        # convert to a constant from the logging package.
-        level = getattr(logging, model.options.logging_level)
-        model.options.verbose = level
-    if model.options.verbose:
-        logging.basicConfig(level=model.options.verbose)
-    else:
-        logging.basicConfig(level=logging.ERROR)
+
+    # Apply verbose flag to support code that still uses it (newer code should
+    # use model.logger.isEnabledFor(logging.LEVEL)
+    model.options.verbose = logger.isEnabledFor(logging.INFO)
 
     # Define model components
     for module in model.get_modules():
@@ -179,12 +187,27 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=True):
     if model.options.verbose:
         print("Data read in {:.2f} s.\n".format(timer.step_time()))
 
-    # At some point, pyomo deprecated 'create' in favor of 'create_instance'.
-    # Determine which option is available and use that.
-    if hasattr(model, "create_instance"):
-        instance = model.create_instance(data)
+    # TODO: if logging level is info rather than debug:
+    # set report_timing to True and capture pyomo output; count lines as they
+    # come (like "1.72 seconds to construct Constraint Enforce_Dispatch_Lower_Limit_Non_Renewable; 54912 indices total")
+    # and report % complete on our standard logger (with backspaces so it only
+    # shows one number at a time). Should be able to infer number of lines that
+    # will come by counting components or counting entries in m._decl_order
+    # (may need to update the count as this goes, because some BuildActions will
+    # add more components to the end of the component list).
+    # instance = model.create_instance(
+    #     data, report_timing=model.logger.isEnabledFor(logging.DEBUG)
+    # )
+    if model.logger.isEnabledFor(logging.DEBUG):
+        instance = model.create_instance(data, report_timing=True)
+    elif model.logger.isEnabledFor(logging.INFO):
+        with TimingLineCounter(model):
+            instance = model.create_instance(data, report_timing=True)
     else:
-        instance = model.create(data)
+        instance = model.create_instance(data, report_timing=False)
+    # Note: model.create() was replaced by model.create_instance() in Pyomo 4.1
+    # and we require at least Pyomo 4.4.
+
     if model.options.verbose:
         print("Instance created from data in {:.2f} s.\n".format(timer.step_time()))
 
@@ -291,6 +314,10 @@ def post_solve(instance, outputs_dir=None):
             module.post_solve(instance, outputs_dir)
 
 
+def unwrap(message):
+    return textwrap.dedent(message).replace(" \n", " ").replace("\n", " ").strip()
+
+
 def min_data_check(model, *mandatory_model_components):
     """
 
@@ -385,10 +412,8 @@ def check_mandatory_components(model, *mandatory_model_components):
                     )
                 )
         elif o_class == "IndexedParam":
-            if len(obj) != len(obj._index):
-                missing_index_elements = [
-                    v for v in set(obj._index) - set(obj.sparse_keys())
-                ]
+            if len(obj) != len(obj.index_set()):
+                missing_index_elements = [k for k in obj.index_set() if k not in obj]
                 raise ValueError(
                     "Values are not provided for every element of the "
                     "mandatory parameter '{}'. "
@@ -399,7 +424,7 @@ def check_mandatory_components(model, *mandatory_model_components):
                     )
                 )
         elif o_class == "IndexedSet":
-            if len(obj) != len(obj._index):
+            if len(obj) != len(obj.index_set()):
                 raise ValueError(
                     (
                         "Sets are not defined for every index of "
@@ -437,6 +462,51 @@ class InputError(Exception):
         return repr(self.value)
 
 
+def apply_input_aliases(switch_data, path):
+    """
+    Translate filenames based on --input-alias[es] arguments.
+
+    Filename substitutions are specified like
+    --input-aliases ev_share.csv=ev_share.ev_flat.csv rps.csv=rps.2030.csv
+
+    Filename 'none' will be converted to an empty string and usually be ignored.
+
+    This enables use of alternative files to study sensitivities without
+    creating complete input directories for each permutation.
+    """
+    try:
+        file_aliases = switch_data.file_aliases
+    except AttributeError:
+        file_aliases = switch_data.file_aliases = {
+            standard: alternative
+            for standard, alternative in (
+                pair.split("=") for pair in switch_data._model.options.input_aliases
+            )
+        }
+
+    root, filename = os.path.split(path)
+    if filename in file_aliases:
+        old_path = path
+        if file_aliases[filename].lower() == "none":
+            path = ""
+        else:
+            # Note: We could use os.path.normpath() to clean up paths like
+            # 'inputs/../inputs_alt', but leaving them as-is may make it more
+            # clear that an alias is in use if errors crop up later.
+            path = os.path.join(root, file_aliases[filename])
+            if not os.path.isfile(path):
+                # catch alias naming errors (should always point to a real file)
+                raise ValueError(
+                    'Alias "{}" specified for file "{}" does not exist. '
+                    "Specify {}=none if you want to supply no data.".format(
+                        path, old_path, filename
+                    )
+                )
+        switch_data._model.logger.info("Applying alias {}={}".format(old_path, path))
+
+    return path
+
+
 def load_aug(
     switch_data, optional=False, auto_select=None, optional_params=[], **kwargs
 ):
@@ -472,9 +542,26 @@ def load_aug(
     generic output files). This will simplify code and ease comprehension
     (user can see immediately where the data come from for each component).
     This can also support auto-documenting of parameters and input files.
+    * Maybe each input file should have the same name as the matching index set?
+      generation_projects_info -> generation_projects
+      gen_build_predetermined -> predetermined_gen_bld_yrs
+      gen_build_costs -> gen_bld_yrs
     """
 
+    # TODO:
+    # Allow user to specify filename when defining parameters and sets.
+    # Also allow user to specify the name(s) of the column(s) in each set.
+    # Then use those automatically to pull data from the right file (and to
+    # write correct index column names in the generic output files).
+    # This will simplify code and ease comprehension (user can see
+    # immediately where the data come from for each component). This can
+    # also support auto-documenting of parameters and input files.
+
+    # convert filename if needed
+    kwargs["filename"] = apply_input_aliases(switch_data, kwargs["filename"])
+    # store filename in local variable for easier access
     path = kwargs["filename"]
+
     # Skip if an optional file is unavailable
     if optional and not os.path.isfile(path):
         return
@@ -545,6 +632,13 @@ def load_aug(
     # Default to 0 if both methods failed.
     else:
         num_indexes = 0
+
+    if num_indexes is UnknownSetDimen:
+        # Pyomo 5.7 and later use a sentinel and don't set the dimension
+        # until later (construction time?) if no dimension is specified,
+        # so we have to apply the default here
+        num_indexes = 1
+
     # Make a select list if requested. Assume the left-most columns are
     # indexes and that other columns are named after their parameters.
     # Maybe this could be extended to use a standard prefix for each data file?
@@ -735,21 +829,34 @@ class TeeStream(object):
         """
         return getattr(self.stream1, *args, **kwargs)
 
-    def write(self, *args, **kwargs):
-        self.stream1.write(*args, **kwargs)
-        self.stream2.write(*args, **kwargs)
+    def write(self, text):
+        for f in [self.stream1, self.stream2]:
+            if f.isatty() or "\b" not in text:
+                # normal processing
+                f.write(text)
+            else:
+                for c in text:
+                    if c == "\b":
+                        # move one character before current position, to
+                        # overwrite current character like a terminal
+                        # (Python can't do f.seek(-1, 1) for some reason.)
+                        f.seek(f.tell() - 1)
+                    else:
+                        f.write(c)
+        return len(text)
 
-    def flush(self, *args, **kwargs):
-        self.stream1.flush(*args, **kwargs)
-        self.stream2.flush(*args, **kwargs)
+    def flush(self):
+        self.stream1.flush()
+        self.stream2.flush()
 
 
 class LogOutput(object):
     """
-    Copy output sent to stdout or stderr to a log file in the specified directory.
-    Takes no action if directory is None. Log file is named based on the current
-    date and time. Directory will be created if needed, and file will be overwritten
-    if it already exists (unlikely).
+    Copy output sent to stdout or stderr to a log file in the specified
+    directory. Takes no action if directory is None. Log file is named based on
+    the current date and time. Directory will be created if needed, and file
+    will have microseconds added to the name if needed to avoid overwriting
+    existing any existing file.
     """
 
     def __init__(self, logs_dir):
@@ -758,17 +865,12 @@ class LogOutput(object):
     def __enter__(self):
         """start copying output to log file"""
         if self.logs_dir is not None:
-            if not os.path.exists(self.logs_dir):
-                os.makedirs(self.logs_dir)
-            log_file_path = os.path.join(
-                self.logs_dir,
-                datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".log",
-            )
+            log_file_path = self.make_file_path()
             self.log_file = open(log_file_path, "w", buffering=1)
             self.stdout = sys.stdout
             self.stderr = sys.stderr
             sys.stdout = TeeStream(sys.stdout, self.log_file)
-            sys.stderr = TeeStream(sys.stderr, self.log_file)
+            # sys.stderr = TeeStream(sys.stderr, self.log_file)
             print("logging output to " + str(log_file_path))
 
     def __exit__(self, type, value, traceback):
@@ -777,6 +879,117 @@ class LogOutput(object):
             sys.stdout = self.stdout
             sys.stderr = self.stderr
             self.log_file.close()
+
+    def make_file_path(self):
+        """
+        Create a log file on disk and return the file name (guaranteed unique).
+        When this function returns, the file exists but is empty and closed.
+        """
+        path = lambda format: os.path.join(
+            self.logs_dir, datetime.datetime.now().strftime(format) + ".log"
+        )
+        # make sure logs directory exists
+        if not os.path.exists(self.logs_dir):
+            os.makedirs(self.logs_dir)
+        file_path = path("%Y-%m-%d_%H-%M-%S")
+        while True:
+            try:
+                f = os.open(file_path, os.O_CREAT | os.O_EXCL)
+                # succeeded
+                os.close(f)
+                break
+            except FileExistsError:
+                # try again with microseconds in name and a little delay
+                file_path = path("%Y-%m-%d_%H-%M-%S.%f")
+        return file_path
+
+
+class TimingLineCounterStream(object):
+    """
+    Virtual stream that intercepts lines like '0 seconds to construct  Set
+    PERIODS; 1 index total\n' sent from Pyomo to stdout and turns them into a
+    count of constructed components. Designed for use with
+    model.create_instance(report_timing=True)
+    """
+
+    match_line = re.compile(r"^[ ]*[0-9.]+ seconds to construct .* total\n$")
+
+    def __init__(self, orig_stream, model):
+        self.orig_stream = orig_stream
+        self.model = model
+        self.last_message = ""
+        self.components_completed = 0
+
+    def __getattr__(self, *args, **kwargs):
+        """
+        Provide orig_stream attributes when attributes are requested for this class.
+        This supports code that assumes sys.stdout is an object with its own
+        methods, etc.
+        """
+        return getattr(self.orig_stream, *args, **kwargs)
+
+    def write(self, text):
+        if self.last_message and self.orig_stream.isatty():
+            # Remove previous progress message; also overwrite with spaces
+            # in case it's at end of a line. We skip this when not in a
+            # terminal, e.g., in an IPython kernel.
+            self.orig_stream.write("".join(c * len(self.last_message) for c in "\b \b"))
+        if self.match_line.match(text):
+            self.components_completed += 1
+
+            # report on progress
+            # Note: the attached model is the abstract version, not the
+            # instance currently being constructed, so we have no way to know
+            # if components are added or deleted during construction. So we just
+            # use the original component count and update if we overshoot.
+            self.last_message = "{} of {} components constructed{}".format(
+                self.components_completed,
+                max(self.components_completed, len(self.model._decl_order)),
+                "" if self.orig_stream.isatty() else "\n",
+            )
+        else:
+            # normal text, not a timing report
+            self.orig_stream.write(text)
+        # write the current message (possibly repeating below some normal text)
+        self.orig_stream.write(self.last_message)
+
+        return len(text)
+
+
+class TimingLineCounter(object):
+    """
+    Intercept lines like '0 seconds to construct Set PERIODS; 1 index total'
+    sent to stdout and turn them into a percentage count, relative to size of
+    the passed model. Designed for use with model.create_instance(report_timing=True)
+    """
+
+    def __init__(self, model):
+        self.model = model
+
+    def __enter__(self):
+        self.stdout = sys.stdout
+        sys.stdout = TimingLineCounterStream(sys.stdout, self.model)
+
+    def __exit__(self, type, value, traceback):
+        if getattr(sys.stdout, "last_message", ""):
+            # add newline after last status message
+            sys.stdout.last_message = ""
+            print("")
+        sys.stdout = self.stdout
+
+
+# test_model = lambda: None
+# test_model._decl_order = [1, 2, 3]
+# lines = """Hello world!
+#         0.01 seconds to construct Constraint Force_LNG_Tier; 260 indices total
+# Blocking activation of tier ('Hawaii_LNG', 2045, 'container_25').
+#         0.19 seconds to construct Set LNG_GEN_TIMEPOINTS; 1 index total
+# Here's another message!
+#         0.19 seconds to construct Set LNG_GEN_TIMEPOINTS; 1 index total"""
+# with CountTimingLines(test_model):
+#     for line in lines.split('\n'):
+#         print(line)
+#         time.sleep(0.5)
 
 
 def iteritems(obj):
