@@ -1,14 +1,26 @@
-"""Minimize excess renewable production (dissipated in transmission and battery
-losses) and smooth out demand response and EV charging as much as possible."""
+"""Minimizes excess renewable production (dissipated in transmission and battery
+losses) and smoothes out demand response and EV charging as much as possible.
+Also avoids excess allocation of surplus reserves.
+
+Simple use: add this to modules.txt, below most modules but before reporting.
+
+Advanced use: add this to modules.txt and also to iterate.txt (should
+automatically improve all reporting)
+"""
+
 from __future__ import print_function
+from __future__ import division
 
 from pyomo.environ import *
 from pyomo.core.base.numvalue import native_numeric_types
 import switch_model.solve
 from switch_model.utilities import iteritems
 
-
-def define_components(m):
+# This uses define_dynamic_components instead of define_components, to ensure
+# that whatever components it needs to access will already be constructed. This
+# should be placed high in the module list so that the post-solve smoothing code
+# will run before the post-solve reporting code in other modules.
+def define_dynamic_components(m):
     if m.options.solver in ("cplex", "cplexamp", "gurobi", "gurobi_ampl"):
         m.options.smooth_dispatch = True
     else:
@@ -28,19 +40,20 @@ def define_components(m):
     if m.options.smooth_dispatch:
         # minimize the range of variation of various slack responses;
         # these should each have timepoint as their final index component
+        # They should also be in order from most-smoothed to least-smoothed
         components_to_smooth = [
             "ShiftDemand",
-            "ChargeBattery",
-            "DischargeBattery",
             "ChargeEVs",
             "RunElectrolyzerMW",
             "LiquifyHydrogenMW",
             "DispatchFuelCellMW",
-            "DispatchGen",
+            "ChargeBattery",
             "ChargeStorage",
+            "DischargeBattery",
+            "DispatchGen",
         ]
 
-        def add_smoothing_entry(m, d, component, key):
+        def add_smoothing_entry(m, d, component, key, weight=1.0):
             """
             Add an entry to the dictionary d of elements to smooth. The entry's
             key is based on component name and specified key, and its value is
@@ -53,20 +66,23 @@ def define_components(m):
             prev_tp = m.TPS_IN_TS[m.tp_ts[tp]].prevw(tp)
             entry_key = str((component.name,) + key)
             entry_val = component[key] - component[key[:-1] + (prev_tp,)]
-            d[entry_key] = entry_val
+            d[entry_key] = weight * entry_val
 
         def rule(m):
             m.component_smoothing_dict = dict()
             """Find all components to be smoothed"""
             # smooth named components
-            for c in components_to_smooth:
+            for i, c in enumerate(components_to_smooth):
+                weight = 0.9 - 0.4 * (i / len(components_to_smooth))
                 try:
                     comp = getattr(m, c)
                 except AttributeError:
                     continue
-                print("Will smooth {}.".format(c))
+                print("Will smooth {} with weight {}.".format(c, weight))
                 for key in comp:
-                    add_smoothing_entry(m, m.component_smoothing_dict, comp, key)
+                    add_smoothing_entry(
+                        m, m.component_smoothing_dict, comp, key, weight
+                    )
             # # smooth standard storage generators
             # if hasattr(m, 'STORAGE_GEN_TPS'):
             #     print "Will smooth charging and discharging of standard storage."
@@ -100,12 +116,29 @@ def define_components(m):
                 m, "GEN_SPINNING_RESERVE_TYPES"
             ):  # advanced module
                 print("Will maximize provision of up reserves.")
-                reserve_weight = {"contingency": 0.9, "regulation": 1.1}
+                reserve_weight = {
+                    m.options.contingency_reserve_type: 0.9,
+                    m.options.regulating_reserve_type: 1.1,
+                }
                 for comp_name in m.Spinning_Reserve_Up_Provisions:
                     component = getattr(m, comp_name)
                     obj += -0.1 * sum(
                         reserve_weight.get(rt, 1.0) * component[rt, ba, tp]
                         for rt, ba, tp in component
+                    )
+            # also minimize contingency up reserve requirements to avoid
+            # spuriously high contingency requirements (they can be
+            # any feasible value above the largest contingency)
+            if hasattr(m, "Spinning_Reserve_Up_Requirements") and hasattr(
+                m, "GEN_SPINNING_RESERVE_TYPES"
+            ):  # advanced module
+                print("Will minimize requirement for contingency up reserves.")
+                for comp_name in m.Spinning_Reserve_Up_Requirements:
+                    component = getattr(m, comp_name)
+                    obj += sum(
+                        component[rt, ba, tp]
+                        for rt, ba, tp in component
+                        if rt == m.options.contingency_reserve_type
                     )
             # minimize absolute value of changes in the smoothed variables
             obj += sum(v for v in m.IncreaseSmoothedValue.values())
@@ -116,9 +149,7 @@ def define_components(m):
         )
 
         # constrain smoothing objective to find unbounded ray
-        m.Bound_Obj = Constraint(
-            rule=lambda m: Smooth_Free_Variables_obj_rule(m) <= 1e9
-        )
+        # m.Bound_Obj = Constraint(rule=lambda m: Smooth_Free_Variables_obj_rule(m) <= 1e12)
 
         # leave standard objective in effect for now
         m.Smooth_Free_Variables.deactivate()
@@ -207,7 +238,7 @@ def solve(m):
     try:
         switch_model.solve.solve(m)
     except RuntimeError as e:
-        if e.message.lower() == "infeasible model":
+        if str(e).lower() == "infeasible model":
             # show a warning, but don't abort the overall post_solve process
             print(
                 "WARNING: model became infeasible when smoothing; reverting to original solution."

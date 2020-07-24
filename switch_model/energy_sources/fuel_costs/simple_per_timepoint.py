@@ -28,39 +28,46 @@ def define_components(mod):
     parameter is mandatory. Unless otherwise specified, all dollar
     values are real dollars in BASE_YEAR.
 
-    ZONE_FUEL_PERIODS is a set of (load_zone, fuel, period) for which fuel_cost
-    has been provided.
+    ZONE_FUEL_TIMEPOINTS is a set of (load_zone, fuel, period) for which
+    fuel_cost_per_timepoint has been specified.
 
-    fuel_cost[(z, f, p) in ZONE_FUEL_PERIODS] describes flat fuel costs
-    for each supply of fuel. Costs can vary by load zone and period.
+    fuel_cost_per_timepoint[(z, f, t) in ZONE_FUEL_TIMEPOINTS] describes flat
+    fuel costs for each supply of fuel. Costs can vary by load zone and
+    timepoint.
 
-    GEN_TP_FUELS_UNAVAILABLE is a subset of
-    GEN_TP_FUELS that describes which points don't have fuel
-    available.
+    Note that fuels can only be used in the locations and times for which
+    fuel_cost_per_timepoint has been specified.
 
-    Enforce_Fuel_Unavailability[(g, t, f) in
-    GEN_TP_FUELS_UNAVAILABLE] is a constraint that restricts
-    GenFuelUseRate to 0 for in load zones and periods where the
-    projects' fuel is unavailable.
+    GEN_TP_FUELS_UNAVAILABLE is a subset of GEN_TP_FUELS that describes which
+    points don't have fuel available.
 
-    FuelCostsPerTP[t in TIMEPOINTS] is an expression that summarizes fuel
-    costs for the objective function.
+    Enforce_Fuel_Unavailability[(g, t, f) in GEN_TP_FUELS_UNAVAILABLE] is a
+    constraint that restricts GenFuelUseRate to 0 for in load zones and periods
+    where the projects' fuel is unavailable.
+
+    FuelCostsPerTP[t in TIMEPOINTS] is an expression that summarizes fuel costs
+    for the objective function.
 
     """
 
-    mod.ZONE_FUEL_PERIODS = Set(
+    # TODO: maybe rename fuel_cost_per_timepoint component and/or .csv file to fuel_cost
+    # (but that could cause confusion in the documentation?)
+    mod.ZONE_FUEL_TIMEPOINTS = Set(
         dimen=3,
         validate=lambda m, z, f, p: (
-            z in m.LOAD_ZONES and f in m.FUELS and p in m.PERIODS
+            z in m.LOAD_ZONES and f in m.FUELS and p in m.TIMEPOINTS
         ),
     )
-    mod.fuel_cost = Param(mod.ZONE_FUEL_PERIODS, within=NonNegativeReals)
-    mod.min_data_check("ZONE_FUEL_PERIODS", "fuel_cost")
+    mod.fuel_cost_per_timepoint = Param(
+        mod.ZONE_FUEL_TIMEPOINTS, within=NonNegativeReals
+    )
+    mod.min_data_check("ZONE_FUEL_TIMEPOINTS", "fuel_cost_per_timepoint")
 
+    # don't allow use of a fuel when no cost has been specified
     mod.GEN_TP_FUELS_UNAVAILABLE = Set(
         initialize=mod.GEN_TP_FUELS,
-        filter=lambda m, g, t, f: (m.gen_load_zone[g], f, m.tp_period[t])
-        not in m.ZONE_FUEL_PERIODS,
+        filter=lambda m, g, t, f: (m.gen_load_zone[g], f, t)
+        not in m.ZONE_FUEL_TIMEPOINTS,
     )
     mod.Enforce_Fuel_Unavailability = Constraint(
         mod.GEN_TP_FUELS_UNAVAILABLE,
@@ -76,7 +83,7 @@ def define_components(mod):
                 if (g, t2, f) not in m.GEN_TP_FUELS_UNAVAILABLE:
                     m.FuelCostsPerTP_dict[t2] += (
                         m.GenFuelUseRate[g, t2, f]
-                        * m.fuel_cost[m.gen_load_zone[g], f, m.tp_period[t2]]
+                        * m.fuel_cost_per_timepoint[m.gen_load_zone[g], f, t2]
                     )
         # return a result from the dictionary and pop the element each time
         # to release memory
@@ -91,13 +98,13 @@ def load_inputs(mod, switch_data, inputs_dir):
     Import simple fuel cost data. The following file is expected in
     the input directory:
 
-    fuel_cost.csv
-        load_zone, fuel, period, fuel_cost
+    fuel_cost_per_timepoint.csv
+        load_zone, fuel, period, fuel_cost_per_timepoint
 
     """
-
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "fuel_cost.csv"),
-        index=mod.ZONE_FUEL_PERIODS,
-        param=[mod.fuel_cost],
+        filename=os.path.join(inputs_dir, "fuel_cost_per_timepoint.csv"),
+        autoselect=True,
+        index=mod.ZONE_FUEL_TIMEPOINTS,
+        param=[mod.fuel_cost_per_timepoint],
     )

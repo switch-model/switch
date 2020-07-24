@@ -1,4 +1,4 @@
-# Copyright (c) 2016-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2020 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -157,17 +157,32 @@ def define_components(mod):
         bounds=bounds_BuildStorageEnergy,
     )
 
-    # Summarize capital costs of energy storage for the objective function.
-    mod.StorageEnergyInstallCosts = Expression(
+    # Summarize capital costs of energy storage for the objective function
+    # Note: A bug in to 2.0.0b3 - 2.0.5, assigned costs that were several times
+    # too high
+    mod.StorageEnergyCapitalCost = Expression(
+        mod.STORAGE_GENS,
         mod.PERIODS,
-        rule=lambda m, p: sum(
+        rule=lambda m, g, p: sum(
             m.BuildStorageEnergy[g, bld_yr]
             * m.gen_storage_energy_overnight_cost[g, bld_yr]
             * crf(m.interest_rate, m.gen_max_age[g])
-            for (g, bld_yr) in m.STORAGE_GEN_BLD_YRS
+            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]
         ),
     )
-    mod.Cost_Components_Per_Period.append("StorageEnergyInstallCosts")
+    mod.StorageEnergyFixedCost = Expression(
+        mod.PERIODS,
+        rule=lambda m, p: sum(m.StorageEnergyCapitalCost[g, p] for g in m.STORAGE_GENS),
+    )
+    mod.Cost_Components_Per_Period.append("StorageEnergyFixedCost")
+
+    # 2.0.0b3 code:
+    # mod.StorageEnergyInstallCosts = Expression(
+    # mod.PERIODS,
+    # rule=lambda m, p: sum(m.BuildStorageEnergy[g, bld_yr] *
+    #            m.gen_storage_energy_overnight_cost[g, bld_yr] *
+    #            crf(m.interest_rate, m.gen_max_age[g])
+    #            for (g, bld_yr) in m.STORAGE_GEN_BLD_YRS))
 
     mod.StorageEnergyCapacity = Expression(
         mod.STORAGE_GENS,
@@ -322,7 +337,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, "gen_build_predetermined.tab"),
-        param=(mod.gen_predetermined_storage_energy_mwh),
+        param=(mod.gen_predetermined_storage_energy_mwh,),
     )
 
 
