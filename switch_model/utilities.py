@@ -507,9 +507,7 @@ def apply_input_aliases(switch_data, path):
     return path
 
 
-def load_aug(
-    switch_data, optional=False, auto_select=None, optional_params=[], **kwargs
-):
+def load_aug(switch_data, optional=False, optional_params=[], **kwargs):
     """
     This is a wrapper for the DataPortal object that accepts additional
     keywords to allow optional files, optional columns, and auto-select
@@ -521,12 +519,8 @@ def load_aug(
     as defined in the model.
     * optional_params: Indicates specific parameter columns are optional, and
     will be skipped during loading if they are not present in the input file.
-    * auto_select: Automatically select columns from the input file based on
-    requested parameter names, and adjust ordering as needed in case the input
-    file has different column ordering than a module's load_aug() function
-    call. By default this is enabled unless `select` was specified in kwargs.
-
-    Note: optional_params & auto_select are ignored for `.dat` files.
+    All params in optional files are added to this list automatically.
+    optional_params are ignored for `.dat` files (rarely used).
 
     To do:
     * Come up with a better name for this function.
@@ -561,6 +555,19 @@ def load_aug(
     kwargs["filename"] = apply_input_aliases(switch_data, kwargs["filename"])
     # store filename in local variable for easier access
     path = kwargs["filename"]
+
+    # catch obsolete auto_select argument (not used in 2.0.6 and later)
+    for a in ["auto_select", "autoselect"]:
+        if a in kwargs:
+            del kwargs[a]
+            # TODO: receive a reference to the model and use the logger for this
+            print(
+                "WARNING: obsolete argument {} ignored while reading {}. "
+                "Please remove this from your code. Columns are always "
+                "auto-selected now unless a 'select' argument is passed.".format(
+                    a, path
+                )
+            )
 
     # Skip if an optional file is unavailable
     if optional and not os.path.isfile(path):
@@ -646,36 +653,27 @@ def load_aug(
     # could all get the prefix "rfm_supply_tier_". Then they could get shorter names
     # within the file (e.g., "cost" and "limit"). We could also require the data file
     # to be called "rfm_supply_tier.csv" for greater consistency/predictability.
-    if auto_select is None and "select" not in kwargs:
-        auto_select = True
-    assert not (
-        auto_select and ("select" in kwargs)
-    ), "You may not specify both select and auto_select."
-    if auto_select:
-        kwargs["select"] = headers[0:num_indexes]
-        kwargs["select"].extend([p.name for p in params])
+    if "select" not in kwargs:
+        kwargs["select"] = headers[0:num_indexes] + [p.name for p in params]
     # Check to see if expected column names are in the file. If a column
     # name is missing and its parameter is optional, then drop it from
     # the select & param lists.
-    if "select" in kwargs:
-        if isinstance(kwargs["select"], tuple):
-            kwargs["select"] = list(kwargs["select"])
-        del_items = []
-        for (i, col) in enumerate(kwargs["select"]):
-            p_i = i - num_indexes
-            if col not in headers:
-                if len(params) > p_i >= 0 and params[p_i].name in optional_params:
-                    del_items.append((i, p_i))
-                else:
-                    raise InputError(
-                        "Column {} not found in file {}.".format(col, path)
-                    )
-        # When deleting entries from select & param lists, go from last
-        # to first so that the indexes won't get messed up as we go.
-        del_items.sort(reverse=True)
-        for (i, p_i) in del_items:
-            del kwargs["select"][i]
-            del kwargs["param"][p_i]
+    if isinstance(kwargs["select"], tuple):
+        kwargs["select"] = list(kwargs["select"])
+    del_items = []
+    for (i, col) in enumerate(kwargs["select"]):
+        p_i = i - num_indexes
+        if col not in headers:
+            if len(params) > p_i >= 0 and params[p_i].name in optional_params:
+                del_items.append((i, p_i))
+            else:
+                raise InputError("Column {} not found in file {}.".format(col, path))
+    # When deleting entries from select & param lists, go from last
+    # to first so that the indexes won't get messed up as we go.
+    del_items.sort(reverse=True)
+    for (i, p_i) in del_items:
+        del kwargs["select"][i]
+        del kwargs["param"][p_i]
 
     if optional and file_has_no_data_rows:
         # Skip the file.  Note that we are only doing this after having
