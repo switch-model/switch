@@ -72,7 +72,7 @@ setup(
         "pyutilib <6.0a0",  # by default, incompatible 6.0 gets installed with Pyomo 5.6.*
         "pint",  # needed by Pyomo when we run our tests, but not included
         "testfixtures",  # used for standard tests
-        "pandas <1",  # used for input upgrades and some outputs
+        "pandas",  # used for input upgrades and some outputs
     ],
     extras_require={
         # packages used for advanced demand response, progressive hedging

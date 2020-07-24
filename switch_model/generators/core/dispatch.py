@@ -512,7 +512,9 @@ def post_solve(instance, outdir):
             "GenCapitalCosts",
             "GenFixedOMCosts",
         ]
-    ).sum(min_count=1, skipna=False)
+    ).agg(
+        lambda x: x.sum(min_count=1, skipna=False)
+    )  # why these arguments?
     gen_sum.reset_index(inplace=True)
     gen_sum.set_index(
         inplace=True,
