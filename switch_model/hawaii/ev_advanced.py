@@ -70,7 +70,7 @@ def define_components(m):
     )
     # non-EV fuel cost
     if hasattr(m, "rfm_supply_tier_cost"):
-        ice_fuel_cost_func = lambda m, z, p, f: m.rfm_supply_tier_cost[m.zone_rfm[z, f], p, 'base']
+        ice_fuel_cost_func = lambda m, z, p, f: m.rfm_supply_tier_cost[m.zone_fuel_rfm[z, f], p, 'base']
     else:
         ice_fuel_cost_func = lambda m, z, p, f: m.fuel_cost[z, f, p]
     m.ice_annual_fuel_cost = Param(m.PERIODS, initialize=lambda m, p:

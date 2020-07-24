@@ -192,7 +192,7 @@ def define_components(m):
     #             for f in m.FUELS_FOR_GEN[g]
     #                 if f != 'LNG'
     #     )
-    #     rfm = m.zone_rfm[m.gen_load_zone[g], 'LNG']
+    #     rfm = m.zone_fuel_rfm[m.gen_load_zone[g], 'LNG']
     #     lng_market_exhausted = 1 - m.LNG_Has_Slack[rfm, m.tp_period[tp]]
     #     return (non_lng_fuel <= big_project_lng * lng_market_exhausted)
     # m.Only_LNG_In_Converted_Plants = Constraint(
@@ -217,7 +217,7 @@ def define_components(m):
     #         if g in m.LNG_CONVERTED_PLANTS:
     #             return Constraint.Skip
     #         # otherwise force production up to the maximum if market has slack
-    #         rfm = m.zone_rfm[m.gen_load_zone[g], 'LNG']
+    #         rfm = m.zone_fuel_rfm[m.gen_load_zone[g], 'LNG']
     #         lng_market_exhausted = 1 - m.LNG_Has_Slack[rfm, m.tp_period[tp]]
     #         rule = (
     #             m.DispatchGen[g, tp]

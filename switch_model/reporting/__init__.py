@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2020 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -48,6 +48,10 @@ def define_arguments(argparser):
         "--sorted-output", default=False, action='store_true',
         dest='sorted_output',
         help='Write generic variable result values in sorted order')
+    argparser.add_argument(
+        "--skip-generic-output", default=False, action='store_true',
+        dest='skip_generic_output',
+        help='Skip exporting generic variable results')
     argparser.add_argument(
         "--save-expressions", "--save-expression", dest="save_expressions", nargs='+',
         default=[], action='extend',
@@ -117,7 +121,8 @@ def post_solve(instance, outdir):
     """
     Minimum output generation for all model runs.
     """
-    save_generic_results(instance, outdir, instance.options.sorted_output)
+    if not instance.options.skip_generic_output:
+        save_generic_results(instance, outdir, instance.options.sorted_output)
     save_total_cost_value(instance, outdir)
     save_cost_components(instance, outdir)
 
@@ -138,6 +143,7 @@ def save_generic_results(instance, outdir, sorted_output):
     else:
         components += [getattr(instance, c) for c in instance.options.save_expressions]
 
+    missing_val_list = []
     for var in components:
         output_file = os.path.join(outdir, '%s.csv' % var.name)
         with open(output_file, 'w') as fh:
@@ -157,37 +163,51 @@ def save_generic_results(instance, outdir, sorted_output):
                 # single-valued variable
                 writer.writerow([var.name])
                 writer.writerow([get_value(obj)])
+    if missing_val_list:
+        msg = (
+            "WARNING: {} {}. This "
+            "usually indicates a coding error: either the variable is "
+            "not needed or it has accidentally been omitted from all "
+            "constraints and the objective function. These variables include "
+            "{}.".format(
+                len(missing_val_list),
+                (
+                    'variable has not been assigned a value'
+                    if len(missing_val_list) == 1 else
+                    'variables have not been assigned values'
+                ),
+                missing_val_list[:10]
+            )
+        )
+        try:
+            logger = obj.model().logger.warn(msg)
+            logger.warn(msg)
+        except AttributeError:
+            print(msg)
 
-def get_value(obj):
+
+def get_value(obj, missing_val_list=[]):
     """
     Retrieve value of one element of a Variable or Expression, converting
     division-by-zero to nan and uninitialized values to None.
     """
-    try:
-        val = value(obj)
-    except ZeroDivisionError:
-        # diagnostic expressions sometimes have 0 denominator,
-        # e.g., AverageFuelCosts for unused fuels;
-        val = float("nan")
-    except ValueError:
-        # If variables are not used in constraints or the
-        # objective function, they will never get values, and
-        # give a ValueError at this point.
-        # Note: for variables this could instead use 0 if allowed, or
-        # otherwise the closest bound.
-        if getattr(obj, 'value', 0) is None:
-            val = None
-            # Pyomo will print an error before it raises the ValueError,
-            # but we say more here to help users figure out what's going on.
-            print (
-                "WARNING: variable {} has not been assigned a value. This "
-                "usually indicates a coding error: either the variable is "
-                "not needed or it has accidentally been omitted from all "
-                "constraints and the objective function.".format(obj.name)
-            )
-        else:
-            # Caught some other ValueError
-            raise
+    if getattr(obj, 'value', 0) is None:
+        # If variables are not used in constraints or the objective function,
+        # they will never get values, and give a ValueError if accessed.
+        # Accessing obj.value may be undocumented, but avoids using value(obj),
+        # which emits a lot of unsuppressable text if the value is unassigned.
+        # Note: for variables we could use 0 if allowed or otherwise the closest
+        # bound. But using None makes it more clear that something weird
+        # happened.
+        val = None
+        missing_val_list.append(obj.name)
+    else:
+        try:
+            val = value(obj)
+        except ZeroDivisionError:
+            # diagnostic expressions sometimes have 0 denominator,
+            # e.g., AverageFuelCosts for unused fuels;
+            val = float("nan")
     return val
 
 

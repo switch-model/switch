@@ -1,4 +1,4 @@
-# INTRODUCTION
+# Introduction
 
 This repository contains code and example files for the Switch power system
 planning model. Switch is written in the Python language and several other
@@ -16,7 +16,7 @@ the pip package manager if you have that installed and working well, but you
 will need to do additional work to install glpk or coincbc, and possibly git.
 
 
-# INSTALL CONDA AND PYTHON
+# Install Conda and Python
 
 Download and install Miniconda from
 https://docs.conda.io/en/latest/miniconda.html or Anaconda from
@@ -34,7 +34,7 @@ for using or testing Switch. See here for more details:
 https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html
 
 
-# INSTALL SWITCH AND ITS DEPENDENCIES
+# Install Switch and its Dependencies
 
 After installing Anaconda or Miniconda, open an Anaconda Command Prompt
 (Windows) or Terminal.app (Mac) and type the following command:
@@ -63,7 +63,13 @@ At this point, you can solve example models or your own power system models.
 See README for more information.
 
 
-# INSTALL A PROPRIETARY SOLVER (OPTIONAL)
+# View Examples
+
+If you want to view the Switch source code and examples, you can find them at
+https://github.com/switch-model/switch. You can browse these online or clone them to a local repository (see below if you'd like to run Switch directly from a local repository).
+
+
+# Install a Proprietary Solver (Optional)
 
 To solve larger models, you will need to install the cplex or gurobi solvers,
 which are an order of magnitude faster than glpk or coincbc. Both of these have
@@ -72,12 +78,12 @@ one of these now or after you install Switch. More information on these solvers
 can be found at the following links:
 
 Professional:
-https://www.gurobi.com/products/gurobi-optimizer/
-https://www.ibm.com/products/ilog-cplex-optimization-studio/pricing
+- https://www.gurobi.com/products/gurobi-optimizer/
+- https://www.ibm.com/products/ilog-cplex-optimization-studio/pricing
 
 Academic:
-https://www.gurobi.com/academia/
-https://developer.ibm.com/docloud/blog/2019/07/04/cplex-optimization-studio-for-students-and-academics/
+- https://www.gurobi.com/academia/
+- https://developer.ibm.com/docloud/blog/2019/07/04/cplex-optimization-studio-for-students-and-academics/
 
 For any meaningful-sized problem, you will need the unlimited-size versions of
 these solvers, which will require either purchasing a license, using a
@@ -86,15 +92,7 @@ small-size free or community versions (typically 1000 variables and constraints)
 will not be enough for any realistic model.
 
 
-# VIEW EXAMPLES
-
-If you want to view the Switch source code and examples, you can find them at
-https://github.com/switch-model/switch. You can also find the source code on
-your computer in  $CONDA_PREFIX/lib/python3.7/site-packages/switch_model or
-$CONDA_PREFIX/lib/python2.7/site-packages/switch_model.
-
-
-# DEVELOPER INSTALLATION (optional)
+# Developer Installation (Optional)
 
 Many people find it useful to browse and edit a "live" installation of Switch
 that they also use to solve models. This supports a number of activities:
@@ -110,7 +108,7 @@ that they also use to solve models. This supports a number of activities:
 
 To work this way, first install Switch as described above (this will install all
 the Switch dependencies, even though you will later reinstall Switch itself).
-Then, in a terminal window or Anaconda command prompt Anaconda command prompt,
+Then, in a terminal window or Anaconda command prompt,
 use the `cd` and `mkdir` commands to create and/or enter the directory where you
 would like to store the Switch model code and examples. Once you are in that
 directory, run the following commands (don't type the comments that start with

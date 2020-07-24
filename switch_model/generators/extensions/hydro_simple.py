@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2016-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2020 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -117,7 +117,8 @@ def define_components(mod):
         for (g,t) in extra_indexes:
             extraneous[g].append(t)
         pprint = "\n".join(
-            "* {}: {}".format(g, tps) for g, tps in extraneous.items())
+            "* {}: {} to {}".format(g, min(tps), max(tps))
+            for g, tps in extraneous.items())
         warning_msg = (
             "{} hydro plants with predetermined builds have timeseries data "
             "in periods when they are not operating (either after retirement, "

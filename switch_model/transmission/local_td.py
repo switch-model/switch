@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2020 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -206,18 +206,33 @@ def define_dynamic_components(mod):
 def load_inputs(mod, switch_data, inputs_dir):
     """
 
-    Import local transmission & distribution data. The following files
-    are expected in the input directory. load_zones.csv will
-    contain additional columns that are used by the load_zones module.
+    Import local transmission & distribution data. The following files are
+    expected in the input directory. Optional files & columns are marked with
+    *. load_zones.csv will contain additional columns that are used by the
+    load_zones module.
 
     load_zones.csv
-        load_zone, existing_local_td, local_td_annual_cost_per_mw
+        load_zone, ..., existing_local_td, local_td_annual_cost_per_mw
+
+    Note that in the next file, parameter names are written on the first
+    row (as usual), and the single value for each parameter is written in
+    the second row.
+
+    trans_params.csv*
+        ..., distribution_loss_rate*
 
     """
 
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'load_zones.csv'),
         param=(mod.existing_local_td, mod.local_td_annual_cost_per_mw))
+    switch_data.load_aug(
+        filename=os.path.join(inputs_dir, 'trans_params.csv'),
+        optional=True,
+        auto_select=True,
+        optional_params=['distribution_loss_rate'],
+        param=[mod.distribution_loss_rate]
+    )
 
 def post_solve(instance, outdir):
     """
