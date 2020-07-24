@@ -97,6 +97,5 @@ def load_inputs(mod, switch_data, inputs_dir):
     """
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'fuel_cost_per_timepoint.csv'),
-        autoselect=True,
         index=mod.ZONE_FUEL_TIMEPOINTS,
         param=[mod.fuel_cost_per_timepoint])

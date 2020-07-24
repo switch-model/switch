@@ -229,7 +229,6 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'trans_params.csv'),
         optional=True,
-        auto_select=True,
         optional_params=['distribution_loss_rate'],
         param=[mod.distribution_loss_rate]
     )
@@ -244,7 +243,7 @@ def post_solve(instance, outdir):
     a column. Values of Distributed_Power_Withdrawals will be multiplied by -1
     during export. The columns in this file can vary based on which modules
     are included in your model.
-    
+
     local_td_energy_balance.csv is the same data in "tidy" form with a constant
     number of columns.
 

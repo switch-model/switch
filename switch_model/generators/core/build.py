@@ -578,7 +578,6 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, 'gen_multiple_fuels.csv'),
-        auto_select=True,
         index=mod.MULTI_FUEL_GEN_FUELS,
         param=tuple())
 
