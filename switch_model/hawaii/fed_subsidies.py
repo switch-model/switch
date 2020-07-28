@@ -14,13 +14,25 @@ def define_components(m):
     # note: wind/solar/geothermal production tax credit expires in 2017-2019,
     # so we ignore that (http://programs.dsireusa.org/system/program/detail/734)
 
+    m.logger.warning(
+        "WARNING: {} module uses incorrect subsidy level for DistPV in 2020 "
+        "and 2021 (0.3 instead of 0.26 and 0.22). This should not affect "
+        "results used for the RIST model because quantities of DistPV are "
+        "fixed for that model and subsidies are not included in RIST inputs. "
+        "However, the error is retained here to maximize reproducibility. "
+        "For new work, it is recommended that you correct these subsidies."
+        .format(__name__)
+    )
+
     # TODO: move these values into data files
     itc_rates = {
         # DistPV from http://programs.dsireusa.org/system/program/detail/1235
         (2018, 'DistPV'): 0.3,
         (2019, 'DistPV'): 0.3,
-        (2020, 'DistPV'): 0.26,
-        (2021, 'DistPV'): 0.22,
+        (2020, 'DistPV'): 0.3,
+        (2021, 'DistPV'): 0.3,
+        # (2020, 'DistPV'): 0.26,
+        # (2021, 'DistPV'): 0.22,
         # Wind, Solar and Geothermal ITC from
         # http://programs.dsireusa.org/system/program/detail/658
         (2018, 'CentralTrackingPV'): 0.3,
