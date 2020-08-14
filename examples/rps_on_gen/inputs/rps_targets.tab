@@ -1,7 +1,7 @@
 load_zone	period	rps_target
-North 2020    0.35
-North 2030    0.9
-Central 2020    0.35
-Central 2030    0.3
-South 2020    0.35
-South 2030    0.5
+North 2020    0.35		
+North 2030    0.9		
+Central 2020    0.35		
+Central 2030    0.9		
+South 2020    0.35		
+South 2030    0.9		
