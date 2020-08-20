@@ -299,7 +299,7 @@ def load_inputs(mod, switch_data, inputs_dir):
         GENERATION_PROJECT, build_year, ...
         gen_storage_energy_overnight_cost
 
-    gen_build_predetermined.tab
+    gen_build_predetermined.csv
         GENERATION_PROJECT, build_year, ...,
         gen_predetermined_storage_energy_mwh*
 
@@ -337,8 +337,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, "gen_build_predetermined.csv"),
-        auto_select=True,
-        param=mod.gen_predetermined_storage_energy_mwh,
+        param=(mod.gen_predetermined_storage_energy_mwh,),
     )
 
 
