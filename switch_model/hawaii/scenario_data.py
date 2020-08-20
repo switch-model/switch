@@ -651,7 +651,8 @@ def get_queries(args):
         SELECT
             "GENERATION_PROJECT",
             build_year,
-            SUM(gen_predetermined_cap) as gen_predetermined_cap
+            SUM(gen_predetermined_cap) as gen_predetermined_cap,
+            SUM(gen_predetermined_storage_energy_mwh) as gen_predetermined_storage_energy_mwh
         FROM study_projects JOIN gen_build_predetermined USING (project_id)
         GROUP BY 1, 2
         ORDER BY 1, 2;
@@ -680,7 +681,11 @@ def get_queries(args):
                 * gen_predetermined_cap
             ) / SUM(gen_predetermined_cap)
                 AS gen_overnight_cost,
-            null AS gen_storage_energy_overnight_cost,
+            SUM(
+                COALESCE({b_capital_cost_per_mwh}, {c_capital_cost_per_mwh})
+                * gen_predetermined_storage_energy_mwh
+            ) / SUM(gen_predetermined_storage_energy_mwh)
+                AS gen_storage_energy_overnight_cost,
             SUM(
                 COALESCE({b_fixed_o_m}, {c_fixed_o_m})
                 * gen_predetermined_cap
@@ -715,6 +720,7 @@ def get_queries(args):
         ORDER BY 1, 2;
     """.format(
         b_capital_cost_per_mw=scale_inflate_cost('b.capital_cost_per_kw'),
+        b_capital_cost_per_mwh=scale_inflate_cost('b.capital_cost_per_kwh'),
         c_capital_cost_per_mw=scale_inflate_cost('c.capital_cost_per_kw'),
         c_capital_cost_per_mwh=scale_inflate_cost('c.capital_cost_per_kwh'),
         b_fixed_o_m=scale_inflate_cost('b.fixed_o_m'),
