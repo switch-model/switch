@@ -32,12 +32,6 @@ from switch_model.utilities import (
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 
-# paty's adition for debugging:
-try:
-    from IPython import embed
-except:
-    pass
-
 
 def main(args=None, return_model=False, return_instance=False):
 
@@ -240,13 +234,6 @@ def main(args=None, return_model=False, return_instance=False):
         code.interact(
             banner=banner, local=dict(list(globals().items()) + list(locals().items()))
         )
-
-
-def reload_prior_solution_from_pickle(instance, outdir):
-    with open(os.path.join(outdir, "results.pickle"), "rb") as fh:
-        results = pickle.load(fh)
-    instance.solutions.load_from(results)
-    return instance
 
 
 def reload_prior_solution_from_pickle(instance, outdir):
@@ -528,7 +515,8 @@ def define_arguments(argparser):
         "--suffixes",
         "--suffix",
         nargs="+",
-        default=["rc", "dual", "slack"],
+        action="extend",
+        default=[],
         help="Extra suffixes to add to the model and exchange with the solver (e.g., iis, rc, dual, or slack)",
     )
 
@@ -912,15 +900,6 @@ def solve(model):
 
     results = model.solver_manager.solve(model, opt=model.solver, **solver_args)
     # import pdb; pdb.set_trace()
-
-    # Load the solution data into the results object (it only has execution
-    # metadata by default in recent versions of Pyomo). This will enable us to
-    # save and restore model solutions; the results object can be pickled to a
-    # file on disk, but the instance cannot.
-    # https://stackoverflow.com/questions/39941520/pyomo-ipopt-does-not-return-solution
-    #
-    model.solutions.store_to(results)
-    model.last_results = results
 
     if model.options.verbose:
         print(

@@ -443,8 +443,7 @@ def load_aug(
     path = kwds["filename"]
     # Skip if the file is missing
     if optional and not os.path.isfile(path):
-        return False
-
+        return
     # If this is a .dat file, then skip the rest of this fancy business; we'll
     # only check if the file is missing and optional for .csv files.
     filename, extension = os.path.splitext(path)
