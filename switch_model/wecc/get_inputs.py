@@ -18,7 +18,7 @@ import os
 import sys
 import time
 
-import psycopg2
+import psycopg2 as pg
 import sshtunnel
 
 
@@ -44,20 +44,20 @@ db_connection = None
 tunnel = None
 
 
-def shutdown():
-    global db_cursor
-    global db_connection
-    global tunnel
-    if db_cursor:
-        db_cursor.close()
-        db_cursor = None
-    if db_connection:
-        db_connection.close()
-        db_connection = None
-    # os.chdir('..')
-    if tunnel:
-        tunnel.stop()
-        tunnel = None
+# def shutdown():
+    # global db_cursor
+    # global db_connection
+    # global tunnel
+    # if db_cursor:
+        # db_cursor.close()
+        # db_cursor = None
+    # if db_connection:
+        # db_connection.close()
+        # db_connection = None
+    # # os.chdir('..')
+    # if tunnel:
+        # tunnel.stop()
+        # tunnel = None
 
 
 # Make sure the ssh tunnel is shutdown properly when python exits, even if an exception has been raised.
@@ -66,101 +66,102 @@ def shutdown():
 
 
 def main():
-    global db_cursor
-    global db_connection
-    global tunnel
+#     global db_cursor
+    # global db_connection
+    # global tunnel
     start_time = time.time()
 
-    parser = argparse.ArgumentParser(
-        usage="get_switch_pyomo_input_tables.py [--help] [options]",
-        description="Write SWITCH input files from database tables. Default \
-		options asume an SSH tunnel has been opened between the local port 5432\
-		and the Postgres port at the remote host where the database is stored.",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser.add_argument(
-        "-H",
-        "--hostname",
-        dest="host",
-        type=str,
-        default="switch-db2.erg.berkeley.edu",
-        metavar="hostname",
-        help="Database host address",
-    )
-    parser.add_argument(
-        "-P",
-        "--port",
-        dest="port",
-        type=int,
-        default=5432,
-        metavar="port",
-        help="Database host port",
-    )
-    parser.add_argument(
-        "-U",
-        "--user",
-        dest="user",
-        type=str,
-        default=getpass.getuser(),
-        metavar="username",
-        help="Database username",
-    )
-    parser.add_argument(
-        "-D",
-        "--database",
-        dest="database",
-        type=str,
-        default="switch_wecc",
-        metavar="dbname",
-        help="Database name",
-    )
-    parser.add_argument(
-        "-s",
-        type=int,
-        required=True,
-        metavar="scenario_id",
-        help="Scenario ID for the simulation",
-    )
-    parser.add_argument(
-        "-i",
-        type=str,
-        default="inputs",
-        metavar="inputsdir",
-        help="Directory where the inputs will be built",
-    )
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser(
+        # usage="get_switch_pyomo_input_tables.py [--help] [options]",
+        # description="Write SWITCH input files from database tables. Default \
+		# options asume an SSH tunnel has been opened between the local port 5432\
+		# and the Postgres port at the remote host where the database is stored.",
+        # formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    # )
+    # parser.add_argument(
+        # "-H",
+        # "--hostname",
+        # dest="host",
+        # type=str,
+        # default="switch-db2.erg.berkeley.edu",
+        # metavar="hostname",
+        # help="Database host address",
+    # )
+    # parser.add_argument(
+        # "-P",
+        # "--port",
+        # dest="port",
+        # type=int,
+        # default=5432,
+        # metavar="port",
+        # help="Database host port",
+    # )
+    # parser.add_argument(
+        # "-U",
+        # "--user",
+        # dest="user",
+        # type=str,
+        # default=getpass.getuser(),
+        # metavar="username",
+        # help="Database username",
+    # )
+    # parser.add_argument(
+        # "-D",
+        # "--database",
+        # dest="database",
+        # type=str,
+        # default="switch_wecc",
+        # metavar="dbname",
+        # help="Database name",
+    # )
+    # parser.add_argument(
+        # "-s",
+        # type=int,
+        # required=True,
+        # metavar="scenario_id",
+        # help="Scenario ID for the simulation",
+    # )
+    # parser.add_argument(
+        # "-i",
+        # type=str,
+        # default="inputs",
+        # metavar="inputsdir",
+        # help="Directory where the inputs will be built",
+    # )
+    # args = parser.parse_args()
 
-    passw = getpass.getpass("Enter database password for user %s:" % args.user)
+    # passw = getpass.getpass("Enter database password for user %s:" % args.user)
 
-    # Connection settings are determined by parsed command line inputs
-    # Start an ssh tunnel because the database only permits local connections
-    tunnel = sshtunnel.SSHTunnelForwarder(
-        args.host,
-        ssh_username=args.user,
-        ssh_pkey=os.path.join(os.path.expanduser("~"), ".ssh", "id_rsa"),
-        remote_bind_address=("127.0.0.1", args.port),
-    )
-    tunnel.start()
-    try:
-        db_connection = psycopg2.connect(
-            database=args.database,
-            user=args.user,
-            host="127.0.0.1",
-            port=tunnel.local_bind_port,
-            password=passw,
-        )
-    except:
-        tunnel.stop()
-        raise
-    print "Connection to database established..."
+    # # Connection settings are determined by parsed command line inputs
+    # # Start an ssh tunnel because the database only permits local connections
+    # tunnel = sshtunnel.SSHTunnelForwarder(
+        # args.host,
+        # ssh_username=args.user,
+        # ssh_pkey=os.path.join(os.path.expanduser("~"), ".ssh", "id_rsa"),
+        # remote_bind_address=("127.0.0.1", args.port),
+    # )
+    # tunnel.start()
+    # try:
+        # db_connection = psycopg2.connect(
+            # database=args.database,
+            # user=args.user,
+            # host="127.0.0.1",
+            # port=tunnel.local_bind_port,
+            # password=passw,
+        # )
+    # except:
+        # tunnel.stop()
+        # raise
+    # print("Connection to database established...")
 
-    if not os.path.exists(args.i):
-        os.makedirs(args.i)
-        print "Inputs directory created..."
+    inputs_dir = "test_inputs"
+    if not os.path.exists(inputs_dir):
+        os.makedirs(inputs_dir)
+        print("Inputs directory created...")
     else:
-        print "Inputs directory exists, so contents will be overwritten..."
+        print("Inputs directory exists, so contents will be overwritten...")
 
-    db_cursor = db_connection.cursor()
+    # db_cursor = db_connection.cursor()
 
     # Test db connection for debugging...
     # db_cursor.execute("select 1 + 1 as x;")
@@ -168,8 +169,18 @@ def main():
     # shutdown()
     # sys.exit("Finished our test")
 
+
+    def connect():
+        # TODO: this should be an enviromental variable
+        db_url = "postgresql://pesap@localhost:5432/wecc"
+        conn = pg.connect(db_url,  options=f'-c search_path=switch')
+        return conn
+    db_conn = connect()
+    db_cursor = db_conn.cursor()
     ############################################################################################################
     # These next variables determine which input data is used, though some are only for documentation and result exports.
+
+    scenario_id = 148
 
     db_cursor.execute(
         """
@@ -182,7 +193,7 @@ def main():
 			zone_to_regional_fuel_market_scenario_id, rps_scenario_id,
 			enable_dr, enable_ev
 		FROM switch.scenario WHERE scenario_id = %s""",
-        [args.s],
+        [scenario_id],
     )
     s_details = db_cursor.fetchone()
     # name, description, sample_ts_scenario_id, hydro_scenario_meta_id, fuel_id, gen_costs_id, new_projects_id, carbon_tax_id, carbon_cap_id, rps_id, lz_hourly_demand_id, gen_info_id, load_zones_scenario_id, existing_projects_id, demand_growth_id = s_details[1], s_details[2], s_details[3], s_details[4], s_details[5], s_details[6], s_details[7], s_details[8], s_details[9], s_details[10], s_details[11], s_details[12], s_details[13], s_details[14], s_details[15]
@@ -204,7 +215,7 @@ def main():
     enable_dr = s_details[15]
     enable_ev = s_details[16]
 
-    os.chdir(args.i)
+    os.chdir(inputs_dir)
 
     # The format for tab files is:
     # col1_name col2_name ...
@@ -212,15 +223,15 @@ def main():
 
     # The format for dat files is the same as in AMPL dat files.
 
-    print '\nStarting data copying from the database to input files for scenario: "%s"' % name
+    print('\nStarting data copying from the database to input files for scenario: "%s"' % name)
 
     # Write general scenario parameters into a documentation file
-    print "Writing scenario documentation into scenario_params.txt."
-    db_cursor.execute("SELECT * FROM switch.scenario WHERE scenario_id = %s", [args.s])
+    print("Writing scenario documentation into scenario_params.txt.")
+    db_cursor.execute("SELECT * FROM switch.scenario WHERE scenario_id = %s", [scenario_id])
     s_details = db_cursor.fetchone()
     colnames = [desc[0] for desc in db_cursor.description]
     with open("scenario_params.txt", "w") as f:
-        f.write("Scenario id: %s\n" % args.s)
+        f.write("Scenario id: %s\n" % scenario_id)
         f.write("Scenario name: %s\n" % name)
         f.write("Scenario notes: %s\n" % description)
         for i, col in enumerate(colnames):
@@ -234,7 +245,7 @@ def main():
     ########################################################
     # TIMESCALES
 
-    print "  periods.tab..."
+    print("  periods.tab...")
     db_cursor.execute(
         """
 		select label, start_year as period_start, end_year as period_end
@@ -244,7 +255,7 @@ def main():
     )
     write_tab("periods", ["INVESTMENT_PERIOD", "period_start", "period_end"], db_cursor)
 
-    print "  timeseries.tab..."
+    print("  timeseries.tab...")
     timeseries_id_select = "date_part('year', first_timepoint_utc)|| '_' || replace(sampled_timeseries.name, ' ', '_') as timeseries"
     db_cursor.execute(
         (
@@ -270,7 +281,7 @@ def main():
         db_cursor,
     )
 
-    print "  timepoints.tab..."
+    print("  timepoints.tab...")
     db_cursor.execute(
         (
             """select raw_timepoint_id as timepoint_id, to_char(timestamp_utc, 'YYYYMMDDHH24') as timestamp, 
@@ -288,7 +299,7 @@ def main():
     # LOAD ZONES
 
     # done
-    print "  load_zones.tab..."
+    print("  load_zones.tab...")
     db_cursor.execute(
         """SELECT name, ccs_distance_km as zone_ccs_distance_km, load_zone_id as zone_dbid 
 					FROM switch.load_zone  
@@ -299,7 +310,7 @@ def main():
         "load_zones", ["LOAD_ZONE", "zone_ccs_distance_km", "zone_dbid"], db_cursor
     )
 
-    print "  loads.tab..."
+    print("  loads.tab...")
     db_cursor.execute(
         """
 		select load_zone_name, t.raw_timepoint_id as timepoint, 
@@ -317,7 +328,7 @@ def main():
     ########################################################
     # BALANCING AREAS [Pending zone_coincident_peak_demand.tab]
 
-    print "  balancing_areas.tab..."
+    print("  balancing_areas.tab...")
     db_cursor.execute(
         """SELECT balancing_area, quickstart_res_load_frac, quickstart_res_wind_frac, quickstart_res_solar_frac,spinning_res_load_frac, 
 					spinning_res_wind_frac, spinning_res_solar_frac 
@@ -338,7 +349,7 @@ def main():
         db_cursor,
     )
 
-    print "  zone_balancing_areas.tab..."
+    print("  zone_balancing_areas.tab...")
     db_cursor.execute(
         """SELECT name, reserves_area as balancing_area 
 					FROM switch.load_zone;
@@ -367,7 +378,7 @@ def main():
     ########################################################
     # TRANSMISSION
 
-    print "  transmission_lines.tab..."
+    print("  transmission_lines.tab...")
     db_cursor.execute(
         """SELECT start_load_zone_id || '-' || end_load_zone_id, t1.name, t2.name, 
 					trans_length_km, trans_efficiency, existing_trans_cap_mw 
@@ -390,7 +401,7 @@ def main():
         db_cursor,
     )
 
-    print "  trans_optional_params.tab..."
+    print("  trans_optional_params.tab...")
     db_cursor.execute(
         """SELECT start_load_zone_id || '-' || end_load_zone_id, transmission_line_id, derating_factor, terrain_multiplier, 
 					new_build_allowed 
@@ -410,7 +421,7 @@ def main():
         db_cursor,
     )
 
-    print "  trans_params.dat..."
+    print("  trans_params.dat...")
     with open("trans_params.dat", "w") as f:
         f.write(
             "param trans_capital_cost_per_mw_km:=1150;\n"
@@ -424,7 +435,7 @@ def main():
     ########################################################
     # FUEL
 
-    print "  fuels.tab..."
+    print("  fuels.tab...")
     db_cursor.execute(
         """SELECT name, co2_intensity, upstream_co2_intensity 
 					FROM switch.energy_source WHERE is_fuel IS TRUE;
@@ -432,7 +443,7 @@ def main():
     )
     write_tab("fuels", ["fuel", "co2_intensity", "upstream_co2_intensity"], db_cursor)
 
-    print "  non_fuel_energy_sources.tab..."
+    print("  non_fuel_energy_sources.tab...")
     db_cursor.execute(
         """SELECT name 
 					FROM switch.energy_source 
@@ -442,7 +453,7 @@ def main():
     write_tab("non_fuel_energy_sources", ["energy_source"], db_cursor)
 
     # Fuel projections are yearly averages in the DB. For now, Switch only accepts fuel prices per period, so they are averaged.
-    print "  fuel_cost.tab"
+    print("  fuel_cost.tab")
     db_cursor.execute(
         """select load_zone_name as load_zone, fuel, period, AVG(fuel_price) as fuel_cost 
 					from 
@@ -469,7 +480,7 @@ def main():
     # 		 gen_ccs_energy_load,
     #        gen_ccs_capture_efficiency,
     #        gen_is_distributed
-    print "  generation_projects_info.tab..."
+    print("  generation_projects_info.tab...")
     db_cursor.execute(
         (
             """select 
@@ -525,7 +536,7 @@ def main():
         db_cursor,
     )
 
-    print "  gen_build_predetermined.tab..."
+    print("  gen_build_predetermined.tab...")
     db_cursor.execute(
         (
             """select generation_plant_id, build_year, capacity as gen_predetermined_cap  
@@ -547,7 +558,7 @@ def main():
         db_cursor,
     )
 
-    print "  gen_build_costs.tab..."
+    print("  gen_build_costs.tab...")
     db_cursor.execute(
         """
         select generation_plant_id, generation_plant_cost.build_year, 
@@ -596,7 +607,7 @@ def main():
     ########################################################
     # FINANCIALS
 
-    print "  financials.dat..."
+    print("  financials.dat...")
     with open("financials.dat", "w") as f:
         f.write("param base_financial_year := 2016;\n")
         f.write("param interest_rate := .07;\n")
@@ -607,7 +618,7 @@ def main():
 
     # Pyomo will raise an error if a capacity factor is defined for a project on a timepoint when it is no longer operational (i.e. Canela 1 was built on 2007 and has a 30 year max age, so for tp's ocurring later than 2037, its capacity factor must not be written in the table).
 
-    print "  variable_capacity_factors.tab..."
+    print("  variable_capacity_factors.tab...")
     db_cursor.execute(
         """
 	    select generation_plant_id, t.raw_timepoint_id, capacity_factor  
@@ -632,7 +643,7 @@ def main():
     ########################################################
     # HYDROPOWER
 
-    print "  hydro_timeseries.tab..."
+    print("  hydro_timeseries.tab...")
     # 	db_cursor.execute(("""select generation_plant_id as hydro_project,
     # 					{timeseries_id_select},
     # 					hydro_min_flow_mw, hydro_avg_flow_mw
@@ -682,7 +693,7 @@ def main():
     # CARBON CAP
 
     # future work: join with table with carbon_cost_dollar_per_tco2
-    print "  carbon_policies.tab..."
+    print("  carbon_policies.tab...")
     db_cursor.execute(
         (
             """select period, AVG(carbon_cap_tco2_per_yr) as carbon_cap_tco2_per_yr, AVG(carbon_cap_tco2_per_yr_CA) as carbon_cap_tco2_per_yr_CA,
@@ -715,7 +726,7 @@ def main():
     ########################################################
     # RPS
     if rps_scenario_id is not None:
-        print "  rps_targets.tab..."
+        print("  rps_targets.tab...")
         db_cursor.execute(
             (
                 """select load_zone, w.period as period, avg(rps_target) as rps_target
@@ -739,7 +750,7 @@ def main():
     # BIO_SOLID SUPPLY CURVE
 
     if supply_curves_scenario_id is not None:
-        print "  fuel_supply_curves.tab..."
+        print("  fuel_supply_curves.tab...")
         db_cursor.execute(
             (
                 """
@@ -766,7 +777,7 @@ def main():
             db_cursor,
         )
 
-        print "  regional_fuel_markets.tab..."
+        print("  regional_fuel_markets.tab...")
         db_cursor.execute(
             (
                 """
@@ -778,7 +789,7 @@ def main():
         )
         write_tab("regional_fuel_markets", ["regional_fuel_market", "fuel"], db_cursor)
 
-        print "  zone_to_regional_fuel_market.tab..."
+        print("  zone_to_regional_fuel_market.tab...")
         db_cursor.execute(
             (
                 """
@@ -797,7 +808,7 @@ def main():
     ########################################################
     # DEMAND RESPONSE
     if enable_dr is not None:
-        print "  dr_data.tab..."
+        print("  dr_data.tab...")
         db_cursor.execute(
             (
                 """
@@ -830,7 +841,7 @@ def main():
     ########################################################
     # ELECTRICAL VEHICLES
     if enable_ev is not None:
-        print "  ev_limits.tab..."
+        print("  ev_limits.tab...")
         db_cursor.execute(
             (
                 """
@@ -886,7 +897,7 @@ def main():
 
     end_time = time.time()
 
-    print "\nScript took %s seconds building input tables." % (end_time - start_time)
+    print("\nScript took %s seconds building input tables." % (end_time - start_time))
     shutdown()
 
 
