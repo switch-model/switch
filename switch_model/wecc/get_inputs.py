@@ -27,7 +27,7 @@ def write_tab(fname, headers, cursor):
         fname + ".csv", "w"
     ) as f:  # Paty: open() opens file named fname and only allows us to (re)write on it ('w'). "with" keyword ensures the file is closed at the end of the function.
         f.write(
-            "\t".join(headers) + os.linesep
+            ",".join(headers) + os.linesep
         )  # Paty: str.join(headers) joins the strings in the sequence "headers" and separates them with string "str"
         for row in cursor:
             # Replace None values with dots for Pyomo. Also turn all datatypes into strings
@@ -35,7 +35,7 @@ def write_tab(fname, headers, cursor):
                 "." if element is None else str(element) for element in row
             ]
             f.write(
-                "\t".join(row_as_clean_strings) + os.linesep
+                ",".join(row_as_clean_strings) + os.linesep
             )  # concatenates "line" separated by tabs, and appends \n
 
 
