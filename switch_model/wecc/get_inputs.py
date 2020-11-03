@@ -24,7 +24,7 @@ import psycopg2 as pg
 
 def write_tab(fname, headers, cursor):
     with open(
-        fname + ".tab", "w"
+        fname + ".csv", "w"
     ) as f:  # Paty: open() opens file named fname and only allows us to (re)write on it ('w'). "with" keyword ensures the file is closed at the end of the function.
         f.write(
             "\t".join(headers) + os.linesep
