@@ -13,13 +13,13 @@ is formatted into corresponding .tab or .dat files.
 """
 
 import argparse
-import getpass
+# import getpass
 import os
 import sys
 import time
 
 import psycopg2 as pg
-import sshtunnel
+# import sshtunnel
 
 
 def write_tab(fname, headers, cursor):
@@ -45,19 +45,19 @@ tunnel = None
 
 
 # def shutdown():
-    # global db_cursor
-    # global db_connection
-    # global tunnel
-    # if db_cursor:
-        # db_cursor.close()
-        # db_cursor = None
-    # if db_connection:
-        # db_connection.close()
-        # db_connection = None
-    # # os.chdir('..')
-    # if tunnel:
-        # tunnel.stop()
-        # tunnel = None
+# global db_cursor
+# global db_connection
+# global tunnel
+# if db_cursor:
+# db_cursor.close()
+# db_cursor = None
+# if db_connection:
+# db_connection.close()
+# db_connection = None
+# # os.chdir('..')
+# if tunnel:
+# tunnel.stop()
+# tunnel = None
 
 
 # Make sure the ssh tunnel is shutdown properly when python exits, even if an exception has been raised.
@@ -66,67 +66,67 @@ tunnel = None
 
 
 def main():
-#     global db_cursor
+    #     global db_cursor
     # global db_connection
     # global tunnel
     start_time = time.time()
 
     # parser = argparse.ArgumentParser(
-        # usage="get_switch_pyomo_input_tables.py [--help] [options]",
-        # description="Write SWITCH input files from database tables. Default \
-		# options asume an SSH tunnel has been opened between the local port 5432\
-		# and the Postgres port at the remote host where the database is stored.",
-        # formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    # usage="get_switch_pyomo_input_tables.py [--help] [options]",
+    # description="Write SWITCH input files from database tables. Default \
+    # options asume an SSH tunnel has been opened between the local port 5432\
+    # and the Postgres port at the remote host where the database is stored.",
+    # formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     # )
     # parser.add_argument(
-        # "-H",
-        # "--hostname",
-        # dest="host",
-        # type=str,
-        # default="switch-db2.erg.berkeley.edu",
-        # metavar="hostname",
-        # help="Database host address",
+    # "-H",
+    # "--hostname",
+    # dest="host",
+    # type=str,
+    # default="switch-db2.erg.berkeley.edu",
+    # metavar="hostname",
+    # help="Database host address",
     # )
     # parser.add_argument(
-        # "-P",
-        # "--port",
-        # dest="port",
-        # type=int,
-        # default=5432,
-        # metavar="port",
-        # help="Database host port",
+    # "-P",
+    # "--port",
+    # dest="port",
+    # type=int,
+    # default=5432,
+    # metavar="port",
+    # help="Database host port",
     # )
     # parser.add_argument(
-        # "-U",
-        # "--user",
-        # dest="user",
-        # type=str,
-        # default=getpass.getuser(),
-        # metavar="username",
-        # help="Database username",
+    # "-U",
+    # "--user",
+    # dest="user",
+    # type=str,
+    # default=getpass.getuser(),
+    # metavar="username",
+    # help="Database username",
     # )
     # parser.add_argument(
-        # "-D",
-        # "--database",
-        # dest="database",
-        # type=str,
-        # default="switch_wecc",
-        # metavar="dbname",
-        # help="Database name",
+    # "-D",
+    # "--database",
+    # dest="database",
+    # type=str,
+    # default="switch_wecc",
+    # metavar="dbname",
+    # help="Database name",
     # )
     # parser.add_argument(
-        # "-s",
-        # type=int,
-        # required=True,
-        # metavar="scenario_id",
-        # help="Scenario ID for the simulation",
+    # "-s",
+    # type=int,
+    # required=True,
+    # metavar="scenario_id",
+    # help="Scenario ID for the simulation",
     # )
     # parser.add_argument(
-        # "-i",
-        # type=str,
-        # default="inputs",
-        # metavar="inputsdir",
-        # help="Directory where the inputs will be built",
+    # "-i",
+    # type=str,
+    # default="inputs",
+    # metavar="inputsdir",
+    # help="Directory where the inputs will be built",
     # )
     # args = parser.parse_args()
 
@@ -135,23 +135,23 @@ def main():
     # # Connection settings are determined by parsed command line inputs
     # # Start an ssh tunnel because the database only permits local connections
     # tunnel = sshtunnel.SSHTunnelForwarder(
-        # args.host,
-        # ssh_username=args.user,
-        # ssh_pkey=os.path.join(os.path.expanduser("~"), ".ssh", "id_rsa"),
-        # remote_bind_address=("127.0.0.1", args.port),
+    # args.host,
+    # ssh_username=args.user,
+    # ssh_pkey=os.path.join(os.path.expanduser("~"), ".ssh", "id_rsa"),
+    # remote_bind_address=("127.0.0.1", args.port),
     # )
     # tunnel.start()
     # try:
-        # db_connection = psycopg2.connect(
-            # database=args.database,
-            # user=args.user,
-            # host="127.0.0.1",
-            # port=tunnel.local_bind_port,
-            # password=passw,
-        # )
+    # db_connection = psycopg2.connect(
+    # database=args.database,
+    # user=args.user,
+    # host="127.0.0.1",
+    # port=tunnel.local_bind_port,
+    # password=passw,
+    # )
     # except:
-        # tunnel.stop()
-        # raise
+    # tunnel.stop()
+    # raise
     # print("Connection to database established...")
 
     inputs_dir = "test_inputs"
@@ -169,12 +169,12 @@ def main():
     # shutdown()
     # sys.exit("Finished our test")
 
-
     def connect():
         # TODO: this should be an enviromental variable
         db_url = "postgresql://pesap@localhost:5432/wecc"
-        conn = pg.connect(db_url,  options=f'-c search_path=switch')
+        conn = pg.connect(db_url, options=f"-c search_path=switch")
         return conn
+
     db_conn = connect()
     db_cursor = db_conn.cursor()
     ############################################################################################################
@@ -223,11 +223,16 @@ def main():
 
     # The format for dat files is the same as in AMPL dat files.
 
-    print('\nStarting data copying from the database to input files for scenario: "%s"' % name)
+    print(
+        '\nStarting data copying from the database to input files for scenario: "%s"'
+        % name
+    )
 
     # Write general scenario parameters into a documentation file
     print("Writing scenario documentation into scenario_params.txt.")
-    db_cursor.execute("SELECT * FROM switch.scenario WHERE scenario_id = %s", [scenario_id])
+    db_cursor.execute(
+        "SELECT * FROM switch.scenario WHERE scenario_id = %s", [scenario_id]
+    )
     s_details = db_cursor.fetchone()
     colnames = [desc[0] for desc in db_cursor.description]
     with open("scenario_params.txt", "w") as f:
@@ -898,7 +903,6 @@ def main():
     end_time = time.time()
 
     print("\nScript took %s seconds building input tables." % (end_time - start_time))
-    shutdown()
 
 
 if __name__ == "__main__":
