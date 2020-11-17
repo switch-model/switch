@@ -65,7 +65,7 @@ def post_solve(mod, outdir):
     if not os.path.exists(summaries_dir):
         os.makedirs(summaries_dir)
     else:
-        print "Summaries directory exists, clearing it..."
+        print("Summaries directory exists, clearing it...")
         for f in os.listdir(summaries_dir):
             os.unlink(os.path.join(summaries_dir, f))
             
@@ -210,7 +210,7 @@ def post_solve(mod, outdir):
 #            plt.close()
 #        plots.close()
 
-    print "Printing summaries:\n==================="
+    print("Printing summaries:\n===================")
     start=time.time()
 
     # print "renewable energy production"
@@ -256,7 +256,7 @@ def post_solve(mod, outdir):
         index = 'gentech'
         
         table_name = "cummulative_capacity_by_tech_periods"
-        print table_name+" ..."
+        print(table_name + " ...")
         table = export.write_table(
             mod, mod.GENERATION_TECHNOLOGIES,
             output_file=os.path.join(summaries_dir, table_name+".csv"),
@@ -300,7 +300,7 @@ def post_solve(mod, outdir):
 #            return tup
 #
         table_name = "dispatch_tech_periods"
-        print table_name+" ..."
+        print(table_name+" ...")
         table = export.write_table(
             mod, mod.GENERATION_TECHNOLOGIES,
             output_file=os.path.join(summaries_dir, table_name+".csv"),
@@ -328,7 +328,7 @@ def post_solve(mod, outdir):
         index = 'path'
         
         table_name = "cummulative_transmission_by_path_periods"
-        print table_name+" ..."
+        print(table_name+" ...")
         table = export.write_table(
             mod, mod.TRANSMISSION_LINES,
             output_file=os.path.join(summaries_dir, table_name+".csv"),
@@ -338,7 +338,7 @@ def post_solve(mod, outdir):
         ##plot_inv_decision(table_name, table, n_elements, index, True)
         
         table_name = "transmission_installation_by_path_periods"
-        print table_name+" ..."
+        print(table_name+" ...")
         table = export.write_table(
             mod, mod.TRANSMISSION_LINES,
             output_file=os.path.join(summaries_dir, table_name+".csv"),
@@ -382,7 +382,7 @@ def post_solve(mod, outdir):
 #                f.write("    Operational Costs of scenario %s with probability %s: %.2f\n" % (s, mod.scenario_probability[s], calc_tp_costs_in_period_one_scenario(mod, p, s)))
 #  
 #    
-    print "\nTime taken writing summaries: %.2f s." % (time.time()-start)
+    print("\nTime taken writing summaries: %.2f s." % (time.time()-start))
 
 
 

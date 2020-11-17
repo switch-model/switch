@@ -42,7 +42,7 @@ def write_csv_soln(scenario_tree, output_file_prefix):
                               output_file_prefix + ".csv"
                               output_file_prefix + "_StageCostDetail.csv"
     """
-	
+
 #	import ipdb; ipdb.set_trace()
 # josiah's sample code Find the actual syntax/API hooks to use in these next lines
 #	for scenario in scenario_tree.scenarios:
@@ -52,9 +52,9 @@ def write_csv_soln(scenario_tree, output_file_prefix):
 # end of josiah's sample code
 
     if isinstance(scenario_tree, ScenarioTree):
-    	print("Yay.")
-    	for scenario_instance in scenario_tree._scenarios:
-			switch_model.utilities.post_solve(scenario_instance._instance, outputs_dir=os.path.join('outputs', scenario_instance.name))
+        print("Yay.")
+        for scenario_instance in scenario_tree._scenarios:
+            switch_model.utilities.post_solve(scenario_instance._instance, outputs_dir=os.path.join('outputs', scenario_instance.name))
     if not isinstance(scenario_tree, ScenarioTree):
         raise RuntimeError(
             "SwitchSolutionWriter write method expects "
