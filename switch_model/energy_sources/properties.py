@@ -92,9 +92,19 @@ def define_components(mod):
 
     mod.NON_FUEL_ENERGY_SOURCES = Set()
     mod.FUELS = Set()
+
     mod.f_co2_intensity = Param(mod.FUELS, within=NonNegativeReals)
-    mod.f_upstream_co2_intensity = Param(
-        mod.FUELS, within=Reals, default=0)
+    mod.f_upstream_co2_intensity = Param(mod.FUELS, within=Reals, default=0)
+
+    mod.f_nox_intensity = Param(mod.FUELS, within=NonNegativeReals, default=0)
+    mod.f_upstream_nox_intensity = Param(mod.FUELS, within=Reals, default=0)
+
+    mod.f_so2_intensity = Param(mod.FUELS, within=NonNegativeReals, default=0)
+    mod.f_upstream_so2_intensity = Param(mod.FUELS, within=Reals, default=0)
+
+    mod.f_ch4_intensity = Param(mod.FUELS, within=NonNegativeReals, default=0)
+    mod.f_upstream_ch4_intensity = Param(mod.FUELS, within=Reals, default=0)
+
     mod.min_data_check('f_co2_intensity')
     # Ensure that fuel and non-fuel sets have no overlap.
     mod.e_source_is_fuel_or_not_check = BuildCheck(
@@ -129,7 +139,9 @@ def load_inputs(mod, switch_data, inputs_dir):
         energy_source
 
     fuels.csv
-        fuel, co2_intensity, upstream_co2_intensity
+        fuel, co2_intensity, upstream_co2_intensity,
+        nox_intensity, upstream_nox_intensity, so2_intensity,
+        upstream_so2_intensity, ch4_intensity, upstream_ch4_intensity
 
     """
     # Include select in each load() function so that it will check out
@@ -143,6 +155,12 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, 'fuels.csv'),
-        select=('fuel', 'co2_intensity', 'upstream_co2_intensity'),
+        select=(
+            'fuel', 'co2_intensity', 'upstream_co2_intensity', 'nox_intensity', 'upstream_nox_intensity',
+            'so2_intensity', 'upstream_so2_intensity', 'ch4_intensity', 'upstream_ch4_intensity'
+        ),
         index=mod.FUELS,
-        param=(mod.f_co2_intensity, mod.f_upstream_co2_intensity))
+        param=(
+            mod.f_co2_intensity, mod.f_upstream_co2_intensity, mod.f_nox_intensity, mod.f_upstream_nox_intensity,
+            mod.f_so2_intensity, mod.f_upstream_so2_intensity, mod.f_ch4_intensity, mod.f_upstream_ch4_intensity
+        ))
