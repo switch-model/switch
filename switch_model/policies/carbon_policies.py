@@ -154,7 +154,8 @@ def post_solve(model, outdir):
 
             # Only print the carbon cap dual value if it exists and if the problem
             # is purely linear.
-            if not has_discrete_variables and GHG["Enforce_Carbon_Cap"][period] in model.dual:
+            if not has_discrete_variables and period in GHG["Enforce_Carbon_Cap"] and GHG["Enforce_Carbon_Cap"][
+                period] in model.dual:
                 row.append(model.dual[GHG["Enforce_Carbon_Cap"][period]] /
                            model.bring_annual_costs_to_base_year[period])
             else:
