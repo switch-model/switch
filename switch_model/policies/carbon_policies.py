@@ -224,7 +224,7 @@ def post_solve(model, outdir):
         has_discrete_variables = model.has_discrete_variables()
 
         for GHG in GHGs:
-            row.append([GHG["AnnualEmissions"][period], GHG["cap"][period]])
+            row.extend([GHG["AnnualEmissions"][period], GHG["cap"][period]])
 
             # Only print the carbon cap dual value if it exists and if the problem
             # is purely linear.
@@ -240,7 +240,7 @@ def post_solve(model, outdir):
             else:
                 row.append(".")
 
-            row.append(
+            row.extend(
                 [
                     GHG["cost_per_t"][period],
                     GHG["cost_per_t"][period] * GHG["AnnualEmissions"][period],
