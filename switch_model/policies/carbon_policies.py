@@ -73,7 +73,7 @@ def define_components(model):
         rule=(
             lambda m, p: Constraint.Skip
             if m.carbon_cap_tnox_per_yr[p] == float("inf")
-            else m.AnnualEmissions[p] <= m.carbon_cap_tnox_per_yr[p]
+            else m.AnnualEmissionsNOx[p] <= m.carbon_cap_tnox_per_yr[p]
         ),
         doc="Enforces the carbon cap for generation-related NOx emissions.",
     )
@@ -83,7 +83,7 @@ def define_components(model):
         rule=(
             lambda m, p: Constraint.Skip
             if m.carbon_cap_tso2_per_yr[p] == float("inf")
-            else m.AnnualEmissions[p] <= m.carbon_cap_tso2_per_yr[p]
+            else m.AnnualEmissionsSO2[p] <= m.carbon_cap_tso2_per_yr[p]
         ),
         doc="Enforces the carbon cap for generation-related SO2 emissions.",
     )
@@ -93,7 +93,7 @@ def define_components(model):
         rule=(
             lambda m, p: Constraint.Skip
             if m.carbon_cap_tch4_per_yr[p] == float("inf")
-            else m.AnnualEmissions[p] <= m.carbon_cap_tch4_per_yr[p]
+            else m.AnnualEmissionsCH4[p] <= m.carbon_cap_tch4_per_yr[p]
         ),
         doc="Enforces the carbon cap for generation-related CH4 emissions.",
     )
