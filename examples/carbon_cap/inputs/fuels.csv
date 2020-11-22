@@ -1,7 +1,7 @@
-fuel,co2_intensity,upstream_co2_intensity
-Coal,0.09552000000000001,0.0
-ResidualFuelOil,0.0788,0.0
-DistillateFuelOil,0.07315,0.0
-NaturalGas,0.05306,0.0
-Uranium,0.0,.
-BioSolid,0.09435,-0.09435
+fuel,co2_intensity,upstream_co2_intensity,nox_intensity,upstream_nox_intensity,so2_intensity,upstream_so2_intensity,ch4_intensity,upstream_ch4_intensity
+Coal,0.09552,0,0.000588,.,.,.,.,.
+ResidualFuelOil,0.0788,0,0.0001424,.,.,.,.,.
+DistillateFuelOil,0.07315,0,0.00079,.,.,.,.,.
+NaturalGas,0.05306,0,0.123,.,.,.,.,.
+Uranium,0,.,0,.,.,.,.,.
+BioSolid,0.09435,-0.09435,.,.,.,.,.,.
