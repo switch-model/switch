@@ -64,6 +64,10 @@ def define_components(mod):
     fuels, including biomass. Currently the only fuel that can have a
     value of 0 for this is uranium.
 
+    f_nox_intensity[f], f_so2_intensity[f] and f_ch4_intensity[f]
+    are equivalent to f_co2_intensity[f] but for nitrous oxides, sulfur
+    dioxide and methane. Units are in tCO2/MMBTU. Defaults to 0.
+
     f_upstream_co2_intensity[f] is the carbon emissions attributable to
     a fuel before it is consumed in units of tCO2/MMBTU. For sustainably
     harvested biomass, this can be negative to reflect the CO2 that was
@@ -73,6 +77,11 @@ def define_components(mod):
     carbon intensity need to be defined separately to support Biomass
     Energy with Carbon Capture and Sequestration (BECCS) generation
     technologies. This is an optional parameter that defaults to 0.
+
+    f_upstream_nox_intensity[f], f_upstream_so2_intensity[f] and
+    f_upstream_ch4_intensity[f] are equivalent to f_upstream_co2_intensity[f]
+    but for nitrous oxides, sulfur dioxide and methane. Units are in
+    tCO2/MMBTU. Defaults to 0.
 
     In BECCS it is important to know the carbon embedded in a given
     amount of fuel as well as the amount of negative emissions achieved
