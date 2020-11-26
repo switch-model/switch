@@ -102,6 +102,7 @@ def post_solve(model, outdir):
         # is purely linear.
         if (
             not model.has_discrete_variables()
+            and period in model.Enforce_Carbon_Cap
             and model.Enforce_Carbon_Cap[period] in model.dual
         ):
             row.append(
