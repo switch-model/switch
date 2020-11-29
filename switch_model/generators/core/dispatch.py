@@ -307,15 +307,15 @@ def define_components(mod):
 
     mod.DispatchEmissionsNOx = Expression(
         mod.GEN_TP_FUELS,
-        rule=(lambda m, g, t, f: m.GenFuelUseRate[g, t, f] * (m.f_nox_intensity[f] + m.f_upstream_nox_intensity[f])))
+        rule=(lambda m, g, t, f: m.GenFuelUseRate[g, t, f] * (m.f_nox_intensity[f])))
 
     mod.DispatchEmissionsSO2 = Expression(
         mod.GEN_TP_FUELS,
-        rule=(lambda m, g, t, f: m.GenFuelUseRate[g, t, f] * (m.f_so2_intensity[f] + m.f_upstream_so2_intensity[f])))
+        rule=(lambda m, g, t, f: m.GenFuelUseRate[g, t, f] * (m.f_so2_intensity[f])))
 
     mod.DispatchEmissionsCH4 = Expression(
         mod.GEN_TP_FUELS,
-        rule=(lambda m, g, t, f: m.GenFuelUseRate[g, t, f] * (m.f_ch4_intensity[f] + m.f_upstream_ch4_intensity[f])))
+        rule=(lambda m, g, t, f: m.GenFuelUseRate[g, t, f] * (m.f_ch4_intensity[f])))
 
     mod.AnnualEmissions = Expression(mod.PERIODS,
         rule=lambda m, period: sum(

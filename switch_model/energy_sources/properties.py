@@ -64,8 +64,10 @@ def define_components(mod):
     value of 0 for this is uranium.
 
     f_nox_intensity[f], f_so2_intensity[f] and f_ch4_intensity[f]
-    are equivalent to f_co2_intensity[f] but for nitrous oxides, sulfur
-    dioxide and methane. Units are in tCO2/MMBTU. Defaults to 0.
+    describe the amount of nitrous oxide, sulphur
+    dioxide and methane emitted during electricity production for
+    a given fuel. Unlike f_co2_intensity, units are in tonnes/MWh
+    and include upstream emissions. Defaults to 0.
 
     f_upstream_co2_intensity[f] is the carbon emissions attributable to
     a fuel before it is consumed in units of tCO2/MMBTU. For sustainably
@@ -76,11 +78,6 @@ def define_components(mod):
     carbon intensity need to be defined separately to support Biomass
     Energy with Carbon Capture and Sequestration (BECCS) generation
     technologies. This is an optional parameter that defaults to 0.
-
-    f_upstream_nox_intensity[f], f_upstream_so2_intensity[f] and
-    f_upstream_ch4_intensity[f] are equivalent to f_upstream_co2_intensity[f]
-    but for nitrous oxides, sulfur dioxide and methane. Units are in
-    tCO2/MMBTU. Defaults to 0.
 
     In BECCS it is important to know the carbon embedded in a given
     amount of fuel as well as the amount of negative emissions achieved
@@ -106,13 +103,10 @@ def define_components(mod):
     mod.f_upstream_co2_intensity = Param(mod.FUELS, within=Reals, default=0)
 
     mod.f_nox_intensity = Param(mod.FUELS, within=NonNegativeReals, default=0)
-    mod.f_upstream_nox_intensity = Param(mod.FUELS, within=Reals, default=0)
 
     mod.f_so2_intensity = Param(mod.FUELS, within=NonNegativeReals, default=0)
-    mod.f_upstream_so2_intensity = Param(mod.FUELS, within=Reals, default=0)
 
     mod.f_ch4_intensity = Param(mod.FUELS, within=NonNegativeReals, default=0)
-    mod.f_upstream_ch4_intensity = Param(mod.FUELS, within=Reals, default=0)
 
     mod.min_data_check('f_co2_intensity')
     # Ensure that fuel and non-fuel sets have no overlap.
@@ -149,8 +143,7 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     fuels.csv
         fuel, co2_intensity, upstream_co2_intensity,
-        nox_intensity, upstream_nox_intensity, so2_intensity,
-        upstream_so2_intensity, ch4_intensity, upstream_ch4_intensity
+        nox_intensity, so2_intensity, ch4_intensity
 
     """
     # Include select in each load() function so that it will check out
@@ -165,11 +158,11 @@ def load_inputs(mod, switch_data, inputs_dir):
         optional=True,
         filename=os.path.join(inputs_dir, 'fuels.csv'),
         select=(
-            'fuel', 'co2_intensity', 'upstream_co2_intensity', 'nox_intensity', 'upstream_nox_intensity',
-            'so2_intensity', 'upstream_so2_intensity', 'ch4_intensity', 'upstream_ch4_intensity'
+            'fuel', 'co2_intensity', 'upstream_co2_intensity', 'nox_intensity',
+            'so2_intensity', 'ch4_intensity',
         ),
         index=mod.FUELS,
         param=(
-            mod.f_co2_intensity, mod.f_upstream_co2_intensity, mod.f_nox_intensity, mod.f_upstream_nox_intensity,
-            mod.f_so2_intensity, mod.f_upstream_so2_intensity, mod.f_ch4_intensity, mod.f_upstream_ch4_intensity
+            mod.f_co2_intensity, mod.f_upstream_co2_intensity, mod.f_nox_intensity,
+            mod.f_so2_intensity, mod.f_ch4_intensity
         ))
