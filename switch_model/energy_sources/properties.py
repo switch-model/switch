@@ -67,8 +67,8 @@ def define_components(mod):
     f_nox_intensity[f], f_so2_intensity[f] and f_ch4_intensity[f]
     describe the amount of nitrous oxide, sulphur
     dioxide and methane emitted during electricity production for
-    a given fuel. Unlike f_co2_intensity, units are in metric tonnes per
-    GWh and include upstream emissions. Defaults to 0.
+    a given fuel. Unlike f_co2_intensity, units are in metric tonnes
+    per MWh and include upstream emissions. Defaults to 0.
 
     f_upstream_co2_intensity[f] is the carbon emissions attributable to
     a fuel before it is consumed in units of tCO2/MMBTU. For sustainably
