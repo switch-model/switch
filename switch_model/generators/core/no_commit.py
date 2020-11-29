@@ -49,11 +49,6 @@ def define_components(mod):
     calculates fuel consumption for the variable GenFuelUseRate as
     DispatchGen * gen_full_load_heat_rate. The units become:
     MW * (MMBtu / MWh) = MMBTU / h
-
-    DispatchGenByFuel[(g, t, f) in GEN_TP_FUELS]
-    calculates power production by each project from each fuel during
-    each timepoint.
-
     """
 
     # NOTE: DispatchBaseloadByPeriod should eventually be replaced by
@@ -111,6 +106,4 @@ def define_components(mod):
 
     mod.GenFuelUseRate_Calculate = Constraint(
         mod.FUEL_BASED_GEN_TPS,
-        rule=lambda m, g, t: (
-            sum(m.GenFuelUseRate[g, t, f] for f in m.FUELS_FOR_GEN[g])
-            == m.DispatchGen[g, t] * m.gen_full_load_heat_rate[g]))
+        rule=lambda m, g, t: (m.TotalGenFuelUseRate[g, t] == m.DispatchGen[g, t] * m.gen_full_load_heat_rate[g]))
