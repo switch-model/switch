@@ -308,11 +308,11 @@ def define_components(mod):
         rule=lambda m, g, t: sum(m.GenFuelUseRate[g, t, f] for f in m.FUELS_FOR_GEN[g]),
         doc="Total total fuel use rate for all fuels for a given project and timepoint.")
 
-    def DispatchGenByFuel_rule(m, g, t, f):
-        # Must add slightly to avoid division by zero
-        return m.DispatchGen[g, t] * m.GenFuelUseRate[g, t, f] / (m.TotalGenFuelUseRate[g, t]+(10**(-100)))
-
-    mod.DispatchGenByFuel = Expression(mod.GEN_TP_FUELS, rule=DispatchGenByFuel_rule)
+    mod.DispatchGenByFuel = Expression(
+        mod.GEN_TP_FUELS,
+        # Must add 1E-100 to avoid division by zero
+        rule=lambda m, g, t, f: m.DispatchGen[g, t] * m.GenFuelUseRate[g, t, f] / (
+                m.TotalGenFuelUseRate[g, t] + 10 ** (-100)))
 
     def DispatchEmissions_rule(m, g, t, f):
         if g not in m.CCS_EQUIPPED_GENS:
