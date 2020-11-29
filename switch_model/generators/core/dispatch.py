@@ -64,6 +64,13 @@ def define_components(mod):
     duration of the timepoint in hours to determine the energy produced
     by a project in a timepoint.
 
+    DispatchGenByFuel[(g, t, f) in GEN_TP_FUELS] calculates power
+    production in MW by each project from each fuel during each timepoint.
+    It is calculated by multiplying the total power production for a
+    project and timepoint by the percent contribution of that fuel.
+    The percent contribution of a fuel is calculated from GenFuelUseRate
+    and TotalGenFuelUseRate.
+
     gen_forced_outage_rate[g] and gen_scheduled_outage_rate[g]
     describe the forces and scheduled outage rates for each project.
     These parameters can be specified for individual projects via an
@@ -130,6 +137,10 @@ def define_components(mod):
     project.unitcommit module implements unit commitment decisions with
     startup fuel requirements and a marginal heat rate.
 
+    TotalGenFuelUseRate[(g, t) in GEN_TPS] is an expression representing
+    the fuel consumption of a project at a timepoint for all fuels. It is
+    the sum of GenFuelUseRate and has units of MMBTU/h.
+
     DispatchEmissions[(g, t, f) in GEN_TP_FUELS] is the CO2
     emissions produced by dispatching a fuel-based project in units of
     metric tonnes CO2 per hour. This is derived from the fuel
@@ -138,11 +149,13 @@ def define_components(mod):
     generators that implement Carbon Capture and Sequestration. This does
     not yet support multi-fuel generators.
 
-    DispatchEmissionsNOx, DispatchEmissionsSO2 and DispatchEmissionsCH4 are
-    the nitrogen oxides, sulfur dioxide and methane emissions produced by
-    dispatching a fuel-based project in units of metric tonnes per hour.
-    These are derived using the same method as DispatchEmissions, however
-    Carbon Capture and Sequestration does not impact these expressions.
+    DispatchEmissionsNOx[(g, t, f) in GEN_TP_FUELS],
+    DispatchEmissionsSO2[(g, t, f) in GEN_TP_FUELS], and
+    DispatchEmissionsCH4[(g, t, f) in GEN_TP_FUELS] are the nitrogen
+    oxides, sulfur dioxide and methane emissions produced by dispatching
+    a fuel-based project in units of metric tonnes per hour. These are
+    derived using DispatchGenByFuel. Unlike DispatchEmissions, Carbon Capture
+    and Sequestration does not impact these expressions.
 
     AnnualEmissions[p in PERIODS]:The system's annual CO2 emissions, in metric
     tonnes of CO2 per year.
@@ -313,6 +326,22 @@ def define_components(mod):
         ),
     )
 
+    mod.TotalGenFuelUseRate = Expression(
+        mod.FUEL_BASED_GEN_TPS,
+        rule=lambda m, g, t: sum(m.GenFuelUseRate[g, t, f] for f in m.FUELS_FOR_GEN[g]),
+        doc="Total total fuel use rate for all fuels for a given project and timepoint.",
+    )
+
+    def DispatchGenByFuel_rule(m, g, t, f):
+        # Must add slightly to avoid division by zero
+        return (
+            m.DispatchGen[g, t]
+            * m.GenFuelUseRate[g, t, f]
+            / (m.TotalGenFuelUseRate[g, t] + (10 ** (-100)))
+        )
+
+    mod.DispatchGenByFuel = Expression(mod.GEN_TP_FUELS, rule=DispatchGenByFuel_rule)
+
     def DispatchEmissions_rule(m, g, t, f):
         if g not in m.CCS_EQUIPPED_GENS:
             return m.GenFuelUseRate[g, t, f] * (
@@ -328,17 +357,17 @@ def define_components(mod):
 
     mod.DispatchEmissionsNOx = Expression(
         mod.GEN_TP_FUELS,
-        rule=(lambda m, g, t, f: m.GenFuelUseRate[g, t, f] * (m.f_nox_intensity[f])),
+        rule=(lambda m, g, t, f: m.DispatchGenByFuel[g, t, f] * m.f_nox_intensity[f]),
     )
 
     mod.DispatchEmissionsSO2 = Expression(
         mod.GEN_TP_FUELS,
-        rule=(lambda m, g, t, f: m.GenFuelUseRate[g, t, f] * (m.f_so2_intensity[f])),
+        rule=(lambda m, g, t, f: m.DispatchGenByFuel[g, t, f] * m.f_so2_intensity[f]),
     )
 
     mod.DispatchEmissionsCH4 = Expression(
         mod.GEN_TP_FUELS,
-        rule=(lambda m, g, t, f: m.GenFuelUseRate[g, t, f] * (m.f_ch4_intensity[f])),
+        rule=(lambda m, g, t, f: m.DispatchGenByFuel[g, t, f] * m.f_ch4_intensity[f]),
     )
 
     mod.AnnualEmissions = Expression(
