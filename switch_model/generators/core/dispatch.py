@@ -57,12 +57,15 @@ def define_components(mod):
     duration of the timepoint in hours to determine the energy produced
     by a project in a timepoint.
 
-    DispatchGenByFuel[(g, t, f) in GEN_TP_FUELS] calculates power
+    DispatchGenByFuel[(g, t, f) in GEN_TP_FUELS] is the power
     production in MW by each project from each fuel during each timepoint.
-    It is calculated by multiplying the total power production for a
-    project and timepoint by the percent contribution of that fuel.
-    The percent contribution of a fuel is calculated from GenFuelUseRate
-    and TotalGenFuelUseRate.
+    This should be constrained such that the sum over all fuels gives
+    DispatchGen. Further, DispatchGenByFuel should be proportional to
+    the consumption of that fuel (i.e. proportional to GenFuelUseRate).
+    In general, it can be constrained as GenFuelUseRate [MMBTU/h] /
+    effective_heat_rate [MMBTU/MWh] -> [MW]. The choice of how to
+    constrain it depends on the treatment of unit commitment and should
+    mimic the constraint of GenFuelUseRate.
 
     gen_forced_outage_rate[g] and gen_scheduled_outage_rate[g]
     describe the forces and scheduled outage rates for each project.
@@ -129,10 +132,6 @@ def define_components(mod):
     ignores unit commitment and assumes a full load heat rate, while the
     project.unitcommit module implements unit commitment decisions with
     startup fuel requirements and a marginal heat rate.
-
-    TotalGenFuelUseRate[(g, t) in GEN_TPS] is an expression representing
-    the fuel consumption of a project at a timepoint for all fuels. It is
-    the sum of GenFuelUseRate and has units of MMBTU/h.
 
     DispatchEmissions[(g, t, f) in GEN_TP_FUELS] is the CO2
     emissions produced by dispatching a fuel-based project in units of
@@ -240,6 +239,7 @@ def define_components(mod):
     mod.DispatchGen = Var(
         mod.GEN_TPS,
         within=NonNegativeReals)
+    mod.DispatchGenByFuel = Var(mod.GEN_TP_FUELS, within=NonNegativeReals)
     mod.ZoneTotalCentralDispatch = Expression(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         rule=lambda m, z, t: \
@@ -302,17 +302,6 @@ def define_components(mod):
         within=NonNegativeReals,
         doc=("Other modules constraint this variable based on DispatchGen and "
              "module-specific formulations of unit commitment and heat rates."))
-
-    mod.TotalGenFuelUseRate = Expression(
-        mod.FUEL_BASED_GEN_TPS,
-        rule=lambda m, g, t: sum(m.GenFuelUseRate[g, t, f] for f in m.FUELS_FOR_GEN[g]),
-        doc="Total total fuel use rate for all fuels for a given project and timepoint.")
-
-    mod.DispatchGenByFuel = Expression(
-        mod.GEN_TP_FUELS,
-        # Must add 1E-100 to avoid division by zero
-        rule=lambda m, g, t, f: m.DispatchGen[g, t] * m.GenFuelUseRate[g, t, f] / (
-                m.TotalGenFuelUseRate[g, t] + 10 ** (-100)))
 
     def DispatchEmissions_rule(m, g, t, f):
         if g not in m.CCS_EQUIPPED_GENS:
