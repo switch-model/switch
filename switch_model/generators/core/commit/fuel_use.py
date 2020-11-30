@@ -130,7 +130,7 @@ def define_components(mod):
     mod.GenFuelUseRate_Calculate = Constraint(
         mod.GEN_TPS_FUEL_PIECEWISE_CONS_SET,
         rule=lambda m, g, t, intercept, incremental_heat_rate: (
-            m.TotalGenFuelUseRate[g, t]
+            sum(m.GenFuelUseRate[g, t, f] for f in m.FUELS_FOR_GEN[g])
             >=
             # Do the startup
             m.StartupGenCapacity[g, t] * m.gen_startup_fuel[g] / m.tp_duration_hrs[t]
