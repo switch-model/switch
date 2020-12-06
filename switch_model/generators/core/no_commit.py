@@ -109,11 +109,6 @@ def define_components(mod):
             m.DispatchGen[g, t] <= m.DispatchUpperLimit[g, t]))
 
     mod.GenFuelUseRate_Calculate = Constraint(
-        mod.FUEL_BASED_GEN_TPS,
-        rule=lambda m, g, t: (sum(m.GenFuelUseRate[g, t, f] for f in m.FUELS_FOR_GEN[g]) == m.DispatchGen[g, t] *
-                              m.gen_full_load_heat_rate[g]))
-
-    mod.DispatchGenByFuel_Calculate = Constraint(
         mod.GEN_TP_FUELS,
-        rule=lambda m, g, t, f: m.DispatchGenByFuel[g,t,f] * m.gen_full_load_heat_rate[g] == m.GenFuelUseRate[g,t,f]
+        rule=lambda m, g, t, f: m.GenFuelUseRate[g,t,f] == m.DispatchGenByFuel[g,t,f] * m.gen_full_load_heat_rate[g]
     )

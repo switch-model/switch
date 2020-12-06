@@ -58,14 +58,9 @@ def define_components(mod):
     by a project in a timepoint.
 
     DispatchGenByFuel[(g, t, f) in GEN_TP_FUELS] is the power
-    production in MW by each project from each fuel during each timepoint.
-    This should be constrained such that the sum over all fuels gives
-    DispatchGen. Further, DispatchGenByFuel should be proportional to
-    the consumption of that fuel (i.e. proportional to GenFuelUseRate).
-    In general, it can be constrained as GenFuelUseRate [MMBTU/h] /
-    effective_heat_rate [MMBTU/MWh] -> [MW]. The choice of how to
-    constrain it depends on the treatment of unit commitment and should
-    mimic the constraint of GenFuelUseRate.
+    production in MW by each fuel-based project from each fuel during each timepoint.
+    This is constrained such that the sum over all fuels gives
+    DispatchGen.
 
     gen_forced_outage_rate[g] and gen_scheduled_outage_rate[g]
     describe the forces and scheduled outage rates for each project.
@@ -125,7 +120,7 @@ def define_components(mod):
     GenFuelUseRate[(g, t, f) in GEN_TP_FUELS] is a
     variable that describes fuel consumption rate in MMBTU/h. This
     should be constrained to the fuel consumed by a project in each
-    timepoint and can be calculated as Dispatch [MW] *
+    timepoint and can be calculated as DispatchGenByFuel [MW] *
     effective_heat_rate [MMBTU/MWh] -> [MMBTU/h]. The choice of how to
     constrain it depends on the treatment of unit commitment. Currently
     the project.no_commit module implements a simple treatment that
@@ -240,6 +235,9 @@ def define_components(mod):
         mod.GEN_TPS,
         within=NonNegativeReals)
     mod.DispatchGenByFuel = Var(mod.GEN_TP_FUELS, within=NonNegativeReals)
+    mod.DispatchGenByFuel_Constraint = Constraint(
+        mod.FUEL_BASED_GEN_TPS,
+        rule=lambda m, g, t: sum(m.DispatchGenByFuel[g, t, f] for f in m.FUELS_FOR_GEN[g]) == m.DispatchGen[g, t])
     mod.ZoneTotalCentralDispatch = Expression(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         rule=lambda m, z, t: \
@@ -300,7 +298,7 @@ def define_components(mod):
     mod.GenFuelUseRate = Var(
         mod.GEN_TP_FUELS,
         within=NonNegativeReals,
-        doc=("Other modules constraint this variable based on DispatchGen and "
+        doc=("Other modules constraint this variable based on DispatchGenByFuel and "
              "module-specific formulations of unit commitment and heat rates."))
 
     def DispatchEmissions_rule(m, g, t, f):
