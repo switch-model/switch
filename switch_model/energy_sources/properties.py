@@ -69,7 +69,9 @@ def define_components(mod):
     dioxide and methane emitted during electricity production for
     a given fuel. Unlike f_co2_intensity, units are in metric tonnes
     per MWh. Upstream emissions if any should be included in these parameters.
-    Defaults to 0.
+    Defaults to 0. One potential source for these coefficients can be found
+    in this paper from the Argonne National Laboratory.
+    https://greet.es.anl.gov/publication-updated-elec-emissions
 
     f_upstream_co2_intensity[f] is the carbon emissions attributable to
     a fuel before it is consumed in units of tCO2/MMBTU. For sustainably
@@ -103,11 +105,8 @@ def define_components(mod):
 
     mod.f_co2_intensity = Param(mod.FUELS, within=NonNegativeReals)
     mod.f_upstream_co2_intensity = Param(mod.FUELS, within=Reals, default=0)
-
     mod.f_nox_intensity = Param(mod.FUELS, within=NonNegativeReals, default=0)
-
     mod.f_so2_intensity = Param(mod.FUELS, within=NonNegativeReals, default=0)
-
     mod.f_ch4_intensity = Param(mod.FUELS, within=NonNegativeReals, default=0)
 
     mod.min_data_check("f_co2_intensity")
@@ -144,8 +143,7 @@ def load_inputs(mod, switch_data, inputs_dir):
         energy_source
 
     fuels.csv
-        fuel, co2_intensity, upstream_co2_intensity,
-        nox_intensity, so2_intensity, ch4_intensity
+        fuel, co2_intensity, upstream_co2_intensity, nox_intensity, so2_intensity, ch4_intensity
 
     """
     # Include select in each load() function so that it will check out

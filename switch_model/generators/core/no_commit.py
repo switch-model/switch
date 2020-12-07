@@ -51,14 +51,10 @@ def define_components(mod):
 
         DispatchLowerLimit <= DispatchGen <= DispatchUpperLimit
 
-    GenFuelUseRate_Calculate[(g, t) in GEN_TPS]
+    GenFuelUseRate_Calculate[(g, t, f) in GEN_TP_FUELS]
     calculates fuel consumption for the variable GenFuelUseRate as
-    DispatchGen * gen_full_load_heat_rate. The units become:
+    DispatchGenByFuel * gen_full_load_heat_rate. The units become:
     MW * (MMBtu / MWh) = MMBTU / h
-
-    DispatchGenByFuel_Calculate[(g, t) in GEN_TP_FUELS] calculates
-    the power output for a given fuel as GenFuelUseRate / gen_full_load_heat_rate.
-    The units become: (MMBTU / h) / (MMBTU / MWh) = MW
     """
 
     # NOTE: DispatchBaseloadByPeriod should eventually be replaced by
