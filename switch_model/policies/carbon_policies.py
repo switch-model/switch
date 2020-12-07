@@ -38,30 +38,30 @@ def define_components(model):
         "CH4 emissions from this model must be less than this cap. This is specified in metric tonnes of CH4 per year."))
 
     model.Enforce_Carbon_Cap = Constraint(model.PERIODS,
-        rule=(lambda m, p:
+        rule=lambda m, p:
             Constraint.Skip if m.carbon_cap_tco2_per_yr[p] == float('inf')
-            else m.AnnualEmissions[p] <= m.carbon_cap_tco2_per_yr[p]),
+            else m.AnnualEmissions[p] <= m.carbon_cap_tco2_per_yr[p],
             doc=("Enforces the carbon cap for generation-related CO2 emissions."))
 
     model.Enforce_Carbon_Cap_NOx = Constraint(
         model.PERIODS,
-        rule=(lambda m, p:
+        rule=lambda m, p:
               Constraint.Skip if m.carbon_cap_tnox_per_yr[p] == float('inf')
-              else m.AnnualEmissionsNOx[p] <= m.carbon_cap_tnox_per_yr[p]),
+              else m.AnnualEmissionsNOx[p] <= m.carbon_cap_tnox_per_yr[p],
         doc="Enforces the carbon cap for generation-related NOx emissions.")
 
     model.Enforce_Carbon_Cap_SO2 = Constraint(
         model.PERIODS,
-        rule=(lambda m, p:
+        rule=lambda m, p:
               Constraint.Skip if m.carbon_cap_tso2_per_yr[p] == float('inf')
-              else m.AnnualEmissionsSO2[p] <= m.carbon_cap_tso2_per_yr[p]),
+              else m.AnnualEmissionsSO2[p] <= m.carbon_cap_tso2_per_yr[p],
         doc="Enforces the carbon cap for generation-related SO2 emissions.")
 
     model.Enforce_Carbon_Cap_CH4 = Constraint(
         model.PERIODS,
-        rule=(lambda m, p:
+        rule=lambda m, p:
               Constraint.Skip if m.carbon_cap_tch4_per_yr[p] == float('inf')
-              else m.AnnualEmissionsCH4[p] <= m.carbon_cap_tch4_per_yr[p]),
+              else m.AnnualEmissionsCH4[p] <= m.carbon_cap_tch4_per_yr[p],
         doc="Enforces the carbon cap for generation-related CH4 emissions.")
 
     # Make sure the model has a dual suffix for determining implicit carbon costs
