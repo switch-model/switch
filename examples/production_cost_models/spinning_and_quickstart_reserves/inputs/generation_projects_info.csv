@@ -1,0 +1,5 @@
+GENERATION_PROJECT,gen_dbid,gen_tech,gen_load_zone,gen_connect_cost_per_mw,gen_capacity_limit_mw,gen_max_age,gen_min_build_capacity,gen_scheduled_outage_rate,gen_forced_outage_rate,gen_is_variable,gen_is_baseload,gen_is_cogen,gen_variable_om,gen_energy_source,gen_full_load_heat_rate,gen_unit_size,gen_min_load_fraction,gen_startup_fuel,gen_startup_om,gen_min_downtime,gen_can_provide_spinning_reserves
+S-Geothermal,33,Geothermal,South,134222.0,3.0,30,0,0.0075,0.0241,0,1,0,28.83,Geothermal,.,.,.,.,.,.,0
+S-NG_CC,34,NG_CC,South,57566.6,.,20,0,0.04,0.06,0,0,0,3.4131,NaturalGas,6.705,1.0,0.4,9.16,10.3,12.0,1
+S-NG_GT,36,NG_GT,South,57566.6,.,20,0,0.04,0.06,0,0,0,27.807,NaturalGas,10.39,.,0.0,0.22,0.86,.,1
+S-Central_PV-1,41,Central_PV,South,74881.9,4.0,20,0,0.0,0.02,1,0,0,0.0,Solar,.,.,0.0,.,0.0,.,0
