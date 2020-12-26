@@ -235,7 +235,7 @@ def define_components(model):
             # Note: this code appears to have no users, since it references
             # DispatchGen, which doesn't exist (should be m.DispatchGen).
             if g in getattr(m, "STORAGE_GENS", set()):
-                reserve_cap += DispatchGen[g, t] - m.ChargeStorage[g, t]
+                reserve_cap += m.DispatchGen[g, t] - m.ChargeStorage[g, t]
             # If local_td is included with DER modeling, avoid allocating
             # distributed generation to central grid capacity because it will
             # be credited with adjusting load at the distribution node.
