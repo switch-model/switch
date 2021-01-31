@@ -30,7 +30,7 @@ Each SWITCH model or collection of models is defined in a specific directory
 (e.g., examples/3zone_toy). This directory contains one or more subdirectories
 that hold input data and results (e.g., "inputs" and "outputs"). The models in
 the examples directory show the type of text files used to provide inputs for a
-model. You can change any of the model's input data by editing the *.tab files
+model. You can change any of the model's input data by editing the *.csv files
 in the input directory.
 
 SWITCH contains a number of different modules, which can be selected and
@@ -71,5 +71,5 @@ first apply all arguments from options.txt, then arguments from the relevant
 line of scenarios.txt, then any arguments specified on the command line.
 
 After the model runs, results will be written in tab-separated text files (with
-extension .tsv or .tab) in the "outputs" directory (or some other directory
+extension .tsv or .csv) in the "outputs" directory (or some other directory
 specified via the "--outputs-dir" argument).
