@@ -1,11 +1,4 @@
 TRANS_TIMEPOINTS_1,TRANS_TIMEPOINTS_2,TRANS_TIMEPOINTS_3,DispatchTx
-South,Central,1,0.0
-South,Central,2,0.0
-South,Central,3,0.0
-South,Central,4,0.0
-South,Central,5,0.0
-South,Central,6,0.0
-South,Central,7,0.0
 Central,South,1,0.0
 Central,South,2,0.0
 Central,South,3,0.0
@@ -20,6 +13,13 @@ Central,North,4,0.0
 Central,North,5,0.0
 Central,North,6,0.0
 Central,North,7,0.0
+South,Central,1,0.0
+South,Central,2,0.0
+South,Central,3,0.0
+South,Central,4,0.0
+South,Central,5,0.0
+South,Central,6,0.0
+South,Central,7,0.0
 North,Central,1,0.0
 North,Central,2,0.0
 North,Central,3,0.0
