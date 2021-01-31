@@ -25,11 +25,11 @@ Do this by copying the sql file to db2 with rsync and then running the sql query
 7. Run Add_proposed_generation_to_existing_gen.sql to create a new set of scenarios 22 which includes 
 the existing and proposed generation from EIA and AMPL for Canada and Mexico (21) and adds candidate generators from prior scenario data (proposed non-wind plants and proposed wind plants from scenario 14).
 
-8. Make a new backup table of generation_plant to preserve the new AMPL and EIA generation plants X
+8. Make a new backup table of generation_plant to preserve the new AMPL and EIA generation plants
 
 9. Run Standardize_gen_tech_names_between_EIA_and_AMPL_generators.sql to update the gen_tech of the EIA existing generators to match the gen_tech labels of the candidate generators (AMPL naming conventions)
-- This runs the update statements to update the gen_tech for the generation_plant_ids that are in scenario 22 X
-- This adds 2 columns to the generation_plant_technologies table to document the mapping from gen_tech to gen_tech_AMPL and energy_source_AMPL X
+- This runs the update statements to update the gen_tech for the generation_plant_ids that are in scenario 22
+- This adds 2 columns to the generation_plant_technologies table to document the mapping from gen_tech to gen_tech_AMPL and energy_source_AMPL
 
 Cost updates: 
 
