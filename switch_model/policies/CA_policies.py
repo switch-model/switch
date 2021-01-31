@@ -1,29 +1,37 @@
 # Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 """
-Add emission policies to the model, either in the form of an added cost, or of
-an emissions cap, depending on data inputs. The added cost could represent the
-social cost of carbon, the expected clearing price of a cap-and-trade carbon
-market, or a carbon tax.
+Module to enforce policies specific to the state of California for the WECC model.
 
-Specifying carbon_cap_tco2_per_yr will add a system-wide emissions cap:
-    AnnualEmissions[period] <= carbon_cap_tco2_per_yr[period]
-Note: carbon_cap_tco2_per_yr defaults to infinity (no cap) for any data that
-is unspecified.
+Module reads the load_zone_state column from load_zones.csv. If the state is "CA"
+this will be considered a load zone in California and the following policies will apply.
 
-Specifying carbon_cost_dollar_per_tco2 will add a term to the objective function:
-    AnnualEmissions[period] * carbon_cost_dollar_per_tco2[period]
-Note: carbon_cost_dollar_per_tco2 defaults to 0 (no cost) for any data that
-is unspecified.
+Policies:
+
+1. A carbon cap on California for a given period can be enforced through carbon_policies_ca_cap.csv.
+The constraint doesn't account for transmission across state boundaries.
 
 """
 import os
-from pyomo.environ import Set, Param, Expression, Constraint, Suffix
+from pyomo.environ import Set, Param, Expression, Constraint
 import switch_model.reporting as reporting
 
 
 def define_components(mod):
-    mod.load_zone_state = Param(mod.LOAD_ZONES, default=None)
+    """
+    load_zone_state[z] is the two-letter state code of a load zone.
+    Values are read from load_zones.csv and are optional (default
+    is None). If the value is "CA" this load zone is considered to be
+    part of California (and contributes to California's emissions)
+
+    carbon_cap_tco2_per_yr_CA[p] is the carbon cap for a given period
+    on all emission generated in load zones within California.
+    """
+    mod.load_zone_state = Param(
+        mod.LOAD_ZONES,
+        default=None,
+        doc="2-letter state code for each load zone (optional).",
+    )
 
     mod.CA_ZONES = Set(
         initialize=mod.LOAD_ZONES,
@@ -31,69 +39,81 @@ def define_components(mod):
         filter=lambda m, z: m.load_zone_state[z] == "CA",
     )
 
-    # mod.carbon_cap_tco2_per_yr_CA = Param(mod.PERIODS, default=float('inf'), doc=(
-    #     "Emissions from this model must be less than this cap. "
-    #     "This is specified in metric tonnes of CO2 per year."))
-    # mod.AnnualEmissions_CA = Expression(mod.PERIODS,
-    #                                     rule=lambda m, period: sum(
-    #                                           m.DispatchEmissions[g, t, f] * m.tp_weight_in_year[t]
-    #                                           for (g, t, f) in m.GEN_TP_FUELS
-    #                                           if m.tp_period[t] == period and (m.gen_load_zone[g] in mod.CA_ZONES)),
-    #                                     doc="CA's annual emissions, in metric tonnes of CO2 per year.")
-    # mod.Enforce_Carbon_Cap_CA = Constraint(mod.PERIODS,
-    #                                        rule=lambda m, p: m.AnnualEmissions_CA[p] <= m.carbon_cap_tco2_per_yr_CA[
-    #                                              p],
-    #                                        doc=("Enforces the carbon cap for generation-related emissions."))
+    mod.carbon_cap_tco2_per_yr_CA = Param(
+        mod.PERIODS,
+        default=float("inf"),
+        doc=(
+            "Emissions from California must be less than this cap. "
+            "This is specified in metric tonnes of CO2 per year."
+        ),
+    )
+
+    mod.AnnualEmissions_CA = Expression(
+        mod.PERIODS,
+        rule=lambda m, period: sum(
+            m.DispatchEmissions[g, t, f] * m.tp_weight_in_year[t]
+            for (g, t, f) in m.GEN_TP_FUELS
+            if m.tp_period[t] == period
+            and (m.load_zone_state[m.gen_load_zone[g]] == "CA")
+        ),
+        doc="CA's annual emissions, in metric tonnes of CO2 per year.",
+    )
+
+    mod.Enforce_Carbon_Cap_CA = Constraint(
+        mod.PERIODS,
+        rule=lambda m, p: m.AnnualEmissions_CA[p] <= m.carbon_cap_tco2_per_yr_CA[p],
+        doc="Enforces the carbon cap for generation-related emissions.",
+    )
 
 
-def load_inputs(model, switch_data, inputs_dir):
+def load_inputs(mod, switch_data, inputs_dir):
     """
-    Typically, people will specify either carbon caps or carbon costs, but not
-    both. If you provide data for both columns, the results may be difficult
-    to interpret meaningfully.
-
     Expected input files:
     load_zones.csv
-        LOAD_ZONE, state (optional)
+        LOAD_ZONE, load_zone_state
 
-    load_zones.csv will have other columns used in balancing.load_zones
-
-    carbon_policies.csv
+    carbon_policies_ca_cap.csv
         PERIOD, carbon_cap_tco2_per_yr_CA
 
+
+    load_zones.csv will have other columns used in the balancing.load_zones module.
+    load_zone_state can leave all values empty (".") except for those in california ("CA").
     """
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "load_zones.csv"),
-        optional_params=(model.load_zone_state,),
         auto_select=True,
-        param=(model.load_zone_state,),
+        param=(mod.load_zone_state,),
     )
-    # switch_data.load_aug(
-    #     filename=os.path.join(inputs_dir, 'carbon_policies.csv'),
-    #     optional=True,
-    #     optional_params=(model.carbon_cap_tco2_per_yr_CA,),
-    #     auto_select=True,
-    #     param=(model.carbon_cap_tco2_per_yr_CA,))
+
+    switch_data.load_aug(
+        filename=os.path.join(inputs_dir, "carbon_policies_ca_cap.csv"),
+        optional=True,
+        optional_params=(mod.carbon_cap_tco2_per_yr_CA,),
+        auto_select=True,
+        param=(mod.carbon_cap_tco2_per_yr_CA,),
+    )
 
 
 def post_solve(model, outdir):
     """
-    Export annual emissions, carbon cap, and implicit carbon costs (where
-    appropriate). The dual values of the carbon cap constraint represent an
-    implicit carbon cost for purely linear optimization problems. For mixed
-    integer optimization problems, the dual values lose practical
-    interpretations, so dual values are only exported for purely linear
-    models. If you include minimum build requirements, discrete unit sizes,
-    discrete unit commitment, or other integer decision variables, the dual
-    values will not be exported.
+    Export california's annual emissions and its carbon caps
+    for each period.
     """
+    # Todo remove print statement
     model.pprint(filename=os.path.join(outdir, "raw_output.txt"))
-    # reporting.write_table(
-    #     model, model.PERIODS,
-    #     output_file=os.path.join(outdir, "emissions.txt"),
-    #     headings=("PERIOD",
-    #               "AnnualEmissions_tCO2_per_yr_CA",
-    #               "carbon_cap_tco2_per_yr_CA",),
-    #     values=lambda m, period: [period,
-    #                               model.AnnualEmissions_CA[period],
-    #                               model.carbon_cap_tco2_per_yr_CA[period]])
+
+    reporting.write_table(
+        model,
+        model.PERIODS,
+        output_file=os.path.join(outdir, "emissions_ca.csv"),
+        headings=(
+            "PERIOD",
+            "AnnualEmissions_tCO2_per_yr_CA",
+            "carbon_cap_tco2_per_yr_CA",
+        ),
+        values=lambda m, period: [
+            period,
+            model.AnnualEmissions_CA[period],
+            model.carbon_cap_tco2_per_yr_CA[period],
+        ],
+    )
