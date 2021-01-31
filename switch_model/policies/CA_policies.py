@@ -3,34 +3,65 @@
 """
 Module to enforce policies specific to the state of California for the WECC model.
 
-Module reads the load_zone_state column from load_zones.csv. If the state is "CA"
-this will be considered a load zone in California and the following policies will apply.
+The module reads the load_zone_state column from load_zones.csv to determine which
+zones are within California. If load_zone_state is "CA", the zone is considered
+within California.
 
-Policies:
-
-1. A carbon cap on California for a given period can be enforced through carbon_policies_ca_cap.csv.
-The constraint doesn't account for transmission across state boundaries.
-
+Three possible policy constraints can be specified in ca_policies.csv. See documentation below.
 """
 import os
-from pyomo.environ import Set, Param, Expression, Constraint
+from pyomo.environ import Set, Param, Expression, Constraint, PercentFraction
 import switch_model.reporting as reporting
 
 
 def define_components(mod):
     """
     load_zone_state[z] is the two-letter state code of a load zone.
-    Values are read from load_zones.csv and are optional (default
-    is None). If the value is "CA" this load zone is considered to be
-    part of California (and contributes to California's emissions)
+    Values are read from load_zones.csv and are optional (can be left
+    as "."). If the value is "CA" this load zone is considered to be
+    part of California.
 
     carbon_cap_tco2_per_yr_CA[p] is the carbon cap for a given period
-    on all emission generated in load zones within California.
+    on all CO2 emission generated in load zones within California.
+
+    ca_min_gen_period_ratio[p] sets the fraction of California's
+    demand that must be satisfied from generation within California.
+    For example, this constraint could specify that over a period,
+    at least 80% of California's demand must be supplied by Californian
+    power plants. Note that we don't do "electron tracking", meaning
+    that energy generated in California and transmitted to neighbouring
+    states still counts towards satisfying California's demand.
+    This constraint is applied to the total generation and demand over
+    a period.
+
+    ca_min_gen_timepoint_ratio[p] is equivalent to ca_min_gen_period_ratio[p]
+    but applies the constraint at every timestep, rather than over
+    an entire period.
+
+    AnnualEmissions_CA[p] is California's emissions throughout a period
+    in metric tonnes of CO2 per year. This doesn't account for
+    electricity bought from out-of-state.
+
+    CA_Dispatch[t] is California's generation in MW at a timepoint.
+
+    CA_Demand[t] is California's demand in MW at a timepoint.
+
+    CA_AnnualDispatch[p] is California's energy generation in a year in MWh.
+
+    CA_AnnualDemand[p] is California's energy demand in a year in MWh.
     """
     mod.load_zone_state = Param(mod.LOAD_ZONES, default=None, doc="2-letter state code for each load zone (optional).")
 
     mod.CA_ZONES = Set(initialize=mod.LOAD_ZONES, within=mod.LOAD_ZONES,
                        filter=lambda m, z: m.load_zone_state[z] == "CA")
+
+    mod.ca_min_gen_timepoint_ratio = Param(mod.PERIODS, within=PercentFraction, default=0,
+                                           doc="Fraction of demand that must be satisfied through in-state"
+                                               "generation during each timestep.")
+
+    mod.ca_min_gen_period_ratio = Param(mod.PERIODS, within=PercentFraction, default=0,
+                                        doc="Fraction of demand that must be satisfied through in-state"
+                                            "generation across an entire period.")
 
     mod.carbon_cap_tco2_per_yr_CA = Param(mod.PERIODS, default=float('inf'), doc=(
         "Emissions from California must be less than this cap. "
@@ -41,13 +72,44 @@ def define_components(mod):
                                             m.DispatchEmissions[g, t, f] * m.tp_weight_in_year[t]
                                             for (g, t, f) in m.GEN_TP_FUELS
                                             if m.tp_period[t] == period and (
-                                                        m.load_zone_state[m.gen_load_zone[g]] == "CA")),
+                                                    m.load_zone_state[m.gen_load_zone[g]] == "CA")),
                                         doc="CA's annual emissions, in metric tonnes of CO2 per year.")
 
     mod.Enforce_Carbon_Cap_CA = Constraint(mod.PERIODS,
                                            rule=lambda m, p: m.AnnualEmissions_CA[p] <= m.carbon_cap_tco2_per_yr_CA[
                                                p],
                                            doc="Enforces the carbon cap for generation-related emissions.")
+
+    mod.CA_Dispatch = Expression(
+        mod.TIMEPOINTS,
+        # Sum of all power injections except for transmission
+        rule=lambda m, t: sum(
+            sum(
+                getattr(m, component)[z, t] for z in m.CA_ZONES
+            ) for component in m.Zone_Power_Injections if component != "TXPowerNet")
+    )
+
+    mod.CA_Demand = Expression(
+        mod.TIMEPOINTS,
+        # Sum of all power withdrawals
+        rule=lambda m, t: sum(
+            sum(
+                getattr(m, component)[z, t] for z in m.CA_ZONES
+            ) for component in m.Zone_Power_Withdrawals)
+    )
+
+    mod.CA_AnnualDispatch = Expression(mod.PERIODS, rule=lambda m, p: sum(m.CA_Dispatch[t] * m.tp_weight_in_year[t] for t in m.TPS_IN_PERIOD[p]))
+    mod.CA_AnnualDemand = Expression(mod.PERIODS, rule=lambda m, p: sum(m.CA_Demand[t] * m.tp_weight_in_year[t] for t in m.TPS_IN_PERIOD[p]))
+
+    mod.CA_Min_Gen_Timepoint_Constraint = Constraint(
+        mod.TIMEPOINTS,
+        rule=lambda m, t: m.CA_Dispatch[t] >= m.CA_Demand[t] * m.ca_min_gen_timepoint_ratio[m.tp_period[t]]
+    )
+
+    mod.CA_Min_Gen_Period_Constraint = Constraint(
+        mod.PERIODS,
+        rule=lambda m, p: m.CA_AnnualDispatch[p] >= m.ca_min_gen_period_ratio[p] * m.CA_AnnualDemand[p]
+    )
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -56,8 +118,8 @@ def load_inputs(mod, switch_data, inputs_dir):
     load_zones.csv
         LOAD_ZONE, load_zone_state
 
-    carbon_policies_ca_cap.csv
-        PERIOD, carbon_cap_tco2_per_yr_CA
+    ca_policies.csv
+        PERIOD,ca_min_gen_timepoint_ratio,ca_min_gen_period_ratio,carbon_cap_tco2_per_yr_CA
 
 
     load_zones.csv will have other columns used in the balancing.load_zones module.
@@ -70,11 +132,12 @@ def load_inputs(mod, switch_data, inputs_dir):
     )
 
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'carbon_policies_ca_cap.csv'),
+        filename=os.path.join(inputs_dir, 'ca_policies.csv'),
         optional=True,
-        optional_params=(mod.carbon_cap_tco2_per_yr_CA,),
+        optional_params=(mod.ca_min_gen_timepoint_ratio, mod.ca_min_gen_period_ratio, mod.carbon_cap_tco2_per_yr_CA),
         auto_select=True,
-        param=(mod.carbon_cap_tco2_per_yr_CA,))
+        param=(mod.ca_min_gen_timepoint_ratio, mod.ca_min_gen_period_ratio, mod.carbon_cap_tco2_per_yr_CA)
+    )
 
 
 def post_solve(model, outdir):
@@ -82,15 +145,17 @@ def post_solve(model, outdir):
     Export california's annual emissions and its carbon caps
     for each period.
     """
-    # Todo remove print statement
-    model.pprint(filename=os.path.join(outdir, "raw_output.txt"))
-
     reporting.write_table(
         model, model.PERIODS,
-        output_file=os.path.join(outdir, "emissions_ca.csv"),
+        output_file=os.path.join(outdir, "ca_policies.csv"),
         headings=("PERIOD",
-                  "AnnualEmissions_tCO2_per_yr_CA",
-                  "carbon_cap_tco2_per_yr_CA",),
-        values=lambda m, period: [period,
-                                  model.AnnualEmissions_CA[period],
-                                  model.carbon_cap_tco2_per_yr_CA[period]])
+                  "AnnualEmissions_tCO2_per_yr_CA", "carbon_cap_tco2_per_yr_CA", "CA_AnnualDispatch", "CA_AnnualDemand",
+                  "Dispatch/Demand ratio", "Minimum ratio"),
+        values=lambda m, p: [p,
+                             m.AnnualEmissions_CA[p],
+                             m.carbon_cap_tco2_per_yr_CA[p],
+                             m.CA_AnnualDispatch[p],
+                             m.CA_AnnualDemand[p],
+                             m.CA_AnnualDispatch[p] / m.CA_AnnualDemand[p],
+                             m.ca_min_gen_period_ratio[p]
+                             ])
