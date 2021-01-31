@@ -1,2 +1,2 @@
 This example builds on the carbon_cap example by adding
-california policies
+the policies.CA_policies module.

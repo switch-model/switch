@@ -28,44 +28,45 @@ def define_components(mod):
     demand that must be satisfied from generation within California.
     For example, this constraint could specify that over a period,
     at least 80% of California's demand must be supplied by Californian
-    power plants. Note that we don't do "electron tracking", meaning
-    that energy generated in California and transmitted to neighbouring
-    states still counts towards satisfying California's demand.
+    projects. Note that we don't do "electron tracking", meaning
+    that energy generated in California and transmitted to neighbouring states
+    still counts towards satisfying California's demand for this constraint.
     This constraint is applied to the total generation and demand over
     a period.
 
     ca_min_gen_timepoint_ratio[p] is equivalent to ca_min_gen_period_ratio[p]
-    but applies the constraint at every timestep, rather than over
+    but applies the constraint at every timepoint, rather than over
     an entire period.
 
     AnnualEmissions_CA[p] is California's emissions throughout a period
     in metric tonnes of CO2 per year. This doesn't account for
-    electricity bought from out-of-state.
+    emissions from power imported from outside of California.
 
     CA_Dispatch[t] is California's generation in MW at a timepoint.
 
     CA_Demand[t] is California's demand in MW at a timepoint.
 
-    CA_AnnualDispatch[p] is California's energy generation in a year in MWh.
+    CA_AnnualDispatch[p] is California's total energy generation throughout
+    a year in MWh.
 
-    CA_AnnualDemand[p] is California's energy demand in a year in MWh.
+    CA_AnnualDemand[p] is California's total energy demand throughout a year in MWh.
     """
-    mod.load_zone_state = Param(mod.LOAD_ZONES, default=None, doc="2-letter state code for each load zone (optional).")
+    mod.load_zone_state = Param(mod.LOAD_ZONES, default=None, doc="Two-letter state code for each load zone (optional).")
 
     mod.CA_ZONES = Set(initialize=mod.LOAD_ZONES, within=mod.LOAD_ZONES,
-                       filter=lambda m, z: m.load_zone_state[z] == "CA")
+                       filter=lambda m, z: m.load_zone_state[z] == "CA",
+                       doc="Set of load zones within California.")
 
     mod.ca_min_gen_timepoint_ratio = Param(mod.PERIODS, within=PercentFraction, default=0,
                                            doc="Fraction of demand that must be satisfied through in-state"
-                                               "generation during each timestep.")
+                                               "generation during each timepoint.")
 
     mod.ca_min_gen_period_ratio = Param(mod.PERIODS, within=PercentFraction, default=0,
                                         doc="Fraction of demand that must be satisfied through in-state"
                                             "generation across an entire period.")
 
     mod.carbon_cap_tco2_per_yr_CA = Param(mod.PERIODS, default=float('inf'), doc=(
-        "Emissions from California must be less than this cap. "
-        "This is specified in metric tonnes of CO2 per year."))
+        "Emissions from California must be less than this cap. Specified in metric tonnes of CO2 per year."))
 
     mod.AnnualEmissions_CA = Expression(mod.PERIODS,
                                         rule=lambda m, period: sum(
@@ -133,7 +134,6 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'ca_policies.csv'),
-        optional=True,
         optional_params=(mod.ca_min_gen_timepoint_ratio, mod.ca_min_gen_period_ratio, mod.carbon_cap_tco2_per_yr_CA),
         auto_select=True,
         param=(mod.ca_min_gen_timepoint_ratio, mod.ca_min_gen_period_ratio, mod.carbon_cap_tco2_per_yr_CA)
