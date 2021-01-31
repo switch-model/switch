@@ -291,12 +291,11 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     Note that in the next file, parameter names are written on the first
     row (as usual), and the single value for each parameter is written in
-    the second row. The distribution_loss_rate parameter is read by the
-    local_td module (if used).
+    the second row.
 
     trans_params.csv
         trans_capital_cost_per_mw_km, trans_lifetime_yrs,
-        trans_fixed_om_fraction, distribution_loss_rate
+        trans_fixed_om_fraction
     """
 
     # TODO: send issue / pull request to Pyomo to allow .csv files with
@@ -326,7 +325,7 @@ def load_inputs(mod, switch_data, inputs_dir):
         optional=True, auto_select=True,
         param=(
             mod.trans_capital_cost_per_mw_km, mod.trans_lifetime_yrs,
-            mod.trans_fixed_om_fraction, mod.distribution_loss_rate
+            mod.trans_fixed_om_fraction
         )
     )
 

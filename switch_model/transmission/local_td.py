@@ -205,15 +205,30 @@ def load_inputs(mod, switch_data, inputs_dir):
     """
 
     Import local transmission & distribution data. The following files
-    are expected in the input directory. load_zones.csv will
-    contain additional columns that are used by the load_zones module.
+    are expected in the input directory. Both files will
+    contain additional columns that are used by the load_zones module
+    and transmission.transport.build module.
 
     load_zones.csv
         load_zone, existing_local_td, local_td_annual_cost_per_mw
 
+    trans_params.csv
+        distribution_loss_rate
+
+    If distribution_loss_rate is not specified, or if trans_params.csv doesn't
+    exist, mod.distribution_loss_rate will default to 0.053.
     """
 
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'load_zones.csv'),
         auto_select=True,
         param=(mod.existing_local_td, mod.local_td_annual_cost_per_mw))
+
+    switch_data.load_aug(
+        filename=os.path.join(inputs_dir, 'trans_params.csv'),
+        optional=True, auto_select=True,
+        optional_params=('distribution_loss_rate',),
+        param=(
+            mod.distribution_loss_rate
+        )
+    )
