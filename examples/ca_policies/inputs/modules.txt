@@ -14,3 +14,4 @@ switch_model.energy_sources.fuel_costs.markets
 switch_model.transmission.transport.build
 switch_model.transmission.transport.dispatch
 switch_model.policies.carbon_policies
+switch_model.policies.CA_policies
