@@ -26,6 +26,12 @@ from switch_model.utilities import (
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 
+#paty's adition for debugging:
+try:
+    from IPython import embed
+except:
+    pass
+
 
 def main(args=None, return_model=False, return_instance=False):
 
@@ -127,6 +133,9 @@ def main(args=None, return_model=False, return_instance=False):
         if instance.options.verbose:
             print("Total time spent constructing model: {:.2f} s.\n".format(timer.step_time()))
 
+        # Paty's addition for debugging:
+        # embed()
+
         # return the instance as-is if requested
         if return_instance:
             if return_model:
@@ -175,6 +184,9 @@ def main(args=None, return_model=False, return_instance=False):
                     if instance.options.verbose:
                         print('Saved results in {:.2f} s.'.format(timer.step_time()))
 
+        #Paty's addition for debugging:
+        #embed()
+
         # report results
         # (repeated if model is reloaded, to automatically run any new export code)
         if not instance.options.no_post_solve:
@@ -186,7 +198,7 @@ def main(args=None, return_model=False, return_instance=False):
 
     # end of LogOutput block
 
-    if instance.options.interact:
+    if instance.options.interact or instance.options.reload_prior_solution:
         m = instance  # present the solved model as 'm' for convenience
         banner = (
             "\n"
@@ -448,7 +460,7 @@ def define_arguments(argparser):
     # note: pyomo has a --solver-suffix option but it is not clear
     # whether that does the same thing as --suffix defined here,
     # so we don't reuse the same name.
-    argparser.add_argument("--suffixes", "--suffix", nargs="+", action='extend', default=[],
+    argparser.add_argument("--suffixes", "--suffix", nargs="+", action='extend', default=['rc','dual','slack'],
         help="Extra suffixes to add to the model and exchange with the solver (e.g., iis, rc, dual, or slack)")
 
     # Define solver-related arguments
@@ -734,6 +746,9 @@ def solve(model):
     if model.options.verbose:
         print("Solved model. Total time spent in solver: {:2f} s.".format(timer.step_time()))
 
+    # Paty's addition for debugging:
+    #   embed()
+
     # Treat infeasibility as an error, rather than trying to load and save the results
     # (note: in this case, results.solver.status may be SolverStatus.warning instead of
     # SolverStatus.error)
@@ -781,7 +796,22 @@ def solve(model):
             + "  Termination Condition: {}".format(results.solver.termination_condition)
         )
 
+    if(results.solver.status != SolverStatus.ok or
+       results.solver.termination_condition != TerminationCondition.optimal):
+        warn(
+            f"Solver terminated with status '{results.solver.status}' and termination condition"
+            f" {results.solver.termination_condition}"
+        )
+
     ### process and return solution ###
+
+    # Load the solution data into the results object (it only has execution
+    # metadata by default in recent versions of Pyomo). This will enable us to
+    # save and restore model solutions; the results object can be pickled to a
+    # file on disk, but the instance cannot.
+    # https://stackoverflow.com/questions/39941520/pyomo-ipopt-does-not-return-solution
+    #
+    model.solutions.store_to(results)
 
     # Cache a copy of the results object, to allow saving and restoring model
     # solutions later.
