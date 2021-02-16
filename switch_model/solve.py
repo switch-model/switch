@@ -831,7 +831,7 @@ def _options_string_to_dict(istr):
     tokens = pyutilib.misc.quote_split('[ ]+',istr)
     for token in tokens:
         index = token.find('=')
-        if index is -1:
+        if index == -1:
             raise ValueError(
                 "Solver options must have the form option=value: '{}'".format(istr))
         try:
