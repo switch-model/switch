@@ -404,7 +404,7 @@ def post_solve(instance, outdir):
             "Energy_GWh_typical_yr": value(
                 instance.DispatchGen[g, t] * instance.tp_weight_in_year[t] / 1000
             ),
-            "VariableCost_per_yr": value(
+            "VariableOMCost_per_yr": value(
                 instance.DispatchGen[g, t]
                 * instance.gen_variable_om[g]
                 * instance.tp_weight_in_year[t]
@@ -431,7 +431,7 @@ def post_solve(instance, outdir):
         os.path.join(outdir, "dispatch_annual_summary.csv"),
         columns=[
             "Energy_GWh_typical_yr",
-            "VariableCost_per_yr",
+            "VariableOMCost_per_yr",
             "DispatchEmissions_tCO2_per_typical_yr",
         ],
     )
@@ -443,7 +443,7 @@ def post_solve(instance, outdir):
         os.path.join(outdir, "dispatch_zonal_annual_summary.csv"),
         columns=[
             "Energy_GWh_typical_yr",
-            "VariableCost_per_yr",
+            "VariableOMCost_per_yr",
             "DispatchEmissions_tCO2_per_typical_yr",
         ],
     )
