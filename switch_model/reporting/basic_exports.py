@@ -641,7 +641,7 @@ def post_solve(mod, outdir):
     Writing Objective Function value.
     """
     print("total_system_costs.txt...")
-    with open(os.path.join(summaries_dir, "total_system_costs.txt"), "w+") as f:
+    with open(os.path.join(summaries_dir, "total_system_costs.csv"), "w+") as f:
         f.write("Total Expected System Costs: %.2f \n" % mod.SystemCost())
         f.write(
             "Total Investment Costs: %.2f \n"

@@ -159,7 +159,7 @@ def post_solve(model, outdir):
     reporting.write_table(
         model,
         model.PERIODS,
-        output_file=os.path.join(outdir, "emissions.txt"),
+        output_file=os.path.join(outdir, "emissions.csv"),
         headings=(
             "PERIOD",
             "AnnualEmissions_tCO2_per_yr",
