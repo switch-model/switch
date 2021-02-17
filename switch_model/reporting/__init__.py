@@ -140,6 +140,7 @@ def post_solve(instance, outdir):
     save_generic_results(instance, outdir, instance.options.sorted_output)
     save_total_cost_value(instance, outdir)
     save_cost_components(instance, outdir)
+    save_results(instance, outdir)
 
 
 def save_generic_results(instance, outdir, sorted_output):
@@ -220,6 +221,11 @@ def get_value(obj):
 def save_total_cost_value(instance, outdir):
     with open(os.path.join(outdir, "total_cost.txt"), "w") as fh:
         fh.write("{}\n".format(value(instance.SystemCost)))
+
+
+def save_results(instance, outdir):
+    with open(os.path.join(outdir, "results.pickle"), "wb") as fh:
+        pickle.dump(instance.last_results, fh, protocol=-1)
 
 
 def save_cost_components(m, outdir):
