@@ -291,12 +291,11 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     Note that in the next file, parameter names are written on the first
     row (as usual), and the single value for each parameter is written in
-    the second row. The distribution_loss_rate parameter is read by the
-    local_td module (if used).
+    the second row.
 
     trans_params.csv
         trans_capital_cost_per_mw_km, trans_lifetime_yrs,
-        trans_fixed_om_fraction, distribution_loss_rate
+        trans_fixed_om_fraction
     """
 
     # TODO: send issue / pull request to Pyomo to allow .csv files with
@@ -326,9 +325,31 @@ def load_inputs(mod, switch_data, inputs_dir):
         optional=True, auto_select=True,
         param=(
             mod.trans_capital_cost_per_mw_km, mod.trans_lifetime_yrs,
-            mod.trans_fixed_om_fraction, mod.distribution_loss_rate
+            mod.trans_fixed_om_fraction
         )
     )
+
+
+def post_solve(instance, outdir):
+    mod = instance
+    normalized_dat = [
+        {
+        	"TRANSMISSION_LINE": tx,
+        	"PERIOD": p,
+        	"trans_lz1": mod.trans_lz1[tx],
+        	"trans_lz2": mod.trans_lz2[tx],
+        	"trans_dbid": mod.trans_dbid[tx],
+        	"trans_length_km": mod.trans_length_km[tx],
+        	"trans_efficiency": mod.trans_efficiency[tx],
+        	"trans_derating_factor": mod.trans_derating_factor[tx],
+        	"TxCapacityNameplate": value(mod.TxCapacityNameplate[tx,p]),
+        	"TxCapacityNameplateAvailable": value(mod.TxCapacityNameplateAvailable[tx,p]),
+        	"TotalAnnualCost": value(mod.TxCapacityNameplate[tx,p] * mod.trans_cost_annual[tx])
+        } for tx, p in mod.TRANSMISSION_LINES * mod.PERIODS
+    ]
+    tx_build_df = pd.DataFrame(normalized_dat)
+    tx_build_df.set_index(["TRANSMISSION_LINE", "PERIOD"], inplace=True)
+    tx_build_df.to_csv(os.path.join(outdir, "transmission.csv"))
 
 
 def post_solve(instance, outdir):
