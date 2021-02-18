@@ -8,7 +8,7 @@
 """
 
 Retrieves data inputs for the Switch WECC model from the database. Data
-is formatted into corresponding .tab or .dat files.
+is formatted into corresponding .csv or .dat files.
 
 """
 
@@ -22,7 +22,7 @@ import psycopg2 as pg
 # import sshtunnel
 
 
-def write_tab(fname, headers, cursor):
+def write_csv(fname, headers, cursor):
     with open(
         fname + ".csv", "w"
     ) as f:  # Paty: open() opens file named fname and only allows us to (re)write on it ('w'). "with" keyword ensures the file is closed at the end of the function.
@@ -217,7 +217,7 @@ def main():
 
     os.chdir(inputs_dir)
 
-    # The format for tab files is:
+    # The format for csv files is:
     # col1_name col2_name ...
     # [rows of data]
 
@@ -250,7 +250,7 @@ def main():
     ########################################################
     # TIMESCALES
 
-    print("  periods.tab...")
+    print("  periods.csv...")
     db_cursor.execute(
         """
 		select label, start_year as period_start, end_year as period_end
@@ -258,9 +258,9 @@ def main():
 		order by 1;""",
         [study_timeframe_id],
     )
-    write_tab("periods", ["INVESTMENT_PERIOD", "period_start", "period_end"], db_cursor)
+    write_csv("periods", ["INVESTMENT_PERIOD", "period_start", "period_end"], db_cursor)
 
-    print("  timeseries.tab...")
+    print("  timeseries.csv...")
     timeseries_id_select = "date_part('year', first_timepoint_utc)|| '_' || replace(sampled_timeseries.name, ' ', '_') as timeseries"
     db_cursor.execute(
         (
@@ -274,7 +274,7 @@ def main():
 					"""
         ).format(timeseries_id_select=timeseries_id_select, id=time_sample_id)
     )
-    write_tab(
+    write_csv(
         "timeseries",
         [
             "TIMESERIES",
@@ -286,7 +286,7 @@ def main():
         db_cursor,
     )
 
-    print("  timepoints.tab...")
+    print("  timepoints.csv...")
     db_cursor.execute(
         (
             """select raw_timepoint_id as timepoint_id, to_char(timestamp_utc, 'YYYYMMDDHH24') as timestamp, 
@@ -298,24 +298,24 @@ def main():
 					"""
         ).format(timeseries_id_select=timeseries_id_select, id=time_sample_id)
     )
-    write_tab("timepoints", ["timepoint_id", "timestamp", "timeseries"], db_cursor)
+    write_csv("timepoints", ["timepoint_id", "timestamp", "timeseries"], db_cursor)
 
     ########################################################
     # LOAD ZONES
 
     # done
-    print("  load_zones.tab...")
+    print("  load_zones.csv...")
     db_cursor.execute(
         """SELECT name, ccs_distance_km as zone_ccs_distance_km, load_zone_id as zone_dbid 
 					FROM switch.load_zone  
 					ORDER BY 1;
 					"""
     )
-    write_tab(
+    write_csv(
         "load_zones", ["LOAD_ZONE", "zone_ccs_distance_km", "zone_dbid"], db_cursor
     )
 
-    print("  loads.tab...")
+    print("  loads.csv...")
     db_cursor.execute(
         """
 		select load_zone_name, t.raw_timepoint_id as timepoint, 
@@ -328,19 +328,19 @@ def main():
 		""",
         {"id": time_sample_id, "id2": demand_scenario_id},
     )
-    write_tab("loads", ["LOAD_ZONE", "TIMEPOINT", "zone_demand_mw"], db_cursor)
+    write_csv("loads", ["LOAD_ZONE", "TIMEPOINT", "zone_demand_mw"], db_cursor)
 
     ########################################################
-    # BALANCING AREAS [Pending zone_coincident_peak_demand.tab]
+    # BALANCING AREAS [Pending zone_coincident_peak_demand.csv]
 
-    print("  balancing_areas.tab...")
+    print("  balancing_areas.csv...")
     db_cursor.execute(
         """SELECT balancing_area, quickstart_res_load_frac, quickstart_res_wind_frac, quickstart_res_solar_frac,spinning_res_load_frac, 
 					spinning_res_wind_frac, spinning_res_solar_frac 
 					FROM switch.balancing_areas;
 					"""
     )
-    write_tab(
+    write_csv(
         "balancing_areas",
         [
             "BALANCING_AREAS",
@@ -354,18 +354,18 @@ def main():
         db_cursor,
     )
 
-    print("  zone_balancing_areas.tab...")
+    print("  zone_balancing_areas.csv...")
     db_cursor.execute(
         """SELECT name, reserves_area as balancing_area 
 					FROM switch.load_zone;
 					"""
     )
-    write_tab("zone_balancing_areas", ["LOAD_ZONE", "balancing_area"], db_cursor)
+    write_csv("zone_balancing_areas", ["LOAD_ZONE", "balancing_area"], db_cursor)
 
-    # Paty: in this version of switch this tables is named zone_coincident_peak_demand.tab
-    # PATY: PENDING TAB!
+    # Paty: in this version of switch this tables is named zone_coincident_peak_demand.csv
+    # PATY: PENDING csv!
     # # For now, only taking 2014 peak demand and repeating it.
-    # print '  lz_peak_loads.tab'
+    # print '  lz_peak_loads.csv'
     # db_cursor.execute("""SELECT lzd.name, p.period_name, max(lz_demand_mwh)
     # 				FROM switch.timescales_sample_timepoints tps
     # 				JOIN switch.lz_hourly_demand lzd ON TO_CHAR(lzd.timestamp_cst,'MMDDHH24')=TO_CHAR(tps.timestamp,'MMDDHH24')
@@ -378,12 +378,12 @@ def main():
     # 				AND TO_CHAR(lzd.timestamp_cst,'YYYY') = '2014'
     # 				GROUP BY lzd.name, p.period_name
     # 				ORDER BY 1,2;""" % (sample_ts_scenario_id,lz_hourly_demand_id,load_zones_scenario_id))
-    # write_tab('lz_peak_loads',['LOAD_ZONE','PERIOD','peak_demand_mw'],db_cursor)
+    # write_csv('lz_peak_loads',['LOAD_ZONE','PERIOD','peak_demand_mw'],db_cursor)
 
     ########################################################
     # TRANSMISSION
 
-    print("  transmission_lines.tab...")
+    print("  transmission_lines.csv...")
     db_cursor.execute(
         """SELECT start_load_zone_id || '-' || end_load_zone_id, t1.name, t2.name, 
 					trans_length_km, trans_efficiency, existing_trans_cap_mw 
@@ -393,7 +393,7 @@ def main():
 					ORDER BY 2,3;
 					"""
     )
-    write_tab(
+    write_csv(
         "transmission_lines",
         [
             "TRANSMISSION_LINE",
@@ -406,7 +406,7 @@ def main():
         db_cursor,
     )
 
-    print("  trans_optional_params.tab...")
+    print("  trans_optional_params.csv...")
     db_cursor.execute(
         """SELECT start_load_zone_id || '-' || end_load_zone_id, transmission_line_id, derating_factor, terrain_multiplier, 
 					new_build_allowed 
@@ -414,7 +414,7 @@ def main():
 					ORDER BY 1;
 					"""
     )
-    write_tab(
+    write_csv(
         "trans_optional_params",
         [
             "TRANSMISSION_LINE",
@@ -440,25 +440,25 @@ def main():
     ########################################################
     # FUEL
 
-    print("  fuels.tab...")
+    print("  fuels.csv...")
     db_cursor.execute(
         """SELECT name, co2_intensity, upstream_co2_intensity 
 					FROM switch.energy_source WHERE is_fuel IS TRUE;
 					"""
     )
-    write_tab("fuels", ["fuel", "co2_intensity", "upstream_co2_intensity"], db_cursor)
+    write_csv("fuels", ["fuel", "co2_intensity", "upstream_co2_intensity"], db_cursor)
 
-    print("  non_fuel_energy_sources.tab...")
+    print("  non_fuel_energy_sources.csv...")
     db_cursor.execute(
         """SELECT name 
 					FROM switch.energy_source 
 					WHERE is_fuel IS FALSE;
 					"""
     )
-    write_tab("non_fuel_energy_sources", ["energy_source"], db_cursor)
+    write_csv("non_fuel_energy_sources", ["energy_source"], db_cursor)
 
     # Fuel projections are yearly averages in the DB. For now, Switch only accepts fuel prices per period, so they are averaged.
-    print("  fuel_cost.tab")
+    print("  fuel_cost.csv")
     db_cursor.execute(
         """select load_zone_name as load_zone, fuel, period, AVG(fuel_price) as fuel_cost 
 					from 
@@ -475,17 +475,17 @@ def main():
 					"""
         % (study_timeframe_id, fuel_simple_price_scenario_id)
     )
-    write_tab("fuel_cost", ["load_zone", "fuel", "period", "fuel_cost"], db_cursor)
+    write_csv("fuel_cost", ["load_zone", "fuel", "period", "fuel_cost"], db_cursor)
 
     ########################################################
     # GENERATORS
 
-    #    Optional missing columns in generation_projects_info.tab:
+    #    Optional missing columns in generation_projects_info.csv:
     #        gen_unit_size,
     # 		 gen_ccs_energy_load,
     #        gen_ccs_capture_efficiency,
     #        gen_is_distributed
-    print("  generation_projects_info.tab...")
+    print("  generation_projects_info.csv...")
     db_cursor.execute(
         (
             """select 
@@ -516,7 +516,7 @@ def main():
         ).format(id1=generation_plant_scenario_id)
     )
 
-    write_tab(
+    write_csv(
         "generation_projects_info",
         [
             "GENERATION_PROJECT",
@@ -541,7 +541,7 @@ def main():
         db_cursor,
     )
 
-    print("  gen_build_predetermined.tab...")
+    print("  gen_build_predetermined.csv...")
     db_cursor.execute(
         (
             """select generation_plant_id, build_year, capacity as gen_predetermined_cap  
@@ -557,13 +557,13 @@ def main():
             id2=generation_plant_existing_and_planned_scenario_id,
         )
     )
-    write_tab(
+    write_csv(
         "gen_build_predetermined",
         ["GENERATION_PROJECT", "build_year", "gen_predetermined_cap"],
         db_cursor,
     )
 
-    print("  gen_build_costs.tab...")
+    print("  gen_build_costs.csv...")
     db_cursor.execute(
         """
         select generation_plant_id, generation_plant_cost.build_year, 
@@ -597,7 +597,7 @@ def main():
             "ep_id": generation_plant_existing_and_planned_scenario_id,
         },
     )
-    write_tab(
+    write_csv(
         "gen_build_costs",
         [
             "GENERATION_PROJECT",
@@ -623,7 +623,7 @@ def main():
 
     # Pyomo will raise an error if a capacity factor is defined for a project on a timepoint when it is no longer operational (i.e. Canela 1 was built on 2007 and has a 30 year max age, so for tp's ocurring later than 2037, its capacity factor must not be written in the table).
 
-    print("  variable_capacity_factors.tab...")
+    print("  variable_capacity_factors.csv...")
     db_cursor.execute(
         """
 	    select generation_plant_id, t.raw_timepoint_id, capacity_factor  
@@ -639,7 +639,7 @@ def main():
             "generation_plant_scenario": generation_plant_scenario_id,
         },
     )
-    write_tab(
+    write_csv(
         "variable_capacity_factors",
         ["GENERATION_PROJECT", "timepoint", "gen_max_capacity_factor"],
         db_cursor,
@@ -648,7 +648,7 @@ def main():
     ########################################################
     # HYDROPOWER
 
-    print("  hydro_timeseries.tab...")
+    print("  hydro_timeseries.csv...")
     # 	db_cursor.execute(("""select generation_plant_id as hydro_project,
     # 					{timeseries_id_select},
     # 					hydro_min_flow_mw, hydro_avg_flow_mw
@@ -688,7 +688,7 @@ def main():
             id3=generation_plant_scenario_id,
         )
     )
-    write_tab(
+    write_csv(
         "hydro_timeseries",
         ["hydro_project", "timeseries", "hydro_min_flow_mw", "hydro_avg_flow_mw"],
         db_cursor,
@@ -698,7 +698,7 @@ def main():
     # CARBON CAP
 
     # future work: join with table with carbon_cost_dollar_per_tco2
-    print("  carbon_policies.tab...")
+    print("  carbon_policies.csv...")
     db_cursor.execute(
         (
             """select period, AVG(carbon_cap_tco2_per_yr) as carbon_cap_tco2_per_yr, AVG(carbon_cap_tco2_per_yr_CA) as carbon_cap_tco2_per_yr_CA,
@@ -717,7 +717,7 @@ def main():
 					"""
         ).format(id1=study_timeframe_id, id2=carbon_cap_scenario_id)
     )
-    write_tab(
+    write_csv(
         "carbon_policies",
         [
             "PERIOD",
@@ -731,7 +731,7 @@ def main():
     ########################################################
     # RPS
     if rps_scenario_id is not None:
-        print("  rps_targets.tab...")
+        print("  rps_targets.csv...")
         db_cursor.execute(
             (
                 """select load_zone, w.period as period, avg(rps_target) as rps_target
@@ -749,13 +749,13 @@ def main():
 						"""
             ).format(id1=study_timeframe_id, id2=rps_scenario_id)
         )
-        write_tab("rps_targets", ["load_zone", "period", "rps_target"], db_cursor)
+        write_csv("rps_targets", ["load_zone", "period", "rps_target"], db_cursor)
 
     ########################################################
     # BIO_SOLID SUPPLY CURVE
 
     if supply_curves_scenario_id is not None:
-        print("  fuel_supply_curves.tab...")
+        print("  fuel_supply_curves.csv...")
         db_cursor.execute(
             (
                 """
@@ -770,7 +770,7 @@ def main():
 						"""
             ).format(id1=study_timeframe_id, id2=supply_curves_scenario_id)
         )
-        write_tab(
+        write_csv(
             "fuel_supply_curves",
             [
                 "regional_fuel_market",
@@ -782,7 +782,7 @@ def main():
             db_cursor,
         )
 
-        print("  regional_fuel_markets.tab...")
+        print("  regional_fuel_markets.csv...")
         db_cursor.execute(
             (
                 """
@@ -792,9 +792,9 @@ def main():
 						"""
             ).format(id=regional_fuel_market_scenario_id)
         )
-        write_tab("regional_fuel_markets", ["regional_fuel_market", "fuel"], db_cursor)
+        write_csv("regional_fuel_markets", ["regional_fuel_market", "fuel"], db_cursor)
 
-        print("  zone_to_regional_fuel_market.tab...")
+        print("  zone_to_regional_fuel_market.csv...")
         db_cursor.execute(
             (
                 """
@@ -804,7 +804,7 @@ def main():
 						"""
             ).format(id=zone_to_regional_fuel_market_scenario_id)
         )
-        write_tab(
+        write_csv(
             "zone_to_regional_fuel_market",
             ["load_zone", "regional_fuel_market"],
             db_cursor,
@@ -813,7 +813,7 @@ def main():
     ########################################################
     # DEMAND RESPONSE
     if enable_dr is not None:
-        print("  dr_data.tab...")
+        print("  dr_data.csv...")
         db_cursor.execute(
             (
                 """
@@ -837,7 +837,7 @@ def main():
 						"""
             ).format(id1=demand_scenario_id, id2=study_timeframe_id)
         )
-        write_tab(
+        write_csv(
             "dr_data",
             ["LOAD_ZONE", "timepoint", "dr_shift_down_limit", "dr_shift_up_limit"],
             db_cursor,
@@ -846,7 +846,7 @@ def main():
     ########################################################
     # ELECTRICAL VEHICLES
     if enable_ev is not None:
-        print("  ev_limits.tab...")
+        print("  ev_limits.csv...")
         db_cursor.execute(
             (
                 """
@@ -888,7 +888,7 @@ def main():
 						"""
             ).format(id=study_timeframe_id)
         )
-        write_tab(
+        write_csv(
             "ev_limits",
             [
                 "LOAD_ZONE",
