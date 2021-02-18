@@ -31,12 +31,7 @@ from switch_model.utilities import (
     warn,
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
-
-# paty's adition for debugging:
-try:
-    from IPython import embed
-except:
-    pass
+import pdb
 
 
 def main(args=None, return_model=False, return_instance=False):
@@ -91,7 +86,6 @@ def main(args=None, return_model=False, return_instance=False):
                 upgrade_inputs(module_options.inputs_dir)
             else:
                 print("Inputs need upgrade. Consider `switch upgrade --help`. Exiting.")
-                stop_logging_output()
                 return -1
 
         # build a module list based on configuration options, and add
@@ -157,8 +151,12 @@ def main(args=None, return_model=False, return_instance=False):
                 )
             )
 
-        # Paty's addition for debugging:
-        # embed()
+        if instance.options.enable_breakpoints:
+            print(
+                "Breaking after constructing model.  See "
+                "https://docs.python.org/3/library/pdb.html for instructions on using pdb."
+            )
+            pdb.set_trace()
 
         # return the instance as-is if requested
         if return_instance:
@@ -212,8 +210,12 @@ def main(args=None, return_model=False, return_instance=False):
                     if instance.options.verbose:
                         print("Saved results in {:.2f} s.".format(timer.step_time()))
 
-        # Paty's addition for debugging:
-        # embed()
+        if instance.options.enable_breakpoints:
+            print(
+                "Breaking before post_solve. See "
+                "https://docs.python.org/3/library/pdb.html for instructions on using pdb."
+            )
+            pdb.set_trace()
 
         # report results
         # (repeated if model is reloaded, to automatically run any new export code)
@@ -657,13 +659,20 @@ def define_arguments(argparser):
         "--no-save-solution",
         default=False,
         action="store_true",
-        help="Don't save solution after model is solved.",
+        help="Don't save solution after model is solved. Without this flag, model solution will be saved in a pickle"
+        "file allowing for later inspection via --reload-prior-solution.",
     )
     argparser.add_argument(
         "--interact",
         default=False,
         action="store_true",
         help="Enter interactive shell after solving the instance to enable inspection of the solved model.",
+    )
+    argparser.add_argument(
+        "--enable-breakpoints",
+        default=False,
+        action="store_true",
+        help="Break and enter the Python Debugger at key points during the solving process.",
     )
 
 
@@ -868,7 +877,6 @@ def solve(model):
             ).items():
                 model.solver.options[k] = v
 
-        # import pdb; pdb.set_trace()
         model.solver_manager = SolverManagerFactory(model.options.solver_manager)
 
     # get solver arguments
@@ -911,7 +919,6 @@ def solve(model):
         TempfileManager.tempdir = model.options.tempdir
 
     results = model.solver_manager.solve(model, opt=model.solver, **solver_args)
-    # import pdb; pdb.set_trace()
 
     if model.options.verbose:
         print(
@@ -920,8 +927,12 @@ def solve(model):
             )
         )
 
-    # Paty's addition for debugging:
-    #   embed()
+    if model.options.enable_breakpoints:
+        print(
+            "Breaking after solving model (have not yet checked for feasibility). See "
+            "https://docs.python.org/3/library/pdb.html for instructions on using pdb."
+        )
+        pdb.set_trace()
 
     # Treat infeasibility as an error, rather than trying to load and save the results
     # (note: in this case, results.solver.status may be SolverStatus.warning instead of
