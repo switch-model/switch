@@ -122,6 +122,9 @@ def define_components(mod):
             for (intercept, slope) in m.FUEL_USE_SEGMENTS_FOR_GEN[g]
         ]
     )
+
+    # TODO calculate GenFuelUseRate per fuel rather than for the sum of all fuels
+    #      to support multi-fuel generation
     mod.GenFuelUseRate_Calculate = Constraint(
         mod.GEN_TPS_FUEL_PIECEWISE_CONS_SET,
         rule=lambda m, g, t, intercept, incremental_heat_rate: (
