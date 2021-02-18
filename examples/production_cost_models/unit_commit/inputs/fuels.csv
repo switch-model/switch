@@ -1,2 +1,2 @@
-fuel,co2_intensity,upstream_co2_intensity
-NaturalGas,0.05306,0
+fuel,co2_intensity,upstream_co2_intensity,nox_intensity,so2_intensity,ch4_intensity
+NaturalGas,0.05306,0,0.000207,0.000002697,0.00000873

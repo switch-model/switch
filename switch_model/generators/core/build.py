@@ -628,6 +628,16 @@ def load_inputs(mod, switch_data, inputs_dir):
     # read FUELS_FOR_MULTIFUEL_GEN from gen_multiple_fuels.dat if available
     multi_fuels_path = os.path.join(inputs_dir, "gen_multiple_fuels.dat")
     if os.path.isfile(multi_fuels_path):
+        if "switch_model.generators.core.commit.fuel_use" in mod.module_list:
+            raise NotImplementedError(
+                "Multi-fuel generation is being used with generators.core.commit.fuel_use despite not being fully "
+                "supported.\n"
+                "Specifically, DispatchGenByFuel has not been constrained to match the true fuel use (GenFuelUseRate)."
+                "Therefore, DispatchGenByFuel may result in incorrect values. DispatchGenByFuel is used when calculating"
+                "non-CO2 emissions resulting in incorrect non-CO2 emission values. If there exists carbon_policies for"
+                "non-CO2 emissions, the model may return an incorrect solution."
+            )
+
         switch_data.load(filename=multi_fuels_path)
 
 
