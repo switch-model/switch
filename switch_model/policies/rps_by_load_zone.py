@@ -138,24 +138,24 @@ def load_inputs(mod, switch_data, inputs_dir):
     specify targets for all periods.
 
     Mandatory input files:
-        rps_targets.tab
+        rps_targets.csv
             LOAD_ZONES PERIOD rps_target
 
     The optional parameter to define fuels as RPS eligible can be inputted
     in the following file:
-        fuels.tab
+        fuels.csv
             fuel  f_rps_eligible
 
     """
 
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "fuels.tab"),
+        filename=os.path.join(inputs_dir, "fuels.csv"),
         select=("fuel", "f_rps_eligible"),
         optional_params=["f_rps_eligible"],
         param=(mod.f_rps_eligible,),
     )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "rps_targets.tab"),
+        filename=os.path.join(inputs_dir, "rps_targets.csv"),
         select=("load_zone", "period", "rps_target"),  # autoselect=True,
         index=mod.ZONE_PERIODS,  # mod.LOAD_ZONES * mod.PERIODS, #index=mod.RPS_PERIODS,
         # dimen=2,
@@ -164,7 +164,7 @@ def load_inputs(mod, switch_data, inputs_dir):
 
 
 #    switch_data.load_aug(
-#        filename=os.path.join(inputs_dir, 'fuel_cost.tab'),
+#        filename=os.path.join(inputs_dir, 'fuel_cost.csv'),
 #        select=('load_zone', 'fuel', 'period', 'fuel_cost'),
 #        index=mod.ZONE_FUEL_PERIODS,
 #        param=[mod.fuel_cost])
@@ -190,7 +190,7 @@ def load_inputs(mod, switch_data, inputs_dir):
 #        return row
 #    reporting.write_table(
 #        instance, instance.LOAD_ZONES, instance.RPS_PERIODS,
-#        output_file=os.path.join(outdir, "rps_energy.txt"),
+#        output_file=os.path.join(outdir, "rps_energy.csv"),
 #        headings=("LOAD_ZONES", "PERIOD", "RPSFuelEnergyGWh", "RPSNonFuelEnergyGWh",
 #            "TotalGenerationInPeriodGWh", "RPSGenFraction",
 #            "TotalSalesInPeriodGWh", "RPSSalesFraction"),
@@ -204,7 +204,7 @@ def post_solve(instance, outdir):
         instance,
         instance.ZONE_PERIODS,
         # instance, instance.LOAD_ZONES, instance.PERIODS,
-        output_file=os.path.join(outdir, "rps_energy.txt"),
+        output_file=os.path.join(outdir, "rps_energy.csv"),
         headings=(
             "LOAD_ZONE",
             "PERIOD",
