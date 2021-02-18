@@ -97,12 +97,12 @@ def load_inputs(model, switch_data, inputs_dir):
     to interpret meaningfully.
 
     Expected input files:
-    carbon_policies.tab
+    carbon_policies.csv
         PERIOD, carbon_cap_tco2_per_yr, model.carbon_cost_dollar_per_tco2
 
     """
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "carbon_policies.tab"),
+        filename=os.path.join(inputs_dir, "carbon_policies.csv"),
         optional=True,
         optional_params=(
             model.carbon_cap_tco2_per_yr,
@@ -159,7 +159,7 @@ def post_solve(model, outdir):
     reporting.write_table(
         model,
         model.PERIODS,
-        output_file=os.path.join(outdir, "emissions.txt"),
+        output_file=os.path.join(outdir, "emissions.csv"),
         headings=(
             "PERIOD",
             "AnnualEmissions_tCO2_per_yr",
