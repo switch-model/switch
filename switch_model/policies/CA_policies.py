@@ -3,9 +3,8 @@
 """
 Module to enforce policies specific to the state of California for the WECC model.
 
-The module reads the load_zone_state column from load_zones.csv to determine which
-zones are within California. If load_zone_state is "CA", the zone is considered
-within California.
+The state of the load zone is determined based on the letters prior to the first underscore.
+For example, "CA_PGE_BAY" gives a state code of "CA" and will be considered as part of California.
 
 Three possible policy constraints can be specified in ca_policies.csv. See documentation below.
 """
@@ -17,9 +16,21 @@ import switch_model.reporting as reporting
 def define_components(mod):
     """
     load_zone_state[z] is the two-letter state code of a load zone.
-    Values are read from load_zones.csv and are optional (can be left
-    as "."). If the value is "CA" this load zone is considered to be
+    Values are inferred from the prefix of the load_zone id. For
+    example, "CA_PGE_BAY" gives a state code of "CA". Note that
+    this method isn't perfect. For example, "CAN_ALB" gives a "state"
+    code of "CAN".
+    If the state value is "CA" this load zone is considered to be
     part of California.
+    TODO : Add a column in load_zones.csv with the load_zone's
+        two-letter state code and read load_zone_state[z] from there
+        instead of trying to infer it from the LOAD_ZONE id. If
+        someone plans to implement this, the code was already
+        implemented at
+        https://github.com/RAEL-Berkeley/switch/tree/a0b80829a8dfad2018cb30f91893687565e0c4fe.
+        So you can use that code as starters (database still needs
+        updating though).
+
 
     carbon_cap_tco2_per_yr_CA[p] is the carbon cap for a given period
     on all CO2 emission generated in load zones within California.
@@ -53,8 +64,9 @@ def define_components(mod):
     """
     mod.load_zone_state = Param(
         mod.LOAD_ZONES,
-        default=None,
-        doc="Two-letter state code for each load zone (optional).",
+        # Returns the letters before the first underscore, if there's no underscore, simply return the entire id
+        rule=lambda m, z: z.partition("_")[0],
+        doc="Two-letter state code for each load zone inferred from the load zone id.",
     )
 
     mod.CA_ZONES = Set(
@@ -158,17 +170,7 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     ca_policies.csv
         PERIOD,ca_min_gen_timepoint_ratio,ca_min_gen_period_ratio,carbon_cap_tco2_per_yr_CA
-
-
-    load_zones.csv will have other columns used in the balancing.load_zones module.
-    load_zone_state can leave all values empty (".") except for those in california ("CA").
     """
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "load_zones.csv"),
-        auto_select=True,
-        param=(mod.load_zone_state,),
-    )
-
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "ca_policies.csv"),
         optional_params=(

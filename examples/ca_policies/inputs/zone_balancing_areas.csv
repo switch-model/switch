@@ -1,4 +1,4 @@
 LOAD_ZONE,balancing_area
 North,NorthCentral
-Central,NorthCentral
-South,South
+CA_Central,NorthCentral
+CA_South,South
