@@ -171,7 +171,7 @@ def load_inputs(mod, switch_data, inputs_dir):
 #        return row
 #    reporting.write_table(
 #        instance, instance.LOAD_ZONES, instance.RPS_PERIODS,
-#        output_file=os.path.join(outdir, "rps_energy.txt"),
+#        output_file=os.path.join(outdir, "rps_energy.csv"),
 #        headings=("LOAD_ZONES", "PERIOD", "RPSFuelEnergyGWh", "RPSNonFuelEnergyGWh",
 #            "TotalGenerationInPeriodGWh", "RPSGenFraction",
 #            "TotalSalesInPeriodGWh", "RPSSalesFraction"),
@@ -183,7 +183,7 @@ def post_solve(instance, outdir):
     write_table(
         instance, instance.ZONE_PERIODS,
         #instance, instance.LOAD_ZONES, instance.PERIODS,
-        output_file=os.path.join(outdir, "rps_energy.txt"),
+        output_file=os.path.join(outdir, "rps_energy.csv"),
         headings=("LOAD_ZONE", "PERIOD", "RPSFuelEnergyGWh", "RPSNonFuelEnergyGWh",
             "TotalGenerationInPeriodGWh", "RPSGenFraction"),
         values=lambda m, z_p: (z_p[0], z_p[1], m.RPSFuelEnergy[z_p] / 1000,

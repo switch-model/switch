@@ -16,6 +16,11 @@ Specifying carbon_cost_dollar_per_tco2 will add a term to the objective function
 Note: carbon_cost_dollar_per_tco2 defaults to 0 (no cost) for any data that
 is unspecified.
 
+Specifying any of   carbon_cap_tnox_per_yr, carbon_cost_dollar_per_tnox,
+                    carbon_cap_tso2_per_yr, carbon_cost_dollar_per_tso2,
+                    carbon_cap_tch4_per_yr, carbon_cost_dollar_per_tch4
+    will have the same effect as descibed above, just for different greenhouse gases.
+
 """
 from __future__ import division
 import os
@@ -24,23 +29,67 @@ import switch_model.reporting as reporting
 
 def define_components(model):
     model.carbon_cap_tco2_per_yr = Param(model.PERIODS, default=float('inf'), doc=(
-        "Emissions from this model must be less than this cap. "
-        "This is specified in metric tonnes of CO2 per year."))
+        "CO2 emissions from this model must be less than this cap. This is specified in metric tonnes of CO2 per year."))
+    model.carbon_cap_tnox_per_yr = Param(model.PERIODS, default=float('inf'), doc=(
+        "NOx emissions from this model must be less than this cap. This is specified in metric tonnes of NOx per year."))
+    model.carbon_cap_tso2_per_yr = Param(model.PERIODS, default=float('inf'), doc=(
+        "SO2 emissions from this model must be less than this cap. This is specified in metric tonnes of SO2 per year."))
+    model.carbon_cap_tch4_per_yr = Param(model.PERIODS, default=float('inf'), doc=(
+        "CH4 emissions from this model must be less than this cap. This is specified in metric tonnes of CH4 per year."))
+
     model.Enforce_Carbon_Cap = Constraint(model.PERIODS,
         rule=lambda m, p:
             Constraint.Skip if m.carbon_cap_tco2_per_yr[p] == float('inf')
             else m.AnnualEmissions[p] <= m.carbon_cap_tco2_per_yr[p],
-        doc=("Enforces the carbon cap for generation-related emissions."))
+            doc=("Enforces the carbon cap for generation-related CO2 emissions."))
+
+    model.Enforce_Carbon_Cap_NOx = Constraint(
+        model.PERIODS,
+        rule=lambda m, p:
+              Constraint.Skip if m.carbon_cap_tnox_per_yr[p] == float('inf')
+              else m.AnnualEmissionsNOx[p] <= m.carbon_cap_tnox_per_yr[p],
+        doc="Enforces the carbon cap for generation-related NOx emissions.")
+
+    model.Enforce_Carbon_Cap_SO2 = Constraint(
+        model.PERIODS,
+        rule=lambda m, p:
+              Constraint.Skip if m.carbon_cap_tso2_per_yr[p] == float('inf')
+              else m.AnnualEmissionsSO2[p] <= m.carbon_cap_tso2_per_yr[p],
+        doc="Enforces the carbon cap for generation-related SO2 emissions.")
+
+    model.Enforce_Carbon_Cap_CH4 = Constraint(
+        model.PERIODS,
+        rule=lambda m, p:
+              Constraint.Skip if m.carbon_cap_tch4_per_yr[p] == float('inf')
+              else m.AnnualEmissionsCH4[p] <= m.carbon_cap_tch4_per_yr[p],
+        doc="Enforces the carbon cap for generation-related CH4 emissions.")
+
     # Make sure the model has a dual suffix for determining implicit carbon costs
     if not hasattr(model, "dual"):
         model.dual = Suffix(direction=Suffix.IMPORT)
 
-    model.carbon_cost_dollar_per_tco2 = Param(model.PERIODS, default=0.0,
-        doc="The cost adder applied to emissions, in future dollars per metric tonne of CO2.")
-    model.EmissionsCosts = Expression(model.PERIODS,
-        rule=lambda model, period: \
-            model.AnnualEmissions[period] * model.carbon_cost_dollar_per_tco2[period],
-        doc=("Enforces the carbon cap for generation-related emissions."))
+    model.carbon_cost_dollar_per_tco2 = Param(
+        model.PERIODS, default=0.0,
+        doc="The cost adder applied to CO2 emissions, in future dollars per metric tonne of CO2.")
+    model.carbon_cost_dollar_per_tnox = Param(
+        model.PERIODS, default=0.0,
+        doc="The cost adder applied to NOx emissions, in future dollars per metric tonne of NOx.")
+    model.carbon_cost_dollar_per_tso2 = Param(
+        model.PERIODS, default=0.0,
+        doc="The cost adder applied to SO2 emissions, in future dollars per metric tonne of SO2.")
+    model.carbon_cost_dollar_per_tch4 = Param(
+        model.PERIODS, default=0.0,
+        doc="The cost adder applied to CH4 emissions, in future dollars per metric tonne of CH4.")
+
+    model.EmissionsCosts = Expression(
+        model.PERIODS,
+        rule=(lambda m, p:
+              m.AnnualEmissions[p] * m.carbon_cost_dollar_per_tco2[p] +
+              m.AnnualEmissionsNOx[p] * m.carbon_cost_dollar_per_tnox[p] +
+              m.AnnualEmissionsSO2[p] * m.carbon_cost_dollar_per_tso2[p] +
+              m.AnnualEmissionsCH4[p] * m.carbon_cost_dollar_per_tch4[p]),
+        doc="Enforces the carbon cap for generation-related emissions.")
+
     model.Cost_Components_Per_Period.append('EmissionsCosts')
 
 
@@ -52,15 +101,24 @@ def load_inputs(model, switch_data, inputs_dir):
 
     Expected input files:
     carbon_policies.csv
-        PERIOD, carbon_cap_tco2_per_yr, carbon_cost_dollar_per_tco2
+        PERIOD, carbon_cap_tco2_per_yr, carbon_cost_dollar_per_tco2,
+        carbon_cap_tnox_per_yr, carbon_cost_dollar_per_tnox,
+        carbon_cap_tso2_per_yr, carbon_cost_dollar_per_tso2,
+        carbon_cap_tch4_per_yr, carbon_cost_dollar_per_tch4,
 
     """
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'carbon_policies.csv'),
         optional=True,
-        optional_params=(model.carbon_cap_tco2_per_yr, model.carbon_cost_dollar_per_tco2),
+        optional_params=(model.carbon_cap_tco2_per_yr, model.carbon_cost_dollar_per_tco2,
+                         model.carbon_cap_tnox_per_yr, model.carbon_cost_dollar_per_tnox,
+                         model.carbon_cap_tso2_per_yr, model.carbon_cost_dollar_per_tso2,
+                         model.carbon_cap_tch4_per_yr, model.carbon_cost_dollar_per_tch4),
         auto_select=True,
-        param=(model.carbon_cap_tco2_per_yr, model.carbon_cost_dollar_per_tco2))
+        param=(model.carbon_cap_tco2_per_yr, model.carbon_cost_dollar_per_tco2,
+               model.carbon_cap_tnox_per_yr, model.carbon_cost_dollar_per_tnox,
+               model.carbon_cap_tso2_per_yr, model.carbon_cost_dollar_per_tso2,
+               model.carbon_cap_tch4_per_yr, model.carbon_cost_dollar_per_tch4))
 
 
 def post_solve(model, outdir):
@@ -75,24 +133,48 @@ def post_solve(model, outdir):
     values will not be exported.
     """
     def get_row(model, period):
-        row = [period, model.AnnualEmissions[period],
-               model.carbon_cap_tco2_per_yr[period]]
-        # Only print the carbon cap dual value if it exists and if the problem
-        # is purely linear.
-        if not model.has_discrete_variables() and model.Enforce_Carbon_Cap[period] in model.dual:
-            row.append(model.dual[model.Enforce_Carbon_Cap[period]] /
-                       model.bring_annual_costs_to_base_year[period])
-        else:
-            row.append('.')
-        row.append(model.carbon_cost_dollar_per_tco2[period])
-        row.append(model.carbon_cost_dollar_per_tco2[period] * \
-                   model.AnnualEmissions[period])
+        row = [period]
+
+        # Loop through all 4 green house gases (GHG) and add the value to the row.
+        GHGs = [
+            {"AnnualEmissions": model.AnnualEmissions, "cap": model.carbon_cap_tco2_per_yr,
+             "cost_per_t": model.carbon_cost_dollar_per_tco2, "Enforce_Carbon_Cap": model.Enforce_Carbon_Cap},
+            {"AnnualEmissions": model.AnnualEmissionsNOx, "cap": model.carbon_cap_tnox_per_yr,
+             "cost_per_t": model.carbon_cost_dollar_per_tnox, "Enforce_Carbon_Cap": model.Enforce_Carbon_Cap_NOx},
+            {"AnnualEmissions": model.AnnualEmissionsSO2, "cap": model.carbon_cap_tso2_per_yr,
+             "cost_per_t": model.carbon_cost_dollar_per_tso2, "Enforce_Carbon_Cap": model.Enforce_Carbon_Cap_SO2},
+            {"AnnualEmissions": model.AnnualEmissionsCH4, "cap": model.carbon_cap_tch4_per_yr,
+             "cost_per_t": model.carbon_cost_dollar_per_tch4, "Enforce_Carbon_Cap": model.Enforce_Carbon_Cap_CH4},
+        ]
+
+        has_discrete_variables = model.has_discrete_variables()
+
+        for GHG in GHGs:
+            row.extend([GHG["AnnualEmissions"][period], GHG["cap"][period]])
+
+            # Only print the carbon cap dual value if it exists and if the problem
+            # is purely linear.
+            if not has_discrete_variables and period in GHG["Enforce_Carbon_Cap"] and GHG["Enforce_Carbon_Cap"][
+                period] in model.dual:
+                row.append(model.dual[GHG["Enforce_Carbon_Cap"][period]] /
+                           model.bring_annual_costs_to_base_year[period])
+            else:
+                row.append('.')
+
+            row.extend([GHG["cost_per_t"][period], GHG["cost_per_t"][period] * GHG["AnnualEmissions"][period]])
         return row
 
     reporting.write_table(
         model, model.PERIODS,
         output_file=os.path.join(outdir, "emissions.csv"),
-        headings=("PERIOD", "AnnualEmissions_tCO2_per_yr",
-                  "carbon_cap_tco2_per_yr", "carbon_cap_dual_future_dollar_per_tco2",
-                  "carbon_cost_dollar_per_tco2", "carbon_cost_annual_total"),
+        headings=("PERIOD",
+                  "AnnualEmissions_tCO2_per_yr", "carbon_cap_tco2_per_yr", "carbon_cap_dual_future_dollar_per_tco2",
+                  "carbon_cost_dollar_per_tco2", "carbon_cost_annual_total_co2",
+                  "AnnualEmissions_tNOx_per_yr", "carbon_cap_tNOx_per_yr", "carbon_cap_dual_future_dollar_per_tnox",
+                  "carbon_cost_dollar_per_tnox", "carbon_cost_annual_total_nox",
+                  "AnnualEmissions_tSO2_per_yr", "carbon_cap_tso2_per_yr", "carbon_cap_dual_future_dollar_per_tso2",
+                  "carbon_cost_dollar_per_tso2", "carbon_cost_annual_total_so2",
+                  "AnnualEmissions_tCH4_per_yr", "carbon_cap_tch4_per_yr", "carbon_cap_dual_future_dollar_per_tch4",
+                  "carbon_cost_dollar_per_tch4", "carbon_cost_annual_total_ch4",
+                  ),
         values=get_row)
