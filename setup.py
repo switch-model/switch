@@ -89,8 +89,8 @@ setup(
         "database_access": ["psycopg2-binary"],
     },
     entry_points={
-        'console_scripts': [
-            'switch = switch_model.__main__:main',
+        "console_scripts": [
+            "switch = switch_model.__main__:main",
             # FIXME: This looks very crappy. I will try to fix it 
             "sampling = switch_model.cli.cli:cli",
         ]
