@@ -738,7 +738,10 @@ def solve(model):
         print("Solving model...")
 
     if model.options.tempdir is not None:
-        # from https://software.sandia.gov/downloads/pub/pyomo/PyomoOnlineDocs.html#_changing_the_temporary_directory
+        if not os.path.exists(model.options.tempdir):
+            os.makedirs(model.options.tempdir)
+
+        # from https://pyomo.readthedocs.io/en/stable/working_models.html#changing-the-temporary-directory
         from pyutilib.services import TempfileManager
         TempfileManager.tempdir = model.options.tempdir
 
