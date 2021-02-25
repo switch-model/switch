@@ -81,6 +81,6 @@ setup(
         'database_access': ['psycopg2-binary']
     },
     entry_points={
-        'console_scripts': ['switch = switch_model.main:main']
+        'console_scripts': ['switch = switch_model.__main__:main']
     },
 )
