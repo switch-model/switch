@@ -965,7 +965,7 @@ def solve(model):
                 "more information may be available by setting the appropriate flags in the "
             )
             print(
-                'solver_options_string and calling this script with "--suffixes iis".'
+                'solver_options_string and calling this script with "--suffixes iis" or "--gurobi-find-iis".'
             )
         raise RuntimeError("Infeasible model")
 
