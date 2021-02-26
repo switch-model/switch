@@ -780,7 +780,7 @@ def solve(model):
         else:
             print("Model was infeasible; if the solver can generate an irreducibly inconsistent set (IIS),")
             print("more information may be available by setting the appropriate flags in the ")
-            print('solver_options_string and calling this script with "--suffixes iis".')
+            print('solver_options_string and calling this script with "--suffixes iis" or "--gurobi-find-iis".')
         raise RuntimeError("Infeasible model")
 
     # Raise an error if the solver failed to produce a solution
