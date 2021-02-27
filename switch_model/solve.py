@@ -495,6 +495,13 @@ def define_arguments(argparser):
             "dual values for mixed-integer programs."
         )
     )
+    argparser.add_argument(
+        '--gurobi-find-iis', default=False, action='store_true',
+        help='Make Gurobi compute an irreducible inconsistent subsystem (IIS) if the model is found to be infeasible. '
+             'The IIS will be writen to outputs\\iis.ilp. Note this flag enables --symbolic-solver-labels since '
+             'otherwise debugging would be impossible. To learn more about IIS read: '
+             'https://www.gurobi.com/documentation/9.1/refman/py_model_computeiis.html.'
+    )
 
     # NOTE: the following could potentially be made into standard arguments for all models,
     # e.g. by defining them in a define_standard_arguments() function in switch.utilities.py
@@ -692,6 +699,20 @@ def solve(model):
         # unused solver object, or get errors if the solver options are invalid.
         model.solver = SolverFactory(model.options.solver, solver_io=model.options.solver_io)
 
+        # If this option is enabled, gurobi will output an IIS to outputs\iis.ilp.
+        if model.options.gurobi_find_iis:
+            # Enable symbolic labels since otherwise we can't debug the .ilp file.
+            model.options.symbolic_solver_labels = True
+
+            # If no string is passed make the string empty so we can add to it
+            if model.options.solver_options_string is None:
+                model.options.solver_options_string = ""
+
+            # Add to the solver options 'ResultFile=iis.ilp'
+            # https://stackoverflow.com/a/51994135/5864903
+            iis_file_path = os.path.join(model.options.outputs_dir, "iis.ilp")
+            model.options.solver_options_string += " ResultFile={}".format(iis_file_path)
+
         # patch for Pyomo < 4.2
         # note: Pyomo added an options_string argument to solver.solve() in Pyomo 4.2 rev 10587.
         # (See https://software.sandia.gov/trac/pyomo/browser/pyomo/trunk/pyomo/opt/base/solvers.py?rev=10587 )
@@ -765,7 +786,7 @@ def solve(model):
         else:
             print("Model was infeasible; if the solver can generate an irreducibly inconsistent set (IIS),")
             print("more information may be available by setting the appropriate flags in the ")
-            print('solver_options_string and calling this script with "--suffixes iis".')
+            print('solver_options_string and calling this script with "--suffixes iis" or "--gurobi-find-iis".')
         raise RuntimeError("Infeasible model")
 
     # Raise an error if the solver failed to produce a solution
