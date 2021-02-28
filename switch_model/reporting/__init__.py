@@ -50,13 +50,6 @@ csv.register_dialect(
 
 def define_arguments(argparser):
     argparser.add_argument(
-        "--sorted-output",
-        default=False,
-        action="store_true",
-        dest="sorted_output",
-        help="Write generic variable result values in sorted order",
-    )
-    argparser.add_argument(
         "--save-expressions",
         "--save-expression",
         dest="save_expressions",
