@@ -74,9 +74,13 @@ def main(args=None, return_model=False, return_instance=False):
         parser = _ArgumentParser(allow_abbrev=False, add_help=False)
         add_module_args(parser)
         module_options = parser.parse_known_args(args=args)[0]
-        if os.path.exists(module_options.inputs_dir) and do_inputs_need_upgrade(
-            module_options.inputs_dir
-        ):
+
+        if not os.path.exists(module_options.inputs_dir):
+            raise NotADirectoryError(
+                "Inputs directory '{}' does not exist".format(module_options.inputs_dir)
+            )
+
+        if do_inputs_need_upgrade(module_options.inputs_dir):
             do_upgrade = query_yes_no(
                 "Warning! Your inputs directory needs to be upgraded. "
                 "Do you want to auto-upgrade now? We'll keep a backup of "
