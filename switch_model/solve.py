@@ -546,6 +546,10 @@ def define_arguments(argparser):
         '--enable-breakpoints', default=False, action='store_true',
         help='Break and enter the Python Debugger at key points during the solving process.'
     )
+    argparser.add_argument(
+        "--sorted-output", default=False, action='store_true',
+        dest='sorted_output',
+        help='Write generic variable result values in sorted order')
 
 
 def add_module_args(parser):
