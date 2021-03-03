@@ -676,7 +676,7 @@ class _ArgumentParser(argparse.ArgumentParser):
     def parse_known_args(self, args=None, namespace=None):
         # parse_known_args parses arguments like --list-arg a b --other-arg="something with space"
         # as list_arg=['a', 'b', '--other-arg="something with space"'].
-        # See https://bugs.python.org/issue34390.
+        # See https://bugs.python.org/issue22433.
         # We issue a warning to avoid this.
         if bad_equal_parser and args is not None:
             for a in args:
