@@ -572,40 +572,6 @@ def load_aug(switch_data, optional=False, auto_select=False,
     switch_data.load(**kwds)
 
 
-# Define an argument parser that accepts the allow_abbrev flag to
-# prevent partial matches, even on versions of Python before 3.5.
-# See https://bugs.python.org/issue14910
-# This is needed because the parser may sometimes be called with only a subset
-# of the eventual argument list (e.g., to parse module-related arguments before
-# loading the modules and adding their arguments to the list), and without this
-# flag, the parser could match arguments that are meant to be used later
-# (It's not likely, but for example if the user specifies a flag "--exclude",
-# which will be consumed by one of their modules, the default parser would
-# match that to "--exclude-modules" during the early, partial parse.)
-if sys.version_info >= (3, 5):
-    _ArgumentParserAllowAbbrev = argparse.ArgumentParser
-else:
-    # patch ArgumentParser to accept the allow_abbrev flag
-    # (works on Python 2.7 and maybe others)
-    class _ArgumentParserAllowAbbrev(argparse.ArgumentParser):
-        def __init__(self, *args, **kwargs):
-            if not kwargs.get("allow_abbrev", True):
-                if hasattr(self, "_get_option_tuples"):
-                    # force self._get_option_tuples to return an empty list (of partial matches)
-                    # see https://bugs.python.org/issue14910#msg204678
-                    def new_get_option_tuples(self, option_string):
-                        return []
-                    self._get_option_tuples = types.MethodType(new_get_option_tuples, self)
-                else:
-                    raise RuntimeError(
-                        "Incompatible argparse module detected. This software requires "
-                        "Python 3.5 or later, or an earlier version of argparse that defines "
-                        "ArgumentParser._get_option_tuples()"
-                    )
-            # consume the allow_abbrev argument if present
-            kwargs.pop("allow_abbrev", None)
-            return argparse.ArgumentParser.__init__(self, *args, **kwargs)
-
 class ExtendAction(argparse.Action):
     """Create or extend list with the provided items"""
     # from https://stackoverflow.com/a/41153081/3830997
@@ -638,8 +604,7 @@ bad_equal_parser = (
     == 0
 )
 
-# TODO: merge the _ArgumentParserAllowAbbrev code into this class
-class _ArgumentParser(_ArgumentParserAllowAbbrev):
+class _ArgumentParser(argparse.ArgumentParser):
     """
     Custom version of ArgumentParser:
     - warns about a bug in standard Python ArgumentParser for --arg="some words"
