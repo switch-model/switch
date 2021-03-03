@@ -7,25 +7,13 @@ from pyomo.environ import *
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
 import pyomo.version
 
-import sys, os, time, shlex, re, inspect, textwrap, types
-try:
-    # Python 2
-    import cPickle as pickle
-except ImportError:
-    import pickle
-
-try:
-    # Python 2
-    input = raw_input
-except NameError:
-    pass
+import sys, os, time, shlex, re, inspect, textwrap, types, pickle
 
 import switch_model
 from switch_model.utilities import (
     create_model, _ArgumentParser, StepTimer, make_iterable, LogOutput, warn
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
-import pdb
 
 
 def main(args=None, return_model=False, return_instance=False):
@@ -134,7 +122,7 @@ def main(args=None, return_model=False, return_instance=False):
         if instance.options.enable_breakpoints:
             print("Breaking after constructing model.  See "
                   "https://docs.python.org/3/library/pdb.html for instructions on using pdb.")
-            pdb.set_trace()
+            breakpoint()
 
         # return the instance as-is if requested
         if return_instance:
@@ -187,7 +175,7 @@ def main(args=None, return_model=False, return_instance=False):
         if instance.options.enable_breakpoints:
             print("Breaking before post_solve. See "
                   "https://docs.python.org/3/library/pdb.html for instructions on using pdb.")
-            pdb.set_trace()
+            breakpoint()
 
         # report results
         # (repeated if model is reloaded, to automatically run any new export code)
@@ -337,7 +325,7 @@ def reload_prior_solution_from_csvs(instance):
                 except KeyError:
                     raise KeyError(
                         "Unable to set value for {}[{}]; index is invalid."
-                        .format(var.name, keys)
+                        .format(var.name, index)
                     )
                 if row[-1] == '':
                     # Variables that are not used in the model end up with no
@@ -780,9 +768,9 @@ def solve(model):
         print("Solved model. Total time spent in solver: {:2f} s.".format(timer.step_time()))
 
     if model.options.enable_breakpoints:
-        print("Breaking after solving model (have not yet checked for feasibility). See "
+        print("Breaking after solving model. See "
               "https://docs.python.org/3/library/pdb.html for instructions on using pdb.")
-        pdb.set_trace()
+        breakpoint()
 
     # Treat infeasibility as an error, rather than trying to load and save the results
     # (note: in this case, results.solver.status may be SolverStatus.warning instead of
