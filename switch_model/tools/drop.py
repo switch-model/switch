@@ -100,7 +100,6 @@ def main(args=None):
 
     parser.add_argument('--run', default=False, action='store_true', help='Drop the data.')
     parser.add_argument('--inputs-dir', default='inputs', help='Directory of the input files. Defaults to "inputs".')
-    parser.add_argument('-v', '--verbose', default=False, action="store_true")
     args = parser.parse_args(args)
 
     if not args.run:
@@ -117,21 +116,26 @@ def main(args=None):
         print("Operation cancelled.")
         return
 
+    # We do multiple passes since one data type can remove a key from another data type which would only be
+    # Caught on a second pass
+    # We stop the passes when now rows have been removed.
     total_rows_removed = 0
-    rows_removed_in_pass = -1
     warn_about_periods = False
-    while rows_removed_in_pass != 0:
+    pass_count = 0
+    while pass_count == 0 or rows_removed_in_pass != 0:
+        print("Pass {}...".format(pass_count), flush=True)
         rows_removed_in_pass = 0
         for name, data_type in data_types.items():
-            print("Dropping data type '{}'...".format(name), flush=True)
+            print("Checking '{}'...".format(name), flush=True)
             rows_removed = drop_data(data_type, args)
-            print("Removed {} rows.".format(rows_removed))
             rows_removed_in_pass += rows_removed
 
             if name == "periods" and rows_removed != 0:
                 warn_about_periods = True
+        print("Removed {} rows during pass.".format(rows_removed_in_pass))
 
         total_rows_removed += rows_removed_in_pass
+        pass_count += 1
 
     print("\n\nRemove {} rows in total from the input files.".format(total_rows_removed))
     print("\n\nNote: If SWITCH fails to load the model when solving it is possible that some input files were missed."
@@ -160,8 +164,6 @@ def drop_data(id_type, args):
 
 def get_valid_ids(primary_file, args):
     filename, primary_key = primary_file
-    if args.verbose:
-        print("Reading valid IDs from  {}...".format(filename), end=" ", flush=True)
     path = os.path.join(args.inputs_dir, filename)
 
     if not os.path.exists(path):
@@ -169,8 +171,6 @@ def get_valid_ids(primary_file, args):
         return None
 
     valid_ids = pandas.read_csv(path)[primary_key]
-    if args.verbose:
-        print("Done.")
     return valid_ids
 
 
@@ -180,19 +180,17 @@ def drop_from_file(filename, foreign_key, valid_ids, args):
     if not os.path.exists(path):
         return
 
-    if args.verbose:
-        print("Updating {}...".format(filename), end=" ", flush=True)
-
     df = pandas.read_csv(path)
     count = len(df)
     df = df[df[foreign_key].isin(valid_ids)]
     rows_removed = count - len(df)
-    df.to_csv(path, index=False)
 
-    if args.verbose:
-        print("Removed {} rows.".format(rows_removed))
-    if rows_removed == count:
-        print("WARNING: {} is now empty.".format(filename))
+    if rows_removed != 0:
+        df.to_csv(path, index=False)
+
+        print("Removed {} rows {}.".format(rows_removed, filename))
+        if rows_removed == count:
+            print("WARNING: {} is now empty.".format(filename))
 
     return rows_removed
 
