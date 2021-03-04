@@ -14,6 +14,7 @@ from switch_model.utilities import (
     create_model, _ArgumentParser, StepTimer, make_iterable, LogOutput, warn
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
+from switch_model.wecc.scale import scale, unscale
 
 
 def main(args=None, return_model=False, return_instance=False):
@@ -537,7 +538,14 @@ def define_arguments(argparser):
     argparser.add_argument(
         "--sorted-output", default=False, action='store_true',
         dest='sorted_output',
-        help='Write generic variable result values in sorted order')
+        help='Write generic variable result values in sorted order'
+    )
+
+    argparser.add_argument(
+        "--wecc-scale", default=False, action='store_true',
+        help='Whether to scale the variables according to predetermined constants to stay within numerical'
+             'bounds.'
+    )
 
 
 def add_module_args(parser):
@@ -687,6 +695,9 @@ def add_extra_suffixes(model):
 
 
 def solve(model):
+    if model.options.wecc_scale:
+        model, unscaled_model = scale(model)
+
     if not hasattr(model, "solver"):
         # Create a solver object the first time in. We don't do this until a solve is
         # requested, because sometimes a different solve function may be used,
@@ -827,6 +838,8 @@ def solve(model):
         )
 
     ### process and return solution ###
+    if model.options.wecc_scale:
+        model = unscale(model, unscaled_model)
 
     # Load the solution data into the results object (it only has execution
     # metadata by default in recent versions of Pyomo). This will enable us to
