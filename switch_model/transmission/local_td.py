@@ -1,14 +1,15 @@
-# Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
 Defines model components to describe local transmission & distribution
-build-outs for the SWITCH-Pyomo model. This adds a virtual "distribution node"
+build-outs for the Switch model. This adds a virtual "distribution node"
 to each load zone that is connected to the zone's central node via a
 distribution pathway that incurs distribution losses. Distributed Energy
 Resources (DER) impact the energy balance at the distribution node, avoiding
-losses from the distribution network. 
+losses from the distribution network.
 """
+from __future__ import division
 
 import os
 from pyomo.environ import *
@@ -43,13 +44,13 @@ def define_components(mod):
     which are used for power balance equations. This module is divided into
     two sections: the distribution node and the local_td pathway that connects
     it to the central grid.
-    
+
     Note: This module interprets the parameter zone_demand_mw[z,t] as the end-
     use sales rather than the withdrawals from the central grid, and moves
     zone_demand_mw from the Zone_Power_Withdrawals list to the
     Distributed_Power_Withdrawals list so that distribution losses can be accounted
     for.
-    
+
     Unless otherwise stated, all power capacity is specified in units of MW and
     all sets and parameters are mandatory.
 
@@ -60,47 +61,33 @@ def define_components(mod):
     the perspective of the central grid. We currently prohibit injections into
     the central grid because it would create a mathematical loophole for
     "spilling power" and we currently lack use cases that need this. We cannot
-    use a single unsigned varaible for this without introducing errrors in
+    use a single unsigned variable for this without introducing errrors in
     calculating Local T&D line losses. WithdrawFromCentralGrid is added to the
     load_zone power balance, and has a corresponding expression from the
     perspective of the distributed node:
-    
+
     InjectIntoDistributedGrid[z,t] = WithdrawFromCentralGrid[z,t] * (1-distribution_loss_rate)
-        
+
     The Distributed_Energy_Balance constraint is defined in define_dynamic_components.
 
     LOCAL_TD PATHWAY
 
-    LOCAL_TD_BLD_YRS is the set of load zones with local
-    transmission and distribution and years in which construction has or
-    could occur. This set includes past and potential future builds. All
-    future builds must come online in the first year of an investment
-    period. This set is composed of two elements with members:
-    (load_zone, build_year). For existing capacity where the build year
-    is unknown or spread out over time, build_year is set to 'Legacy'.
+    existing_local_td[z in LOAD_ZONES] is the amount of local transmission and
+    distribution capacity in MW that is in place prior to the start of the
+    study. This is assumed to remain in service throughout the study.
 
-    EXISTING_LOCAL_TD_BLD_YRS is a subset of LOCAL_TD_BLD_YRS that
-    lists builds that happened before the first investment period. For
-    most datasets the build year is unknown, so is it always set to
-    'Legacy'.
+    BuildLocalTD[load_zone, period] is a decision variable
+    describing how much local transmission and distribution to add in each load
+    zone during each study period.
 
-    existing_local_td[z in LOAD_ZONES] is the amount of local
-    transmission and distribution capacity in MW that has already been
-    built.
-
-    BuildLocalTD[(z, bld_yr) in LOCAL_TD_BLD_YRS] is a decision
-    variable describing how much local transmission and distribution to
-    build in a load zone. For existing builds, this variable is locked
-    to existing capacity. Without demand response, the optimal value of
-    this variable is trivially computed based on the load zone's peak
-    expected load. With demand response, this decision becomes less
-    obvious in high solar conditions where it may be desirable to shift
-    some demand from evening into afternoon to coincide with the solar
-    peak.
-
-    LocalTDCapacity[z, period] is an expression that describes how much
-    local transmission and distribution has been built to date in each
-    load zone.
+    LocalTDCapacity[z, period] is an expression that describes how much local
+    transmission and distribution has been built to date in each load zone.
+    Without demand response or distributed generation, the optimal value of this
+    expression is simply the load zone's peak expected load. With demand
+    response or distributed generation, this decision becomes less obvious. Then
+    Switch will consider scheduling load to absorb peak utility-scale solar,
+    increasing local T&D requirements, or adding more distributed solar,
+    potentially decreasing local T&D requirements.
 
     distribution_loss_rate is the ratio of average losses for local T&D. This
     value is relative to delivered energy, so the total energy needed is load
@@ -120,76 +107,52 @@ def define_components(mod):
     will be replaced at the end of its life, so these costs will
     continue indefinitely.
 
-    LOCAL_TD_BUILDS_IN_PERIOD[p in PERIODS] is an indexed set that
-    describes which local transmission & distribution builds will be
-    operational in a given period. Currently, local T & D lines are kept
-    online indefinitely, with parts being replaced as they wear out.
-    LOCAL_TD_BUILDS_IN_PERIOD[p] will return a subset of (z,
-    bld_yr) in LOCAL_TD_BLD_YRS. Same idea as
-    TX_BUILDS_IN_PERIOD, but with a different scope.
-
     --- NOTES ---
 
-    SWITCH-Pyomo treats all transmission and distribution (long-
-    distance or local) the same. Any capacity that is built will be kept
-    online indefinitely. At the end of its financial lifetime, existing
-    capacity will be retired and rebuilt, so the annual cost of a line
-    upgrade will remain constant in every future year. See notes in the
-    trans_build module for more a more detailed comparison to the old
-    SWITCH-WECC model.
+    Switch 2 treats all transmission and distribution (long- distance or local)
+    the same. Any capacity that is built will be kept online indefinitely. At
+    the end of its financial lifetime, existing capacity will be retired and
+    rebuilt, so the annual cost of a line upgrade will remain constant in every
+    future year. See notes in the trans_build module for a more detailed
+    comparison to Switch 1.
 
     """
 
     # Local T&D
-    mod.EXISTING_LOCAL_TD_BLD_YRS = Set(
-        dimen=2,
-        initialize=lambda m: set((z, 'Legacy') for z in m.LOAD_ZONES))
     mod.existing_local_td = Param(mod.LOAD_ZONES, within=NonNegativeReals)
     mod.min_data_check('existing_local_td')
-    mod.LOCAL_TD_BLD_YRS = Set(
-        dimen=2,
-        initialize=lambda m: set(
-            (m.LOAD_ZONES * m.PERIODS) | m.EXISTING_LOCAL_TD_BLD_YRS))
-    mod.LOCAL_TD_BUILDS_IN_PERIOD = Set(
-        mod.PERIODS,
-        within=mod.LOCAL_TD_BLD_YRS,
-        initialize=lambda m, p: set(
-            (z, bld_yr) for (z, bld_yr) in m.LOCAL_TD_BLD_YRS
-            if bld_yr <= p))
 
-    def bounds_BuildLocalTD(model, z, bld_yr):
-        if((z, bld_yr) in model.EXISTING_LOCAL_TD_BLD_YRS):
-            return (model.existing_local_td[z],
-                    model.existing_local_td[z])
-        else:
-            return (0, None)
     mod.BuildLocalTD = Var(
-        mod.LOCAL_TD_BLD_YRS,
-        within=NonNegativeReals,
-        bounds=bounds_BuildLocalTD)
+        mod.LOAD_ZONES, mod.PERIODS,
+        within=NonNegativeReals)
     mod.LocalTDCapacity = Expression(
         mod.LOAD_ZONES, mod.PERIODS,
-        rule=lambda m, z, period: sum(
-            m.BuildLocalTD[z, bld_yr]
-            for (z2, bld_yr) in m.LOCAL_TD_BLD_YRS
-            if z2 == z and (bld_yr == 'Legacy' or bld_yr <= period)))
+        rule=lambda m, z, period:
+            m.existing_local_td[z]
+            + sum(
+                m.BuildLocalTD[z, bld_yr]
+                for bld_yr in m.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD[period]
+        )
+    )
     mod.distribution_loss_rate = Param(default=0.053)
 
     mod.Meet_Local_TD = Constraint(
         mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS,
-        rule=lambda m, z, period: (
-            m.LocalTDCapacity[z, period] >= 
-                m.zone_expected_coincident_peak_demand[z, period]/(1-m.distribution_loss_rate)))
+        rule=lambda m, z, period:
+            m.LocalTDCapacity[z, period] * (1-m.distribution_loss_rate)
+            >=
+            m.zone_expected_coincident_peak_demand[z, period]
+    )
     mod.local_td_annual_cost_per_mw = Param(
         mod.LOAD_ZONES,
-        within=PositiveReals)
+        within=NonNegativeReals)
     mod.min_data_check('local_td_annual_cost_per_mw')
     mod.LocalTDFixedCosts = Expression(
         mod.PERIODS,
         doc="Summarize annual local T&D costs for the objective function.",
         rule=lambda m, p: sum(
-            m.BuildLocalTD[z, bld_yr] * m.local_td_annual_cost_per_mw[z]
-            for (z, bld_yr) in m.LOCAL_TD_BUILDS_IN_PERIOD[p]))
+            m.LocalTDCapacity[z, p] * m.local_td_annual_cost_per_mw[z]
+            for z in m.LOAD_ZONES))
     mod.Cost_Components_Per_Period.append('LocalTDFixedCosts')
 
 
@@ -242,15 +205,30 @@ def load_inputs(mod, switch_data, inputs_dir):
     """
 
     Import local transmission & distribution data. The following files
-    are expected in the input directory. load_zones.tab will
-    contain additional columns that are used by the load_zones module.
+    are expected in the input directory. Both files will
+    contain additional columns that are used by the load_zones module
+    and transmission.transport.build module.
 
-    load_zones.tab
+    load_zones.csv
         load_zone, existing_local_td, local_td_annual_cost_per_mw
 
+    trans_params.csv
+        distribution_loss_rate
+
+    If distribution_loss_rate is not specified, or if trans_params.csv doesn't
+    exist, mod.distribution_loss_rate will default to 0.053.
     """
 
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'load_zones.tab'),
+        filename=os.path.join(inputs_dir, 'load_zones.csv'),
         auto_select=True,
         param=(mod.existing_local_td, mod.local_td_annual_cost_per_mw))
+
+    switch_data.load_aug(
+        filename=os.path.join(inputs_dir, 'trans_params.csv'),
+        optional=True, auto_select=True,
+        optional_params=('distribution_loss_rate',),
+        param=(
+            mod.distribution_loss_rate
+        )
+    )

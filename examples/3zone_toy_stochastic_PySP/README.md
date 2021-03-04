@@ -112,7 +112,7 @@ The runef script has multiple options. Refer to PySP documentation for more
 specifications. A simple and effective way of solving this example problem is to 
 execute the following command from the /3zone_toy_stochastic_PySP directory:
 
-    >>>runef --model-directory=. --instance-directory=inputs/pysp_inputs --solve \
+    >>>runef --model-location=. --instance-directory=inputs/pysp_inputs --solve \
         --solver=glpk --output-solver-log --output-times --traceback \
         --solution-writer=pyomo.pysp.plugins.csvsolutionwriter
 
@@ -145,7 +145,7 @@ to .nl format as well). The user could then later apply a solver and obtain solu
 The runph script has multiple options. Refer to PySP documentation for more
 specifications. One way of solving a problem is to execute the following command:
 
-    >>>runph --model-directory=. --instance-directory=inputs/pysp_inputs \
+    >>>runph --model-location=. --instance-directory=inputs/pysp_inputs \
         --solver=gurobi --default-rho=1000.0 --traceback --rho-cfgfile=rhosetter.py \
         --solution-writer=pyomo.pysp.plugins.csvsolutionwriter \
         --output-scenario-tree-solution
@@ -165,7 +165,7 @@ lower bounds set in the core mathematical model, bounds can be added in a
 configuration file which is named pha_bounds_cfg.py in this example. To run
 progressive hedging with a linear solver such as glpk, use the following command:
 
-    >>>runph --model-directory=. --instance-directory=inputs/pysp_inputs \
+    >>>runph --model-location=. --instance-directory=inputs/pysp_inputs \
         --solver=glpk --default-rho=1000.0 --traceback \
         --rho-cfgfile=rhosetter.py \
         --solution-writer=pyomo.pysp.plugins.csvsolutionwriter \
@@ -173,14 +173,12 @@ progressive hedging with a linear solver such as glpk, use the following command
         --bounds-cfgfile=pha_bounds_cfg.py
 
 Note that the solutions from a linearized approximation will not be numerically
-equivalent to the quadratic solution. In our case, the expected cost of the
-objective function was 111525596.6761 in the linearized formulation and
-111517401.1370 in the quadratic formulation. The investment and operational
-decisions were similar but slightly different.
+equivalent to the quadratic solution. The obtained investment and operational
+decisions are similar, but slightly different.
 
 Another equivalent way of solving this example is to run the command:
 
-    >>>runph --model-directory=. --instance-directory=inputs/pysp_inputs \
+    >>>runph --model-location=. --instance-directory=inputs/pysp_inputs \
         --solver=gurobi --default-rho=1000.0 --traceback \
         --rho-cfgfile=rhosetter-FS-only.py \
         --solution-writer=pyomo.pysp.plugins.csvsolutionwriter \

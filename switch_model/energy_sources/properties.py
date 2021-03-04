@@ -1,9 +1,9 @@
-# Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
 Defines model components to describe both fuels and non-fuel energy sources
-for the SWITCH-Pyomo model.
+for the Switch model.
 
 """
 
@@ -43,7 +43,7 @@ def define_components(mod):
     including carbon intensity, costs, etc. These are described below.
     Fuels may be abbreviated as f in parameter names and indexes.
 
-    In this formulation of SWITCH, fuels are described in terms of heat
+    In this formulation of Switch, fuels are described in terms of heat
     content rather than mass. This simplifies some aspects of modeling,
     but it could be equally valid to describe fuels in terms of $/mass,
     heat_content/mass (high- heating value and low heating value),
@@ -62,6 +62,15 @@ def define_components(mod):
     (tCO2/MMBTU). This is non-zero for all carbon-based combustible
     fuels, including biomass. Currently the only fuel that can have a
     value of 0 for this is uranium.
+
+    f_nox_intensity[f], f_so2_intensity[f] and f_ch4_intensity[f]
+    describe the amount of nitrous oxide, sulphur
+    dioxide and methane emitted during electricity production for
+    a given fuel. Unlike f_co2_intensity, units are in metric tonnes
+    per MWh. Upstream emissions if any should be included in these parameters.
+    Defaults to 0. One potential source for these coefficients can be found
+    in this paper from the Argonne National Laboratory.
+    https://greet.es.anl.gov/publication-updated-elec-emissions
 
     f_upstream_co2_intensity[f] is the carbon emissions attributable to
     a fuel before it is consumed in units of tCO2/MMBTU. For sustainably
@@ -92,9 +101,13 @@ def define_components(mod):
 
     mod.NON_FUEL_ENERGY_SOURCES = Set()
     mod.FUELS = Set()
+
     mod.f_co2_intensity = Param(mod.FUELS, within=NonNegativeReals)
-    mod.f_upstream_co2_intensity = Param(
-        mod.FUELS, within=Reals, default=0)
+    mod.f_upstream_co2_intensity = Param(mod.FUELS, within=Reals, default=0)
+    mod.f_nox_intensity = Param(mod.FUELS, within=NonNegativeReals, default=0)
+    mod.f_so2_intensity = Param(mod.FUELS, within=NonNegativeReals, default=0)
+    mod.f_ch4_intensity = Param(mod.FUELS, within=NonNegativeReals, default=0)
+
     mod.min_data_check('f_co2_intensity')
     # Ensure that fuel and non-fuel sets have no overlap.
     mod.e_source_is_fuel_or_not_check = BuildCheck(
@@ -122,14 +135,14 @@ def load_inputs(mod, switch_data, inputs_dir):
     This could be theoretically derived from any energy sources in the
     generator_energy_sources file that are not listed in the fuels
     table, but that would mean any mispelled fuel or fuel that was
-    unlisted in fuels.tab would be automatically classified as a free
+    unlisted in fuels.csv would be automatically classified as a free
     renewable source.
 
-    non_fuel_energy_sources.tab
+    non_fuel_energy_sources.csv
         energy_source
 
-    fuels.tab
-        fuel, co2_intensity, upstream_co2_intensity
+    fuels.csv
+        fuel, co2_intensity, upstream_co2_intensity, nox_intensity, so2_intensity, ch4_intensity
 
     """
     # Include select in each load() function so that it will check out
@@ -138,11 +151,16 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'non_fuel_energy_sources.tab'),
+        filename=os.path.join(inputs_dir, 'non_fuel_energy_sources.csv'),
         set=('NON_FUEL_ENERGY_SOURCES'))
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'fuels.tab'),
-        select=('fuel', 'co2_intensity', 'upstream_co2_intensity'),
+        filename=os.path.join(inputs_dir, 'fuels.csv'),
+        select=(
+            'fuel', 'co2_intensity', 'upstream_co2_intensity', 'nox_intensity', 'so2_intensity', 'ch4_intensity',
+        ),
         index=mod.FUELS,
-        param=(mod.f_co2_intensity, mod.f_upstream_co2_intensity))
+        param=(
+            mod.f_co2_intensity, mod.f_upstream_co2_intensity, mod.f_nox_intensity,
+            mod.f_so2_intensity, mod.f_ch4_intensity
+        ))

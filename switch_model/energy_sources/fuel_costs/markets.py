@@ -1,11 +1,12 @@
-# Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
-Defines model components to describe fuel markets for the SWITCH-Pyomo
+Defines model components to describe fuel markets for the Switch
 model.
 
 """
+from __future__ import division
 
 import os
 import csv
@@ -75,8 +76,8 @@ def define_components(mod):
 
     ConsumeFuelTier[rfm, period, tier] is a decision variable that
     denotes the amount of fuel consumed in each tier of a supply curve
-    in a particular regional fuel market and period. It has an upper bound
-    of rfm_supply_tier_limit.
+    in a particular regional fuel market and period (MMBtu/year). It
+    has an upper bound of rfm_supply_tier_limit.
 
     FuelConsumptionInMarket[rfm, period] is a derived decision variable
     specifying the total amount of fuel consumed in a regional fuel
@@ -117,7 +118,7 @@ def define_components(mod):
     single load zone with a single supply tier that has no upper bound.
     See load_inputs() function documentation below for more details.
 
-    In SWITCH-WECC, biomass regional fuel markets are defined for each
+    In Switch-WECC, biomass regional fuel markets are defined for each
     load area due to relatively high transportation costs, while natural
     gas regional fuel markets span the entire WECC region reflecting the
     interconnectedness of the pipelines. Prices can differ between load
@@ -132,16 +133,16 @@ def define_components(mod):
     over all load zones in the regional fuel market. The model could be
     adjusted to aggregate consumption over other time scales, but
     currently only annual aggregation is implemented for supply curves.
-    This version of SWITCH does not distinguish costs incurred by
+    This version of Switch does not distinguish costs incurred by
     different fuel consumers within a regional fuel market.
 
-    This version of SWITCH does not include producer surplus, so the
+    This version of Switch does not include producer surplus, so the
     aggregate cost paid for a given level of consumption does not
-    reflect a market clearing price. SWITCH looks for societally and
+    reflect a market clearing price. Switch looks for societally and
     technically optimal solutions on the efficiency frontier that
     minimizes total costs, while trying to avoid embedding assumptions
     about market structure and dynamics. There are two primary
-    motivations for this approach. First, many applications of SWITCH
+    motivations for this approach. First, many applications of Switch
     are for non-markets contexts of regulated utilities or state-owned
     utilities. Second, we don't currently know how electricity markets
     should be structured in high-renewable futures to incentivize
@@ -157,7 +158,7 @@ def define_components(mod):
     know what the future of energy institutions or markets will hold,
     and I don't want to limit the technical possibilities with market
     structures from the past. One of our hopes is results from
-    optimization models such as  SWITCH can inform future market and
+    optimization models such as  Switch can inform future market and
     institutional restructuring to ensure that our societal goals are
     achieved cost-effectively.
 
@@ -180,9 +181,9 @@ def define_components(mod):
     with the fuel are a much larger driver of consumption than the fuel
     costs.
 
-    GEN_TPS_FOR_RFM_PERIOD[regional_fuel_market, period] is an indexed set
-    of GEN_TP_FUELS that contribute to a given regional
-    fuel market's activity in a given period.
+    GENS_FOR_RFM_PERIOD[regional_fuel_market, period] is an indexed set
+    of GENS that contribute to a given regional fuel market's activity
+    in a given period.
 
     Enforce_Fuel_Consumption is a constraint that ties the aggregate
     fuel consumption from dispatch into FuelConsumptionInMarket variable
@@ -232,7 +233,7 @@ def define_components(mod):
     mod.rfm_supply_tier_cost = Param(
         mod.RFM_SUPPLY_TIERS, within=Reals)
     mod.rfm_supply_tier_limit = Param(
-        mod.RFM_SUPPLY_TIERS, within=PositiveReals, default=float('inf'))
+        mod.RFM_SUPPLY_TIERS, within=NonNegativeReals, default=float('inf'))
     mod.min_data_check(
         'RFM_SUPPLY_TIERS', 'rfm_supply_tier_cost', 'rfm_supply_tier_limit')
     mod.SUPPLY_TIERS_FOR_RFM_PERIOD = Set(
@@ -291,19 +292,36 @@ def define_components(mod):
 
     # Components to link aggregate fuel consumption from project
     # dispatch into market framework
-    mod.GEN_TPS_FOR_RFM_PERIOD = Set(
-        mod.REGIONAL_FUEL_MARKETS, mod.PERIODS,
-        within=mod.GEN_TP_FUELS,
-        initialize=lambda m, rfm, p: [
-            (g, t, f) for (g, t, f) in m.GEN_TP_FUELS
-            if f == m.rfm_fuel[rfm] and
-            m.gen_load_zone[g] in m.ZONES_IN_RFM[rfm] and
-            m.tp_period[t] == p])
 
+    def GENS_FOR_RFM_PERIOD_rule(m, rfm, p):
+        # Construct and cache a set of gens for each zone/fuel/period, then
+        # return lists of gens for each rfm/period as needed
+        try:
+            d = m.GENS_FOR_RFM_PERIOD_dict
+        except AttributeError:
+            d = m.GENS_FOR_RFM_PERIOD_dict = dict()
+            # d uses (zone, fuel, period) as key; could use (rfm, period) as key
+            # if m.zone_fuel_rfm (back-lookup) existed
+            for g in m.FUEL_BASED_GENS:
+                for f in m.FUELS_FOR_GEN[g]:
+                    for p_ in m.PERIODS_FOR_GEN[g]:
+                        d.setdefault((m.gen_load_zone[g], f, p_), []).append(g)
+        relevant_gens = [
+            g
+            for z in m.ZONES_IN_RFM[rfm]
+            for g in d.pop((z, m.rfm_fuel[rfm], p), []) # pop releases memory
+        ]
+        return relevant_gens
+    mod.GENS_FOR_RFM_PERIOD = Set(
+        mod.REGIONAL_FUEL_MARKETS, mod.PERIODS,
+        initialize=GENS_FOR_RFM_PERIOD_rule
+    )
     def Enforce_Fuel_Consumption_rule(m, rfm, p):
         return m.FuelConsumptionInMarket[rfm, p] == sum(
-            m.GenFuelUseRate[g, t, f] * m.tp_weight_in_year[t]
-            for (g, t, f) in m.GEN_TPS_FOR_RFM_PERIOD[rfm, p])
+            m.GenFuelUseRate[g, t, m.rfm_fuel[rfm]] * m.tp_weight_in_year[t]
+            for g in m.GENS_FOR_RFM_PERIOD[rfm, p]
+            for t in m.TPS_IN_PERIOD[p]
+    )
     mod.Enforce_Fuel_Consumption = Constraint(
         mod.REGIONAL_FUEL_MARKETS, mod.PERIODS,
         rule=Enforce_Fuel_Consumption_rule)
@@ -333,19 +351,19 @@ def load_inputs(mod, switch_data, inputs_dir):
     Import fuel market data. The following files are expected in the
     input directory:
 
-    regional_fuel_markets.tab:
+    regional_fuel_markets.csv:
         regional_fuel_market, fuel
 
-    fuel_supply_curves.tab
+    fuel_supply_curves.csv
         regional_fuel_market, period, tier, unit_cost, max_avail_at_cost
 
-    zone_to_regional_fuel_market.tab
+    zone_to_regional_fuel_market.csv
         load_zone, regional_fuel_market
 
     The next file is optional. If unspecified, zone_fuel_cost_adder will
     default to 0 for all load zones and periods.
 
-    zone_fuel_cost_diff.tab
+    zone_fuel_cost_diff.csv
         load_zone, fuel, period, fuel_cost_adder
 
     The next file is also optional. This file allows simple
@@ -356,7 +374,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     this  file is accomplished through the internal
     _load_simple_cost_data function.
 
-    fuel_cost.tab
+    fuel_cost.csv
         load_zone, fuel, period, fuel_cost
 
     """
@@ -365,21 +383,21 @@ def load_inputs(mod, switch_data, inputs_dir):
     # message if some columns are not found.
 
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'regional_fuel_markets.tab'),
+        filename=os.path.join(inputs_dir, 'regional_fuel_markets.csv'),
         select=('regional_fuel_market', 'fuel'),
         index=mod.REGIONAL_FUEL_MARKETS,
         param=(mod.rfm_fuel))
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'fuel_supply_curves.tab'),
+        filename=os.path.join(inputs_dir, 'fuel_supply_curves.csv'),
         select=('regional_fuel_market', 'period', 'tier', 'unit_cost',
                 'max_avail_at_cost'),
         index=mod.RFM_SUPPLY_TIERS,
         param=(mod.rfm_supply_tier_cost, mod.rfm_supply_tier_limit))
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'zone_to_regional_fuel_market.tab'),
+        filename=os.path.join(inputs_dir, 'zone_to_regional_fuel_market.csv'),
         set=mod.ZONE_RFMS)
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'zone_fuel_cost_diff.tab'),
+        filename=os.path.join(inputs_dir, 'zone_fuel_cost_diff.csv'),
         optional=True,
         select=('load_zone', 'fuel', 'period', 'fuel_cost_adder'),
         param=(mod.zone_fuel_cost_adder))
@@ -387,14 +405,14 @@ def load_inputs(mod, switch_data, inputs_dir):
     # Load a simple specifications of costs if the file exists. The
     # actual loading, error checking, and casting into a supply curve is
     # slightly complicated, so I moved that logic to a separate function.
-    path = os.path.join(inputs_dir, 'fuel_cost.tab')
+    path = os.path.join(inputs_dir, 'fuel_cost.csv')
     if os.path.isfile(path):
         _load_simple_cost_data(mod, switch_data, path)
 
 
 def _load_simple_cost_data(mod, switch_data, path):
-    with open(path, 'rb') as simple_cost_file:
-        simple_cost_dat = list(csv.DictReader(simple_cost_file, delimiter='	'))
+    with open(path, 'r') as simple_cost_file:
+        simple_cost_dat = list(csv.DictReader(simple_cost_file, delimiter=','))
         # Scan once for error checking
         for row in simple_cost_dat:
             z = row['load_zone']
@@ -404,15 +422,15 @@ def _load_simple_cost_data(mod, switch_data, path):
             # Basic data validity checks
             if z not in switch_data.data(name='LOAD_ZONES'):
                 raise ValueError(
-                    "Load zone " + z + " in zone_simple_fuel_cost.tab is not " +
-                    "a known load zone from load_zones.tab.")
+                    "Load zone " + z + " in zone_simple_fuel_cost.csv is not " +
+                    "a known load zone from load_zones.csv.")
             if f not in switch_data.data(name='FUELS'):
                 raise ValueError(
-                    "Fuel " + f + " in zone_simple_fuel_cost.tab is not " +
-                    "a known fuel from fuels.tab.")
+                    "Fuel " + f + " in zone_simple_fuel_cost.csv is not " +
+                    "a known fuel from fuels.csv.")
             if p not in switch_data.data(name='PERIODS'):
                 raise ValueError(
-                    "Period " + p + " in zone_simple_fuel_cost.tab is not " +
+                    "Period " + p + " in zone_simple_fuel_cost.csv is not " +
                     "a known investment period.")
             # Make sure they aren't overriding a supply curve or
             # regional fuel market defined in previous files.
@@ -424,15 +442,15 @@ def _load_simple_cost_data(mod, switch_data, path):
                         "' was already registered with the regional fuel " +
                         "market '" + rfm + "', so you cannot " +
                         "specify a simple fuel cost for it in " +
-                        "zone_simple_fuel_cost.tab. You either need to delete " +
-                        "that entry from zone_to_regional_fuel_market.tab, or " +
-                        "remove those entries in zone_simple_fuel_cost.tab.")
+                        "zone_simple_fuel_cost.csv. You either need to delete " +
+                        "that entry from zone_to_regional_fuel_market.csv, or " +
+                        "remove those entries in zone_simple_fuel_cost.csv.")
             # Make a new single-load zone regional fuel market.
             rfm = z + "_" + f
             if rfm in switch_data.data(name='REGIONAL_FUEL_MARKETS'):
                 raise ValueError(
                     "Trying to construct a simple Regional Fuel Market " +
-                    "called " + rfm + " from data in zone_simple_fuel_cost.tab" +
+                    "called " + rfm + " from data in zone_simple_fuel_cost.csv" +
                     ", but an RFM of that name already exists. Bailing out!")
         # Scan again and actually import the data
         for row in simple_cost_dat:

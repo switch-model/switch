@@ -10,7 +10,7 @@ from pyomo.environ import *
 
 dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
     'switch_model.financials', 'switch_model.energy_sources.properties',\
-    'switch_model.generators.core.build', 'switch_model.investment.gen_discrete_build',\
+    'switch_model.generators.core.build',\
     'switch_model.generators.core.dispatch', 'switch_model.operations.unitcommit'
 
 def define_components(mod):
@@ -21,7 +21,7 @@ def define_components(mod):
     Unless otherwise stated, all power capacity is specified in units of
     MW and all sets and parameters are mandatory.
 
-    GEN_TPS_DISCRETE is a subset of GEN_TPS
+    DISCRETE_GEN_TPS is a subset of GEN_TPS
     that only includes projects that have gen_unit_size defined.
 
     CommitGenUnits[(g, bld_yr) in GEN_BLD_YRS_DISCRETE] is an
@@ -48,15 +48,16 @@ def define_components(mod):
 
     """
 
-    mod.GEN_TPS_DISCRETE = Set(
-        initialize=mod.GEN_TPS,
-        filter=lambda m, g, t: (
-            g in m.DISCRETELY_SIZED_GENS))
+    mod.DISCRETE_GEN_TPS = Set(
+        dimen=2,
+        initialize=lambda m:
+            [(g, t) for g in m.DISCRETELY_SIZED_GENS for t in m.TPS_FOR_GEN[g]]
+    )
     mod.CommitGenUnits = Var(
-        mod.GEN_TPS_DISCRETE,
+        mod.DISCRETE_GEN_TPS,
         within=NonNegativeIntegers)
     mod.Commit_Units_Consistency = Constraint(
-        mod.GEN_TPS_DISCRETE,
+        mod.DISCRETE_GEN_TPS,
         rule=lambda m, g, t: (
-            m.CommitGen[g, t] == m.CommitGenUnits[g, t] * 
+            m.CommitGen[g, t] == m.CommitGenUnits[g, t] *
             m.gen_unit_size[g] * m.gen_availability[g]))

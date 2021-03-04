@@ -1,4 +1,5 @@
 import argparse, os, collections
+from switch_model.utilities import string_types
 
 try:
     import fcntl
@@ -8,7 +9,7 @@ try:
         fcntl.flock(f, fcntl.LOCK_UN)
 except ImportError:
     # probably using windows
-    # rely on opportunistic file writing (hope that scenarios aren't 
+    # rely on opportunistic file writing (hope that scenarios aren't
     # added to completed_scenarios.txt at the same time by parallel processes)
     # TODO: add support for file locking on windows, e.g., like
     # https://www.safaribooksonline.com/library/view/python-cookbook/0596001673/ch04s25.html
@@ -19,7 +20,7 @@ except ImportError:
 
 def iterify(item):
     """Return an iterable for the one or more items passed."""
-    if isinstance(item, basestring):
+    if isinstance(item, string_types):
         i = iter([item])
     else:
         try:
@@ -64,7 +65,7 @@ parser.add_argument(action=AddModuleAction, dest='include_module', nargs='*')
 
 def args_dict(*a):
     """call the parser to get the args, then return them as a dictionary, omitting None's'"""
-    return {k: v for k, v in vars(parser.parse_args(*a)).iteritems() if v is not None}
+    return {k: v for k, v in vars(parser.parse_args(*a)).items() if v is not None}
 
 # report current command line arguments for use by various functions
 # This is a function instead of a constant, so users can call
@@ -73,7 +74,7 @@ def cmd_line_args():
     return args_dict()
 
 def get_required_scenario_names():
-    """Return list of names of scenario(s) that were requested or defined from the command line 
+    """Return list of names of scenario(s) that were requested or defined from the command line
     via --scenario[s] or --scenario-name.
     Return an empty list if none were requested/defined."""
     a = cmd_line_args()
@@ -91,11 +92,11 @@ def get_required_scenario_names():
 
 def start_next_standard_scenario():
     """find the next scenario definition in 'scenarios_to_run.txt' that isn't reported
-    as having been completed in 'completed_scenarios.txt'. 
-    Then report it as completed and return the scenario arguments 
+    as having been completed in 'completed_scenarios.txt'.
+    Then report it as completed and return the scenario arguments
     (including any modifications from the command line)."""
     scenarios_list = get_standard_scenarios_dict()
-    for (s, args) in scenarios_list.iteritems():
+    for (s, args) in scenarios_list.items():
         if scenario_already_run(s):
             continue
         else:
@@ -113,7 +114,7 @@ def get_scenario_args(scenario):
             raise RuntimeError("Scenario {s} has not been defined.".format(s=scenario))
         else:
             return merge_scenarios(scenario_list[scenario], cmd_line_args())
-        
+
 def get_standard_scenarios_dict():
     """Return collection of standard scenarios, as defined in scenarios_to_run.txt.
     They are returned as an OrderedDict with keys equal to the scenario names and values
@@ -127,7 +128,7 @@ def get_standard_scenarios_dict():
         funlock(f)
     args_list = [args_dict(s.split(' ')) for s in scenarios_list]
     return collections.OrderedDict([(s["scenario_name"], s) for s in args_list])
-        
+
 def merge_scenarios(*scenarios):
     # combine scenarios: start with the first and then apply most settings from later ones
     # but concatenate "tag" entries and remove "scenario_to_run" entries
@@ -145,13 +146,13 @@ def report_completed_scenario(scenario):
     scenario_already_run(scenario)
 
 def scenario_already_run(scenario):
-    """Add the specified scenario to the list in completed_scenarios.txt. 
+    """Add the specified scenario to the list in completed_scenarios.txt.
     Return False if it wasn't there already."""
     with open('completed_scenarios.txt', 'a+') as f:
         # wait for exclusive access to the list (to avoid writing the same scenario twice in a race condition)
         flock(f)
         # file starts with pointer at end; move to start
-        f.seek(0, 0)                    
+        f.seek(0, 0)
         if scenario + '\n' in f:
             already_run = True
         else:

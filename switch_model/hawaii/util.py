@@ -1,3 +1,5 @@
+from __future__ import print_function
+from switch_model.utilities import string_types
 import csv, sys, time, itertools
 from pyomo.environ import value
 import __main__ as main
@@ -6,10 +8,10 @@ import __main__ as main
 # (if not, there will be no __main__.__file__)
 interactive_session = not hasattr(main, '__file__')
 
-csv.register_dialect("ampl-tab", 
-    delimiter="\t", 
+csv.register_dialect("switch-csv",
+    delimiter=",",
     lineterminator="\n",
-    doublequote=False, escapechar="\\", 
+    doublequote=False, escapechar="\\",
     quotechar='"', quoting=csv.QUOTE_MINIMAL,
     skipinitialspace = False
 )
@@ -19,28 +21,28 @@ def create_table(**kwargs):
     output_file = kwargs["output_file"]
     headings = kwargs["headings"]
 
-    with open(output_file, 'wb') as f:
-        w = csv.writer(f, dialect="ampl-tab")
+    with open(output_file, 'w') as f:
+        w = csv.writer(f, dialect="switch-csv")
         # write header row
         w.writerow(list(headings))
 
 def append_table(model, *indexes, **kwargs):
-    """Add rows to an output table, iterating over the indexes specified, 
+    """Add rows to an output table, iterating over the indexes specified,
     and getting row data from the values function specified."""
     output_file = kwargs["output_file"]
     values = kwargs["values"]
 
-    # create a master indexing set 
+    # create a master indexing set
     # this is a list of lists, even if only one list was specified
     idx = itertools.product(*indexes)
-    with open(output_file, 'ab') as f:
-        w = csv.writer(f, dialect="ampl-tab")
+    with open(output_file, 'a') as f:
+        w = csv.writer(f, dialect="switch-csv")
         # write the data
         # import pdb
         # if 'rfm' in output_file:
         #     pdb.set_trace()
         w.writerows(
-            tuple(value(v) for v in values(model, *unpack_elements(x))) 
+            tuple(value(v) for v in values(model, *unpack_elements(x)))
             for x in idx
         )
 
@@ -50,7 +52,7 @@ def unpack_elements(tup):
     This is used to flatten the product of a multi-dimensional index with anything else."""
     l=[]
     for t in tup:
-        if isinstance(t, basestring):
+        if isinstance(t, string_types):
             l.append(t)
         else:
             try:
@@ -66,27 +68,25 @@ def write_table(model, *indexes, **kwargs):
     """Write an output table in one shot - headers and body."""
     output_file = kwargs["output_file"]
 
-    print "Writing {file} ...".format(file=output_file),
+    print("Writing {file} ...".format(file=output_file), end=' ')
     sys.stdout.flush()  # display the part line to the user
     start=time.time()
 
     create_table(**kwargs)
     append_table(model, *indexes, **kwargs)
 
-    print "time taken: {dur:.2f}s".format(dur=time.time()-start)
+    print("time taken: {dur:.2f}s".format(dur=time.time()-start))
 
 def get(component, index, default=None):
     """Return an element from an indexed component, or the default value if the index is invalid."""
     return component[index] if index in component else default
-    
+
 def log(msg):
     sys.stdout.write(msg)
     sys.stdout.flush()  # display output to the user, even a partial line
-    
+
 def tic():
     tic.start_time = time.time()
 
 def toc():
     log("time taken: {dur:.2f}s\n".format(dur=time.time()-tic.start_time))
-
-

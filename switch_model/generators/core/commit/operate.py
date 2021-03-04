@@ -3,12 +3,13 @@
 
 """
 Defines model components to describe unit commitment of projects for the
-SWITCH-Pyomo model. This module is mutually exclusive with the
+Switch model. This module is mutually exclusive with the
 operations.no_commit module which specifies simplified dispatch
 constraints. If you want to use this module directly in a list of switch
 modules (instead of including the package operations.unitcommit), you will also
 need to include the module operations.unitcommit.fuel_use.
 """
+from __future__ import division
 
 import os, itertools
 from pyomo.environ import *
@@ -23,7 +24,7 @@ def define_components(mod):
     """
 
     Adds components to a Pyomo abstract model object to describe
-    unit commitment for gects. Unless otherwise stated, all power
+    unit commitment for projects. Unless otherwise stated, all power
     capacity is specified in units of MW and all sets and parameters
     are mandatory.
 
@@ -83,9 +84,9 @@ def define_components(mod):
     The capacity started up or shutdown is completely determined by
     the change in CommitGen from one hour to the next, but we can't
     calculate these directly within the linear program because linear
-    programs don't have if statements. Instead, we'll define extra decision 
-    variables that are tightly constrained. Since startup incurs costs and 
-    shutdown does not, the linear program will not simultaneously set both 
+    programs don't have if statements. Instead, we'll define extra decision
+    variables that are tightly constrained. Since startup incurs costs and
+    shutdown does not, the linear program will not simultaneously set both
     of these to non-zero values.
 
     StartupGenCapacity[(g, t) in GEN_TPS] is a decision variable
@@ -136,7 +137,7 @@ def define_components(mod):
     downtime constraints are active. These are the indexing sets for the
     Enforce_Min_Uptime and Enforce_Min_Downtime constraints, and are
     probably not useful elsewhere.
-    
+
     Enforce_Min_Uptime[(g, tp) in UPTIME_CONSTRAINED_GEN_TPS] and
     Enforce_Min_Downtime[(g, tp) in DOWNTIME_CONSTRAINED_GEN_TPS]
     are constraints that ensure that unit commitment respects the minimum
@@ -158,7 +159,7 @@ def define_components(mod):
     rules. On the other hand any capacity that could have been committed
     at some point in the lookback window can be startup now, possibly
     replacing other units that were shutdown recently.
-    
+
     -- Dispatch limits based on committed capacity --
 
     gen_min_load_fraction[g] describes the minimum loading level of a
@@ -174,7 +175,7 @@ def define_components(mod):
     gen_min_load_fraction, but has separate entries for each timepoint.
     This could be used, for example, for non-curtailable renewable energy
     projects. This defaults to the value of gen_min_load_fraction[g].
-    
+
     gen_min_cap_factor[(g, t) in GEN_TPS] describes the
     minimum loadding level for each project and timepoint as a fraction
     of committed capacity. This is an optional parameter that defaults
@@ -262,23 +263,25 @@ def define_components(mod):
         within=NonNegativeReals)
     mod.Commit_StartupGenCapacity_ShutdownGenCapacity_Consistency = Constraint(
         mod.GEN_TPS,
-        rule=lambda m, g, t: 
-            m.CommitGen[g, m.tp_previous[t]] 
-            + m.StartupGenCapacity[g, t] - m.ShutdownGenCapacity[g, t] 
+        rule=lambda m, g, t:
+            m.CommitGen[g, m.tp_previous[t]]
+            + m.StartupGenCapacity[g, t] - m.ShutdownGenCapacity[g, t]
             == m.CommitGen[g, t])
-    
+
     # StartupGenCapacity costs
     mod.gen_startup_fuel = Param(mod.FUEL_BASED_GENS, default=0.0)
     mod.gen_startup_om = Param(mod.GENERATION_PROJECTS, default=0.0)
-    # StartupGenCapacity costs need to be divided over the duration of the
-    # timepoint because it is a one-time expenditure in units of $
-    # but Cost_Components_Per_TP requires an hourly cost rate in $ / hr.
+    # Note: lump-sum startup O&M cost is divided by the duration of the
+    # timepoint to give a cost-per-hour during this timepoint, as needed by
+    # Cost_Components_Per_TP.
     mod.Total_StartupGenCapacity_OM_Costs = Expression(
         mod.TIMEPOINTS,
         rule=lambda m, t: sum(
-            m.gen_startup_om[g] * m.StartupGenCapacity[g, t] / m.tp_duration_hrs[t]
-            for (g, t2) in m.GEN_TPS
-            if t == t2))
+            m.gen_startup_om[g] * m.StartupGenCapacity[g, t]
+            / m.tp_duration_hrs[t]
+            for g in m.GENS_IN_PERIOD[m.tp_period[t]]
+        )
+    )
     mod.Cost_Components_Per_TP.append('Total_StartupGenCapacity_OM_Costs')
 
     mod.gen_min_uptime = Param(
@@ -290,16 +293,16 @@ def define_components(mod):
         within=NonNegativeReals,
         default=0.0)
     mod.UPTIME_CONSTRAINED_GEN_TPS = Set(dimen=2, initialize=lambda m: [
-        (g, tp) 
+        (g, tp)
             for g in m.GENERATION_PROJECTS if m.gen_min_uptime[g] > 0.0
-                for tp in m.TPS_FOR_GEN[g] 
+                for tp in m.TPS_FOR_GEN[g]
     ])
     mod.DOWNTIME_CONSTRAINED_GEN_TPS = Set(dimen=2, initialize=lambda m: [
-        (g, tp) 
+        (g, tp)
             for g in m.GENERATION_PROJECTS if m.gen_min_downtime[g] > 0.0
-                for tp in m.TPS_FOR_GEN[g] 
+                for tp in m.TPS_FOR_GEN[g]
     ])
-    
+
     def tp_prev(m, tp, n=1):
         # find nth previous timepoint, wrapping from start to end of day
         return m.TPS_IN_TS[m.tp_ts[tp]].prevw(tp, n)
@@ -308,14 +311,14 @@ def define_components(mod):
         """ This uses a simple rule: all capacity turned on in the last x
         hours must still be on now (or all capacity recently turned off
         must still be off)."""
-        
+
         # how many timepoints must the project stay on/off once it's
         # started/shutdown?
-        # note: StartupGenCapacity and ShutdownGenCapacity are assumed to occur at the start of 
-        # the timepoint
+        # note: StartupGenCapacity and ShutdownGenCapacity are assumed to
+        # occur at the start of the timepoint
         n_tp = int(round(
             (m.gen_min_uptime[g] if up else m.gen_min_downtime[g])
-            / m.ts_duration_of_tp[m.tp_ts[tp]]
+            / m.tp_duration_hrs[tp]
         ))
         if n_tp == 0:
             # project can be shutdown and restarted in the same timepoint
@@ -325,41 +328,49 @@ def define_components(mod):
             # behavior of range()), because the current timepoint is
             # included in the duration when the capacity will be on/off.
             if up:
-                rule = (    
-                    # online capacity >= recent startups 
+                rule = (
+                    # online capacity >= recent startups
                     # (all recent startups are still online)
-                    m.CommitGen[g, tp] 
-                    >= 
-                    sum(m.StartupGenCapacity[g, tp_prev(m, tp, i)] for i in range(n_tp))
+                    m.CommitGen[g, tp]
+                    >=
+                    sum(
+                        m.StartupGenCapacity[g, tp_prev(m, tp, i)]
+                        for i in range(n_tp)
+                    )
                 )
             else:
                 # Find the largest fraction of capacity that could have
                 # been committed in the last x hours, including the
                 # current hour. We assume that everything above this band
-                # must remain turned off (e.g., on maintenance outage). 
+                # must remain turned off (e.g., on maintenance outage).
                 # Note: this band extends one step prior to the first
                 # relevant shutdown, since that capacity could have been
                 # online in the prior step.
                 committable_fraction = m.gen_availability[g] * max(
-                    m.gen_max_commit_fraction[g, tp_prev(m, tp, i)] 
+                    m.gen_max_commit_fraction[g, tp_prev(m, tp, i)]
                         for i in range(n_tp+1)
                 )
-                rule = (    
+                rule = (
                     # committable capacity - committed >= recent shutdowns
                     # (all recent shutdowns are still offline)
                     m.GenCapacityInTP[g, tp] * committable_fraction
-                    - m.CommitGen[g, tp] 
-                    >= 
-                    sum(m.ShutdownGenCapacity[g, tp_prev(m, tp, i)] for i in range(n_tp))
+                    - m.CommitGen[g, tp]
+                    >=
+                    sum(
+                        m.ShutdownGenCapacity[g, tp_prev(m, tp, i)]
+                        for i in range(n_tp)
+                    )
                 )
         return rule
     mod.Enforce_Min_Uptime = Constraint(
-        mod.UPTIME_CONSTRAINED_GEN_TPS, rule=lambda *a: min_time_rule(*a, up=True)
+        mod.UPTIME_CONSTRAINED_GEN_TPS,
+        rule=lambda *a: min_time_rule(*a, up=True)
     )
     mod.Enforce_Min_Downtime = Constraint(
-        mod.DOWNTIME_CONSTRAINED_GEN_TPS, rule=lambda *a: min_time_rule(*a, up=False)
+        mod.DOWNTIME_CONSTRAINED_GEN_TPS,
+        rule=lambda *a: min_time_rule(*a, up=False)
     )
-    
+
     # Dispatch limits relative to committed capacity.
     mod.gen_min_load_fraction = Param(
         mod.GENERATION_PROJECTS,
@@ -408,27 +419,28 @@ def load_inputs(mod, switch_data, inputs_dir):
     If you only want to override default values for certain columns in a
     row, insert a dot . into the other columns.
 
-    generation_projects_info.tab
-        GENERATION_PROJECT, gen_min_load_fraction, gen_startup_fuel, gen_startup_om
+    generation_projects_info.csv
+        GENERATION_PROJECT, gen_min_load_fraction, gen_startup_fuel,
+        gen_startup_om
 
     Note: If you need to specify minimum loading fraction or startup
     costs for a non-fuel based generator, you must put a dot . in the
     gen_startup_fuel column to avoid an error.
 
-    gen_timepoint_commit_bounds.tab
+    gen_timepoint_commit_bounds.csv
         GENERATION_PROJECT, TIMEPOINT, gen_min_commit_fraction_TP,
         gen_max_commit_fraction_TP, gen_min_load_fraction_TP
 
     """
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'generation_projects_info.tab'),
+        filename=os.path.join(inputs_dir, 'generation_projects_info.csv'),
         auto_select=True,
         param=(mod.gen_min_load_fraction, mod.gen_startup_fuel,
                mod.gen_startup_om, mod.gen_min_uptime, mod.gen_min_downtime))
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'gen_timepoint_commit_bounds.tab'),
+        filename=os.path.join(inputs_dir, 'gen_timepoint_commit_bounds.csv'),
         auto_select=True,
-        param=(mod.gen_min_commit_fraction, 
+        param=(mod.gen_min_commit_fraction,
             mod.gen_max_commit_fraction, mod.gen_min_load_fraction_TP))

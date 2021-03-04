@@ -19,9 +19,9 @@ set Children[RootNode] :=
     HighFuelCosts;
 
 param ConditionalProbability := RootNode 1.0
-    LowFuelCosts 0.333333333333
-    MediumFuelCosts 0.333333333333
-    HighFuelCosts 0.333333333333;
+    LowFuelCosts 0.3333333333333333
+    MediumFuelCosts 0.3333333333333333
+    HighFuelCosts 0.33333333333333337;
 
 set Scenarios :=  
     Scenario_LowFuelCosts

@@ -1,8 +1,8 @@
-# Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
-Defines load zone parameters for the SWITCH-Pyomo model.
+Defines load zone parameters for the Switch model.
 """
 import os
 from pyomo.environ import *
@@ -68,7 +68,7 @@ def define_components(mod):
     use zone_expected_coincident_peak_demand as well as load timeseries. Do not
     specify this parameter if you wish for the model to endogenously determine
     capacity requirements after accounting for both load and Distributed
-    Energy Resources (DER). 
+    Energy Resources (DER).
 
     Derived parameters:
 
@@ -92,9 +92,9 @@ def define_components(mod):
         mod.LOAD_ZONES,
         default=lambda m, z: z)
     mod.min_data_check('LOAD_ZONES', 'zone_demand_mw')
-    if 'Distributed_Power_Withdrawals' in dir(mod):
+    try:
         mod.Distributed_Power_Withdrawals.append('zone_demand_mw')
-    else:
+    except AttributeError:
         mod.Zone_Power_Withdrawals.append('zone_demand_mw')
 
     mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS = Set(
@@ -114,7 +114,7 @@ def define_components(mod):
 def define_dynamic_components(mod):
     """
     Adds components to a Pyomo abstract model object to enforce the
-    first law of thermodynamics at the level of load zone busses. Unless
+    first law of thermodynamics at the level of load zone buses. Unless
     otherwise stated, all terms describing power are in units of MW and
     all terms describing energy are in units of MWh.
 
@@ -148,13 +148,13 @@ def load_inputs(mod, switch_data, inputs_dir):
     optional parameter, use a dot . for its value. Optional columns and
     files are noted with a *.
 
-    load_zones.tab
+    load_zones.csv
         LOAD_ZONE, zone_ccs_distance_km*, zone_dbid*
 
-    loads.tab
+    loads.csv
         LOAD_ZONE, TIMEPOINT, zone_demand_mw
 
-    zone_coincident_peak_demand.tab*
+    zone_coincident_peak_demand.csv*
         LOAD_ZONE, PERIOD, zone_expected_coincident_peak_demand
 
     """
@@ -162,17 +162,17 @@ def load_inputs(mod, switch_data, inputs_dir):
     # column names, be indifferent to column order, and throw an error
     # message if some columns are not found.
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'load_zones.tab'),
+        filename=os.path.join(inputs_dir, 'load_zones.csv'),
         auto_select=True,
         index=mod.LOAD_ZONES,
         param=(mod.zone_ccs_distance_km, mod.zone_dbid))
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'loads.tab'),
+        filename=os.path.join(inputs_dir, 'loads.csv'),
         auto_select=True,
         param=(mod.zone_demand_mw))
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'zone_coincident_peak_demand.tab'),
+        filename=os.path.join(inputs_dir, 'zone_coincident_peak_demand.csv'),
         index=mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS,
         select=('LOAD_ZONE', 'PERIOD', 'zone_expected_coincident_peak_demand'),
         param=(mod.zone_expected_coincident_peak_demand))
@@ -181,8 +181,8 @@ def load_inputs(mod, switch_data, inputs_dir):
 def post_solve(instance, outdir):
     """
     Export results.
-    
-    load_balance.txt is a wide table of energy balance components for every
+
+    load_balance.csv is a wide table of energy balance components for every
     zone and timepoint. Each component registered with
     Zone_Power_Injections and Zone_Power_Withdrawals will
     become a column.
@@ -190,7 +190,7 @@ def post_solve(instance, outdir):
     """
     write_table(
         instance, instance.LOAD_ZONES, instance.TIMEPOINTS,
-        output_file=os.path.join(outdir, "load_balance.txt"),
+        output_file=os.path.join(outdir, "load_balance.csv"),
         headings=("load_zone", "timestamp",) + tuple(
             instance.Zone_Power_Injections +
             instance.Zone_Power_Withdrawals),

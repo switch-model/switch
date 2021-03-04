@@ -1,0 +1,3 @@
+RESERVOIRS,res_min_vol,res_max_vol,initial_res_vol,final_res_vol
+Dam_1,0.036,0.18,0.072,0.072
+Dam_2,0.018,0.108,0.054,0.054

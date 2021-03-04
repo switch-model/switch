@@ -1,9 +1,9 @@
-# Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
 Save a complete text dump of the model and solution, suitable
-for development, debugging or using diff tools to compare two runs. 
+for development, debugging or using diff tools to compare two runs.
 I do not recommend using this with large datasets or in a production
 environment.
 
@@ -14,7 +14,7 @@ def define_arguments(argparser):
     argparser.add_argument("--dump-level", type=int, default=2,
         help="Use 1 for an abbreviated dump via instance.display(), or 2 " +
              "for a complete dump via instance.pprint().")
-    argparser.add_argument("--dump-to-screen", action='store_true', default=False, 
+    argparser.add_argument("--dump-to-screen", action='store_true', default=False,
         help="Print the model dump to screen as well as an export file.")
 
 
@@ -24,7 +24,7 @@ def _print_output(instance):
     elif instance.options.dump_level == 1:
         instance.display()
     else:
-        raise RuntimeError("Invalid value for command line param --dump-level") 
+        raise RuntimeError("Invalid value for command line param --dump-level")
 
 
 def post_solve(instance, outdir):

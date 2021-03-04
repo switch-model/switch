@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -115,7 +115,7 @@ rename_modules = {
     'switch_mod.local_td': 'switch_mod.transmission.local_td',
     'switch_mod.balancing_areas': 'switch_mod.balancing.operating_reserves.areas',
     'switch_mod.export.dump': 'switch_mod.reporting.dump',
-    'switch_mod.generators.hydro_simple': 
+    'switch_mod.generators.hydro_simple':
         'switch_mod.generators.extensions.hydro_simple',
     'switch_mod.generators.hydro_system':
         'switch_mod.generators.extensions.hydro_system',
@@ -158,15 +158,15 @@ def upgrade_input_dir(inputs_dir):
         if optional_file and not os.path.isfile(old_path):
             return
         shutil.move(old_path, new_path)
-    
+
     def rename_column(file_name, old_col_name, new_col_name, optional_file=True):
         path = os.path.join(inputs_dir, file_name)
         if optional_file and not os.path.isfile(path):
             return
-        df = pandas.read_csv(path, na_values=['.'], sep='\t')
+        df = pandas.read_csv(path, na_values=['.'], sep=r"\s+", index_col=False)
         df.rename(columns={old_col_name: new_col_name}, inplace=True)
-        df.to_csv(path, sep='\t', na_rep='.', index=False)        
-    
+        df.to_csv(path, sep='\t', na_rep='.', index=False)
+
     rename_file('modules', 'modules.txt')
     modules_path = os.path.join(inputs_dir, 'modules.txt')
     if not os.path.isfile(modules_path):
@@ -190,10 +190,10 @@ def upgrade_input_dir(inputs_dir):
            'timescales' in module_list or
            'switch_mod.timescales' in module_list):
         module_list.insert(0, 'switch_mod')
-    
+
     new_module_list=[]
     for module in module_list:
-        # add prefix if appropriate 
+        # add prefix if appropriate
         # (standardizes names for further processing)
         if module_prefix + module in old_modules:
             module = module_prefix + module
@@ -218,19 +218,19 @@ def upgrade_input_dir(inputs_dir):
     ###
     # Get load zone economic multipliers (if available), then drop that column.
     load_zone_path = os.path.join(inputs_dir, 'load_zones.tab')
-    load_zone_df = pandas.read_csv(load_zone_path, na_values=['.'], sep='\t')
+    load_zone_df = pandas.read_csv(load_zone_path, na_values=['.'], sep=r'\s+')
     if 'lz_cost_multipliers' in load_zone_df:
         load_zone_df['lz_cost_multipliers'].fillna(1)
     else:
         load_zone_df['lz_cost_multipliers'] = 1
     load_zone_keep_cols = [c for c in load_zone_df if c != 'lz_cost_multipliers']
-    load_zone_df.to_csv(load_zone_path, sep='\t', na_rep='.', 
+    load_zone_df.to_csv(load_zone_path, sep='\t', na_rep='.',
                         index=False, columns=load_zone_keep_cols)
 
     ###
     # Merge generator_info with project_info
     gen_info_path = os.path.join(inputs_dir, 'generator_info.tab')
-    gen_info_df = pandas.read_csv(gen_info_path, na_values=['.'], sep='\t')
+    gen_info_df = pandas.read_csv(gen_info_path, na_values=['.'], sep=r'\s+')
     gen_info_col_renames = {
         'generation_technology': 'proj_gen_tech',
         'g_energy_source': 'proj_energy_source',
@@ -249,7 +249,7 @@ def upgrade_input_dir(inputs_dir):
         'g_min_load_fraction': 'proj_min_load_fraction.default',
         'g_startup_fuel': 'proj_startup_fuel.default',
         'g_startup_om': 'proj_startup_om.default',
-        'g_ccs_capture_efficiency': 'proj_ccs_capture_efficiency.default', 
+        'g_ccs_capture_efficiency': 'proj_ccs_capture_efficiency.default',
         'g_ccs_energy_load': 'proj_ccs_energy_load.default'
     }
     drop_cols = [c for c in gen_info_df if c not in gen_info_col_renames]
@@ -257,7 +257,7 @@ def upgrade_input_dir(inputs_dir):
         del gen_info_df[c]
     gen_info_df.rename(columns=gen_info_col_renames, inplace=True)
     proj_info_path = os.path.join(inputs_dir, 'project_info.tab')
-    proj_info_df = pandas.read_csv(proj_info_path, na_values=['.'], sep='\t')
+    proj_info_df = pandas.read_csv(proj_info_path, na_values=['.'], sep=r'\s+')
     proj_info_df = pandas.merge(proj_info_df, gen_info_df, on='proj_gen_tech', how='left')
     # Factor in the load zone cost multipliers
     proj_info_df = pandas.merge(
@@ -295,7 +295,7 @@ def upgrade_input_dir(inputs_dir):
     # Translate default generator costs into costs for each project
     gen_build_path = os.path.join(inputs_dir, 'gen_new_build_costs.tab')
     if os.path.isfile(gen_build_path):
-        gen_build_df = pandas.read_csv(gen_build_path, na_values=['.'], sep='\t')
+        gen_build_df = pandas.read_csv(gen_build_path, na_values=['.'], sep=r'\s+')
         new_col_names = {
             'generation_technology': 'proj_gen_tech',
             'investment_period': 'build_year',
@@ -320,7 +320,7 @@ def upgrade_input_dir(inputs_dir):
         # Merge the expanded gen_new_build_costs data into proj_build_costs
         project_build_path = os.path.join(inputs_dir, 'proj_build_costs.tab')
         if os.path.isfile(project_build_path):
-            project_build_df = pandas.read_csv(project_build_path, na_values=['.'], sep='\t')
+            project_build_df = pandas.read_csv(project_build_path, na_values=['.'], sep=r'\s+')
             project_build_df = pandas.merge(project_build_df, new_g_builds,
                                              on=['PROJECT', 'build_year'], how='outer')
         else:
@@ -329,7 +329,7 @@ def upgrade_input_dir(inputs_dir):
             dat_cols = [c for c in new_g_builds if c not in idx_cols]
             col_order = idx_cols + dat_cols
             project_build_df = new_g_builds[col_order]
-        columns_with_defaults = ['proj_overnight_cost', 'proj_fixed_om', 
+        columns_with_defaults = ['proj_overnight_cost', 'proj_fixed_om',
                                  'proj_storage_energy_overnight_cost']
         update_cols_with_defaults(project_build_df, columns_with_defaults)
         project_build_df.to_csv(project_build_path, sep='\t', na_rep='.', index=False)
@@ -338,7 +338,7 @@ def upgrade_input_dir(inputs_dir):
     # Merge gen_inc_heat_rates.tab into proj_inc_heat_rates.tab
     g_hr_path = os.path.join(inputs_dir, 'gen_inc_heat_rates.tab')
     if os.path.isfile(g_hr_path):
-        g_hr_df = pandas.read_csv(g_hr_path, na_values=['.'], sep='\t')
+        g_hr_df = pandas.read_csv(g_hr_path, na_values=['.'], sep=r'\s+')
         proj_hr_default = pandas.merge(g_hr_df, proj_info_df[['PROJECT', 'proj_gen_tech']],
                                        left_on='generation_technology',
                                        right_on='proj_gen_tech')
@@ -352,7 +352,7 @@ def upgrade_input_dir(inputs_dir):
         proj_hr_default.rename(columns=col_renames, inplace=True)
         proj_hr_path = os.path.join(inputs_dir, 'proj_inc_heat_rates.tab')
         if os.path.isfile(proj_hr_path):
-            proj_hr_df = pandas.read_csv(proj_hr_path, na_values=['.'], sep='\t')
+            proj_hr_df = pandas.read_csv(proj_hr_path, na_values=['.'], sep=r'\s+')
             proj_hr_df = pandas.merge(proj_hr_df, proj_hr_default, on='proj_gen_tech', how='left')
         else:
             proj_hr_df = proj_hr_default
@@ -364,9 +364,9 @@ def upgrade_input_dir(inputs_dir):
                 'incremental_heat_rate_mbtu_per_mwhr', 'fuel_use_rate_mmbtu_per_h']
         proj_hr_df.to_csv(proj_hr_path, sep='\t', na_rep='.', index=False, columns=cols)
         os.remove(g_hr_path)
-    
+
     # Done with restructuring. Now apply component renaming.
-    
+
     old_new_file_names = {
         'proj_existing_builds.tab':'gen_build_predetermined.tab',
         'project_info.tab':'generation_projects_info.tab',
@@ -376,10 +376,10 @@ def upgrade_input_dir(inputs_dir):
         'lz_peak_loads.tab':'zone_coincident_peak_demand.tab',
         'lz_to_regional_fuel_market.tab':'zone_to_regional_fuel_market.tab'
     }
-    
-    for old, new in old_new_file_names.iteritems():
+
+    for old, new in old_new_file_names.items():
         rename_file(old, new)
-    
+
     old_new_column_names_in_file = {
         'gen_build_predetermined.tab':[
         ('proj_existing_cap','gen_predetermined_cap')
@@ -425,8 +425,8 @@ def upgrade_input_dir(inputs_dir):
         ('proj_max_capacity_factor','gen_max_capacity_factor')
         ]
     }
-    
-    for fname, old_new_pairs in old_new_column_names_in_file.iteritems():
+
+    for fname, old_new_pairs in old_new_column_names_in_file.items():
         for old_new_pair in old_new_pairs:
             old = old_new_pair[0]
             new = old_new_pair[1]

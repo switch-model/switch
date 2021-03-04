@@ -1,10 +1,12 @@
-# Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
-Defines financial parameters for the SWITCH-Pyomo model.
+Defines financial parameters for the Switch model.
 
 """
+from __future__ import print_function
+from __future__ import division
 from pyomo.environ import *
 import os
 import pandas as pd
@@ -23,10 +25,12 @@ def capital_recovery_factor(ir, t):
     percent interest rate on $100.
 
     >>> crf = capital_recovery_factor(.07,20)
-    >>> print ("Capital recovery factor for a loan with a 7 percent annual " +
-    ...        "interest rate, paid over 20 years is {crf:0.5f}. If the " +
-    ...        "principal was $100, loan payments would be ${lp:0.2f}").\
-            format(crf=crf, lp=100 * crf) # doctest: +NORMALIZE_WHITESPACE
+    >>> print(
+    ...     "Capital recovery factor for a loan with a 7 percent annual "
+    ...     "interest rate, paid over 20 years is {crf:0.5f}. If the "
+    ...     "principal was $100, loan payments would be ${lp:0.2f}"
+    ...     .format(crf=crf, lp=100 * crf)
+    ... ) # doctest: +NORMALIZE_WHITESPACE
     Capital recovery factor for a loan with a 7 percent annual interest\
     rate, paid over 20 years is 0.09439. If the principal was $100, loan\
     payments would be $9.44
@@ -44,9 +48,11 @@ def uniform_series_to_present_value(dr, t):
     use an interest rate for a capital recovery factor and a discount
     rate for this.
     Example usage:
-    >>> print ("Net present value of a $10 / yr annuity paid for 20 years, " +
-    ...        "assuming a 5 percent discount rate is ${npv:0.2f}").\
-        format(npv=10 * uniform_series_to_present_value(.05,20))
+    >>> print(
+    ...     "Net present value of a $10 / yr annuity paid for 20 years, "
+    ...     "assuming a 5 percent discount rate is ${npv:0.2f}"
+    ...     .format(npv=10 * uniform_series_to_present_value(.05, 20))
+    ... )
     Net present value of a $10 / yr annuity paid for 20 years, assuming a 5 percent discount rate is $124.62
 
     Test for calculation validity compared to CRF using 7 decimal points
@@ -118,7 +124,7 @@ def define_components(mod):
     from those terms.
 
     base_financial_year is used for net present value calculations. All
-    dollar amounts reported by SWITCH are in real dollars of this base
+    dollar amounts reported by Switch are in real dollars of this base
     year. Future dollars are brought back to this dollar-year via the
     discount_rate.
 
@@ -170,7 +176,7 @@ def define_components(mod):
     equivalent to a bill of $100 today.
 
     While quite alarming in theory, in practice the choice of discount
-    rate had virtually no impact on the future costs that SWITCH-WECC
+    rate had virtually no impact on the future costs that Switch-WECC
     reports when I performed sensitivity runs in the range of 0-10
     percent discount rates. This is likely due to steadily increasing
     load and decreasing emission targets in our scenarios providing few
@@ -212,14 +218,14 @@ def define_components(mod):
 
     """
 
-    mod.base_financial_year = Param(within=PositiveIntegers)
+    mod.base_financial_year = Param(within=NonNegativeReals)
     mod.interest_rate = Param(within=NonNegativeReals)
     mod.discount_rate = Param(
-        within=NonNegativeReals, default=mod.interest_rate)
+        within=NonNegativeReals, default=lambda m: value(m.interest_rate))
     mod.min_data_check('base_financial_year', 'interest_rate')
     mod.bring_annual_costs_to_base_year = Param(
         mod.PERIODS,
-        within=PositiveReals,
+        within=NonNegativeReals,
         initialize=lambda m, p: (
             uniform_series_to_present_value(
                 m.discount_rate, m.period_length_years[p]) *
@@ -228,7 +234,7 @@ def define_components(mod):
                 m.period_start[p] - m.base_financial_year)))
     mod.bring_timepoint_costs_to_base_year = Param(
         mod.TIMEPOINTS,
-        within=PositiveReals,
+        within=NonNegativeReals,
         initialize=lambda m, t: (
             m.bring_annual_costs_to_base_year[m.tp_period[t]] *
             m.tp_weight_in_year[t]))
@@ -289,7 +295,7 @@ def define_dynamic_components(mod):
     mod.SystemCostPerPeriod = Expression(
         mod.PERIODS,
         rule=calc_sys_costs_per_period)
-    # starting with Pyomo 4.2, it is impossible to call Objective.reconstruct() 
+    # starting with Pyomo 4.2, it is impossible to call Objective.reconstruct()
     # or calculate terms like Objective / <some other model component>,
     # so it's best to define a separate expression and use that for these purposes.
     mod.SystemCost = Expression(
@@ -301,24 +307,66 @@ def define_dynamic_components(mod):
 
 def load_inputs(mod, switch_data, inputs_dir):
     """
-    Import base financial data from a .dat file. The inputs_dir should
-    contain the file financials.dat that gives parameter values for
+    Import base financial data from a .csv file. The inputs_dir should
+    contain the file financials.csv that gives parameter values for
     base_financial_year, interest_rate and optionally discount_rate.
+    The names of parameters go on the first row and the values go on
+    the second.
     """
-    switch_data.load(filename=os.path.join(inputs_dir, 'financials.dat'))
+    switch_data.load_aug(
+        filename=os.path.join(inputs_dir, 'financials.csv'),
+        optional=False, auto_select=True,
+        param=(mod.base_financial_year, mod.interest_rate, mod.discount_rate)
+    )
 
 def post_solve(instance, outdir):
-    mod = instance
+    m = instance
+    # Overall electricity costs
     normalized_dat = [
         {
         	"PERIOD": p,
-        	"SystemCostPerPeriod": value(mod.SystemCostPerPeriod[p]),
-        	"EnergyCost_per_MWh": value(
-        	    mod.SystemCostPerPeriod[p] / 
-        	    sum(mod.zone_total_demand_in_period_mwh[z,p] for z in mod.LOAD_ZONES)
-        	)
-        } for p in mod.PERIODS
+        	"SystemCostPerPeriod_NPV": value(m.SystemCostPerPeriod[p]),
+        	"SystemCostPerPeriod_Real": value(
+        	    m.SystemCostPerPeriod[p] / m.bring_annual_costs_to_base_year[p]
+        	),
+        	"EnergyCostReal_per_MWh": value(
+        	    m.SystemCostPerPeriod[p] / m.bring_annual_costs_to_base_year[p] /
+        	    sum(m.zone_total_demand_in_period_mwh[z,p] for z in m.LOAD_ZONES)
+        	),
+        	"SystemDemand_MWh": value(sum(
+        	    m.zone_total_demand_in_period_mwh[z,p] for z in m.LOAD_ZONES
+        	))
+        } for p in m.PERIODS
     ]
     df = pd.DataFrame(normalized_dat)
     df.set_index(["PERIOD"], inplace=True)
     df.to_csv(os.path.join(outdir, "electricity_cost.csv"))
+    # Itemized annual costs
+    annualized_costs = [
+        {
+        	"PERIOD": p,
+        	"Component": annual_cost,
+        	"Component_type": "annual",
+        	"AnnualCost_NPV": value(
+        	    getattr(m, annual_cost)[p] * m.bring_annual_costs_to_base_year[p]
+        	),
+        	"AnnualCost_Real": value(getattr(m, annual_cost)[p])
+        } for p in m.PERIODS for annual_cost in m.Cost_Components_Per_Period
+    ] + [
+        {
+        	"PERIOD": p,
+        	"Component": tp_cost,
+        	"Component_type": "timepoint",
+        	"AnnualCost_NPV": value(sum(
+        	    getattr(m, tp_cost)[t] * m.tp_weight_in_year[t]
+        	    for t in m.TPS_IN_PERIOD[p]
+        	) * m.bring_annual_costs_to_base_year[p]),
+        	"AnnualCost_Real": value(sum(
+        	    getattr(m, tp_cost)[t] * m.tp_weight_in_year[t]
+        	    for t in m.TPS_IN_PERIOD[p]
+        	))
+        } for p in m.PERIODS for tp_cost in m.Cost_Components_Per_TP
+    ]
+    df = pd.DataFrame(annualized_costs)
+    df.set_index(["PERIOD", "Component"], inplace=True)
+    df.to_csv(os.path.join(outdir, "costs_itemized.csv"))

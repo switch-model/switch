@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -18,11 +18,11 @@ dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones'
 def post_solve(instance, outdir):
     """
     This rudimentary example copies the export code from load_zones, but uses
-    a different file name (load_balance2.txt).
+    a different file name (load_balance2.csv).
     """
     write_table(
         instance, instance.LOAD_ZONES, instance.TIMEPOINTS,
-        output_file=os.path.join(outdir, "load_balance2.txt"),
+        output_file=os.path.join(outdir, "load_balance2.csv"),
         headings=("load_zone", "timestamp",) + tuple(
             instance.Zone_Power_Injections +
             instance.Zone_Power_Withdrawals),

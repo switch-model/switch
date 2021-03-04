@@ -40,18 +40,33 @@ INSTALLATION WITH PYTHON VIRTUAL ENVIRONMENTS FOR DEVELOPMENT
         git clone https://github.com/switch-model/switch.git "$SRC_DIR"
 
 4. Create a virtual environment in your project directory, and install switch
-   and its prerequisites.
+   and its prerequisites (if using Windows, replace "bin" with "Scripts"):
         cd "$PROJECT_DIR"
         pip install virtualenv
         virtualenv venv
         source venv/bin/activate
-        pip install --editable "$SRC_DIR"
+        pip install --editable "$SRC_DIR"[extra_requirements]
 
-   Note: The --editable flag ensures that any changes to your downloaded copy
+   Remember to replace "extra_requirements" with a comma-separated list with
+   the extra dependencies you will be using for your development:
+        database_access: Used to access Hawaii data from Matthias.
+        advanced:        Used for advanced demand response and progressive
+                         hedging modules.
+        plotting:        Self explanatory.
+        dev:             Used for debugging.
+
+   Note 1: The --editable flag ensures that any changes to your downloaded copy
    of switch will be immediately reflected to your installed copy in the
    virtual environment.
 
-5. Record the exact version of every library you are using so you can 
+   Note 2: If installing advanced dependencies in a Windows OS using pip, the
+   installation of r2py may raise an error. The simplest workaround is to
+   follow the steps outlined here: https://stackoverflow.com/a/32983656
+   After manually installing r2py, you can proceed to repeat the installation
+   of Switch with the advanced dependencies using:
+        pip install --editable "$SRC_DIR"[extra_requirements]
+
+5. [Optional] Record the exact version of every library you are using so you can 
    precisely replicate this setup in the future. 
         pip freeze > requirements.txt
    Without this step, you are at higher risk of not being able to readily
@@ -68,3 +83,6 @@ EXECUTION
        source venv/bin/activate
 3. Execute switch like normal
        switch solve ...
+4. When finished development work, remember to leave the virtual
+   environment with the following command:
+       deactivate

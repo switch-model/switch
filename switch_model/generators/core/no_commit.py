@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -27,7 +27,7 @@ def define_components(mod):
     that the aggregate fuel consumption with respect to energy
     production can be approximated as a line with a 0 intercept. This
     estimation method has been known to result in excessive cycling of
-    Combined Cycle Gas Turbines in the SWITCH-WECC model.
+    Combined Cycle Gas Turbines in the Switch-WECC model.
 
     DispatchUpperLimit[(g, t) in GEN_TPS] is an
     expression that defines the upper bounds of dispatch subject to
@@ -45,32 +45,45 @@ def define_components(mod):
 
         DispatchLowerLimit <= DispatchGen <= DispatchUpperLimit
 
-    GenFuelUseRate_Calculate[(g, t) in GEN_TPS]
+    GenFuelUseRate_Calculate[(g, t, f) in GEN_TP_FUELS]
     calculates fuel consumption for the variable GenFuelUseRate as
-    DispatchGen * gen_full_load_heat_rate. The units become:
+    DispatchGenByFuel * gen_full_load_heat_rate. The units become:
     MW * (MMBtu / MWh) = MMBTU / h
-
-    DispatchGenByFuel[(g, t, f) in GEN_TP_FUELS]
-    calculates power production by each project from each fuel during
-    each timepoint.
-
     """
 
-    # NOTE: DispatchBaseloadByPeriod should eventually be replaced by 
+    # NOTE: DispatchBaseloadByPeriod should eventually be replaced by
     # an "ActiveCapacityDuringPeriod" decision variable that applies to all
     # projects. This should be constrained
-    # based on the amount of installed capacity each period, and then 
+    # based on the amount of installed capacity each period, and then
     # DispatchUpperLimit and DispatchLowerLimit should be calculated
-    # relative to ActiveCapacityDuringPeriod. Fixed O&M (but not capital 
+    # relative to ActiveCapacityDuringPeriod. Fixed O&M (but not capital
     # costs) should be calculated based on ActiveCapacityDuringPeriod.
     # This would allow mothballing (and possibly restarting) projects.
 
     # Choose flat operating level for baseload plants during each period
     # (not necessarily running all available capacity)
-    # Note: this is unconstrained, because other constraints limit project 
+    # Note: this is unconstrained, because other constraints limit project
     # dispatch during each timepoint and therefore the level of this variable.
-    mod.DispatchBaseloadByPeriod = Var(mod.BASELOAD_GENS, mod.PERIODS)
-    
+    # TODO: this should be harmonized with the treatment of baseload generators
+    # in generators.core.commit, where baseload just means they will all be
+    # committed all the time, but not required to run at a constant output
+    # level. That's the definition of baseload used in the Hawaii power system,
+    # while the definition used here is more like common usage (run at a flat level
+    # or don't run). Since there are multiple meanings, we should probably
+    # have separate parameters for constant_output and always_commit. Or
+    # we could implement those via time-varying values for min/max commitment
+    # and dispatch.
+    mod.BASELOAD_GEN_PERIODS = Set(
+        dimen=2,
+        rule=lambda m:
+            [(g, p) for g in m.BASELOAD_GENS for p in m.PERIODS_FOR_GEN[g]])
+    mod.BASELOAD_GEN_TPS = Set(
+        dimen=2,
+        rule=lambda m:
+            [(g, t) for g, p in m.BASELOAD_GEN_PERIODS for t in m.TPS_IN_PERIOD[p]])
+
+    mod.DispatchBaseloadByPeriod = Var(mod.BASELOAD_GEN_PERIODS)
+
     def DispatchUpperLimit_expr(m, g, t):
         if g in m.VARIABLE_GENS:
             return (m.GenCapacityInTP[g, t] * m.gen_availability[g] *
@@ -82,11 +95,9 @@ def define_components(mod):
         rule=DispatchUpperLimit_expr)
 
     mod.Enforce_Dispatch_Baseload_Flat = Constraint(
-        mod.GEN_TPS,
-        rule=lambda m, g, t: 
-            (m.DispatchGen[g, t] == m.DispatchBaseloadByPeriod[g, m.tp_period[t]])
-                if g in m.BASELOAD_GENS
-            else Constraint.Skip)
+        mod.BASELOAD_GEN_TPS,
+        rule=lambda m, g, t:
+            m.DispatchGen[g, t] == m.DispatchBaseloadByPeriod[g, m.tp_period[t]])
 
     mod.Enforce_Dispatch_Upper_Limit = Constraint(
         mod.GEN_TPS,
@@ -94,8 +105,6 @@ def define_components(mod):
             m.DispatchGen[g, t] <= m.DispatchUpperLimit[g, t]))
 
     mod.GenFuelUseRate_Calculate = Constraint(
-        mod._FUEL_BASED_GEN_TPS,
-        rule=lambda m, g, t: (
-            sum(m.GenFuelUseRate[g, t, f] 
-                for f in m.FUELS_FOR_GEN[g])
-            == m.DispatchGen[g, t] * m.gen_full_load_heat_rate[g]))
+        mod.GEN_TP_FUELS,
+        rule=lambda m, g, t, f: m.GenFuelUseRate[g,t,f] == m.DispatchGenByFuel[g,t,f] * m.gen_full_load_heat_rate[g]
+    )

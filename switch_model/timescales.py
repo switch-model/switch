@@ -1,13 +1,16 @@
-# Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
-Defines timescales for investment and dispatch for the SWITCH-Pyomo model.
+Defines timescales for investment and dispatch for the Switch model.
 """
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
 
 import os
 from pyomo.environ import *
-import utilities
+from . import utilities
 
 hours_per_year = 8766
 
@@ -32,10 +35,18 @@ def define_components(mod):
     period; derived from period_length_years with an average of 8766
     hours per year.
 
+    CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD is an indexed set of all periods before
+    or including the index key. This is used for calculations that must index
+    over previous and current periods. This is typically used for simple asset
+    capacity calculations, where all capacity is assumed to be kept online at
+    the same fixed cost once it is built, i.e. rebuilt/refurbished at same cost
+    as retirement approaches (currently used for local and interzonal
+    transmission and distribution).
+
     TIMESERIES denote blocks of consecutive timepoints within a period.
     An individual time series could represent a single day, a week, a
     month or an entire year. This replaces the DATE construct in the old
-    SWITCH code and is meant to be more versatile. The following parameters
+    Switch code and is meant to be more versatile. The following parameters
     describe attributes of a timeseries.
 
     ts_period[ts]: The period a timeseries falls in.
@@ -64,7 +75,7 @@ def define_components(mod):
     typically on the order of one or more hours, so costs associated
     with timepoints are specified in hourly units, and the weights of
     timepoints are specified in units of hours. TIMEPOINTS replaces the
-    HOURS construct in some of the old versions of SWITCH. The order of
+    HOURS construct in some of the old versions of Switch. The order of
     timepoints is provided by their ordering in their input file
     according to the standard Pyomo/AMPL conventions. To maintain
     sanity, we recommend sorting your input file by timestamp. Each
@@ -198,7 +209,7 @@ def define_components(mod):
     period on the grid with surplus wind power and frequent
     curtailments.
 
-    This timeseries describing 3 days in Spring is composted of 72
+    This timeseries describing 3 days in Spring is composed of 72
     timepoints, each representing 1 hour. The timeseries is scaled up by
     a factor of 21.3 to represent the 61 days of March and April, then
     scaled by another factor of 10 to represent a 10-year period.
@@ -217,8 +228,8 @@ def define_components(mod):
     """
 
     mod.PERIODS = Set(ordered=True)
-    mod.period_start = Param(mod.PERIODS, within=PositiveReals)
-    mod.period_end = Param(mod.PERIODS, within=PositiveReals)
+    mod.period_start = Param(mod.PERIODS, within=NonNegativeReals)
+    mod.period_end = Param(mod.PERIODS, within=NonNegativeReals)
     mod.min_data_check('PERIODS', 'period_start', 'period_end')
 
     mod.TIMESERIES = Set(ordered=True)
@@ -236,15 +247,17 @@ def define_components(mod):
     mod.tp_timestamp = Param(mod.TIMEPOINTS, default=lambda m, t: t)
 
     # Derived sets and parameters
-    # note: the first four are calculated early so they
+    # note: the first five are calculated early so they
     # can be used for the add_one_to_period_end_rule
-    
+
+    mod.tp_duration_hrs = Param(
+        mod.TIMEPOINTS,
+        initialize=lambda m, t: m.ts_duration_of_tp[m.tp_ts[t]])
     mod.tp_weight = Param(
         mod.TIMEPOINTS,
         within=PositiveReals,
         initialize=lambda m, t: (
-            m.ts_duration_of_tp[m.tp_ts[t]] *
-            m.ts_scale_to_period[m.tp_ts[t]]))
+            m.tp_duration_hrs[t] * m.ts_scale_to_period[m.tp_ts[t]]))
     mod.TPS_IN_TS = Set(
         mod.TIMESERIES,
         ordered=True,
@@ -267,7 +280,7 @@ def define_components(mod):
         within=mod.TIMEPOINTS,
         initialize=lambda m, p: [
             t for t in m.TIMEPOINTS if m.tp_period[t] == p])
-    
+
     # Decide whether period_end values have been given as exact points in time
     # (e.g., 2020.0 means 2020-01-01 00:00:00), or as a label for a full
     # year (e.g., 2020 means 2020-12-31 12:59:59). We use whichever one gives
@@ -294,6 +307,12 @@ def define_components(mod):
         mod.PERIODS,
         initialize=lambda m, p: m.period_length_years[p] * hours_per_year)
 
+    mod.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD = Set(
+        mod.PERIODS, ordered=True,
+        initialize=lambda m, p:
+            [p2 for p2 in m.PERIODS if m.PERIODS.ord(p2) <= m.PERIODS.ord(p)]
+    )
+
     mod.ts_scale_to_year = Param(
         mod.TIMESERIES,
         initialize=lambda m, ts: (
@@ -308,13 +327,10 @@ def define_components(mod):
         within=PositiveReals,
         initialize=lambda m, t: (
             m.tp_weight[t] / m.period_length_years[m.tp_period[t]]))
-    mod.tp_duration_hrs = Param(
-        mod.TIMEPOINTS,
-        initialize=lambda m, t: m.ts_duration_of_tp[m.tp_ts[t]])
     # Identify previous step for each timepoint, for use in tracking
-    # unit commitment or storage. We use circular indexing (.prevw() method) 
-    # for the timepoints within a timeseries to give consistency between the 
-    # start and end state. (Note: separate timeseries are assumed to be 
+    # unit commitment or storage. We use circular indexing (.prevw() method)
+    # for the timepoints within a timeseries to give consistency between the
+    # start and end state. (Note: separate timeseries are assumed to be
     # disconnected from each other.)
     mod.tp_previous = Param(
         mod.TIMEPOINTS,
@@ -326,12 +342,12 @@ def define_components(mod):
         tol = 0.01
         if(hours_in_period > (1 + tol) * m.period_length_hours[p] or
            hours_in_period < (1 - tol) * m.period_length_hours[p]):
-            print ("validate_time_weights_rule failed for period " +
+            print(("validate_time_weights_rule failed for period " +
                    "'{period:.0f}'. Expected {period_h:0.2f}, based on " +
                    "length in years, but the sum of timepoint weights " +
                    "is {ds_h:0.2f}.\n"
                    ).format(period=p, period_h=m.period_length_hours[p],
-                            ds_h=hours_in_period)
+                            ds_h=hours_in_period))
             return 0
         return 1
     mod.validate_time_weights = BuildCheck(
@@ -344,38 +360,38 @@ def define_components(mod):
             p_end = m.period_start[p] + m.period_length_years[p]
             p_next = m.period_start[m.PERIODS.next(p)]
             if abs(p_next - p_end) > tol:
-                print (
+                print((
                     "validate_period_lengths_rule failed for period"
                     + "'{p:.0f}'. Period ends at {p_end}, but next period"
                     + "begins at {p_next}."
-                ).format(p=p, p_end=p_end, p_next=p_next)
+                ).format(p=p, p_end=p_end, p_next=p_next))
                 return False
         return True
     mod.validate_period_lengths = BuildCheck(
-        mod.PERIODS, 
+        mod.PERIODS,
         rule=validate_period_lengths_rule)
 
 
 def load_inputs(mod, switch_data, inputs_dir):
     """
-    Import data for timescales from .tab files.  The inputs_dir
+    Import data for timescales from .csv files.  The inputs_dir
     should contain the following files with these columns. The
     columns may be in any order and extra columns will be ignored.
 
-    periods.tab
+    periods.csv
         INVESTMENT_PERIOD, period_start, period_end
 
-    timeseries.tab
+    timeseries.csv
         TIMESERIES, period, ts_duration_of_tp, ts_num_tps,
         ts_scale_to_period
 
-    The order of rows in timepoints.tab indicates the order of the
+    The order of rows in timepoints.csv indicates the order of the
     timepoints per Pyomo and AMPL convention. To maintain your sanity,
     we highly recommend that you sort your input file chronologically by
     timestamp. Note: timestamp is solely used as a label and be in any
     format.
 
-    timepoints.tab
+    timepoints.csv
         timepoint_id, timestamp, timeseries
 
     """
@@ -383,19 +399,19 @@ def load_inputs(mod, switch_data, inputs_dir):
     # names, be indifferent to column order, and throw an error message if
     # some columns are not found.
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'periods.tab'),
+        filename=os.path.join(inputs_dir, 'periods.csv'),
         select=('INVESTMENT_PERIOD', 'period_start', 'period_end'),
         index=mod.PERIODS,
         param=(mod.period_start, mod.period_end))
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'timeseries.tab'),
+        filename=os.path.join(inputs_dir, 'timeseries.csv'),
         select=('TIMESERIES', 'ts_period', 'ts_duration_of_tp',
                 'ts_num_tps', 'ts_scale_to_period'),
         index=mod.TIMESERIES,
         param=(mod.ts_period, mod.ts_duration_of_tp,
                mod.ts_num_tps, mod.ts_scale_to_period))
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'timepoints.tab'),
+        filename=os.path.join(inputs_dir, 'timepoints.csv'),
         select=('timepoint_id', 'timestamp', 'timeseries'),
         index=mod.TIMEPOINTS,
         param=(mod.tp_timestamp, mod.tp_ts))

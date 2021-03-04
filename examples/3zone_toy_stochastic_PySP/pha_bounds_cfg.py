@@ -6,26 +6,26 @@
 
 def pysp_boundsetter_callback(self, scenario_tree, scenario):
     m = scenario._instance 	# see pyomo/pysp/scenariotree/tree_structure.py
- 
-    # BuildLocalTD
-    for lz, bld_yr in m.LOCAL_TD_BUILD_YEARS - m.EXISTING_LOCAL_TD_BLD_YRS:
-        m.BuildLocalTD[lz, bld_yr].setub(2 * m.lz_peak_demand_mw[lz, bld_yr])
 
-    # Estimate an upper bound of system peak demand for limiting project
-    # & transmission builds
+    # BuildLocalTD
+    for p in m.PERIODS:
+        for lz in m.LOAD_ZONES:
+            m.BuildLocalTD[lz, p].setub(2 * m.zone_expected_coincident_peak_demand[lz, p])
+
+    # Estimate an upper bound of system peak demand for limiting generation unit
+    # & transmission line builds
     system_wide_peak = {}
     for p in m.PERIODS:
         system_wide_peak[p] = sum(
-            m.lz_peak_demand_mw[lz, p] for lz in m.LOAD_ZONES)
+            m.zone_expected_coincident_peak_demand[lz, p] for lz in m.LOAD_ZONES)
 
-    # BuildProj
-    for proj, bld_yr in m.PROJECT_BUILDYEARS - m.EXISTING_PROJ_BUILDYEARS:
-        if proj not in m.PROJECTS_CAP_LIMITED:
-            m.BuildProj[proj, bld_yr].setub(5 * system_wide_peak[bld_yr])
+    # BuildGen
+    for g, bld_yr in m.NEW_GEN_BLD_YRS:
+        m.BuildGen[g, bld_yr].setub(5 * system_wide_peak[bld_yr])
 
-    # BuildTrans
-    for tx, bld_yr in m.NEW_TRANS_BLD_YRS:
-        m.BuildTrans[tx, bld_yr].setub(5 * system_wide_peak[bld_yr])
+    # BuildTx
+    for tx, bld_yr in m.TRANS_BLD_YRS:
+        m.BuildTx[tx, bld_yr].setub(5 * system_wide_peak[bld_yr])
 
 # For some reason runph looks for pysp_boundsetter_callback when run in
 # single-thread mode and ph_boundsetter_callback when called from mpirun with
