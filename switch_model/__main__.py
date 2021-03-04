@@ -11,7 +11,15 @@ import switch_model
 
 
 def main():
-    cmds = ["solve", "solve-scenarios", "test", "upgrade", "get_inputs", "--version"]
+    cmds = [
+        "solve",
+        "solve-scenarios",
+        "test",
+        "upgrade",
+        "get_inputs",
+        "--version",
+        "drop",
+    ]
     if len(sys.argv) >= 2 and sys.argv[1] in cmds:
         # If users run a script from the command line, the location of the script
         # gets added to the start of sys.path; if they call a module from the
@@ -39,6 +47,8 @@ def main():
             from switch_model.upgrade import main
         elif cmd == "get_inputs":
             from switch_model.wecc.get_inputs import main
+        elif cmd == "drop":
+            from switch_model.tools.drop import main
         main()
     else:
         print(
