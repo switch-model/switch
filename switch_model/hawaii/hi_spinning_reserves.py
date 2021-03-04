@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 """
 This customizes the behavior of balancing.operating_reserves.spinning_reserve
@@ -75,9 +75,9 @@ def define_components(m):
     )
 
     def HawaiiLoadDownSpinningReserveRequirement_rule(m, b, t):
-        if "WithdrawFromCentralGrid" in dir(m):
+        try:
             load = m.WithdrawFromCentralGrid
-        else:
+        except AttributeError:
             load = m.lz_demand_mw
         return 0.10 * sum(
             load[z, t] for z in m.LOAD_ZONES if b == m.zone_balancing_area[z]

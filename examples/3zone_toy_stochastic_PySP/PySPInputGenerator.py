@@ -6,7 +6,7 @@
 Generate .dat files required by the PySP pyomo module, either for use with the
 runef or runph commands. This script serves only as a specific example in
 order to learn how the runef and runph commands work and does not pretend to
-be able to generate any scenario structure in a most flexible way. More 
+be able to generate any scenario structure in a most flexible way. More
 versatility will be coded in the future.
 
 This generator considers a two stage optimization problem, where all scenarios
@@ -31,13 +31,13 @@ RootNode.dat
     again in the other nodes' .dat files. I.e., if only fuel costs vary from
     node to node, then only the fuel_cost parameter must be specified in the
     .dat files. If a non-root node has an empty .dat file, then PySP will
-    asume that such node has the same parameter values as its parent node.  
+    asume that such node has the same parameter values as its parent node.
 
 ScenarioStructure.dat
     This file specifies the structure of the scenario tree. Refer to the PySP
     documentation for detailed definitions on each of the parameters. In this
     two stage example leaf nodes are named after the scenarios they belong to.
-    The Expressions or Variables that define the stage costs are named after 
+    The Expressions or Variables that define the stage costs are named after
     the stage they belong to. These names must match the actual names of the
     Expressions and Variables in the Reference Model.
 
@@ -47,6 +47,7 @@ with different uncertainties. In case their names are changed, the
 scenario_list should be modified to reflect those changes.
 
 """
+from __future__ import print_function
 # Inputs directory relative to the location of this script.
 inputs_dir = "inputs"
 # ScenarioStructure.dat and RootNode.dat will be saved to a
@@ -54,7 +55,7 @@ inputs_dir = "inputs"
 pysp_subdir = "pysp_inputs"
 
 # Stage names. Can be any string and must be specified in order.
-stage_list = ["Investment", "Operation"]   
+stage_list = ["Investment", "Operation"]
 stage_vars = {
     "Investment": ["BuildGen", "BuildLocalTD", "BuildTx"],
     "Operation": ["DispatchGen", "GenFuelUseRate"]
@@ -70,17 +71,17 @@ import switch_model.solve
 import sys, os
 from pyomo.environ import *
 
-print "creating model for scenario input generation..."
+print("creating model for scenario input generation...")
 
 module_list = switch_model.solve.get_module_list(args=None)
 model = utilities.create_model(module_list)
 
-print "model successfully created..."
+print("model successfully created...")
 
-print "loading inputs into model..."
+print("loading inputs into model...")
 instance = model.load_inputs(inputs_dir=inputs_dir)
-print "inputs successfully loaded..."
-      
+print("inputs successfully loaded...")
+
 def save_dat_files():
 
     if not os.path.exists(os.path.join(inputs_dir, pysp_subdir)):
@@ -90,20 +91,20 @@ def save_dat_files():
     # RootNode.dat
 
     dat_file = os.path.join(inputs_dir, pysp_subdir, "RootNode.dat")
-    print "creating and saving {}...".format(dat_file)
+    print("creating and saving {}...".format(dat_file))
     utilities.save_inputs_as_dat(model, instance, save_path=dat_file,
         sorted_output=model.options.sorted_output)
-    
+
     #######################
     # ScenarioStructure.dat
 
     scen_file = os.path.join(inputs_dir, pysp_subdir, "ScenarioStructure.dat")
-    print "creating and saving {}...".format(scen_file)
+    print("creating and saving {}...".format(scen_file))
 
     with open(scen_file, "w") as f:
         # Data will be defined in a Node basis to avoid redundancies
         f.write("param ScenarioBasedData := False ;\n\n")
-        
+
         f.write("set Stages :=")
         for st in stage_list:
             f.write(" {}".format(st))
@@ -118,12 +119,12 @@ def save_dat_files():
         for s in scenario_list:
             f.write("    {scen} {st}\n".format(scen=s,st=stage_list[1]))
         f.write(";\n\n")
-        
+
         f.write("set Children[RootNode] := ")
         for s in scenario_list:
             f.write("\n    {}".format(s))
         f.write(";\n\n")
-    
+
         f.write("param ConditionalProbability := RootNode 1.0")
         # All scenarios have the same probability in this example
         probs = [1.0/len(scenario_list)] * (len(scenario_list) - 1)
@@ -171,7 +172,7 @@ def save_dat_files():
         f.write(";")
 
 ####################
-    
+
 if __name__ == '__main__':
     # If the script is executed on the command line, then the .dat files are created.
     save_dat_files()

@@ -1,0 +1,4 @@
+GENERATION_GENERATION_PROJECTS,hydro_efficiency,hydraulic_location
+Unique-Hydro_Dam_1,1.2,Dam_1_to_Node_1
+Unique-Hydro_Dam_2,1.5,Dam_2_to_Sink_2
+Unique-Hydro_Series,0.6,Node_1_to_Sink_1

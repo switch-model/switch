@@ -1,20 +1,24 @@
-# Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
-Utility functions for SWITCH-pyomo.
+Utility functions for Switch.
 """
+from __future__ import print_function
 
-import os
-import types
-import importlib
-import re
-import sys
-import argparse
+import os, types, importlib, re, sys, argparse, time, datetime
 import __main__ as main
 from pyomo.environ import *
 import pyomo.opt
-import datetime
+
+# Define string_types (same as six.string_types). This is useful for
+# distinguishing between strings and other iterables.
+try:
+    # Python 2
+    string_types = (basestring,)
+except NameError:
+    # Python 3
+    string_types = (str,)
 
 # Check whether this is an interactive session (determined by whether
 # __main__ has a __file__ attribute). Scripts can check this value to
@@ -110,33 +114,67 @@ def get_modules(model):
         yield sys.modules[m]
 
 
-def load_inputs(model, inputs_dir=None, attachDataPortal=True):
+def make_iterable(item):
+    """Return an iterable for the one or more items passed."""
+    if isinstance(item, string_types):
+        i = iter([item])
+    else:
+        try:
+            # check if it's iterable
+            i = iter(item)
+        except TypeError:
+            i = iter([item])
+    return i
+
+
+class StepTimer(object):
+    """
+    Keep track of elapsed time for steps of a process.
+    Use timer = StepTimer() to create a timer, then retrieve elapsed time and/or
+    reset the timer at each step by calling timer.step_time()
     """
 
+    def __init__(self):
+        self.start_time = time.time()
+
+    def step_time(self):
+        """
+        Reset timer to current time and return time elapsed since last step.
+        """
+        last_start = self.start_time
+        self.start_time = now = time.time()
+        return now - last_start
+
+
+def load_inputs(model, inputs_dir=None, attach_data_portal=True):
+    """
     Load input data for an AbstractModel using the modules in the given
     list and return a model instance. This is implemented as calling the
     load_inputs() function of each module, if the module has that function.
-
     """
     if inputs_dir is None:
         inputs_dir = getattr(model.options, "inputs_dir", "inputs")
 
     # Load data; add a fancier load function to the data portal
+    timer = StepTimer()
     data = DataPortal(model=model)
     data.load_aug = types.MethodType(load_aug, data)
     for module in model.get_modules():
         if hasattr(module, "load_inputs"):
             module.load_inputs(model, data, inputs_dir)
+    if model.options.verbose:
+        print("Data read in {:.2f} s.\n".format(timer.step_time()))
 
-    # At some point, pyomo deprecated 'create' in favor of
-    # 'create_instance'. Determine which option is available
-    # and use that.
+    # At some point, pyomo deprecated 'create' in favor of 'create_instance'.
+    # Determine which option is available and use that.
     if hasattr(model, "create_instance"):
         instance = model.create_instance(data)
     else:
         instance = model.create(data)
+    if model.options.verbose:
+        print("Instance created from data in {:.2f} s.\n".format(timer.step_time()))
 
-    if attachDataPortal:
+    if attach_data_portal:
         instance.DataPortal = data
     return instance
 
@@ -153,14 +191,23 @@ def save_inputs_as_dat(
     tools that have not been fully integrated with DataPortal.
     SYNOPSIS:
         save_inputs_as_dat(model, instance, save_path)
-
-
     """
     # helper function to convert values to strings,
     # putting quotes around values that start as strings
     quote_str = (
-        lambda v: '"{}"'.format(v) if isinstance(v, basestring) else "{}".format(str(v))
+        lambda v: '"{}"'.format(v)
+        if isinstance(v, string_types)
+        else "{}".format(str(v))
     )
+    # helper function to create delimited lists from single items or iterables of any data type
+    from switch_model.reporting import make_iterable
+
+    join_space = lambda items: " ".join(
+        map(str, make_iterable(items))
+    )  # space-separated list
+    join_comma = lambda items: ",".join(
+        map(str, make_iterable(items))
+    )  # comma-separated list
 
     with open(save_path, "w") as f:
         for component_name in instance.DataPortal.data():
@@ -171,58 +218,28 @@ def save_inputs_as_dat(
             comp_class = type(component).__name__
             component_data = instance.DataPortal.data(name=component_name)
             if comp_class == "SimpleSet" or comp_class == "OrderedSimpleSet":
-                f.write("set " + component_name + " := ")
-                f.write(" ".join(map(str, component_data)))  # space-separated list
-                f.write(";\n")
+                f.write(
+                    "set {} := {};\n".format(component_name, join_space(component_data))
+                )
             elif comp_class == "IndexedParam":
-                if (
-                    len(component_data) > 0
-                ):  # omit components for which no data were provided
-                    f.write("param " + component_name + " := ")
-                    if component.index_set().dimen == 1:
-                        f.write(
-                            " ".join(
-                                str(key) + " " + quote_str(value)
-                                for key, value in component_data.iteritems()
-                            )
-                        )
-                    else:
-                        f.write("\n")
-                        for key, value in (
-                            sorted(component_data.iteritems())
-                            if sorted_output
-                            else component_data.iteritems()
-                        ):
-                            f.write(
-                                " "
-                                + " ".join(map(str, key))
-                                + " "
-                                + quote_str(value)
-                                + "\n"
-                            )
+                if component_data:  # omit components for which no data were provided
+                    f.write("param {} := \n".format(component_name))
+                    for key, value in (
+                        sorted(iteritems(component_data))
+                        if sorted_output
+                        else iteritems(component_data)
+                    ):
+                        f.write(" {} {}\n".format(join_space(key), quote_str(value)))
                     f.write(";\n")
             elif comp_class == "SimpleParam":
-                f.write(
-                    "param " + component_name + " := " + str(component_data) + ";\n"
-                )
+                f.write("param {} := {};\n".format(component_name, component_data))
             elif comp_class == "IndexedSet":
-                # raise RuntimeError(
-                #     "Error with IndexedSet {}. Support for .dat export is not tested.".
-                #     format(component_name))
-                # print "Warning: exporting IndexedSet {}, but code has not been tested.".format(
-                #     component_name)
-                for key in component_data:  # note: key is always a tuple
+                for key, vals in iteritems(component_data):
                     f.write(
-                        "set "
-                        + component_name
-                        + "["
-                        + ",".join(map(str, key))
-                        + "] := "
+                        "set {}[{}] := {};\n".format(
+                            component_name, join_comma(key), join_space(vals)
+                        )
                     )
-                    f.write(
-                        " ".join(map(str, component_data[key]))
-                    )  # space-separated list
-                    f.write(";\n")
             else:
                 raise ValueError(
                     "Error! Component type {} not recognized for model element '{}'.".format(
@@ -303,7 +320,6 @@ def min_data_check(model, *mandatory_model_components):
 
 def _add_min_data_check(model):
     """
-
     Bind the min_data_check() method to an instance of a Pyomo AbstractModel
     object if it has not already been added. Also add a counter to keep
     track of what to name the next check that is added.
@@ -340,15 +356,12 @@ def _add_min_data_check(model):
 
 
 def has_discrete_variables(model):
-    for variable in model.component_objects(Var, active=True):
-        if variable.is_indexed():
-            for v in variable.itervalues():
-                if v.is_binary() or v.is_integer():
-                    return True
-        else:
-            if v.is_binary() or v.is_integer():
-                return True
-    return False
+    all_elements = lambda v: v.itervalues() if v.is_indexed() else [v]
+    return any(
+        v.is_binary() or v.is_integer()
+        for variable in model.component_objects(Var, active=True)
+        for v in all_elements(variable)
+    )
 
 
 def check_mandatory_components(model, *mandatory_model_components):
@@ -426,11 +439,9 @@ def check_mandatory_components(model, *mandatory_model_components):
                     v for v in set(obj._index) - set(obj.sparse_keys())
                 ]
                 raise ValueError(
-                    (
-                        "Values are not provided for every element of the "
-                        "mandatory parameter '{}'. "
-                        "Missing data for {} values, including: {}"
-                    ).format(
+                    "Values are not provided for every element of the "
+                    "mandatory parameter '{}'. "
+                    "Missing data for {} values, including: {}".format(
                         component_name,
                         len(missing_index_elements),
                         missing_index_elements[:10],
@@ -479,18 +490,25 @@ def load_aug(
     switch_data, optional=False, auto_select=False, optional_params=[], **kwds
 ):
     """
-
     This is a wrapper for the DataPortal object that accepts additional
     keywords. This currently supports a flag for the file being optional.
     The name load_aug() is not great and may be changed.
-
     """
+    # TODO:
+    # Allow user to specify filename when defining parameters and sets.
+    # Also allow user to specify the name(s) of the column(s) in each set.
+    # Then use those automatically to pull data from the right file (and to
+    # write correct index column names in the generic output files).
+    # This will simplify code and ease comprehension (user can see
+    # immediately where the data come from for each component). This can
+    # also support auto-documenting of parameters and input files.
+
     path = kwds["filename"]
     # Skip if the file is missing
     if optional and not os.path.isfile(path):
         return
     # If this is a .dat file, then skip the rest of this fancy business; we'll
-    # only check if the file is missing and optional for .dat files.
+    # only check if the file is missing and optional for .csv files.
     filename, extension = os.path.splitext(path)
     if extension == ".dat":
         switch_data.load(**kwds)
@@ -504,7 +522,17 @@ def load_aug(
         second_line = infile.readline()
     file_is_empty = headers_line == ""
     file_has_no_data_rows = second_line == ""
-    headers = headers_line.strip().split("\t")
+    suffix = path.split(".")[-1]
+    if suffix in {"tab", "tsv"}:
+        separator = "\t"
+    elif suffix == "csv":
+        separator = ","
+    else:
+        raise switch_model.utilities.InputError(
+            "Unrecognized file type for input file {}".format(path)
+        )
+    # TODO: parse this more formally, e.g. using csv module
+    headers = headers_line.strip().split(separator)
     # Skip if the file is empty.
     if optional and file_is_empty:
         return
@@ -522,7 +550,7 @@ def load_aug(
     # optional_params may include Param objects instead of names. In
     # those cases, convert objects to names.
     for (i, p) in enumerate(optional_params):
-        if not isinstance(p, basestring):
+        if not isinstance(p, string_types):
             optional_params[i] = p.name
     # Expand the list optional parameters to include any parameter that
     # has default() defined. I need to allow an explicit list of default
@@ -540,7 +568,7 @@ def load_aug(
     elif len(params) > 0:
         try:
             num_indexes = params[0].index_set().dimen
-        except ValueError:
+        except (ValueError, AttributeError):
             num_indexes = 0
     # Default to 0 if both methods failed.
     else:
@@ -551,7 +579,7 @@ def load_aug(
     # e.g., things related to regional fuel market supply tiers (indexed by RFM_SUPPLY_TIER)
     # could all get the prefix "rfm_supply_tier_". Then they could get shorter names
     # within the file (e.g., "cost" and "limit"). We could also require the data file
-    # to be called "rfm_supply_tier.tab" for greater consistency/predictability.
+    # to be called "rfm_supply_tier.csv" for greater consistency/predictability.
     if auto_select:
         if "select" in kwds:
             raise InputError(
@@ -582,6 +610,7 @@ def load_aug(
         for (i, p_i) in del_items:
             del kwds["select"][i]
             del kwds["param"][p_i]
+
     if optional and file_has_no_data_rows:
         # Skip the file.  Note that we are only doing this after having
         # validated the file's column headings.
@@ -602,11 +631,11 @@ def load_aug(
 # which will be consumed by one of their modules, the default parser would
 # match that to "--exclude-modules" during the early, partial parse.)
 if sys.version_info >= (3, 5):
-    _ArgumentParser = argparse.ArgumentParser
+    _ArgumentParserAllowAbbrev = argparse.ArgumentParser
 else:
     # patch ArgumentParser to accept the allow_abbrev flag
     # (works on Python 2.7 and maybe others)
-    class _ArgumentParser(argparse.ArgumentParser):
+    class _ArgumentParserAllowAbbrev(argparse.ArgumentParser):
         def __init__(self, *args, **kwargs):
             if not kwargs.get("allow_abbrev", True):
                 if hasattr(self, "_get_option_tuples"):
@@ -629,6 +658,75 @@ else:
             return argparse.ArgumentParser.__init__(self, *args, **kwargs)
 
 
+class ExtendAction(argparse.Action):
+    """Create or extend list with the provided items"""
+
+    # from https://stackoverflow.com/a/41153081/3830997
+    def __call__(self, parser, namespace, values, option_string=None):
+        items = getattr(namespace, self.dest) or []
+        items.extend(values)
+        setattr(namespace, self.dest, items)
+
+
+class IncludeAction(argparse.Action):
+    """Flag the specified items for inclusion in the model"""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        items = getattr(namespace, self.dest) or []
+        items.append(("include", values))
+        setattr(namespace, self.dest, items)
+
+
+class ExcludeAction(argparse.Action):
+    """Flag the specified items for exclusion from the model"""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        items = getattr(namespace, self.dest) or []
+        items.append(("exclude", values))
+        setattr(namespace, self.dest, items)
+
+
+# Test whether we need to issue warnings about the Python parsing bug.
+# (applies to at least Python 2.7.11 and 3.6.2)
+# This bug messes up solve-scenarios if the user specifies
+# --scenario x --solver-options-string="a=b c=d"
+test_parser = argparse.ArgumentParser()
+test_parser.add_argument("--arg1", nargs="+", default=[])
+bad_equal_parser = (
+    len(test_parser.parse_known_args(["--arg1", "a", "--arg2=a=1 b=2"])[1]) == 0
+)
+
+# TODO: merge the _ArgumentParserAllowAbbrev code into this class
+class _ArgumentParser(_ArgumentParserAllowAbbrev):
+    """
+    Custom version of ArgumentParser:
+    - warns about a bug in standard Python ArgumentParser for --arg="some words"
+    - allows use of 'extend', 'include' and 'exclude' actions to accumulate lists
+      with multiple calls
+    """
+
+    def __init__(self, *args, **kwargs):
+        super(_ArgumentParser, self).__init__(*args, **kwargs)
+        self.register("action", "extend", ExtendAction)
+        self.register("action", "include", IncludeAction)
+        self.register("action", "exclude", ExcludeAction)
+
+    def parse_known_args(self, args=None, namespace=None):
+        # parse_known_args parses arguments like --list-arg a b --other-arg="something with space"
+        # as list_arg=['a', 'b', '--other-arg="something with space"'].
+        # See https://bugs.python.org/issue34390.
+        # We issue a warning to avoid this.
+        if bad_equal_parser and args is not None:
+            for a in args:
+                if a.startswith("--") and "=" in a:
+                    print(
+                        "Warning: argument '{}' may be parsed incorrectly. It is "
+                        "safer to use ' ' instead of '=' as a separator.".format(a)
+                    )
+                    time.sleep(2)  # give users a chance to see it
+        return super(_ArgumentParser, self).parse_known_args(args, namespace)
+
+
 def approx_equal(a, b, tolerance=0.01):
     return abs(a - b) <= (abs(a) + abs(b)) / 2.0 * tolerance
 
@@ -637,36 +735,82 @@ def default_solver():
     return pyomo.opt.SolverFactory("glpk")
 
 
-class Logging:
+def warn(message):
     """
-    Assign standard output and a log file as output destinations. This is accomplished by assigning this class
-    to sys.stdout.
+    Send warning message to sys.stderr.
+    Unlike warnings.warn, this does not add the current line of code to the message.
+    """
+    sys.stderr.write("WARNING: " + message + "\n")
+
+
+class TeeStream(object):
+    """
+    Virtual stream that writes output to both stream1 and stream2. Attributes
+    of stream1 will be reported to callers if needed. For example, specifying
+    `sys.stdout=TeeStream(sys.stdout, log_file_handle)` will copy
+    output destined for sys.stdout to log_file_handle as well.
+    """
+
+    def __init__(self, stream1, stream2):
+        self.stream1 = stream1
+        self.stream2 = stream2
+
+    def __getattr__(self, *args, **kwargs):
+        """
+        Provide stream1 attributes when attributes are requested for this class.
+        This supports code that assumes sys.stdout is an object with its own
+        methods, etc.
+        """
+        return getattr(self.stream1, *args, **kwargs)
+
+    def write(self, *args, **kwargs):
+        self.stream1.write(*args, **kwargs)
+        self.stream2.write(*args, **kwargs)
+
+    def flush(self, *args, **kwargs):
+        self.stream1.flush(*args, **kwargs)
+        self.stream2.flush(*args, **kwargs)
+
+
+class LogOutput(object):
+    """
+    Copy output sent to stdout or stderr to a log file in the specified directory.
+    Takes no action if directory is None. Log file is named based on the current
+    date and time. Directory will be created if needed, and file will be overwritten
+    if it already exists (unlikely).
     """
 
     def __init__(self, logs_dir):
-        # Make logs directory if class is initialized
-        if not os.path.exists(logs_dir):
-            os.mkdir(logs_dir)
+        self.logs_dir = logs_dir
 
-        # Assign sys.stdout and a log file as locations to write to
-        self.terminal = sys.stdout
-        self.log_file_path = os.path.join(
-            logs_dir, datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".log"
-        )
-        self.log_file = open(self.log_file_path, "w", buffering=1)
+    def __enter__(self):
+        """start copying output to log file"""
+        if self.logs_dir is not None:
+            if not os.path.exists(self.logs_dir):
+                os.makedirs(self.logs_dir)
+            log_file_path = os.path.join(
+                self.logs_dir,
+                datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".log",
+            )
+            self.log_file = open(log_file_path, "w", buffering=1)
+            self.stdout = sys.stdout
+            self.stderr = sys.stderr
+            sys.stdout = TeeStream(sys.stdout, self.log_file)
+            sys.stderr = TeeStream(sys.stderr, self.log_file)
+            print("logging output to " + str(log_file_path))
 
-    def __getattr__(self, attr):
-        """
-        Default to sys.stdout attributes when calling attributes for this class.
-        This is here to prevent unintended consequences for code that assumes sys.stdout is an object with its own
-        methods, etc.
-        """
-        return getattr(self.terminal, attr)
+    def __exit__(self, type, value, traceback):
+        """restore original output streams and close log file"""
+        if self.logs_dir is not None:
+            sys.stdout = self.stdout
+            sys.stderr = self.stderr
+            self.log_file.close()
 
-    def write(self, message):
-        self.terminal.write(message)
-        self.log_file.write(message)
 
-    def flush(self):
-        self.terminal.flush()
-        self.log_file.flush()
+def iteritems(obj):
+    """Iterator of key, value pairs for obj;
+    equivalent to obj.items() on Python 3+ and obj.iteritems() on Python 2"""
+    try:
+        return obj.iteritems()
+    except AttributeError:  # Python 3+
+        return obj.items()

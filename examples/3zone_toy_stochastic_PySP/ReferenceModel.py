@@ -21,6 +21,7 @@ calculation of the first stage costs, resulting in different RootNode costs
 per scenario, which is incongruent.
 
 """
+from __future__ import print_function
 
 inputs_dir = "inputs"
 
@@ -32,7 +33,7 @@ import switch_model.solve
 import sys, os
 from pyomo.environ import *
 
-print "loading model..."
+print("loading model...")
 
 # Ideally, we would use the main codebase to generate the model, but the
 # mandatory switch argument parser is interferring with pysp's command line tools
@@ -41,12 +42,12 @@ print "loading model..."
 module_list = switch_model.solve.get_module_list(args=None)
 model = utilities.create_model(module_list, args=[])
 
-# The following code augments the model object with Expressions for the 
-# Stage costs, which both runef and runph scripts need in order to build 
+# The following code augments the model object with Expressions for the
+# Stage costs, which both runef and runph scripts need in order to build
 # the stochastic objective function. In this particular example, only
 # two stages are considered: Investment and Operation. These Expression
 # names must match exactly the StageCostVariable parameter defined for
-# each Stage in the ScenarioStructure.dat file. 
+# each Stage in the ScenarioStructure.dat file.
 
 # The following two functions are defined explicitely, because since they
 # are nested inside another function in the financials module, they can't
@@ -61,8 +62,8 @@ def calc_annual_costs_in_period(m, p):
 		getattr(m, annual_cost)[p]
 		for annual_cost in m.Cost_Components_Per_Period)
 
-# In the current version of Switch-Pyomo, all annual costs are defined 
-# by First Stage decision variables, such as fixed O&M and capital 
+# In the current version of Switch, all annual costs are defined
+# by First Stage decision variables, such as fixed O&M and capital
 # costs, which are caused by the BuildProj, BuildTrans and BuildLocalTD
 # variables, all of which are considered as first stage decisions in this
 # two-stage example.
@@ -76,10 +77,10 @@ model.InvestmentCost = Expression(rule=lambda m: sum(
                 calc_annual_costs_in_period(m, p) * m.bring_annual_costs_to_base_year[p]
                 for p in m.PERIODS))
 
-model.OperationCost = Expression(rule=lambda m: 
+model.OperationCost = Expression(rule=lambda m:
 	sum(
 		sum(calc_tp_costs_in_period(m, t) for t in m.TPS_IN_PERIOD[p]
 		   ) * m.bring_annual_costs_to_base_year[p]
 	for p in m.PERIODS))
 
-print "model successfully loaded..."
+print("model successfully loaded...")

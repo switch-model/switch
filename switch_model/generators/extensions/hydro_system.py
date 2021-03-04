@@ -27,6 +27,7 @@ investment periods, and have their levels externally determined at the
 beginning and end of investment periods.
 
 """
+from __future__ import division
 
 import os
 from pyomo.environ import *
@@ -76,13 +77,13 @@ def define_components(mod):
     wnode_tp_inflow[wn, t] and wnode_tp_consumption[wn, t]
     are the values of water inflow and consumption at each node of the
     hydraulic system specified at each timepoint. These are optional
-    parameters that default to wnode_constant_inflow_cumec and
-    wnode_constant_consumption_cumec. Depending on data availability,
+    parameters that default to wnode_constant_inflow and
+    wnode_constant_consumption. Depending on data availability,
     these parameters may be used to represent different phenomena. In
     example, the Chilean datasets specify water inflows due to rainfall
     and melting snows at different nodes in a weekly basis. So, all
     simulated timepoints that belong to the same week will have the same
-    wnode_tp_inflow_cumec parameter specified for each water node.
+    wnode_tp_inflow parameter specified for each water node.
 
     wn_is_sink[WATER_NODES] is a binary flag indicating whether a water
     node is a sink. These nodes need not obey the law of conservation of
@@ -158,8 +159,8 @@ def define_components(mod):
     cubic meters. This variable is determined by the volume in the
     previous timepoint, the inflows and the outflows.
 
-    ReservoirSurplus[r, p] is the amount of water in the reservoir at the end
-    of each period in excess of final_res_vol[r].
+    ReservoirFinalVol[r, p] is the amount of water in the reservoir after
+    the last timepoint of each period.
 
     WATER_CONNECTIONS is the set of flows that begin and end in different
     water bodies, such as reservoirs and nodes. The model decides how much
@@ -218,7 +219,7 @@ def define_components(mod):
     certain flow depends on the water head. This creates a non linear
     relationship between the generated power per water flow and the volume
     of stored water. In this module the efficiency is assumed to be a
-    constant for each project, to keep the problem linead.
+    constant for each project, to keep the problem linear.
 
     hydraulic_location[hproj] is a parameter that specifies the water
     connection in which each hydro project is located. Multiple projects
@@ -289,7 +290,7 @@ def define_components(mod):
     mod.res_min_vol = Param(mod.RESERVOIRS, within=NonNegativeReals)
     mod.res_max_vol = Param(
         mod.RESERVOIRS,
-        within=PositiveReals,
+        within=NonNegativeReals,
         validate=lambda m, val, r: val >= m.res_min_vol[r],
     )
     mod.res_min_vol_tp = Param(
@@ -325,7 +326,12 @@ def define_components(mod):
     mod.ReservoirVol = Var(
         mod.RESERVOIR_TPS, within=NonNegativeReals, bounds=ReservoirVol_bounds
     )
-    mod.ReservoirSurplus = Var(mod.RESERVOIRS, mod.PERIODS, within=NonNegativeReals)
+    mod.ReservoirFinalVol = Var(
+        mod.RESERVOIRS,
+        mod.PERIODS,
+        within=NonNegativeReals,
+        bounds=lambda m, r, p: (m.final_res_vol[r], m.res_max_vol[r]),
+    )
 
     ################
     # Edges of the water network
@@ -334,7 +340,7 @@ def define_components(mod):
     mod.water_node_from = Param(mod.WATER_CONNECTIONS, within=mod.WATER_NODES)
     mod.water_node_to = Param(mod.WATER_CONNECTIONS, within=mod.WATER_NODES)
     mod.wc_capacity = Param(
-        mod.WATER_CONNECTIONS, within=PositiveReals, default=float("inf")
+        mod.WATER_CONNECTIONS, within=NonNegativeReals, default=float("inf")
     )
     mod.min_eco_flow = Param(mod.WCON_TPS, within=NonNegativeReals, default=0.0)
     mod.min_data_check("water_node_from", "water_node_to")
@@ -364,28 +370,29 @@ def define_components(mod):
         dispatch_outflow = sum(
             m.DispatchWater[wc, t] for wc in m.OUTWARD_WCONS_FROM_WNODE[wn]
         )
-        # Reservoir flows: 0 for non-reservoirs
+        # net change in reservoir volume (m3/s): 0 for non-reservoirs
         reservoir_fill_rate = 0.0
         if wn in m.RESERVOIRS:
             p = m.tp_period[t]
-            end_volume = 0.0
-            if t != m.TPS_IN_PERIOD[p].last():
-                t_next = m.TPS_IN_PERIOD[p].next(t)
-                end_volume = m.ReservoirVol[wn, t_next]
+            if t == m.TPS_IN_PERIOD[p].last():
+                end_of_tp_volume = m.ReservoirFinalVol[wn, p]
             else:
-                end_volume = m.final_res_vol[wn] + m.ReservoirSurplus[wn, p]
+                end_of_tp_volume = m.ReservoirVol[wn, m.TPS_IN_PERIOD[p].next(t)]
             reservoir_fill_rate = (
-                (end_volume - m.ReservoirVol[wn, t])
+                (end_of_tp_volume - m.ReservoirVol[wn, t])
                 * 1000000.0
                 / (m.tp_duration_hrs[t] * 3600)
             )
         # Conservation of mass flow
         return (
+            # inflows (m3/s)
             m.wnode_tp_inflow[wn, t] + dispatch_inflow
-            == m.wnode_tp_consumption[wn, t]
-            + dispatch_outflow
-            + m.SpillWaterAtNode[wn, t]
-            + reservoir_fill_rate
+            # less outflows (m3/s)
+            - m.wnode_tp_consumption[wn, t]
+            - dispatch_outflow
+            - m.SpillWaterAtNode[wn, t]
+            # net change in volume (m3/s)
+            == reservoir_fill_rate
         )
 
     mod.Enforce_Wnode_Balance = Constraint(
@@ -395,7 +402,8 @@ def define_components(mod):
     mod.NodeSpillageCosts = Expression(
         mod.TIMEPOINTS,
         rule=lambda m, t: sum(
-            m.SpillWaterAtNode[wn, t] * 3600 * m.spillage_penalty
+            # prior to Switch 2.0.3, this did not account for tp_duration_hrs
+            m.SpillWaterAtNode[wn, t] * 3600 * m.tp_duration_hrs[t] * m.spillage_penalty
             for wn in m.WATER_NODES
             if not m.wn_is_sink[wn]
         ),
@@ -408,9 +416,7 @@ def define_components(mod):
     mod.HYDRO_GEN_TPS = Set(
         initialize=mod.GEN_TPS, filter=lambda m, g, t: g in m.HYDRO_GENS
     )
-    mod.hydro_efficiency = Param(
-        mod.HYDRO_GENS, within=PositiveReals, validate=lambda m, val, g: val <= 10
-    )
+    mod.hydro_efficiency = Param(mod.HYDRO_GENS, within=NonNegativeReals)
     mod.hydraulic_location = Param(
         mod.HYDRO_GENS, validate=lambda m, val, g: val in m.WATER_CONNECTIONS
     )
@@ -437,22 +443,22 @@ def load_inputs(mod, switch_data, inputs_dir):
     Import hydro data to model hydroelectric projects in reservoirs and
     in series.
 
-    The files water_nodes.tab, reservoirs.tab, water_connections.tab and
-    hydro_generation_projects.tab are mandatory, since they specify the hydraulic
+    The files water_nodes.csv, reservoirs.csv, water_connections.csv and
+    hydro_generation_projects.csv are mandatory, since they specify the hydraulic
     system's topology and basic characterization.
 
-    Files water_node_tp_flows, reservoir_tp_data.tab and min_eco_flows.tab
+    Files water_node_tp_flows, reservoir_tp_data.csv and min_eco_flows.csv
     are optional, since they specify information in a timepoint basis that
     has constant values to default to.
 
     Run-of-River hydro projects should not be included in this file; RoR
     hydro is treated like any other variable renewable resource, and
-    expects data in variable_capacity_factors.tab.
+    expects data in variable_capacity_factors.csv.
 
     """
 
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "water_nodes.tab"),
+        filename=os.path.join(inputs_dir, "water_nodes.csv"),
         auto_select=True,
         index=mod.WATER_NODES,
         optional_params=["mod.wnode_constant_inflow", "mod.wnode_constant_consumption"],
@@ -464,13 +470,13 @@ def load_inputs(mod, switch_data, inputs_dir):
     )
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, "water_node_tp_flows.tab"),
+        filename=os.path.join(inputs_dir, "water_node_tp_flows.csv"),
         auto_select=True,
         optional_params=["mod.wnode_tp_inflow", "mod.wnode_tp_consumption"],
         param=(mod.wnode_tp_inflow, mod.wnode_tp_consumption),
     )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "reservoirs.tab"),
+        filename=os.path.join(inputs_dir, "reservoirs.csv"),
         auto_select=True,
         index=mod.RESERVOIRS,
         param=(
@@ -480,31 +486,39 @@ def load_inputs(mod, switch_data, inputs_dir):
             mod.final_res_vol,
         ),
     )
+    if os.path.exists(os.path.join(inputs_dir, "reservoir_tp_data.csv")):
+        raise NotImplementedError(
+            "Code needs to be added to hydro_system module to enforce "
+            "reservoir volume limits per timepoint."
+        )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "reservoir_tp_data.tab"),
+        filename=os.path.join(inputs_dir, "reservoir_tp_data.csv"),
         optional=True,
         auto_select=True,
         optional_params=["mod.res_max_vol_tp", "mod.res_min_vol_tp"],
         param=(mod.res_max_vol_tp, mod.res_min_vol_tp),
     )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "water_connections.tab"),
+        filename=os.path.join(inputs_dir, "water_connections.csv"),
         auto_select=True,
         index=mod.WATER_CONNECTIONS,
         param=(mod.water_node_from, mod.water_node_to, mod.wc_capacity),
     )
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, "min_eco_flows.tab"),
+        filename=os.path.join(inputs_dir, "min_eco_flows.csv"),
         auto_select=True,
         param=(mod.min_eco_flow),
     )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "hydro_generation_projects.tab"),
+        filename=os.path.join(inputs_dir, "hydro_generation_projects.csv"),
         auto_select=True,
         index=mod.HYDRO_GENS,
         param=(mod.hydro_efficiency, mod.hydraulic_location),
     )
-    spillage_penalty_path = os.path.join(inputs_dir, "spillage_penalty.dat")
-    if os.path.isfile(spillage_penalty_path):
-        switch_data.load(filename=spillage_penalty_path)
+    switch_data.load_aug(
+        filename=os.path.join(inputs_dir, "spillage_penalty.csv"),
+        optional=True,
+        auto_select=True,
+        param=(mod.spillage_penalty,),
+    )

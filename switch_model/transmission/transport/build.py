@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -29,7 +29,7 @@ def define_components(mod):
     TRANSMISSION_LINES is the complete set of transmission pathways
     connecting load zones. Each member of this set is a one dimensional
     identifier such as "A-B". This set has no regard for directionality
-    of transmisison lines and will generate an error if you specify two
+    of transmission lines and will generate an error if you specify two
     lines that move in opposite directions such as (A to B) and (B to
     A). Another derived set - TRANS_LINES_DIRECTIONAL - stores
     directional information. Transmission may be abbreviated as trans or
@@ -74,7 +74,7 @@ def define_components(mod):
     potential builds.
 
     BuildTx[(tx, bld_yr) in BLD_YRS_FOR_TX] is a decision variable
-    that describes the transfer capacity in MW installed on a cooridor
+    that describes the transfer capacity in MW installed on a corridor
     in a given build year. For existing builds, this variable is locked
     to the existing capacity.
 
@@ -111,7 +111,7 @@ def define_components(mod):
     transmission model transmission data. At the end of this time,
     we assume transmission lines will be rebuilt at the same cost.
 
-    trans_fixed_om_fraction is describes the fixed Operations and
+    trans_fixed_om_fraction describes the fixed Operations and
     Maintenance costs as a fraction of capital costs. This optional
     parameter defaults to 0.03 based on 2009 WREZ transmission model
     transmission data costs for existing transmission maintenance.
@@ -149,7 +149,7 @@ def define_components(mod):
     --- NOTES ---
 
     The cost stream over time for transmission lines differs from the
-    SWITCH-WECC model. The SWITCH-WECC model assumed new transmission
+    Switch-WECC model. The Switch-WECC model assumed new transmission
     had a financial lifetime of 20 years, which was the length of the
     loan term. During this time, fixed operations & maintenance costs
     were also incurred annually and these were estimated to be 3 percent
@@ -157,18 +157,18 @@ def define_components(mod):
     from the 2009 WREZ transmission model transmission data costs for
     existing transmission maintenance .. most of those lines were old
     and their capital loans had been paid off, so the O&M were the costs
-    of keeping them operational. SWITCH-WECC basically assumed the lines
+    of keeping them operational. Switch-WECC basically assumed the lines
     could be kept online indefinitely with that O&M budget, with
     components of the lines being replaced as needed. This payment
     schedule and lifetimes was assumed to hold for both existing and new
     lines. This made the annual costs change over time, which could
-    create edge effects near the end of the study period. SWITCH-WECC
+    create edge effects near the end of the study period. Switch-WECC
     had different cost assumptions for local T&D; capital expenses and
     fixed O&M expenses were rolled in together, and those were assumed
     to continue indefinitely. This basically assumed that local T&D would
     be replaced at the end of its financial lifetime.
 
-    SWITCH-Pyomo treats all transmission and distribution (long-
+    Switch treats all transmission and distribution (long-
     distance or local) the same. Any capacity that is built will be kept
     online indefinitely. At the end of its financial lifetime, existing
     capacity will be retired and rebuilt, so the annual cost of a line
@@ -179,68 +179,37 @@ def define_components(mod):
     mod.TRANSMISSION_LINES = Set()
     mod.trans_lz1 = Param(mod.TRANSMISSION_LINES, within=mod.LOAD_ZONES)
     mod.trans_lz2 = Param(mod.TRANSMISSION_LINES, within=mod.LOAD_ZONES)
-    mod.min_data_check("TRANSMISSION_LINES", "trans_lz1", "trans_lz2")
+    # we don't do a min_data_check for TRANSMISSION_LINES, because it may be empty for model
+    # configurations that are sometimes run with interzonal transmission and sometimes not
+    # (e.g., island interconnect scenarios). However, presence of this column will still be
+    # checked by load_data_aug.
+    mod.min_data_check("trans_lz1", "trans_lz2")
     mod.trans_dbid = Param(mod.TRANSMISSION_LINES, default=lambda m, tx: tx)
-    mod.trans_length_km = Param(mod.TRANSMISSION_LINES, within=PositiveReals)
-    mod.trans_efficiency = Param(
-        mod.TRANSMISSION_LINES,
-        within=PositiveReals,
-        validate=lambda m, val, tx: val <= 1,
-    )
-    mod.BLD_YRS_FOR_EXISTING_TX = Set(
-        dimen=2, initialize=lambda m: set((tx, "Legacy") for tx in m.TRANSMISSION_LINES)
-    )
+    mod.trans_length_km = Param(mod.TRANSMISSION_LINES, within=NonNegativeReals)
+    mod.trans_efficiency = Param(mod.TRANSMISSION_LINES, within=PercentFraction)
     mod.existing_trans_cap = Param(mod.TRANSMISSION_LINES, within=NonNegativeReals)
-    mod.min_data_check(
-        "trans_length_km",
-        "trans_efficiency",
-        "BLD_YRS_FOR_EXISTING_TX",
-        "existing_trans_cap",
-    )
+    mod.min_data_check("trans_length_km", "trans_efficiency", "existing_trans_cap")
     mod.trans_new_build_allowed = Param(
         mod.TRANSMISSION_LINES, within=Boolean, default=True
     )
-    mod.NEW_TRANS_BLD_YRS = Set(
+    mod.TRANS_BLD_YRS = Set(
         dimen=2,
         initialize=mod.TRANSMISSION_LINES * mod.PERIODS,
         filter=lambda m, tx, p: m.trans_new_build_allowed[tx],
     )
-    mod.BLD_YRS_FOR_TX = Set(
-        dimen=2, initialize=lambda m: m.BLD_YRS_FOR_EXISTING_TX | m.NEW_TRANS_BLD_YRS
-    )
-    mod.TX_BUILDS_IN_PERIOD = Set(
-        mod.PERIODS,
-        within=mod.BLD_YRS_FOR_TX,
-        initialize=lambda m, p: set(
-            (tx, bld_yr)
-            for (tx, bld_yr) in m.BLD_YRS_FOR_TX
-            if bld_yr == "Legacy" or bld_yr <= p
-        ),
-    )
-
-    def bounds_BuildTx(model, tx, bld_yr):
-        if (tx, bld_yr) in model.BLD_YRS_FOR_EXISTING_TX:
-            return (model.existing_trans_cap[tx], model.existing_trans_cap[tx])
-        else:
-            return (0, None)
-
-    mod.BuildTx = Var(
-        mod.BLD_YRS_FOR_TX, within=NonNegativeReals, bounds=bounds_BuildTx
-    )
+    mod.BuildTx = Var(mod.TRANS_BLD_YRS, within=NonNegativeReals)
     mod.TxCapacityNameplate = Expression(
         mod.TRANSMISSION_LINES,
         mod.PERIODS,
         rule=lambda m, tx, period: sum(
             m.BuildTx[tx, bld_yr]
-            for (tx2, bld_yr) in m.BLD_YRS_FOR_TX
-            if tx2 == tx and (bld_yr == "Legacy" or bld_yr <= period)
-        ),
+            for bld_yr in m.PERIODS
+            if bld_yr <= period and (tx, bld_yr) in m.TRANS_BLD_YRS
+        )
+        + m.existing_trans_cap[tx],
     )
     mod.trans_derating_factor = Param(
-        mod.TRANSMISSION_LINES,
-        within=NonNegativeReals,
-        default=1,
-        validate=lambda m, val, tx: val <= 1,
+        mod.TRANSMISSION_LINES, within=PercentFraction, default=1
     )
     mod.TxCapacityNameplateAvailable = Expression(
         mod.TRANSMISSION_LINES,
@@ -250,21 +219,18 @@ def define_components(mod):
         ),
     )
     mod.trans_terrain_multiplier = Param(
-        mod.TRANSMISSION_LINES,
-        within=Reals,
-        default=1,
-        validate=lambda m, val, tx: val >= 0.5 and val <= 3,
+        mod.TRANSMISSION_LINES, within=NonNegativeReals, default=1
     )
-    mod.trans_capital_cost_per_mw_km = Param(within=PositiveReals, default=1000)
-    mod.trans_lifetime_yrs = Param(within=PositiveReals, default=20)
-    mod.trans_fixed_om_fraction = Param(within=PositiveReals, default=0.03)
+    mod.trans_capital_cost_per_mw_km = Param(within=NonNegativeReals, default=1000)
+    mod.trans_lifetime_yrs = Param(within=NonNegativeReals, default=20)
+    mod.trans_fixed_om_fraction = Param(within=NonNegativeReals, default=0.03)
     # Total annual fixed costs for building new transmission lines...
     # Multiply capital costs by capital recover factor to get annual
     # payments. Add annual fixed O&M that are expressed as a fraction of
     # overnight costs.
     mod.trans_cost_annual = Param(
         mod.TRANSMISSION_LINES,
-        within=PositiveReals,
+        within=NonNegativeReals,
         initialize=lambda m, tx: (
             m.trans_capital_cost_per_mw_km
             * m.trans_terrain_multiplier[tx]
@@ -279,8 +245,8 @@ def define_components(mod):
     mod.TxFixedCosts = Expression(
         mod.PERIODS,
         rule=lambda m, p: sum(
-            m.BuildTx[tx, bld_yr] * m.trans_cost_annual[tx]
-            for (tx, bld_yr) in m.TX_BUILDS_IN_PERIOD[p]
+            m.TxCapacityNameplate[tx, p] * m.trans_cost_annual[tx]
+            for tx in m.TRANSMISSION_LINES
         ),
     )
     mod.Cost_Components_Per_Period.append("TxFixedCosts")
@@ -318,35 +284,28 @@ def load_inputs(mod, switch_data, inputs_dir):
     Import data related to transmission builds. The following files are
     expected in the input directory:
 
-    transmission_lines.tab
+    transmission_lines.csv
         TRANSMISSION_LINE, trans_lz1, trans_lz2, trans_length_km,
-        trans_efficiency, existing_trans_cap
+        trans_efficiency, existing_trans_cap, trans_dbid,
+        trans_derating_factor, trans_terrain_multiplier,
+        trans_new_build_allowed
+    The last 4 columns of transmission_lines.csv are optional. If the
+    columns are missing or if cells contain a dot (.), those parameters
+    will be set to default values as described in documentation.
 
-    The next files are optional. If they are not included or if any rows
-    are missing, those parameters will be set to default values as
-    described in documentation. If you only want to override some
-    columns and not others in trans_optional_params, put a dot . in the
-    columns that you don't want to override.
+    Note that in the next file, parameter names are written on the first
+    row (as usual), and the single value for each parameter is written in
+    the second row.
 
-    trans_optional_params.tab
-        TRANSMISSION_LINE, trans_dbid, trans_derating_factor,
-        trans_terrain_multiplier, trans_new_build_allowed
-
-    Note that the next file is formatted as .dat, not as .tab. The
-    distribution_loss_rate parameter should only be inputted if the
-    local_td module is loaded in the simulation. If this parameter is
-    specified a value in trans_params.dat and local_td is not included
-    in the module list, then an error will be raised.
-
-    trans_params.dat
+    trans_params.csv
         trans_capital_cost_per_mw_km, trans_lifetime_yrs,
-        trans_fixed_om_fraction, distribution_loss_rate
-
-
+        trans_fixed_om_fraction
     """
 
+    # TODO: send issue / pull request to Pyomo to allow .csv files with
+    # no rows after header (fix bugs in pyomo.core.plugins.data.text)
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "transmission_lines.tab"),
+        filename=os.path.join(inputs_dir, "transmission_lines.csv"),
         select=(
             "TRANSMISSION_LINE",
             "trans_lz1",
@@ -354,36 +313,67 @@ def load_inputs(mod, switch_data, inputs_dir):
             "trans_length_km",
             "trans_efficiency",
             "existing_trans_cap",
+            "trans_dbid",
+            "trans_derating_factor",
+            "trans_terrain_multiplier",
+            "trans_new_build_allowed",
         ),
         index=mod.TRANSMISSION_LINES,
-        param=(
-            mod.trans_lz1,
-            mod.trans_lz2,
-            mod.trans_length_km,
-            mod.trans_efficiency,
-            mod.existing_trans_cap,
-        ),
-    )
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "trans_optional_params.tab"),
-        optional=True,
-        select=(
-            "TRANSMISSION_LINE",
+        optional_params=(
             "trans_dbid",
             "trans_derating_factor",
             "trans_terrain_multiplier",
             "trans_new_build_allowed",
         ),
         param=(
+            mod.trans_lz1,
+            mod.trans_lz2,
+            mod.trans_length_km,
+            mod.trans_efficiency,
+            mod.existing_trans_cap,
             mod.trans_dbid,
             mod.trans_derating_factor,
             mod.trans_terrain_multiplier,
             mod.trans_new_build_allowed,
         ),
     )
-    trans_params_path = os.path.join(inputs_dir, "trans_params.dat")
-    if os.path.isfile(trans_params_path):
-        switch_data.load(filename=trans_params_path)
+    switch_data.load_aug(
+        filename=os.path.join(inputs_dir, "trans_params.csv"),
+        optional=True,
+        auto_select=True,
+        param=(
+            mod.trans_capital_cost_per_mw_km,
+            mod.trans_lifetime_yrs,
+            mod.trans_fixed_om_fraction,
+        ),
+    )
+
+
+def post_solve(instance, outdir):
+    mod = instance
+    normalized_dat = [
+        {
+            "TRANSMISSION_LINE": tx,
+            "PERIOD": p,
+            "trans_lz1": mod.trans_lz1[tx],
+            "trans_lz2": mod.trans_lz2[tx],
+            "trans_dbid": mod.trans_dbid[tx],
+            "trans_length_km": mod.trans_length_km[tx],
+            "trans_efficiency": mod.trans_efficiency[tx],
+            "trans_derating_factor": mod.trans_derating_factor[tx],
+            "TxCapacityNameplate": value(mod.TxCapacityNameplate[tx, p]),
+            "TxCapacityNameplateAvailable": value(
+                mod.TxCapacityNameplateAvailable[tx, p]
+            ),
+            "TotalAnnualCost": value(
+                mod.TxCapacityNameplate[tx, p] * mod.trans_cost_annual[tx]
+            ),
+        }
+        for tx, p in mod.TRANSMISSION_LINES * mod.PERIODS
+    ]
+    tx_build_df = pd.DataFrame(normalized_dat)
+    tx_build_df.set_index(["TRANSMISSION_LINE", "PERIOD"], inplace=True)
+    tx_build_df.to_csv(os.path.join(outdir, "transmission.csv"))
 
 
 def post_solve(instance, outdir):

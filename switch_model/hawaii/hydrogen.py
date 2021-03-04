@@ -1,9 +1,31 @@
+from __future__ import division
 import os
 from pyomo.environ import *
 from switch_model.financials import capital_recovery_factor as crf
 
 
+def define_arguments(argparser):
+    argparser.add_argument(
+        "--hydrogen-reserve-types",
+        nargs="+",
+        default=["spinning"],
+        help="Type(s) of reserves to provide from hydrogen infrastructure (e.g., 'contingency regulation'). "
+        "Specify 'none' to disable.",
+    )
+    argparser.add_argument(
+        "--no-hydrogen",
+        action="store_true",
+        default=False,
+        help="Don't allow construction of any hydrogen infrastructure.",
+    )
+
+
 def define_components(m):
+    if not m.options.no_hydrogen:
+        define_hydrogen_components(m)
+
+
+def define_hydrogen_components(m):
 
     # electrolyzer details
     m.hydrogen_electrolyzer_capital_cost_per_mw = Param()
@@ -20,7 +42,8 @@ def define_components(m):
         m.LOAD_ZONES,
         m.PERIODS,
         rule=lambda m, z, p: sum(
-            m.BuildElectrolyzerMW[z, p_] for p_ in m.CURRENT_AND_PRIOR_PERIODS[p]
+            m.BuildElectrolyzerMW[z, p_]
+            for p_ in m.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD[p]
         ),
     )
     m.RunElectrolyzerMW = Var(m.LOAD_ZONES, m.TIMEPOINTS, within=NonNegativeReals)
@@ -49,7 +72,8 @@ def define_components(m):
         m.LOAD_ZONES,
         m.PERIODS,
         rule=lambda m, z, p: sum(
-            m.BuildLiquifierKgPerHour[z, p_] for p_ in m.CURRENT_AND_PRIOR_PERIODS[p]
+            m.BuildLiquifierKgPerHour[z, p_]
+            for p_ in m.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD[p]
         ),
     )
     m.LiquifyHydrogenKgPerHour = Var(
@@ -73,7 +97,8 @@ def define_components(m):
         m.LOAD_ZONES,
         m.PERIODS,
         rule=lambda m, z, p: sum(
-            m.BuildLiquidHydrogenTankKg[z, p_] for p_ in m.CURRENT_AND_PRIOR_PERIODS[p]
+            m.BuildLiquidHydrogenTankKg[z, p_]
+            for p_ in m.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD[p]
         ),
     )
     m.StoreLiquidHydrogenKg = Expression(
@@ -100,7 +125,7 @@ def define_components(m):
         m.LOAD_ZONES,
         m.PERIODS,
         rule=lambda m, z, p: sum(
-            m.BuildFuelCellMW[z, p_] for p_ in m.CURRENT_AND_PRIOR_PERIODS[p]
+            m.BuildFuelCellMW[z, p_] for p_ in m.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD[p]
         ),
     )
     m.DispatchFuelCellMW = Var(m.LOAD_ZONES, m.TIMEPOINTS, within=NonNegativeReals)
@@ -289,27 +314,96 @@ def define_components(m):
     m.Cost_Components_Per_Period.append("HydrogenFixedCostAnnual")
 
     # Register with spinning reserves if it is available
-    if "Spinning_Reserve_Up_Provisions" in dir(m):
-        m.HydrogenSpinningReserveUp = Expression(
-            m.BALANCING_AREA_TIMEPOINTS,
-            rule=lambda m, b, t: sum(
-                m.HydrogenSlackUp[z, t] for z in m.ZONES_IN_BALANCING_AREA[b]
-            ),
-        )
-        m.Spinning_Reserve_Up_Provisions.append("HydrogenSpinningReserveUp")
+    if [rt.lower() for rt in m.options.hydrogen_reserve_types] != ["none"]:
+        # Register with spinning reserves
+        if hasattr(m, "Spinning_Reserve_Up_Provisions"):
+            # calculate available slack from hydrogen equipment
+            m.HydrogenSlackUpForArea = Expression(
+                m.BALANCING_AREA_TIMEPOINTS,
+                rule=lambda m, b, t: sum(
+                    m.HydrogenSlackUp[z, t] for z in m.ZONES_IN_BALANCING_AREA[b]
+                ),
+            )
+            m.HydrogenSlackDownForArea = Expression(
+                m.BALANCING_AREA_TIMEPOINTS,
+                rule=lambda m, b, t: sum(
+                    m.HydrogenSlackDown[z, t] for z in m.ZONES_IN_BALANCING_AREA[b]
+                ),
+            )
+            if hasattr(m, "GEN_SPINNING_RESERVE_TYPES"):
+                # using advanced formulation, index by reserve type, balancing area, timepoint
+                # define variables for each type of reserves to be provided
+                # choose how to allocate the slack between the different reserve products
+                m.HYDROGEN_SPINNING_RESERVE_TYPES = Set(
+                    initialize=m.options.hydrogen_reserve_types
+                )
+                m.HydrogenSpinningReserveUp = Var(
+                    m.HYDROGEN_SPINNING_RESERVE_TYPES,
+                    m.BALANCING_AREA_TIMEPOINTS,
+                    within=NonNegativeReals,
+                )
+                m.HydrogenSpinningReserveDown = Var(
+                    m.HYDROGEN_SPINNING_RESERVE_TYPES,
+                    m.BALANCING_AREA_TIMEPOINTS,
+                    within=NonNegativeReals,
+                )
+                # constrain reserve provision within available slack
+                m.Limit_HydrogenSpinningReserveUp = Constraint(
+                    m.BALANCING_AREA_TIMEPOINTS,
+                    rule=lambda m, ba, tp: sum(
+                        m.HydrogenSpinningReserveUp[rt, ba, tp]
+                        for rt in m.HYDROGEN_SPINNING_RESERVE_TYPES
+                    )
+                    <= m.HydrogenSlackUpForArea[ba, tp],
+                )
+                m.Limit_HydrogenSpinningReserveDown = Constraint(
+                    m.BALANCING_AREA_TIMEPOINTS,
+                    rule=lambda m, ba, tp: sum(
+                        m.HydrogenSpinningReserveDown[rt, ba, tp]
+                        for rt in m.HYDROGEN_SPINNING_RESERVE_TYPES
+                    )
+                    <= m.HydrogenSlackDownForArea[ba, tp],
+                )
+                m.Spinning_Reserve_Up_Provisions.append("HydrogenSpinningReserveUp")
+                m.Spinning_Reserve_Down_Provisions.append("HydrogenSpinningReserveDown")
+            else:
+                # using older formulation, only one type of spinning reserves, indexed by balancing area, timepoint
+                if m.options.hydrogen_reserve_types != ["spinning"]:
+                    raise ValueError(
+                        'Unable to use reserve types other than "spinning" with simple spinning reserves module.'
+                    )
+                m.Spinning_Reserve_Up_Provisions.append("HydrogenSlackUpForArea")
+                m.Spinning_Reserve_Down_Provisions.append("HydrogenSlackDownForArea")
 
-        m.HydrogenSpinningReserveDown = Expression(
-            m.BALANCING_AREA_TIMEPOINTS,
-            rule=lambda m, b, t: sum(
-                m.HydrogenSlackDown[g, t] for z in m.ZONES_IN_BALANCING_AREA[b]
-            ),
-        )
-        m.Spinning_Reserve_Down_Provisions.append("HydrogenSpinningReserveDown")
 
-
-def load_inputs(mod, switch_data, inputs_dir):
+def load_inputs(m, switch_data, inputs_dir):
     """
-    Import hydrogen data from a .dat file.
+    Import hydrogen data from a .csv file.
     TODO: change this to allow multiple storage technologies.
     """
-    switch_data.load(filename=os.path.join(inputs_dir, "hydrogen.dat"))
+    if not m.options.no_hydrogen:
+        switch_data.load_aug(
+            filename=os.path.join(inputs_dir, "hydrogen.csv"),
+            optional=False,
+            auto_select=True,
+            param=(
+                m.hydrogen_electrolyzer_capital_cost_per_mw,
+                m.hydrogen_electrolyzer_fixed_cost_per_mw_year,
+                m.hydrogen_electrolyzer_kg_per_mwh,
+                m.hydrogen_electrolyzer_life_years,
+                m.hydrogen_electrolyzer_variable_cost_per_kg,
+                m.hydrogen_fuel_cell_capital_cost_per_mw,
+                m.hydrogen_fuel_cell_fixed_cost_per_mw_year,
+                m.hydrogen_fuel_cell_life_years,
+                m.hydrogen_fuel_cell_mwh_per_kg,
+                m.hydrogen_fuel_cell_variable_cost_per_mwh,
+                m.hydrogen_liquifier_capital_cost_per_kg_per_hour,
+                m.hydrogen_liquifier_fixed_cost_per_kg_hour_year,
+                m.hydrogen_liquifier_life_years,
+                m.hydrogen_liquifier_mwh_per_kg,
+                m.hydrogen_liquifier_variable_cost_per_kg,
+                m.liquid_hydrogen_tank_capital_cost_per_kg,
+                m.liquid_hydrogen_tank_life_years,
+                m.liquid_hydrogen_tank_minimum_size_kg,
+            ),
+        )

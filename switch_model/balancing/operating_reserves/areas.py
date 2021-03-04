@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -51,7 +51,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     Import balancing_area data. The following files are expected in the input
     directory:
 
-    load_zones.tab
+    load_zones.csv
         LOAD_ZONE, ..., zone_balancing_area
 
     """
@@ -59,7 +59,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     # column names, be indifferent to column order, and throw an error
     # message if some columns are not found.
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "load_zones.tab"),
+        filename=os.path.join(inputs_dir, "load_zones.csv"),
         auto_select=True,
         param=(mod.zone_balancing_area),
     )

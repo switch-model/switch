@@ -1,4 +1,5 @@
 import argparse, os, collections
+from switch_model.utilities import string_types
 
 try:
     import fcntl
@@ -24,7 +25,7 @@ except ImportError:
 
 def iterify(item):
     """Return an iterable for the one or more items passed."""
-    if isinstance(item, basestring):
+    if isinstance(item, string_types):
         i = iter([item])
     else:
         try:
@@ -82,7 +83,7 @@ parser.add_argument(action=AddModuleAction, dest="include_module", nargs="*")
 
 def args_dict(*a):
     """call the parser to get the args, then return them as a dictionary, omitting None's'"""
-    return {k: v for k, v in vars(parser.parse_args(*a)).iteritems() if v is not None}
+    return {k: v for k, v in vars(parser.parse_args(*a)).items() if v is not None}
 
 
 # report current command line arguments for use by various functions
@@ -115,7 +116,7 @@ def start_next_standard_scenario():
     Then report it as completed and return the scenario arguments
     (including any modifications from the command line)."""
     scenarios_list = get_standard_scenarios_dict()
-    for (s, args) in scenarios_list.iteritems():
+    for (s, args) in scenarios_list.items():
         if scenario_already_run(s):
             continue
         else:

@@ -60,6 +60,7 @@ energy production so that the lines collectively form a convex boundary
 for fuel use.
 
 """
+from __future__ import division
 
 import os
 from pyomo.environ import *
@@ -122,10 +123,13 @@ def define_components(mod):
         dimen=4,
         initialize=lambda m: [
             (g, t, intercept, slope)
-            for (g, t) in m._FUEL_BASED_GEN_TPS
+            for (g, t) in m.FUEL_BASED_GEN_TPS
             for (intercept, slope) in m.FUEL_USE_SEGMENTS_FOR_GEN[g]
         ],
     )
+
+    # TODO calculate GenFuelUseRate per fuel rather than for the sum of all fuels
+    #      to support multi-fuel generation
     mod.GenFuelUseRate_Calculate = Constraint(
         mod.GEN_TPS_FUEL_PIECEWISE_CONS_SET,
         rule=lambda m, g, t, intercept, incremental_heat_rate: (
@@ -184,16 +188,16 @@ def load_inputs(mod, switch_data, inputs_dir):
     load heat22 rate. If no specific data is provided for a project, it
     will default to its generation technology.
 
-    gen_inc_heat_rates.tab
+    gen_inc_heat_rates.csv
         project, power_start_mw, power_end_mw,
         incremental_heat_rate_mbtu_per_mwhr, fuel_use_rate_mmbtu_per_h
 
     """
 
-    path = os.path.join(inputs_dir, "gen_inc_heat_rates.tab")
+    path = os.path.join(inputs_dir, "gen_inc_heat_rates.csv")
     if os.path.isfile(path):
         (fuel_rate_segments, min_load, full_hr) = _parse_inc_heat_rate_file(
-            path, id_column="project"
+            path, id_column="GENERATION_PROJECT"
         )
         # Check implied minimum loading level for consistency with
         # gen_min_load_fraction if gen_min_load_fraction was provided. If
@@ -253,8 +257,8 @@ def _parse_inc_heat_rate_file(path, id_column):
     full_load_hr = {}
     # Scan the file and stuff the data into dictionaries for easy access.
     # Parse the file and stuff data into dictionaries indexed by units.
-    with open(path, "rb") as hr_file:
-        dat = list(csv.DictReader(hr_file, delimiter="\t"))
+    with open(path, "r") as hr_file:
+        dat = list(csv.DictReader(hr_file, delimiter=","))
         for row in dat:
             u = row[id_column]
             p1 = float(row["power_start_mw"])
@@ -310,7 +314,7 @@ def _parse_inc_heat_rate_file(path, id_column):
         if u not in ihr_dat:
             # no heat rate segments specified; plant can only be off or on at full power
             # create a dummy curve at full heat rate
-            output, fuel = fr_points.items()[0]
+            output, fuel = next(iter(fr_points.items()))
             fuel_rate_segments[u] = [(0.0, fuel / output)]
             min_cap_factor[u] = 1.0
             full_load_hr[u] = fuel / output

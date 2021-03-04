@@ -3,12 +3,13 @@
 
 """
 Defines model components to describe unit commitment of projects for the
-SWITCH-Pyomo model. This module is mutually exclusive with the
+Switch model. This module is mutually exclusive with the
 operations.no_commit module which specifies simplified dispatch
 constraints. If you want to use this module directly in a list of switch
 modules (instead of including the package operations.unitcommit), you will also
 need to include the module operations.unitcommit.fuel_use.
 """
+from __future__ import division
 
 import os, itertools
 from pyomo.environ import *
@@ -27,7 +28,7 @@ def define_components(mod):
     """
 
     Adds components to a Pyomo abstract model object to describe
-    unit commitment for gects. Unless otherwise stated, all power
+    unit commitment for projects. Unless otherwise stated, all power
     capacity is specified in units of MW and all sets and parameters
     are mandatory.
 
@@ -272,15 +273,14 @@ def define_components(mod):
     # StartupGenCapacity costs
     mod.gen_startup_fuel = Param(mod.FUEL_BASED_GENS, default=0.0)
     mod.gen_startup_om = Param(mod.GENERATION_PROJECTS, default=0.0)
-    # StartupGenCapacity costs need to be divided over the duration of the
-    # timepoint because it is a one-time expenditure in units of $
-    # but Cost_Components_Per_TP requires an hourly cost rate in $ / hr.
+    # Note: lump-sum startup O&M cost is divided by the duration of the
+    # timepoint to give a cost-per-hour during this timepoint, as needed by
+    # Cost_Components_Per_TP.
     mod.Total_StartupGenCapacity_OM_Costs = Expression(
         mod.TIMEPOINTS,
         rule=lambda m, t: sum(
             m.gen_startup_om[g] * m.StartupGenCapacity[g, t] / m.tp_duration_hrs[t]
-            for (g, t2) in m.GEN_TPS
-            if t == t2
+            for g in m.GENS_IN_PERIOD[m.tp_period[t]]
         ),
     )
     mod.Cost_Components_Per_TP.append("Total_StartupGenCapacity_OM_Costs")
@@ -322,12 +322,12 @@ def define_components(mod):
 
         # how many timepoints must the project stay on/off once it's
         # started/shutdown?
-        # note: StartupGenCapacity and ShutdownGenCapacity are assumed to occur at the start of
-        # the timepoint
+        # note: StartupGenCapacity and ShutdownGenCapacity are assumed to
+        # occur at the start of the timepoint
         n_tp = int(
             round(
                 (m.gen_min_uptime[g] if up else m.gen_min_downtime[g])
-                / m.ts_duration_of_tp[m.tp_ts[tp]]
+                / m.tp_duration_hrs[tp]
             )
         )
         if n_tp == 0:
@@ -423,21 +423,22 @@ def load_inputs(mod, switch_data, inputs_dir):
     If you only want to override default values for certain columns in a
     row, insert a dot . into the other columns.
 
-    generation_projects_info.tab
-        GENERATION_PROJECT, gen_min_load_fraction, gen_startup_fuel, gen_startup_om
+    generation_projects_info.csv
+        GENERATION_PROJECT, gen_min_load_fraction, gen_startup_fuel,
+        gen_startup_om
 
     Note: If you need to specify minimum loading fraction or startup
     costs for a non-fuel based generator, you must put a dot . in the
     gen_startup_fuel column to avoid an error.
 
-    gen_timepoint_commit_bounds.tab
+    gen_timepoint_commit_bounds.csv
         GENERATION_PROJECT, TIMEPOINT, gen_min_commit_fraction_TP,
         gen_max_commit_fraction_TP, gen_min_load_fraction_TP
 
     """
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, "generation_projects_info.tab"),
+        filename=os.path.join(inputs_dir, "generation_projects_info.csv"),
         auto_select=True,
         param=(
             mod.gen_min_load_fraction,
@@ -449,7 +450,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     )
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, "gen_timepoint_commit_bounds.tab"),
+        filename=os.path.join(inputs_dir, "gen_timepoint_commit_bounds.csv"),
         auto_select=True,
         param=(
             mod.gen_min_commit_fraction,

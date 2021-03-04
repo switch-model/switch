@@ -2,10 +2,10 @@
 # Licensed under the Apache License, Version 2, which is in the LICENSE file.
 
 """
-Defines a simple Demand Response Shift Service for the SWITCH-Pyomo model.
+Defines a simple Demand Response Shift Service for the Switch model.
 Load in a certain load zone may be shifted between timepoints belonging to the
 same timeseries at no cost, which allows assessing the potential value of
-demand shifting. This does not include a Shed Service (curtailment of load), 
+demand shifting. This does not include a Shed Service (curtailment of load),
 nor a Shimmy Service (fast dispatch for load following or regulation).
 
 """
@@ -74,9 +74,9 @@ def define_components(mod):
         rule=lambda m, z, ts: sum(m.ShiftDemand[z, t] for t in m.TPS_IN_TS[ts]) == 0.0,
     )
 
-    if "Distributed_Power_Injections" in dir(mod):
-        mod.Distributed_Power_Injections.append("ShiftDemand")
-    else:
+    try:
+        mod.Distributed_Power_Withdrawals.append("ShiftDemand")
+    except AttributeError:
         mod.Zone_Power_Withdrawals.append("ShiftDemand")
 
 
@@ -85,14 +85,14 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     Import demand response-specific data from an input directory.
 
-    dr_data.tab
+    dr_data.csv
         LOAD_ZONE, TIMEPOINT, dr_shift_down_limit, dr_shift_up_limit
 
     """
 
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, "dr_data.tab"),
+        filename=os.path.join(inputs_dir, "dr_data.csv"),
         autoselect=True,
         param=(mod.dr_shift_down_limit, mod.dr_shift_up_limit),
     )

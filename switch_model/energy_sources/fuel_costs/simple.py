@@ -1,9 +1,9 @@
-# Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
 
-A simple description of flat fuel costs for the SWITCH-Pyomo model that
+A simple description of flat fuel costs for the Switch model that
 serves as an alternative to the more complex fuel_markets with tiered
 supply curves. This is mutually exclusive with the fuel_markets module.
 
@@ -54,7 +54,7 @@ def define_components(mod):
             z in m.LOAD_ZONES and f in m.FUELS and p in m.PERIODS
         ),
     )
-    mod.fuel_cost = Param(mod.ZONE_FUEL_PERIODS, within=PositiveReals)
+    mod.fuel_cost = Param(mod.ZONE_FUEL_PERIODS, within=NonNegativeReals)
     mod.min_data_check("ZONE_FUEL_PERIODS", "fuel_cost")
 
     mod.GEN_TP_FUELS_UNAVAILABLE = Set(
@@ -93,13 +93,13 @@ def load_inputs(mod, switch_data, inputs_dir):
     Import simple fuel cost data. The following files are expected in
     the input directory:
 
-    fuel_cost.tab
+    fuel_cost.csv
         load_zone, fuel, period, fuel_cost
 
     """
 
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "fuel_cost.tab"),
+        filename=os.path.join(inputs_dir, "fuel_cost.csv"),
         select=("load_zone", "fuel", "period", "fuel_cost"),
         index=mod.ZONE_FUEL_PERIODS,
         param=[mod.fuel_cost],

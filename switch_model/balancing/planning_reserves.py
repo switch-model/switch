@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 """
 This module defines planning reserves margins to support resource adequacy
@@ -24,13 +24,13 @@ specify capacity_value timeseries for any generator, so the available capacity
 will be: GenCapacity[g] * capacity_value[g,t]. For renewable resources, this
 capacity value timeseries will default to their capacity factor timeseries.
 
-By default, storage and transmission will be credited with their expected 
+By default, storage and transmission will be credited with their expected
 net power delivery.
 
 References:
 
 North American Electric Reliability Corporation brief definition and
-discussion of planning reserve margins. 
+discussion of planning reserve margins.
 http://www.nerc.com/pa/RAPA/ri/Pages/PlanningReserveMargin.aspx
 
 California Independent System Operator Issue paper on Resource Adequacy which
@@ -224,9 +224,6 @@ def define_components(model):
     def AvailableReserveCapacity_rule(m, prr, t):
         reserve_cap = 0.0
         ZONES = zones_for_prr(m, prr)
-        # Apply net power from storage if available
-        if "StorageNetCharge" in dir(m):
-            reserve_cap -= sum(m.StorageNetCharge[z, t] for z in ZONES)
         GENS = [
             g
             for z in ZONES
@@ -235,12 +232,14 @@ def define_components(model):
         ]
         for g in GENS:
             # Storage is only credited with its expected output
-            if "STORAGE_GENS" in dir(m) and g in m.STORAGE_GENS:
-                reserve_cap += DispatchGen[g, t]
+            # Note: this code appears to have no users, since it references
+            # DispatchGen, which doesn't exist (should be m.DispatchGen).
+            if g in getattr(m, "STORAGE_GENS", set()):
+                reserve_cap += DispatchGen[g, t] - m.ChargeStorage[g, t]
             # If local_td is included with DER modeling, avoid allocating
             # distributed generation to central grid capacity because it will
             # be credited with adjusting load at the distribution node.
-            elif "Distributed_Power_Injections" in dir(m) and m.gen_is_distributed[g]:
+            elif hasattr(m, "Distributed_Power_Injections") and m.gen_is_distributed[g]:
                 pass
             else:
                 reserve_cap += m.gen_capacity_value[g, t] * m.GenCapacityInTP[g, t]
@@ -256,7 +255,7 @@ def define_components(model):
 
     def CapacityRequirements_rule(m, prr, t):
         ZONES = zones_for_prr(m, prr)
-        if "WithdrawFromCentralGrid" in dir(m):
+        if hasattr(m, "WithdrawFromCentralGrid"):
             return sum(
                 (1 + m.prr_cap_reserve_margin[prr]) * m.WithdrawFromCentralGrid[z, t]
                 for z in ZONES
@@ -296,38 +295,38 @@ def define_dynamic_components(model):
 
 def load_inputs(model, switch_data, inputs_dir):
     """
-    reserve_capacity_value.tab
+    reserve_capacity_value.csv
         GEN, TIMEPOINT, gen_capacity_value
 
-    planning_reserve_requirement_zones.tab
+    planning_reserve_requirement_zones.csv
         PLANNING_RESERVE_REQUIREMENTS, prr_cap_reserve_margin, prr_enforcement_timescale
 
-    generation_projects_info.tab
+    generation_projects_info.csv
         ..., gen_can_provide_cap_reserves
 
-    planning_reserve_requirement_zones.tab
+    planning_reserve_requirement_zones.csv
         PRR, ZONE
 
     """
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "reserve_capacity_value.tab"),
+        filename=os.path.join(inputs_dir, "reserve_capacity_value.csv"),
         optional=True,
         auto_select=True,
         param=(model.gen_capacity_value),
     )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "planning_reserve_requirements.tab"),
+        filename=os.path.join(inputs_dir, "planning_reserve_requirements.csv"),
         auto_select=True,
         index=model.PLANNING_RESERVE_REQUIREMENTS,
         param=(model.prr_cap_reserve_margin, model.prr_enforcement_timescale),
     )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "generation_projects_info.tab"),
+        filename=os.path.join(inputs_dir, "generation_projects_info.csv"),
         auto_select=True,
         optional_params=["gen_can_provide_cap_reserves"],
         param=(model.gen_can_provide_cap_reserves),
     )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "planning_reserve_requirement_zones.tab"),
+        filename=os.path.join(inputs_dir, "planning_reserve_requirement_zones.csv"),
         set=model.PRR_ZONES,
     )

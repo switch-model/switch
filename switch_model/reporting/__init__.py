@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -8,7 +8,7 @@ Functions to help export results.
 Modules within this directory may implement custom exports that
 depend on multiple Switch modules. Each individual Switch module
 that defines components should only access model components that
-it defined or that were defined upstream in Switch modules that 
+it defined or that were defined upstream in Switch modules that
 it depends on. For example, the load_zone module cannot assume whether users
 will be including project.no_commit or project.unitcommit, so it cannot
 reference model components defined in either of those files. However,
@@ -18,18 +18,27 @@ dependency on load_zones.
 
 
 """
+from __future__ import print_function
+from switch_model.utilities import string_types
+
 dependencies = "switch_model.financials"
 
 
 import os
 import csv
 import itertools
-import cPickle as pickle
-from pyomo.environ import value, Var
+
+try:
+    # Python 2
+    import cPickle as pickle
+except ImportError:
+    import pickle
+from pyomo.environ import value, Var, Expression
+from switch_model.utilities import make_iterable
 
 csv.register_dialect(
-    "ampl-tab",
-    delimiter="\t",
+    "switch-csv",
+    delimiter=",",
     lineterminator="\n",
     doublequote=False,
     escapechar="\\",
@@ -47,21 +56,28 @@ def define_arguments(argparser):
         dest="sorted_output",
         help="Write generic variable result values in sorted order",
     )
+    argparser.add_argument(
+        "--save-expressions",
+        "--save-expression",
+        dest="save_expressions",
+        nargs="+",
+        default=[],
+        action="extend",
+        help="List of expressions to save in addition to variables; can also be 'all' or 'none'.",
+    )
 
 
 def write_table(instance, *indexes, **kwargs):
     # there must be a way to accept specific named keyword arguments and
-    # also an  open-ended list of positional arguments (*indexes), but I
+    # also an open-ended list of positional arguments (*indexes), but I
     # don't know what that is.
     output_file = kwargs["output_file"]
     headings = kwargs["headings"]
     values = kwargs["values"]
     digits = kwargs.get("digits", 6)
-    # create a master indexing set
-    # this is a list of lists, even if only one list was specified
-    idx = itertools.product(*indexes)
-    with open(output_file, "wb") as f:
-        w = csv.writer(f, dialect="ampl-tab")
+
+    with open(output_file, "w") as f:
+        w = csv.writer(f, dialect="switch-csv")
         # write header row
         w.writerow(list(headings))
         # write the data
@@ -76,68 +92,163 @@ def write_table(instance, *indexes, **kwargs):
                         row[i] = sig_digits.format(v)
             return tuple(row)
 
-        w.writerows(format_row(row=values(instance, *x)) for x in idx)
-
-
-def make_iterable(item):
-    """Return an iterable for the one or more items passed."""
-    if isinstance(item, basestring):
-        i = iter([item])
-    else:
         try:
-            # check if it's iterable
-            i = iter(item)
-        except TypeError:
-            i = iter([item])
-    return i
+            w.writerows(
+                format_row(row=values(instance, *unpack_elements(x)))
+                for x in itertools.product(*indexes)
+            )
+        except TypeError:  # lambda got wrong number of arguments
+            # use old code, which doesn't unpack the indices
+            w.writerows(
+                # TODO: flatten x (unpack tuples) like Pyomo before calling values()
+                # That may cause problems elsewhere though...
+                format_row(row=values(instance, *x))
+                for x in itertools.product(*indexes)
+            )
+            print(
+                "DEPRECATION WARNING: switch_model.reporting.write_table() was called with a function"
+            )
+            print(
+                "that expects multidimensional index values to be stored in tuples, but Switch now unpacks"
+            )
+            print(
+                "these tuples automatically. Please update your code to work with unpacked index values."
+            )
+            print("Problem occured with {}.".format(values.__code__))
 
 
-def _save_generic_results(instance, outdir, sorted_output):
-    for var in instance.component_objects():
-        if not isinstance(var, Var):
-            continue
+def unpack_elements(items):
+    """Unpack any multi-element objects within items, to make a single flat list.
+    Note: this is not recursive.
+    This is used to flatten the product of a multi-dimensional index with anything else."""
+    l = []
+    for x in items:
+        if isinstance(x, string_types):
+            l.append(x)
+        else:
+            try:
+                l.extend(x)
+            except TypeError:  # x isn't iterable
+                l.append(x)
+    return l
 
-        output_file = os.path.join(outdir, "%s.tab" % var.name)
-        with open(output_file, "wb") as fh:
-            writer = csv.writer(fh, dialect="ampl-tab")
+
+def post_solve(instance, outdir):
+    """
+    Minimum output generation for all model runs.
+    """
+    save_generic_results(instance, outdir, instance.options.sorted_output)
+    save_total_cost_value(instance, outdir)
+    save_cost_components(instance, outdir)
+
+
+def save_generic_results(instance, outdir, sorted_output):
+    components = list(instance.component_objects(Var))
+    # add Expression objects that should be saved, if any
+    if "none" in instance.options.save_expressions:
+        # drop everything up till the last 'none' (users may have added more after that)
+        last_none = len(
+            instance.options.save_expressions
+        ) - instance.options.save_expressions[::-1].index("none")
+        instance.options.save_expressions = instance.options.save_expressions[
+            last_none:
+        ]
+
+    if "all" in instance.options.save_expressions:
+        components += list(instance.component_objects(Expression))
+    else:
+        components += [getattr(instance, c) for c in instance.options.save_expressions]
+
+    for var in components:
+        output_file = os.path.join(outdir, "%s.csv" % var.name)
+        with open(output_file, "w") as fh:
+            writer = csv.writer(fh, dialect="switch-csv")
             if var.is_indexed():
                 index_name = var.index_set().name
                 # Write column headings
                 writer.writerow(
                     [
                         "%s_%d" % (index_name, i + 1)
-                        for i in xrange(var.index_set().dimen)
+                        for i in range(var.index_set().dimen)
                     ]
                     + [var.name]
                 )
                 # Results are saved in a random order by default for
                 # increased speed. Sorting is available if wanted.
-                for key, obj in sorted(var.items()) if sorted_output else var.items():
-                    writer.writerow(tuple(make_iterable(key)) + (obj.value,))
+                items = sorted(var.items()) if sorted_output else list(var.items())
+                for key, obj in items:
+                    writer.writerow(tuple(make_iterable(key)) + (get_value(obj),))
             else:
                 # single-valued variable
                 writer.writerow([var.name])
-                writer.writerow([value(obj)])
+                writer.writerow([get_value(obj)])
 
 
-def _save_total_cost_value(instance, outdir):
-    values = instance.Minimize_System_Cost.values()
-    assert len(values) == 1
-    total_cost = values[0].expr()
+def get_value(obj):
+    """
+    Retrieve value of one element of a Variable or Expression, converting
+    division-by-zero to nan and uninitialized values to None.
+    """
+    try:
+        val = value(obj)
+    except ZeroDivisionError:
+        # diagnostic expressions sometimes have 0 denominator,
+        # e.g., AverageFuelCosts for unused fuels;
+        val = float("nan")
+    except ValueError:
+        # If variables are not used in constraints or the
+        # objective function, they will never get values, and
+        # give a ValueError at this point.
+        # Note: for variables this could instead use 0 if allowed, or
+        # otherwise the closest bound.
+        if getattr(obj, "value", 0) is None:
+            val = None
+            # Pyomo will print an error before it raises the ValueError,
+            # but we say more here to help users figure out what's going on.
+            print(
+                "WARNING: variable {} has not been assigned a value. This "
+                "usually indicates a coding error: either the variable is "
+                "not needed or it has accidentally been omitted from all "
+                "constraints and the objective function.".format(obj.name)
+            )
+        else:
+            # Caught some other ValueError
+            raise
+    return val
+
+
+def save_total_cost_value(instance, outdir):
     with open(os.path.join(outdir, "total_cost.txt"), "w") as fh:
-        fh.write("%s\n" % total_cost)
+        fh.write("{}\n".format(value(instance.SystemCost)))
 
 
-def _save_results(instance, outdir):
-    with open(os.path.join(outdir, "results.pickle"), "wb") as fh:
-        pickle.dump(instance.last_results, fh, protocol=-1)
-
-
-def post_solve(instance, outdir):
+def save_cost_components(m, outdir):
     """
-    Minimum output generation for all model runs.
-
+    Save values for all individual components of total system cost on NPV basis.
     """
-    _save_generic_results(instance, outdir, instance.options.sorted_output)
-    _save_total_cost_value(instance, outdir)
-    _save_results(instance, outdir)
+    cost_dict = dict()
+    for annual_cost in m.Cost_Components_Per_Period:
+        cost = getattr(m, annual_cost)
+        # note: storing value() instead of the expression may save
+        # some memory while this function runs
+        cost_dict[annual_cost] = value(
+            sum(cost[p] * m.bring_annual_costs_to_base_year[p] for p in m.PERIODS)
+        )
+    for tp_cost in m.Cost_Components_Per_TP:
+        cost = getattr(m, tp_cost)
+        cost_dict[tp_cost] = value(
+            sum(
+                cost[t]
+                * m.tp_weight_in_year[t]
+                * m.bring_annual_costs_to_base_year[m.tp_period[t]]
+                for t in m.TIMEPOINTS
+            )
+        )
+    write_table(
+        m,
+        list(cost_dict.keys()),
+        output_file=os.path.join(outdir, "cost_components.csv"),
+        headings=("component", "npv_cost"),
+        values=lambda m, c: (c, cost_dict[c]),
+        digits=16,
+    )

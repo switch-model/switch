@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 """
 A simple and flexible model of spinning reserves that tracks the state of unit
@@ -22,9 +22,9 @@ distinct procedures for determining reserve requirements. This module provides
 a simple approach to spinning reserve requirements, which can be extended by
 other module via registering with dynamic lists. Detailed regional studies may
 need to write their own reserve modules to reflect specific regional reserve
-definitions and policies. 
+definitions and policies.
 
-Notes: 
+Notes:
 
 This formulation only considers ramping capacity (MW), not duration or speed.
 The lack of duration requirements could cause problems if a significant amount
@@ -63,7 +63,7 @@ non-spinning reserve requirements and +3.5% / -4.0% of load and ~ +/- 4% for
 renewables to balance hour-ahead forecast errors.
 
 Note: Most research appears to be headed towards dynamic and probabilistic
-techniques, rather than the static approximations used here. 
+techniques, rather than the static approximations used here.
 
 References on operating reserves follow.
 
@@ -339,9 +339,9 @@ def hawaii_spinning_reserve_requirements(m):
     )
 
     def HawaiiLoadDownSpinningReserveRequirement_rule(m, b, t):
-        if "WithdrawFromCentralGrid" in dir(m):
+        try:
             load = m.WithdrawFromCentralGrid
-        else:
+        except AttributeError:
             load = m.lz_demand_mw
         return 0.10 * sum(
             load[z, t] for z in m.LOAD_ZONES if b == m.zone_balancing_area[z]
@@ -368,9 +368,9 @@ def nrel_3_5_spinning_reserve_requirements(m):
     """
 
     def NREL35VarGenSpinningReserveRequirement_rule(m, b, t):
-        if "WithdrawFromCentralGrid" in dir(m):
+        try:
             load = m.WithdrawFromCentralGrid
-        else:
+        except AttributeError:
             load = m.lz_demand_mw
         return 0.03 * sum(
             load[z, t] for z in m.LOAD_ZONES if b == m.zone_balancing_area[z]
@@ -571,19 +571,22 @@ def load_inputs(m, switch_data, inputs_dir):
     """
     All files & columns are optional.
 
-    generation_projects_info.tab
+    generation_projects_info.csv
         GENERATION_PROJECTS, ... gen_can_provide_spinning_reserves
 
-    spinning_reserve_params.dat may override the default value of
-    contingency_safety_factor. Note that is is a .dat file, not a .tab file.
+    spinning_reserve_params.csv may override the default value of
+    contingency_safety_factor. Note that this only contains one
+    header row and one data row.
     """
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "generation_projects_info.tab"),
+        filename=os.path.join(inputs_dir, "generation_projects_info.csv"),
         auto_select=True,
         optional_params=["gen_can_provide_spinning_reserves"],
         param=(m.gen_can_provide_spinning_reserves),
     )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "spinning_reserve_params.dat"),
+        filename=os.path.join(inputs_dir, "spinning_reserve_params.csv"),
         optional=True,
+        auto_select=True,
+        param=(m.contingency_safety_factor,),
     )

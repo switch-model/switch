@@ -1,0 +1,10 @@
+recursive-include tests *
+recursive-include examples *
+include README
+include LICENSE
+include AUTHORS
+include CHANGELOG.txt
+include INSTALL
+include DEV_INSTALL.txt
+include how_to_collaborate.txt
+include run_tests.py

@@ -1,3 +1,4 @@
+from __future__ import division
 import os
 from pyomo.environ import *
 
@@ -51,7 +52,7 @@ def define_components(m):
         m.LOAD_ZONES,
         m.PERIODS,
         rule=lambda m, z, p: sum(
-            m.BuildBattery[z, pp] for pp in m.CURRENT_AND_PRIOR_PERIODS[p]
+            m.BuildBattery[z, pp] for pp in m.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD[p]
         ),
     )
 

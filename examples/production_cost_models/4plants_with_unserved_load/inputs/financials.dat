@@ -1,3 +1,0 @@
-param base_financial_year := 2015;
-param interest_rate := .07;
-param discount_rate := .05;

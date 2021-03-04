@@ -1,9 +1,9 @@
-# Copyright (c) 2015-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
 Save a complete text dump of the model and solution, suitable
-for development, debugging or using diff tools to compare two runs. 
+for development, debugging or using diff tools to compare two runs.
 I do not recommend using this with large datasets or in a production
 environment.
 

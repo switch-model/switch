@@ -52,14 +52,17 @@ def load_inputs(mod, switch_data, inputs_dir):
     """
     The cost penalty of unserved load in units of $/MWh is the only parameter
     that can be inputted. The following file is not mandatory, because the
-    parameter defaults to a value of 500 $/MWh.
+    parameter defaults to a value of 500 $/MWh. This file contains one header
+    row and one data row.
 
     optional input files:
-        lost_load_cost.dat
+        lost_load_cost.csv
             unserved_load_penalty
 
     """
-
-    lost_load_path = os.path.join(inputs_dir, "lost_load_cost.dat")
-    if os.path.isfile(lost_load_path):
-        switch_data.load(filename=lost_load_path)
+    switch_data.load_aug(
+        filename=os.path.join(inputs_dir, "lost_load_cost.csv"),
+        optional=True,
+        auto_select=True,
+        param=(mod.unserved_load_penalty,),
+    )

@@ -1,0 +1,6 @@
+WATER_NODES,wn_is_sink,wnode_constant_consumption,wnode_constant_inflow
+Node_1,0,0.0,1.5
+Sink_1,1,0.0,0.0
+Sink_2,1,0.0,0.0
+Dam_1,0,.,.
+Dam_2,0,.,.

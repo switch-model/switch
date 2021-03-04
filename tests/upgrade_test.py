@@ -62,7 +62,8 @@ def make_test(example_dir):
                 '--outputs-dir', upgrade_dir_outputs])
             total_cost = read_file(os.path.join(upgrade_dir_outputs, 'total_cost.txt'))
         finally:
-            sys.path.remove(upgrade_dir)
+            if upgrade_dir in sys.path: # code above may have failed before appending
+                sys.path.remove(upgrade_dir)
             _remove_temp_dir(temp_dir)
         expectation_file = get_expectation_path(example_dir)
         if UPDATE_EXPECTATIONS:

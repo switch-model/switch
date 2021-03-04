@@ -1,0 +1,7 @@
+fuel,co2_intensity,upstream_co2_intensity,f_rps_eligible
+Coal,0.09552000000000001,0.0,0
+ResidualFuelOil,0.0788,0.0,0
+DistillateFuelOil,0.07315,0.0,0
+NaturalGas,0.05306,0.0,0
+Uranium,0.0,.,0
+BioSolid,0.09435,-0.09435,1
