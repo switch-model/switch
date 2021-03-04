@@ -53,6 +53,9 @@ data_types = {
             ("fuel_supply_curves.csv", "period"),
             ("rps_targets.csv", "period"),
             ("timeseries.csv", "ts_period"),
+            # It is impossible to know if a row in gen_build_costs.csv is for predetermined generation or for
+            # a period that was removed. So instead we don't touch it and let the user manually edit
+            # the input file.
         ],
     ),
     "timeseries": (
@@ -119,6 +122,7 @@ def main(args=None):
 
     total_rows_removed = 0
     rows_removed_in_pass = -1
+    warn_about_periods = False
     while rows_removed_in_pass != 0:
         rows_removed_in_pass = 0
         for name, data_type in data_types.items():
@@ -126,6 +130,10 @@ def main(args=None):
             rows_removed = drop_data(data_type, args)
             print("Removed {} rows.".format(rows_removed))
             rows_removed_in_pass += rows_removed
+
+            if name == "periods" and rows_removed != 0:
+                warn_about_periods = True
+
         total_rows_removed += rows_removed_in_pass
 
     print(
@@ -135,6 +143,15 @@ def main(args=None):
         "\n\nNote: If SWITCH fails to load the model when solving it is possible that some input files were missed."
         " If this is the case, please add the missing input files to 'data_types' in 'switch_model/tools/drop.py'."
     )
+
+    # It is impossible to know if a row in gen_build_costs.csv is for predetermined generation or for
+    # a period that was removed. So instead we don't touch it and let the user manually edit
+    # the input file.
+    if warn_about_periods:
+        print(
+            "\n\nWARNING: Could not update gen_build_costs.csv. Please manually edit gen_build_costs.csv to remove "
+            "references to the removed periods."
+        )
 
 
 def drop_data(id_type, args):
