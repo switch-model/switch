@@ -349,7 +349,11 @@ def define_components(mod):
         else:
             online = build_year
         retirement = online + m.gen_max_age[g]
-        return online <= m.period_start[period] < retirement
+        return (
+            online
+            <= m.period_start[period] + 0.5 * m.period_length_years[period]
+            < retirement
+        )
         # This is probably more correct, but is a different behavior
         # mid_period = m.period_start[period] + 0.5 * m.period_length_years[period]
         # return online <= m.period_start[period] and mid_period <= retirement
