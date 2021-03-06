@@ -138,10 +138,13 @@ def define_components(mod):
     mod.StorageEnergyInstallCosts = Expression(
         mod.PERIODS,
         rule=lambda m, p: sum(
-            m.BuildStorageEnergy[g, bld_yr]
-            * m.gen_storage_energy_overnight_cost[g, bld_yr]
-            * crf(m.interest_rate, m.gen_max_age[g])
-            for (g, bld_yr) in m.STORAGE_GEN_BLD_YRS
+            sum(
+                m.BuildStorageEnergy[g, bld_yr]
+                * m.gen_storage_energy_overnight_cost[g, bld_yr]
+                * crf(m.interest_rate, m.gen_max_age[g])
+                for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]
+            )
+            for g in m.STORAGE_GENS
         ),
     )
     mod.Cost_Components_Per_Period.append("StorageEnergyInstallCosts")
