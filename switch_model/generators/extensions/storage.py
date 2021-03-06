@@ -274,6 +274,7 @@ def post_solve(instance, outdir):
     dispatch info to storage_dispatch.csv
     """
     import switch_model.reporting as reporting
+    # Write how much is built each build year for each project to storage_builds.csv
     reporting.write_table(
         instance, instance.STORAGE_GEN_BLD_YRS,
         output_file=os.path.join(outdir, "storage_builds.csv"),
@@ -283,6 +284,7 @@ def post_solve(instance, outdir):
             g, bld_yr, m.gen_load_zone[g],
             m.BuildGen[g, bld_yr], m.BuildStorageEnergy[g, bld_yr],
             ))
+    # Write the total capacity for each project at each period to storage_capacity.csv
     reporting.write_table(
         instance, instance.STORAGE_GEN_PERIODS,
         output_file=os.path.join(outdir, "storage_capacity.csv"),
@@ -292,6 +294,7 @@ def post_solve(instance, outdir):
             g, p, m.gen_load_zone[g],
             m.GenCapacity[g, p], m.StorageEnergyCapacity[g, p])
     )
+    # Write how much is dispatched by each project at each time point to storage_dispatch.csv
     reporting.write_table(
         instance, instance.STORAGE_GEN_TPS,
         output_file=os.path.join(outdir, "storage_dispatch.csv"),
