@@ -300,8 +300,9 @@ def define_dynamic_components(mod):
     # so it's best to define a separate expression and use that for these purposes.
     mod.SystemCost = Expression(
         rule=lambda m: sum(m.SystemCostPerPeriod[p] for p in m.PERIODS))
+    scaling_factor_Minimize_System_Cost = 10 ** -7
     mod.Minimize_System_Cost = Objective(
-        rule=lambda m: m.SystemCost,
+        rule=lambda m: m.SystemCost * scaling_factor_Minimize_System_Cost,
         sense=minimize)
 
 

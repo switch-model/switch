@@ -100,10 +100,16 @@ def define_components(mod):
             for g in m.NON_FUEL_BASED_GENS 
                 for t in m.TPS_FOR_GEN_IN_PERIOD[g, p]))
 
+    scaling_factor_RPS_Enforce_Target = 10 ** -5
     mod.RPS_Enforce_Target = Constraint(
         mod.PERIODS,
-        rule=lambda m, p: (m.RPSFuelEnergy[p] + m.RPSNonFuelEnergy[p] >=
-            sum(m.rps_target[z, p] * m.zone_total_demand_in_period_mwh[z, p] for z in m.LOAD_ZONES)))
+        rule=lambda m, p:
+        (
+                m.RPSFuelEnergy[p] + m.RPSNonFuelEnergy[p] >=
+                sum(m.rps_target[z, p] * m.zone_total_demand_in_period_mwh[z, p] for z in m.LOAD_ZONES)
+        )
+        * scaling_factor_RPS_Enforce_Target
+    )
 
 def total_generation_in_period(model, period):
     return sum(
