@@ -79,7 +79,7 @@ def define_components(mod):
     mod.ca_min_gen_timepoint_ratio = Param(
         mod.PERIODS,
         within=PercentFraction,
-        default=None,
+        default=0,
         doc="Fraction of demand that must be satisfied through in-state"
         "generation during each timepoint.",
     )
@@ -87,7 +87,7 @@ def define_components(mod):
     mod.ca_min_gen_period_ratio = Param(
         mod.PERIODS,
         within=PercentFraction,
-        default=None,
+        default=0,
         doc="Fraction of demand that must be satisfied through in-state"
         "generation across an entire period.",
     )
@@ -165,7 +165,7 @@ def define_components(mod):
             m.CA_Dispatch[t]
             >= m.CA_Demand[t] * m.ca_min_gen_timepoint_ratio[m.tp_period[t]]
         )
-        if m.ca_min_gen_timepoint_ratio[m.tp_period[t]] is not None
+        if m.ca_min_gen_timepoint_ratio[m.tp_period[t]] != 0
         else Constraint.Skip,
     )
 
@@ -175,7 +175,7 @@ def define_components(mod):
             m.CA_AnnualDispatch[p]
             >= m.ca_min_gen_period_ratio[p] * m.CA_AnnualDemand[p]
         )
-        if m.ca_min_gen_period_ratio[p] is not None
+        if m.ca_min_gen_period_ratio[p] != 0
         else Constraint.Skip,
     )
 
