@@ -79,7 +79,7 @@ def define_components(mod):
     mod.ca_min_gen_timepoint_ratio = Param(
         mod.PERIODS,
         within=PercentFraction,
-        default=0,
+        default=None,
         doc="Fraction of demand that must be satisfied through in-state"
         "generation during each timepoint.",
     )
@@ -87,7 +87,7 @@ def define_components(mod):
     mod.ca_min_gen_period_ratio = Param(
         mod.PERIODS,
         within=PercentFraction,
-        default=0,
+        default=None,
         doc="Fraction of demand that must be satisfied through in-state"
         "generation across an entire period.",
     )
@@ -118,7 +118,9 @@ def define_components(mod):
     mod.Enforce_Carbon_Cap_CA = Constraint(
         mod.PERIODS,
         rule=lambda m, p: m.AnnualEmissions_CA[p] * scaling_factor_Enforce_Carbon_Cap
-        <= m.carbon_cap_tco2_per_yr_CA[p] * scaling_factor_Enforce_Carbon_Cap,
+        <= m.carbon_cap_tco2_per_yr_CA[p] * scaling_factor_Enforce_Carbon_Cap
+        if m.carbon_cap_tco2_per_yr_CA[p] != float("inf")
+        else Constraint.Skip,
         doc="Enforces the carbon cap for generation-related emissions.",
     )
 
@@ -156,14 +158,22 @@ def define_components(mod):
 
     mod.CA_Min_Gen_Timepoint_Constraint = Constraint(
         mod.TIMEPOINTS,
-        rule=lambda m, t: m.CA_Dispatch[t]
-        >= m.CA_Demand[t] * m.ca_min_gen_timepoint_ratio[m.tp_period[t]],
+        rule=lambda m, t: (
+            m.CA_Dispatch[t]
+            >= m.CA_Demand[t] * m.ca_min_gen_timepoint_ratio[m.tp_period[t]]
+        )
+        if m.ca_min_gen_timepoint_ratio[m.tp_period[t]] is not None
+        else Constraint.Skip,
     )
 
     mod.CA_Min_Gen_Period_Constraint = Constraint(
         mod.PERIODS,
-        rule=lambda m, p: m.CA_AnnualDispatch[p]
-        >= m.ca_min_gen_period_ratio[p] * m.CA_AnnualDemand[p],
+        rule=lambda m, p: (
+            m.CA_AnnualDispatch[p]
+            >= m.ca_min_gen_period_ratio[p] * m.CA_AnnualDemand[p]
+        )
+        if m.ca_min_gen_period_ratio[p] is not None
+        else Constraint.Skip,
     )
 
 
