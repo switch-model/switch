@@ -18,6 +18,7 @@ def scale(model):
     model.scaling_factor[model.BuildGen] = 10**-3
     model.scaling_factor[model.ConsumeFuelTier] = 10**-4
     model.scaling_factor[model.DispatchGen] = 10**-2
+    model.scaling_factor[model.RPS_Enforce_Target] = 10**-5
 
 
     scaled_model = TransformationFactory('core.scale_model').create_using(model)
