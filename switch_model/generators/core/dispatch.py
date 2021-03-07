@@ -301,9 +301,14 @@ def define_components(mod):
         mod.VARIABLE_GEN_TPS,
         rule=lambda m, g, t: (g,t) in m.VARIABLE_GEN_TPS_RAW)
 
-    mod.GenFuelUseRate = Var(
+    scaling_factor_GenFuelUseRate = 10 ** -4
+    mod.scaled_GenFuelUseRate = Var(
         mod.GEN_TP_FUELS,
-        within=NonNegativeReals,
+        within=NonNegativeReals
+    )
+    mod.GenFuelUseRate = Expression(
+        mod.GEN_TP_FUELS,
+        rule=lambda m, g, t, f: m.scaled_GenFuelUseRate[g,t,f] / scaling_factor_GenFuelUseRate,
         doc=("Other modules constraint this variable based on DispatchGenByFuel and "
              "module-specific formulations of unit commitment and heat rates."))
 
