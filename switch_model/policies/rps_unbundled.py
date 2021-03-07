@@ -107,6 +107,7 @@ def define_components(mod):
         ),
     )
 
+    scaling_factor_RPS_Enforce_Target = 10**-5
     mod.RPS_Enforce_Target = Constraint(
         mod.PERIODS,
         rule=lambda m, p: (
@@ -115,7 +116,8 @@ def define_components(mod):
                 m.rps_target[z, p] * m.zone_total_demand_in_period_mwh[z, p]
                 for z in m.LOAD_ZONES
             )
-        ),
+        )
+        * scaling_factor_RPS_Enforce_Target,
     )
 
 
