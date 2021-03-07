@@ -124,6 +124,9 @@ def define_components(mod):
         doc="Enforces the carbon cap for generation-related emissions.",
     )
 
+    # TODO test that m.Zone_Power_injections includes all the power injection *even if this module is the first
+    #   one in modules.txt*. Otherwise, add check to ensure module happens after others. Same testing required
+    #   for m.Zone_Power_Withdrawals below.
     mod.CA_Dispatch = Expression(
         mod.TIMEPOINTS,
         # Sum of all power injections except for transmission
