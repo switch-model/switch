@@ -111,9 +111,14 @@ def define_components(mod):
         doc="CA's annual emissions, in metric tonnes of CO2 per year.",
     )
 
+    # Carbon caps when specified in tons of CO2 are normally very large numbers ~10^8
+    # We express the constraint in terms of thousands of tons of CO2 to avoid numerical
+    # issues while solving
+    scaling_factor_Enforce_Carbon_Cap = 10**-3
     mod.Enforce_Carbon_Cap_CA = Constraint(
         mod.PERIODS,
-        rule=lambda m, p: m.AnnualEmissions_CA[p] <= m.carbon_cap_tco2_per_yr_CA[p],
+        rule=lambda m, p: m.AnnualEmissions_CA[p] * scaling_factor_Enforce_Carbon_Cap
+        <= m.carbon_cap_tco2_per_yr_CA[p] * scaling_factor_Enforce_Carbon_Cap,
         doc="Enforces the carbon cap for generation-related emissions.",
     )
 

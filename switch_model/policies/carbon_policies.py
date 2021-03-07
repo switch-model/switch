@@ -58,12 +58,17 @@ def define_components(model):
         ),
     )
 
+    # Carbon caps when specified in tons of CO2 are normally very large numbers ~10^8
+    # We express the constraint in terms of thousands of tons of CO2 to avoid numerical
+    # issues while solving
+    scaling_factor_Enforce_Carbon_Cap = 10**-3
     model.Enforce_Carbon_Cap = Constraint(
         model.PERIODS,
         rule=lambda m, p: Constraint.Skip
         if m.carbon_cap_tco2_per_yr[p] == float("inf")
-        else m.AnnualEmissions[p] <= m.carbon_cap_tco2_per_yr[p],
-        doc=("Enforces the carbon cap for generation-related CO2 emissions."),
+        else m.AnnualEmissions[p] * scaling_factor_Enforce_Carbon_Cap
+        <= m.carbon_cap_tco2_per_yr[p] * scaling_factor_Enforce_Carbon_Cap,
+        doc="Enforces the carbon cap for generation-related CO2 emissions.",
     )
 
     model.Enforce_Carbon_Cap_NOx = Constraint(
