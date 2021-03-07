@@ -243,7 +243,12 @@ def define_components(mod):
     mod.GenCapacityInTP = Expression(
         mod.GEN_TPS, rule=lambda m, g, t: m.GenCapacity[g, m.tp_period[t]]
     )
-    mod.DispatchGen = Var(mod.GEN_TPS, within=NonNegativeReals)
+    scaling_factor_DispatchGen = 10**-2
+    mod.ScaledDispatchGen = Var(mod.GEN_TPS, within=NonNegativeReals)
+    mod.DispatchGen = Expression(
+        mod.GEN_TPS,
+        rule=lambda m, g, t: m.ScaledDispatchGen[g, t] / scaling_factor_DispatchGen,
+    )
     mod.DispatchGenByFuel = Var(mod.GEN_TP_FUELS, within=NonNegativeReals)
     mod.DispatchGenByFuel_Constraint = Constraint(
         mod.FUEL_BASED_GEN_TPS,
