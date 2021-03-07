@@ -14,7 +14,10 @@ def scale(model):
     print("Scaling variables...")
 
     model.scaling_factor = Suffix(direction=Suffix.LOCAL)
-    model.scaling_factor[model.Minimize_System_Cost] = 10**-9
+    model.scaling_factor[model.Minimize_System_Cost] = 10**-7
+    model.scaling_factor[model.BuildGen] = 10**-3
+    model.scaling_factor[model.ConsumeFuelTier] = 10**-4
+    model.scaling_factor[model.DispatchGen] = 10**-2
 
 
     scaled_model = TransformationFactory('core.scale_model').create_using(model)
