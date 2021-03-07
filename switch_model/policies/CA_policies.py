@@ -72,11 +72,11 @@ def define_components(mod):
                        filter=lambda m, z: m.load_zone_state[z] == "CA",
                        doc="Set of load zones within California.")
 
-    mod.ca_min_gen_timepoint_ratio = Param(mod.PERIODS, within=PercentFraction, default=None,
+    mod.ca_min_gen_timepoint_ratio = Param(mod.PERIODS, within=PercentFraction, default=0,
                                            doc="Fraction of demand that must be satisfied through in-state"
                                                "generation during each timepoint.")
 
-    mod.ca_min_gen_period_ratio = Param(mod.PERIODS, within=PercentFraction, default=None,
+    mod.ca_min_gen_period_ratio = Param(mod.PERIODS, within=PercentFraction, default=0,
                                         doc="Fraction of demand that must be satisfied through in-state"
                                             "generation across an entire period.")
 
@@ -130,13 +130,13 @@ def define_components(mod):
     mod.CA_Min_Gen_Timepoint_Constraint = Constraint(
         mod.TIMEPOINTS,
         rule=lambda m, t: (m.CA_Dispatch[t] >= m.CA_Demand[t] * m.ca_min_gen_timepoint_ratio[m.tp_period[t]])
-        if m.ca_min_gen_timepoint_ratio[m.tp_period[t]] is not None else Constraint.Skip
+        if m.ca_min_gen_timepoint_ratio[m.tp_period[t]] != 0 else Constraint.Skip
     )
 
     mod.CA_Min_Gen_Period_Constraint = Constraint(
         mod.PERIODS,
         rule=lambda m, p: (m.CA_AnnualDispatch[p] >= m.ca_min_gen_period_ratio[p] * m.CA_AnnualDemand[p])
-        if m.ca_min_gen_period_ratio[p] is not None else Constraint.Skip
+        if m.ca_min_gen_period_ratio[p] != 0 else Constraint.Skip
     )
 
 
