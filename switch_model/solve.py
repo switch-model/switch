@@ -7,30 +7,13 @@ from pyomo.environ import *
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
 import pyomo.version
 
-import sys, os, time, shlex, re, inspect, textwrap, types
-try:
-    # Python 2
-    import cPickle as pickle
-except ImportError:
-    import pickle
-
-try:
-    # Python 2
-    input = raw_input
-except NameError:
-    pass
+import sys, os, shlex, re, inspect, textwrap, types, pickle
 
 import switch_model
 from switch_model.utilities import (
-    create_model, _ArgumentParser, StepTimer, make_iterable, LogOutput, warn
+    create_model, _ArgumentParser, StepTimer, make_iterable, LogOutput, warn, query_yes_no
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
-
-#paty's adition for debugging:
-try:
-    from IPython import embed
-except:
-    pass
 
 
 def main(args=None, return_model=False, return_instance=False):
@@ -70,8 +53,12 @@ def main(args=None, return_model=False, return_instance=False):
         parser = _ArgumentParser(allow_abbrev=False, add_help=False)
         add_module_args(parser)
         module_options = parser.parse_known_args(args=args)[0]
-        if(os.path.exists(module_options.inputs_dir) and
-           do_inputs_need_upgrade(module_options.inputs_dir)):
+
+        if not os.path.exists(module_options.inputs_dir):
+            raise NotADirectoryError(
+                "Inputs directory '{}' does not exist".format(module_options.inputs_dir))
+
+        if do_inputs_need_upgrade(module_options.inputs_dir):
             do_upgrade = query_yes_no(
                 "Warning! Your inputs directory needs to be upgraded. "
                 "Do you want to auto-upgrade now? We'll keep a backup of "
@@ -81,7 +68,6 @@ def main(args=None, return_model=False, return_instance=False):
                 upgrade_inputs(module_options.inputs_dir)
             else:
                 print("Inputs need upgrade. Consider `switch upgrade --help`. Exiting.")
-                stop_logging_output()
                 return -1
 
         # build a module list based on configuration options, and add
@@ -133,8 +119,10 @@ def main(args=None, return_model=False, return_instance=False):
         if instance.options.verbose:
             print("Total time spent constructing model: {:.2f} s.\n".format(timer.step_time()))
 
-        # Paty's addition for debugging:
-        # embed()
+        if instance.options.enable_breakpoints:
+            print("Breaking after constructing model.  See "
+                  "https://docs.python.org/3/library/pdb.html for instructions on using pdb.")
+            breakpoint()
 
         # return the instance as-is if requested
         if return_instance:
@@ -184,8 +172,10 @@ def main(args=None, return_model=False, return_instance=False):
                     if instance.options.verbose:
                         print('Saved results in {:.2f} s.'.format(timer.step_time()))
 
-        #Paty's addition for debugging:
-        #embed()
+        if instance.options.enable_breakpoints:
+            print("Breaking before post_solve. See "
+                  "https://docs.python.org/3/library/pdb.html for instructions on using pdb.")
+            breakpoint()
 
         # report results
         # (repeated if model is reloaded, to automatically run any new export code)
@@ -335,7 +325,7 @@ def reload_prior_solution_from_csvs(instance):
                 except KeyError:
                     raise KeyError(
                         "Unable to set value for {}[{}]; index is invalid."
-                        .format(var.name, keys)
+                        .format(var.name, index)
                     )
                 if row[-1] == '':
                     # Variables that are not used in the model end up with no
@@ -497,6 +487,13 @@ def define_arguments(argparser):
             "dual values for mixed-integer programs."
         )
     )
+    argparser.add_argument(
+        '--gurobi-find-iis', default=False, action='store_true',
+        help='Make Gurobi compute an irreducible inconsistent subsystem (IIS) if the model is found to be infeasible. '
+             'The IIS will be writen to outputs\\iis.ilp. Note this flag enables --symbolic-solver-labels since '
+             'otherwise debugging would be impossible. To learn more about IIS read: '
+             'https://www.gurobi.com/documentation/9.1/refman/py_model_computeiis.html.'
+    )
 
     # NOTE: the following could potentially be made into standard arguments for all models,
     # e.g. by defining them in a define_standard_arguments() function in switch.utilities.py
@@ -528,10 +525,20 @@ def define_arguments(argparser):
         help='Load a previously saved solution; useful for re-running post-solve code or interactively exploring the model (via --interact).')
     argparser.add_argument(
         '--no-save-solution', default=False, action='store_true',
-        help="Don't save solution after model is solved.")
+        help="Don't save solution after model is solved. Without this flag, model solution will be saved in a pickle"
+             "file allowing for later inspection via --reload-prior-solution.")
     argparser.add_argument(
         '--interact', default=False, action='store_true',
         help='Enter interactive shell after solving the instance to enable inspection of the solved model.')
+    argparser.add_argument(
+        '--enable-breakpoints', default=False, action='store_true',
+        help='Break and enter the Python Debugger at key points during the solving process.'
+    )
+    argparser.add_argument(
+        "--sorted-output", default=False, action='store_true',
+        dest='sorted_output',
+        help='Write generic variable result values in sorted order'
+    )
 
 
 def add_module_args(parser):
@@ -689,6 +696,20 @@ def solve(model):
         # unused solver object, or get errors if the solver options are invalid.
         model.solver = SolverFactory(model.options.solver, solver_io=model.options.solver_io)
 
+        # If this option is enabled, gurobi will output an IIS to outputs\iis.ilp.
+        if model.options.gurobi_find_iis:
+            # Enable symbolic labels since otherwise we can't debug the .ilp file.
+            model.options.symbolic_solver_labels = True
+
+            # If no string is passed make the string empty so we can add to it
+            if model.options.solver_options_string is None:
+                model.options.solver_options_string = ""
+
+            # Add to the solver options 'ResultFile=iis.ilp'
+            # https://stackoverflow.com/a/51994135/5864903
+            iis_file_path = os.path.join(model.options.outputs_dir, "iis.ilp")
+            model.options.solver_options_string += " ResultFile={}".format(iis_file_path)
+
         # patch for Pyomo < 4.2
         # note: Pyomo added an options_string argument to solver.solve() in Pyomo 4.2 rev 10587.
         # (See https://software.sandia.gov/trac/pyomo/browser/pyomo/trunk/pyomo/opt/base/solvers.py?rev=10587 )
@@ -697,7 +718,6 @@ def solve(model):
             for k, v in _options_string_to_dict(model.options.solver_options_string).items():
                 model.solver.options[k] = v
 
-        # import pdb; pdb.set_trace()
         model.solver_manager = SolverManagerFactory(model.options.solver_manager)
 
     # get solver arguments
@@ -736,18 +756,22 @@ def solve(model):
         print("Solving model...")
 
     if model.options.tempdir is not None:
-        # from https://software.sandia.gov/downloads/pub/pyomo/PyomoOnlineDocs.html#_changing_the_temporary_directory
+        if not os.path.exists(model.options.tempdir):
+            os.makedirs(model.options.tempdir)
+
+        # from https://pyomo.readthedocs.io/en/stable/working_models.html#changing-the-temporary-directory
         from pyutilib.services import TempfileManager
         TempfileManager.tempdir = model.options.tempdir
 
     results = model.solver_manager.solve(model, opt=model.solver, **solver_args)
-    #import pdb; pdb.set_trace()
 
     if model.options.verbose:
         print("Solved model. Total time spent in solver: {:2f} s.".format(timer.step_time()))
 
-    # Paty's addition for debugging:
-    #   embed()
+    if model.options.enable_breakpoints:
+        print("Breaking after solving model. See "
+              "https://docs.python.org/3/library/pdb.html for instructions on using pdb.")
+        breakpoint()
 
     # Treat infeasibility as an error, rather than trying to load and save the results
     # (note: in this case, results.solver.status may be SolverStatus.warning instead of
@@ -759,7 +783,7 @@ def solve(model):
         else:
             print("Model was infeasible; if the solver can generate an irreducibly inconsistent set (IIS),")
             print("more information may be available by setting the appropriate flags in the ")
-            print('solver_options_string and calling this script with "--suffixes iis".')
+            print('solver_options_string and calling this script with "--suffixes iis" or "--gurobi-find-iis".')
         raise RuntimeError("Infeasible model")
 
     # Raise an error if the solver failed to produce a solution
@@ -886,40 +910,6 @@ def save_results(instance, outdir):
         pickle.dump(instance.last_results, fh, protocol=-1)
     # remove the solution from the results object, to minimize long-term memory use
     instance.last_results.solution.clear()
-
-
-
-def query_yes_no(question, default="yes"):
-    """Ask a yes/no question via input() and return their answer.
-
-    "question" is a string that is presented to the user.
-    "default" is the presumed answer if the user just hits <Enter>.
-        It must be "yes" (the default), "no" or None (meaning
-        an answer is required of the user).
-
-    The "answer" return value is True for "yes" or False for "no".
-    """
-    valid = {"yes": True, "y": True, "ye": True,
-             "no": False, "n": False}
-    if default is None:
-        prompt = " [y/n] "
-    elif default == "yes":
-        prompt = " [Y/n] "
-    elif default == "no":
-        prompt = " [y/N] "
-    else:
-        raise ValueError("invalid default answer: '%s'" % default)
-
-    while True:
-        sys.stdout.write(question + prompt)
-        choice = input().lower()
-        if default is not None and choice == '':
-            return valid[default]
-        elif choice in valid:
-            return valid[choice]
-        else:
-            sys.stdout.write("Please respond with 'yes' or 'no' "
-                             "(or 'y' or 'n').\n")
 
 
 ###############
