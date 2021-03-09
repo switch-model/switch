@@ -1,76 +1,60 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# Copyright 2017 The Switch Authors. All rights reserved.
-# Licensed under the Apache License, Version 2, which is in the LICENSE file.
-# Renewable and Appropriate Energy Laboratory, UC Berkeley.
-# Operations, Control and Markets laboratory at Pontificia Universidad
-# Católica de Chile.
+"""Script to retrieve data inputs for the Switch WECC model from the database.
+
+Data is formatted into corresponding .csv or .dat files.
 """
-
-Retrieves data inputs for the Switch WECC model from the database. Data
-is formatted into corresponding .csv or .dat files.
-
-"""
-
+# Standard packages
 import argparse
-# import getpass
 import os
 import sys
 import time
 
+# import getpass
+
+# Third-party packages
 import psycopg2 as pg
-# import sshtunnel
+from dotenv import load_dotenv
+
+# Load .env variables
+load_dotenv()
+
+# Local packages
+
+# TODO: We need to decide where the files will live. There is a copy of this in the CLI
+# folder
+def connect(schema="switch"):
+    db_url = os.getenv("db_url")
+    conn = pg.connect(db_url, options=f"-c search_path={schema}")
+    if conn is not None:
+        # TODO: Send this to the logger
+        print("Connection established to PostgreSQL.")
+        return conn
+    else:
+        raise SystemExit("Connection not established to PostgreSQL")
 
 
-def write_csv(fname, headers, cursor):
-    with open(
-        fname + ".csv", "w"
-    ) as f:  # Paty: open() opens file named fname and only allows us to (re)write on it ('w'). "with" keyword ensures the file is closed at the end of the function.
-        f.write(
-            ",".join(headers) + os.linesep
-        )  # Paty: str.join(headers) joins the strings in the sequence "headers" and separates them with string "str"
+def write_csv(fname: str, headers: str, cursor):
+    """Create CSV file from query """
+    with open(fname + ".csv", "w") as f:
+        f.write(",".join(headers) + os.linesep)
         for row in cursor:
-            # Replace None values with dots for Pyomo. Also turn all datatypes into strings
             row_as_clean_strings = [
                 "." if element is None else str(element) for element in row
             ]
-            f.write(
-                ",".join(row_as_clean_strings) + os.linesep
-            )  # concatenates "line" separated by tabs, and appends \n
+            f.write(",".join(row_as_clean_strings) + os.linesep)
 
 
-db_cursor = None
-db_connection = None
-tunnel = None
+# FIXME: We just need to run this once. Maybe on a context file?
+inputs_dir = "test_inputs"
+if not os.path.exists(inputs_dir):
+    os.makedirs(inputs_dir)
+    print("Inputs directory created...")
+else:
+    print("Inputs directory exists, so contents will be overwritten...")
 
-
-# def shutdown():
-# global db_cursor
-# global db_connection
-# global tunnel
-# if db_cursor:
-# db_cursor.close()
-# db_cursor = None
-# if db_connection:
-# db_connection.close()
-# db_connection = None
-# # os.chdir('..')
-# if tunnel:
-# tunnel.stop()
-# tunnel = None
-
-
-# Make sure the ssh tunnel is shutdown properly when python exits, even if an exception has been raised.
-# Hmm. the ssh tunnel still manages to hang before atexit gets called.
-# atexit.register(shutdown)
-
-
+# TODO: Time this function using the timeit function on utils
 def main():
-    #     global db_cursor
-    # global db_connection
-    # global tunnel
-    start_time = time.time()
 
+    start_time = time.time()
     # parser = argparse.ArgumentParser(
     # usage="get_switch_pyomo_input_tables.py [--help] [options]",
     # description="Write SWITCH input files from database tables. Default \
@@ -154,13 +138,6 @@ def main():
     # raise
     # print("Connection to database established...")
 
-    inputs_dir = "test_inputs"
-    if not os.path.exists(inputs_dir):
-        os.makedirs(inputs_dir)
-        print("Inputs directory created...")
-    else:
-        print("Inputs directory exists, so contents will be overwritten...")
-
     # db_cursor = db_connection.cursor()
 
     # Test db connection for debugging...
@@ -168,12 +145,6 @@ def main():
     # print db_cursor.fetchone()
     # shutdown()
     # sys.exit("Finished our test")
-
-    def connect():
-        # TODO: this should be an enviromental variable
-        db_url = "postgresql://pesap@localhost:5432/wecc"
-        conn = pg.connect(db_url, options=f"-c search_path=switch")
-        return conn
 
     db_conn = connect()
     db_cursor = db_conn.cursor()
@@ -183,25 +154,35 @@ def main():
     scenario_id = 148
 
     db_cursor.execute(
-        """
-		SELECT name, description, study_timeframe_id, time_sample_id, demand_scenario_id,  
-			fuel_simple_price_scenario_id, generation_plant_scenario_id,
-			generation_plant_cost_scenario_id,
-			generation_plant_existing_and_planned_scenario_id,
-			hydro_simple_scenario_id, carbon_cap_scenario_id,
-			supply_curves_scenario_id, regional_fuel_market_scenario_id,
-			zone_to_regional_fuel_market_scenario_id, rps_scenario_id,
-			enable_dr, enable_ev
-		FROM switch.scenario WHERE scenario_id = %s""",
+        """SELECT
+            name,
+            description,
+            study_timeframe_id,
+            time_sample_id,
+            demand_scenario_id,
+            fuel_simple_price_scenario_id,
+            generation_plant_scenario_id,
+            generation_plant_cost_scenario_id,
+            generation_plant_existing_and_planned_scenario_id,
+            hydro_simple_scenario_id,
+            carbon_cap_scenario_id,
+            supply_curves_scenario_id,
+            regional_fuel_market_scenario_id,
+            zone_to_regional_fuel_market_scenario_id,
+            rps_scenario_id,
+            enable_dr,
+            enable_ev
+        FROM switch.scenario
+        WHERE scenario_id = %s;""",
         [scenario_id],
     )
     s_details = db_cursor.fetchone()
     # name, description, sample_ts_scenario_id, hydro_scenario_meta_id, fuel_id, gen_costs_id, new_projects_id, carbon_tax_id, carbon_cap_id, rps_id, lz_hourly_demand_id, gen_info_id, load_zones_scenario_id, existing_projects_id, demand_growth_id = s_details[1], s_details[2], s_details[3], s_details[4], s_details[5], s_details[6], s_details[7], s_details[8], s_details[9], s_details[10], s_details[11], s_details[12], s_details[13], s_details[14], s_details[15]
     name = s_details[0]
     description = s_details[1]
-    study_timeframe_id = s_details[2]
-    time_sample_id = s_details[3]
-    demand_scenario_id = s_details[4]
+    study_timeframe_id = 10  # s_details[2]
+    time_sample_id = 7  # s_details[3]
+    demand_scenario_id = 115  # s_details[4]
     fuel_simple_price_scenario_id = s_details[5]
     generation_plant_scenario_id = s_details[6]
     generation_plant_cost_scenario_id = s_details[7]
@@ -215,6 +196,7 @@ def main():
     enable_dr = s_details[15]
     enable_ev = s_details[16]
 
+    # TODO: We can handle this with filepath instead of changing dirs
     os.chdir(inputs_dir)
 
     # The format for csv files is:
@@ -252,11 +234,18 @@ def main():
 
     print("  periods.csv...")
     db_cursor.execute(
+        f"""
+        select
+          label  as label, --This is to fix build year problem
+          start_year as period_start,
+          end_year as period_end
+        from
+          switch.period
+        where
+          study_timeframe_id = {study_timeframe_id}
+        order by
+          1;
         """
-		select label, start_year as period_start, end_year as period_end
-		from period where study_timeframe_id=%s
-		order by 1;""",
-        [study_timeframe_id],
     )
     write_csv("periods", ["INVESTMENT_PERIOD", "period_start", "period_end"], db_cursor)
 
@@ -264,14 +253,24 @@ def main():
     timeseries_id_select = "date_part('year', first_timepoint_utc)|| '_' || replace(sampled_timeseries.name, ' ', '_') as timeseries"
     db_cursor.execute(
         (
-            """select {timeseries_id_select}, t.label as ts_period, 
-					hours_per_tp as ts_duration_of_tp, num_timepoints as ts_num_tps, 
-					scaling_to_period as ts_scale_to_period
-					from switch.sampled_timeseries
-						join period as t using(period_id)
-					where sampled_timeseries.time_sample_id={id}
-					order by label;
-					"""
+            """
+            select
+              date_part('year', first_timepoint_utc)|| '_' || replace(
+                sampled_timeseries.name, ' ', '_'
+              ) as timeseries,
+              t.label  as ts_period,
+              hours_per_tp as ts_duration_of_tp,
+              num_timepoints as ts_num_tps,
+              scaling_to_period as ts_scale_to_period
+            from
+              switch.sampled_timeseries
+              join switch.period as t using(period_id, study_timeframe_id)
+            where
+              sampled_timeseries.time_sample_id = 7
+            order by
+              label;
+            """
+
         ).format(timeseries_id_select=timeseries_id_select, id=time_sample_id)
     )
     write_csv(
@@ -289,13 +288,24 @@ def main():
     print("  timepoints.csv...")
     db_cursor.execute(
         (
-            """select raw_timepoint_id as timepoint_id, to_char(timestamp_utc, 'YYYYMMDDHH24') as timestamp, 
-					{timeseries_id_select}
-					from sampled_timepoint as t
-						join sampled_timeseries using(sampled_timeseries_id)
-					where t.time_sample_id={id}
-					order by 1;
-					"""
+            """
+            select
+              raw_timepoint_id as timepoint_id,
+              to_char(timestamp_utc, 'YYYYMMDDHH24') as timestamp,
+              date_part('year', first_timepoint_utc)|| '_' || replace(
+                sampled_timeseries.name, ' ', '_'
+              ) as timeseries
+            from
+              switch.sampled_timepoint as t
+              join switch.sampled_timeseries using(
+                sampled_timeseries_id, study_timeframe_id
+              )
+            where
+              t.time_sample_id = 7
+              and t.study_timeframe_id = 10
+            order by
+              1;
+            """
         ).format(timeseries_id_select=timeseries_id_select, id=time_sample_id)
     )
     write_csv("timepoints", ["timepoint_id", "timestamp", "timeseries"], db_cursor)
@@ -460,7 +470,7 @@ def main():
     # Fuel projections are yearly averages in the DB. For now, Switch only accepts fuel prices per period, so they are averaged.
     print("  fuel_cost.csv")
     db_cursor.execute(
-        """select load_zone_name as load_zone, fuel, period, AVG(fuel_price) as fuel_cost 
+        """select load_zone_name as load_zone, fuel, period  as period, AVG(fuel_price) as fuel_cost 
 					from 
 					(select load_zone_name, fuel, fuel_price, projection_year, 
 							(case when 
@@ -625,19 +635,16 @@ def main():
 
     print("  variable_capacity_factors.csv...")
     db_cursor.execute(
+        f"""
+        SELECT generation_plant_id,
+               t.raw_timepoint_id,
+               capacity_factor
+        FROM variable_capacity_factors as var_cf
+        JOIN generation_plant_scenario_member USING(generation_plant_id)
+        JOIN sampled_timepoint AS t ON(t.raw_timepoint_id = var_cf.raw_timepoint_id)
+        WHERE generation_plant_scenario_id = {generation_plant_scenario_id}
+          AND t.time_sample_id={time_sample_id}
         """
-	    select generation_plant_id, t.raw_timepoint_id, capacity_factor  
-        FROM variable_capacity_factors_historical v
-            JOIN projection_to_future_timepoint ON(v.raw_timepoint_id = historical_timepoint_id)
-            JOIN generation_plant_scenario_member USING(generation_plant_id)
-            JOIN sampled_timepoint as t ON(t.raw_timepoint_id = future_timepoint_id)
-        WHERE generation_plant_scenario_id = %(generation_plant_scenario)s
-            AND t.time_sample_id=%(id)s
-        """,
-        {
-            "id": time_sample_id,
-            "generation_plant_scenario": generation_plant_scenario_id,
-        },
     )
     write_csv(
         "variable_capacity_factors",
