@@ -67,8 +67,13 @@ setup(
         "planning",
         "optimization",
     ],
+    python_requires=">=2.7.12",
     install_requires=[
-        "Pyomo>=4.4.1",  # We need a version that works with glpk 4.60+
+        # Pyomo 4.4.1+ works with glpk 4.60+
+        "Pyomo >=4.4.1, <=5.6.8",
+        # pyutilib 6.0 breaks compatibility, and earlier versions of Pyomo
+        # will cheerfully install it, so we explicitly block it
+        "pyutilib <=5.7.3",
         "pint",  # needed by Pyomo when we run our tests, but not included
         "testfixtures",  # used for standard tests
         "pandas",  # used for input upgrades and testing that functionality
