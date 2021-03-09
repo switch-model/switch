@@ -1,4 +1,17 @@
 -------------------------------------------------------------------------------
+Switch 2.0.6
+-------------------------------------------------------------------------------
+This release fixes a bug where the fixed costs from all possible build years
+were applied each period, instead of only using the build years that are still
+in service in the current period. This increased the apparent cost of storage by
+approximately (study length) / (storage life). This bug was introduced in 
+version 2.0.0b3 and persisted through version 2.0.5, so results from earlier
+models will need to be updated.
+
+This will be the last version of Switch to work in Python 2. It requires at 
+least Python 2.7.12 and also works with Python 3.
+
+-------------------------------------------------------------------------------
 Switch 2.0.5
 -------------------------------------------------------------------------------
 This release standardizes all inputs and outputs as .csv files.
