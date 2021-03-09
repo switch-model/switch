@@ -60,12 +60,18 @@ setup(
         'production cost', 'capacity expansion',
         'planning', 'optimization'
     ],
+    python_requires='>=2.7.12',
     install_requires=[
-        'Pyomo >=4.4.1, <5.6.9a0', # 4.4.1+ works with glpk 4.60+; 5.6.9 gives warning and 5.7 gives error
-        'pyutilib <6.0a0', # by default, incompatible 6.0 gets installed with Pyomo 5.6.*
-        'pint',          # needed by Pyomo when we run our tests, but not included
-        'testfixtures',  # used for standard tests
-        'pandas',        # used for input upgrades and some outputs
+        # 4.4.1+ works with glpk 4.60+; 5.6.9 gives warning and 5.7 gives error
+        'Pyomo >=4.4.1, <=5.6.8', 
+        # by default, incompatible 6.0 gets installed with Pyomo 5.6.*
+        'pyutilib <=5.7.3',
+        # needed by Pyomo when we run our tests, but not included
+        'pint', 
+        # used for standard tests
+        'testfixtures', 
+        # used for input upgrades and some reporting
+        'pandas',
     ],
     extras_require={
         # packages used for advanced demand response, progressive hedging
