@@ -142,21 +142,6 @@ def define_components(mod):
         mod.PREDETERMINED_GEN_BLD_YRS, within=NonNegativeReals
     )
 
-    def bounds_BuildStorageEnergy(m, g, bld_yr):
-        if (g, bld_yr) in m.gen_predetermined_storage_energy_mwh:
-            return (
-                m.gen_predetermined_storage_energy_mwh[g, bld_yr],
-                m.gen_predetermined_storage_energy_mwh[g, bld_yr],
-            )
-        else:
-            return (0, None)
-
-    mod.BuildStorageEnergy = Var(
-        mod.STORAGE_GEN_BLD_YRS,
-        within=NonNegativeReals,
-        bounds=bounds_BuildStorageEnergy,
-    )
-
     # Summarize capital costs of energy storage for the objective function
     # Note: A bug in to 2.0.0b3 - 2.0.5, assigned costs that were several times
     # too high

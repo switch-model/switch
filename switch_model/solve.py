@@ -406,7 +406,7 @@ def patch_pyomo():
             # create and inject a new version of the method
             add_solution_code = add_solution_code.replace(old_code, new_code)
             replace_method(ModelSolutions, "add_solution", add_solution_code)
-        else:
+        elif pyomo.version.version_info[:2] >= (5, 0):
             print(
                 "NOTE: The patch to pyomo.core.base.PyomoModel.ModelSolutions.add_solution "
                 "has been deactivated because the Pyomo source code has changed. "
@@ -1254,7 +1254,7 @@ def _options_string_to_dict(istr):
     tokens = pyutilib.misc.quote_split("[ ]+", istr)
     for token in tokens:
         index = token.find("=")
-        if index is -1:
+        if index == -1:
             raise ValueError(
                 "Solver options must have the form option=value: '{}'".format(istr)
             )
