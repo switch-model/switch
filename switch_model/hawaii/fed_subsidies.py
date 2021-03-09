@@ -10,6 +10,7 @@ def define_components(m):
     """
 
     m.logger.warning("WARNING: {} module does not account for storage attached to renewable projects.".format(__name__))
+    m.logger.warning("WARNING: {} module should use 10% ITC for FlatDistPV in 2022 and later; see https://www.energy.gov/eere/solar/downloads/residential-and-commercial-itc-factsheets".format(__name__))
 
     # note: wind/solar/geothermal production tax credit expires in 2017-2019,
     # so we ignore that (http://programs.dsireusa.org/system/program/detail/734)
