@@ -270,7 +270,6 @@ def main():
             order by
               label;
             """
-
         ).format(timeseries_id_select=timeseries_id_select, id=time_sample_id)
     )
     write_csv(
