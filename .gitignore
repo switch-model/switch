@@ -75,6 +75,7 @@ Temporary Items
 
 # Generated files
 .idea/**/contentModel.xml
+.idea/**/.gitignore
 
 # Sensitive or high-churn files
 .idea/**/dataSources/
