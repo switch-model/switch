@@ -8,11 +8,10 @@ import os
 import sys
 import time
 
-# import getpass
-
 # Third-party packages
 import psycopg2 as pg
 from dotenv import load_dotenv
+import yaml
 
 # Load .env variables
 load_dotenv()
@@ -21,9 +20,19 @@ load_dotenv()
 
 # TODO: We need to decide where the files will live. There is a copy of this in the CLI
 # folder
+
+# TODO: Maybe we need to move this to the utils file
+# Read the configuration file 
+with open("inputs_config.yaml") as f:
+    config = yaml.load(f, Loader=yaml.FullLoader)
+
+breakpoint()
+
 def connect(schema="switch"):
     db_url = os.getenv("db_url")
     conn = pg.connect(db_url, options=f"-c search_path={schema}")
+
+    # Check if the connection was made. Otherwise we exit
     if conn is not None:
         # TODO: Send this to the logger
         print("Connection established to PostgreSQL.")
@@ -45,8 +54,8 @@ def write_csv(fname: str, headers: str, cursor):
 
 # FIXME: We just need to run this once. Maybe on a context file?
 inputs_dir = "test_inputs"
-if not os.path.exists(inputs_dir):
-    os.makedirs(inputs_dir)
+if not os.path.exists(config["inputs_dir"]):
+    os.makedirs(config["inputs_dir"])
     print("Inputs directory created...")
 else:
     print("Inputs directory exists, so contents will be overwritten...")
