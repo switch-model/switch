@@ -344,19 +344,32 @@ def define_components(mod):
     mod.min_data_check("gen_predetermined_cap")
 
     def gen_build_can_operate_in_period(m, g, build_year, period):
+        # If a period has the same name as a predetermined build year then we have a problem.
+        # For example, consider what happens if we have both a period named 2020
+        # and a predetermined build in 2020. In this case, "build_year in m.PERIODS"
+        # will be True even if the project is a 2020 predetermined build.
+        # This will result in the "online" variable being the start of the period rather
+        # than the prebuild year which can cause issues such as
+        # the project retiring too soon.
+        #
+        # Our fix is to not use years as IDs for the PERIODS set (e.g. instead we name
+        # our periods IP_2020, IP_2030, etc.). This ensures a predetermined build year will
+        # never be found in m.PERIODS.
+        # TODO: Add a safety check to the model to make sure that no PERIODS have the same name
+        #   as a pre-determined build year.
         if build_year in m.PERIODS:
             online = m.period_start[build_year]
         else:
             online = build_year
         retirement = online + m.gen_max_age[g]
+        # Previously the code read return online <= m.period_start[period] < retirement
+        # However using the midpoint of the period as the "cutoff" seems more correct so
+        # we've made the switch.
         return (
             online
             <= m.period_start[period] + 0.5 * m.period_length_years[period]
             < retirement
         )
-        # This is probably more correct, but is a different behavior
-        # mid_period = m.period_start[period] + 0.5 * m.period_length_years[period]
-        # return online <= m.period_start[period] and mid_period <= retirement
 
     # The set of periods when a project built in a certain year will be online
     mod.PERIODS_FOR_GEN_BLD_YR = Set(
