@@ -172,7 +172,6 @@ def get_value(obj):
         # Note: for variables this could instead use 0 if allowed, or
         # otherwise the closest bound.
         if getattr(obj, 'value', 0) is None:
-            breakpoint()
             val = None
             # Pyomo will print an error before it raises the ValueError,
             # but we say more here to help users figure out what's going on.
