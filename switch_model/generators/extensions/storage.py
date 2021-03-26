@@ -108,6 +108,9 @@ def define_components(mod):
         within=mod.GEN_PERIODS,
         initialize=lambda m: [(g, p) for g in m.STORAGE_GENS for p in m.PERIODS_FOR_GEN[g]]
     )
+    mod.PREDETERMINED_STORAGE_GEN_BLD_YRS = Set(
+        initialize=mod.PREDETERMINED_GEN_BLD_YRS,
+        filter=lambda m, g, bld_yr: g in m.STORAGE_GENS)
     mod.gen_storage_efficiency = Param(
         mod.STORAGE_GENS,
         within=PercentFraction)
@@ -138,7 +141,7 @@ def define_components(mod):
         mod.PREDETERMINED_GEN_BLD_YRS,
         within=NonNegativeReals)
     def bounds_BuildStorageEnergy(m, g, bld_yr):
-        if((g, bld_yr) in m.gen_predetermined_storage_energy_mwh):
+        if (g, bld_yr) in m.PREDETERMINED_STORAGE_GEN_BLD_YRS:
             return (m.gen_predetermined_storage_energy_mwh[g, bld_yr],
                     m.gen_predetermined_storage_energy_mwh[g, bld_yr])
         else:
@@ -147,6 +150,23 @@ def define_components(mod):
         mod.STORAGE_GEN_BLD_YRS,
         within=NonNegativeReals,
         bounds=bounds_BuildStorageEnergy)
+
+    # Some projects are retired before the first study period, so they
+    # don't appear in the objective function or any constraints.
+    # In this case, pyomo may leave the variable value undefined even
+    # after a solve, instead of assigning a value within the allowed
+    # range. This causes errors in the Progressive Hedging code, which
+    # expects every variable to have a value after the solve. So as a
+    # starting point we assign an appropriate value to all the existing
+    # projects here.
+    # TODO Don't include projects that are retired in the first study period in
+    #   the model in the first place. Same thing in build.py with BuildGen.
+    def BuildStorageEnergy_assign_default_value(m, g, bld_yr):
+        m.BuildStorageEnergy[g, bld_yr] = m.gen_predetermined_storage_energy_mwh[g, bld_yr]
+
+    mod.BuildStorageEnergy_assign_default_value = BuildAction(
+        mod.PREDETERMINED_STORAGE_GEN_BLD_YRS,
+        rule=BuildStorageEnergy_assign_default_value)
 
     # Summarize capital costs of energy storage for the objective function.
     mod.StorageEnergyInstallCosts = Expression(
