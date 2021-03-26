@@ -116,10 +116,6 @@ def define_components(mod):
             (g, p) for g in m.STORAGE_GENS for p in m.PERIODS_FOR_GEN[g]
         ],
     )
-    mod.PREDETERMINED_STORAGE_GEN_BLD_YRS = Set(
-        initialize=mod.PREDETERMINED_GEN_BLD_YRS,
-        filter=lambda m, g, bld_yr: g in m.STORAGE_GENS,
-    )
     mod.gen_storage_efficiency = Param(mod.STORAGE_GENS, within=PercentFraction)
     # TODO: rename to gen_charge_to_discharge_ratio?
     mod.gen_store_to_release_ratio = Param(
@@ -144,6 +140,11 @@ def define_components(mod):
     mod.min_data_check("gen_storage_energy_overnight_cost")
     mod.gen_predetermined_storage_energy_mwh = Param(
         mod.PREDETERMINED_GEN_BLD_YRS, within=NonNegativeReals
+    )
+    mod.PREDETERMINED_STORAGE_GEN_BLD_YRS = Set(
+        initialize=mod.PREDETERMINED_GEN_BLD_YRS,
+        filter=lambda m, g, bld_yr: (g, bld_yr)
+        in m.gen_predetermined_storage_energy_mwh,
     )
 
     def bounds_BuildStorageEnergy(m, g, bld_yr):
