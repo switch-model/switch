@@ -108,9 +108,6 @@ def define_components(mod):
         within=mod.GEN_PERIODS,
         initialize=lambda m: [(g, p) for g in m.STORAGE_GENS for p in m.PERIODS_FOR_GEN[g]]
     )
-    mod.PREDETERMINED_STORAGE_GEN_BLD_YRS = Set(
-        initialize=mod.PREDETERMINED_GEN_BLD_YRS,
-        filter=lambda m, g, bld_yr: g in m.STORAGE_GENS)
     mod.gen_storage_efficiency = Param(
         mod.STORAGE_GENS,
         within=PercentFraction)
@@ -140,6 +137,10 @@ def define_components(mod):
     mod.gen_predetermined_storage_energy_mwh = Param(
         mod.PREDETERMINED_GEN_BLD_YRS,
         within=NonNegativeReals)
+    mod.PREDETERMINED_STORAGE_GEN_BLD_YRS = Set(
+        initialize=mod.PREDETERMINED_GEN_BLD_YRS,
+        filter=lambda m, g, bld_yr: (g, bld_yr) in m.gen_predetermined_storage_energy_mwh)
+
     def bounds_BuildStorageEnergy(m, g, bld_yr):
         if (g, bld_yr) in m.PREDETERMINED_STORAGE_GEN_BLD_YRS:
             return (m.gen_predetermined_storage_energy_mwh[g, bld_yr],
