@@ -65,7 +65,7 @@ def write_table(instance, *indexes, **kwargs):
         w.writerow(list(headings))
         # write the data
         def format_row(row):
-            row = [value(v) for v in row]
+            row = [get_value(v) for v in row]
             sig_digits = "{0:." + str(digits) + "g}"
             for (i, v) in enumerate(row):
                 if isinstance(v, float):
@@ -172,6 +172,7 @@ def get_value(obj):
         # Note: for variables this could instead use 0 if allowed, or
         # otherwise the closest bound.
         if getattr(obj, 'value', 0) is None:
+            breakpoint()
             val = None
             # Pyomo will print an error before it raises the ValueError,
             # but we say more here to help users figure out what's going on.
