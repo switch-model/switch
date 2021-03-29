@@ -29,11 +29,11 @@ def main():
             print("Switch model version " + switch_model.__version__)
             return 0
         if cmd == "solve":
-            from .solve import main
+            from switch_model.solve import main
         elif cmd == "solve-scenarios":
-            from .solve_scenarios import main
+            from switch_model.solve_scenarios import main
         elif cmd == "test":
-            from .test import main
+            from switch_model.test import main
         elif cmd == "upgrade":
             from switch_model.upgrade import main
         elif cmd == "get_inputs":

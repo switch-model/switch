@@ -7,23 +7,43 @@ Utility functions for Switch.
 from __future__ import print_function
 
 import os, types, importlib, re, sys, argparse, time, datetime
-import __main__ as main
+import switch_model.__main__ as main
 from pyomo.environ import *
+from switch_model.utilities.scaling import ScaledVariable, get_unscaled_variable
 import pyomo.opt
 
 # Define string_types (same as six.string_types). This is useful for
 # distinguishing between strings and other iterables.
-try:
-    # Python 2
-    string_types = (basestring,)
-except NameError:
-    # Python 3
-    string_types = (str,)
+string_types = (str,)
 
 # Check whether this is an interactive session (determined by whether
 # __main__ has a __file__ attribute). Scripts can check this value to
 # determine what level of output to display.
 interactive_session = not hasattr(main, '__file__')
+
+
+class _AbstractModel(AbstractModel):
+    """
+    Class that wraps pyomo's AbstractModel and adds custom features.
+
+    Currently the only difference between this class and pyomo's AbstractModel
+    is that this class supports variable scaling. See utilities/scaling.py for
+    more details.
+    """
+
+    def __setattr__(self, key, val):
+        # Do as normal unless we try assigning a ScaledVar to the model.
+        if isinstance(val, ScaledVariable):
+            # If we are assigning a ScaledVar to the model then we actually
+            # assign the scaled var to the model with the prefix '_scaled_'
+            # and assign the unscaled var to the model where the variable was
+            # supposed to be assigned
+            val.scaled_name = "_scaled_" + key
+            super().__setattr__(val.scaled_name, val)
+            super().__setattr__(key, get_unscaled_variable(val))
+        else:
+            super().__setattr__(key, val)
+
 
 def define_AbstractModel(*module_list, **kwargs):
     # stub to provide old functionality as we move to a simpler calling convention
@@ -65,7 +85,7 @@ def create_model(module_list=None, args=sys.argv[1:]):
     create_model(module_list, args=[])
 
     """
-    model = AbstractModel()
+    model = _AbstractModel()
 
     # Load modules
     if module_list is None:
@@ -483,7 +503,7 @@ def load_aug(switch_data, optional=False, auto_select=False,
     elif suffix == 'csv':
         separator = ','
     else:
-        raise switch_model.utilities.InputError('Unrecognized file type for input file {}'.format(path))
+        raise InputError('Unrecognized file type for input file {}'.format(path))
     # TODO: parse this more formally, e.g. using csv module
     headers = headers_line.strip().split(separator)
     # Skip if the file is empty.

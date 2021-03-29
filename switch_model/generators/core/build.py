@@ -9,6 +9,7 @@ import os
 from pyomo.environ import *
 from switch_model.financials import capital_recovery_factor as crf
 from switch_model.reporting import write_table
+from switch_model.utilities.scaling import ScaledVariable, get_assign_default_value_rule
 
 dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
     'switch_model.financials', 'switch_model.energy_sources.properties.properties'
@@ -371,20 +372,27 @@ def define_components(mod):
         initialize=lambda m, g: [p for p in m.PERIODS if len(m.BLD_YRS_FOR_GEN_PERIOD[g, p]) > 0]
     )
 
+    # Everywhere in Switch we use BuildGen but we want the solver to
+    # use ScaledBuildGen as this value is within a more reasonable numeric
+    # range.
     def bounds_BuildGen(model, g, bld_yr):
-        if((g, bld_yr) in model.PREDETERMINED_GEN_BLD_YRS):
+        if (g, bld_yr) in model.PREDETERMINED_GEN_BLD_YRS:
             return (model.gen_predetermined_cap[g, bld_yr],
                     model.gen_predetermined_cap[g, bld_yr])
-        elif(g in model.CAPACITY_LIMITED_GENS):
+        elif g in model.CAPACITY_LIMITED_GENS:
             # This does not replace Max_Build_Potential because
             # Max_Build_Potential applies across all build years.
-            return (0, model.gen_capacity_limit_mw[g])
+            return 0, model.gen_capacity_limit_mw[g]
         else:
-            return (0, None)
-    mod.BuildGen = Var(
+            return 0, None
+
+    mod.BuildGen = ScaledVariable(
         mod.GEN_BLD_YRS,
         within=NonNegativeReals,
-        bounds=bounds_BuildGen)
+        bounds=bounds_BuildGen,
+        # Used by scaling wrapper
+        scaling_factor=10**-3,
+    )
     # Some projects are retired before the first study period, so they
     # don't appear in the objective function or any constraints.
     # In this case, pyomo may leave the variable value undefined even
@@ -393,11 +401,9 @@ def define_components(mod):
     # expects every variable to have a value after the solve. So as a
     # starting point we assign an appropriate value to all the existing
     # projects here.
-    def BuildGen_assign_default_value(m, g, bld_yr):
-        m.BuildGen[g, bld_yr] = m.gen_predetermined_cap[g, bld_yr]
     mod.BuildGen_assign_default_value = BuildAction(
         mod.PREDETERMINED_GEN_BLD_YRS,
-        rule=BuildGen_assign_default_value)
+        rule=get_assign_default_value_rule("BuildGen", "gen_predetermined_cap"))
 
     # note: in pull request 78, commit e7f870d..., GEN_PERIODS
     # was mistakenly redefined as GENERATION_PROJECTS * PERIODS.
