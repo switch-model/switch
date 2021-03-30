@@ -13,6 +13,7 @@ from __future__ import division
 import os, collections
 from pyomo.environ import *
 from switch_model.reporting import write_table
+from switch_model.utilities.scaling import ScaledVariable
 import pandas as pd
 
 try:
@@ -243,7 +244,9 @@ def define_components(mod):
     mod.GenCapacityInTP = Expression(
         mod.GEN_TPS, rule=lambda m, g, t: m.GenCapacity[g, m.tp_period[t]]
     )
-    mod.DispatchGen = Var(mod.GEN_TPS, within=NonNegativeReals)
+    mod.DispatchGen = ScaledVariable(
+        mod.GEN_TPS, scaling_factor=10**-2, within=NonNegativeReals
+    )
     mod.DispatchGenByFuel = Var(mod.GEN_TP_FUELS, within=NonNegativeReals)
     mod.DispatchGenByFuel_Constraint = Constraint(
         mod.FUEL_BASED_GEN_TPS,
@@ -319,9 +322,10 @@ def define_components(mod):
         mod.VARIABLE_GEN_TPS, rule=lambda m, g, t: (g, t) in m.VARIABLE_GEN_TPS_RAW
     )
 
-    mod.GenFuelUseRate = Var(
+    mod.GenFuelUseRate = ScaledVariable(
         mod.GEN_TP_FUELS,
         within=NonNegativeReals,
+        scaling_factor=10**-4,
         doc=(
             "Other modules constraint this variable based on DispatchGenByFuel and "
             "module-specific formulations of unit commitment and heat rates."

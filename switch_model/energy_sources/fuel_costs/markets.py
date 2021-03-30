@@ -11,6 +11,7 @@ from __future__ import division
 import os
 import csv
 from pyomo.environ import *
+from switch_model.utilities.scaling import ScaledVariable
 
 dependencies = (
     "switch_model.timescales",
@@ -257,9 +258,10 @@ def define_components(mod):
         ),
     )
 
-    mod.ConsumeFuelTier = Var(
+    mod.ConsumeFuelTier = ScaledVariable(
         mod.RFM_SUPPLY_TIERS,
         domain=NonNegativeReals,
+        scaling_factor=10**-4,
         bounds=lambda m, rfm, p, st: (
             0,
             (
