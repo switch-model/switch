@@ -11,6 +11,7 @@ from __future__ import division
 import os
 import csv
 from pyomo.environ import *
+from switch_model.utilities.scaling import ScaledVariable
 
 dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
     'switch_model.energy_sources.properties.properties',\
@@ -242,9 +243,10 @@ def define_components(mod):
             (r, p, st) for (r, p, st) in m.RFM_SUPPLY_TIERS
             if r == rfm and p == ip))
 
-    mod.ConsumeFuelTier = Var(
+    mod.ConsumeFuelTier = ScaledVariable(
         mod.RFM_SUPPLY_TIERS,
         domain=NonNegativeReals,
+        scaling_factor=10 ** -4,
         bounds=lambda m, rfm, p, st: (
             0, (m.rfm_supply_tier_limit[rfm, p, st]
                 if value(m.rfm_supply_tier_limit[rfm, p, st]) != float('inf')
