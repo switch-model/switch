@@ -9,7 +9,7 @@ from __future__ import print_function
 import os, types, importlib, re, sys, argparse, time, datetime
 import switch_model.__main__ as main
 from pyomo.environ import *
-from switch_model.utilities.scaling import ScaledVariable, get_unscaled_variable
+from switch_model.utilities.scaling import _ScaledVariable, get_unscaled_variable
 import pyomo.opt
 
 # Define string_types (same as six.string_types). This is useful for
@@ -33,7 +33,7 @@ class _AbstractModel(AbstractModel):
 
     def __setattr__(self, key, val):
         # Do as normal unless we try assigning a ScaledVar to the model.
-        if isinstance(val, ScaledVariable):
+        if isinstance(val, _ScaledVariable):
             # If we are assigning a ScaledVar to the model then we actually
             # assign the scaled var to the model with the prefix '_scaled_'
             # and assign the unscaled var to the model where the variable was
