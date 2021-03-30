@@ -7,7 +7,68 @@ TODO Explain variable scaling
 
 from pyomo.core import Var, Expression
 
+# Setting this to False will disable scaling throughout SWITCH
 _ENABLE_SCALING = True
+
+
+class ScaledVariable:
+    def __new__(cls, *args, scaling_factor=1, **kwargs):
+        if _ENABLE_SCALING and scaling_factor != 1:
+            return _ScaledVariable(*args, scaling_factor=scaling_factor, **kwargs)
+        else:
+            return Var(*args, **kwargs)
+
+
+class _ScaledVariable(Var):
+    """
+    Can be used the same way as pyomo's Var()
+    however now we can pass in an additional parameter named 'scaling_factor'
+    that will scale the variable.
+
+    Internally, when this object is assigned to the model,
+    it gets assigned with a prefix "_scaled_" and an expression
+    representing the unscaled variable is put in its place.
+    """
+    def __init__(self, *args, scaling_factor, bounds=None, **kwargs):
+        self.args = args
+        self.scaling_factor = scaling_factor
+        self.scaled_name = None  # Gets set later by _AbstractModel
+
+        if bounds is None:
+            scaled_bounds = None
+        else:
+            # Create a function that returns the scaled bounds
+            def bound_scaling_wrapper(*bound_args):
+                lower_bound, upper_bound = bounds(*bound_args)
+                if lower_bound is not None:
+                    lower_bound *= scaling_factor
+                if upper_bound is not None:
+                    upper_bound *= scaling_factor
+                return lower_bound, upper_bound
+
+            scaled_bounds = bound_scaling_wrapper
+
+        # Initialize the variable with the scaled bounds
+        super().__init__(*args, bounds=scaled_bounds, **kwargs)
+
+
+def get_unscaled_variable(scaled_var: _ScaledVariable, **kwargs):
+    """
+    Returns an instance of pyomo's Expression() representing
+    an expression that is simply the variable scaled.
+
+    The returned Expression object will also have the attribute
+    'scaled_var_name'.
+    """
+    scaled_var_name = scaled_var.scaled_name
+
+    def unscaled_variable_rule(m, *inner_args):
+        v = getattr(m, scaled_var_name)
+        return v[inner_args] / v.scaling_factor
+
+    unscaled_var = Expression(*scaled_var.args, rule=unscaled_variable_rule, **kwargs)
+    unscaled_var.scaled_var_name = scaled_var_name
+    return unscaled_var
 
 
 def get_assign_default_value_rule(variable_name: str, default_value_parameter_name: str):
@@ -40,7 +101,7 @@ def get_assign_default_value_rule(variable_name: str, default_value_parameter_na
         default_value = getattr(m, default_value_parameter_name)[args]
 
         # If the variable has the attribute, then we need to make two changes.
-        if variable_to_set.scaled_var_name is not None:
+        if hasattr(variable_to_set, "scaled_var_name"):
             # First the default needs to be set on the ScaledVariable not
             # the UnscaledVariable. This is because the UnscaledVariable
             # is actually just an expression.
@@ -52,46 +113,3 @@ def get_assign_default_value_rule(variable_name: str, default_value_parameter_na
         variable_to_set[args] = default_value
 
     return rule
-
-
-class ScaledVariable(Var):
-    def __init__(self, *args, scaling_factor=1, bounds=None, **kwargs):
-        self.scaling_factor = scaling_factor
-        self.args = args
-        self.scaled_name = None  # Get set later by _AbstractModel
-
-        if bounds is not None:
-            # Create a function that returns the scaled bounds
-            def bound_scaling_wrapper(*bound_args):
-                lower_bound, upper_bound = bounds(*bound_args)
-                if lower_bound is not None:
-                    lower_bound *= scaling_factor
-                if upper_bound is not None:
-                    upper_bound *= scaling_factor
-                return lower_bound, upper_bound
-
-            scaled_bounds = bound_scaling_wrapper
-        else:
-            scaled_bounds = None
-
-        # Initialize the variable with the scaled bounds
-        super().__init__(*args, bounds=scaled_bounds, **kwargs)
-
-
-def get_unscaled_variable(scaled_var: ScaledVariable, **kwargs):
-    """
-    Returns an instance of pyomo's Expression() representing
-    an expression that is simply the variable scaled.
-
-    The returned Expression object will also have the attribute
-    'scaled_var_name'.
-    """
-    scaled_var_name = scaled_var.scaled_name
-
-    def unscaled_variable_rule(m, *inner_args):
-        v = getattr(m, scaled_var_name)
-        return v[inner_args] / v.scaling_factor
-
-    unscaled_var = Expression(*scaled_var.args, rule=unscaled_variable_rule, **kwargs)
-    unscaled_var.scaled_var_name = scaled_var_name
-    return unscaled_var
