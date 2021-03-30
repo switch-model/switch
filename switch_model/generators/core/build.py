@@ -372,9 +372,6 @@ def define_components(mod):
         initialize=lambda m, g: [p for p in m.PERIODS if len(m.BLD_YRS_FOR_GEN_PERIOD[g, p]) > 0]
     )
 
-    # Everywhere in Switch we use BuildGen but we want the solver to
-    # use ScaledBuildGen as this value is within a more reasonable numeric
-    # range.
     def bounds_BuildGen(model, g, bld_yr):
         if (g, bld_yr) in model.PREDETERMINED_GEN_BLD_YRS:
             return (model.gen_predetermined_cap[g, bld_yr],
@@ -390,7 +387,6 @@ def define_components(mod):
         mod.GEN_BLD_YRS,
         within=NonNegativeReals,
         bounds=bounds_BuildGen,
-        # Used by scaling wrapper
         scaling_factor=10**-3,
     )
     # Some projects are retired before the first study period, so they
