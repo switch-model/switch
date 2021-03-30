@@ -12,18 +12,28 @@ _ENABLE_SCALING = True
 
 
 class ScaledVariable:
+    """
+    Can be used the same way as pyomo's Var()
+    however now we can pass in an additional parameter named 'scaling_factor'
+    that will scale the variable automatically.
+    """
+
     def __new__(cls, *args, scaling_factor=1, **kwargs):
+        # If scaling is enabled and scaling_factor is not 1
+        # return an instance of _ScaledVariable
         if _ENABLE_SCALING and scaling_factor != 1:
             return _ScaledVariable(*args, scaling_factor=scaling_factor, **kwargs)
+        # Otherwise return an instance of pyomo's normal Var
         else:
             return Var(*args, **kwargs)
+        # Note, we can't integrate _ScaledVariable into ScaledVariable
+        # because pyomo will automatically replicate our object at which point
+        # scaling_factor
 
 
 class _ScaledVariable(Var):
     """
-    Can be used the same way as pyomo's Var()
-    however now we can pass in an additional parameter named 'scaling_factor'
-    that will scale the variable.
+    Wraps pyomo's Var and adds support for a scaling_factor.
 
     Internally, when this object is assigned to the model,
     it gets assigned with a prefix "_scaled_" and an expression
@@ -38,9 +48,14 @@ class _ScaledVariable(Var):
         if bounds is None:
             scaled_bounds = None
         else:
-            # Create a function that returns the scaled bounds
+            # If the bounds are not None then we need to scale the bounds
+            # The bounds are a function that return a tuple with the bound values
+            # So we make a wrapper function that when called will call the original bound
+            # then scale the bound values and return the scaled bound values
             def bound_scaling_wrapper(*bound_args):
+                # Get the original bounds
                 lower_bound, upper_bound = bounds(*bound_args)
+                # Scale the bounds that are not None
                 if lower_bound is not None:
                     lower_bound *= scaling_factor
                 if upper_bound is not None:
@@ -53,23 +68,30 @@ class _ScaledVariable(Var):
         super().__init__(*args, bounds=scaled_bounds, **kwargs)
 
 
-def get_unscaled_variable(scaled_var: _ScaledVariable, **kwargs):
+def _get_unscaled_expression(scaled_var: _ScaledVariable, **kwargs):
     """
-    Returns an instance of pyomo's Expression() representing
-    an expression that is simply the variable scaled.
+    Given a _ScaledVariable, return an Expression that equals the unscaled variable.
 
-    The returned Expression object will also have the attribute
-    'scaled_var_name'.
+    The returned Expression will also have the attribute 'scaled_var_name' which is the
+    name of the matching scaled variable.
     """
     scaled_var_name = scaled_var.scaled_name
 
-    def unscaled_variable_rule(m, *inner_args):
+    def unscaled_expression_rule(m, *inner_args):
+        """
+        The rule that is called when retrieving the value of the expression.
+        Is equal to the value of the variable dividing by the scaling factor
+        as this "undoes" the scaling. We want to undo the scaling
+        because this expression should equal the unscaled variable.
+        """
         v = getattr(m, scaled_var_name)
         return v[inner_args] / v.scaling_factor
 
-    unscaled_var = Expression(*scaled_var.args, rule=unscaled_variable_rule, **kwargs)
-    unscaled_var.scaled_var_name = scaled_var_name
-    return unscaled_var
+    unscaled_expr = Expression(
+        *scaled_var.args, rule=unscaled_expression_rule, **kwargs
+    )
+    unscaled_expr.scaled_var_name = scaled_var_name
+    return unscaled_expr
 
 
 def get_assign_default_value_rule(
@@ -95,9 +117,10 @@ def get_assign_default_value_rule(
     """
 
     def rule(m, *args):
-        """The rule that is returned by the parent function."""
-
-        # This inner function is called by pyomo when pyomo runs the rule.
+        """
+        The rule that is returned by the parent function.
+        This inner function is called by pyomo when pyomo runs the rule.
+        """
         # First retrieve the variable we want to set a default value for
         variable_to_set = getattr(m, variable_name)
         # Then retrieve the default value
@@ -105,11 +128,10 @@ def get_assign_default_value_rule(
 
         # If the variable has the attribute, then we need to make two changes.
         if hasattr(variable_to_set, "scaled_var_name"):
-            # First the default needs to be set on the ScaledVariable not
-            # the UnscaledVariable. This is because the UnscaledVariable
-            # is actually just an expression.
+            # First the default needs to be set on the _ScaledVariable not
+            # the unscaled expression.
             variable_to_set = getattr(m, variable_to_set.scaled_var_name)
-            # Second the default variable needs to be scaled accordingly.
+            # Second the default value needs to be scaled accordingly.
             default_value *= variable_to_set.scaling_factor
 
         # Set the variable to the default value

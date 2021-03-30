@@ -9,7 +9,7 @@ from __future__ import print_function
 import os, types, importlib, re, sys, argparse, time, datetime
 import switch_model.__main__ as main
 from pyomo.environ import *
-from switch_model.utilities.scaling import _ScaledVariable, get_unscaled_variable
+from switch_model.utilities.scaling import _ScaledVariable, _get_unscaled_expression
 import pyomo.opt
 
 # Define string_types (same as six.string_types). This is useful for
@@ -32,15 +32,20 @@ class _AbstractModel(AbstractModel):
     """
 
     def __setattr__(self, key, val):
-        # Do as normal unless we try assigning a ScaledVar to the model.
+        # Do as normal unless we try assigning a _ScaledVariable to the model.
         if isinstance(val, _ScaledVariable):
-            # If we are assigning a ScaledVar to the model then we actually
-            # assign the scaled var to the model with the prefix '_scaled_'
-            # and assign the unscaled var to the model where the variable was
-            # supposed to be assigned
+            # If we are assigning a _ScaledVariable to the model then we actually
+            # want to assign the scaled variable to a key with a prefix '_scaled_'.
+            # Then we assign the unscaled expression to the key.
+            # This way throughout the SWITCH code the unscaled expression is used however
+            # pyomo will be using the scaled variable when solving.
+
+            # Set the name of the scaled variable
             val.scaled_name = "_scaled_" + key
+            # Add the scaled variable to the model with the name we just found
             super().__setattr__(val.scaled_name, val)
-            super().__setattr__(key, get_unscaled_variable(val))
+            # Add the unscaled expression to the model with the original value provided by 'key'
+            super().__setattr__(key, _get_unscaled_expression(val))
         else:
             super().__setattr__(key, val)
 
