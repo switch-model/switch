@@ -1,13 +1,65 @@
 """
 Provides the classes and functions needed to support
-variable scaling in pyomo.
+variable scaling in Pyomo.
 
-TODO Explain variable scaling
+Variable scaling is a technique used to resolve
+numerical issues that occur when variable coefficients
+are too large or too small in magnitude.
+To understand variable scaling make sure to read in full the
+section "Scaling our model to resolve numerical issues"
+in doc/Numerical Solvers.md.
+
+Once you've read that section, you should understand
+the purpose of scaling and the high level concept
+of how we scale a variable. The following explains in detail
+how we've implement variable scaling in SWITCH.
+
+Our goal is to provide a class (ScaledVariable)
+that behaves identically to Pyomo's Var class,
+but accepts a parameter scaling_factor that specifies
+how much the variable (and its coefficients) should
+be scaled before being solved. Here's the architecture
+used to achieve this goal.
+
+1. We create the class ScaledVariable but ScaledVariable is
+really just a "redirect". If scaling is disabled (via _ENABLE_SCALING)
+or if the scaling factor is 1 (no scaling) then ScaledVariable
+will just redirect us to Pyomo's Var. Otherwise, ScaledVariable
+redirects us to _ScaledVariable. To redirect between these two
+cases we override the __new__ function.
+
+2. _ScaledVariable is a child class of Pyomo's Var. This means
+it behaves the same as Pyomo's Var except for a few key differences.
+a) Upon creation the variable bounds are scaled according to the scaling_factor
+b) Upon creation we define a few extra properties that are used later.
+
+Up to know we really haven't done much. Creating a ScaledVar instead of a Var
+simply creates a _ScaledVar instance (if scaling is enabled) that behaves
+in almost all the same ways as Var (except bounds are scaled). Here's where things change.
+
+3. We've overridden the __setattr__ property of Pyomo's AbstractModel to allow for special
+behaviours when we assign a _ScaledVariable to the model (see _AbstractModel in switch_model.utilities.__init__.py).
+For example, let's consider the following call.
+
+model.MyVariable = ScaledVariable(...)
+
+First we note that ScaledVariable will actually become an instance of _ScaledVariable.
+Our modified __setattr__ method will detect this and behave as follows.
+
+a) _ScaledVariable will be added to the model but with the key _scaled_MyVariable rather than MyVariable
+b) We will create an expression that depends on _ScaledVariable using get_unscaled_expression()
+c) This expression will be assigned to the model where the _ScaledVariable should've been assigned, i.e.
+    with the key MyVariable.
+
+4. What's the result of this? Whenever we reference model.MyVariable elsewhere in our code
+we will actually be accessing the expression that depends on our _ScaledVariable! Since we're always
+referencing the unscaled expression we don't need to worry about the effects of scaling, while at
+the same time, Pyomo is using the scaled variable when solving.
 """
 
 from pyomo.core import Var, Expression
 
-# Setting this to False will disable scaling throughout SWITCH
+# Setting this to False will disable variable scaling throughout SWITCH
 _ENABLE_SCALING = True
 
 
@@ -16,6 +68,10 @@ class ScaledVariable:
     Can be used the same way as pyomo's Var()
     however now we can pass in an additional parameter named 'scaling_factor'
     that will scale the variable automatically.
+
+    That is if scaling_factor = 10, the solver will work with a variable
+    that is 10x ours, and so the variables coefficient's will be 1/10th
+    of ours.
     """
 
     def __new__(cls, *args, scaling_factor=1, **kwargs):
@@ -26,9 +82,10 @@ class ScaledVariable:
         # Otherwise return an instance of pyomo's normal Var
         else:
             return Var(*args, **kwargs)
-        # Note, we can't integrate _ScaledVariable into ScaledVariable
-        # because pyomo will automatically replicate our object at which point
-        # scaling_factor
+        # Note, we can't integrate ScaledVariable into _ScaledVariable
+        # because pyomo will try to duplicate _ScaledVariable and will
+        # call the constructor at which point unexpected behaviour
+        # arises since scaling_factor will not be defined by Pyomo.
 
 
 class _ScaledVariable(Var):
@@ -41,6 +98,7 @@ class _ScaledVariable(Var):
     """
 
     def __init__(self, *args, scaling_factor, bounds=None, **kwargs):
+        # We store *args since we need to iterate over the same set when creating the unscaled expression
         self.args = args
         self.scaling_factor = scaling_factor
         self.scaled_name = None  # Gets set later by _AbstractModel
