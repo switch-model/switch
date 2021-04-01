@@ -32,12 +32,15 @@ class _AbstractModel(AbstractModel):
     """
 
     def __setattr__(self, key, val):
-        # Do as normal unless we try assigning a _ScaledVariable to the model.
+        # __setattr__ is called whenever we set an attribute
+        # to the model (e.g. model.some_key = some_value)
+        # We want to do as normal unless we try assigning a _ScaledVariable to the model.
         if isinstance(val, _ScaledVariable):
             # If we are assigning a _ScaledVariable to the model then we actually
-            # want to assign the scaled variable to a key with a prefix '_scaled_'.
-            # Then we assign the unscaled expression to the key.
-            # This way throughout the SWITCH code the unscaled expression is used however
+            # want to assign both a scaled variable and an unscaled expression to the model
+            # We want to assign the scaled variable to a key with a prefix '_scaled_'
+            # and the unscaled expression to the key without the prefix.
+            # This way throughout the SWITCH code the unscaled expression will be used however
             # pyomo will be using the scaled variable when solving.
 
             # Set the name of the scaled variable
