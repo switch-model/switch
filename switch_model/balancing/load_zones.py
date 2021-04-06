@@ -110,6 +110,10 @@ def define_components(mod):
             sum(m.zone_demand_mw[z, t] * m.tp_weight[t]
                 for t in m.TPS_IN_PERIOD[p])))
 
+    # Make sure the model has a dual suffix for determining locational marginal pricing
+    if not hasattr(mod, "dual"):
+        mod.dual = Suffix(direction=Suffix.IMPORT)
+
 
 def define_dynamic_components(mod):
     """
@@ -187,15 +191,31 @@ def post_solve(instance, outdir):
     Zone_Power_Injections and Zone_Power_Withdrawals will
     become a column.
 
+    Locational marginal pricing is also included in load_balance.csv
+    and is found from the duals. This value is only available
+    for linear optimization problems.
     """
+    def get_output_row(m, z, t):
+        # Add index to row
+        row = [z, m.tp_timestamp[t]]
+
+        # Add locational marginal pricing to row if it's available
+        if not m.has_discrete_variables() and m.Zone_Energy_Balance[z, t] in m.dual:
+            row.append(m.dual[m.Zone_Energy_Balance[z, t]])
+        else:
+            row.append(".")
+
+        # Add contributions to energy balance to the row
+        row.extend([
+            getattr(m, component)[z, t] for component in (m.Zone_Power_Injections + m.Zone_Power_Withdrawals)
+        ])
+
+        return row
+
     write_table(
         instance, instance.LOAD_ZONES, instance.TIMEPOINTS,
         output_file=os.path.join(outdir, "load_balance.csv"),
-        headings=("load_zone", "timestamp",) + tuple(
+        headings=("load_zone", "timestamp", "lmp_dollar_per_mw",) + tuple(
             instance.Zone_Power_Injections +
             instance.Zone_Power_Withdrawals),
-        values=lambda m, z, t: (z, m.tp_timestamp[t],) + tuple(
-            getattr(m, component)[z, t]
-            for component in (
-                m.Zone_Power_Injections +
-                m.Zone_Power_Withdrawals)))
+        values=get_output_row)
