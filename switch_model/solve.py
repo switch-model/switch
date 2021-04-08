@@ -11,7 +11,7 @@ import sys, os, shlex, re, inspect, textwrap, types, pickle
 
 import switch_model
 from switch_model.utilities import (
-    create_model, _ArgumentParser, StepTimer, make_iterable, LogOutput, warn, query_yes_no
+    create_model, _ArgumentParser, StepTimer, make_iterable, LogOutput, warn, query_yes_no, format_seconds
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 
@@ -186,7 +186,7 @@ def main(args=None, return_model=False, return_instance=False):
             if instance.options.verbose:
                 print("Post solve processing completed in {:.2f} s.".format(timer.step_time()))
         if instance.options.verbose:
-            print(f"Total time spent running SWITCH: {start_to_end_timer.step_time(pretty_str=True)}.")
+            print(f"Total time spent running SWITCH: {format_seconds(start_to_end_timer.step_time())}.")
 
     # end of LogOutput block
 
