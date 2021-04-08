@@ -15,6 +15,7 @@
 *.tax2010
 *.vcf
 *.xml
+*.pickle
 
 ### dotenv ###
 .env
