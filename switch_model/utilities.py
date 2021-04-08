@@ -124,15 +124,48 @@ class StepTimer(object):
     Use timer = StepTimer() to create a timer, then retrieve elapsed time and/or
     reset the timer at each step by calling timer.step_time()
     """
+
     def __init__(self):
         self.start_time = time.time()
-    def step_time(self):
+
+    def step_time(self, pretty_str=False):
         """
         Reset timer to current time and return time elapsed since last step.
+
+        pretty_str
+        if False, returns the elapsed time (in seconds) as a float
+        if True,  returns a string representing the elapsed time broken into hours, minutes and seconds.
         """
         last_start = self.start_time
         self.start_time = now = time.time()
-        return now - last_start
+        elapsed = now - last_start
+        if pretty_str:
+            return StepTimer.format_seconds_as_time(elapsed)
+        return elapsed
+
+    @staticmethod
+    def format_seconds_as_time(seconds):
+        """
+        Takes in a number of seconds and returns a string
+        representing the seconds broken into hours, minutes and seconds.
+
+        For example, format_seconds_as_time(3750.4) returns '1 h 2 min 30.40 s'.
+        """
+        minutes = int(seconds // 60)
+        hours = int(minutes // 60)
+        remainder_sec = seconds % 60
+        remainder_min = minutes % 60
+
+        output_str = ""
+
+        if hours != 0:
+            output_str += f"{hours} h "
+        if minutes != 0:
+            output_str += f"{remainder_min} min "
+        output_str += f"{remainder_sec:.2f} s"
+
+        return output_str
+
 
 def load_inputs(model, inputs_dir=None, attach_data_portal=True):
     """
