@@ -112,7 +112,7 @@ def define_components(mod):
         ),
     )
 
-    # Make sure the model has a dual suffix for determining locational marginal pricing
+    # Make sure the model has a dual suffix since we use the duals in post_solve()
     if not hasattr(mod, "dual"):
         mod.dual = Suffix(direction=Suffix.IMPORT)
 
@@ -196,18 +196,28 @@ def post_solve(instance, outdir):
     Zone_Power_Injections and Zone_Power_Withdrawals will
     become a column.
 
-    Locational marginal pricing is also included in load_balance.csv
-    and is found from the duals. This value is only available
-    for linear optimization problems.
+    We also include a column called normalized_energy_balance_duals_dollar_per_mwh
+    that is a proxy for the locational marginal pricing (LMP). This value represents
+    the extra cost per hour to increase the demand by 1 MW (cost of providing 1 MWh).
+    This is not a perfect proxy for LMP since it includes build costs etc.
     """
 
     def get_output_row(m, z, t):
         # Add index to row
         row = [z, m.tp_timestamp[t]]
 
-        # Add locational marginal pricing to row if it's available
+        # If duals are available, add the duals for the energy balance constraint
+        # as a proxy for LMP
         if not m.has_discrete_variables and m.Zone_Energy_Balance[z, t] in m.dual:
-            row.append(m.dual[m.Zone_Energy_Balance[z, t]])
+            # We need to divide by the timepoint weight since the dual gives us
+            # the cost of responding to an extra 1 MW of demand in that zone
+            # for that timepoint. However, the cost during that timepoint gets
+            # scaled up to fill part of the period. So if we want the cost
+            # for just one hour we need to divide by the number of hours
+            # taken by that timepoint, during the period. This is m.tp_weight.
+            # Note that this is the cost per hour for an extra MW or
+            # equivalently the cost of providing an extra MWh.
+            row.append(m.dual[m.Zone_Energy_Balance[z, t]] / m.tp_weight[t])
         else:
             row.append(".")
 
@@ -229,7 +239,7 @@ def post_solve(instance, outdir):
         headings=(
             "load_zone",
             "timestamp",
-            "lmp_dollar_per_mw",
+            "normalized_energy_balance_duals_dollar_per_mwh",
         )
         + tuple(instance.Zone_Power_Injections + instance.Zone_Power_Withdrawals),
         values=get_output_row,
