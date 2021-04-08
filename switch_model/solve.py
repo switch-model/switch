@@ -18,6 +18,7 @@ from switch_model.utilities import (
     LogOutput,
     warn,
     query_yes_no,
+    format_seconds,
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 
@@ -223,7 +224,7 @@ def main(args=None, return_model=False, return_instance=False):
                 )
         if instance.options.verbose:
             print(
-                f"Total time spent running SWITCH: {start_to_end_timer.step_time(pretty_str=True)}."
+                f"Total time spent running SWITCH: {format_seconds(start_to_end_timer.step_time())}."
             )
 
     # end of LogOutput block
