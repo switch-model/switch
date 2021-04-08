@@ -81,7 +81,7 @@ def create_model(module_list=None, args=sys.argv[1:]):
     # Bind utility functions to the model as class objects
     # Should we be formally extending their class instead?
     _add_min_data_check(model)
-    model.has_discrete_variables = types.MethodType(has_discrete_variables, model)
+    model.has_discrete_variables = None  # Will get set during post_solve(), used to determine if we should use duals
     model.get_modules = types.MethodType(get_modules, model)
     model.load_inputs = types.MethodType(load_inputs, model)
     model.pre_solve = types.MethodType(pre_solve, model)
@@ -267,6 +267,17 @@ def post_solve(instance, outputs_dir=None):
         outputs_dir = getattr(instance.options, "outputs_dir", "outputs")
     if not os.path.exists(outputs_dir):
         os.makedirs(outputs_dir)
+
+    # Used to determine if we should use dual values
+    # If the model has discrete variables dual values aren't meaningful
+    # Note that before model.has_discrete_variables was a function
+    # that ran has_discrete_variables() everytime.
+    # This was quite time consuming (~10s per call)
+    # Instead, now we call has_discrete_variables() once during post_solve and save the result
+    # TODO Ideally, we only call has_discrete_variables() once **and
+    #  only if we need it** (lazy implementation). This would require more work however
+    #  but could save 10s during post-solve if we never use modules that use has_discrete_variabels.
+    instance.has_discrete_variables = has_discrete_variables(instance)
 
     # TODO: implement a check to call post solve functions only if
     # solver termination condition is not 'infeasible' or 'unknown'
