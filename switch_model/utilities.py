@@ -6,19 +6,14 @@ Utility functions for Switch.
 """
 from __future__ import print_function
 
-import os, types, importlib, re, sys, argparse, time, datetime
+import os, types, importlib, sys, argparse, time, datetime, traceback
 import __main__ as main
 from pyomo.environ import *
 import pyomo.opt
 
 # Define string_types (same as six.string_types). This is useful for
 # distinguishing between strings and other iterables.
-try:
-    # Python 2
-    string_types = (basestring,)
-except NameError:
-    # Python 3
-    string_types = (str,)
+string_types = (str,)
 
 # Check whether this is an interactive session (determined by whether
 # __main__ has a __file__ attribute). Scripts can check this value to
@@ -260,8 +255,15 @@ def post_solve(instance, outputs_dir=None):
 
     for module in instance.get_modules():
         if hasattr(module, 'post_solve'):
-            module.post_solve(instance, outputs_dir)
-
+            # Try-catch is so that if one module fails on post-solve
+            # the other modules still run
+            try:
+                module.post_solve(instance, outputs_dir)
+            except Exception:
+                # Print the error that would normally be thrown with the
+                # full stack trace and an explanatory message
+                print(f"ERROR: Module {module.__name__} threw an Exception while running post_solve(). "
+                      f"Moving on to the next module.\n{traceback.format_exc()}")
 
 def min_data_check(model, *mandatory_model_components):
     """
@@ -494,7 +496,7 @@ def load_aug(switch_data, optional=False, auto_select=False,
     elif suffix == 'csv':
         separator = ','
     else:
-        raise switch_model.utilities.InputError('Unrecognized file type for input file {}'.format(path))
+        raise InputError('Unrecognized file type for input file {}'.format(path))
     # TODO: parse this more formally, e.g. using csv module
     headers = headers_line.strip().split(separator)
     # Skip if the file is empty.
