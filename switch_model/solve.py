@@ -23,7 +23,7 @@ from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 
 
 def main(args=None, return_model=False, return_instance=False):
-
+    start_to_end_timer = StepTimer()
     timer = StepTimer()
     if args is None:
         # combine default arguments read from options.txt file with
@@ -221,6 +221,10 @@ def main(args=None, return_model=False, return_instance=False):
                         timer.step_time()
                     )
                 )
+        if instance.options.verbose:
+            print(
+                f"Total time spent running SWITCH: {start_to_end_timer.step_time(pretty_str=True)}."
+            )
 
     # end of LogOutput block
 
