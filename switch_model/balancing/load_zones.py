@@ -200,7 +200,7 @@ def post_solve(instance, outdir):
         row = [z, m.tp_timestamp[t]]
 
         # Add locational marginal pricing to row if it's available
-        if not m.has_discrete_variables() and m.Zone_Energy_Balance[z, t] in m.dual:
+        if not m.has_discrete_variables and m.Zone_Energy_Balance[z, t] in m.dual:
             row.append(m.dual[m.Zone_Energy_Balance[z, t]])
         else:
             row.append(".")
