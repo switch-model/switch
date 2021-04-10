@@ -1,4 +1,4 @@
-# A Guide on  Numerical Solvers
+# A Guide on Numerical Solvers
 by Martin Staadecker
 
 ## Content
