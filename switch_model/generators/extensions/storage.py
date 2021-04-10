@@ -10,6 +10,7 @@ storage, when to charge, energy accounting, etc.
 from pyomo.environ import *
 import os, collections
 from switch_model.financials import capital_recovery_factor as crf
+from switch_model.utilities.scaling import ScaledVariable
 
 dependencies = (
     "switch_model.timescales",
@@ -156,10 +157,11 @@ def define_components(mod):
         else:
             return (0, None)
 
-    mod.BuildStorageEnergy = Var(
+    mod.BuildStorageEnergy = ScaledVariable(
         mod.STORAGE_GEN_BLD_YRS,
         within=NonNegativeReals,
         bounds=bounds_BuildStorageEnergy,
+        scaling_factor=10**-4,
     )
 
     # Some projects are retired before the first study period, so they

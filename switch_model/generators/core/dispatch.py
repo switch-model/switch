@@ -325,7 +325,7 @@ def define_components(mod):
     mod.GenFuelUseRate = ScaledVariable(
         mod.GEN_TP_FUELS,
         within=NonNegativeReals,
-        # scaling_factor=10 ** -4,
+        scaling_factor=10**-3,
         doc=(
             "Other modules constraint this variable based on DispatchGenByFuel and "
             "module-specific formulations of unit commitment and heat rates."
