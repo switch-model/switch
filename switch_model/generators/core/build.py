@@ -419,7 +419,7 @@ def define_components(mod):
         mod.GEN_BLD_YRS,
         within=NonNegativeReals,
         bounds=bounds_BuildGen,
-        scaling_factor=10**-3,
+        scaling_factor=10**-1,
     )
     # Some projects are retired before the first study period, so they
     # don't appear in the objective function or any constraints.
@@ -458,10 +458,14 @@ def define_components(mod):
         ),
     )
 
+    max_build_potential_scaling_factor = 10**-1
     mod.Max_Build_Potential = Constraint(
         mod.CAPACITY_LIMITED_GENS,
         mod.PERIODS,
-        rule=lambda m, g, p: (m.gen_capacity_limit_mw[g] >= m.GenCapacity[g, p]),
+        rule=lambda m, g, p: (
+            m.gen_capacity_limit_mw[g] * max_build_potential_scaling_factor
+            >= m.GenCapacity[g, p] * max_build_potential_scaling_factor
+        ),
     )
 
     # The following components enforce minimum capacity build-outs.

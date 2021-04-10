@@ -307,7 +307,10 @@ def define_dynamic_components(mod):
     mod.SystemCost = Expression(
         rule=lambda m: sum(m.SystemCostPerPeriod[p] for p in m.PERIODS)
     )
-    mod.Minimize_System_Cost = Objective(rule=lambda m: m.SystemCost, sense=minimize)
+    objective_func_scaling_factor = 10**-8
+    mod.Minimize_System_Cost = Objective(
+        rule=lambda m: m.SystemCost * objective_func_scaling_factor, sense=minimize
+    )
 
 
 def load_inputs(mod, switch_data, inputs_dir):

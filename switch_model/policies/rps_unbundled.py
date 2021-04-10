@@ -107,15 +107,16 @@ def define_components(mod):
         ),
     )
 
+    rps_enforce_target_scaling_factor = 10**-5
     mod.RPS_Enforce_Target = Constraint(
         mod.PERIODS,
-        rule=lambda m, p: (
-            m.RPSFuelEnergy[p] + m.RPSNonFuelEnergy[p]
-            >= sum(
-                m.rps_target[z, p] * m.zone_total_demand_in_period_mwh[z, p]
-                for z in m.LOAD_ZONES
-            )
-        ),
+        rule=lambda m, p: (m.RPSFuelEnergy[p] + m.RPSNonFuelEnergy[p])
+        * rps_enforce_target_scaling_factor
+        >= sum(
+            m.rps_target[z, p] * m.zone_total_demand_in_period_mwh[z, p]
+            for z in m.LOAD_ZONES
+        )
+        * rps_enforce_target_scaling_factor,
     )
 
 
