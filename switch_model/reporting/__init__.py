@@ -20,6 +20,7 @@ dependency on load_zones.
 """
 from __future__ import print_function
 from switch_model.utilities import string_types
+from switch_model.utilities.scaling import get_unscaled_var
 
 dependencies = "switch_model.financials"
 
@@ -153,6 +154,7 @@ def save_generic_results(instance, outdir, sorted_output):
         components += [getattr(instance, c) for c in instance.options.save_expressions]
 
     for var in components:
+        var = get_unscaled_var(instance, var)
         output_file = os.path.join(outdir, "%s.csv" % var.name)
         with open(output_file, "w") as fh:
             writer = csv.writer(fh, dialect="switch-csv")

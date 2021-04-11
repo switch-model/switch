@@ -43,6 +43,8 @@ class _AbstractModel(AbstractModel):
             # This way throughout the SWITCH code the unscaled expression will be used however
             # pyomo will be using the scaled variable when solving.
 
+            # Set the unscaled_name of the variable
+            val.unscaled_name = key
             # Set the name of the scaled variable
             val.scaled_name = "_scaled_" + key
             # Add the scaled variable to the model with the name we just found
