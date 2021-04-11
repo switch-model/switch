@@ -100,6 +100,7 @@ class _ScaledVariable(Var):
         self.args = args
         self.scaling_factor = scaling_factor
         self.scaled_name = None  # Gets set later by _AbstractModel
+        self.unscaled_name = None  # Gets set later when an unscaled expression is created
 
         if bounds is None:
             scaled_bounds = None
@@ -190,3 +191,10 @@ def get_assign_default_value_rule(variable_name: str, default_value_parameter_na
         variable_to_set[args] = default_value
 
     return rule
+
+
+def get_unscaled_var(model, var):
+    if not isinstance(var, _ScaledVariable):
+        return var
+
+    return getattr(model, var.unscaled_name)
