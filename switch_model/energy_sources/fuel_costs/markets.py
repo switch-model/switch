@@ -261,7 +261,7 @@ def define_components(mod):
     mod.ConsumeFuelTier = ScaledVariable(
         mod.RFM_SUPPLY_TIERS,
         domain=NonNegativeReals,
-        scaling_factor=10**-5,
+        scaling_factor=10**-4,
         bounds=lambda m, rfm, p, st: (
             0,
             (
