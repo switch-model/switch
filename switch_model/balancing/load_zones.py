@@ -184,19 +184,28 @@ def load_inputs(mod, switch_data, inputs_dir):
 
 def post_solve(instance, outdir):
     """
-    Export results.
+    Exports load_balance.csv, load_balance_annual_zonal.csv, and load_balance_annual.csv.
+    Each component registered with Zone_Power_Injections and Zone_Power_Withdrawals will
+    become a column in these .csv files. As such, each column represents a power injection
+    or withdrawal and the sum of across all columns should be zero. Note that positive
+    terms are net injections (e.g. generation) while negative terms are net withdrawals
+    (e.g. load).
 
-    load_balance.csv is a wide table of energy balance components for every
-    zone and timepoint. Each component registered with
-    Zone_Power_Injections and Zone_Power_Withdrawals will
-    become a column.
-
+    load_balance.csv contains the energy balance terms for for every zone and timepoint.
     We also include a column called normalized_energy_balance_duals_dollar_per_mwh
     that is a proxy for the locational marginal pricing (LMP). This value represents
-    the extra cost per hour to increase the demand by 1 MW (cost of providing 1 MWh).
-    This is not a perfect proxy for LMP since it includes build costs etc.
+    the incremental cost per hour to increase the demand by 1 MW (or equivalently
+    the incremental cost of providing one more MWh of energy). This is not a perfect
+    proxy for LMP since it factors in build costs etc.
+
+    load_balance_annual_zonal.csv contains the energy injections and withdrawals
+    throughout a year for a given load zone.
+
+    load_balance_annual.csv contains the energy injections and withdrawals
+    throughout a year across all zones.
     """
-    def get_output_row(m, z, t):
+
+    def get_load_balance_row(m, z, t):
         # Add index to row
         row = [z, m.tp_timestamp[t]]
 
@@ -216,9 +225,8 @@ def post_solve(instance, outdir):
             row.append(".")
 
         # Add contributions to energy balance to the row
-        row.extend([
-            getattr(m, component)[z, t] for component in (m.Zone_Power_Injections + m.Zone_Power_Withdrawals)
-        ])
+        row.extend([getattr(m, component)[z, t] for component in m.Zone_Power_Injections])
+        row.extend([-getattr(m, component)[z, t] for component in m.Zone_Power_Withdrawals])
 
         return row
 
@@ -228,4 +236,33 @@ def post_solve(instance, outdir):
         headings=("load_zone", "timestamp", "normalized_energy_balance_duals_dollar_per_mwh",) + tuple(
             instance.Zone_Power_Injections +
             instance.Zone_Power_Withdrawals),
-        values=get_output_row)
+        values=get_load_balance_row)
+
+    def get_component_per_year(m, z, p, component):
+        """
+        Returns the weighted sum of component across all timepoints in the given period.
+        The components must be indexed by zone and timepoint.
+        """
+        return sum(getattr(m, component)[z, t] * m.tp_weight_in_year[t] for t in m.TPS_IN_PERIOD[p])
+
+    write_table(
+        instance, instance.LOAD_ZONES, instance.PERIODS,
+        output_file=os.path.join(outdir, "load_balance_annual_zonal.csv"),
+        headings=("load_zone", "period",) + tuple(instance.Zone_Power_Injections + instance.Zone_Power_Withdrawals),
+        values=lambda m, z, p:
+        (z, p)
+        + tuple(get_component_per_year(m, z, p, component) for component in m.Zone_Power_Injections)
+        + tuple(-get_component_per_year(m, z, p, component) for component in m.Zone_Power_Withdrawals)
+    )
+
+    write_table(
+        instance, instance.PERIODS,
+        output_file=os.path.join(outdir, "load_balance_annual.csv"),
+        headings=("period",) + tuple(instance.Zone_Power_Injections + instance.Zone_Power_Withdrawals),
+        values=lambda m, p:
+        (p,)
+        + tuple(sum(get_component_per_year(m, z, p, component) for z in m.LOAD_ZONES)
+                for component in m.Zone_Power_Injections)
+        + tuple(-sum(get_component_per_year(m, z, p, component) for z in m.LOAD_ZONES)
+                for component in m.Zone_Power_Withdrawals)
+    )
