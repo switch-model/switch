@@ -4,10 +4,9 @@
 """
 Defines model components to describe unit commitment of projects for the
 Switch model. This module is mutually exclusive with the
-operations.no_commit module which specifies simplified dispatch
-constraints. If you want to use this module directly in a list of switch
-modules (instead of including the package operations.unitcommit), you will also
-need to include the module operations.unitcommit.fuel_use.
+...generators.core.no_commit module which specifies simplified dispatch
+constraints. This module has a post-requisite of
+switch_model.generators.core.commit.fuel_use.
 """
 from __future__ import division
 
@@ -19,6 +18,14 @@ dependencies = (
     'switch_model.financials', 'switch_model.energy_sources.properties.properties',
     'switch_model.generators.core.build', 'switch_model.generators.core.dispatch'
 )
+
+def define_arguments(argparser):
+    group = argparser.add_argument_group(__name__)
+    group.add_argument('--do-not-track-startup-or-shutdown', default=False,
+        dest='do_not_track_startup_or_shutdown', action='store_true',
+        help=("Skip tracking startup & shutdown in unit commitment to reduce "
+              "the number of decision variables & constraints.")
+    )
 
 def define_components(mod):
     """
@@ -80,6 +87,9 @@ def define_components(mod):
     offline: CommitGen - CommitLowerLimit
 
     -- StartupGenCapacity and ShutdownGenCapacity --
+
+    This section can be disabled by using the --do-not-track-startup-or-shutdown
+    command line option. 
 
     The capacity started up or shutdown is completely determined by
     the change in CommitGen from one hour to the next, but we can't
@@ -254,6 +264,51 @@ def define_components(mod):
         mod.GEN_TPS,
         rule=lambda m, g, t: (
             m.CommitGen[g, t] - m.CommitLowerLimit[g, t]))
+    
+    if not mod.options.do_not_track_startup_or_shutdown:
+        track_startup_and_shutdown(mod)
+
+    # Dispatch limits relative to committed capacity.
+    mod.gen_min_load_fraction = Param(
+        mod.GENERATION_PROJECTS,
+        within=PercentFraction,
+        default=lambda m, g: 1.0 if m.gen_is_baseload[g] else 0.0)
+    mod.gen_min_load_fraction_TP = Param(
+        mod.GEN_TPS,
+        default=lambda m, g, t: m.gen_min_load_fraction[g])
+    mod.DispatchLowerLimit = Expression(
+        mod.GEN_TPS,
+        rule=lambda m, g, t: (
+            m.CommitGen[g, t] * m.gen_min_load_fraction_TP[g, t]))
+
+    def DispatchUpperLimit_expr(m, g, t):
+        if g in m.VARIABLE_GENS:
+            return m.CommitGen[g, t]*m.gen_max_capacity_factor[g, t]
+        else:
+            return m.CommitGen[g, t]
+    mod.DispatchUpperLimit = Expression(
+        mod.GEN_TPS,
+        rule=DispatchUpperLimit_expr)
+
+    mod.Enforce_Dispatch_Lower_Limit = Constraint(
+        mod.GEN_TPS,
+        rule=lambda m, g, t: (
+            m.DispatchLowerLimit[g, t] <= m.DispatchGen[g, t]))
+    mod.Enforce_Dispatch_Upper_Limit = Constraint(
+        mod.GEN_TPS,
+        rule=lambda m, g, t: (
+            m.DispatchGen[g, t] <= m.DispatchUpperLimit[g, t]))
+    mod.DispatchSlackUp = Expression(
+        mod.GEN_TPS,
+        rule=lambda m, g, t: (
+            m.DispatchUpperLimit[g, t] - m.DispatchGen[g, t]))
+    mod.DispatchSlackDown = Expression(
+        mod.GEN_TPS,
+        rule=lambda m, g, t: (
+            m.DispatchGen[g, t] - m.DispatchLowerLimit[g, t]))
+
+
+def track_startup_and_shutdown(mod):
     # StartupGenCapacity & ShutdownGenCapacity (at start of each timepoint)
     mod.StartupGenCapacity = Var(
         mod.GEN_TPS,
@@ -371,45 +426,6 @@ def define_components(mod):
         rule=lambda *a: min_time_rule(*a, up=False)
     )
 
-    # Dispatch limits relative to committed capacity.
-    mod.gen_min_load_fraction = Param(
-        mod.GENERATION_PROJECTS,
-        within=PercentFraction,
-        default=lambda m, g: 1.0 if m.gen_is_baseload[g] else 0.0)
-    mod.gen_min_load_fraction_TP = Param(
-        mod.GEN_TPS,
-        default=lambda m, g, t: m.gen_min_load_fraction[g])
-    mod.DispatchLowerLimit = Expression(
-        mod.GEN_TPS,
-        rule=lambda m, g, t: (
-            m.CommitGen[g, t] * m.gen_min_load_fraction_TP[g, t]))
-
-    def DispatchUpperLimit_expr(m, g, t):
-        if g in m.VARIABLE_GENS:
-            return m.CommitGen[g, t]*m.gen_max_capacity_factor[g, t]
-        else:
-            return m.CommitGen[g, t]
-    mod.DispatchUpperLimit = Expression(
-        mod.GEN_TPS,
-        rule=DispatchUpperLimit_expr)
-
-    mod.Enforce_Dispatch_Lower_Limit = Constraint(
-        mod.GEN_TPS,
-        rule=lambda m, g, t: (
-            m.DispatchLowerLimit[g, t] <= m.DispatchGen[g, t]))
-    mod.Enforce_Dispatch_Upper_Limit = Constraint(
-        mod.GEN_TPS,
-        rule=lambda m, g, t: (
-            m.DispatchGen[g, t] <= m.DispatchUpperLimit[g, t]))
-    mod.DispatchSlackUp = Expression(
-        mod.GEN_TPS,
-        rule=lambda m, g, t: (
-            m.DispatchUpperLimit[g, t] - m.DispatchGen[g, t]))
-    mod.DispatchSlackDown = Expression(
-        mod.GEN_TPS,
-        rule=lambda m, g, t: (
-            m.DispatchGen[g, t] - m.DispatchLowerLimit[g, t]))
-
 
 def load_inputs(mod, switch_data, inputs_dir):
     """
@@ -432,12 +448,16 @@ def load_inputs(mod, switch_data, inputs_dir):
         gen_max_commit_fraction_TP, gen_min_load_fraction_TP
 
     """
+    if mod.options.do_not_track_startup_or_shutdown:
+        params = (mod.gen_min_load_fraction,)
+    else:
+        params = (mod.gen_min_load_fraction, mod.gen_startup_fuel,
+                  mod.gen_startup_om, mod.gen_min_uptime, mod.gen_min_downtime)
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, 'generation_projects_info.csv'),
         auto_select=True,
-        param=(mod.gen_min_load_fraction, mod.gen_startup_fuel,
-               mod.gen_startup_om, mod.gen_min_uptime, mod.gen_min_downtime))
+        param=params)
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, 'gen_timepoint_commit_bounds.csv'),
