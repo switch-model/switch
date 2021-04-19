@@ -152,8 +152,7 @@ def define_components(mod):
     mod.BuildStorageEnergy = ScaledVariable(
         mod.STORAGE_GEN_BLD_YRS,
         within=NonNegativeReals,
-        bounds=bounds_BuildStorageEnergy,
-        scaling_factor=10 ** -4)
+        bounds=bounds_BuildStorageEnergy)
 
     # Some projects are retired before the first study period, so they
     # don't appear in the objective function or any constraints.

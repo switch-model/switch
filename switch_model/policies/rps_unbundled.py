@@ -100,7 +100,7 @@ def define_components(mod):
             for g in m.NON_FUEL_BASED_GENS 
                 for t in m.TPS_FOR_GEN_IN_PERIOD[g, p]))
 
-    rps_enforce_target_scaling_factor = 10 ** -5
+    rps_enforce_target_scaling_factor = 10 ** -1
     mod.RPS_Enforce_Target = Constraint(
         mod.PERIODS,
         rule=lambda m, p:

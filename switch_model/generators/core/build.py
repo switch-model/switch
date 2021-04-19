@@ -387,7 +387,6 @@ def define_components(mod):
         mod.GEN_BLD_YRS,
         within=NonNegativeReals,
         bounds=bounds_BuildGen,
-        scaling_factor=10 ** -3,
     )
     # Some projects are retired before the first study period, so they
     # don't appear in the objective function or any constraints.
