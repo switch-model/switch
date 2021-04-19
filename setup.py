@@ -76,7 +76,10 @@ setup(
             'rpy2;python_version>="3.0"',
             'sympy'
         ],
-        'dev': ['ipdb'],
+        'dev': [
+            'ipdb',
+            'black'
+        ],
         'plotting': ['plotnine'],
         'database_access': ['psycopg2-binary']
     },
