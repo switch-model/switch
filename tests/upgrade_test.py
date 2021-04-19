@@ -29,6 +29,7 @@ from .examples_test import get_expectation_path, read_file, write_file, TOP_DIR
 
 UPDATE_EXPECTATIONS = False
 
+
 def _remove_temp_dir(path):
     for retry in range(100):
         try:
@@ -37,32 +38,41 @@ def _remove_temp_dir(path):
         except:
             pass
 
+
 def find_example_dirs(path):
     for dirpath, dirnames, filenames in os.walk(path):
         for dirname in dirnames:
             path = os.path.join(dirpath, dirname)
-            if os.path.exists(os.path.join(path, 'inputs', 'modules.txt')):
+            if os.path.exists(os.path.join(path, "inputs", "modules.txt")):
                 yield path
+
 
 def make_test(example_dir):
     def test_upgrade():
-        temp_dir = tempfile.mkdtemp(prefix='switch_test_')
+        temp_dir = tempfile.mkdtemp(prefix="switch_test_")
         example_name = os.path.basename(os.path.normpath(example_dir))
         upgrade_dir = os.path.join(temp_dir, example_name)
-        shutil.copytree(example_dir, upgrade_dir, ignore=shutil.ignore_patterns('outputs'))
-        upgrade_dir_inputs = os.path.join(upgrade_dir, 'inputs')
-        upgrade_dir_outputs = os.path.join(upgrade_dir, 'outputs')
+        shutil.copytree(
+            example_dir, upgrade_dir, ignore=shutil.ignore_patterns("outputs")
+        )
+        upgrade_dir_inputs = os.path.join(upgrade_dir, "inputs")
+        upgrade_dir_outputs = os.path.join(upgrade_dir, "outputs")
         switch_model.upgrade.manager.set_verbose(False)
         try:
             # Custom python modules may be in the example's working directory
             upgrade_inputs(upgrade_dir_inputs)
             sys.path.append(upgrade_dir)
-            switch_model.solve.main([
-                '--inputs-dir', upgrade_dir_inputs,
-                '--outputs-dir', upgrade_dir_outputs])
-            total_cost = read_file(os.path.join(upgrade_dir_outputs, 'total_cost.txt'))
+            switch_model.solve.main(
+                [
+                    "--inputs-dir",
+                    upgrade_dir_inputs,
+                    "--outputs-dir",
+                    upgrade_dir_outputs,
+                ]
+            )
+            total_cost = read_file(os.path.join(upgrade_dir_outputs, "total_cost.txt"))
         finally:
-            if upgrade_dir in sys.path: # code above may have failed before appending
+            if upgrade_dir in sys.path:  # code above may have failed before appending
                 sys.path.remove(upgrade_dir)
             _remove_temp_dir(temp_dir)
         expectation_file = get_expectation_path(example_dir)
@@ -71,30 +81,35 @@ def make_test(example_dir):
         else:
             expected = float(read_file(expectation_file))
             actual = float(total_cost)
-            if not switch_model.utilities.approx_equal(expected, actual,
-                                                     tolerance=0.0001):
+            if not switch_model.utilities.approx_equal(
+                expected, actual, tolerance=0.0001
+            ):
                 raise AssertionError(
-                    'Mismatch for total_cost (the objective function value):\n'
-                    'Expected value:  {}\n'
-                    'Actual value:    {}\n'
+                    "Mismatch for total_cost (the objective function value):\n"
+                    "Expected value:  {}\n"
+                    "Actual value:    {}\n"
                     'Run "python -m tests.upgrade_test --update" to '
-                    'update the expectations if this change is expected.'
-                    .format(expected, actual))
+                    "update the expectations if this change is expected.".format(
+                        expected, actual
+                    )
+                )
 
     name = os.path.basename(os.path.normpath(example_dir))
     return unittest.FunctionTestCase(
-        test_upgrade, description='Test Upgrade Example: %s' % name)
+        test_upgrade, description="Test Upgrade Example: %s" % name
+    )
+
 
 def load_tests(loader, tests, pattern):
     suite = unittest.TestSuite()
-    for example_dir in find_example_dirs(os.path.join(TOP_DIR, 'tests', 'upgrade_dat')):
+    for example_dir in find_example_dirs(os.path.join(TOP_DIR, "tests", "upgrade_dat")):
         if get_expectation_path(example_dir):
             suite.addTest(make_test(example_dir))
     return suite
 
 
-if __name__ == '__main__':
-    if sys.argv[1:2] == ['--update']:
+if __name__ == "__main__":
+    if sys.argv[1:2] == ["--update"]:
         UPDATE_EXPECTATIONS = True
         sys.argv.pop(1)
     unittest.main()

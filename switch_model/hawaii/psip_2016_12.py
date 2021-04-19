@@ -5,25 +5,51 @@ from textwrap import dedent
 import os
 from pyomo.environ import *
 
+
 def TODO(note):
     raise NotImplementedError(dedent(note))
 
+
 def define_arguments(argparser):
-    argparser.add_argument('--psip-force', action='store_true', default=True,
-        help="Force following of PSIP plans (retiring AES and building certain technologies).")
-    argparser.add_argument('--psip-relax', dest='psip_force', action='store_false',
-        help="Relax PSIP plans, to find a more optimal strategy.")
-    argparser.add_argument('--psip-minimal-renewables', action='store_true', default=False,
-        help="Use only the amount of renewables shown in PSIP plans, and no more (should be combined with --psip-relax).")
-    argparser.add_argument('--force-build', nargs=3, default=None,
-        help="Force construction of at least a certain quantity of a particular technology during certain years. Space-separated list of year, technology and quantity.")
-    argparser.add_argument('--psip-relax-after', type=float, default=None,
-        help="Follow the PSIP plan up to and including the specified year, then optimize construction in later years. Should be combined with --psip-force.")
+    argparser.add_argument(
+        "--psip-force",
+        action="store_true",
+        default=True,
+        help="Force following of PSIP plans (retiring AES and building certain technologies).",
+    )
+    argparser.add_argument(
+        "--psip-relax",
+        dest="psip_force",
+        action="store_false",
+        help="Relax PSIP plans, to find a more optimal strategy.",
+    )
+    argparser.add_argument(
+        "--psip-minimal-renewables",
+        action="store_true",
+        default=False,
+        help="Use only the amount of renewables shown in PSIP plans, and no more (should be combined with --psip-relax).",
+    )
+    argparser.add_argument(
+        "--force-build",
+        nargs=3,
+        default=None,
+        help="Force construction of at least a certain quantity of a particular technology during certain years. Space-separated list of year, technology and quantity.",
+    )
+    argparser.add_argument(
+        "--psip-relax-after",
+        type=float,
+        default=None,
+        help="Follow the PSIP plan up to and including the specified year, then optimize construction in later years. Should be combined with --psip-force.",
+    )
+
 
 def is_renewable(tech):
     return any(txt in tech for txt in ("PV", "Wind", "Solar"))
+
+
 def is_battery(tech):
-    return 'battery' in tech.lower()
+    return "battery" in tech.lower()
+
 
 def define_components(m):
     ###################
@@ -33,7 +59,7 @@ def define_components(m):
     # decide whether to enforce the PSIP preferred plan
     # if an environment variable is set, that takes precedence
     # (e.g., on a cluster to override options.txt)
-    psip_env_var = os.environ.get('USE_PSIP_PLAN')
+    psip_env_var = os.environ.get("USE_PSIP_PLAN")
     if psip_env_var is None:
         # no environment variable; use the --psip-relax flag
         psip = m.options.psip_force
@@ -42,7 +68,11 @@ def define_components(m):
     elif psip_env_var.lower() in ["0", "false", "n", "no", "off"]:
         psip = False
     else:
-        raise ValueError('Unrecognized value for environment variable USE_PSIP_PLAN={} (should be 0 or 1)'.format(psip_env_var))
+        raise ValueError(
+            "Unrecognized value for environment variable USE_PSIP_PLAN={} (should be 0 or 1)".format(
+                psip_env_var
+            )
+        )
 
     if m.options.verbose:
         if psip:
@@ -108,7 +138,7 @@ def define_components(m):
     # add targets specified on the command line
     if m.options.force_build is not None:
         b = list(m.options.force_build)
-        b[0] = int(b[0])    # year
+        b[0] = int(b[0])  # year
         b[2] = float(b[2])  # quantity
         b = tuple(b)
         print("Forcing build: {}".format(b))
@@ -131,38 +161,36 @@ def define_components(m):
         # Not clear why it picked offshore before onshore (maybe bad resource profiles?). But
         # in their final plan (table 4-1), HECO changed it to 200 MW offshore in 2025
         # (presumably rebuilt in 2045) and 30 MW onshore in 2045.
-        (2018, 'OnshoreWind', 24), # Na Pua Makani (NPM) wind
-        (2018, 'OnshoreWind', 10), # CBRE wind
+        (2018, "OnshoreWind", 24),  # Na Pua Makani (NPM) wind
+        (2018, "OnshoreWind", 10),  # CBRE wind
         # note: 109.6 MW SunEdison replacements are in Existing Plants workbook.
-
         # note: RESOLVE had 53.6 MW of planned PV, which is probably Waianae (27.6), Kalaeloa (5)
         # and West Loch (20). Then it added these (table 3-1): 2020: 300 MW (capped, see "renewable_limits.tab"),
         # 2022: 48 MW, 2025: 193 MW, 2040: 541 (incl. 300 MW rebuild), 2045: 1400 MW (incl. 241 MW rebuild).
         # HECO converted this to 109.6 MW of replacement SunEdison waiver projects in 2018
         # (we list those as "existing") and other additions shown below.
-        (2018, 'CentralTrackingPV', 15),  # CBRE PV
-        (2020, 'CentralTrackingPV', 180),
-        (2022, 'CentralTrackingPV', 40),
-        (2022, 'IC_Barge', 100.0),         # JBPHH plant
+        (2018, "CentralTrackingPV", 15),  # CBRE PV
+        (2020, "CentralTrackingPV", 180),
+        (2022, "CentralTrackingPV", 40),
+        (2022, "IC_Barge", 100.0),  # JBPHH plant
         # note: we moved IC_MCBH one year earlier than PSIP to reduce infeasibility in 2022
-        (2022, 'IC_MCBH', 54.0),
-        (2025, 'CentralTrackingPV', 200),
-        (2025, 'OffshoreWind', 200),
-        (2040, 'CentralTrackingPV', 280),
-        (2045, 'CentralTrackingPV', 1180),
-        (2045, 'IC_MCBH', 68.0), # proxy for 68 MW of generic ICE capacity
-
+        (2022, "IC_MCBH", 54.0),
+        (2025, "CentralTrackingPV", 200),
+        (2025, "OffshoreWind", 200),
+        (2040, "CentralTrackingPV", 280),
+        (2045, "CentralTrackingPV", 1180),
+        (2045, "IC_MCBH", 68.0),  # proxy for 68 MW of generic ICE capacity
         # batteries (MW)
         # from PSIP 2016-12-23 Table 4-1; also see energy ("capacity") and power files in
         # "data/HECO Plans/PSIP-WebDAV/2017-01-31 Response to Parties IRs/DBEDT-IR-12/Input/Oahu/Oahu E3 Plan Input/CSV files/Battery"
         # (note: we mistakenly treated these as MWh quantities instead of MW before 2018-02-20)
-        (2019, 'Battery_Conting', 90),
-        (2022, 'Battery_4', 426),
-        (2025, 'Battery_4', 29),
-        (2030, 'Battery_4', 165),
-        (2035, 'Battery_4', 168),
-        (2040, 'Battery_4', 420),
-        (2045, 'Battery_4', 1525),
+        (2019, "Battery_Conting", 90),
+        (2022, "Battery_4", 426),
+        (2025, "Battery_4", 29),
+        (2030, "Battery_4", 165),
+        (2035, "Battery_4", 168),
+        (2040, "Battery_4", 420),
+        (2045, "Battery_4", 1525),
         # RESOLVE modeled 4-hour batteries as being capable of providing reserves,
         # and didn't model contingency batteries (see data/HECO Plans/PSIP-WebDAV/2017-01-31 Response to Parties IRs/CA-IR-1/Input
         # and Output Files by Case/E3 and Company Defined Cases/Market DGPV (Reference)/OA_NOLNG/technologies.tab).
@@ -177,23 +205,28 @@ def define_components(m):
         # (for all islands).
         # TODO: Did HECO assume 4-hour batteries, demand response or EVs could provide reserves when running PLEXOS?
         # - all of these seem unlikely, but we have to ask HECO to find out; PLEXOS files are unclear.
-
         # installations based on changes in installed capacity shown in
         # /s/data/HECO Plans/PSIP-WebDAV/2017-01-31 Response to Parties IRs/CA-IR-1/Input and Output Files by Case/E3 and Company Defined Cases/Market DGPV (Reference)/OA_NOLNG/planned_installed_capacities.tab
         # Also see Figure J-10 of 2016-12-23 PSIP (Vol. 3), which matches these levels (excluding FIT(?)).
         # Note: code further below adds in reconstruction of early installations
-        (2020, "DistPV", 606.3-444),  # net of 444 installed as of 2016 (in existing generators workbook)
-        (2022, "DistPV", 680.3-606.3),
-        (2025, "DistPV", 744.9-680.3),
-        (2030, "DistPV", 868.7-744.9),
-        (2035, "DistPV", 1015.4-868.7),
-        (2040, "DistPV", 1163.4-1015.4),
-        (2045, "DistPV", 1307.9-1163.4),
+        (
+            2020,
+            "DistPV",
+            606.3 - 444,
+        ),  # net of 444 installed as of 2016 (in existing generators workbook)
+        (2022, "DistPV", 680.3 - 606.3),
+        (2025, "DistPV", 744.9 - 680.3),
+        (2030, "DistPV", 868.7 - 744.9),
+        (2035, "DistPV", 1015.4 - 868.7),
+        (2040, "DistPV", 1163.4 - 1015.4),
+        (2045, "DistPV", 1307.9 - 1163.4),
     ]
-    TODO("""
+    TODO(
+        """
         Need to convert DistPV target into a joint target for FlatDistPV and
         SlopedDistPV. See switch_model.heco_outlook_2019.
-    """)
+    """
+    )
 
     """
     Additional notes on distributed storage (never implemented here, but
@@ -274,27 +307,33 @@ def define_components(m):
     ]
     existing_techs += technology_targets_definite
     existing_techs += technology_targets_psip
-    TODO("""
+    TODO(
+        """
         Need to read lifetime of projects and rebuild at retirement.
-    """)
+    """
+    )
     # rebuild everything at retirement
 
     rebuild_targets = [
-        (y+20, tech, cap) for y, tech, cap in existing_techs if is_renewable(tech)
+        (y + 20, tech, cap) for y, tech, cap in existing_techs if is_renewable(tech)
     ] + [
-        (y+15, tech, cap) for y, tech, cap in existing_techs if is_battery(tech)
-    ] # note: early batteries won't quite need 2 replacements
+        (y + 15, tech, cap) for y, tech, cap in existing_techs if is_battery(tech)
+    ]  # note: early batteries won't quite need 2 replacements
     # don't schedule rebuilding past end of study
     rebuild_targets = [t for t in rebuild_targets if t[0] <= 2045]
     technology_targets_psip += rebuild_targets
 
     # make sure LNG is turned off
     if psip and getattr(m.options, "force_lng_tier", []) != ["none"]:
-        raise RuntimeError('You must use the lng_conversion module and set "--force-lng-tier none" to match the PSIP.')
+        raise RuntimeError(
+            'You must use the lng_conversion module and set "--force-lng-tier none" to match the PSIP.'
+        )
 
     if psip:
         if m.options.psip_relax_after is not None:
-            psip_targets = [t for t in technology_targets_psip if t[0] <= m.options.psip_relax_after]
+            psip_targets = [
+                t for t in technology_targets_psip if t[0] <= m.options.psip_relax_after
+            ]
         else:
             psip_targets = technology_targets_psip
         technology_targets = technology_targets_definite + psip_targets
@@ -302,12 +341,14 @@ def define_components(m):
         technology_targets = technology_targets_definite
 
     # make a special list including all standard generation technologies plus "LoadShiftBattery"
-    m.GEN_TECHS_AND_BATTERIES = Set(initialize=lambda m: [g for g in m.GENERATION_TECHNOLOGIES] + ["LoadShiftBattery"])
+    m.GEN_TECHS_AND_BATTERIES = Set(
+        initialize=lambda m: [g for g in m.GENERATION_TECHNOLOGIES]
+        + ["LoadShiftBattery"]
+    )
 
     # make a list of renewable technologies
     m.RENEWABLE_TECHNOLOGIES = Set(
-        initialize=m.GENERATION_TECHNOLOGIES,
-        filter=lambda m, tech: is_renewable(tech)
+        initialize=m.GENERATION_TECHNOLOGIES, filter=lambda m, tech: is_renewable(tech)
     )
 
     def technology_target_init(m, per, tech):
@@ -316,11 +357,15 @@ def define_components(m):
         start = 2000 if per == m.PERIODS.first() else m.PERIODS.prev(per)
         end = per
         target = sum(
-            mw for (tyear, ttech, mw) in technology_targets
-                if ttech == tech and start < tyear and tyear <= end
+            mw
+            for (tyear, ttech, mw) in technology_targets
+            if ttech == tech and start < tyear and tyear <= end
         )
         return target
-    m.technology_target = Param(m.PERIODS, m.GEN_TECHS_AND_BATTERIES, initialize=technology_target_init)
+
+    m.technology_target = Param(
+        m.PERIODS, m.GEN_TECHS_AND_BATTERIES, initialize=technology_target_init
+    )
 
     def MakeGenTechDicts_rule(m):
         # get unit sizes of all technologies
@@ -329,7 +374,9 @@ def define_components(m):
             tech = m.gen_tech[g]
             if tech in unit_sizes:
                 if unit_sizes[tech] != unit_size:
-                    raise ValueError("Generation technology {} uses different unit sizes for different projects.")
+                    raise ValueError(
+                        "Generation technology {} uses different unit sizes for different projects."
+                    )
             else:
                 unit_sizes[tech] = unit_size
         # get predetermined capacity for all technologies
@@ -337,6 +384,7 @@ def define_components(m):
         for (g, per), cap in m.gen_predetermined_cap.items():
             tech = m.gen_tech[g]
             predet_cap[tech, per] += cap
+
     m.MakeGenTechDicts = BuildAction(rule=MakeGenTechDicts_rule)
 
     # with PSIP: BuildGen is zero except for technology_targets
@@ -347,18 +395,27 @@ def define_components(m):
 
         # get target, including any capacity specified in the predetermined builds,
         # so the target will be additional to those
-        target = m.technology_target[per, tech] + m.gen_tech_predetermined_cap_dict[tech, per]
+        target = (
+            m.technology_target[per, tech]
+            + m.gen_tech_predetermined_cap_dict[tech, per]
+        )
 
         # convert target to closest integral number of units
         # (some of the targets are based on nominal unit sizes rather than actual max output)
         if m.gen_tech_unit_size_dict[tech] > 0.0:
-            target = round(target / m.gen_tech_unit_size_dict[tech]) * m.gen_tech_unit_size_dict[tech]
+            target = (
+                round(target / m.gen_tech_unit_size_dict[tech])
+                * m.gen_tech_unit_size_dict[tech]
+            )
 
         if tech == "LoadShiftBattery":
             # special treatment for batteries, which are not a standard technology
-            if hasattr(m, 'BuildBattery'):
+            if hasattr(m, "BuildBattery"):
                 # note: BuildBattery is in MWh, so we convert to MW
-                build = sum(m.BuildBattery[z, per] for z in m.LOAD_ZONES) / m.battery_min_discharge_time
+                build = (
+                    sum(m.BuildBattery[z, per] for z in m.LOAD_ZONES)
+                    / m.battery_min_discharge_time
+                )
             else:
                 build = 0
         else:
@@ -378,54 +435,69 @@ def define_components(m):
                     "Model will be infeasible.".format(tech, per)
                 )
                 return Constraint.Infeasible
-        elif psip and (m.options.psip_relax_after is None or per <= m.options.psip_relax_after):
-            return (build == target)
+        elif psip and (
+            m.options.psip_relax_after is None or per <= m.options.psip_relax_after
+        ):
+            return build == target
         elif m.options.psip_minimal_renewables and tech in m.RENEWABLE_TECHNOLOGIES:
             # only build the specified amount of renewables, no more
-            return (build == target)
+            return build == target
         else:
             # treat the target as a lower bound
-            return (build >= target)
+            return build >= target
+
     m.Enforce_Technology_Target = Constraint(
         m.PERIODS, m.GEN_TECHS_AND_BATTERIES, rule=Enforce_Technology_Target_rule
     )
 
-    aes_g = 'Oahu_AES'
+    aes_g = "Oahu_AES"
     aes_size = 180
     aes_bld_year = 1992
-    m.AES_OPERABLE_PERIODS = Set(initialize = lambda m:
-        m.PERIODS_FOR_GEN_BLD_YR[aes_g, aes_bld_year]
+    m.AES_OPERABLE_PERIODS = Set(
+        initialize=lambda m: m.PERIODS_FOR_GEN_BLD_YR[aes_g, aes_bld_year]
     )
     m.OperateAES = Var(m.AES_OPERABLE_PERIODS, within=Binary)
-    m.Enforce_AES_Deactivate = Constraint(m.TIMEPOINTS, rule=lambda m, tp:
-        Constraint.Skip if (aes_g, tp) not in m.GEN_TPS
-        else (m.DispatchGen[aes_g, tp] <= m.OperateAES[m.tp_period[tp]] * aes_size)
+    m.Enforce_AES_Deactivate = Constraint(
+        m.TIMEPOINTS,
+        rule=lambda m, tp: Constraint.Skip
+        if (aes_g, tp) not in m.GEN_TPS
+        else (m.DispatchGen[aes_g, tp] <= m.OperateAES[m.tp_period[tp]] * aes_size),
     )
-    m.AESDeactivateFixedCost = Expression(m.PERIODS, rule=lambda m, per:
-        0.0 if per not in m.AES_OPERABLE_PERIODS
-        else - m.OperateAES[per] * aes_size * m.gen_fixed_om[aes_g, aes_bld_year]
+    m.AESDeactivateFixedCost = Expression(
+        m.PERIODS,
+        rule=lambda m, per: 0.0
+        if per not in m.AES_OPERABLE_PERIODS
+        else -m.OperateAES[per] * aes_size * m.gen_fixed_om[aes_g, aes_bld_year],
     )
-    m.Cost_Components_Per_Period.append('AESDeactivateFixedCost')
+    m.Cost_Components_Per_Period.append("AESDeactivateFixedCost")
 
     if psip:
         # keep AES active until 9/2022; deactivate after that
         # note: since a period starts in 2022, we retire before that
-        m.PSIP_Retire_AES = Constraint(m.AES_OPERABLE_PERIODS, rule=lambda m, per:
-            (m.OperateAES[per] == 1) if per + m.period_length_years[per] <= 2022
-            else (m.OperateAES[per] == 0)
+        m.PSIP_Retire_AES = Constraint(
+            m.AES_OPERABLE_PERIODS,
+            rule=lambda m, per: (m.OperateAES[per] == 1)
+            if per + m.period_length_years[per] <= 2022
+            else (m.OperateAES[per] == 0),
         )
 
         # before 2040: no biodiesel, and only 100-300 GWh of non-LNG fossil fuels
         # period including 2040-2045: <= 300 GWh of oil; unlimited biodiesel or LNG
 
         # no biodiesel before 2040 (then phased in fast enough to meet the RPS)
-        m.EARLY_BIODIESEL_MARKETS = Set(dimen=2, initialize=lambda m: [
-            (rfm, per)
-                for per in m.PERIODS if per + m.period_length_years[per] <= 2040
-                    for rfm in m.REGIONAL_FUEL_MARKETS if m.rfm_fuel == 'Biodiesel'
-        ])
-        m.NoEarlyBiodiesel = Constraint(m.EARLY_BIODIESEL_MARKETS, rule=lambda m, rfm, per:
-            m.FuelConsumptionInMarket[rfm, per] == 0
+        m.EARLY_BIODIESEL_MARKETS = Set(
+            dimen=2,
+            initialize=lambda m: [
+                (rfm, per)
+                for per in m.PERIODS
+                if per + m.period_length_years[per] <= 2040
+                for rfm in m.REGIONAL_FUEL_MARKETS
+                if m.rfm_fuel == "Biodiesel"
+            ],
+        )
+        m.NoEarlyBiodiesel = Constraint(
+            m.EARLY_BIODIESEL_MARKETS,
+            rule=lambda m, rfm, per: m.FuelConsumptionInMarket[rfm, per] == 0,
         )
 
         # # 100-300 GWh of non-LNG fuels in 2021-2040 (based on 2016-04 PSIP fig. 5-5)
@@ -483,18 +555,27 @@ def define_components(m):
 
         # don't allow construction of other technologies (e.g., pumped hydro, fuel cells)
         advanced_tech_vars = [
-            "BuildPumpedHydroMW", "BuildAnyPumpedHydro",
-            "BuildElectrolyzerMW", "BuildLiquifierKgPerHour", "BuildLiquidHydrogenTankKg",
+            "BuildPumpedHydroMW",
+            "BuildAnyPumpedHydro",
+            "BuildElectrolyzerMW",
+            "BuildLiquifierKgPerHour",
+            "BuildLiquidHydrogenTankKg",
             "BuildFuelCellMW",
         ]
+
         def no_advanced_tech_rule_factory(v):
             return lambda m, *k: (getattr(m, v)[k] == 0)
+
         for v in advanced_tech_vars:
             try:
                 var = getattr(m, v)
-                setattr(m, "PSIP_No_"+v, Constraint(var._index, rule=no_advanced_tech_rule_factory(v)))
+                setattr(
+                    m,
+                    "PSIP_No_" + v,
+                    Constraint(var._index, rule=no_advanced_tech_rule_factory(v)),
+                )
             except AttributeError:
-                pass    # model doesn't have this var
+                pass  # model doesn't have this var
 
         # # don't allow any changes to the fuel market, including bulk LNG
         # # not used now; use "--force-lng-tier container" instead

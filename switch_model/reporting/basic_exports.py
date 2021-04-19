@@ -13,7 +13,11 @@ import os, time, sys
 from csv import reader
 from itertools import cycle
 from pyomo.environ import Var
-from switch_model.financials import uniform_series_to_present_value, future_to_present_value
+from switch_model.financials import (
+    uniform_series_to_present_value,
+    future_to_present_value,
+)
+
 
 def define_arguments(argparser):
     # argparser.add_argument(
@@ -21,32 +25,44 @@ def define_arguments(argparser):
     #     help="Exports energy marginal costs in US$/MWh per load zone and timepoint, calculated as dual variable values from the energy balance constraint."
     # )
     argparser.add_argument(
-        "--export-capacities", action='store_true', default=False,
+        "--export-capacities",
+        action="store_true",
+        default=False,
         help="Exports cummulative installed generating capacity in MW per \
-        technology per period."
+        technology per period.",
     )
     argparser.add_argument(
-        "--export-transmission", action='store_true', default=False,
+        "--export-transmission",
+        action="store_true",
+        default=False,
         help="Exports cummulative installed transmission capacity in MW per \
-        path per period."
+        path per period.",
     )
     argparser.add_argument(
-        "--export-tech-dispatch", action='store_true', default=False,
+        "--export-tech-dispatch",
+        action="store_true",
+        default=False,
         help="Exports dispatched capacity per generator technology in MW per \
-        timepoint."
+        timepoint.",
     )
     argparser.add_argument(
-        "--export-reservoirs", action='store_true', default=False,
-        help="Exports final reservoir volumes in cubic meters per timepoint."
+        "--export-reservoirs",
+        action="store_true",
+        default=False,
+        help="Exports final reservoir volumes in cubic meters per timepoint.",
     )
     argparser.add_argument(
-        "--export-all", action='store_true', default=False,
+        "--export-all",
+        action="store_true",
+        default=False,
         help="Exports all tables and plots. Sets all other export options to \
-        True."
+        True.",
     )
     argparser.add_argument(
-        "--export-load-blocks", action='store_true', default=False,
-        help="Exports tables and plots for load block formulation."
+        "--export-load-blocks",
+        action="store_true",
+        default=False,
+        help="Exports tables and plots for load block formulation.",
     )
 
 
@@ -65,9 +81,10 @@ def post_solve(mod, outdir):
     import matplotlib.pyplot as plt
     from cycler import cycler
     from matplotlib.backends.backend_pdf import PdfPages
+
     nan = float("nan")
 
-    summaries_dir = os.path.join(outdir,"Summaries")
+    summaries_dir = os.path.join(outdir, "Summaries")
     if not os.path.exists(summaries_dir):
         os.makedirs(summaries_dir)
     else:
@@ -75,12 +92,12 @@ def post_solve(mod, outdir):
         for f in os.listdir(summaries_dir):
             os.unlink(os.path.join(summaries_dir, f))
 
-    color_map = plt.get_cmap('gist_rainbow')
-    styles = cycle(['-','--','-.',':'])
+    color_map = plt.get_cmap("gist_rainbow")
+    styles = cycle(["-", "--", "-.", ":"])
 
     #####
     # Round doubles to the first decimal
-    #for var in mod.component_objects():
+    # for var in mod.component_objects():
     #    if not isinstance(var, Var):
     #        continue
     #    for key, obj in var.items():
@@ -112,34 +129,38 @@ def post_solve(mod, outdir):
 
         """
         if by_period:
-            df = pd.DataFrame(tab[1:],
-                columns = tab[0]).set_index(ind).transpose()
+            df = pd.DataFrame(tab[1:], columns=tab[0]).set_index(ind).transpose()
             stack = False
-            num_col = int(n_data)/10
+            num_col = int(n_data) / 10
         else:
-            df = pd.DataFrame(tab[1:], columns = tab[0]).set_index(ind)
+            df = pd.DataFrame(tab[1:], columns=tab[0]).set_index(ind)
             stack = True
-            num_col = int(n_data)/2
+            num_col = int(n_data) / 2
         fig = plt.figure()
         inv_ax = fig.add_subplot(111)
         inv_ax.grid(b=False)
         # You have to play with the color map and the line style list to
         # get enough combinations for your particular plot
-        inv_ax.set_prop_cycle(cycler('color',
-                        [color_map(i/n_data) for i in range(0, n_data+1)]))
+        inv_ax.set_prop_cycle(
+            cycler("color", [color_map(i / n_data) for i in range(0, n_data + 1)])
+        )
         # To locate the legend: "loc" is the point of the legend for which you
         # will specify coordinates. These coords are specified in
         # bbox_to_anchor (can be only 1 point or couple)
-        inv_plot = df.plot(kind='bar', ax=inv_ax,
-            stacked=stack).legend(loc='lower left', fontsize=8,
-            bbox_to_anchor=(0.,1.015,1.,1.015), ncol=num_col, mode="expand")
+        inv_plot = df.plot(kind="bar", ax=inv_ax, stacked=stack).legend(
+            loc="lower left",
+            fontsize=8,
+            bbox_to_anchor=(0.0, 1.015, 1.0, 1.015),
+            ncol=num_col,
+            mode="expand",
+        )
         if by_period:
             plt.xticks(rotation=0, fontsize=10)
-            fname = summaries_dir+'/'+name+'.pdf'
+            fname = summaries_dir + "/" + name + ".pdf"
         else:
             plt.xticks(rotation=90, fontsize=9)
-            fname = summaries_dir+'/'+name+'_stacked_by_p.pdf'
-        plt.savefig(fname, bbox_extra_artists=(inv_plot,), bbox_inches='tight')
+            fname = summaries_dir + "/" + name + "_stacked_by_p.pdf"
+        plt.savefig(fname, bbox_extra_artists=(inv_plot,), bbox_inches="tight")
         plt.close()
 
     def plot_dis_decision(name, tab, n_data, ind):
@@ -163,68 +184,86 @@ def post_solve(mod, outdir):
 
         """
 
-        plots = PdfPages(os.path.join(outdir,"Summaries",name)+'.pdf')
+        plots = PdfPages(os.path.join(outdir, "Summaries", name) + ".pdf")
 
-        df = pd.DataFrame(tab[1:], columns = tab[0])
+        df = pd.DataFrame(tab[1:], columns=tab[0])
 
         n_scen = mod.SCENARIOS.__len__()
-        #num_col = int(n_data * n_scen)/8
+        # num_col = int(n_data * n_scen)/8
         num_col = 6
 
-        for p in ['all']+[p for p in mod.PERIODS]:
-            fig = plt.figure(figsize=(17,8), dpi=100)
+        for p in ["all"] + [p for p in mod.PERIODS]:
+            fig = plt.figure(figsize=(17, 8), dpi=100)
             dis_ax = fig.add_subplot(111)
             dis_ax.grid(b=False)
             # You have to play with the color map and the line style list to
             # get enough combinations for your particular plot.
             # Set up different x axis labels if all periods are being plotted
-            if p == 'all':
-                dis_ax.set_xticks([
-                    i*24 for i in range(int(len(mod.TIMEPOINTS)/24) + 1)
-                ])
-                dis_ax.set_xticklabels([
-                    mod.tp_timestamp[mod.TIMEPOINTS[i*24+1]]
-                    for i in range(int(len(mod.TIMEPOINTS)/24))
-                ])
+            if p == "all":
+                dis_ax.set_xticks(
+                    [i * 24 for i in range(int(len(mod.TIMEPOINTS) / 24) + 1)]
+                )
+                dis_ax.set_xticklabels(
+                    [
+                        mod.tp_timestamp[mod.TIMEPOINTS[i * 24 + 1]]
+                        for i in range(int(len(mod.TIMEPOINTS) / 24))
+                    ]
+                )
                 # Technologies have different linestyles and scenarios have
                 # different colors
-                dis_ax.set_prop_cycle(cycler('color',
-                    [color_map(i/float(n_data-1)) for i in range(n_data)]) *
-                    cycler('linestyle',[next(styles) for i in range(n_scen)]))
-                df_to_plot = df.drop([ind], axis=1).replace('', nan)
+                dis_ax.set_prop_cycle(
+                    cycler(
+                        "color",
+                        [color_map(i / float(n_data - 1)) for i in range(n_data)],
+                    )
+                    * cycler("linestyle", [next(styles) for i in range(n_scen)])
+                )
+                df_to_plot = df.drop([ind], axis=1).replace("", nan)
             else:
                 n_scen = mod.PERIOD_SCENARIOS[p].__len__()
-                dis_ax.set_xticks([
-                    i*6 for i in range(int(len(mod.PERIOD_TPS[p])/6) + 1)
-                ])
-                dis_ax.set_xticklabels([
-                    mod.tp_timestamp[mod.PERIOD_TPS[p][t*6+1]]
-                    for t in range(int(len(mod.PERIOD_TPS[p])/6))
-                ])
+                dis_ax.set_xticks(
+                    [i * 6 for i in range(int(len(mod.PERIOD_TPS[p]) / 6) + 1)]
+                )
+                dis_ax.set_xticklabels(
+                    [
+                        mod.tp_timestamp[mod.PERIOD_TPS[p][t * 6 + 1]]
+                        for t in range(int(len(mod.PERIOD_TPS[p]) / 6))
+                    ]
+                )
                 # Technologies have different colors and scenarios have
                 # different line styles
-                dis_ax.set_prop_cycle(cycler('color',
-                    [color_map(i/float(n_data-1)) for i in range(n_data)]) *
-                    cycler('linestyle', [next(styles) for i in range(n_scen)]))
+                dis_ax.set_prop_cycle(
+                    cycler(
+                        "color",
+                        [color_map(i / float(n_data - 1)) for i in range(n_data)],
+                    )
+                    * cycler("linestyle", [next(styles) for i in range(n_scen)])
+                )
                 # Before plotting, data must be filtered by period
-                period_tps = [mod.tp_timestamp[tp]
-                            for tp in mod.PERIOD_TPS[p].value]
-                df_to_plot = df.loc[df[ind].isin(period_tps)].drop([ind],
-                    axis=1).reset_index(drop=True).dropna(axis=1, how='all')
+                period_tps = [mod.tp_timestamp[tp] for tp in mod.PERIOD_TPS[p].value]
+                df_to_plot = (
+                    df.loc[df[ind].isin(period_tps)]
+                    .drop([ind], axis=1)
+                    .reset_index(drop=True)
+                    .dropna(axis=1, how="all")
+                )
             # To locate the legend: "loc" is the point of the legend for which
             # you will specify coordinates. These coords are specified in
             # bbox_to_anchor (can be only 1 point or couple)
-            dis_plot = df_to_plot.plot(ax=dis_ax,
-                linewidth=1.6).legend(loc='lower left', fontsize=8,
-                bbox_to_anchor=(0., 1.015, 1., 1.015), ncol=num_col,
-                mode="expand")
+            dis_plot = df_to_plot.plot(ax=dis_ax, linewidth=1.6).legend(
+                loc="lower left",
+                fontsize=8,
+                bbox_to_anchor=(0.0, 1.015, 1.0, 1.015),
+                ncol=num_col,
+                mode="expand",
+            )
             plt.xticks(rotation=90, fontsize=9)
-            plots.savefig(bbox_extra_artists=(dis_plot,), bbox_inches='tight')
+            plots.savefig(bbox_extra_artists=(dis_plot,), bbox_inches="tight")
             plt.close()
         plots.close()
 
     print("Printing summaries:\n===================")
-    start=time.time()
+    start = time.time()
 
     # print "renewable energy production"
     # rpsenergy = {s:0.0 for s in mod.SCENARIOS}
@@ -267,93 +306,137 @@ def post_solve(mod, outdir):
 
     if mod.options.export_capacities:
         n_elements = mod.GENERATION_TECHNOLOGIES.__len__()
-        index = 'gentech'
+        index = "gentech"
 
         table_name = "cummulative_capacity_by_tech_periods"
-        print(table_name+" ...")
+        print(table_name + " ...")
         table = export.write_table(
-            mod, mod.GENERATION_TECHNOLOGIES,
-            output_file=os.path.join(summaries_dir, table_name+".csv"),
-            headings=(index, 'legacy') + tuple(p
-                for p in mod.PERIODS),
-            values=lambda m, gt: (gt, sum(m.BuildGen[g, bldyr]
-                for (g, bldyr) in m.GEN_BLD_YRS
-                if m.gen_tech[g] == gt and bldyr not in m.PERIODS)) +
-            tuple( sum(m.GenCapacity[g, p] for g in m.GENERATION_PROJECTS
-                if m.gen_tech[g] == gt) for p in m.PERIODS))
+            mod,
+            mod.GENERATION_TECHNOLOGIES,
+            output_file=os.path.join(summaries_dir, table_name + ".csv"),
+            headings=(index, "legacy") + tuple(p for p in mod.PERIODS),
+            values=lambda m, gt: (
+                gt,
+                sum(
+                    m.BuildGen[g, bldyr]
+                    for (g, bldyr) in m.GEN_BLD_YRS
+                    if m.gen_tech[g] == gt and bldyr not in m.PERIODS
+                ),
+            )
+            + tuple(
+                sum(
+                    m.GenCapacity[g, p]
+                    for g in m.GENERATION_PROJECTS
+                    if m.gen_tech[g] == gt
+                )
+                for p in m.PERIODS
+            ),
+        )
         plot_inv_decision(table_name, table, n_elements, index, True)
 
         table_name = "capacity_installed_by_tech_periods"
-        print(table_name+" ...")
+        print(table_name + " ...")
         table = export.write_table(
-            mod, mod.GENERATION_TECHNOLOGIES,
-            output_file=os.path.join(summaries_dir, table_name+".csv"),
-            headings=(index, 'legacy') + tuple(p
-                for p in mod.PERIODS),
-            values=lambda m, gt: (gt, sum(m.BuildGen[g, bldyr]
-                for (g, bldyr) in m.GEN_BLD_YRS
-                if m.gen_tech[g] == gt and bldyr not in m.PERIODS)) +
-            tuple( sum(m.BuildGen[g, p] for g in m.GENERATION_PROJECTS
-                if m.gen_tech[g] == gt) for p in m.PERIODS))
+            mod,
+            mod.GENERATION_TECHNOLOGIES,
+            output_file=os.path.join(summaries_dir, table_name + ".csv"),
+            headings=(index, "legacy") + tuple(p for p in mod.PERIODS),
+            values=lambda m, gt: (
+                gt,
+                sum(
+                    m.BuildGen[g, bldyr]
+                    for (g, bldyr) in m.GEN_BLD_YRS
+                    if m.gen_tech[g] == gt and bldyr not in m.PERIODS
+                ),
+            )
+            + tuple(
+                sum(
+                    m.BuildGen[g, p]
+                    for g in m.GENERATION_PROJECTS
+                    if m.gen_tech[g] == gt
+                )
+                for p in m.PERIODS
+            ),
+        )
         plot_inv_decision(table_name, table, n_elements, index, False)
 
     if mod.options.export_transmission:
         n_elements = mod.TRANSMISSION_LINES.__len__()
-        index = 'path'
+        index = "path"
 
         table_name = "cummulative_transmission_by_path_periods"
-        print(table_name+" ...")
+        print(table_name + " ...")
         table = export.write_table(
-            mod, True, mod.TRANSMISSION_LINES,
-            output_file=os.path.join(summaries_dir, table_name+".csv"),
-            headings=(index, 'legacy') + tuple(p for p in mod.PERIODS),
-            values=lambda m, tx: (tx, m.existing_trans_cap[tx]) +
-                tuple(m.TransCapacity[tx, p] for p in m.PERIODS))
-        #plot_inv_decision(table_name, table, n_elements, index, True)
+            mod,
+            True,
+            mod.TRANSMISSION_LINES,
+            output_file=os.path.join(summaries_dir, table_name + ".csv"),
+            headings=(index, "legacy") + tuple(p for p in mod.PERIODS),
+            values=lambda m, tx: (tx, m.existing_trans_cap[tx])
+            + tuple(m.TransCapacity[tx, p] for p in m.PERIODS),
+        )
+        # plot_inv_decision(table_name, table, n_elements, index, True)
 
         table_name = "transmission_installation_by_path_periods"
-        print(table_name+" ...")
+        print(table_name + " ...")
         table = export.write_table(
-            mod, True, mod.TRANSMISSION_LINES,
-            output_file=os.path.join(summaries_dir, table_name+".csv"),
-            headings=(index, 'legacy') + tuple(p for p in mod.PERIODS),
-            values=lambda m, tx: (tx, m.existing_trans_cap[tx]) +
-                tuple(m.BuildTrans[tx, p] for p in m.PERIODS))
+            mod,
+            True,
+            mod.TRANSMISSION_LINES,
+            output_file=os.path.join(summaries_dir, table_name + ".csv"),
+            headings=(index, "legacy") + tuple(p for p in mod.PERIODS),
+            values=lambda m, tx: (tx, m.existing_trans_cap[tx])
+            + tuple(m.BuildTrans[tx, p] for p in m.PERIODS),
+        )
         plot_inv_decision(table_name, table, n_elements, index, False)
-
 
     if mod.options.export_tech_dispatch:
         n_elements = mod.GENERATION_TECHNOLOGIES.__len__()
-        index = 'timepoints'
+        index = "timepoints"
 
         gen_projects = {}
         for g in mod.GENERATION_TECHNOLOGIES:
             gen_projects[g] = []
             for prj in mod.PROJECTS:
-                if mod.proj_gen_tech[prj]==g:
+                if mod.proj_gen_tech[prj] == g:
                     gen_projects[g].append(prj)
+
         def print_dis(m, tp):
             tup = (m.tp_timestamp[tp],)
             for g in m.GENERATION_TECHNOLOGIES:
                 for s in m.SCENARIOS:
                     if s in m.PERIOD_SCENARIOS[m.tp_period[tp]]:
-                        tup += (sum(m.DispatchProj[proj, tp, s] for proj in gen_projects[g] if (proj,tp,s) in m.PROJ_DISPATCH_POINTS),)
+                        tup += (
+                            sum(
+                                m.DispatchProj[proj, tp, s]
+                                for proj in gen_projects[g]
+                                if (proj, tp, s) in m.PROJ_DISPATCH_POINTS
+                            ),
+                        )
                     else:
-                        tup += ('',)
+                        tup += ("",)
             return tup
 
         table_name = "dispatch_proj_by_tech_tps"
-        print(table_name+" ...")
+        print(table_name + " ...")
         table = export.write_table(
-            mod, True, mod.TIMEPOINTS,
-            output_file=os.path.join(summaries_dir, table_name+".csv"),
-            headings=("timepoints",) + tuple(str(g)+"-"+str(mod.scenario_stamp[s]) for g in mod.GENERATION_TECHNOLOGIES for s in mod.SCENARIOS),
-            values=print_dis)
+            mod,
+            True,
+            mod.TIMEPOINTS,
+            output_file=os.path.join(summaries_dir, table_name + ".csv"),
+            headings=("timepoints",)
+            + tuple(
+                str(g) + "-" + str(mod.scenario_stamp[s])
+                for g in mod.GENERATION_TECHNOLOGIES
+                for s in mod.SCENARIOS
+            ),
+            values=print_dis,
+        )
         plot_dis_decision(table_name, table, n_elements, index)
 
     if mod.options.export_reservoirs:
         n_elements = mod.RESERVOIRS.__len__()
-        index = 'timepoints'
+        index = "timepoints"
 
         def print_res(m, tp):
             tup = (m.tp_timestamp[tp],)
@@ -362,28 +445,34 @@ def post_solve(mod, outdir):
                     if s in m.PERIOD_SCENARIOS[m.tp_period[tp]]:
                         tup += (m.ReservoirVol[r, tp, s] - m.initial_res_vol[r],)
                     else:
-                        tup += ('',)
+                        tup += ("",)
             return tup
 
         table_name = "reservoir_final_vols_tp"
-        print(table_name+" ...")
+        print(table_name + " ...")
         table = export.write_table(
-            mod, True, mod.TIMEPOINTS,
-            output_file=os.path.join(summaries_dir, table_name+".csv"),
-            headings=("timepoints",) + tuple(str(r)+"-"+
-                str(mod.scenario_stamp[s]) for r in mod.RESERVOIRS
-                for s in mod.SCENARIOS),
-            values=print_res)
+            mod,
+            True,
+            mod.TIMEPOINTS,
+            output_file=os.path.join(summaries_dir, table_name + ".csv"),
+            headings=("timepoints",)
+            + tuple(
+                str(r) + "-" + str(mod.scenario_stamp[s])
+                for r in mod.RESERVOIRS
+                for s in mod.SCENARIOS
+            ),
+            values=print_res,
+        )
         plot_dis_decision(table_name, table, n_elements, index)
 
         ##############################################################
         # The following is a custom export to get dispatch for certain
         # Chile load zones
-        lzs_to_print = ['charrua','ancoa']
+        lzs_to_print = ["charrua", "ancoa"]
 
         lz_hprojs = {}
         for lz in lzs_to_print:
-            lz_hprojs[lz]=[]
+            lz_hprojs[lz] = []
             for proj in mod.LZ_PROJECTS[lz]:
                 if proj in mod.HYDRO_PROJECTS:
                     lz_hprojs[lz].append(proj)
@@ -393,135 +482,192 @@ def post_solve(mod, outdir):
             for lz in lzs_to_print:
                 for s in m.SCENARIOS:
                     if s in m.PERIOD_SCENARIOS[m.tp_period[tp]]:
-                        tup += (sum(m.DispatchProj[proj, tp, s] for proj in lz_hprojs[lz] if (proj,tp,s) in m.HYDRO_PROJ_DISPATCH_POINTS),)
+                        tup += (
+                            sum(
+                                m.DispatchProj[proj, tp, s]
+                                for proj in lz_hprojs[lz]
+                                if (proj, tp, s) in m.HYDRO_PROJ_DISPATCH_POINTS
+                            ),
+                        )
                     else:
-                        tup += ('',)
+                        tup += ("",)
             return tup
 
         table_name = "hydro_dispatch_special_nodes_tp"
-        print(table_name+" ...")
+        print(table_name + " ...")
         table = export.write_table(
-            mod, True, mod.TIMEPOINTS,
-            output_file=os.path.join(summaries_dir, table_name+".csv"),
-            headings=("timepoints",) + tuple(str(lz)+"-"+str(
-                mod.scenario_stamp[s]) for lz in lzs_to_print
-                for s in mod.SCENARIOS),
-            values=print_hgen)
-        #plot_dis_decision(table_name, table, n_elements, index)
+            mod,
+            True,
+            mod.TIMEPOINTS,
+            output_file=os.path.join(summaries_dir, table_name + ".csv"),
+            headings=("timepoints",)
+            + tuple(
+                str(lz) + "-" + str(mod.scenario_stamp[s])
+                for lz in lzs_to_print
+                for s in mod.SCENARIOS
+            ),
+            values=print_hgen,
+        )
+        # plot_dis_decision(table_name, table, n_elements, index)
 
     if mod.options.export_load_blocks:
+
         def print_res(m, ym):
             tup = (ym,)
             for r in m.RESERVOIRS:
                 for s in m.SCENARIOS:
-                    if s in m.PERIOD_SCENARIOS[m.tp_period[next(iter(m.ym_timepoints[ym]))]]:
+                    if (
+                        s
+                        in m.PERIOD_SCENARIOS[
+                            m.tp_period[next(iter(m.ym_timepoints[ym]))]
+                        ]
+                    ):
                         tup += (m.ReservoirVol[r, ym, s] - m.initial_res_vol[r],)
                     else:
-                        tup += ('',)
+                        tup += ("",)
             return tup
-        table_name = "reservoir_vols_load_block"
-        print(table_name+" ...")
-        tab = export.write_table(
-            mod, True, mod.YEARMONTHS,
-            output_file=os.path.join(summaries_dir, table_name+".csv"),
-            headings=("yearmonth",) + tuple(str(r)+"-"+
-                str(mod.scenario_stamp[s]) for r in mod.RESERVOIRS
-                for s in mod.SCENARIOS),
-            values=print_res)
-        n_data = mod.RESERVOIRS.__len__()
-        ind = 'yearmonth'
-        plots = PdfPages(os.path.join(outdir,"Summaries",table_name)+'.pdf')
 
-        df = pd.DataFrame(tab[1:], columns = tab[0])
+        table_name = "reservoir_vols_load_block"
+        print(table_name + " ...")
+        tab = export.write_table(
+            mod,
+            True,
+            mod.YEARMONTHS,
+            output_file=os.path.join(summaries_dir, table_name + ".csv"),
+            headings=("yearmonth",)
+            + tuple(
+                str(r) + "-" + str(mod.scenario_stamp[s])
+                for r in mod.RESERVOIRS
+                for s in mod.SCENARIOS
+            ),
+            values=print_res,
+        )
+        n_data = mod.RESERVOIRS.__len__()
+        ind = "yearmonth"
+        plots = PdfPages(os.path.join(outdir, "Summaries", table_name) + ".pdf")
+
+        df = pd.DataFrame(tab[1:], columns=tab[0])
 
         n_scen = mod.SCENARIOS.__len__()
-        #num_col = int(n_data * n_scen)/8
+        # num_col = int(n_data * n_scen)/8
         num_col = 6
 
-        for p in ['all']+[p for p in mod.PERIODS]:
-            fig = plt.figure(figsize=(17,8), dpi=100)
+        for p in ["all"] + [p for p in mod.PERIODS]:
+            fig = plt.figure(figsize=(17, 8), dpi=100)
             dis_ax = fig.add_subplot(111)
             dis_ax.grid(b=False)
             # You have to play with the color map and the line style list to
             # get enough combinations for your particular plot.
             # Set up different x axis labels if all periods are being plotted
-            if p == 'all':
-                dis_ax.set_xticks([
-                    i*5
-                    for i in range(int(len(mod.YEARMONTHS)/5) + 1)
-                ])
-                dis_ax.set_xticklabels([
-                    mod.YEARMONTHS[i*5+1]
-                    for i in range(int(len(mod.YEARMONTHS)/5))
-                ])
+            if p == "all":
+                dis_ax.set_xticks(
+                    [i * 5 for i in range(int(len(mod.YEARMONTHS) / 5) + 1)]
+                )
+                dis_ax.set_xticklabels(
+                    [
+                        mod.YEARMONTHS[i * 5 + 1]
+                        for i in range(int(len(mod.YEARMONTHS) / 5))
+                    ]
+                )
                 # Technologies have different linestyles and scenarios have
                 # different colors
-                dis_ax.set_prop_cycle(cycler('color',
-                    [color_map(i/float(n_data-1)) for i in range(n_data)]) *
-                    cycler('linestyle',[next(styles) for i in range(n_scen)]))
-                df_to_plot = df.drop([ind], axis=1).replace('', nan)
+                dis_ax.set_prop_cycle(
+                    cycler(
+                        "color",
+                        [color_map(i / float(n_data - 1)) for i in range(n_data)],
+                    )
+                    * cycler("linestyle", [next(styles) for i in range(n_scen)])
+                )
+                df_to_plot = df.drop([ind], axis=1).replace("", nan)
             else:
                 n_scen = mod.PERIOD_SCENARIOS[p].__len__()
-                dis_ax.set_xticks([i*5 for i in range(0,24)])
-                dis_ax.set_xticklabels([mod.YEARMONTHS[i]
-                    for i in range(1,25)])
+                dis_ax.set_xticks([i * 5 for i in range(0, 24)])
+                dis_ax.set_xticklabels([mod.YEARMONTHS[i] for i in range(1, 25)])
                 # Technologies have different colors and scenarios have
                 # different line styles
-                dis_ax.set_prop_cycle(cycler('color',
-                    [color_map(i/float(n_data-1)) for i in range(n_data)]) *
-                    cycler('linestyle', [next(styles) for i in range(n_scen)]))
+                dis_ax.set_prop_cycle(
+                    cycler(
+                        "color",
+                        [color_map(i / float(n_data - 1)) for i in range(n_data)],
+                    )
+                    * cycler("linestyle", [next(styles) for i in range(n_scen)])
+                )
                 # Before plotting, data must be filtered by period
-                period_yms = [(p+y)*100+i for y in [0,1] for i in range(1,13)]
-                df_to_plot = df.loc[df[ind].isin(period_yms)].drop([ind],
-                    axis=1).reset_index(drop=True).dropna(axis=1, how='all')
+                period_yms = [(p + y) * 100 + i for y in [0, 1] for i in range(1, 13)]
+                df_to_plot = (
+                    df.loc[df[ind].isin(period_yms)]
+                    .drop([ind], axis=1)
+                    .reset_index(drop=True)
+                    .dropna(axis=1, how="all")
+                )
             # To locate the legend: "loc" is the point of the legend for which
             # you will specify coordinates. These coords are specified in
             # bbox_to_anchor (can be only 1 point or couple)
-            dis_plot = df_to_plot.plot(ax=dis_ax,
-                linewidth=1.6).legend(loc='lower left', fontsize=8,
-                bbox_to_anchor=(0., 1.015, 1., 1.015), ncol=num_col,
-                mode="expand")
+            dis_plot = df_to_plot.plot(ax=dis_ax, linewidth=1.6).legend(
+                loc="lower left",
+                fontsize=8,
+                bbox_to_anchor=(0.0, 1.015, 1.0, 1.015),
+                ncol=num_col,
+                mode="expand",
+            )
             plt.xticks(rotation=90, fontsize=9)
-            plots.savefig(bbox_extra_artists=(dis_plot,), bbox_inches='tight')
+            plots.savefig(bbox_extra_artists=(dis_plot,), bbox_inches="tight")
             plt.close()
         plots.close()
     ##############################################################
 
     def calc_tp_costs_in_period_one_scenario(m, p, s):
-        return (sum(sum(
-            # This are total costs in each tp for a scenario
-            getattr(m, tp_cost)[t, s].expr() * m.tp_weight_in_year[t]
-                    for tp_cost in m.cost_components_tp)
-                    # Now, summation over timepoints
-                        for t in m.PERIOD_TPS[p]) *
+        return (
+            sum(
+                sum(
+                    # This are total costs in each tp for a scenario
+                    getattr(m, tp_cost)[t, s].expr() * m.tp_weight_in_year[t]
+                    for tp_cost in m.cost_components_tp
+                )
+                # Now, summation over timepoints
+                for t in m.PERIOD_TPS[p]
+            )
+            *
             # Conversion to lump sum at beginning of period
-            uniform_series_to_present_value(
-                0, m.period_length_years[p]) *
+            uniform_series_to_present_value(0, m.period_length_years[p])
+            *
             # Conversion to base year
             future_to_present_value(
-                m.discount_rate, (m.period_start[p] - m.base_financial_year)))
+                m.discount_rate, (m.period_start[p] - m.base_financial_year)
+            )
+        )
 
     """
     Writing Objective Function value.
     """
     print("total_system_costs.txt...")
-    with open(os.path.join(summaries_dir, "total_system_costs.txt"),'w+') as f:
+    with open(os.path.join(summaries_dir, "total_system_costs.txt"), "w+") as f:
         f.write("Total Expected System Costs: %.2f \n" % mod.SystemCost())
-        f.write("Total Investment Costs: %.2f \n" % sum(
-            mod.AnnualCostPerPeriod[p].expr() for p in mod.PERIODS))
-        f.write("Total Expected Operations Costs: %.2f \n" % sum(
-            mod.TpCostPerPeriod[p].expr() for p in mod.PERIODS))
+        f.write(
+            "Total Investment Costs: %.2f \n"
+            % sum(mod.AnnualCostPerPeriod[p].expr() for p in mod.PERIODS)
+        )
+        f.write(
+            "Total Expected Operations Costs: %.2f \n"
+            % sum(mod.TpCostPerPeriod[p].expr() for p in mod.PERIODS)
+        )
         for p in mod.PERIODS:
             f.write("PERIOD %s\n" % p)
             f.write("  Investment Costs: %.2f \n" % mod.AnnualCostPerPeriod[p].expr())
-            f.write("  Expected Operations Costs: %.2f \n" % mod.TpCostPerPeriod[p].expr())
+            f.write(
+                "  Expected Operations Costs: %.2f \n" % mod.TpCostPerPeriod[p].expr()
+            )
             for s in mod.PERIOD_SCENARIOS[p]:
-                f.write("    Operational Costs of scenario %s with probability %s: %.2f\n" % (s, mod.scenario_probability[s], calc_tp_costs_in_period_one_scenario(mod, p, s)))
+                f.write(
+                    "    Operational Costs of scenario %s with probability %s: %.2f\n"
+                    % (
+                        s,
+                        mod.scenario_probability[s],
+                        calc_tp_costs_in_period_one_scenario(mod, p, s),
+                    )
+                )
 
-
-    print("\nTime taken writing summaries: %.2f s." % (time.time()-start))
-
-
+    print("\nTime taken writing summaries: %.2f s." % (time.time() - start))
 
     # if mod.options.export_marginal_costs:
     #     """

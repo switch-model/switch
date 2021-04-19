@@ -8,8 +8,9 @@ import os
 from pyomo.environ import *
 from switch_model.reporting import write_table
 
-dependencies = 'switch_model.timescales'
-optional_dependencies = 'switch_model.transmission.local_td'
+dependencies = "switch_model.timescales"
+optional_dependencies = "switch_model.transmission.local_td"
+
 
 def define_dynamic_lists(mod):
     """
@@ -78,37 +79,38 @@ def define_components(mod):
     """
 
     mod.LOAD_ZONES = Set()
-    mod.ZONE_TIMEPOINTS = Set(dimen=2,
+    mod.ZONE_TIMEPOINTS = Set(
+        dimen=2,
         initialize=lambda m: m.LOAD_ZONES * m.TIMEPOINTS,
-        doc="The cross product of load zones and timepoints, used for indexing.")
-    mod.zone_demand_mw = Param(
-        mod.ZONE_TIMEPOINTS,
-        within=NonNegativeReals)
+        doc="The cross product of load zones and timepoints, used for indexing.",
+    )
+    mod.zone_demand_mw = Param(mod.ZONE_TIMEPOINTS, within=NonNegativeReals)
     mod.zone_ccs_distance_km = Param(
-        mod.LOAD_ZONES,
-        within=NonNegativeReals,
-        default=0.0)
-    mod.zone_dbid = Param(
-        mod.LOAD_ZONES,
-        default=lambda m, z: z)
-    mod.min_data_check('LOAD_ZONES', 'zone_demand_mw')
+        mod.LOAD_ZONES, within=NonNegativeReals, default=0.0
+    )
+    mod.zone_dbid = Param(mod.LOAD_ZONES, default=lambda m, z: z)
+    mod.min_data_check("LOAD_ZONES", "zone_demand_mw")
     try:
-        mod.Distributed_Power_Withdrawals.append('zone_demand_mw')
+        mod.Distributed_Power_Withdrawals.append("zone_demand_mw")
     except AttributeError:
-        mod.Zone_Power_Withdrawals.append('zone_demand_mw')
+        mod.Zone_Power_Withdrawals.append("zone_demand_mw")
 
     mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS = Set(
-        dimen=2, within=mod.LOAD_ZONES * mod.PERIODS,
-        doc="Zone-Period combinations with zone_expected_coincident_peak_demand data.")
+        dimen=2,
+        within=mod.LOAD_ZONES * mod.PERIODS,
+        doc="Zone-Period combinations with zone_expected_coincident_peak_demand data.",
+    )
     mod.zone_expected_coincident_peak_demand = Param(
-        mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS,
-        within=NonNegativeReals)
+        mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS, within=NonNegativeReals
+    )
     mod.zone_total_demand_in_period_mwh = Param(
-        mod.LOAD_ZONES, mod.PERIODS,
+        mod.LOAD_ZONES,
+        mod.PERIODS,
         within=NonNegativeReals,
         initialize=lambda m, z, p: (
-            sum(m.zone_demand_mw[z, t] * m.tp_weight[t]
-                for t in m.TPS_IN_PERIOD[p])))
+            sum(m.zone_demand_mw[z, t] * m.tp_weight[t] for t in m.TPS_IN_PERIOD[p])
+        ),
+    )
 
 
 def define_dynamic_components(mod):
@@ -129,12 +131,12 @@ def define_dynamic_components(mod):
     mod.Zone_Energy_Balance = Constraint(
         mod.ZONE_TIMEPOINTS,
         rule=lambda m, z, t: (
-            sum(
-                getattr(m, component)[z, t]
-                for component in m.Zone_Power_Injections
-            ) == sum(
-                getattr(m, component)[z, t]
-                for component in m.Zone_Power_Withdrawals)))
+            sum(getattr(m, component)[z, t] for component in m.Zone_Power_Injections)
+            == sum(
+                getattr(m, component)[z, t] for component in m.Zone_Power_Withdrawals
+            )
+        ),
+    )
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -162,17 +164,19 @@ def load_inputs(mod, switch_data, inputs_dir):
     # column names, be indifferent to column order, and throw an error
     # message if some columns are not found.
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'load_zones.csv'),
+        filename=os.path.join(inputs_dir, "load_zones.csv"),
         index=mod.LOAD_ZONES,
-        param=(mod.zone_ccs_distance_km, mod.zone_dbid))
+        param=(mod.zone_ccs_distance_km, mod.zone_dbid),
+    )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'loads.csv'),
-        param=(mod.zone_demand_mw))
+        filename=os.path.join(inputs_dir, "loads.csv"), param=(mod.zone_demand_mw)
+    )
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'zone_coincident_peak_demand.csv'),
+        filename=os.path.join(inputs_dir, "zone_coincident_peak_demand.csv"),
         index=mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS,
-        param=(mod.zone_expected_coincident_peak_demand))
+        param=(mod.zone_expected_coincident_peak_demand),
+    )
 
 
 def post_solve(instance, outdir):
@@ -186,13 +190,21 @@ def post_solve(instance, outdir):
 
     """
     write_table(
-        instance, instance.LOAD_ZONES, instance.TIMEPOINTS,
+        instance,
+        instance.LOAD_ZONES,
+        instance.TIMEPOINTS,
         output_file=os.path.join(outdir, "load_balance.csv"),
-        headings=("load_zone", "timestamp",) + tuple(
-            instance.Zone_Power_Injections +
-            instance.Zone_Power_Withdrawals),
-        values=lambda m, z, t: (z, m.tp_timestamp[t],) + tuple(
+        headings=(
+            "load_zone",
+            "timestamp",
+        )
+        + tuple(instance.Zone_Power_Injections + instance.Zone_Power_Withdrawals),
+        values=lambda m, z, t: (
+            z,
+            m.tp_timestamp[t],
+        )
+        + tuple(
             getattr(m, component)[z, t]
-            for component in (
-                m.Zone_Power_Injections +
-                m.Zone_Power_Withdrawals)))
+            for component in (m.Zone_Power_Injections + m.Zone_Power_Withdrawals)
+        ),
+    )

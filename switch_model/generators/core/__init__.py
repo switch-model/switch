@@ -9,5 +9,6 @@ The core modules in the package are build and dispatch.
 
 """
 core_modules = [
-    'switch_model.generators.core.build',
-    'switch_model.generators.core.dispatch']
+    "switch_model.generators.core.build",
+    "switch_model.generators.core.dispatch",
+]

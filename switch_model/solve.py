@@ -5,8 +5,10 @@ from __future__ import print_function
 
 import logging
 import sys, os, time, shlex, re, inspect, textwrap, types, threading, json
+
 try:
     import IPython
+
     has_ipython = True
 except ImportError:
     has_ipython = False
@@ -29,8 +31,13 @@ import pyomo.version
 
 import switch_model
 from switch_model.utilities import (
-    create_model, _ArgumentParser, StepTimer, make_iterable, LogOutput,
-    warn, unwrap
+    create_model,
+    _ArgumentParser,
+    StepTimer,
+    make_iterable,
+    LogOutput,
+    warn,
+    unwrap,
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 
@@ -49,8 +56,10 @@ def main(args=None, return_model=False, return_instance=False):
     # turn on post-mortem debugging mode if requested
     # (from http://stackoverflow.com/a/1237407 ; more options available there)
     if pre_module_options.debug:
+
         def debug(type, value, tb):
             import traceback
+
             try:
                 from ipdb import pm
             except ImportError:
@@ -58,6 +67,7 @@ def main(args=None, return_model=False, return_instance=False):
             traceback.print_exception(type, value, tb)
             report_model_in_traceback(tb)
             pm()
+
         sys.excepthook = debug
 
     # Create a unique logger for this model (other models may have different
@@ -75,20 +85,30 @@ def main(args=None, return_model=False, return_instance=False):
     if pre_module_options.log_run_to_file:
         logs_dir = pre_module_options.logs_dir
     else:
-        logs_dir = None # disables logging
+        logs_dir = None  # disables logging
 
     with LogOutput(logs_dir):
-        logger.info("\n=======================================================================")
-        logger.info("Switch {}, http://switch-model.org".format(switch_model.__version__))
-        logger.info("=======================================================================")
+        logger.info(
+            "\n======================================================================="
+        )
+        logger.info(
+            "Switch {}, http://switch-model.org".format(switch_model.__version__)
+        )
+        logger.info(
+            "======================================================================="
+        )
 
         # Warn users about deprecated flags; we know this earlier but don't have
         # a working logger to report it until here.
-        if '--verbose' in args or '--quiet' in args:
-            logger.warn(unwrap("""
+        if "--verbose" in args or "--quiet" in args:
+            logger.warn(
+                unwrap(
+                    """
                 The --verbose and --quiet flags will be removed in a future
                 version of Switch. Please use --log-level instead.
-            """))
+            """
+                )
+            )
 
         # Check for outdated inputs. This has to happen before modules.txt is
         # parsed to avoid errors from incompatible files.
@@ -96,31 +116,44 @@ def main(args=None, return_model=False, return_instance=False):
         add_module_args(parser)
         module_options = parser.parse_known_args(args=args)[0]
 
-        if (os.path.exists(module_options.inputs_dir) and
-                do_inputs_need_upgrade(module_options.inputs_dir)):
-            if '--help' in args or '-h' in args:
+        if os.path.exists(module_options.inputs_dir) and do_inputs_need_upgrade(
+            module_options.inputs_dir
+        ):
+            if "--help" in args or "-h" in args:
                 # don't prompt to upgrade if they're looking for help
-                print(unwrap("""
+                print(
+                    unwrap(
+                        """
                     Limited help is available because the inputs directory
                     needs to be upgraded. Module-specific help will be
                     available after upgrading the inputs directory via "switch
                     solve" or "switch upgrade".
-                """))
+                """
+                    )
+                )
                 parser.print_help()
                 return 0
 
-            do_upgrade = query_yes_no(unwrap("""
+            do_upgrade = query_yes_no(
+                unwrap(
+                    """
                 Warning! Your inputs directory needs to be upgraded. Do you
                 want to auto-upgrade now? We'll keep a backup of this current
                 version.
-            """))
+            """
+                )
+            )
             if do_upgrade:
                 upgrade_inputs(module_options.inputs_dir)
             else:
-                print(unwrap("""
+                print(
+                    unwrap(
+                        """
                     Inputs need to be upgraded. Consider using "switch upgrade
                     --help". Exiting.
-                """))
+                """
+                    )
+                )
                 return -1
 
         # build a module list based on configuration options, and add
@@ -146,25 +179,32 @@ def main(args=None, return_model=False, return_instance=False):
             # TODO: allow a directory to be specified after --reload-prior-solution,
             # otherwise use outputs_dir.
             prior_solution_file = os.path.join(
-                model.options.outputs_dir, 'results.pickle'
+                model.options.outputs_dir, "results.pickle"
             )
             if not os.path.exists(prior_solution_file):
                 raise IOError(
-                    "Prior solution {} does not exist."
-                    .format(prior_solution_file)
+                    "Prior solution {} does not exist.".format(prior_solution_file)
                 )
 
         # get a list of modules to iterate through
         iterate_modules = get_iteration_list(model)
 
         if model.options.verbose:
-            print("\n=======================================================================")
+            print(
+                "\n======================================================================="
+            )
             print("Arguments:")
-            print(", ".join(k+"="+repr(v) for k, v in vars(model.options).items() if v))
-            print("Modules:\n"+", ".join(m for m in modules))
+            print(
+                ", ".join(
+                    k + "=" + repr(v) for k, v in vars(model.options).items() if v
+                )
+            )
+            print("Modules:\n" + ", ".join(m for m in modules))
             if iterate_modules:
                 print("Iteration modules:", iterate_modules)
-            print("=======================================================================\n")
+            print(
+                "=======================================================================\n"
+            )
             print("Model created in {:.2f} s.".format(timer.step_time()))
             print("Loading inputs...")
 
@@ -175,7 +215,11 @@ def main(args=None, return_model=False, return_instance=False):
 
         instance.pre_solve()
         if instance.options.verbose:
-            print("Total time spent constructing model: {:.2f} s.\n".format(timer.step_time()))
+            print(
+                "Total time spent constructing model: {:.2f} s.\n".format(
+                    timer.step_time()
+                )
+            )
 
         # return the instance as-is if requested
         if return_instance:
@@ -194,12 +238,13 @@ def main(args=None, return_model=False, return_instance=False):
                 raise
 
         if instance.options.reload_prior_solution:
-            print('Loading prior solution...')
+            print("Loading prior solution...")
             reload_prior_solution_from_pickle(instance, prior_solution_file)
             if instance.options.verbose:
                 print(
-                    'Loaded previous results into model instance in {:.2f} s.'
-                    .format(timer.step_time())
+                    "Loaded previous results into model instance in {:.2f} s.".format(
+                        timer.step_time()
+                    )
                 )
         else:
             # solve the model (reports time for each step as it goes)
@@ -211,28 +256,35 @@ def main(args=None, return_model=False, return_instance=False):
                 results = solve(instance)
                 if instance.options.verbose:
                     print("")
-                    print("Optimization termination condition was {}.".format(
-                        results.solver.termination_condition))
-                    if str(results.solver.message) != '<undefined>':
-                        print('Solver message: {}'.format(results.solver.message))
+                    print(
+                        "Optimization termination condition was {}.".format(
+                            results.solver.termination_condition
+                        )
+                    )
+                    if str(results.solver.message) != "<undefined>":
+                        print("Solver message: {}".format(results.solver.message))
                     print("")
 
                 if instance.options.verbose:
-                    timer.step_time() # restart counter for next step
+                    timer.step_time()  # restart counter for next step
 
             # save model configuration for future reference
-            file = os.path.join(instance.options.outputs_dir, 'model_config.json')
-            with open(file, 'w') as f:
-                json.dump({
-                    'options': vars(instance.options),
-                    'modules': modules,
-                    'iterate_modules': iterate_modules
-                }, f, indent=4)
+            file = os.path.join(instance.options.outputs_dir, "model_config.json")
+            with open(file, "w") as f:
+                json.dump(
+                    {
+                        "options": vars(instance.options),
+                        "modules": modules,
+                        "iterate_modules": iterate_modules,
+                    },
+                    f,
+                    indent=4,
+                )
 
             if not instance.options.no_save_solution:
                 save_results(instance, instance.options.outputs_dir)
                 if instance.options.verbose:
-                    print('Saved results in {:.2f} s.'.format(timer.step_time()))
+                    print("Saved results in {:.2f} s.".format(timer.step_time()))
 
         # report results
         # (repeated if model is reloaded, to automatically run any new export code)
@@ -241,23 +293,30 @@ def main(args=None, return_model=False, return_instance=False):
                 print("Executing post solve functions...")
             instance.post_solve()
             if instance.options.verbose:
-                print("Post solve processing completed in {:.2f} s.".format(timer.step_time()))
+                print(
+                    "Post solve processing completed in {:.2f} s.".format(
+                        timer.step_time()
+                    )
+                )
 
     # end of LogOutput block
 
     if instance.options.interact:
         m = instance  # present the solved model as 'm' for convenience
-        banner = '\n'.join([
-            "",
-            "="*60,
-            "Entering interactive {} shell."
-                .format("IPython" if has_ipython else "Python"),
-            "Abstract model is in 'model' variable;",
-            "Solved instance is in 'instance' and 'm' variables.",
-            "Type ctrl-d or exit() to exit shell.",
-            "="*60,
-            ""
-        ])
+        banner = "\n".join(
+            [
+                "",
+                "=" * 60,
+                "Entering interactive {} shell.".format(
+                    "IPython" if has_ipython else "Python"
+                ),
+                "Abstract model is in 'model' variable;",
+                "Solved instance is in 'instance' and 'm' variables.",
+                "Type ctrl-d or exit() to exit shell.",
+                "=" * 60,
+                "",
+            ]
+        )
         # IPython support is disabled until they fix
         # https://github.com/ipython/ipython/issues/12199
         if has_ipython and False:
@@ -265,25 +324,30 @@ def main(args=None, return_model=False, return_instance=False):
             IPython.embed(
                 banner1=banner,
                 exit_msg="Leaving interactive interpreter, returning to program.",
-                colors=instance.options.interact_color)
+                colors=instance.options.interact_color,
+            )
         else:
             import code
+
             code.interact(
                 banner=banner,
-                local=dict(list(globals().items()) + list(locals().items())))
+                local=dict(list(globals().items()) + list(locals().items())),
+            )
 
     # return solved model for users who want to do other things with it
     return instance
 
 
 def reload_prior_solution_from_pickle(instance, pickle_file):
-    with open(pickle_file, 'rb') as fh:
-         results = pickle.load(fh)
+    with open(pickle_file, "rb") as fh:
+        results = pickle.load(fh)
     instance.solutions.load_from(results)
     return instance
 
 
 patched_pyomo = False
+
+
 def patch_pyomo():
     global patched_pyomo
     if not patched_pyomo:
@@ -300,11 +364,13 @@ def patch_pyomo():
             if hasattr(m.e, "_init_rule") and m.e._init_rule is None:
                 # add a deprecation warning here when we stop supporting Pyomo 4.2 or 4.3
                 old_construct = pyomo.environ.Expression.construct
+
                 def new_construct(self, *args, **kwargs):
                     # save rule, call the function, then restore it
                     _init_rule = self._init_rule
                     old_construct(self, *args, **kwargs)
                     self._init_rule = _init_rule
+
                 pyomo.environ.Expression.construct = new_construct
             del m
 
@@ -334,18 +400,21 @@ def patch_pyomo():
                         cache[obj.getname(fully_qualified=True, name_buffer=buf)] = obj"""
 
         from pyomo.core.base.PyomoModel import ModelSolutions
+
         add_solution_code = inspect.getsource(ModelSolutions.add_solution)
         if old_code in add_solution_code:
             # create and inject a new version of the method
             add_solution_code = add_solution_code.replace(old_code, new_code)
-            replace_method(ModelSolutions, 'add_solution', add_solution_code)
+            replace_method(ModelSolutions, "add_solution", add_solution_code)
         else:
             print(
                 "NOTE: The patch to pyomo.core.base.PyomoModel.ModelSolutions.add_solution "
                 "has been deactivated because the Pyomo source code has changed. "
-                "Check whether this patch is still needed and edit {} accordingly."
-                .format(__file__)
+                "Check whether this patch is still needed and edit {} accordingly.".format(
+                    __file__
+                )
             )
+
 
 def replace_method(class_ref, method_name, new_source_code):
     """
@@ -362,7 +431,7 @@ def replace_method(class_ref, method_name, new_source_code):
         orig_method.__globals__,
         orig_method.__name__,
         orig_method.__defaults__,
-        orig_method.__closure__
+        orig_method.__closure__,
     )
     # note: this normal function will be automatically converted to an unbound
     # method when it is assigned as an attribute of a class
@@ -375,9 +444,10 @@ def reload_prior_solution_from_csvs(instance):
     previous solution. (Not currently used.)
     """
     import csv
+
     var_objects = instance.component_objects(Var)
     for var in var_objects:
-        var_file = os.path.join(instance.options.outputs_dir, '{}.csv'.format(var.name))
+        var_file = os.path.join(instance.options.outputs_dir, "{}.csv".format(var.name))
         if not os.path.isfile(var_file):
             raise RuntimeError(
                 "Tab output file for variable {} cannot be found in outputs "
@@ -388,19 +458,20 @@ def reload_prior_solution_from_csvs(instance):
             key_types = [type(i) for i in make_iterable(next(var.iterkeys()))]
         except StopIteration:
             key_types = []  # no keys
-        with open(var_file,'r') as f:
-            reader = csv.reader(f, delimiter=',')
-            next(reader) # skip headers
+        with open(var_file, "r") as f:
+            reader = csv.reader(f, delimiter=",")
+            next(reader)  # skip headers
             for row in reader:
                 index = tuple(t(k) for t, k in zip(key_types, row[:-1]))
                 try:
                     v = var[index]
                 except KeyError:
                     raise KeyError(
-                        "Unable to set value for {}[{}]; index is invalid."
-                        .format(var.name, keys)
+                        "Unable to set value for {}[{}]; index is invalid.".format(
+                            var.name, keys
+                        )
                     )
-                if row[-1] == '':
+                if row[-1] == "":
                     # Variables that are not used in the model end up with no
                     # value after the solve and get saved as blanks; we skip those.
                     continue
@@ -409,7 +480,7 @@ def reload_prior_solution_from_csvs(instance):
                     val = int(val)
                 v.value = val
         if instance.options.verbose:
-            print('Loaded variable {} values into instance.'.format(var.name))
+            print("Loaded variable {} values into instance.".format(var.name))
 
 
 def iterate(m, iterate_modules, depth=0):
@@ -450,8 +521,7 @@ def iterate(m, iterate_modules, depth=0):
             except KeyError:
                 raise ValueError(
                     "Module {} specified in iterate.txt has not been loaded. "
-                    "It should be added to modules.txt as well."
-                    .format(module_name)
+                    "It should be added to modules.txt as well.".format(module_name)
                 )
 
         j = 0
@@ -467,23 +537,32 @@ def iterate(m, iterate_modules, depth=0):
             m.iteration_number = j
             m.iteration_node = m.iteration_node[:depth] + (j,)
             for module in current_modules:
-                converged = iterate_module_func(m, module, 'pre_iterate', converged)
+                converged = iterate_module_func(m, module, "pre_iterate", converged)
 
             # converge the deeper-level modules, if any (inner loop)
-            iterate(m, iterate_modules, depth=depth+1)
+            iterate(m, iterate_modules, depth=depth + 1)
 
             # post-iterate modules at this level
-            m.iteration_number = j      # may have been changed during iterate()
+            m.iteration_number = j  # may have been changed during iterate()
             m.iteration_node = m.iteration_node[:depth] + (j,)
             for module in current_modules:
-                converged = iterate_module_func(m, module, 'post_iterate', converged)
+                converged = iterate_module_func(m, module, "post_iterate", converged)
 
             j += 1
         if converged:
-            print("Iteration of {ms} was completed after {j} rounds.".format(ms=iterate_modules[depth], j=j))
+            print(
+                "Iteration of {ms} was completed after {j} rounds.".format(
+                    ms=iterate_modules[depth], j=j
+                )
+            )
         else:
-            print("Iteration of {ms} was stopped after {j} iterations without convergence.".format(ms=iterate_modules[depth], j=j))
+            print(
+                "Iteration of {ms} was stopped after {j} iterations without convergence.".format(
+                    ms=iterate_modules[depth], j=j
+                )
+            )
     return
+
 
 def iterate_module_func(m, module, func, converged):
     """Call function func() in specified module (if available) and use the result to
@@ -512,100 +591,140 @@ def define_arguments(argparser):
 
     # iteration options
     argparser.add_argument(
-        "--iterate-list", dest="iterate_list", default=None, help="""
+        "--iterate-list",
+        dest="iterate_list",
+        default=None,
+        help="""
             Text file with a list of modules to iterate until converged
             (default is iterate.txt). Each row is one level of iteration, and
             there can be multiple modules on each row.
-        """
+        """,
     )
     argparser.add_argument(
-        "--max-iter", dest="max_iter", type=int, default=None, help="""
+        "--max-iter",
+        dest="max_iter",
+        type=int,
+        default=None,
+        help="""
             Maximum number of iterations to complete at each level for iterated
             models
-        """
+        """,
     )
 
     # scenario information
     argparser.add_argument(
-        "--scenario-name", dest="scenario_name", default="",
-        help="Name of research scenario represented by this model"
+        "--scenario-name",
+        dest="scenario_name",
+        default="",
+        help="Name of research scenario represented by this model",
     )
 
     # note: pyomo has a --solver-suffix option but it is not clear
     # whether that does the same thing as --suffix defined here,
     # so we don't reuse the same name.
     argparser.add_argument(
-        "--suffixes", "--suffix", dest="suffixes", nargs="+", action='extend',
-        default=[], help="""
+        "--suffixes",
+        "--suffix",
+        dest="suffixes",
+        nargs="+",
+        action="extend",
+        default=[],
+        help="""
             Extra suffixes to add to the model and exchange with the solver
             (e.g., iis, rc, dual, or slack)
-        """
+        """,
     )
 
     # Define solver-related arguments
     # These are a subset of the arguments offered by "pyomo solve --solver=cplex --help"
     argparser.add_argument(
-        "--solver", default="glpk",
-        help='Name of Pyomo solver to use for the model (default is "glpk")'
+        "--solver",
+        default="glpk",
+        help='Name of Pyomo solver to use for the model (default is "glpk")',
     )
     argparser.add_argument(
-        "--solver-manager", dest="solver_manager", default="serial", help="""
+        "--solver-manager",
+        dest="solver_manager",
+        default="serial",
+        help="""
             Name of Pyomo solver manager to use for the model ("neos" to use
             remote NEOS server)
-        """
+        """,
     )
     argparser.add_argument(
-        "--solver-io", dest="solver_io", default=None,
-        help="Method for Pyomo to use to communicate with solver"
+        "--solver-io",
+        dest="solver_io",
+        default=None,
+        help="Method for Pyomo to use to communicate with solver",
     )
     # note: pyomo has a --solver-options option but it is not clear
     # whether that does the same thing as --solver-options-string so we don't reuse the same name.
     argparser.add_argument(
-        "--solver-options-string", dest="solver_options_string", default=None,
+        "--solver-options-string",
+        dest="solver_options_string",
+        default=None,
         help="""
             A quoted string of options to pass to the model solver. Each option
             must be of the form option=value. (e.g., --solver-options-string
             "mipgap=0.001 primalopt='' advance=2 threads=1")
-        """
+        """,
     )
     argparser.add_argument(
-        "--keepfiles", action='store_true', default=None, help="""
+        "--keepfiles",
+        action="store_true",
+        default=None,
+        help="""
             Keep temporary files produced by the solver (may be useful with
             --symbolic-solver-labels)
-        """
+        """,
     )
     argparser.add_argument(
-        "--stream-output", "--stream-solver", action='store_true', dest="tee",
-        default=None, help="""
+        "--stream-output",
+        "--stream-solver",
+        action="store_true",
+        dest="tee",
+        default=None,
+        help="""
             Display information from the solver about its progress (usually
             combined with a suitable --solver-options-string)
-        """
+        """,
     )
     argparser.add_argument(
-        "--no-stream-output", "--no-stream-solver", action='store_false',
-        dest="tee", default=None,
-        help="Don't display information from the solver about its progress"
+        "--no-stream-output",
+        "--no-stream-solver",
+        action="store_false",
+        dest="tee",
+        default=None,
+        help="Don't display information from the solver about its progress",
     )
     argparser.add_argument(
-        "--symbolic-solver-labels", action='store_true', dest='symbolic_solver_labels',
-        default=None, help="""
+        "--symbolic-solver-labels",
+        action="store_true",
+        dest="symbolic_solver_labels",
+        default=None,
+        help="""
             Use symbol names derived from the model when interfacing with the
             solver. See "pyomo solve --solver=x --help" for more details.
-        """
+        """,
     )
     argparser.add_argument(
-        "--tempdir", default=None, help="""
+        "--tempdir",
+        default=None,
+        help="""
             The name of a directory to hold temporary files produced by the
             solver. This is usually paired with --keepfiles and
             --symbolic-solver-labels.
-        """
+        """,
     )
     argparser.add_argument(
-        '--retrieve-cplex-mip-duals', dest="retrieve_cplex_mip_duals",
-        default=False, action='store_true', help="""
+        "--retrieve-cplex-mip-duals",
+        dest="retrieve_cplex_mip_duals",
+        default=False,
+        action="store_true",
+        help="""
             Patch Pyomo's solver script for cplex to re-solve and retrieve dual
             values for mixed-integer programs.
-        """
+        """,
     )
 
     # General purpose arguments
@@ -616,69 +735,99 @@ def define_arguments(argparser):
     # note: --inputs-dir is defined in add_module_args, because it may specify the
     # location of the module list (deprecated)
     argparser.add_argument(
-        '--input-alias', '--input-aliases', dest='input_aliases',
-        nargs='+', default=[], action='extend', help="""
+        "--input-alias",
+        "--input-aliases",
+        dest="input_aliases",
+        nargs="+",
+        default=[],
+        action="extend",
+        help="""
             List of input file substitutions, in form of
             standard_file.csv=alternative_file.csv, useful for sensitivity
             studies with alternative inputs.
-        """
+        """,
     )
     argparser.add_argument(
-        '--outputs-dir', default='outputs',
-        help='Directory to write output files (default is "outputs")'
+        "--outputs-dir",
+        default="outputs",
+        help='Directory to write output files (default is "outputs")',
     )
     argparser.add_argument(
-        '--no-post-solve', default=False, action='store_true', help="""
+        "--no-post-solve",
+        default=False,
+        action="store_true",
+        help="""
             Don't run post-solve code on the completed model (i.e., reporting
             functions).
-        """
+        """,
     )
     argparser.add_argument(
-        '--reload-prior-solution', default=False, action='store_true',
+        "--reload-prior-solution",
+        default=False,
+        action="store_true",
         help="""
             Load a previously saved solution; useful for re-running
             post-solve code or interactively exploring the model (with
             --interact).
-        """
+        """,
     )
     argparser.add_argument(
-        '--no-save-solution', default=False, action='store_true',
-        help="Don't save solution after model is solved."
+        "--no-save-solution",
+        default=False,
+        action="store_true",
+        help="Don't save solution after model is solved.",
     )
     argparser.add_argument(
-        '--interact', default=False, action='store_true', help="""
+        "--interact",
+        default=False,
+        action="store_true",
+        help="""
             Enter interactive shell after solving the instance to enable
             inspection of the solved model.
-        """
+        """,
     )
     if has_ipython:
         argparser.add_argument(
-            '--interact-color', dest="interact_color", default="NoColor",
-            choices=['NoColor', 'LightBG', 'Linux'],
-            help='Color scheme to use with the IPython interactive shell.'
+            "--interact-color",
+            dest="interact_color",
+            default="NoColor",
+            choices=["NoColor", "LightBG", "Linux"],
+            help="Color scheme to use with the IPython interactive shell.",
         )
 
 
 def add_module_args(parser):
     parser.add_argument(
-        "--module-list", default=None,
-        help='Text file with a list of modules to include in the model (default is "modules.txt")'
+        "--module-list",
+        default=None,
+        help='Text file with a list of modules to include in the model (default is "modules.txt")',
     )
     parser.add_argument(
-        "--include-modules", "--include-module", dest="include_exclude_modules", nargs='+',
-        action='include', default=[],
-        help="Module(s) to add to the model in addition to any specified with --module-list file"
+        "--include-modules",
+        "--include-module",
+        dest="include_exclude_modules",
+        nargs="+",
+        action="include",
+        default=[],
+        help="Module(s) to add to the model in addition to any specified with --module-list file",
     )
     parser.add_argument(
-        "--exclude-modules", "--exclude-module", dest="include_exclude_modules", nargs='+',
-        action='exclude', default=[],
+        "--exclude-modules",
+        "--exclude-module",
+        dest="include_exclude_modules",
+        nargs="+",
+        action="exclude",
+        default=[],
         help="Module(s) to remove from the model after processing "
-             "--module-list file and prior --include-modules arguments"
+        "--module-list file and prior --include-modules arguments",
     )
     # note: we define --inputs-dir here because it may be used to specify the location of
     # the module list, which is needed before it is loaded.
-    parser.add_argument("--inputs-dir", default="inputs",
-        help='Directory containing input files (default is "inputs")')
+    parser.add_argument(
+        "--inputs-dir",
+        default="inputs",
+        help='Directory containing input files (default is "inputs")',
+    )
 
 
 def add_pre_module_args(parser):
@@ -686,11 +835,18 @@ def add_pre_module_args(parser):
     Add arguments needed before any modules are loaded.
     """
     parser.add_argument(
-        "--log-run", dest="log_run_to_file", default=False, action="store_true",
-        help="Log output to a file.")
+        "--log-run",
+        dest="log_run_to_file",
+        default=False,
+        action="store_true",
+        help="Log output to a file.",
+    )
     parser.add_argument(
-        "--logs-dir", dest="logs_dir", default="logs",
-        help='Directory containing log files (default is "logs"')
+        "--logs-dir",
+        dest="logs_dir",
+        default="logs",
+        help='Directory containing log files (default is "logs"',
+    )
 
     # Standard logging levels from
     # https://docs.python.org/3/library/logging.html#levels
@@ -700,24 +856,38 @@ def add_pre_module_args(parser):
     # logger.error() should be used to explain an error in more detail if
     # needed at the same time as the code raises an exception.
     parser.add_argument(
-        '--log-level', dest='log_level', default='warning',
-        choices = ['error', 'warning', 'info', 'debug'],
-        help='Amount of detail to include in on-screen logging and log files. '
-             'Default is "warning".')
+        "--log-level",
+        dest="log_level",
+        default="warning",
+        choices=["error", "warning", "info", "debug"],
+        help="Amount of detail to include in on-screen logging and log files. "
+        'Default is "warning".',
+    )
     # Deprecated logging flags are retained for now so we can warn users to
     # change their settings.
     parser.add_argument(
-        '--verbose', dest='log_level', action='store_const', const='info',
-        help='Obsolete logging flag; use --log-level info or '
-             '--log-level debug instead.')
+        "--verbose",
+        dest="log_level",
+        action="store_const",
+        const="info",
+        help="Obsolete logging flag; use --log-level info or "
+        "--log-level debug instead.",
+    )
     parser.add_argument(
-        '--quiet', dest='log_level', action='store_const', const='warning',
-        help='Obsolete logging flag; use --log-level warning or '
-             '--log-level error insead.')
+        "--quiet",
+        dest="log_level",
+        action="store_const",
+        const="warning",
+        help="Obsolete logging flag; use --log-level warning or "
+        "--log-level error insead.",
+    )
 
     parser.add_argument(
-        '--debug', action='store_true', default=False,
-        help='Automatically start pdb debugger on exceptions')
+        "--debug",
+        action="store_true",
+        default=False,
+        help="Automatically start pdb debugger on exceptions",
+    )
 
 
 def parse_pre_module_options(args):
@@ -732,13 +902,10 @@ def parse_pre_module_options(args):
 
 
 def parse_list_file(file):
-    """ Read all items from `file` into a list, removing white space at either
+    """Read all items from `file` into a list, removing white space at either
     end of line, blank lines and anything after "#" """
     with open(file) as f:
-        items = [
-            r.split('#', 1)[0].strip()
-            for r in f.read().splitlines()
-        ]
+        items = [r.split("#", 1)[0].strip() for r in f.read().splitlines()]
     items = [i for i in items if i]
     return items
 
@@ -763,7 +930,9 @@ def get_module_list(args):
     if module_list_file is None:
         # note: this could be a RuntimeError, but then users can't do "switch solve --help" in a random directory
         # (alternatively, we could provide no warning at all, since the user can specify --include-modules in the arguments)
-        print("WARNING: No module list found. Please create a modules.txt file with a list of modules to use for the model.")
+        print(
+            "WARNING: No module list found. Please create a modules.txt file with a list of modules to use for the model."
+        )
         modules = []
     else:
         # if it exists, the module list contains one module name per row (no .py extension)
@@ -775,18 +944,20 @@ def get_module_list(args):
     # adjust modules as requested by the user
     # include_exclude_modules format: [('include', [mod1, mod2]), ('exclude', [mod3])]
     for action, mods in module_options.include_exclude_modules:
-        if action == 'include':
+        if action == "include":
             for module_name in mods:
-                if module_name not in modules:  # maybe we should raise an error if already present?
+                if (
+                    module_name not in modules
+                ):  # maybe we should raise an error if already present?
                     modules.append(module_name)
-        if action == 'exclude':
+        if action == "exclude":
             for module_name in mods:
                 try:
                     modules.remove(module_name)
                 except ValueError:
-                    raise ValueError(            # maybe we should just pass?
-                        'Unable to exclude module {} because it was not '
-                        'previously included.'.format(module_name)
+                    raise ValueError(  # maybe we should just pass?
+                        "Unable to exclude module {} because it was not "
+                        "previously included.".format(module_name)
                     )
 
     # add this module, since it has callbacks, e.g. define_arguments for
@@ -810,7 +981,7 @@ def get_iteration_list(m):
     return iterate_modules
 
 
-def get_option_file_args(dir='.', extra_args=[]):
+def get_option_file_args(dir=".", extra_args=[]):
     """
     Retrieve base arguments from options.txt (if present). These can be on
     multiple lines to ease editing, and comments starting with "#" (possibly
@@ -827,8 +998,10 @@ def get_option_file_args(dir='.', extra_args=[]):
     args.extend(extra_args)
     return args
 
+
 # Generic argument-related code; could potentially be moved to utilities.py
 # if we want to make these standard parts of Switch.
+
 
 def add_extra_suffixes(model):
     """
@@ -850,14 +1023,20 @@ def solve(model):
         # with its own solver object (e.g., with runph or a parallel solver server).
         # In those cases, we don't want to go through the expense of creating an
         # unused solver object, or get errors if the solver options are invalid.
-        model.solver = SolverFactory(model.options.solver, solver_io=model.options.solver_io)
+        model.solver = SolverFactory(
+            model.options.solver, solver_io=model.options.solver_io
+        )
 
         # patch for Pyomo < 4.2
         # note: Pyomo added an options_string argument to solver.solve() in Pyomo 4.2 rev 10587.
         # (See https://software.sandia.gov/trac/pyomo/browser/pyomo/trunk/pyomo/opt/base/solvers.py?rev=10587 )
         # This is misreported in the documentation as options=, but options= actually accepts a dictionary.
-        if model.options.solver_options_string and not hasattr(model.solver, "_options_string_to_dict"):
-            for k, v in _options_string_to_dict(model.options.solver_options_string).items():
+        if model.options.solver_options_string and not hasattr(
+            model.solver, "_options_string_to_dict"
+        ):
+            for k, v in _options_string_to_dict(
+                model.options.solver_options_string
+            ).items():
                 model.solver.options[k] = v
 
         # import pdb; pdb.set_trace()
@@ -868,15 +1047,13 @@ def solve(model):
         options_string=model.options.solver_options_string,
         keepfiles=model.options.keepfiles,
         tee=model.options.tee,
-        symbolic_solver_labels=model.options.symbolic_solver_labels
+        symbolic_solver_labels=model.options.symbolic_solver_labels,
     )
     # drop all the unspecified options
     solver_args = {k: v for (k, v) in solver_args.items() if v is not None}
 
     # Automatically send all defined suffixes to the solver
-    solver_args["suffixes"] = [
-        c.name for c in model.component_objects(ctype=Suffix)
-    ]
+    solver_args["suffixes"] = [c.name for c in model.component_objects(ctype=Suffix)]
 
     # note: the next few lines are faster than the line above, but seem risky:
     # i = m._ctypes.get(Suffix, [None])[0]
@@ -901,6 +1078,7 @@ def solve(model):
     if model.options.tempdir is not None:
         # from https://software.sandia.gov/downloads/pub/pyomo/PyomoOnlineDocs.html#_changing_the_temporary_directory
         from pyutilib.services import TempfileManager
+
         TempfileManager.tempdir = model.options.tempdir
 
     try:
@@ -909,26 +1087,38 @@ def solve(model):
         # show the solver status for obscure errors if possible
         print("\nError during solve:\n")
         try:
-            print(err.__traceback__.tb_frame.f_locals['results'])
+            print(err.__traceback__.tb_frame.f_locals["results"])
         except:
             pass
         raise
-    #import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
 
     if model.options.verbose:
-        print("Solved model. Total time spent in solver: {:2f} s.".format(timer.step_time()))
+        print(
+            "Solved model. Total time spent in solver: {:2f} s.".format(
+                timer.step_time()
+            )
+        )
 
     # Treat infeasibility as an error, rather than trying to load and save the results
     # (note: in this case, results.solver.status may be SolverStatus.warning instead of
     # SolverStatus.error)
-    if (results.solver.termination_condition == TerminationCondition.infeasible):
+    if results.solver.termination_condition == TerminationCondition.infeasible:
         if hasattr(model, "iis"):
-            print("Model was infeasible; irreducibly inconsistent set (IIS) returned by solver:")
+            print(
+                "Model was infeasible; irreducibly inconsistent set (IIS) returned by solver:"
+            )
             print("\n".join(sorted(c.name for c in model.iis)))
         else:
-            print("Model was infeasible; if the solver can generate an irreducibly inconsistent set (IIS),")
-            print("more information may be available by setting the appropriate flags in the ")
-            print('--solver-options-string and calling this script with "--suffixes iis".')
+            print(
+                "Model was infeasible; if the solver can generate an irreducibly inconsistent set (IIS),"
+            )
+            print(
+                "more information may be available by setting the appropriate flags in the "
+            )
+            print(
+                '--solver-options-string and calling this script with "--suffixes iis".'
+            )
         # This infeasibility logging module could be nice, but it doesn't work
         # for my solvers and produces extraneous messages.
         # import pyomo.util.infeasible
@@ -949,14 +1139,19 @@ def solve(model):
     # result.solution.status, but also cleared) is in
     # pyomo.opt.SolutionStatus.['optimal', 'bestSoFar', 'feasible', 'globallyOptimal', 'locallyOptimal'],
     # but this seems pretty foolproof (if undocumented).
-    if len(model.solutions[-1]._entry['variable']) == 0:
+    if len(model.solutions[-1]._entry["variable"]) == 0:
         # no solution returned
         print("Solver terminated without a solution.")
         print("  Solver Status: ", results.solver.status)
         print("  Solution Status: ", model.solutions[-1].status)
         print("  Termination Condition: ", results.solver.termination_condition)
-        if model.options.solver == 'glpk' and results.solver.termination_condition == TerminationCondition.other:
-            print("Hint: glpk has been known to classify infeasible problems as 'other'.")
+        if (
+            model.options.solver == "glpk"
+            and results.solver.termination_condition == TerminationCondition.other
+        ):
+            print(
+                "Hint: glpk has been known to classify infeasible problems as 'other'."
+            )
         raise RuntimeError("Solver failed to find an optimal solution.")
 
     # Report any warnings; these are written to stderr so users can find them in
@@ -979,6 +1174,8 @@ def solve(model):
 
 instance_number = 0
 instance_number_lock = threading.Lock()
+
+
 def make_logger(parsed_args):
     """
     Create a unique logger to attach to a model instance.
@@ -1014,34 +1211,39 @@ def retrieve_cplex_mip_duals():
     from cplex lp solver. (This could be made permanent in
     pyomo.solvers.plugins.solvers.CPLEX.create_command_line)."""
     from pyomo.solvers.plugins.solvers.CPLEX import CPLEXSHELL
+
     old_create_command_line = CPLEXSHELL.create_command_line
+
     def new_create_command_line(*args, **kwargs):
         # call original command
         command = old_create_command_line(*args, **kwargs)
         # alter script
-        if hasattr(command, 'script') and 'optimize\n' in command.script:
+        if hasattr(command, "script") and "optimize\n" in command.script:
             command.script = command.script.replace(
-                'optimize\n',
-                'optimize\nchange problem fix\noptimize\n'
+                "optimize\n",
+                "optimize\nchange problem fix\noptimize\n"
                 # see http://www-01.ibm.com/support/docview.wss?uid=swg21399941
                 # and http://www-01.ibm.com/support/docview.wss?uid=swg21400009
             )
             print("changed CPLEX solve script to the following:")
             print(command.script)
         else:
-            print (
+            print(
                 "Unable to patch CPLEX solver script to retrieve duals "
                 "for MIP problems"
             )
         return command
+
     new_create_command_line.is_patched = True
-    if not getattr(CPLEXSHELL.create_command_line, 'is_patched', False):
+    if not getattr(CPLEXSHELL.create_command_line, "is_patched", False):
         CPLEXSHELL.create_command_line = new_create_command_line
 
 
 # taken from https://software.sandia.gov/trac/pyomo/browser/pyomo/trunk/pyomo/opt/base/solvers.py?rev=10784
 # This can be removed when all users are on Pyomo 4.2
 import pyutilib
+
+
 def _options_string_to_dict(istr):
     ans = {}
     istr = istr.strip()
@@ -1049,18 +1251,20 @@ def _options_string_to_dict(istr):
         return ans
     if istr[0] == "'" or istr[0] == '"':
         istr = eval(istr)
-    tokens = pyutilib.misc.quote_split('[ ]+',istr)
+    tokens = pyutilib.misc.quote_split("[ ]+", istr)
     for token in tokens:
-        index = token.find('=')
+        index = token.find("=")
         if index is -1:
             raise ValueError(
-                "Solver options must have the form option=value: '{}'".format(istr))
+                "Solver options must have the form option=value: '{}'".format(istr)
+            )
         try:
-            val = eval(token[(index+1):])
+            val = eval(token[(index + 1) :])
         except:
-            val = token[(index+1):]
+            val = token[(index + 1) :]
         ans[token[:index]] = val
     return ans
+
 
 def save_results(instance, outdir):
     """
@@ -1073,11 +1277,10 @@ def save_results(instance, outdir):
     # First, save the full solution data to the results object, because recent
     # versions of Pyomo only store execution metadata there by default.
     instance.solutions.store_to(instance.last_results)
-    with open(os.path.join(outdir, 'results.pickle'), 'wb') as fh:
+    with open(os.path.join(outdir, "results.pickle"), "wb") as fh:
         pickle.dump(instance.last_results, fh, protocol=-1)
     # remove the solution from the results object, to minimize long-term memory use
     instance.last_results.solution.clear()
-
 
 
 def query_yes_no(question, default="yes"):
@@ -1090,8 +1293,7 @@ def query_yes_no(question, default="yes"):
 
     The "answer" return value is True for "yes" or False for "no".
     """
-    valid = {"yes": True, "y": True, "ye": True,
-             "no": False, "n": False}
+    valid = {"yes": True, "y": True, "ye": True, "no": False, "n": False}
     if default is None:
         prompt = " [y/n] "
     elif default == "yes":
@@ -1104,43 +1306,43 @@ def query_yes_no(question, default="yes"):
     while True:
         sys.stdout.write(question + prompt)
         choice = input().lower()
-        if default is not None and choice == '':
+        if default is not None and choice == "":
             return valid[default]
         elif choice in valid:
             return valid[choice]
         else:
-            sys.stdout.write("Please respond with 'yes' or 'no' "
-                             "(or 'y' or 'n').\n")
+            sys.stdout.write("Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n")
+
 
 def report_model_in_traceback(tb):
     """
     Report on location of model in current traceback, if one can be found easily.
     """
     import traceback
+
     for level, (frame, line) in enumerate(reversed(list(traceback.walk_tb(tb)))):
-        file_loc = '{}, line {}'.format(frame.f_code.co_filename, line)
+        file_loc = "{}, line {}".format(frame.f_code.co_filename, line)
         if level == 0:
-            location = 'in the current frame'
+            location = "in the current frame"
         elif level == 1:
-            location = 'in\n{}\n(1 level up)'.format(file_loc)
+            location = "in\n{}\n(1 level up)".format(file_loc)
         else:
-            location = 'in\n{}\n({} levels up)'.format(file_loc, level)
+            location = "in\n{}\n({} levels up)".format(file_loc, level)
         vars = frame.f_locals
         for name, v in vars.items():
             if isinstance(v, Model):
                 print(
-                    "\nA model can be found in variable '{}' {}"
-                    .format(name, location)
+                    "\nA model can be found in variable '{}' {}".format(name, location)
                 )
                 return
         for name, v in vars.items():
-            if isinstance(v, Component) and hasattr(v, 'model'):
+            if isinstance(v, Component) and hasattr(v, "model"):
                 print(
-                    "\nA model can be found in '{}.model()' {}"
-                    .format(name, location)
+                    "\nA model can be found in '{}.model()' {}".format(name, location)
                 )
                 return
     print("\nNo Pyomo model was found in the current stack trace.")
+
 
 ###############
 

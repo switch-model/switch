@@ -13,8 +13,10 @@ import time
 
 # See psip_2016_12 and heco_outlook_2020_06 for documentation of general structure
 
+
 def TODO(note):
     raise NotImplementedError(dedent(note).strip())
+
 
 def NOTE(note):
     print("=" * 80)
@@ -24,35 +26,67 @@ def NOTE(note):
     print()
     # time.sleep(2)
 
-def define_arguments(argparser):
-    argparser.add_argument('--psip-force', action='store_true', default=False,
-        help="Force following of PSIP plans (building exact amounts of certain technologies).")
-    argparser.add_argument('--psip-relax', dest='psip_force', action='store_false',
-        help="Relax PSIP plans, to find a more optimal strategy.")
-    argparser.add_argument('--psip-minimal-renewables', action='store_true', default=False,
-        help="Use only the amount of renewables shown in PSIP plans, and no more (should be combined with --psip-relax).")
-    argparser.add_argument('--force-build', nargs=3, default=None,
-        help="Force construction of at least a certain quantity of a particular technology during certain years. Space-separated list of year, technology and quantity.")
-    argparser.add_argument('--psip-relax-after', type=float, default=None,
-        help="Follow the PSIP plan up to and including the specified year, then optimize construction in later years. Should be combined with --psip-force.")
 
-    argparser.add_argument('--psip-allow-more-solar-2025', action='store_true', default=False,
-        help="Treat 2025 target for LargePV as lower limit, not exact target.")
-    argparser.add_argument('--psip-no-additional-onshore-wind', action='store_true', default=False,
-        help="Don't allow construction of any onshore wind beyond the current plan.")
+def define_arguments(argparser):
+    argparser.add_argument(
+        "--psip-force",
+        action="store_true",
+        default=False,
+        help="Force following of PSIP plans (building exact amounts of certain technologies).",
+    )
+    argparser.add_argument(
+        "--psip-relax",
+        dest="psip_force",
+        action="store_false",
+        help="Relax PSIP plans, to find a more optimal strategy.",
+    )
+    argparser.add_argument(
+        "--psip-minimal-renewables",
+        action="store_true",
+        default=False,
+        help="Use only the amount of renewables shown in PSIP plans, and no more (should be combined with --psip-relax).",
+    )
+    argparser.add_argument(
+        "--force-build",
+        nargs=3,
+        default=None,
+        help="Force construction of at least a certain quantity of a particular technology during certain years. Space-separated list of year, technology and quantity.",
+    )
+    argparser.add_argument(
+        "--psip-relax-after",
+        type=float,
+        default=None,
+        help="Follow the PSIP plan up to and including the specified year, then optimize construction in later years. Should be combined with --psip-force.",
+    )
+
+    argparser.add_argument(
+        "--psip-allow-more-solar-2025",
+        action="store_true",
+        default=False,
+        help="Treat 2025 target for LargePV as lower limit, not exact target.",
+    )
+    argparser.add_argument(
+        "--psip-no-additional-onshore-wind",
+        action="store_true",
+        default=False,
+        help="Don't allow construction of any onshore wind beyond the current plan.",
+    )
 
 
 def is_renewable(tech):
     return any(txt in tech for txt in ("PV", "Wind", "Solar"))
+
+
 def is_battery(tech):
-    return 'battery' in tech.lower()
+    return "battery" in tech.lower()
+
 
 def define_components(m):
 
     # decide whether to enforce the PSIP preferred plan
     # if an environment variable is set, that takes precedence
     # (e.g., on a cluster to override options.txt)
-    psip_env_var = os.environ.get('USE_PSIP_PLAN')
+    psip_env_var = os.environ.get("USE_PSIP_PLAN")
     if psip_env_var is None:
         # no environment variable; use the --psip-relax flag
         psip = m.options.psip_force
@@ -61,91 +95,94 @@ def define_components(m):
     elif psip_env_var.lower() in ["0", "false", "n", "no", "off"]:
         psip = False
     else:
-        raise ValueError('Unrecognized value for environment variable USE_PSIP_PLAN={} (should be 0 or 1)'.format(psip_env_var))
+        raise ValueError(
+            "Unrecognized value for environment variable USE_PSIP_PLAN={} (should be 0 or 1)".format(
+                psip_env_var
+            )
+        )
 
     if m.options.verbose:
         if psip:
             print("Using PSIP construction plan.")
         else:
-            print("Relaxing PSIP construction plan (optimizing around forecasted adoption).")
+            print(
+                "Relaxing PSIP construction plan (optimizing around forecasted adoption)."
+            )
 
     # make sure LNG is turned off
     if (
         psip
-        and 'LNG' in m.FUELS
+        and "LNG" in m.FUELS
         and getattr(m.options, "force_lng_tier", []) != ["none"]
     ):
         raise RuntimeError(
-            'To match the PSIP with LNG available, you must use the lng_conversion '
+            "To match the PSIP with LNG available, you must use the lng_conversion "
             'module and set "--force-lng-tier none".'
         )
 
     tech_group_targets_definite = [
         # HECO seems to have left Pearl City Peninsula Solar Park out of their plan
         # (they call it "other solar"), so we cancel it out here
-        (2020, 'LargePV', -1, 'missing Pearl City Solar'),
-
+        (2020, "LargePV", -1, "missing Pearl City Solar"),
         # HECO March 2020 forecast
         # /s/data/Generator Info/HECO Dist PV Forecast 2018-03-17.xlsx
-
         # We assume all DistPV and DistBattery are used efficiently/optimally,
         # i.e., we do not attempt to model non-optimal pairing of DistPV with
         # DistBattery or curtailment on self-supply tariffs.
-        (2020, 'DistPV', 0, 'DER forecast'),
-        (2021, 'DistPV', 0, 'DER forecast'),
-        (2022, 'DistPV', 15.3, 'DER forecast'),
-        (2023, 'DistPV', 0, 'DER forecast'),
-        (2024, 'DistPV', 29.5, 'DER forecast'),
-        (2025, 'DistPV', 22.9, 'DER forecast'),
-        (2026, 'DistPV', 19.1, 'DER forecast'),
-        (2027, 'DistPV', 23.1, 'DER forecast'),
-        (2028, 'DistPV', 24.4, 'DER forecast'),
-        (2029, 'DistPV', 25.8, 'DER forecast'),
-        (2030, 'DistPV', 27.3, 'DER forecast'),
-        (2031, 'DistPV', 28.4, 'DER forecast'),
-        (2032, 'DistPV', 29.7, 'DER forecast'),
-        (2033, 'DistPV', 30.5, 'DER forecast'),
-        (2034, 'DistPV', 31.3, 'DER forecast'),
-        (2035, 'DistPV', 32.2, 'DER forecast'),
-        (2036, 'DistPV', 32.5, 'DER forecast'),
-        (2037, 'DistPV', 32.9, 'DER forecast'),
-        (2038, 'DistPV', 33.3, 'DER forecast'),
-        (2039, 'DistPV', 32.7, 'DER forecast'),
-        (2040, 'DistPV', 33.2, 'DER forecast'),
-        (2041, 'DistPV', 33, 'DER forecast'),
-        (2042, 'DistPV', 33.1, 'DER forecast'),
-        (2043, 'DistPV', 33.3, 'DER forecast'),
-        (2044, 'DistPV', 33.5, 'DER forecast'),
-        (2045, 'DistPV', 33.3, 'DER forecast'),
+        (2020, "DistPV", 0, "DER forecast"),
+        (2021, "DistPV", 0, "DER forecast"),
+        (2022, "DistPV", 15.3, "DER forecast"),
+        (2023, "DistPV", 0, "DER forecast"),
+        (2024, "DistPV", 29.5, "DER forecast"),
+        (2025, "DistPV", 22.9, "DER forecast"),
+        (2026, "DistPV", 19.1, "DER forecast"),
+        (2027, "DistPV", 23.1, "DER forecast"),
+        (2028, "DistPV", 24.4, "DER forecast"),
+        (2029, "DistPV", 25.8, "DER forecast"),
+        (2030, "DistPV", 27.3, "DER forecast"),
+        (2031, "DistPV", 28.4, "DER forecast"),
+        (2032, "DistPV", 29.7, "DER forecast"),
+        (2033, "DistPV", 30.5, "DER forecast"),
+        (2034, "DistPV", 31.3, "DER forecast"),
+        (2035, "DistPV", 32.2, "DER forecast"),
+        (2036, "DistPV", 32.5, "DER forecast"),
+        (2037, "DistPV", 32.9, "DER forecast"),
+        (2038, "DistPV", 33.3, "DER forecast"),
+        (2039, "DistPV", 32.7, "DER forecast"),
+        (2040, "DistPV", 33.2, "DER forecast"),
+        (2041, "DistPV", 33, "DER forecast"),
+        (2042, "DistPV", 33.1, "DER forecast"),
+        (2043, "DistPV", 33.3, "DER forecast"),
+        (2044, "DistPV", 33.5, "DER forecast"),
+        (2045, "DistPV", 33.3, "DER forecast"),
         # note: HECO provides a MWh forecast; we assume inverters are large
         # enough to charge in 4h
-        (2020, 'DistBattery', (240.85, 4), 'DER forecast'),
-        (2021, 'DistBattery', (0, 4), 'DER forecast'),
-        (2022, 'DistBattery', (18.1, 4), 'DER forecast'),
-        (2023, 'DistBattery', (0, 4), 'DER forecast'),
-        (2024, 'DistBattery', (13.675, 4), 'DER forecast'),
-        (2025, 'DistBattery', (11.625, 4), 'DER forecast'),
-        (2026, 'DistBattery', (7.7, 4), 'DER forecast'),
-        (2027, 'DistBattery', (9.1, 4), 'DER forecast'),
-        (2028, 'DistBattery', (10.325, 4), 'DER forecast'),
-        (2029, 'DistBattery', (10.15, 4), 'DER forecast'),
-        (2030, 'DistBattery', (11.425, 4), 'DER forecast'),
-        (2031, 'DistBattery', (12.325, 4), 'DER forecast'),
-        (2032, 'DistBattery', (12.825, 4), 'DER forecast'),
-        (2033, 'DistBattery', (12.5, 4), 'DER forecast'),
-        (2034, 'DistBattery', (13.325, 4), 'DER forecast'),
-        (2035, 'DistBattery', (13.875, 4), 'DER forecast'),
-        (2036, 'DistBattery', (14.175, 4), 'DER forecast'),
-        (2037, 'DistBattery', (13.25, 4), 'DER forecast'),
-        (2038, 'DistBattery', (14.275, 4), 'DER forecast'),
-        (2039, 'DistBattery', (14.4, 4), 'DER forecast'),
-        (2040, 'DistBattery', (13.925, 4), 'DER forecast'),
-        (2041, 'DistBattery', (13.325, 4), 'DER forecast'),
-        (2042, 'DistBattery', (13.825, 4), 'DER forecast'),
-        (2043, 'DistBattery', (14.475, 4), 'DER forecast'),
-        (2044, 'DistBattery', (13.725, 4), 'DER forecast'),
-        (2045, 'DistBattery', (13.075, 4), 'DER forecast'),
-
+        (2020, "DistBattery", (240.85, 4), "DER forecast"),
+        (2021, "DistBattery", (0, 4), "DER forecast"),
+        (2022, "DistBattery", (18.1, 4), "DER forecast"),
+        (2023, "DistBattery", (0, 4), "DER forecast"),
+        (2024, "DistBattery", (13.675, 4), "DER forecast"),
+        (2025, "DistBattery", (11.625, 4), "DER forecast"),
+        (2026, "DistBattery", (7.7, 4), "DER forecast"),
+        (2027, "DistBattery", (9.1, 4), "DER forecast"),
+        (2028, "DistBattery", (10.325, 4), "DER forecast"),
+        (2029, "DistBattery", (10.15, 4), "DER forecast"),
+        (2030, "DistBattery", (11.425, 4), "DER forecast"),
+        (2031, "DistBattery", (12.325, 4), "DER forecast"),
+        (2032, "DistBattery", (12.825, 4), "DER forecast"),
+        (2033, "DistBattery", (12.5, 4), "DER forecast"),
+        (2034, "DistBattery", (13.325, 4), "DER forecast"),
+        (2035, "DistBattery", (13.875, 4), "DER forecast"),
+        (2036, "DistBattery", (14.175, 4), "DER forecast"),
+        (2037, "DistBattery", (13.25, 4), "DER forecast"),
+        (2038, "DistBattery", (14.275, 4), "DER forecast"),
+        (2039, "DistBattery", (14.4, 4), "DER forecast"),
+        (2040, "DistBattery", (13.925, 4), "DER forecast"),
+        (2041, "DistBattery", (13.325, 4), "DER forecast"),
+        (2042, "DistBattery", (13.825, 4), "DER forecast"),
+        (2043, "DistBattery", (14.475, 4), "DER forecast"),
+        (2044, "DistBattery", (13.725, 4), "DER forecast"),
+        (2045, "DistBattery", (13.075, 4), "DER forecast"),
         # HECO feed-in tariff (FIT) projects under construction as of 10/22/19, from
         # https://www.hawaiianelectric.com/clean-energy-hawaii/our-clean-energy-portfolio/renewable-project-status-board
         # NOTE: PSIP Figure J-10 says these are in addition to the customer DGPV
@@ -158,22 +195,24 @@ def define_components(m):
         # existing projects because (a) they don't reduce available roof
         # inventory and (b) counting them as existing but built in 2020 would
         # block construction of additional large PV in 2020.
-        (2021, 'LargePV', 5, 'Aloha Solar II'), # Aloha Solar Energy Fund II, online 4/2/20
-        (2021, 'LargePV', 3.5, 'Mauka FIT 1'), # Mauka FIT 1
-
+        (
+            2021,
+            "LargePV",
+            5,
+            "Aloha Solar II",
+        ),  # Aloha Solar Energy Fund II, online 4/2/20
+        (2021, "LargePV", 3.5, "Mauka FIT 1"),  # Mauka FIT 1
         # note: Mauka FIT 1 and Na Pua Makani (below) are scheduled to come online
         # in 2020, but they are not online yet as of 6/4/2020, so we model them
         # as starting 1/1/2021.
-
         # Na Pua Makani (NPM) wind
         # 2018/24 MW in PSIP, but still under construction in late 2019;
         # Reported as 24 MW to be online in 2020 in
         # https://www.hawaiianelectric.com/clean-energy-hawaii/our-clean-energy-portfolio/renewable-project-status-board (accessed 10/22/19)
         # Listed as 27 MW with operation beginning by summer 2020 on https://www.napuamakanihawaii.org/fact-sheet/
         # TODO: Is Na Pua Makani 24 MW or 27 MW?
-        (2020, 'OnshoreWind', 24, 'Na Pua Makani'),
+        (2020, "OnshoreWind", 24, "Na Pua Makani"),
         # PSIP 2016: (2018, 'OnshoreWind', 24),
-
         # CBRE wind and PV
         # Final order given allowing HECO to proceed with standardized contracts
         # in June 2018: https://cca.hawaii.gov/dca/files/2018/07/Order-No-35560-HECO-CBRE.pdf
@@ -197,8 +236,7 @@ def define_components(m):
         # in Q3 of 2021.". In heco_outlook_2019 we broke these up into
         # installations in 2019, 2020 and 2021, but in "HECO construction plan 2020-03-17.docx"
         # they treat them all as being installed in 2020, so we do that now.
-        (2020, 'LargePV', 5, 'CBRE Phase 1'),  # CBRE Phase 1
-
+        (2020, "LargePV", 5, "CBRE Phase 1"),  # CBRE Phase 1
         # Original CBRE program design had only 72 MW in phase 1 and 2 (leaving
         # 64 MW for phase 2), but HECO suggested increasing this to 235 MW over
         # 5 years. HECO said this was because of projected shortfalls in DER
@@ -214,9 +252,7 @@ def define_components(m):
         # In this version, we switch to 43.5 in 2025, as shown in "HECO construction plan 2020-03-17.docx"
         # This is in addition to RFPs noted below.
         # (2025, 'LargePV', 43.5),  # CBRE Phase 2
-
-        (2025, 'LargePV', 43.5, 'CBRE phase 2'),
-
+        (2025, "LargePV", 43.5, "CBRE phase 2"),
         # 2018-2019 RFPs (docket 2017-0352)
         # These replace large PV and bulk batteries reported in PSIP for 2020 and 2022.
         # TODO: maybe move these to existing plants tables
@@ -231,7 +267,6 @@ def define_components(m):
         # -- https://dms.puc.hawaii.gov/dms/DocumentViewer?pid=A1001001A19H21B03929E00301
         # -- https://www.hawaiianelectric.com/puc-approves-grid-scale-solar-project-in-west-oahu
         # As of 10/22/19, 8th project, 15 MW/60 MWh solar+storage on Maui, is still under review (docket 2018-0433)
-
         # Status of all approved projects and in-service data are listed at
         # https://www.hawaiianelectric.com/clean-energy-hawaii/our-clean-energy-portfolio/renewable-project-status-board
         # They are also shown in "HECO construction plan 2020-03-17.docx".
@@ -244,34 +279,30 @@ def define_components(m):
         # Clay (Ulupono) recommended they counting them as coming online at
         # start of 2022, not end. Taking account of all this, we set them all
         # to start in 2022.
-        (2021, 'LargePV', 12.5, 'RFP stage 1'), # AES West Oahu Solar
-        (2022, 'LargePV', 52, 'RFP stage 1'), # Hoohana Solar 1
-        (2022, 'LargePV', 39, 'RFP stage 1'), # Mililani I Solar
-        (2022, 'LargePV', 36, 'RFP stage 1'), # Waiawa Solar
+        (2021, "LargePV", 12.5, "RFP stage 1"),  # AES West Oahu Solar
+        (2022, "LargePV", 52, "RFP stage 1"),  # Hoohana Solar 1
+        (2022, "LargePV", 39, "RFP stage 1"),  # Mililani I Solar
+        (2022, "LargePV", 36, "RFP stage 1"),  # Waiawa Solar
         # storage associated with large PV projects; we assume this will be used
         # efficiently, so we model it along with other large-scale storage.
-        (2021, 'Battery_Bulk', (12.5, 4), 'RFP stage 1'), # AES West Oahu Solar
-        (2022, 'Battery_Bulk', (52, 4), 'RFP stage 1'), # Hoohana Solar 1
-        (2022, 'Battery_Bulk', (39, 4), 'RFP stage 1'), # Mililani I Solar
-        (2022, 'Battery_Bulk', (36, 4), 'RFP stage 1'), # Waiawa Solar
-
+        (2021, "Battery_Bulk", (12.5, 4), "RFP stage 1"),  # AES West Oahu Solar
+        (2022, "Battery_Bulk", (52, 4), "RFP stage 1"),  # Hoohana Solar 1
+        (2022, "Battery_Bulk", (39, 4), "RFP stage 1"),  # Mililani I Solar
+        (2022, "Battery_Bulk", (36, 4), "RFP stage 1"),  # Waiawa Solar
         # 200 MW / 6 hour BESS in HECO Phase 2 SOP Exhibit P2 Attachment 1
-        (2022, 'Battery_Bulk', (200, 6), 'HECO plan'),
-
+        (2022, "Battery_Bulk", (200, 6), "HECO plan"),
         # Note: HECO said in "HECO construction plan 2020-03-17.docx" that RFP 2
         # would add 1,300 GWh/year in 2025; their renewable project status board
         # (10/2019-5/2020) says the same amount in 2022-25.
         # PBR Phase 2 SOP Attachment 1 says this too.
         # We think this would be 560 MW, but they think it is 594 MW (see p. 9 of Exhibit A of Dkt 2018-0088 2020-06-18 HECO Phase 2 SOP.pdf)
         # We use 594 MW, because that meshes better with the total MW reported in their plan.
-        (2025, 'LargePV', 594, 'RFP stage 2'),
-
+        (2025, "LargePV", 594, "RFP stage 2"),
         # avg. cap factor for 560 MW starting after 390 best MW have been installed
         # (existing projects + FIT + CBRE 1 + half of CBRE 2 + RFP 1) is 26.6%; see
         # "select site, max_capacity, avg(cap_factor) from cap_factor natural join project where technology = 'CentralTrackingPV' group by 1, 2 order by 3 desc;"
         # and (120*.271+247*.265+193*.264)/(120+247+193)
         # Then (1,300,000 MWh/y)/(.266 * 8766 h/y) = 558 MW
-
         # PSIP 2016-12-23 Table 4-1 included 90 MW of contingency battery in 2019
         # and https://www.hawaiianelectric.com/documents/clean_energy_hawaii/selling_power_to_the_utility/competitive_bidding/20190207_tri_company_future_procurement.pdf
         # says the 2016-12 plan was to do 70 MW contingency in 2019 and more contingency/regulation in 2020
@@ -283,23 +314,27 @@ def define_components(m):
         # (we need some forecast to avoid picking winners between large PV
         # and dist PV, and forecasting continuous increases in distpv would
         # be redundant with already adequate large-renewables)
-        (y, t, 0.0, 'late freeze')
+        (y, t, 0.0, "late freeze")
         for y in range(2046, 2060)
-        for t in ['DistPV', 'DistBattery']
+        for t in ["DistPV", "DistBattery"]
     ]
     # No new generation in early years beyond what's shown above
     # (this will also block construction of these techs in all years if the
     # --psip-force flag is set)
     tech_group_targets_definite += [
-        (y, t, 0.0, 'early freeze')
+        (y, t, 0.0, "early freeze")
         for techs, years in [
-            (('OnshoreWind', 'OffshoreWind', 'LargePV'), range(2020, 2025+1)),
+            (("OnshoreWind", "OffshoreWind", "LargePV"), range(2020, 2025 + 1)),
             (
                 (
-                    'IC_Barge', 'IC_MCBH', 'IC_Schofield', 'CC_152',
-                    'Battery_Conting', 'Battery_Reg'
+                    "IC_Barge",
+                    "IC_MCBH",
+                    "IC_Schofield",
+                    "CC_152",
+                    "Battery_Conting",
+                    "Battery_Reg",
                 ),
-                range(2020, 2023+1)
+                range(2020, 2023 + 1),
             ),
         ]
         for t in techs
@@ -308,8 +343,7 @@ def define_components(m):
 
     if m.options.psip_no_additional_onshore_wind:
         tech_group_targets_definite += [
-            (y, 'OnshoreWind', 0.0, 'block onshore wind')
-            for y in range(2020, 2056)
+            (y, "OnshoreWind", 0.0, "block onshore wind") for y in range(2020, 2056)
         ]
 
     # add targets specified on the command line
@@ -317,28 +351,32 @@ def define_components(m):
     if m.options.force_build is not None:
         b = list(m.options.force_build)
         build = (
-            int(b[0]),   # year
-            b[1],        # tech
+            int(b[0]),  # year
+            b[1],  # tech
             # quantity
             float(b[2]) if len(b) == 3 else (float(b[2]), float(b[3])),
-            'manual override'
+            "manual override",
         )
         print("Forcing build: {}".format(build))
         tech_group_targets_definite.append(build)
 
     # technologies proposed in "HECO construction plan 2020-03-17.docx" but which may not be built if a better plan is found.
     tech_group_targets_psip = [
-        (2026, 'CC_152', 150.586, 'HECO plan 3/17/20'),
-        (2028, 'CC_152', 150.586, 'HECO plan 3/17/20'),
-        (2030, 'Battery_Bulk', (165, 4), 'HECO plan 3/17/20'),
-        (2032, 'CC_152', 2*150.586, 'HECO plan 3/17/20'),
-        (2035, 'Battery_Bulk', (168, 4), 'HECO plan 3/17/20'),
-        (2040, 'LargePV', 280, 'HECO plan 3/17/20'),
-        (2040, 'Battery_Bulk', (420, 4), 'HECO plan 3/17/20'),
-        (2045, 'LargePV', 1180, 'HECO plan 3/17/20'),
-        (2045, 'Battery_Bulk', (1525, 4), 'HECO plan 3/17/20'),
-        (2045, 'IC_Barge', 4*16.786392, 'HECO plan 3/17/20'), # proxy for 4*17 MW of generic ICE capacity
-
+        (2026, "CC_152", 150.586, "HECO plan 3/17/20"),
+        (2028, "CC_152", 150.586, "HECO plan 3/17/20"),
+        (2030, "Battery_Bulk", (165, 4), "HECO plan 3/17/20"),
+        (2032, "CC_152", 2 * 150.586, "HECO plan 3/17/20"),
+        (2035, "Battery_Bulk", (168, 4), "HECO plan 3/17/20"),
+        (2040, "LargePV", 280, "HECO plan 3/17/20"),
+        (2040, "Battery_Bulk", (420, 4), "HECO plan 3/17/20"),
+        (2045, "LargePV", 1180, "HECO plan 3/17/20"),
+        (2045, "Battery_Bulk", (1525, 4), "HECO plan 3/17/20"),
+        (
+            2045,
+            "IC_Barge",
+            4 * 16.786392,
+            "HECO plan 3/17/20",
+        ),  # proxy for 4*17 MW of generic ICE capacity
         # RESOLVE modeled 4-hour batteries as being capable of providing reserves,
         # and didn't model contingency batteries (see data/HECO Plans/PSIP-WebDAV/2017-01-31 Response to Parties IRs/CA-IR-1/Input
         # and Output Files by Case/E3 and Company Defined Cases/Market DGPV (Reference)/OA_NOLNG/technologies.tab).
@@ -359,7 +397,9 @@ def define_components(m):
         if m.options.psip_relax_after is not None:
             # NOTE: this could be moved later, if we want this flag to relax
             # both the definite and psip targets
-            psip_targets = [t for t in tech_group_targets_psip if t[0] <= m.options.psip_relax_after]
+            psip_targets = [
+                t for t in tech_group_targets_psip if t[0] <= m.options.psip_relax_after
+            ]
         else:
             psip_targets = tech_group_targets_psip.copy()
         tech_group_targets = tech_group_targets_definite + psip_targets
@@ -371,13 +411,12 @@ def define_components(m):
     # Show which technologies can contribute to the target for each technology
     # group and which group each technology contributes to
     techs_for_tech_group = {
-        'DistPV': ['DistPV', 'SlopedDistPV', 'FlatDistPV'],
-        'LargePV': ['CentralTrackingPV', 'CentralFixedPV'],
+        "DistPV": ["DistPV", "SlopedDistPV", "FlatDistPV"],
+        "LargePV": ["CentralTrackingPV", "CentralFixedPV"],
     }
     # use the rest as-is
-    missing_techs = (
-        {t for y, t, s, l in tech_group_targets}
-        .difference(techs_for_tech_group.keys())
+    missing_techs = {t for y, t, s, l in tech_group_targets}.difference(
+        techs_for_tech_group.keys()
     )
     techs_for_tech_group.update({t: [t] for t in missing_techs})
     # create a reverse mapping
@@ -404,25 +443,32 @@ def define_components(m):
     # show max battery capacity equal to sum of all prior additions
 
     # m = lambda: 3; m.options = m; m.options.inputs_dir = '/Users/matthias/Dropbox/Research/Ulupono/Enovation Model/pbr_scenario/inputs'
-    gen_info = pd.read_csv(os.path.join(m.options.inputs_dir, 'generation_projects_info.csv'))
-    gen_info['tech_group'] = gen_info['gen_tech'].map(tech_tech_group)
-    gen_info = gen_info[gen_info['tech_group'].notna()]
+    gen_info = pd.read_csv(
+        os.path.join(m.options.inputs_dir, "generation_projects_info.csv")
+    )
+    gen_info["tech_group"] = gen_info["gen_tech"].map(tech_tech_group)
+    gen_info = gen_info[gen_info["tech_group"].notna()]
     # existing technologies are also subject to rebuilding
     existing_techs = (
-        pd.read_csv(os.path.join(m.options.inputs_dir, 'gen_build_predetermined.csv'))
-        .merge(gen_info, how='inner')
-        .groupby(['build_year', 'tech_group'])['gen_predetermined_cap'].sum()
+        pd.read_csv(os.path.join(m.options.inputs_dir, "gen_build_predetermined.csv"))
+        .merge(gen_info, how="inner")
+        .groupby(["build_year", "tech_group"])["gen_predetermined_cap"]
+        .sum()
         .reset_index()
     )
-    assert not any(is_battery(t) for i, y, t, q in existing_techs.itertuples()), "Must update {} to handle pre-existing batteries.".format(__name__)
-    ages = gen_info.groupby('tech_group')['gen_max_age'].agg(['min', 'max', 'mean'])
-    assert all(ages['min'] == ages['max']), "Some psip technologies have mixed ages."
-    last_period = pd.read_csv(os.path.join(m.options.inputs_dir, 'periods.csv')).iloc[-1, 0]
+    assert not any(
+        is_battery(t) for i, y, t, q in existing_techs.itertuples()
+    ), "Must update {} to handle pre-existing batteries.".format(__name__)
+    ages = gen_info.groupby("tech_group")["gen_max_age"].agg(["min", "max", "mean"])
+    assert all(ages["min"] == ages["max"]), "Some psip technologies have mixed ages."
+    last_period = pd.read_csv(os.path.join(m.options.inputs_dir, "periods.csv")).iloc[
+        -1, 0
+    ]
 
     # rebuild all renewables and batteries in place before the start of the study,
     # plus any technologies with targets specified here
     rebuildable_targets = [
-        (y, t, q, 'existing')
+        (y, t, q, "existing")
         for i, y, t, q in existing_techs.itertuples()
         if is_renewable(t) or is_battery(t)
     ] + tech_group_targets
@@ -430,15 +476,16 @@ def define_components(m):
     for build_year, tech_group, cap, label in rebuildable_targets:
         if tech_group not in ages.index:
             raise ValueError(
-                'A target has been specified for {} but there are no matching '
-                'technologies in generation_projects_info.csv.'
-                .format(tech_group)
+                "A target has been specified for {} but there are no matching "
+                "technologies in generation_projects_info.csv.".format(tech_group)
             )
-        max_age = ages.loc[tech_group, 'mean']
+        max_age = ages.loc[tech_group, "mean"]
         tech_life[tech_group] = max_age
         rebuild_year = build_year + max_age
         while rebuild_year <= last_period:
-            tech_group_targets.append((rebuild_year, tech_group, cap, 'rebuild '+label))
+            tech_group_targets.append(
+                (rebuild_year, tech_group, cap, "rebuild " + label)
+            )
             rebuild_year += max_age
     del gen_info, existing_techs, ages, rebuildable_targets
 
@@ -448,19 +495,21 @@ def define_components(m):
         for y, t, q, l in tech_group_targets
     ]
     tech_group_energy_targets = [
-        (int(y), t, float(q[0]*q[1]), l)
-        for y, t, q, l in tech_group_targets if type(q) is tuple
+        (int(y), t, float(q[0] * q[1]), l)
+        for y, t, q, l in tech_group_targets
+        if type(q) is tuple
     ]
 
     m.FORECASTED_TECH_GROUPS = Set(initialize=techs_for_tech_group.keys())
-    m.FORECASTED_TECH_GROUP_TECHS = Set(m.FORECASTED_TECH_GROUPS, initialize=techs_for_tech_group)
+    m.FORECASTED_TECH_GROUP_TECHS = Set(
+        m.FORECASTED_TECH_GROUPS, initialize=techs_for_tech_group
+    )
     m.FORECASTED_TECHS = Set(initialize=tech_tech_group.keys())
     m.tech_tech_group = Param(m.FORECASTED_TECHS, initialize=tech_tech_group)
 
     # make a list of renewable technologies
     m.RENEWABLE_TECH_GROUPS = Set(
-        initialize=m.FORECASTED_TECH_GROUPS,
-        filter=lambda m, tg: is_renewable(tg)
+        initialize=m.FORECASTED_TECH_GROUPS, filter=lambda m, tg: is_renewable(tg)
     )
 
     def tech_group_target(m, per, tech, targets):
@@ -470,20 +519,28 @@ def define_components(m):
         start = 0 if per == m.PERIODS.first() else m.PERIODS.prev(per)
         end = per
         target = sum(
-            q for (tyear, ttech, q, l) in targets
+            q
+            for (tyear, ttech, q, l) in targets
             if ttech == tech
-                and start < tyear and tyear <= end
-                and tyear + tech_life[ttech] > end
+            and start < tyear
+            and tyear <= end
+            and tyear + tech_life[ttech] > end
         )
         return target
 
     def rule(m, per, tech):
         return tech_group_target(m, per, tech, tech_group_power_targets)
-    m.tech_group_power_target = Param(m.PERIODS, m.FORECASTED_TECH_GROUPS, initialize=rule)
+
+    m.tech_group_power_target = Param(
+        m.PERIODS, m.FORECASTED_TECH_GROUPS, initialize=rule
+    )
 
     def rule(m, per, tech):
         return tech_group_target(m, per, tech, tech_group_energy_targets)
-    m.tech_group_energy_target = Param(m.PERIODS, m.FORECASTED_TECH_GROUPS, initialize=rule)
+
+    m.tech_group_energy_target = Param(
+        m.PERIODS, m.FORECASTED_TECH_GROUPS, initialize=rule
+    )
 
     def MakeTechGroupDicts_rule(m):
         # get unit sizes of all technologies
@@ -494,7 +551,9 @@ def define_components(m):
                 tech_group = m.tech_tech_group[tech]
                 if tech_group in unit_sizes:
                     if unit_sizes[tech_group] != unit_size:
-                        raise ValueError("Generation technology {} uses different unit sizes for different projects.")
+                        raise ValueError(
+                            "Generation technology {} uses different unit sizes for different projects."
+                        )
                 else:
                     unit_sizes[tech_group] = unit_size
         # get predetermined capacity for all technologies
@@ -516,8 +575,11 @@ def define_components(m):
                 # a way to provide predetermined power and energy params, so we
                 # watch out for that here.
                 if m.gen_storage_energy_to_power_ratio[g] == float("inf"):
-                    TODO("Need to lookup predetermined energy capacity for storage technologies.")
+                    TODO(
+                        "Need to lookup predetermined energy capacity for storage technologies."
+                    )
                     # m.tech_group_predetermined_energy_cap_dict[tech_group, per] += <predetermined energy cap>
+
     m.MakeTechGroupDicts = BuildAction(rule=MakeTechGroupDicts_rule)
 
     # Find last date for which a definite target was specified for each tech group.
@@ -533,15 +595,20 @@ def define_components(m):
 
     # Save targets and group definitions for future reference
     import json
+
     os.makedirs(m.options.outputs_dir, exist_ok=True)  # avoid errors with new dir
-    with open(os.path.join(m.options.outputs_dir, 'heco_outlook.json'), 'w') as f:
-        json.dump({
-            'tech_group_power_targets': tech_group_power_targets,
-            'tech_group_energy_targets': tech_group_energy_targets,
-            'techs_for_tech_group': techs_for_tech_group,
-            'tech_tech_group': tech_tech_group,
-            'last_definite_target': last_definite_target,
-        }, f, indent=4)
+    with open(os.path.join(m.options.outputs_dir, "heco_outlook.json"), "w") as f:
+        json.dump(
+            {
+                "tech_group_power_targets": tech_group_power_targets,
+                "tech_group_energy_targets": tech_group_energy_targets,
+                "techs_for_tech_group": techs_for_tech_group,
+                "tech_tech_group": tech_tech_group,
+                "last_definite_target": last_definite_target,
+            },
+            f,
+            indent=4,
+        )
 
     # def build_tech_group_in_period(m, tech_group, period):
     #     """
@@ -596,8 +663,8 @@ def define_components(m):
             build_var[g, per]
             for g in m.GENERATION_PROJECTS
             if m.gen_tech[g] in m.FORECASTED_TECHS
-                and m.tech_tech_group[m.gen_tech[g]] == tech_group
-                and (g, per) in build_var
+            and m.tech_tech_group[m.gen_tech[g]] == tech_group
+            and (g, per) in build_var
         )
 
         if build is 0:
@@ -606,46 +673,59 @@ def define_components(m):
                 return Constraint.Skip
             else:
                 raise ValueError(
-                    "Target was set for {} in {}, but no matching projects are available."
-                    .format(tech_group, per)
+                    "Target was set for {} in {}, but no matching projects are available.".format(
+                        tech_group, per
+                    )
                 )
 
-        if psip and (m.options.psip_relax_after is None or per <= m.options.psip_relax_after):
+        if psip and (
+            m.options.psip_relax_after is None or per <= m.options.psip_relax_after
+        ):
             # PSIP in effect: exactly match the target (possibly zero)
-            return (build == target)
+            return build == target
         elif per <= last_definite_target.get(tech_group, 0):
             # PSIP not in effect, but a definite target is
-            return (build == target)
-        elif m.options.psip_minimal_renewables and tech_group in m.RENEWABLE_TECH_GROUPS:
+            return build == target
+        elif (
+            m.options.psip_minimal_renewables and tech_group in m.RENEWABLE_TECH_GROUPS
+        ):
             # Only build the specified amount of renewables, no more.
             # This is used to apply the definite targets, but otherwise minimize renewable development.
-            return (build == target)
+            return build == target
         else:
             # treat the target as a lower bound
-            return (build >= target)
+            return build >= target
 
     def rule(m, per, tech_group):
         # get target, including any capacity specified in the predetermined builds,
         # so the target will be additional to those
-        target = m.tech_group_power_target[per, tech_group] + m.tech_group_predetermined_power_cap_dict[tech_group, per]
+        target = (
+            m.tech_group_power_target[per, tech_group]
+            + m.tech_group_predetermined_power_cap_dict[tech_group, per]
+        )
         return tech_group_target_rule(m, per, tech_group, m.BuildGen, target)
+
     m.Enforce_Tech_Group_Power_Target = Constraint(
         m.PERIODS, m.FORECASTED_TECH_GROUPS, rule=rule
     )
+
     def rule(m, per, tech_group):
         # get target, including any capacity specified in the predetermined builds,
         # so the target will be additional to those
-        target = m.tech_group_energy_target[per, tech_group] + m.tech_group_predetermined_energy_cap_dict[tech_group, per]
+        target = (
+            m.tech_group_energy_target[per, tech_group]
+            + m.tech_group_predetermined_energy_cap_dict[tech_group, per]
+        )
         return tech_group_target_rule(m, per, tech_group, m.BuildStorageEnergy, target)
+
     m.Enforce_Tech_Group_Energy_Target = Constraint(
         m.PERIODS, m.FORECASTED_TECH_GROUPS, rule=rule
     )
 
     if psip:
+
         def rule(m):
-            buildable_techs = set(
-                m.gen_tech[g] for (g, y) in m.NEW_GEN_BLD_YRS
-            )
+            buildable_techs = set(m.gen_tech[g] for (g, y) in m.NEW_GEN_BLD_YRS)
             if buildable_techs - set(m.FORECASTED_TECHS):
                 # TODO: automatically add zero-targets
                 m.logger.error(
@@ -656,19 +736,29 @@ def define_components(m):
                 return False
             else:
                 return True
+
         m.Check_For_Buildable_Techs_Under_PSIP = BuildCheck(rule=rule)
 
         # don't allow construction of other technologies (e.g., pumped hydro, fuel cells)
         advanced_tech_vars = [
-            "BuildPumpedHydroMW", "BuildAnyPumpedHydro",
-            "BuildElectrolyzerMW", "BuildLiquifierKgPerHour", "BuildLiquidHydrogenTankKg",
+            "BuildPumpedHydroMW",
+            "BuildAnyPumpedHydro",
+            "BuildElectrolyzerMW",
+            "BuildLiquifierKgPerHour",
+            "BuildLiquidHydrogenTankKg",
             "BuildFuelCellMW",
         ]
+
         def no_advanced_tech_rule_factory(v):
             return lambda m, *k: (getattr(m, v)[k] == 0)
+
         for v in advanced_tech_vars:
             try:
                 var = getattr(m, v)
-                setattr(m, "PSIP_No_"+v, Constraint(var._index, rule=no_advanced_tech_rule_factory(v)))
+                setattr(
+                    m,
+                    "PSIP_No_" + v,
+                    Constraint(var._index, rule=no_advanced_tech_rule_factory(v)),
+                )
             except AttributeError:
-                pass    # model doesn't have this var
+                pass  # model doesn't have this var

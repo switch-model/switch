@@ -8,9 +8,9 @@ from switch_model.utilities import iteritems
 # use database settings from operating environment
 # (this code isn't really needed at all, but gives us a chance to override later)
 # note: password for this user should be specified in ~/.pgpass
-pghost = os.getenv('PGHOST', '')
-pgdatabase = os.getenv('PGDATABASE', '')
-pguser = os.getenv('PGUSER', '')
+pghost = os.getenv("PGHOST", "")
+pgdatabase = os.getenv("PGDATABASE", "")
+pguser = os.getenv("PGUSER", "")
 
 # TODO: switch over to Google BigQuery database
 
@@ -62,8 +62,9 @@ pguser = os.getenv('PGUSER', '')
 # NOTE: write_table() will automatically convert null values to '.',
 # so pyomo will recognize them as missing data
 
+
 def write_tables(*pos_args, **kw_args):
-    if pos_args or 'args' in kw_args:
+    if pos_args or "args" in kw_args:
         # pass arguments through
         return write_tables_implementation(*pos_args, **kw_args)
     else:
@@ -74,6 +75,7 @@ def write_tables(*pos_args, **kw_args):
         )
         # gather the arguments back into a dictionary and call correctly
         return write_tables_implementation(kw_args)
+
 
 def write_tables_implementation(args, alt_args={}, scenarios=[]):
     """
@@ -112,7 +114,7 @@ def write_tables_implementation(args, alt_args={}, scenarios=[]):
     # but it works pretty well as is.
 
     # write version marker file
-    with open(make_file_path('switch_inputs_version.txt', args), 'w') as f:
+    with open(make_file_path("switch_inputs_version.txt", args), "w") as f:
         f.write(switch_version)
 
     # write base tables
@@ -121,7 +123,7 @@ def write_tables_implementation(args, alt_args={}, scenarios=[]):
     # write alternative tables
     data_aliases = {}
     for a in alt_args:
-        data_aliases[a['tag']] = write_alternative_tables(args, a)
+        data_aliases[a["tag"]] = write_alternative_tables(args, a)
 
     # write scenarios.txt
     scenario_args = []
@@ -129,21 +131,24 @@ def write_tables_implementation(args, alt_args={}, scenarios=[]):
         active_aliases = []
         for t in data_tags:
             for orig, alias in data_aliases.get(t, []):
-                if any(a[0]==orig for a in active_aliases):
+                if any(a[0] == orig for a in active_aliases):
                     print(
-                        "WARNING: multiple aliases specified for {} in scenario {}."
-                        .format(orig, scenario_args.split(" ")[1])
+                        "WARNING: multiple aliases specified for {} in scenario {}.".format(
+                            orig, scenario_args.split(" ")[1]
+                        )
                     )
                 active_aliases.append((orig, alias))
 
         if active_aliases:
-            cmds += ' --input-alias ' if len(active_aliases)==1 else ' --input-aliases '
-            cmds += ' '.join('='.join(pair) for pair in active_aliases)
+            cmds += (
+                " --input-alias " if len(active_aliases) == 1 else " --input-aliases "
+            )
+            cmds += " ".join("=".join(pair) for pair in active_aliases)
         scenario_args.append(cmds)
 
     if scenarios:
-        with open('scenarios.txt', 'w') as f:
-            f.writelines(s + '\n' for s in scenario_args)
+        with open("scenarios.txt", "w") as f:
+            f.writelines(s + "\n" for s in scenario_args)
 
 
 def write_base_tables(args):
@@ -160,7 +165,7 @@ def write_alternative_tables(base_args, alt_args):
     alt_queries = dict(get_queries(full_alt_args))
     # get location for files created by alt_args, relative to files created by base_args
     alt_relative_path = os.path.relpath(
-        make_file_path('.', full_alt_args), start=make_file_path('.', base_args)
+        make_file_path(".", full_alt_args), start=make_file_path(".", base_args)
     )
     # find differences and run alt queries
     aliases = []
@@ -168,10 +173,10 @@ def write_alternative_tables(base_args, alt_args):
         if table not in base_queries or query != base_queries[table]:
             # new or altered table
             # specify name and location relative to base_args inputs directory
-            if alt_relative_path == '.':
+            if alt_relative_path == ".":
                 # file going in same directory as base file; give it a new name
                 table_base, table_ext = os.path.splitext(table)
-                new_table = table_base + '.' + full_alt_args['tag'] + table_ext
+                new_table = table_base + "." + full_alt_args["tag"] + table_ext
             else:
                 new_table = os.path.join(alt_relative_path, table)
             write_table(make_file_path(new_table, base_args), query)
@@ -181,9 +186,7 @@ def write_alternative_tables(base_args, alt_args):
             # file.csv, resulting in inputs/../inputs_alt/file.csv
             aliases.append((table, new_table))
     # exclude tables that are omitted in the alternative case
-    aliases.extend(
-        (t, 'none') for t, q in base_queries.items() if t not in alt_queries
-    )
+    aliases.extend((t, "none") for t, q in base_queries.items() if t not in alt_queries)
     return aliases
 
 
@@ -210,40 +213,40 @@ def get_queries(args):
 
     # catch obsolete arguments (otherwise they would be silently ignored)
     updated_args = [
-        ('fuel_scen_id', 'fuel_scenario'),
-        ('cap_cost_scen_id', 'tech_scenario'),
-        ('tech_scen_id', 'tech_scenario'),
-        ('load_scen_id', 'load_scenario'),
-        ('ev_scen_id', 'ev_scenario')
+        ("fuel_scen_id", "fuel_scenario"),
+        ("cap_cost_scen_id", "tech_scenario"),
+        ("tech_scen_id", "tech_scenario"),
+        ("load_scen_id", "load_scenario"),
+        ("ev_scen_id", "ev_scenario"),
     ]
     for old, new in updated_args:
         if old in args:
             if new in args:
                 raise ValueError(
-                    '{} and {} arguments are redundant and ambiguous.'
-                    .format(old, new)
+                    "{} and {} arguments are redundant and ambiguous.".format(old, new)
                 )
             else:
                 print(
                     'DEPRECATION WARNING: The "{}" argument has been '
-                    'renamed to "{}". Please update your code.'
-                    .format(old, new)
+                    'renamed to "{}". Please update your code.'.format(old, new)
                 )
             args[new] = args.pop(old)
 
-    if 'ev_charge_profile' not in args:
-        print('No ev_charge_profile specified; using das_2015')
-        args['ev_charge_profile'] = 'das_2015'
+    if "ev_charge_profile" not in args:
+        print("No ev_charge_profile specified; using das_2015")
+        args["ev_charge_profile"] = "das_2015"
 
-    if 'enable_must_run' in args and 'enable_must_run_before' in args:
-        raise ValueError('You may specify enable_must_run or enable_must_run_before, but not both.')
-    elif 'enable_must_run' in args:
-        args['enable_must_run_before'] = 999999 if args['enable_must_run'] else 0
+    if "enable_must_run" in args and "enable_must_run_before" in args:
+        raise ValueError(
+            "You may specify enable_must_run or enable_must_run_before, but not both."
+        )
+    elif "enable_must_run" in args:
+        args["enable_must_run_before"] = 999999 if args["enable_must_run"] else 0
     else:
-        args['enable_must_run_before'] = args.get('enable_must_run_before', 0)
+        args["enable_must_run_before"] = args.get("enable_must_run_before", 0)
 
     # fill in default arguments (use a dummy technology '-' if none supplied)
-    args['exclude_technologies'] = args.get('exclude_technologies', ('-',))
+    args["exclude_technologies"] = args.get("exclude_technologies", ("-",))
 
     #########################
     # timescales
@@ -281,27 +284,41 @@ def get_queries(args):
     # the nearest whole number until 2018-02-17. This was removed to
     # support fractional years for monthly batches in production-cost models.
 
-    add_query(queries, 'periods.csv',
-        "WITH " + period_length + """
+    add_query(
+        queries,
+        "periods.csv",
+        "WITH "
+        + period_length
+        + """
         SELECT p.period AS "INVESTMENT_PERIOD",
                 p.period as period_start,
                 p.period + period_length as period_end
             FROM periods p JOIN period_length l USING (period)
             WHERE time_sample = %(time_sample)s
             ORDER by 1;
-    """, args)
+    """,
+        args,
+    )
 
-    add_query(queries, 'timeseries.csv', """
+    add_query(
+        queries,
+        "timeseries.csv",
+        """
         SELECT timeseries as "TIMESERIES", period as ts_period,
             ts_duration_of_tp, ts_num_tps, ts_scale_to_period
         FROM timeseries
         WHERE time_sample = %(time_sample)s
         ORDER BY 1;
-    """, args)
+    """,
+        args,
+    )
 
     # note: query below needs dash instead of space in date format if creating
     # .tab files, but this works well for .csv files (8/2019 and later)
-    add_query(queries, 'timepoints.csv', """
+    add_query(
+        queries,
+        "timepoints.csv",
+        """
         SELECT h.timepoint as timepoint_id,
                 to_char(date_time + (period - extract(year from date_time)) * interval '1 year',
                     'YYYY-MM-DD HH24:MI') as timestamp,
@@ -309,11 +326,16 @@ def get_queries(args):
             FROM timepoints h JOIN timeseries d USING (timeseries, time_sample)
             WHERE h.time_sample = %(time_sample)s
             ORDER BY period, extract(doy from date), timepoint;
-    """, args)
+    """,
+        args,
+    )
 
     #########################
     # clauses that identify available projects and technologies
-    study_info = period_length + "," + """
+    study_info = (
+        period_length
+        + ","
+        + """
         study_length AS (
             SELECT min(period)::real as study_start, max(period+period_length)::real AS study_end
             FROM period_length
@@ -350,14 +372,16 @@ def get_queries(args):
             SELECT DISTINCT g.*
             FROM generator_info g JOIN study_projects p USING (tech_scenario, technology)
         )"""
+    )
 
     #########################
     # financials
     # (values are not in a database for now)
-    add_one_row_literal(queries,
-        'financials.csv',
-        ['base_financial_year', 'interest_rate', 'discount_rate'],
-        args
+    add_one_row_literal(
+        queries,
+        "financials.csv",
+        ["base_financial_year", "interest_rate", "discount_rate"],
+        args,
     )
 
     #########################
@@ -366,18 +390,26 @@ def get_queries(args):
     # note: we don't provide the following fields in this version:
     # zone_cost_multipliers, zone_ccs_distance_km, zone_dbid,
     # existing_local_td, local_td_annual_cost_per_mw
-    add_query(queries, 'load_zones.csv', """
+    add_query(
+        queries,
+        "load_zones.csv",
+        """
         SELECT load_zone as "LOAD_ZONE"
         FROM load_zones
         WHERE load_zone in %(load_zones)s
         ORDER BY 1;
-    """, args)
+    """,
+        args,
+    )
 
     # NOTE: we don't provide zone_peak_loads.csv (sometimes used by local_td.py) in this version.
 
     # get system loads, scaled from the historical years to the model years
     # note: 'offset' is a keyword in postgresql, so we use double-quotes to specify the column name
-    add_query(queries, 'loads.csv', """
+    add_query(
+        queries,
+        "loads.csv",
+        """
         SELECT
             l.load_zone AS "LOAD_ZONE",
             timepoint AS "TIMEPOINT",
@@ -393,22 +425,32 @@ def get_queries(args):
             AND d.time_sample = %(time_sample)s
             AND load_scenario = %(load_scenario)s
         ORDER BY 1, 2;
-    """, args)
-
+    """,
+        args,
+    )
 
     #########################
     # fuels
 
-    add_query(queries, 'non_fuel_energy_sources.csv',
-        "WITH " + study_info + """
+    add_query(
+        queries,
+        "non_fuel_energy_sources.csv",
+        "WITH "
+        + study_info
+        + """
         SELECT DISTINCT gen_energy_source AS "NON_FUEL_ENERGY_SOURCES"
             FROM study_generator_info
             WHERE gen_energy_source NOT IN (SELECT fuel FROM fuel_costs)
             ORDER by 1;
-    """, args)
+    """,
+        args,
+    )
 
     # gather info on fuels
-    add_query(queries, 'fuels.csv', """
+    add_query(
+        queries,
+        "fuels.csv",
+        """
         SELECT DISTINCT
             replace(c.fuel, ' ', '_') AS fuel,
             co2_intensity, 0.0 AS upstream_co2_intensity,
@@ -418,16 +460,19 @@ def get_queries(args):
         WHERE load_zone in %(load_zones)s
             AND fuel_scenario=%(fuel_scenario)s
         ORDER BY 1;
-    """, args)
+    """,
+        args,
+    )
 
     #########################
     # rps targets
 
-    add_literal_table(queries,
-        'rps_targets.csv',
-        headers=('year', 'rps_target'),
-        data=[(y, args['rps_targets'][y]) for y in sorted(args['rps_targets'].keys())],
-        arguments=args
+    add_literal_table(
+        queries,
+        "rps_targets.csv",
+        headers=("year", "rps_target"),
+        data=[(y, args["rps_targets"][y]) for y in sorted(args["rps_targets"].keys())],
+        arguments=args,
     )
 
     #########################
@@ -437,13 +482,13 @@ def get_queries(args):
     # from 2013 (forecast base year) to model base year. (ugh)
     # TODO: add a flag to fuel_costs indicating whether forecasts are real or nominal,
     # and base year, and possibly inflation rate.
-    if args['fuel_scenario'] in ('1', '2', '3'):
+    if args["fuel_scenario"] in ("1", "2", "3"):
         raise ValueError(
             "fuel_scenarios '1', '2' and '3' (specified in nominal dollars) are "
             "no longer supported."
         )
 
-    per_timepoint_fuel_costs = args.get('use_per_timepoint_fuel_costs', False)
+    per_timepoint_fuel_costs = args.get("use_per_timepoint_fuel_costs", False)
     simple_fuel_costs = args.get("use_simple_fuel_costs", False)
 
     if per_timepoint_fuel_costs and not simple_fuel_costs:
@@ -472,8 +517,12 @@ def get_queries(args):
             # when getting per-timepoint costs, we link this month to
             # timeseries.month_of_year and average across all the years in each
             # period.
-            add_query(queries, 'fuel_cost_per_timepoint.csv',
-                "WITH " + period_length + """
+            add_query(
+                queries,
+                "fuel_cost_per_timepoint.csv",
+                "WITH "
+                + period_length
+                + """
                 SELECT load_zone, replace(fuel, ' ', '_') as fuel, h.timepoint,
                     avg(price_mmbtu
                         * power(1.0+%(inflation_rate)s, %(base_financial_year)s-c.base_year)
@@ -492,16 +541,22 @@ def get_queries(args):
                     AND c.year >= p.period AND c.year < p.period + l.period_length
                 GROUP BY 1, 2, 3
                 ORDER BY 1, 2, 3;
-                """.format(lng_selector=lng_selector),
-                args
+                """.format(
+                    lng_selector=lng_selector
+                ),
+                args,
             )
         else:
             # Note: if monthly prices have been specified for this fuel_scenario
             # in the fuel_cost table, they get averaged together with equal
             # weight as part of the general averaging across all the years of
             # the period (which is good).
-            add_query(queries, 'fuel_cost.csv',
-                "WITH " + period_length + """
+            add_query(
+                queries,
+                "fuel_cost.csv",
+                "WITH "
+                + period_length
+                + """
                 SELECT load_zone, replace(fuel, ' ', '_') as fuel, p.period,
                     avg(
                         price_mmbtu
@@ -516,21 +571,34 @@ def get_queries(args):
                     AND c.year >= p.period AND c.year < p.period + l.period_length
                 GROUP BY 1, 2, 3
                 ORDER BY 1, 2, 3;
-            """.format(lng_selector=lng_selector), args)
+            """.format(
+                    lng_selector=lng_selector
+                ),
+                args,
+            )
     else:  # not simple_fuel_costs
         # advanced fuel markets with LNG expansion options (used by forward-looking models)
         # (use fuel_markets module)
-        add_query(queries, 'regional_fuel_markets.csv', """
+        add_query(
+            queries,
+            "regional_fuel_markets.csv",
+            """
             SELECT DISTINCT
                 concat('Hawaii_', replace(fuel, ' ', '_')) AS regional_fuel_market,
                 replace(fuel, ' ', '_') AS fuel
             FROM fuel_costs
             WHERE load_zone in %(load_zones)s AND fuel_scenario = %(fuel_scenario)s
             ORDER BY 1, 2;
-        """, args)
+        """,
+            args,
+        )
 
-        add_query(queries, 'fuel_supply_curves.csv',
-            "WITH " + period_length + """
+        add_query(
+            queries,
+            "fuel_supply_curves.csv",
+            "WITH "
+            + period_length
+            + """
             SELECT concat('Hawaii_', replace(fuel, ' ', '_')) as regional_fuel_market,
                 replace(fuel, ' ', '_') as fuel,
                 tier,
@@ -546,17 +614,23 @@ def get_queries(args):
                 AND (c.year >= p.period AND c.year < p.period + l.period_length)
             GROUP BY 1, 2, 3, 4
             ORDER BY 1, 2, 3, 4;
-        """, args)
+        """,
+            args,
+        )
 
-        add_query(queries, 'zone_to_regional_fuel_market.csv', """
+        add_query(
+            queries,
+            "zone_to_regional_fuel_market.csv",
+            """
             SELECT DISTINCT load_zone, concat('Hawaii_', replace(fuel, ' ', '_')) AS regional_fuel_market
             FROM fuel_costs
             WHERE load_zone in %(load_zones)s AND fuel_scenario = %(fuel_scenario)s
             ORDER BY 1, 2;
-        """, args)
+        """,
+            args,
+        )
 
     # TODO: (when multi-island) add fuel_cost_adders for each zone
-
 
     #########################
     # investment.gen_build and part of operation.unitcommit.commit
@@ -569,20 +643,21 @@ def get_queries(args):
     # Some of these are actually single-fuel, but this approach is simpler than sorting
     # them out within each query, and it doesn't add any complexity to the model.
 
-    if args.get('wind_capital_cost_escalator', 0.0) or args.get('pv_capital_cost_escalator', 0.0):
+    if args.get("wind_capital_cost_escalator", 0.0) or args.get(
+        "pv_capital_cost_escalator", 0.0
+    ):
         # user supplied a non-zero escalator
         raise ValueError(
-            'wind_capital_cost_escalator and pv_capital_cost_escalator arguments are '
-            'no longer supported by scenario_data.write_tables(); '
-            'assign time-varying costs in the gen_build_costs table instead.'
+            "wind_capital_cost_escalator and pv_capital_cost_escalator arguments are "
+            "no longer supported by scenario_data.write_tables(); "
+            "assign time-varying costs in the gen_build_costs table instead."
         )
-    if args.get('generator_costs_base_year', 0):
+    if args.get("generator_costs_base_year", 0):
         # user supplied a generator_costs_base_year
         raise ValueError(
-            'generator_costs_base_year is no longer supported by scenario_data.write_tables(); '
-            'assign base_year in the gen_build_costs table instead.'
+            "generator_costs_base_year is no longer supported by scenario_data.write_tables(); "
+            "assign base_year in the gen_build_costs table instead."
         )
-
 
     # TODO: make sure the heat rates are null for non-fuel projects in the upstream database,
     # and remove the correction code from here
@@ -591,20 +666,24 @@ def get_queries(args):
     # TODO: convert 'MSW' to a proper fuel, possibly with a negative cost, instead of ignoring it
 
     # Omit full load heat rates if we are providing heat rate curves instead
-    if args.get('use_incremental_heat_rates', False):
-        full_load_heat_rate = 'null'
+    if args.get("use_incremental_heat_rates", False):
+        full_load_heat_rate = "null"
     else:
-        full_load_heat_rate = '0.001*gen_full_load_heat_rate'
+        full_load_heat_rate = "0.001*gen_full_load_heat_rate"
 
-    if args.get('report_forced_outage_rates', False):
-        forced_outage_rate = 'gen_forced_outage_rate'
+    if args.get("report_forced_outage_rates", False):
+        forced_outage_rate = "gen_forced_outage_rate"
     else:
-        forced_outage_rate = '0'
+        forced_outage_rate = "0"
 
     # if needed, follow the query below with another one that specifies
     # COALESCE(gen_connect_cost_per_mw, 0.0) AS gen_connect_cost_per_mw
-    add_query(queries, 'generation_projects_info.csv',
-        "WITH " + study_info + """
+    add_query(
+        queries,
+        "generation_projects_info.csv",
+        "WITH "
+        + study_info
+        + """
         SELECT
             "GENERATION_PROJECT",
             load_zone AS gen_load_zone,
@@ -644,10 +723,18 @@ def get_queries(args):
             gen_storage_max_cycles_per_year
         FROM study_projects JOIN study_generator_info USING (technology)
         ORDER BY 2, 3, 1;
-    """.format(fo=forced_outage_rate, flhr=full_load_heat_rate), args)
+    """.format(
+            fo=forced_outage_rate, flhr=full_load_heat_rate
+        ),
+        args,
+    )
 
-    add_query(queries, 'gen_build_predetermined.csv',
-        "WITH " + study_info + """
+    add_query(
+        queries,
+        "gen_build_predetermined.csv",
+        "WITH "
+        + study_info
+        + """
         SELECT
             "GENERATION_PROJECT",
             build_year,
@@ -656,21 +743,26 @@ def get_queries(args):
         FROM study_projects JOIN gen_build_predetermined USING (project_id)
         GROUP BY 1, 2
         ORDER BY 1, 2;
-    """, args)
+    """,
+        args,
+    )
 
     def scale_inflate_cost(cost_term):
         """
         Generate inflation-adjusted cost expression, given a cost expression in a table;
         assumes base_year exists in the same table.
         """
-        table = cost_term.split('.')[0]+'.' if '.' in cost_term else ''
-        return (
-            "({cost} * 1000.0 * power(1.0+%(inflation_rate)s, %(base_financial_year)s-{table}base_year))"
-            .format(cost=cost_term, table=table)
+        table = cost_term.split(".")[0] + "." if "." in cost_term else ""
+        return "({cost} * 1000.0 * power(1.0+%(inflation_rate)s, %(base_financial_year)s-{table}base_year))".format(
+            cost=cost_term, table=table
         )
 
-    add_query(queries, 'gen_build_costs.csv',
-        "WITH " + study_info + """
+    add_query(
+        queries,
+        "gen_build_costs.csv",
+        "WITH "
+        + study_info
+        + """
         -- For projects in gen_build_predetermined, apply average cost of all
         -- projects built in the same year (looking up generic costs if needed)
         SELECT
@@ -719,34 +811,43 @@ def get_queries(args):
             AND (i.min_vintage_year IS NULL OR c.year >= i.min_vintage_year)
         ORDER BY 1, 2;
     """.format(
-        b_capital_cost_per_mw=scale_inflate_cost('b.capital_cost_per_kw'),
-        b_capital_cost_per_mwh=scale_inflate_cost('b.capital_cost_per_kwh'),
-        c_capital_cost_per_mw=scale_inflate_cost('c.capital_cost_per_kw'),
-        c_capital_cost_per_mwh=scale_inflate_cost('c.capital_cost_per_kwh'),
-        b_fixed_o_m=scale_inflate_cost('b.fixed_o_m'),
-        c_fixed_o_m=scale_inflate_cost('c.fixed_o_m'),
-    ), args)
+            b_capital_cost_per_mw=scale_inflate_cost("b.capital_cost_per_kw"),
+            b_capital_cost_per_mwh=scale_inflate_cost("b.capital_cost_per_kwh"),
+            c_capital_cost_per_mw=scale_inflate_cost("c.capital_cost_per_kw"),
+            c_capital_cost_per_mwh=scale_inflate_cost("c.capital_cost_per_kwh"),
+            b_fixed_o_m=scale_inflate_cost("b.fixed_o_m"),
+            c_fixed_o_m=scale_inflate_cost("c.fixed_o_m"),
+        ),
+        args,
+    )
 
     #########################
     # spinning_reserves_advanced (if wanted; otherwise defaults to just "spinning"
-    if 'max_reserve_capability' in args or args.get('write_generation_projects_reserve_capability', False):
+    if "max_reserve_capability" in args or args.get(
+        "write_generation_projects_reserve_capability", False
+    ):
         # args['max_reserve_capability'] is a list of tuples of (technology,
         # reserve_type) (assumed equivalent to 'regulation' if not specified)
         # We unzip it to use with the unnest function (psycopg2 passes lists of
         # tuples as arrays of tuples, and unnest would keep those as tuples)
         try:
-            reserve_technologies = [r[0] for r in args['max_reserve_capability']]
-            reserve_types = [r[1] for r in args['max_reserve_capability']]
+            reserve_technologies = [r[0] for r in args["max_reserve_capability"]]
+            reserve_types = [r[1] for r in args["max_reserve_capability"]]
         except KeyError:
             reserve_technologies = []
             reserve_types = []
         res_args = args.copy()
-        res_args['reserve_technologies']=reserve_technologies
-        res_args['reserve_types']=reserve_types
+        res_args["reserve_technologies"] = reserve_technologies
+        res_args["reserve_types"] = reserve_types
 
         # note: casting is needed if the lists are empty; see https://stackoverflow.com/a/41893576/3830997
-        add_query(queries, 'generation_projects_reserve_capability.csv',
-            "WITH " + study_info + ", " + """
+        add_query(
+            queries,
+            "generation_projects_reserve_capability.csv",
+            "WITH "
+            + study_info
+            + ", "
+            + """
             reserve_capability (technology, reserve_type) as (
                 SELECT
                     UNNEST(%(reserve_technologies)s::varchar(40)[]) AS technology,
@@ -768,8 +869,9 @@ def get_queries(args):
                 JOIN reserve_types t2 on t2.rank <= COALESCE(t1.rank, 100)
             WHERE t2.rank > 0
             ORDER BY 1, t2.rank;
-        """, res_args)
-
+        """,
+            res_args,
+        )
 
     #########################
     # operation.unitcommit.fuel_use
@@ -782,9 +884,14 @@ def get_queries(args):
     # note: for sqlite, you could use "CONCAT(technology, ' ', output_mw, ' ', fuel_consumption_mmbtu_per_h) AS key"
     # TODO: rename fuel_consumption_mmbtu_per_h to fuel_use_mmbtu_per_h here and in import_data.py
 
-    if args.get('use_incremental_heat_rates', False):
-        add_query(queries, 'gen_inc_heat_rates.csv',
-            "WITH " + study_info + ", " + """
+    if args.get("use_incremental_heat_rates", False):
+        add_query(
+            queries,
+            "gen_inc_heat_rates.csv",
+            "WITH "
+            + study_info
+            + ", "
+            + """
             part_load AS (
                 SELECT
                     row_number() OVER (ORDER BY technology, output_mw, fuel_consumption_mmbtu_per_h) AS key,
@@ -821,7 +928,9 @@ def get_queries(args):
                 incremental_heat_rate_mbtu_per_mwhr, fuel_use_rate_mmbtu_per_h
             FROM curves c JOIN study_projects p using (technology)
             ORDER BY c.technology, c.key, p."GENERATION_PROJECT";
-        """, args)
+        """,
+            args,
+        )
 
     # This gets a list of all the fueled projects (listed as "multiple" energy sources above),
     # and lists them as accepting any equivalent or lighter fuel. (However, plants
@@ -831,8 +940,13 @@ def get_queries(args):
     # doesn't exist in the fuel_costs table. This can also be used to remap different names for the same
     # fuel (e.g., "COL" in the plant definition and "Coal" in the fuel_costs table, both with the same
     # fuel_rank).
-    add_query(queries, 'gen_multiple_fuels.csv',
-        "WITH " + study_info + ", " + """
+    add_query(
+        queries,
+        "gen_multiple_fuels.csv",
+        "WITH "
+        + study_info
+        + ", "
+        + """
         all_techs AS (
             SELECT
                 technology,
@@ -852,8 +966,9 @@ def get_queries(args):
         SELECT "GENERATION_PROJECT", fuel
             FROM gen_multiple_fuels g JOIN study_projects p USING (technology)
             ORDER BY p.technology, p."GENERATION_PROJECT", g.fuel
-    """, args)
-
+    """,
+        args,
+    )
 
     #########################
     # operation.gen_dispatch
@@ -862,8 +977,12 @@ def get_queries(args):
     if args.get("skip_cf", False):
         print("SKIPPING variable_capacity_factors.csv")
     else:
-        add_query(queries, 'variable_capacity_factors.csv',
-        "WITH " + study_info + """
+        add_query(
+            queries,
+            "variable_capacity_factors.csv",
+            "WITH "
+            + study_info
+            + """
             SELECT
                 "GENERATION_PROJECT",
                 timepoint,
@@ -874,14 +993,14 @@ def get_queries(args):
                 JOIN timepoints h using (date_time)
             WHERE time_sample = %(time_sample)s
             ORDER BY 1, 2
-        """, args)
-
+        """,
+            args,
+        )
 
     #########################
     # project.discrete_build
 
     # include this module, but it doesn't need any additional data.
-
 
     #########################
     # operation.unitcommit.commit
@@ -893,8 +1012,12 @@ def get_queries(args):
 
     # TODO: create data files showing reserve rules
 
-    add_query(queries, 'gen_timepoint_commit_bounds.csv',
-        "WITH " + study_info + """
+    add_query(
+        queries,
+        "gen_timepoint_commit_bounds.csv",
+        "WITH "
+        + study_info
+        + """
         SELECT * FROM (
             SELECT "GENERATION_PROJECT",
                 timepoint AS "TIMEPOINT",
@@ -910,14 +1033,14 @@ def get_queries(args):
             OR gen_max_commit_fraction IS NOT NULL
             OR gen_min_load_fraction_TP IS NOT NULL
         ORDER BY 1, 2;
-    """, args)
-
+    """,
+        args,
+    )
 
     #########################
     # project.unitcommit.discrete
 
     # include this module, but it doesn't need any additional data.
-
 
     #########################
     # trans_build
@@ -945,29 +1068,31 @@ def get_queries(args):
     # batteries
     # (now included as standard storage projects, but kept here
     # to support older projects that haven't upgraded yet)
-    bat_years = 'BATTERY_CAPITAL_COST_YEARS'
-    bat_cost = 'battery_capital_cost_per_mwh_capacity_by_year'
-    non_cost_bat_vars = sorted([k for k in args if k.startswith('battery_') and k not in [bat_years, bat_cost]])
+    bat_years = "BATTERY_CAPITAL_COST_YEARS"
+    bat_cost = "battery_capital_cost_per_mwh_capacity_by_year"
+    non_cost_bat_vars = sorted(
+        [k for k in args if k.startswith("battery_") and k not in [bat_years, bat_cost]]
+    )
     if non_cost_bat_vars:
-        add_one_row_literal(queries,
-            'batteries.csv',
-            non_cost_bat_vars,
-            args
-        )
+        add_one_row_literal(queries, "batteries.csv", non_cost_bat_vars, args)
     if bat_years in args and bat_cost in args:
         # annual costs were provided -- write those to a tab file
-        add_literal_table(queries,
-            'battery_capital_cost.csv',
+        add_literal_table(
+            queries,
+            "battery_capital_cost.csv",
             headers=[bat_years, bat_cost],
             data=list(zip(args[bat_years], args[bat_cost])),
-            arguments=args
+            arguments=args,
         )
 
     #########################
     # EV annual energy consumption (original, basic version)
     # print "ev_scenario:", args.get('ev_scenario', None)
-    if args.get('ev_scenario', None) is not None:
-        add_query(queries, 'ev_fleet_info.csv', """
+    if args.get("ev_scenario", None) is not None:
+        add_query(
+            queries,
+            "ev_fleet_info.csv",
+            """
             SELECT load_zone as "LOAD_ZONE", period as "PERIOD",
                 ev_share, ice_miles_per_gallon, ev_miles_per_kwh, ev_extra_cost_per_vehicle_year,
                 n_all_vehicles, vmt_per_vehicle
@@ -976,7 +1101,9 @@ def get_queries(args):
                 AND time_sample = %(time_sample)s
                 AND ev_scenario = %(ev_scenario)s
             ORDER BY 1, 2;
-        """, args)
+        """,
+            args,
+        )
         # power consumption for each hour of the day under business-as-usual charging
         # note: the charge weights have a mean value of 1.0, but go up and down in different hours
         # NOTE: This may not average out to exactly 1.0 if time sampling is not every hour.
@@ -986,7 +1113,10 @@ def get_queries(args):
         # but that would be inconsistent with how we handle loads and weather
         # (generally point sample at start of timepoint or avg. value over first
         # hour of timepoint; not whole timepoint)
-        add_query(queries, 'ev_bau_load.csv', """
+        add_query(
+            queries,
+            "ev_bau_load.csv",
+            """
             SELECT
                 load_zone AS "LOAD_ZONE",
                 timepoint AS "TIMEPOINT",
@@ -1002,12 +1132,17 @@ def get_queries(args):
                 AND time_sample = %(time_sample)s
                 AND ev_scenario = %(ev_scenario)s
             ORDER BY 1, 2;
-        """, args)
+        """,
+            args,
+        )
 
     #########################
     # EV annual energy consumption (advanced, frozen Dantzig-Wolfe version)
-    if args.get('ev_scenario', None) is not None:
-        add_query(queries, 'ev_share.csv', """
+    if args.get("ev_scenario", None) is not None:
+        add_query(
+            queries,
+            "ev_share.csv",
+            """
             SELECT
                 load_zone as "LOAD_ZONE", period as "PERIOD",
                 ev_share
@@ -1016,8 +1151,13 @@ def get_queries(args):
                 AND time_sample = %(time_sample)s
                 AND ev_scenario = %(ev_scenario)s
             ORDER BY 1, 2;
-        """, args)
-        add_query(queries, 'ev_fleet_info_advanced.csv', """
+        """,
+            args,
+        )
+        add_query(
+            queries,
+            "ev_fleet_info_advanced.csv",
+            """
             WITH detailed_fleet AS (
                 SELECT
                     a.load_zone AS "LOAD_ZONE",
@@ -1059,7 +1199,9 @@ def get_queries(args):
             FROM detailed_fleet
             GROUP BY 1, 2, 3, 6
             ORDER BY 1, 2, 3;
-        """, args)
+        """,
+            args,
+        )
         # power consumption bids for each hour of the day
         # (consolidate to one vehicle class to accelerate data retrieval and
         # reduce model memory requirements) (note that there are 6 classes of
@@ -1069,7 +1211,10 @@ def get_queries(args):
         if args.get("skip_ev_bids", False):
             print("SKIPPING ev_charging_bids.csv")
         else:
-            add_query(queries, 'ev_charging_bids.csv', """
+            add_query(
+                queries,
+                "ev_charging_bids.csv",
+                """
                 SELECT
                     b.load_zone AS "LOAD_ZONE",
                     CONCAT_WS('_', 'All', "ICE fuel", 'Vehicles') AS "VEHICLE_TYPE",
@@ -1085,38 +1230,44 @@ def get_queries(args):
                     AND d.time_sample = %(time_sample)s
                 GROUP BY 1, 2, 3, 4
                 ORDER BY 1, 2, 3, 4;
-            """, args)
+            """,
+                args,
+            )
 
     #########################
     # pumped hydro
     # TODO: put these data in a database with hydro_scenario's and pull them from there
 
     if "pumped_hydro_headers" in args:
-        add_literal_table(queries,
-            'pumped_hydro.csv',
+        add_literal_table(
+            queries,
+            "pumped_hydro.csv",
             headers=args["pumped_hydro_headers"],
             data=args["pumped_hydro_projects"],
-            arguments=args
+            arguments=args,
         )
 
     #########################
     # hydrogen
     # TODO: put these data in a database and pull from there
-    add_one_row_literal(queries,
-        'hydrogen.csv',
-        sorted([k for k in args if k.startswith('hydrogen_') or k.startswith('liquid_hydrogen_')]),
-        args
+    add_one_row_literal(
+        queries,
+        "hydrogen.csv",
+        sorted(
+            [
+                k
+                for k in args
+                if k.startswith("hydrogen_") or k.startswith("liquid_hydrogen_")
+            ]
+        ),
+        args,
     )
 
     #########################
     # PHA data
-    pha_params = sorted([k for k in args if k.startswith('pha_')])
+    pha_params = sorted([k for k in args if k.startswith("pha_")])
     if pha_params:
-        add_one_row_literal(queries,
-            'pha.csv',
-            pha_params,
-            args
-        )
+        add_one_row_literal(queries, "pha.csv", pha_params, args)
 
     return queries
 
@@ -1126,13 +1277,16 @@ def make_file_path(file, args):
     based on inputs_dir and inputs_subdir arguments. Return a pathname to the file."""
     # extract extra path information from args (if available)
     # and build a path to the specified file.
-    path = os.path.join(args.get('inputs_dir', ''), args.get('inputs_subdir', ''))
-    if path != '' and not os.path.exists(path):
+    path = os.path.join(args.get("inputs_dir", ""), args.get("inputs_subdir", ""))
+    if path != "" and not os.path.exists(path):
         os.makedirs(path)
     path = os.path.join(path, file)
     return path
 
+
 con = None
+
+
 def db_cursor():
     global con
     if con is None:
@@ -1142,20 +1296,28 @@ def db_cursor():
             global psycopg2, sql
             import psycopg2, psycopg2.sql as sql
         except ImportError:
-            print(dedent("""
+            print(
+                dedent(
+                    """
                 ############################################################################################
                 Unable to import psycopg2 module to access database server.
                 Please install this module via 'conda install psycopg2' or 'pip install psycopg2'.
                 ############################################################################################
-                """))
+                """
+                )
+            )
             raise
         try:
             # note: the connection gets created when the module loads and never gets closed (until presumably python exits)
             con = psycopg2.connect(database=pgdatabase, host=pghost, user=pguser)
-            print("Reading data from database {} on server {}".format(pgdatabase, pghost))
+            print(
+                "Reading data from database {} on server {}".format(pgdatabase, pghost)
+            )
 
         except psycopg2.OperationalError:
-            print(dedent("""
+            print(
+                dedent(
+                    """
                 ############################################################################################
                 Error while connecting to database '{db}' on postgres server '{server}' as user '{user}'.
                 Please ensure that the following environment variables are set:
@@ -1166,65 +1328,77 @@ def db_cursor():
                 or in %APPDATA%\postgresql\pgpass.conf (Windows).
                 See http://www.postgresql.org/docs/9.1/static/libpq-pgpass.html for more details.
                 ############################################################################################
-                """.format(server=pghost, db=pgdatabase, user=pguser)))
+                """.format(
+                        server=pghost, db=pgdatabase, user=pguser
+                    )
+                )
+            )
             raise
     return con.cursor()
+
 
 def prepare_query(query, arguments):
     return db_cursor().mogrify(query, arguments)
 
+
 def add_query(queries, file, query, arguments):
     queries.append((file, prepare_query(query, arguments)))
+
 
 def add_literal_table(queries, table, headers, data, arguments={}):
     # Create an SQL query that returns the  values defined by the headers and data
     if data:
         query = sql.SQL("SELECT * FROM (VALUES {}) AS t ({})").format(
-            sql.SQL(', ').join(sql.Literal(tuple(row)) for row in data),
-            sql.SQL(', ').join(sql.Identifier(h) for h in headers)
+            sql.SQL(", ").join(sql.Literal(tuple(row)) for row in data),
+            sql.SQL(", ").join(sql.Identifier(h) for h in headers),
         )
     else:
         # create a zero-row table with the right headers
         query = sql.SQL("SELECT * FROM (VALUES {}) AS t ({}) WHERE FALSE").format(
-            sql.Literal(tuple('' for h in headers)),
-            sql.SQL(', ').join(sql.Identifier(h) for h in headers)
+            sql.Literal(tuple("" for h in headers)),
+            sql.SQL(", ").join(sql.Identifier(h) for h in headers),
         )
     add_query(queries, table, query, arguments)
+
 
 def add_one_row_literal(queries, table, arg_names, args):
     add_literal_table(
         queries, table, arg_names, [tuple(args[n] for n in arg_names)], args
     )
 
+
 def write_table(output_file, query):
-    print("Writing {file} ...".format(file=output_file), end=' ')
+    print("Writing {file} ...".format(file=output_file), end=" ")
     sys.stdout.flush()  # display the part line to the user
 
-    start=time.time()
+    start = time.time()
     cur = db_cursor()
     try:
         cur.execute(query)
     except:
         print("\nError running the following query:\n{}\n".format(query.decode()))
         raise
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         writerow(f, [d[0] for d in cur.description])  # header
         writerows(f, cur)  # data
-    print("time taken: {dur:.2f}s".format(dur=time.time()-start))
+    print("time taken: {dur:.2f}s".format(dur=time.time() - start))
+
 
 def stringify(val):
     if val is None:
-        out = '.'
+        out = "."
     elif type(val) is str:
         out = val.replace('"', '""')
-        if any(char in out for char in [' ', '\t', '"', "'", ',']):
+        if any(char in out for char in [" ", "\t", '"', "'", ","]):
             out = '"' + out + '"'
     else:
         out = str(val)
     return out
 
+
 def writerow(f, row):
-    f.write(','.join(stringify(c) for c in row) + '\n')
+    f.write(",".join(stringify(c) for c in row) + "\n")
+
 
 def writerows(f, rows):
     for r in rows:

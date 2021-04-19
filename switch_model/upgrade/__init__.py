@@ -23,8 +23,12 @@ API Synopsis:
 """
 # Public interface
 from .manager import (
-    main, upgrade_inputs, scan_and_upgrade,
-    get_input_version, do_inputs_need_upgrade
+    main,
+    upgrade_inputs,
+    scan_and_upgrade,
+    get_input_version,
+    do_inputs_need_upgrade,
 )
+
 # Private utility functions for this upgrade sub-package
 from .manager import _backup, _write_input_version, print_verbose
