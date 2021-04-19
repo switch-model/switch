@@ -161,7 +161,6 @@ def define_components(mod):
         mod.STORAGE_GEN_BLD_YRS,
         within=NonNegativeReals,
         bounds=bounds_BuildStorageEnergy,
-        scaling_factor=10**-4,
     )
 
     # Some projects are retired before the first study period, so they

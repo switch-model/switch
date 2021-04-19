@@ -198,9 +198,7 @@ def define_components(mod):
         initialize=mod.TRANSMISSION_LINES * mod.PERIODS,
         filter=lambda m, tx, p: m.trans_new_build_allowed[tx],
     )
-    mod.BuildTx = ScaledVariable(
-        mod.TRANS_BLD_YRS, within=NonNegativeReals, scaling_factor=10**-5
-    )
+    mod.BuildTx = ScaledVariable(mod.TRANS_BLD_YRS, within=NonNegativeReals)
     mod.TxCapacityNameplate = Expression(
         mod.TRANSMISSION_LINES,
         mod.PERIODS,
