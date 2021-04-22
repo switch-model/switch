@@ -9,7 +9,7 @@ import os
 from pyomo.environ import *
 from switch_model.financials import capital_recovery_factor as crf
 from switch_model.reporting import write_table
-from switch_model.utilities.scaling import ScaledVariable, get_assign_default_value_rule
+from switch_model.utilities.scaling import get_assign_default_value_rule
 
 dependencies = (
     "switch_model.timescales",
@@ -411,15 +411,11 @@ def define_components(mod):
         elif g in model.CAPACITY_LIMITED_GENS:
             # This does not replace Max_Build_Potential because
             # Max_Build_Potential applies across all build years.
-            return 0, model.gen_capacity_limit_mw[g]
+            return (0, model.gen_capacity_limit_mw[g])
         else:
-            return 0, None
+            return (0, None)
 
-    mod.BuildGen = ScaledVariable(
-        mod.GEN_BLD_YRS,
-        within=NonNegativeReals,
-        bounds=bounds_BuildGen,
-    )
+    mod.BuildGen = Var(mod.GEN_BLD_YRS, within=NonNegativeReals, bounds=bounds_BuildGen)
     # Some projects are retired before the first study period, so they
     # don't appear in the objective function or any constraints.
     # In this case, pyomo may leave the variable value undefined even
