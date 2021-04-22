@@ -110,7 +110,7 @@ def define_components(mod):
         == m.DispatchBaseloadByPeriod[g, m.tp_period[t]],
     )
 
-    enforce_dispatch_upper_limit_scaling_factor = 10**2
+    enforce_dispatch_upper_limit_scaling_factor = 10**5
     mod.Enforce_Dispatch_Upper_Limit = Constraint(
         mod.GEN_TPS,
         rule=lambda m, g, t: m.DispatchGen[g, t]
