@@ -318,7 +318,7 @@ def define_components(mod):
         mod.REGIONAL_FUEL_MARKETS, mod.PERIODS,
         initialize=GENS_FOR_RFM_PERIOD_rule
     )
-    enforce_fuel_consumption_scaling_factor = 10 ** -3
+    enforce_fuel_consumption_scaling_factor = 10 ** -2
     def Enforce_Fuel_Consumption_rule(m, rfm, p):
         return m.FuelConsumptionInMarket[rfm, p] * enforce_fuel_consumption_scaling_factor \
                == enforce_fuel_consumption_scaling_factor * sum(
