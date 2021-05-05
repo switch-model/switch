@@ -76,10 +76,8 @@ def write_table(instance, *indexes, **kwargs):
             return tuple(row)
 
         try:
-            w.writerows(
-                format_row(row=values(instance, *unpack_elements(x)))
-                for x in itertools.product(*indexes)
-            )
+            rows = (format_row(row=values(instance, *unpack_elements(x))) for x in itertools.product(*indexes))
+            w.writerows(sorted(rows) if instance.options.sorted_output else rows)
         except TypeError: # lambda got wrong number of arguments
             # use old code, which doesn't unpack the indices
             w.writerows(
