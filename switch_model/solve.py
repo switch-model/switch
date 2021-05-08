@@ -535,6 +535,11 @@ def define_arguments(argparser):
         help='Break and enter the Python Debugger at key points during the solving process.'
     )
     argparser.add_argument(
+        "--sig-figs-output", default=6, type=int,
+        help='The number of significant digits to include in the output by default'
+    )
+
+    argparser.add_argument(
         "--sorted-output", default=False, action='store_true',
         dest='sorted_output',
         help='Write generic variable result values in sorted order')
