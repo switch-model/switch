@@ -60,15 +60,15 @@ def define_arguments(argparser):
     )
 
 
-def format_row(instance, row):
+def format_row(row, sig_digits):
     row = [get_value(v) for v in row]
-    sig_digits = "{0:." + str(instance.options.sig_figs_output) + "g}"
+    sig_digits_formatter = "{0:." + str(sig_digits) + "g}"
     for (i, v) in enumerate(row):
         if isinstance(v, float):
             if abs(v) < 1e-10:
                 row[i] = 0
             else:
-                row[i] = sig_digits.format(v)
+                row[i] = sig_digits_formatter.format(v)
     return tuple(row)
 
 
@@ -79,16 +79,16 @@ def write_table(instance, *indexes, **kwargs):
     output_file = kwargs["output_file"]
     headings = kwargs["headings"]
     values = kwargs["values"]
+    digits = instance.options.sig_figs_output
 
     with open(output_file, "w") as f:
         w = csv.writer(f, dialect="switch-csv")
         # write header row
         w.writerow(list(headings))
         # write the data
-
         try:
             rows = (
-                format_row(instance, row=values(instance, *unpack_elements(x)))
+                format_row(values(instance, *unpack_elements(x)), digits)
                 for x in itertools.product(*indexes)
             )
             w.writerows(sorted(rows) if instance.options.sorted_output else rows)
@@ -97,7 +97,7 @@ def write_table(instance, *indexes, **kwargs):
             w.writerows(
                 # TODO: flatten x (unpack tuples) like Pyomo before calling values()
                 # That may cause problems elsewhere though...
-                format_row(instance, row=values(instance, *x))
+                format_row(values(instance, *x), digits)
                 for x in itertools.product(*indexes)
             )
             print(
@@ -174,13 +174,14 @@ def save_generic_results(instance, outdir, sorted_output):
                 for key, obj in items:
                     writer.writerow(
                         format_row(
-                            instance, tuple(make_iterable(key)) + (get_value(obj),)
+                            tuple(make_iterable(key)) + (obj,),
+                            instance.options.sig_figs_output,
                         )
                     )
             else:
                 # single-valued variable
-                writer.writerow(format_row(instance, [var.name]))
-                writer.writerow(format_row(instance, [get_value(obj)]))
+                writer.writerow([var.name])
+                writer.writerow(format_row([obj], instance.options.sig_figs_output))
 
 
 def get_value(obj):
