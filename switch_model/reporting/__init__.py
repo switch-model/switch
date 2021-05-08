@@ -61,7 +61,7 @@ def define_arguments(argparser):
 
 
 def format_row(instance, row):
-    row = [value(v) for v in row]
+    row = [get_value(v) for v in row]
     sig_digits = "{0:." + str(instance.options.sig_figs_output) + "g}"
     for (i, v) in enumerate(row):
         if isinstance(v, float):
