@@ -10,9 +10,8 @@
 Retrieves data inputs for the Switch WECC model from the database. Data
 is formatted into corresponding .csv or .dat files.
 
-TODO: Create modules.txt in this file
-
-Note: previously we used an SSH tunnel. That code was removed however it can still be found at this commit
+Note: previously we used an SSH tunnel to connect to the database.
+That code was removed however it can still be found at this commit
 273be083c743e0527c2753356a101c479fe053e8 on the REAM-lab repo.
 (https://github.com/REAM-lab/switch/tree/273be083c743e0527c2753356a101c479fe053e8)
 """
@@ -39,6 +38,29 @@ def write_csv(fname, headers, cursor):
             f.write(
                 ",".join(row_as_clean_strings) + os.linesep
             )  # concatenates "line" separated by commas, and appends \n
+
+
+modules = [
+    # Core modules
+    "switch_model",
+    "switch_model.timescales",
+    "switch_model.financials",
+    "switch_model.balancing.load_zones",
+    "switch_model.energy_sources.properties",
+    "switch_model.generators.core.build",
+    "switch_model.generators.core.dispatch",
+    "switch_model.reporting",
+    # Custom Modules
+    "switch_model.generators.core.no_commit",
+    "switch_model.generators.extensions.hydro_simple",
+    "switch_model.generators.extensions.storage",
+    "switch_model.energy_sources.fuel_costs.markets",
+    "switch_model.transmission.transport.build",
+    "switch_model.transmission.transport.dispatch",
+    "switch_model.policies.carbon_policies",
+    "switch_model.policies.rps_unbundled",
+    # "switch_model.reporting.basic_exports_wecc",
+]
 
 
 def main():
@@ -821,6 +843,11 @@ def main():
             ],
             db_cursor,
         )
+
+    print("  modules.txt...")
+    with open("modules.txt", "w") as f:
+        for module in modules:
+            f.write(module + os.linesep)
 
     end_time = time.time()
 
