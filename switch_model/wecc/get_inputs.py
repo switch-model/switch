@@ -10,25 +10,23 @@
 Retrieves data inputs for the Switch WECC model from the database. Data
 is formatted into corresponding .csv or .dat files.
 
+TODO: Create modules.txt in this file
 """
 
 import argparse
-# import getpass
+import getpass
 import os
-import sys
 import time
-
+from switch_model.utilities import query_yes_no
 import psycopg2 as pg
-# import sshtunnel
 
 
 def write_csv(fname, headers, cursor):
-    with open(
-        fname + ".csv", "w"
-    ) as f:  # Paty: open() opens file named fname and only allows us to (re)write on it ('w'). "with" keyword ensures the file is closed at the end of the function.
-        f.write(
-            ",".join(headers) + os.linesep
-        )  # Paty: str.join(headers) joins the strings in the sequence "headers" and separates them with string "str"
+    # Paty: open() opens file named fname and only allows us to (re)write on it ('w').
+    # "with" keyword ensures the file is closed at the end of the function.
+    with open(fname + ".csv", "w") as f:
+        # Paty: str.join(headers) joins the strings in the sequence "headers" and separates them with string "str"
+        f.write(",".join(headers) + os.linesep)
         for row in cursor:
             # Replace None values with dots for Pyomo. Also turn all datatypes into strings
             row_as_clean_strings = [
@@ -36,151 +34,73 @@ def write_csv(fname, headers, cursor):
             ]
             f.write(
                 ",".join(row_as_clean_strings) + os.linesep
-            )  # concatenates "line" separated by tabs, and appends \n
-
-
-db_cursor = None
-db_connection = None
-tunnel = None
-
-
-# def shutdown():
-# global db_cursor
-# global db_connection
-# global tunnel
-# if db_cursor:
-# db_cursor.close()
-# db_cursor = None
-# if db_connection:
-# db_connection.close()
-# db_connection = None
-# # os.chdir('..')
-# if tunnel:
-# tunnel.stop()
-# tunnel = None
-
-
-# Make sure the ssh tunnel is shutdown properly when python exits, even if an exception has been raised.
-# Hmm. the ssh tunnel still manages to hang before atexit gets called.
-# atexit.register(shutdown)
+            )  # concatenates "line" separated by commas, and appends \n
 
 
 def main():
-    #     global db_cursor
-    # global db_connection
-    # global tunnel
     start_time = time.time()
 
-    # parser = argparse.ArgumentParser(
-    # usage="get_switch_pyomo_input_tables.py [--help] [options]",
-    # description="Write SWITCH input files from database tables. Default \
-    # options asume an SSH tunnel has been opened between the local port 5432\
-    # and the Postgres port at the remote host where the database is stored.",
-    # formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    # )
-    # parser.add_argument(
-    # "-H",
-    # "--hostname",
-    # dest="host",
-    # type=str,
-    # default="switch-db2.erg.berkeley.edu",
-    # metavar="hostname",
-    # help="Database host address",
-    # )
-    # parser.add_argument(
-    # "-P",
-    # "--port",
-    # dest="port",
-    # type=int,
-    # default=5432,
-    # metavar="port",
-    # help="Database host port",
-    # )
-    # parser.add_argument(
-    # "-U",
-    # "--user",
-    # dest="user",
-    # type=str,
-    # default=getpass.getuser(),
-    # metavar="username",
-    # help="Database username",
-    # )
-    # parser.add_argument(
-    # "-D",
-    # "--database",
-    # dest="database",
-    # type=str,
-    # default="switch_wecc",
-    # metavar="dbname",
-    # help="Database name",
-    # )
-    # parser.add_argument(
-    # "-s",
-    # type=int,
-    # required=True,
-    # metavar="scenario_id",
-    # help="Scenario ID for the simulation",
-    # )
-    # parser.add_argument(
-    # "-i",
-    # type=str,
-    # default="inputs",
-    # metavar="inputsdir",
-    # help="Directory where the inputs will be built",
-    # )
-    # args = parser.parse_args()
+    # Create command line tool
+    parser = argparse.ArgumentParser(
+        description="Write SWITCH input files from database tables.",
+    )
+    parser.add_argument(
+        "scenario_id",
+        type=int,
+        help="Scenario ID for the simulation",
+    )
+    parser.add_argument(
+        "--url",
+        dest="db_url",
+        type=str,
+        default=None,
+        help="Database URL. Defaults to the environment variable DB_URL. "
+             "Format is normally: 'postgresql://<user>@<host>:5432/<database>'"
+    )
+    parser.add_argument(
+        "-i",
+        type=str,
+        dest="inputs_dir",
+        default="inputs",
+        help="Directory where the inputs will be built. Defaults to 'inputs'.",
+    )
 
-    # passw = getpass.getpass("Enter database password for user %s:" % args.user)
+    # Parse arguments from command line
+    args = parser.parse_args()
+    scenario_id = args.scenario_id
+    inputs_dir = args.inputs_dir
+    db_url = args.db_url
 
-    # # Connection settings are determined by parsed command line inputs
-    # # Start an ssh tunnel because the database only permits local connections
-    # tunnel = sshtunnel.SSHTunnelForwarder(
-    # args.host,
-    # ssh_username=args.user,
-    # ssh_pkey=os.path.join(os.path.expanduser("~"), ".ssh", "id_rsa"),
-    # remote_bind_address=("127.0.0.1", args.port),
-    # )
-    # tunnel.start()
-    # try:
-    # db_connection = psycopg2.connect(
-    # database=args.database,
-    # user=args.user,
-    # host="127.0.0.1",
-    # port=tunnel.local_bind_port,
-    # password=passw,
-    # )
-    # except:
-    # tunnel.stop()
-    # raise
-    # print("Connection to database established...")
+    # Check that the database url exists, if not try fetching from environment variable
+    if db_url is None:
+        try:
+            db_url = os.environ["DB_URL"]
+        except KeyError:
+            raise Exception("User did not specify a database url. Either set the environment variable 'DB_URL' or "
+                            "use the flag --url.")
 
-    inputs_dir = "test_inputs"
+    # fetch the password
+    try:
+        passw = os.environ["DB_PASSWORD"]
+    except KeyError:
+        passw = getpass.getpass("Enter database password:")
+        print("NOTE: You can avoid retyping your password everytime by setting the environment variable DB_PASSWORD.")
+
+    # Create inputs_dir if it doesn't exist
     if not os.path.exists(inputs_dir):
         os.makedirs(inputs_dir)
-        print("Inputs directory created...")
+        print("Inputs directory created.")
     else:
-        print("Inputs directory exists, so contents will be overwritten...")
+        if not query_yes_no("Inputs directory already exists. Allow contents to be overwritten?"):
+            raise Exception("User cancelled run.")
 
-    # db_cursor = db_connection.cursor()
-
-    # Test db connection for debugging...
-    # db_cursor.execute("select 1 + 1 as x;")
-    # print db_cursor.fetchone()
-    # shutdown()
-    # sys.exit("Finished our test")
-
-    def connect():
-        # TODO: this should be an enviromental variable
-        db_url = "postgresql://pesap@localhost:5432/wecc"
-        conn = pg.connect(db_url, options=f"-c search_path=switch")
-        return conn
-
-    db_conn = connect()
+    # Connect to database
+    db_conn = pg.connect(
+        db_url,
+        password=passw,
+        options=f"-c search_path=switch",
+    )
     db_cursor = db_conn.cursor()
-    ############################################################################################################
-    # These next variables determine which input data is used, though some are only for documentation and result exports.
-
-    scenario_id = 148
 
     db_cursor.execute(
         """
@@ -221,8 +141,6 @@ def main():
     # col1_name col2_name ...
     # [rows of data]
 
-    # The format for dat files is the same as in AMPL dat files.
-
     print(
         '\nStarting data copying from the database to input files for scenario: "%s"'
         % name
@@ -245,7 +163,7 @@ def main():
     ########################################################
     # Which input specification are we writing against?
     with open("switch_inputs_version.txt", "w") as f:
-        f.write("2.0.0b2" + os.linesep)
+        f.write("2.0.5" + os.linesep)
 
     ########################################################
     # TIMESCALES
@@ -426,17 +344,16 @@ def main():
         db_cursor,
     )
 
-    print("  trans_params.dat...")
-    with open("trans_params.dat", "w") as f:
-        f.write(
-            "param trans_capital_cost_per_mw_km:=1150;\n"
-        )  # $1150 opposed to $1000 to reflect change to US$2016
-        f.write(
-            "param trans_lifetime_yrs:=20;\n"
-        )  # Paty: check what lifetime has been used for the wecc
-        f.write("param trans_fixed_om_fraction:=0.03;\n")
-        # f.write("param distribution_loss_rate:=0.0652;\n")
-
+    print("  trans_params.csv...")
+    write_csv(
+        "trans_params",
+        ["trans_capital_cost_per_mw_km", "trans_lifetime_yrs", "trans_fixed_om_fraction"],
+        [[
+            1150,  # $1150 opposed to $1000 to reflect change to US$2016
+            20,  # Paty: check what lifetime has been used for the wecc
+            0.03
+        ]]
+    )
     ########################################################
     # FUEL
 
@@ -612,12 +529,12 @@ def main():
     ########################################################
     # FINANCIALS
 
-    print("  financials.dat...")
-    with open("financials.dat", "w") as f:
-        f.write("param base_financial_year := 2016;\n")
-        f.write("param interest_rate := .07;\n")
-        f.write("param discount_rate := .07;\n")
-
+    print("  financials.csv...")
+    write_csv(
+        "financials",
+        ["base_financial_year", "interest_rate", "discount_rate"],
+        [[2016, 0.07, 0.07]]
+    )
     ########################################################
     # VARIABLE CAPACITY FACTORS
 
@@ -679,7 +596,8 @@ def main():
 			join generation_plant_scenario_member using(generation_plant_id)
 		where generation_plant_scenario_id = {id3} 
 		and hydro_simple_scenario_id={id1}
-			and time_sample_id = {id2};
+			and time_sample_id = {id2}
+		order by 1;
 		"""
         ).format(
             timeseries_id_select=timeseries_id_select,
@@ -902,7 +820,7 @@ def main():
 
     end_time = time.time()
 
-    print("\nScript took %s seconds building input tables." % (end_time - start_time))
+    print("\nScript took %.2f seconds building input tables." % (end_time - start_time))
 
 
 if __name__ == "__main__":
