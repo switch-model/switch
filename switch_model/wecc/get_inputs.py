@@ -11,6 +11,10 @@ Retrieves data inputs for the Switch WECC model from the database. Data
 is formatted into corresponding .csv or .dat files.
 
 TODO: Create modules.txt in this file
+
+Note: previously we used an SSH tunnel. That code was removed however it can still be found at this commit
+273be083c743e0527c2753356a101c479fe053e8 on the REAM-lab repo.
+(https://github.com/REAM-lab/switch/tree/273be083c743e0527c2753356a101c479fe053e8)
 """
 
 import argparse
