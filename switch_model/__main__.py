@@ -7,8 +7,6 @@ from __future__ import print_function
 import sys, os
 import switch_model
 
-# print "running {} as {}.".format(__file__, __name__)
-
 
 def main():
     cmds = [

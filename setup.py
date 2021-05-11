@@ -84,7 +84,9 @@ setup(
             'rpy2;python_version>="3.0"',
             "sympy",
         ],
+        # These packages are installed when one runs 'pip install --editable .[dev]'
         "dev": ["ipdb", "black", "psycopg2-binary"],
+        # In this case 'pip install --editable .[plotting]'
         "plotting": ["ggplot"],
     },
     entry_points={
