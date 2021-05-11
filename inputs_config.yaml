@@ -1,0 +1,25 @@
+# This is a test for the configuration file for the get_inputs
+# For connecting to the database we need add the .env file where we place the environment
+# variables for your own computer
+---
+
+#-----------------------
+# General configuration
+#-----------------------
+
+# Output folder name
+output_folder: test_inputs
+
+
+#----------------------
+# Database information
+#----------------------
+schema: switch
+
+# Scenario configuration
+scenario_id: 175
+study_timeframe_id: 11
+time_sample_id: 8
+demand_scenario_id: 115
+rps_scenario_id: 7
+...

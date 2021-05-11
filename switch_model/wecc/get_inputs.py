@@ -18,6 +18,8 @@ from typing import Iterable, List
 from switch_model.utilities import query_yes_no
 # Third-party packages
 import psycopg2 as pg
+import pandas as pd
+import yaml
 try:
     # Try to load environment variables from .env file using dotenv package.
     # If package is not installed, nothing happens.
@@ -26,11 +28,26 @@ try:
 except:
     pass
 
+# Local packages
+
+# TODO: We need to decide where the files will live. There is a copy of this in the CLI
+# folder
+
+# TODO: Maybe we need to move this to the utils file
+# Read the configuration file 
+with open("inputs_config.yaml") as f:
+    config = yaml.load(f, Loader=yaml.FullLoader)
+
 def write_csv(fname: str, headers: List[str], cursor: Iterable[List]):
     """Create CSV file from iterator."""
+    data = cursor.fetchall()
+    if not data:
+        print(f"Empty query returned for {fname}.")
+    else:
+        print(f"+ {fname}")
     with open(fname + ".csv", "w") as f:
         f.write(",".join(headers) + os.linesep)
-        for row in cursor:
+        for row in data:
             # Replace None values with dots for Pyomo. Also turn all datatypes into strings
             row_as_clean_strings = [
                 "." if element is None else str(element) for element in row
@@ -63,8 +80,30 @@ modules = [
 ]
 
 
-def connect(args, schema="switch"):
-    """Connect to the Postgres database"""
+# FIXME: We just need to run this once. Maybe on a context file?
+inputs_dir = config["inputs_dir"]
+if not os.path.exists(inputs_dir):
+    os.makedirs(inputs_dir)
+    print("Inputs directory created...")
+else:
+    print("Inputs directory exists, so contents will be overwritten...")
+
+def connect(schema="switch"):
+    """Connects to the Postgres DB
+
+    This function uses the environment variables to get the URL to connect to the DB. Both
+    password and user should be passed directly on the URL for safety purposes.
+
+    Parameters
+    ----------
+    input: str
+        Schema of the DB to look for tables. Default is switch
+
+    Returns
+    -------
+    conn:
+        Database connection object from psycopg2
+    """
     # Check that the database url exists,
     # if not try fetching from environment variable
     db_url = args.db_url
@@ -74,15 +113,8 @@ def connect(args, schema="switch"):
             raise Exception("User did not specify a database url. Either set the environment variable 'DB_URL' or "
                             "use the flag --url.")
 
-    # Get the password
-    passw = os.getenv("DB_PASSWORD")
-    if passw is None:
-        passw = getpass.getpass("Enter database password:")
-        print("NOTE: You can avoid retyping your password everytime by setting the environment variable DB_PASSWORD.")
-
     conn = pg.connect(
         db_url,
-        password=passw,
         options=f"-c search_path={schema}",
     )
 
@@ -100,11 +132,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Write SWITCH input files from database tables.",
     )
-    parser.add_argument(
-        "scenario_id",
-        type=int,
-        help="Scenario ID for the simulation",
-    )
+
     parser.add_argument(
         "--url",
         dest="db_url",
@@ -113,18 +141,9 @@ def main():
         help="Database URL. Defaults to the environment variable DB_URL. "
              "Format is normally: 'postgresql://<user>@<host>:5432/<database>'"
     )
-    parser.add_argument(
-        "-i",
-        type=str,
-        dest="inputs_dir",
-        default="inputs",
-        help="Directory where the inputs will be built. Defaults to 'inputs'.",
-    )
 
     # Parse arguments from command line
     args = parser.parse_args()
-    scenario_id = args.scenario_id
-    inputs_dir = args.inputs_dir
 
     # Create inputs_dir if it doesn't exist
     if not os.path.exists(inputs_dir):
@@ -137,6 +156,10 @@ def main():
     # Connect to database
     db_conn = connect(args)
     db_cursor = db_conn.cursor()
+    ############################################################################################################
+    # These next variables determine which input data is used, though some are only for documentation and result exports.
+
+    scenario_id = config["scenario_id"]
 
     db_cursor.execute(
         """SELECT
@@ -165,9 +188,9 @@ def main():
     # name, description, sample_ts_scenario_id, hydro_scenario_meta_id, fuel_id, gen_costs_id, new_projects_id, carbon_tax_id, carbon_cap_id, rps_id, lz_hourly_demand_id, gen_info_id, load_zones_scenario_id, existing_projects_id, demand_growth_id = s_details[1], s_details[2], s_details[3], s_details[4], s_details[5], s_details[6], s_details[7], s_details[8], s_details[9], s_details[10], s_details[11], s_details[12], s_details[13], s_details[14], s_details[15]
     name = s_details[0]
     description = s_details[1]
-    study_timeframe_id = s_details[2]
-    time_sample_id = s_details[3]
-    demand_scenario_id = s_details[4]
+    study_timeframe_id = config["study_timeframe_id"]  # s_details[2]
+    time_sample_id = config["time_sample_id"]  # s_details[3]
+    demand_scenario_id = config["demand_scenario_id"]  # s_details[4]
     fuel_simple_price_scenario_id = s_details[5]
     generation_plant_scenario_id = s_details[6]
     generation_plant_cost_scenario_id = s_details[7]
@@ -177,9 +200,10 @@ def main():
     supply_curves_scenario_id = s_details[11]
     regional_fuel_market_scenario_id = s_details[12]
     zone_to_regional_fuel_market_scenario_id = s_details[13]
-    rps_scenario_id = s_details[14]
+    rps_scenario_id = config["rps_scenario_id"]#s_details[14]
     enable_dr = s_details[15]
     enable_ev = s_details[16]
+    breakpoint()
 
     # TODO: We can handle this with filepath instead of changing dirs
     os.chdir(inputs_dir)
@@ -215,7 +239,7 @@ def main():
     ########################################################
     # TIMESCALES
 
-    print("  periods.csv...")
+    # print("  periods.csv...")
     db_cursor.execute(
         f"""
         select
@@ -230,13 +254,14 @@ def main():
           1;
         """
     )
+    breakpoint()
     write_csv("periods", ["INVESTMENT_PERIOD", "period_start", "period_end"], db_cursor)
 
-    print("  timeseries.csv...")
+    # print("  timeseries.csv...")
     timeseries_id_select = "date_part('year', first_timepoint_utc)|| '_' || replace(sampled_timeseries.name, ' ', '_') as timeseries"
     db_cursor.execute(
         (
-            """
+            f"""
             select
               date_part('year', first_timepoint_utc)|| '_' || replace(
                 sampled_timeseries.name, ' ', '_'
@@ -249,7 +274,7 @@ def main():
               switch.sampled_timeseries
               join switch.period as t using(period_id, study_timeframe_id)
             where
-              sampled_timeseries.time_sample_id = 7
+              sampled_timeseries.time_sample_id = {time_sample_id}
             order by
               label;
             """
@@ -267,10 +292,10 @@ def main():
         db_cursor,
     )
 
-    print("  timepoints.csv...")
+    # print("  timepoints.csv...")
     db_cursor.execute(
         (
-            """
+            f"""
             select
               raw_timepoint_id as timepoint_id,
               to_char(timestamp_utc, 'YYYYMMDDHH24') as timestamp,
@@ -283,8 +308,8 @@ def main():
                 sampled_timeseries_id, study_timeframe_id
               )
             where
-              t.time_sample_id = 7
-              and t.study_timeframe_id = 10
+              t.time_sample_id = {time_sample_id}
+              and t.study_timeframe_id = {study_timeframe_id}
             order by
               1;
             """
@@ -296,7 +321,7 @@ def main():
     # LOAD ZONES
 
     # done
-    print("  load_zones.csv...")
+    # print("  load_zones.csv...")
     db_cursor.execute(
         """SELECT name, ccs_distance_km as zone_ccs_distance_km, load_zone_id as zone_dbid 
 					FROM switch.load_zone  
@@ -307,7 +332,7 @@ def main():
         "load_zones", ["LOAD_ZONE", "zone_ccs_distance_km", "zone_dbid"], db_cursor
     )
 
-    print("  loads.csv...")
+    # print("  loads.csv...")
     db_cursor.execute(
         """
 		select load_zone_name, t.raw_timepoint_id as timepoint, 
@@ -325,7 +350,7 @@ def main():
     ########################################################
     # BALANCING AREAS [Pending zone_coincident_peak_demand.csv]
 
-    print("  balancing_areas.csv...")
+    # print("  balancing_areas.csv...")
     db_cursor.execute(
         """SELECT balancing_area, quickstart_res_load_frac, quickstart_res_wind_frac, quickstart_res_solar_frac,spinning_res_load_frac, 
 					spinning_res_wind_frac, spinning_res_solar_frac 
@@ -346,7 +371,7 @@ def main():
         db_cursor,
     )
 
-    print("  zone_balancing_areas.csv...")
+    # print("  zone_balancing_areas.csv...")
     db_cursor.execute(
         """SELECT name, reserves_area as balancing_area 
 					FROM switch.load_zone;
@@ -375,15 +400,15 @@ def main():
     ########################################################
     # TRANSMISSION
 
-    print("  transmission_lines.csv...")
+    # print("  transmission_lines.csv...")
     db_cursor.execute(
-        """SELECT start_load_zone_id || '-' || end_load_zone_id, t1.name, t2.name, 
-					trans_length_km, trans_efficiency, existing_trans_cap_mw 
-					FROM switch.transmission_lines
-					join load_zone as t1 on(t1.load_zone_id=start_load_zone_id)
-					join load_zone as t2 on(t2.load_zone_id=end_load_zone_id)  
-					ORDER BY 2,3;
-					"""
+        """SELECT start_load_zone_id || '-' || end_load_zone_id, t1.name, t2.name,
+    trans_length_km, trans_efficiency, existing_trans_cap_mw
+    FROM switch.transmission_lines
+    join load_zone as t1 on(t1.load_zone_id=start_load_zone_id)
+    join load_zone as t2 on(t2.load_zone_id=end_load_zone_id)
+    ORDER BY 2,3;
+    """
     )
     write_csv(
         "transmission_lines",
@@ -398,13 +423,13 @@ def main():
         db_cursor,
     )
 
-    print("  trans_optional_params.csv...")
+    # print("  trans_optional_params.csv...")
     db_cursor.execute(
-        """SELECT start_load_zone_id || '-' || end_load_zone_id, transmission_line_id, derating_factor, terrain_multiplier, 
-					new_build_allowed 
-					FROM switch.transmission_lines 
-					ORDER BY 1;
-					"""
+        """SELECT start_load_zone_id || '-' || end_load_zone_id, transmission_line_id, derating_factor, terrain_multiplier,
+    new_build_allowed
+    FROM switch.transmission_lines
+    ORDER BY 1;
+    """
     )
     write_csv(
         "trans_optional_params",
@@ -418,7 +443,7 @@ def main():
         db_cursor,
     )
 
-    print("  trans_params.csv...")
+    # print("  trans_params.csv...")
     write_csv(
         "trans_params",
         ["trans_capital_cost_per_mw_km", "trans_lifetime_yrs", "trans_fixed_om_fraction"],
@@ -432,7 +457,7 @@ def main():
     ########################################################
     # FUEL
 
-    print("  fuels.csv...")
+    # print("  fuels.csv...")
     db_cursor.execute(
         """SELECT name, co2_intensity, upstream_co2_intensity 
 					FROM switch.energy_source WHERE is_fuel IS TRUE;
@@ -440,7 +465,7 @@ def main():
     )
     write_csv("fuels", ["fuel", "co2_intensity", "upstream_co2_intensity"], db_cursor)
 
-    print("  non_fuel_energy_sources.csv...")
+    # print("  non_fuel_energy_sources.csv...")
     db_cursor.execute(
         """SELECT name 
 					FROM switch.energy_source 
@@ -450,7 +475,7 @@ def main():
     write_csv("non_fuel_energy_sources", ["energy_source"], db_cursor)
 
     # Fuel projections are yearly averages in the DB. For now, Switch only accepts fuel prices per period, so they are averaged.
-    print("  fuel_cost.csv")
+    # print("  fuel_cost.csv")
     db_cursor.execute(
         """select load_zone_name as load_zone, fuel, period  as period, AVG(fuel_price) as fuel_cost 
 					from 
@@ -477,34 +502,34 @@ def main():
     # 		 gen_ccs_energy_load,
     #        gen_ccs_capture_efficiency,
     #        gen_is_distributed
-    print("  generation_projects_info.csv...")
+    # print("  generation_projects_info.csv...")
     db_cursor.execute(
         (
-            """select 
-				generation_plant_id, 
-				gen_tech, 
-				energy_source as gen_energy_source, 
-				t2.name as gen_load_zone, 
-				max_age as gen_max_age, 
-				is_variable as gen_is_variable, 
-				is_baseload as gen_is_baseload,
-				full_load_heat_rate as gen_full_load_heat_rate, 
-				variable_o_m as gen_variable_om,
-				connect_cost_per_mw as gen_connect_cost_per_mw,
-				generation_plant_id as gen_dbid, 
-				scheduled_outage_rate as gen_scheduled_outage_rate,
-				forced_outage_rate as gen_forced_outage_rate, 
-				capacity_limit_mw as gen_capacity_limit_mw,
-				min_build_capacity as gen_min_build_capacity, 
-				is_cogen as gen_is_cogen,
-				storage_efficiency as gen_storage_efficiency,
-				store_to_release_ratio as gen_store_to_release_ratio
-			from generation_plant as t
-			join load_zone as t2 using(load_zone_id)
-			join generation_plant_scenario_member using(generation_plant_id)
-			where generation_plant_scenario_id={id1}
-			order by gen_dbid;
-					"""
+            """select
+    generation_plant_id,
+    gen_tech,
+    energy_source as gen_energy_source,
+    t2.name as gen_load_zone,
+    max_age as gen_max_age,
+    is_variable as gen_is_variable,
+    is_baseload as gen_is_baseload,
+    full_load_heat_rate as gen_full_load_heat_rate,
+    variable_o_m as gen_variable_om,
+    connect_cost_per_mw as gen_connect_cost_per_mw,
+    generation_plant_id as gen_dbid,
+    scheduled_outage_rate as gen_scheduled_outage_rate,
+    forced_outage_rate as gen_forced_outage_rate,
+    final_capacity_limit_mw as gen_capacity_limit_mw,
+    min_build_capacity as gen_min_build_capacity,
+    is_cogen as gen_is_cogen,
+    storage_efficiency as gen_storage_efficiency,
+    store_to_release_ratio as gen_store_to_release_ratio
+    from generation_plant as t
+    join load_zone as t2 using(load_zone_id)
+    join generation_plant_scenario_member using(generation_plant_id)
+    where generation_plant_scenario_id={id1}
+    order by gen_dbid;
+    """
         ).format(id1=generation_plant_scenario_id)
     )
 
@@ -533,7 +558,7 @@ def main():
         db_cursor,
     )
 
-    print("  gen_build_predetermined.csv...")
+    # print("  gen_build_predetermined.csv...")
     db_cursor.execute(
         (
             """select generation_plant_id, build_year, capacity as gen_predetermined_cap  
@@ -555,7 +580,7 @@ def main():
         db_cursor,
     )
 
-    print("  gen_build_costs.csv...")
+    # print("  gen_build_costs.csv...")
     db_cursor.execute(
         """
         select generation_plant_id, generation_plant_cost.build_year, 
@@ -615,17 +640,15 @@ def main():
 
     # Pyomo will raise an error if a capacity factor is defined for a project on a timepoint when it is no longer operational (i.e. Canela 1 was built on 2007 and has a 30 year max age, so for tp's ocurring later than 2037, its capacity factor must not be written in the table).
 
-    print("  variable_capacity_factors.csv...")
+    # print("  variable_capacity_factors.csv...")
     db_cursor.execute(
         f"""
-        SELECT generation_plant_id,
-               t.raw_timepoint_id,
-               capacity_factor
-        FROM variable_capacity_factors as var_cf
-        JOIN generation_plant_scenario_member USING(generation_plant_id)
-        JOIN sampled_timepoint AS t ON(t.raw_timepoint_id = var_cf.raw_timepoint_id)
+        select generation_plant_id, t.raw_timepoint_id, capacity_factor
+        FROM variable_capacity_factors_exist_and_candidate_gen v
+            JOIN generation_plant_scenario_member USING(generation_plant_id)
+            JOIN sampled_timepoint as t ON(t.raw_timepoint_id = v.raw_timepoint_id)
         WHERE generation_plant_scenario_id = {generation_plant_scenario_id}
-          AND t.time_sample_id={time_sample_id}
+            AND t.time_sample_id={time_sample_id};
         """
     )
     write_csv(
@@ -637,7 +660,7 @@ def main():
     ########################################################
     # HYDROPOWER
 
-    print("  hydro_timeseries.csv...")
+    # print("  hydro_timeseries.csv...")
     # 	db_cursor.execute(("""select generation_plant_id as hydro_project,
     # 					{timeseries_id_select},
     # 					hydro_min_flow_mw, hydro_avg_flow_mw
@@ -688,7 +711,7 @@ def main():
     # CARBON CAP
 
     # future work: join with table with carbon_cost_dollar_per_tco2
-    print("  carbon_policies.csv...")
+    # print("  carbon_policies.csv...")
     db_cursor.execute(
         (
             """select period, AVG(carbon_cap_tco2_per_yr) as carbon_cap_tco2_per_yr, AVG(carbon_cap_tco2_per_yr_CA) as carbon_cap_tco2_per_yr_CA,
@@ -721,7 +744,7 @@ def main():
     ########################################################
     # RPS
     if rps_scenario_id is not None:
-        print("  rps_targets.csv...")
+        # print("  rps_targets.csv...")
         db_cursor.execute(
             (
                 """select load_zone, w.period as period, avg(rps_target) as rps_target
@@ -745,7 +768,7 @@ def main():
     # BIO_SOLID SUPPLY CURVE
 
     if supply_curves_scenario_id is not None:
-        print("  fuel_supply_curves.csv...")
+        # print("  fuel_supply_curves.csv...")
         db_cursor.execute(
             (
                 """
@@ -772,7 +795,7 @@ def main():
             db_cursor,
         )
 
-        print("  regional_fuel_markets.csv...")
+        # print("  regional_fuel_markets.csv...")
         db_cursor.execute(
             (
                 """
@@ -784,7 +807,7 @@ def main():
         )
         write_csv("regional_fuel_markets", ["regional_fuel_market", "fuel"], db_cursor)
 
-        print("  zone_to_regional_fuel_market.csv...")
+        # print("  zone_to_regional_fuel_market.csv...")
         db_cursor.execute(
             (
                 """
@@ -803,7 +826,7 @@ def main():
     ########################################################
     # DEMAND RESPONSE
     if enable_dr is not None:
-        print("  dr_data.csv...")
+        # print("  dr_data.csv...")
         db_cursor.execute(
             (
                 """
@@ -836,7 +859,7 @@ def main():
     ########################################################
     # ELECTRICAL VEHICLES
     if enable_ev is not None:
-        print("  ev_limits.csv...")
+        # print("  ev_limits.csv...")
         db_cursor.execute(
             (
                 """
@@ -899,6 +922,15 @@ def main():
 
     print("\nScript took %.2f seconds to build input tables." % (end_time - start_time))
 
+def post_process():
+    df = pd.read_csv("test_inputs/generation_projects_info.csv")
+
+    var_techs = ["Wind", "Central_PV", "Commercial_PV"]
+    df.loc[df.gen_tech.isin(var_techs), "gen_capacity_limit_mw"] = "."
+    df.to_csv("test_inputs/generation_projects_info.csv", index=False)
+    ...
+
 
 if __name__ == "__main__":
-    main()
+    # main()
+    post_process()
