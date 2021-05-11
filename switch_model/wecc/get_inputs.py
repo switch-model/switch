@@ -39,7 +39,7 @@ def write_csv(fname: str, headers: List[str], cursor: Iterable[List]):
                 ",".join(row_as_clean_strings) + os.linesep
             )  # concatenates "line" separated by commas, and appends \n
 
-
+# List of modules that is used to generate modules.txt
 modules = [
     # Core modules
     "switch_model",
@@ -165,10 +165,9 @@ def main():
     # name, description, sample_ts_scenario_id, hydro_scenario_meta_id, fuel_id, gen_costs_id, new_projects_id, carbon_tax_id, carbon_cap_id, rps_id, lz_hourly_demand_id, gen_info_id, load_zones_scenario_id, existing_projects_id, demand_growth_id = s_details[1], s_details[2], s_details[3], s_details[4], s_details[5], s_details[6], s_details[7], s_details[8], s_details[9], s_details[10], s_details[11], s_details[12], s_details[13], s_details[14], s_details[15]
     name = s_details[0]
     description = s_details[1]
-    # TODO should these be hardcoded?
-    study_timeframe_id = 10  # s_details[2]
-    time_sample_id = 7  # s_details[3]
-    demand_scenario_id = 115  # s_details[4]
+    study_timeframe_id = s_details[2]
+    time_sample_id = s_details[3]
+    demand_scenario_id = s_details[4]
     fuel_simple_price_scenario_id = s_details[5]
     generation_plant_scenario_id = s_details[6]
     generation_plant_cost_scenario_id = s_details[7]
@@ -426,7 +425,8 @@ def main():
         [[
             1150,  # $1150 opposed to $1000 to reflect change to US$2016
             20,  # Paty: check what lifetime has been used for the wecc
-            0.03
+            0.03,
+            # 0.0652 for column distribution_loss_rate, however this is no longer used
         ]]
     )
     ########################################################
@@ -897,7 +897,7 @@ def main():
 
     end_time = time.time()
 
-    print("\nScript took %.2f seconds building input tables." % (end_time - start_time))
+    print("\nScript took %.2f seconds to build input tables." % (end_time - start_time))
 
 
 if __name__ == "__main__":
