@@ -1,0 +1,26 @@
+# This is the test configuration file for the Sampling script
+# We are moving away from a CLI approach to a configuration-file oriented
+#
+# Configuration of the sampling strategy
+study_timeframe:
+  id: 10
+  name: Testing
+  description: >
+    This is a test study timeframe id and example of how we can add multiple lines of text
+    to support the description of this document
+periods:
+  start_year: 2021
+  end_year: 2045
+  length: 5 
+
+load:
+  scenario_id: 115 # Scenario for using as load
+sampling:
+  id: 7 # Add description to this ID 
+  number_tps: 6
+  name: Peak and median
+  method: peak_median
+  description: >
+    This sampling takes the peak and median for each month and extract 8 timepoints per day.
+
+

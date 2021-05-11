@@ -9,8 +9,18 @@ import switch_model
 
 # print "running {} as {}.".format(__file__, __name__)
 
+
 def main():
-    cmds = ["solve", "solve-scenarios", "test", "upgrade", "get_inputs", "--version", "drop"]
+    cmds = [
+        "solve",
+        "solve-scenarios",
+        "test",
+        "upgrade",
+        "get_inputs",
+        "--version",
+        "drop",
+        "sampling",
+    ]
     if len(sys.argv) >= 2 and sys.argv[1] in cmds:
         # If users run a script from the command line, the location of the script
         # gets added to the start of sys.path; if they call a module from the
@@ -38,12 +48,19 @@ def main():
             from switch_model.upgrade import main
         elif cmd == "get_inputs":
             from switch_model.wecc.get_inputs import main
+        elif cmd == "sampling":
+            from switch_model.wecc.sampling import main
         elif cmd == "drop":
             from switch_model.tools.drop import main
         main()
     else:
-        print("Usage: {} {{{}}} ...".format(os.path.basename(sys.argv[0]), ", ".join(cmds)))
+        print(
+            "Usage: {} {{{}}} ...".format(
+                os.path.basename(sys.argv[0]), ", ".join(cmds)
+            )
+        )
         print("Use one of these commands with --help for more information.")
+
 
 if __name__ == "__main__":
     main()
