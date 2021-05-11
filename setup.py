@@ -84,9 +84,8 @@ setup(
             'rpy2;python_version>="3.0"',
             "sympy",
         ],
-        "dev": ["ipdb"],
+        "dev": ["ipdb", "black", "psycopg2-binary"],
         "plotting": ["ggplot"],
-        "database_access": ["psycopg2-binary"],
     },
     entry_points={
         "console_scripts": [
