@@ -9,6 +9,7 @@ import switch_model
 
 
 def main():
+    # TODO make a proper command line tool with help information for each option
     cmds = [
         "solve",
         "solve-scenarios",
@@ -17,6 +18,7 @@ def main():
         "get_inputs",
         "--version",
         "drop",
+        "new",
     ]
     if len(sys.argv) >= 2 and sys.argv[1] in cmds:
         # If users run a script from the command line, the location of the script
@@ -47,6 +49,8 @@ def main():
             from switch_model.wecc.get_inputs import main
         elif cmd == "drop":
             from switch_model.tools.drop import main
+        elif cmd == "new":
+            from switch_model.tools.new import main
         main()
     else:
         print(

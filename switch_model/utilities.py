@@ -10,15 +10,11 @@ import os, types, importlib, re, sys, argparse, time, datetime
 import __main__ as main
 from pyomo.environ import *
 import pyomo.opt
+import yaml
 
 # Define string_types (same as six.string_types). This is useful for
 # distinguishing between strings and other iterables.
-try:
-    # Python 2
-    string_types = (basestring,)
-except NameError:
-    # Python 3
-    string_types = (str,)
+string_types = (str,)
 
 # Check whether this is an interactive session (determined by whether
 # __main__ has a __file__ attribute). Scripts can check this value to
@@ -144,6 +140,12 @@ class StepTimer(object):
         last_start = self.start_time
         self.start_time = now = time.time()
         return now - last_start
+
+    def step_time_as_str(self):
+        """
+        Reset timer to current time and return time elapsed since last step as a formatted string.
+        """
+        return f"{self.step_time():.2f}"
 
 
 def load_inputs(model, inputs_dir=None, attach_data_portal=True):
@@ -807,3 +809,13 @@ def query_yes_no(question, default="yes"):
             return valid[choice]
         else:
             sys.stdout.write("Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n")
+
+
+def load_config():
+    """Read the config.yaml configuration file"""
+    if not os.path.isfile("config.yaml"):
+        raise Exception(
+            "config.yaml does not exist. Try running 'switch new' to auto-create it."
+        )
+    with open("config.yaml") as f:
+        return yaml.load(f, Loader=yaml.FullLoader)
