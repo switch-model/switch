@@ -696,19 +696,19 @@ def add_recommended_args(argparser):
         "--recommended",
         default=False,
         action="store_true",
-        help='Equivalent to running with all of the following options: --solver gurobi -v --sorted-output --stream-output --log-run --solver-io python --solver-options-string "method=2 BarHomogeneous=1 BarConvTol=1e-6 FeasibilityTol=1e-5 OptimalityTol=1e-5"',
+        help='Equivalent to running with all of the following options: --solver gurobi -v --sorted-output --stream-output --log-run --solver-io python --solver-options-string "method=2 BarHomogeneous=1 FeasibilityTol=1e-5"',
     )
 
     argparser.add_argument(
         "--recommended-debug",
         default=False,
         action="store_true",
-        help='Equivalent to running with all of the following options: --solver gurobi -v --sorted-output --keepfiles --tempdir temp --stream-output --symbolic-solver-labels --log-run --debug --solver-options-string "method=2 BarHomogeneous=1 BarConvTol=1e-6 FeasibilityTol=1e-5 OptimalityTol=1e-5"',
+        help='Equivalent to running with all of the following options: --solver gurobi -v --sorted-output --keepfiles --tempdir temp --stream-output --symbolic-solver-labels --log-run --debug --solver-options-string "method=2 BarHomogeneous=1 FeasibilityTol=1e-5"',
     )
 
 
 def parse_recommended_args(args):
-    argparser = _ArgumentParser()
+    argparser = _ArgumentParser(add_help=False)
     add_recommended_args(argparser)
     options = argparser.parse_known_args(args)[0]
 
@@ -718,24 +718,24 @@ def parse_recommended_args(args):
         return args
 
     # If you change the flags, make sure to update the help text in
-    # the function above
-    args.extend(
-        [
-            "--solver",
-            "gurobi",
-            "-v",
-            "--sorted-output",
-            "--stream-output",
-            "--log-run",
-            "--debug",
-            "--solver-options-string",
-            "method=2 BarHomogeneous=1 BarConvTol=1e-6 FeasibilityTol=1e-5 OptimalityTol=1e-5",
-        ]
-    )
+    # the function above.
+    # Note we don't append but rather prepend so that flags can override the --recommend or
+    # --recommend-debug flags.
+    args = [
+        "--solver",
+        "gurobi",
+        "-v",
+        "--sorted-output",
+        "--stream-output",
+        "--log-run",
+        "--debug",
+        "--solver-options-string",
+        "method=2 BarHomogeneous=1 FeasibilityTol=1e-5",
+    ] + args
     if options.recommended:
-        args.extend(["--solver-io", "python"])
+        args = ["--solver-io", "python"] + args
     if options.recommended_debug:
-        args.extend(["--keepfiles", "--tempdir", "temp", "--symbolic-solver-labels"])
+        args = ["--keepfiles", "--tempdir", "temp", "--symbolic-solver-labels"] + args
 
     return args
 
