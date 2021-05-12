@@ -186,10 +186,15 @@ def main():
     s_details = db_cursor.fetchone()
     name = s_details[0]
     description = s_details[1]
-    # TODO config overrides the values in the database, so maybe we should display a warning?
-    study_timeframe_id = config["study_timeframe_id"]  # s_details[2]
-    time_sample_id = config["time_sample_id"]  # s_details[3]
-    demand_scenario_id = config["demand_scenario_id"]  # s_details[4]
+    study_timeframe_id = (
+        config["study_timeframe_id"] if "study_timeframe_id" in config else s_details[2]
+    )
+    time_sample_id = (
+        config["time_sample_id"] if "time_sample_id" in config else s_details[3]
+    )
+    demand_scenario_id = (
+        config["demand_scenario_id"] if "demand_scenario_id" in config else s_details[4]
+    )
     fuel_simple_price_scenario_id = s_details[5]
     generation_plant_scenario_id = s_details[6]
     generation_plant_cost_scenario_id = s_details[7]
@@ -199,7 +204,9 @@ def main():
     supply_curves_scenario_id = s_details[11]
     regional_fuel_market_scenario_id = s_details[12]
     zone_to_regional_fuel_market_scenario_id = s_details[13]
-    rps_scenario_id = config["rps_scenario_id"]  # s_details[14]
+    rps_scenario_id = (
+        config["rps_scenario_id"] if "rps_scenario_id" in config else s_details[14]
+    )
     enable_dr = s_details[15]
     enable_ev = s_details[16]
 

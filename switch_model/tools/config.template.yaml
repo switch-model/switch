@@ -18,7 +18,8 @@ get_inputs:
 
   # Scenario configuration
   scenario_id: <FILL_IN>
-  study_timeframe_id: <FILL_IN>
-  time_sample_id: <FILL_IN>
-  demand_scenario_id: <FILL_IN>
-  rps_scenario_id: <FILL_IN>
+  #  the following parameters are optional and will override the defaults for that scenario
+  #  study_timeframe_id: <FILL_IN>
+  #  time_sample_id: <FILL_IN>
+  #  demand_scenario_id: <FILL_IN>
+  #  rps_scenario_id: <FILL_IN>
