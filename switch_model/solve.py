@@ -676,7 +676,7 @@ def define_arguments(argparser):
     )
     argparser.add_argument(
         "--sig-figs-output",
-        default=6,
+        default=5,
         type=int,
         help="The number of significant digits to include in the output by default",
     )
