@@ -37,9 +37,7 @@ def write_csv_from_query(cursor, fname: str, headers: List[str], query: str):
     data = cursor.fetchall()
     write_csv(data, fname, headers, log=False)
     if not data:
-        print("Done but file is empty.")
-    else:
-        print("Done.")
+        print("Warning: File is empty.")
 
 
 def write_csv(data: Iterable[List], fname, headers: List[str], log=True):
@@ -56,8 +54,6 @@ def write_csv(data: Iterable[List], fname, headers: List[str], log=True):
             f.write(
                 ",".join(row_as_clean_strings) + os.linesep
             )  # concatenates "line" separated by commas, and appends \n
-    if log:
-        print("Done.")
 
 
 # List of modules that is used to generate modules.txt
@@ -84,7 +80,7 @@ modules = [
 ]
 
 
-def get_input_dir(config):
+def switch_to_input_dir(config):
     inputs_dir = config["inputs_dir"]
 
     # Create inputs_dir if it doesn't exist
@@ -97,6 +93,7 @@ def get_input_dir(config):
         ):
             raise Exception("User cancelled run.")
 
+    os.chdir(inputs_dir)
     return inputs_dir
 
 
@@ -153,13 +150,17 @@ def main():
 
     # Load values from config.yaml
     full_config = load_config()
-    inputs_dir = get_input_dir(full_config)
+    switch_to_input_dir(full_config)
     config = full_config["get_inputs"]
     scenario_id = config["scenario_id"]
 
     # Connect to database
     db_conn = connect()
     db_cursor = db_conn.cursor()
+
+    print(
+        f'\nStarting to copy data from the database to the input files.'
+    )
 
     db_cursor.execute(
         f"""SELECT
@@ -183,18 +184,23 @@ def main():
         FROM switch.scenario
         WHERE scenario_id = {scenario_id};"""
     )
-    s_details = db_cursor.fetchone()
+    s_details = list(db_cursor.fetchone())
+
+    # Allow overriding from config
+    if "study_timeframe_id" in config:
+        s_details[2] = config["study_timeframe_id"]
+    if "time_sample_id" in config:
+        s_details[3] = config["time_sample_id"]
+    if "demand_scenario_id" in config:
+        s_details[4] = config["demand_scenario_id"]
+    if "rps_scenario_id" in config:
+        s_details[14] = config["rps_scenario_id"]
+
     name = s_details[0]
     description = s_details[1]
-    study_timeframe_id = (
-        config["study_timeframe_id"] if "study_timeframe_id" in config else s_details[2]
-    )
-    time_sample_id = (
-        config["time_sample_id"] if "time_sample_id" in config else s_details[3]
-    )
-    demand_scenario_id = (
-        config["demand_scenario_id"] if "demand_scenario_id" in config else s_details[4]
-    )
+    study_timeframe_id = s_details[2]
+    time_sample_id = s_details[3]
+    demand_scenario_id = s_details[4]
     fuel_simple_price_scenario_id = s_details[5]
     generation_plant_scenario_id = s_details[6]
     generation_plant_cost_scenario_id = s_details[7]
@@ -204,47 +210,32 @@ def main():
     supply_curves_scenario_id = s_details[11]
     regional_fuel_market_scenario_id = s_details[12]
     zone_to_regional_fuel_market_scenario_id = s_details[13]
-    rps_scenario_id = (
-        config["rps_scenario_id"] if "rps_scenario_id" in config else s_details[14]
-    )
+    rps_scenario_id = s_details[14]
     enable_dr = s_details[15]
     enable_ev = s_details[16]
 
-    # TODO: We can handle this with filepath instead of changing dirs
-    os.chdir(inputs_dir)
-
-    # The format for csv files is:
-    # col1_name col2_name ...
-    # [rows of data]
-
-    print(
-        f'\nStarting to copy data from the database to the input files.\nScenario: "{name}"\n'
-    )
+    print(f"Scenario: {scenario_id}: {name}.\n")
 
     # Write general scenario parameters into a documentation file
-    db_cursor.execute(
-        f"SELECT * FROM switch.scenario WHERE scenario_id = {scenario_id}"
-    )
-    s_details = db_cursor.fetchone()
     colnames = [desc[0] for desc in db_cursor.description]
     with open("scenario_params.txt", "w") as f:
         f.write(f"Scenario id: {scenario_id}\n")
         f.write(f"Scenario name: {name}\n")
         f.write(f"Scenario notes: {description}\n")
         for i, col in enumerate(colnames):
-            f.write("{}: {}\n".format(col, s_details[i]))
-    print("scenario_params.txt... Done.")
+            f.write(f"{col}: {s_details[i]}\n")
+    print("scenario_params.txt...")
 
     ########################################################
     # Which input specification are we writing against?
     with open("switch_inputs_version.txt", "w") as f:
         f.write("2.0.5" + os.linesep)
-    print("switch_inputs_version.txt... Done.")
+    print("switch_inputs_version.txt...")
 
     with open("modules.txt", "w") as f:
         for module in modules:
             f.write(module + os.linesep)
-    print("modules.txt... Done.")
+    print("modules.txt...")
 
     ########################################################
     # TIMESCALES
