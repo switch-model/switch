@@ -33,7 +33,7 @@ it behaves the same as Pyomo's Var except for a few key differences.
 a) Upon creation the variable bounds are scaled according to the scaling_factor
 b) Upon creation we define a few extra properties that are used later.
 
-Up to know we really haven't done much. Creating a ScaledVar instead of a Var
+Up to now we really haven't done much. Creating a ScaledVar instead of a Var
 simply creates a _ScaledVar instance (if scaling is enabled) that behaves
 in almost all the same ways as Var (except bounds are scaled). Here's where things change.
 

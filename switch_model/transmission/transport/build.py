@@ -9,7 +9,6 @@ import os
 from pyomo.environ import *
 from switch_model.financials import capital_recovery_factor as crf
 import pandas as pd
-from switch_model.utilities.scaling import ScaledVariable
 
 dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
     'switch_model.financials'
@@ -197,7 +196,7 @@ def define_components(mod):
         dimen=2,
         initialize=mod.TRANSMISSION_LINES * mod.PERIODS,
         filter=lambda m, tx, p: m.trans_new_build_allowed[tx])
-    mod.BuildTx = ScaledVariable(mod.TRANS_BLD_YRS, within=NonNegativeReals)
+    mod.BuildTx = Var(mod.TRANS_BLD_YRS, within=NonNegativeReals)
     mod.TxCapacityNameplate = Expression(
         mod.TRANSMISSION_LINES, mod.PERIODS,
         rule=lambda m, tx, period: sum(
