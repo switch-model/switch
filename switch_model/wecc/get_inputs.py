@@ -26,13 +26,13 @@ try:
     from dotenv import load_dotenv
 
     load_dotenv()
-except:
+except ImportError:
     pass
 
 
 def write_csv_from_query(cursor, fname: str, headers: List[str], query: str):
     """Create CSV file from cursor."""
-    print(f"{fname}.csv... ", end="", flush=True)
+    print(f"{fname}.csv... ", flush=True)
     cursor.execute(query)
     data = cursor.fetchall()
     write_csv(data, fname, headers, log=False)
@@ -43,7 +43,7 @@ def write_csv_from_query(cursor, fname: str, headers: List[str], query: str):
 def write_csv(data: Iterable[List], fname, headers: List[str], log=True):
     """Create CSV file from Iterable."""
     if log:
-        print(f"{fname}.csv... ", end="")
+        print(f"{fname}.csv... ", flush=True)
     with open(fname + ".csv", "w") as f:
         f.write(",".join(headers) + os.linesep)
         for row in data:
@@ -158,9 +158,7 @@ def main():
     db_conn = connect()
     db_cursor = db_conn.cursor()
 
-    print(
-        f'\nStarting to copy data from the database to the input files.'
-    )
+    print(f"\nStarting to copy data from the database to the input files.")
 
     db_cursor.execute(
         f"""SELECT
