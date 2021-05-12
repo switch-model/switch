@@ -21,12 +21,10 @@ string_types = (str,)
 # determine what level of output to display.
 interactive_session = not hasattr(main, '__file__')
 
-
 def define_AbstractModel(*module_list, **kwargs):
     # stub to provide old functionality as we move to a simpler calling convention
     args = kwargs.get("args", sys.argv[1:])
     return create_model(module_list, args)
-
 
 def create_model(module_list=None, args=sys.argv[1:]):
     """
@@ -121,17 +119,14 @@ def make_iterable(item):
             i = iter([item])
     return i
 
-
 class StepTimer(object):
     """
     Keep track of elapsed time for steps of a process.
     Use timer = StepTimer() to create a timer, then retrieve elapsed time and/or
     reset the timer at each step by calling timer.step_time()
     """
-
     def __init__(self):
         self.start_time = time.time()
-
     def step_time(self):
         """
         Reset timer to current time and return time elapsed since last step.
@@ -181,7 +176,7 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=True):
 
 
 def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
-                       exclude=[], sorted_output=False):
+    exclude=[], sorted_output=False):
     """
     Save input data to a .dat file for use with PySP or other command line
     tools that have not been fully integrated with DataPortal.
@@ -199,23 +194,23 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
     with open(save_path, "w") as f:
         for component_name in instance.DataPortal.data():
             if component_name in exclude:
-                continue  # don't write data for components in exclude list
-                # (they're in scenario-specific files)
+                continue    # don't write data for components in exclude list
+                            # (they're in scenario-specific files)
             component = getattr(model, component_name)
             comp_class = type(component).__name__
             component_data = instance.DataPortal.data(name=component_name)
             if comp_class == 'SimpleSet' or comp_class == 'OrderedSimpleSet':
                 f.write(
                     "set {} := {};\n"
-                        .format(component_name, join_space(component_data))
+                    .format(component_name, join_space(component_data))
                 )
             elif comp_class == 'IndexedParam':
                 if component_data:  # omit components for which no data were provided
                     f.write("param {} := \n".format(component_name))
                     for key, value in (
-                            sorted(iteritems(component_data))
-                            if sorted_output
-                            else iteritems(component_data)
+                        sorted(iteritems(component_data))
+                        if sorted_output
+                        else iteritems(component_data)
                     ):
                         f.write(" {} {}\n".format(join_space(key), quote_str(value)))
                     f.write(";\n")
@@ -225,13 +220,12 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
                 for key, vals in iteritems(component_data):
                     f.write(
                         "set {}[{}] := {};\n"
-                            .format(component_name, join_comma(key), join_space(vals))
+                        .format(component_name, join_comma(key), join_space(vals))
                     )
             else:
                 raise ValueError(
                     "Error! Component type {} not recognized for model element '{}'.".
-                        format(comp_class, component_name))
-
+                    format(comp_class, component_name))
 
 def pre_solve(instance, outputs_dir=None):
     """
@@ -241,7 +235,6 @@ def pre_solve(instance, outputs_dir=None):
     for module in instance.get_modules():
         if hasattr(module, 'pre_solve'):
             module.pre_solve(instance)
-
 
 def post_solve(instance, outputs_dir=None):
     """
@@ -344,7 +337,6 @@ def has_discrete_variables(model):
         for v in all_elements(variable)
     )
 
-
 def check_mandatory_components(model, *mandatory_model_components):
     """
     Checks whether mandatory elements of a Pyomo model are populated,
@@ -411,15 +403,15 @@ def check_mandatory_components(model, *mandatory_model_components):
             if len(obj) == 0:
                 raise ValueError(
                     "No data is defined for the mandatory set '{}'.".
-                        format(component_name))
+                    format(component_name))
         elif o_class == 'IndexedParam':
             if len(obj) != len(obj._index):
-                missing_index_elements = [v for v in set(obj._index) - set(obj.sparse_keys())]
+                missing_index_elements = [v for v in set(obj._index) - set( obj.sparse_keys())]
                 raise ValueError(
                     "Values are not provided for every element of the "
                     "mandatory parameter '{}'. "
                     "Missing data for {} values, including: {}"
-                        .format(component_name, len(missing_index_elements), missing_index_elements[:10])
+                    .format(component_name, len(missing_index_elements), missing_index_elements[:10])
                 )
         elif o_class == 'IndexedSet':
             if len(obj) != len(obj._index):
@@ -430,11 +422,11 @@ def check_mandatory_components(model, *mandatory_model_components):
             if obj.value is None:
                 raise ValueError(
                     "Value not provided for mandatory parameter '{}'".
-                        format(component_name))
+                    format(component_name))
         else:
             raise ValueError(
                 "Error! Object type {} not recognized for model element '{}'.".
-                    format(o_class, component_name))
+                format(o_class, component_name))
     return True
 
 
@@ -481,7 +473,7 @@ def load_aug(switch_data, optional=False, auto_select=False,
         return
 
     # copy the optional_params to avoid side-effects when the list is altered below
-    optional_params = list(optional_params)
+    optional_params=list(optional_params)
     # Parse header and first row
     with open(path) as infile:
         headers_line = infile.readline()
@@ -560,13 +552,13 @@ def load_aug(switch_data, optional=False, auto_select=False,
         for (i, col) in enumerate(kwds['select']):
             p_i = i - num_indexes
             if col not in headers:
-                if (len(params) > p_i >= 0 and
-                        params[p_i].name in optional_params):
+                if(len(params) > p_i >= 0 and
+                   params[p_i].name in optional_params):
                     del_items.append((i, p_i))
                 else:
                     raise InputError(
                         'Column {} not found in file {}.'
-                            .format(col, path))
+                        .format(col, path))
         # When deleting entries from select & param lists, go from last
         # to first so that the indexes won't get messed up as we go.
         del_items.sort(reverse=True)
@@ -585,31 +577,24 @@ def load_aug(switch_data, optional=False, auto_select=False,
 
 class ExtendAction(argparse.Action):
     """Create or extend list with the provided items"""
-
     # from https://stackoverflow.com/a/41153081/3830997
     def __call__(self, parser, namespace, values, option_string=None):
         items = getattr(namespace, self.dest) or []
         items.extend(values)
         setattr(namespace, self.dest, items)
 
-
 class IncludeAction(argparse.Action):
     """Flag the specified items for inclusion in the model"""
-
     def __call__(self, parser, namespace, values, option_string=None):
         items = getattr(namespace, self.dest) or []
         items.append(('include', values))
         setattr(namespace, self.dest, items)
-
-
 class ExcludeAction(argparse.Action):
     """Flag the specified items for exclusion from the model"""
-
     def __call__(self, parser, namespace, values, option_string=None):
         items = getattr(namespace, self.dest) or []
         items.append(('exclude', values))
         setattr(namespace, self.dest, items)
-
 
 # Test whether we need to issue warnings about the Python parsing bug.
 # (applies to at least Python 2.7.11 and 3.6.2)
@@ -618,10 +603,9 @@ class ExcludeAction(argparse.Action):
 test_parser = argparse.ArgumentParser()
 test_parser.add_argument('--arg1', nargs='+', default=[])
 bad_equal_parser = (
-        len(test_parser.parse_known_args(['--arg1', 'a', '--arg2=a=1 b=2'])[1])
-        == 0
+    len(test_parser.parse_known_args(['--arg1', 'a', '--arg2=a=1 b=2'])[1])
+    == 0
 )
-
 
 class _ArgumentParser(argparse.ArgumentParser):
     """
@@ -630,7 +614,6 @@ class _ArgumentParser(argparse.ArgumentParser):
     - allows use of 'extend', 'include' and 'exclude' actions to accumulate lists
       with multiple calls
     """
-
     def __init__(self, *args, **kwargs):
         super(_ArgumentParser, self).__init__(*args, **kwargs)
         self.register('action', 'extend', ExtendAction)
@@ -648,19 +631,18 @@ class _ArgumentParser(argparse.ArgumentParser):
                     print(
                         "Warning: argument '{}' may be parsed incorrectly. It is "
                         "safer to use ' ' instead of '=' as a separator."
-                            .format(a)
+                        .format(a)
                     )
                     time.sleep(2)  # give users a chance to see it
         return super(_ArgumentParser, self).parse_known_args(args, namespace)
 
 
 def approx_equal(a, b, tolerance=0.01):
-    return abs(a - b) <= (abs(a) + abs(b)) / 2.0 * tolerance
+    return abs(a-b) <= (abs(a) + abs(b)) / 2.0 * tolerance
 
 
 def default_solver():
     return pyomo.opt.SolverFactory('glpk')
-
 
 def warn(message):
     """
@@ -669,7 +651,6 @@ def warn(message):
     """
     sys.stderr.write("WARNING: " + message + '\n')
 
-
 class TeeStream(object):
     """
     Virtual stream that writes output to both stream1 and stream2. Attributes
@@ -677,11 +658,9 @@ class TeeStream(object):
     `sys.stdout=TeeStream(sys.stdout, log_file_handle)` will copy
     output destined for sys.stdout to log_file_handle as well.
     """
-
     def __init__(self, stream1, stream2):
         self.stream1 = stream1
         self.stream2 = stream2
-
     def __getattr__(self, *args, **kwargs):
         """
         Provide stream1 attributes when attributes are requested for this class.
@@ -689,15 +668,12 @@ class TeeStream(object):
         methods, etc.
         """
         return getattr(self.stream1, *args, **kwargs)
-
     def write(self, *args, **kwargs):
         self.stream1.write(*args, **kwargs)
         self.stream2.write(*args, **kwargs)
-
     def flush(self, *args, **kwargs):
         self.stream1.flush(*args, **kwargs)
         self.stream2.flush(*args, **kwargs)
-
 
 class LogOutput(object):
     """
@@ -706,10 +682,8 @@ class LogOutput(object):
     date and time. Directory will be created if needed, and file will be overwritten
     if it already exists (unlikely).
     """
-
     def __init__(self, logs_dir):
         self.logs_dir = logs_dir
-
     def __enter__(self):
         """ start copying output to log file """
         if self.logs_dir is not None:
@@ -725,7 +699,6 @@ class LogOutput(object):
             sys.stdout = TeeStream(sys.stdout, self.log_file)
             sys.stderr = TeeStream(sys.stderr, self.log_file)
             print("logging output to " + str(log_file_path))
-
     def __exit__(self, type, value, traceback):
         """ restore original output streams and close log file """
         if self.logs_dir is not None:
@@ -733,13 +706,12 @@ class LogOutput(object):
             sys.stderr = self.stderr
             self.log_file.close()
 
-
 def iteritems(obj):
     """ Iterator of key, value pairs for obj;
     equivalent to obj.items() on Python 3+ and obj.iteritems() on Python 2 """
     try:
         return obj.iteritems()
-    except AttributeError:  # Python 3+
+    except AttributeError: # Python 3+
         return obj.items()
 
 
