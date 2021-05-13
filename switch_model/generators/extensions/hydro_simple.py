@@ -105,6 +105,11 @@ def define_components(mod):
         mod.HYDRO_GEN_TS_RAW,
         within=NonNegativeReals,
         default=0.0)
+
+    # We use a scaling factor to improve the numerical properties
+    # of the model. The scaling factor was determined using trial
+    # and error and this tool https://github.com/staadecker/lp-analyzer.
+    # Learn more by reading the documentation on Numerical Issues.
     enforce_hydro_avg_flow_scaling_factor = 1e1
     mod.Enforce_Hydro_Avg_Flow = Constraint(
         mod.HYDRO_GEN_TS,

@@ -246,6 +246,10 @@ def define_components(mod):
     mod.ConsumeFuelTier = ScaledVariable(
         mod.RFM_SUPPLY_TIERS,
         domain=NonNegativeReals,
+        # We use a scaling factor to improve the numerical properties
+        # of the model. The scaling factor was determined using trial
+        # and error and this tool https://github.com/staadecker/lp-analyzer.
+        # Learn more by reading the documentation on Numerical Issues.
         scaling_factor=1e-4,
         bounds=lambda m, rfm, p, st: (
             0, (m.rfm_supply_tier_limit[rfm, p, st]
@@ -318,7 +322,13 @@ def define_components(mod):
         mod.REGIONAL_FUEL_MARKETS, mod.PERIODS,
         initialize=GENS_FOR_RFM_PERIOD_rule
     )
+
+    # We use a scaling factor to improve the numerical properties
+    # of the model. The scaling factor was determined using trial
+    # and error and this tool https://github.com/staadecker/lp-analyzer.
+    # Learn more by reading the documentation on Numerical Issues.
     enforce_fuel_consumption_scaling_factor = 1e-2
+
     def Enforce_Fuel_Consumption_rule(m, rfm, p):
         return m.FuelConsumptionInMarket[rfm, p] * enforce_fuel_consumption_scaling_factor \
                == enforce_fuel_consumption_scaling_factor * sum(

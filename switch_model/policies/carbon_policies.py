@@ -37,6 +37,10 @@ def define_components(model):
     model.carbon_cap_tch4_per_yr = Param(model.PERIODS, default=float('inf'), doc=(
         "CH4 emissions from this model must be less than this cap. This is specified in metric tonnes of CH4 per year."))
 
+    # We use a scaling factor to improve the numerical properties
+    # of the model. The scaling factor was determined using trial
+    # and error and this tool https://github.com/staadecker/lp-analyzer.
+    # Learn more by reading the documentation on Numerical Issues.
     enforce_carbon_cap_scaling_factor = 1e-1
     model.Enforce_Carbon_Cap = Constraint(model.PERIODS,
         rule=lambda m, p:

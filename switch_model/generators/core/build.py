@@ -418,6 +418,10 @@ def define_components(mod):
             m.BuildGen[g, bld_yr]
             for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, period]))
 
+    # We use a scaling factor to improve the numerical properties
+    # of the model. The scaling factor was determined using trial
+    # and error and this tool https://github.com/staadecker/lp-analyzer.
+    # Learn more by reading the documentation on Numerical Issues.
     max_build_potential_scaling_factor = 1e-1
     mod.Max_Build_Potential = Constraint(
         mod.CAPACITY_LIMITED_GENS, mod.PERIODS,
