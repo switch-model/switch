@@ -418,7 +418,7 @@ def define_components(mod):
             m.BuildGen[g, bld_yr]
             for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, period]))
 
-    max_build_potential_scaling_factor = 10 ** -1
+    max_build_potential_scaling_factor = 1e-1
     mod.Max_Build_Potential = Constraint(
         mod.CAPACITY_LIMITED_GENS, mod.PERIODS,
         rule=lambda m, g, p: (

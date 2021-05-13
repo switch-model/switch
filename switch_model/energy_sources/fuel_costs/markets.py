@@ -246,7 +246,7 @@ def define_components(mod):
     mod.ConsumeFuelTier = ScaledVariable(
         mod.RFM_SUPPLY_TIERS,
         domain=NonNegativeReals,
-        scaling_factor=10 ** -4,
+        scaling_factor=1e-4,
         bounds=lambda m, rfm, p, st: (
             0, (m.rfm_supply_tier_limit[rfm, p, st]
                 if value(m.rfm_supply_tier_limit[rfm, p, st]) != float('inf')
@@ -318,7 +318,7 @@ def define_components(mod):
         mod.REGIONAL_FUEL_MARKETS, mod.PERIODS,
         initialize=GENS_FOR_RFM_PERIOD_rule
     )
-    enforce_fuel_consumption_scaling_factor = 10 ** -2
+    enforce_fuel_consumption_scaling_factor = 1e-2
     def Enforce_Fuel_Consumption_rule(m, rfm, p):
         return m.FuelConsumptionInMarket[rfm, p] * enforce_fuel_consumption_scaling_factor \
                == enforce_fuel_consumption_scaling_factor * sum(

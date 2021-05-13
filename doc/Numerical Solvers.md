@@ -143,13 +143,13 @@ Simply multiply the expression by the scaling factor. For example,
 # Objective function without scaling
 model.TotalCost = Objective(..., rule=lambda m, ...: some_expression)
 # Objective function ith scaling
-scaling_factor = 10 ** -7
+scaling_factor = 1e-7
 model.TotalCost = Objective(..., rule=lambda m, ...: (some_expression) * scaling_factor)
 
 # Constraint without scaling
 model.SomeConstraint = Constraint(..., rule=lambda m, ...: left_hand_side < right_hand_side)
 # Constraint with scaling
-scaling_factor = 10 ** -2
+scaling_factor = 1e-2
 model.SomeConstraint = Constraint(
   ..., 
   rule=lambda m, ...: (left_hand_side) * scaling_factor < (right_hand_side) * scaling_factor
@@ -165,7 +165,7 @@ scaled variable when solving. Here's what I mean.
 ```python
 from pyomo.environ import Var, Expression
 ...
-scaling_factor = 10 ** 5
+scaling_factor = 1e5
 # Define the variable
 model.ScaledVariable = Var(...)
 # Define an expression that equals the variable but unscaled. This is what we use elsewhere in our model.

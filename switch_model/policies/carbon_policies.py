@@ -37,7 +37,7 @@ def define_components(model):
     model.carbon_cap_tch4_per_yr = Param(model.PERIODS, default=float('inf'), doc=(
         "CH4 emissions from this model must be less than this cap. This is specified in metric tonnes of CH4 per year."))
 
-    enforce_carbon_cap_scaling_factor = 10 ** -1
+    enforce_carbon_cap_scaling_factor = 1e-1
     model.Enforce_Carbon_Cap = Constraint(model.PERIODS,
         rule=lambda m, p:
             Constraint.Skip if m.carbon_cap_tco2_per_yr[p] == float('inf')

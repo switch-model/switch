@@ -105,7 +105,7 @@ def define_components(mod):
         mod.HYDRO_GEN_TS_RAW,
         within=NonNegativeReals,
         default=0.0)
-    enforce_hydro_avg_flow_scaling_factor = 10 ** 1
+    enforce_hydro_avg_flow_scaling_factor = 1e1
     mod.Enforce_Hydro_Avg_Flow = Constraint(
         mod.HYDRO_GEN_TS,
         rule=lambda m, g, ts: (enforce_hydro_avg_flow_scaling_factor *
