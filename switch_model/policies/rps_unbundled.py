@@ -107,6 +107,10 @@ def define_components(mod):
         ),
     )
 
+    # We use a scaling factor to improve the numerical properties
+    # of the model. The scaling factor was determined using trial
+    # and error and this tool https://github.com/staadecker/lp-analyzer.
+    # Learn more by reading the documentation on Numerical Issues.
     rps_enforce_target_scaling_factor = 1e-1
     mod.RPS_Enforce_Target = Constraint(
         mod.PERIODS,

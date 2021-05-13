@@ -58,6 +58,10 @@ def define_components(model):
         ),
     )
 
+    # We use a scaling factor to improve the numerical properties
+    # of the model. The scaling factor was determined using trial
+    # and error and this tool https://github.com/staadecker/lp-analyzer.
+    # Learn more by reading the documentation on Numerical Issues.
     enforce_carbon_cap_scaling_factor = 1e-1
     model.Enforce_Carbon_Cap = Constraint(
         model.PERIODS,
