@@ -513,7 +513,7 @@ def load_aug(switch_data, optional=False, auto_select=False,
     elif suffix == 'csv':
         separator = ','
     else:
-        raise InputError('Unrecognized file type for input file {}'.format(path))
+        raise InputError(f'Unrecognized file type for input file {path}')
     # TODO: parse this more formally, e.g. using csv module
     headers = headers_line.strip().split(separator)
     # Skip if the file is empty.
