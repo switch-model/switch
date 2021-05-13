@@ -453,7 +453,7 @@ def define_components(mod):
         ),
     )
 
-    max_build_potential_scaling_factor = 10**-1
+    max_build_potential_scaling_factor = 1e-1
     mod.Max_Build_Potential = Constraint(
         mod.CAPACITY_LIMITED_GENS,
         mod.PERIODS,

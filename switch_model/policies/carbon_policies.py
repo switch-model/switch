@@ -58,7 +58,7 @@ def define_components(model):
         ),
     )
 
-    enforce_carbon_cap_scaling_factor = 10**-1
+    enforce_carbon_cap_scaling_factor = 1e-1
     model.Enforce_Carbon_Cap = Constraint(
         model.PERIODS,
         rule=lambda m, p: Constraint.Skip

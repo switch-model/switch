@@ -107,7 +107,7 @@ def define_components(mod):
         ),
     )
 
-    rps_enforce_target_scaling_factor = 10**-1
+    rps_enforce_target_scaling_factor = 1e-1
     mod.RPS_Enforce_Target = Constraint(
         mod.PERIODS,
         rule=lambda m, p: (m.RPSFuelEnergy[p] + m.RPSNonFuelEnergy[p])
