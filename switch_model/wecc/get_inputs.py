@@ -135,7 +135,7 @@ def connect(schema="switch"):
     return conn
 
 
-def main():
+def create_csvs():
     timer = StepTimer()
 
     # Create command line tool, just provides help information
@@ -893,12 +893,13 @@ def main():
 
 
 def post_process():
-    # TODO verify that this should be included
-    df = pd.read_csv("test_inputs/generation_projects_info.csv")
+    # No post-process at the moment
+    pass
 
-    var_techs = ["Wind", "Central_PV", "Commercial_PV"]
-    df.loc[df.gen_tech.isin(var_techs), "gen_capacity_limit_mw"] = "."
-    df.to_csv("test_inputs/generation_projects_info.csv", index=False)
+
+def main():
+    create_csvs()
+    post_process()
 
 
 if __name__ == "__main__":
