@@ -8,7 +8,7 @@ import os
 import sys
 
 # Thirdy-party packages
-from dotenv import load_dotenv
+from switch_model.utilities import load_dotenv
 load_dotenv()
 import pandas as pd
 import psycopg2 as pg

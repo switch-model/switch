@@ -754,3 +754,14 @@ def load_config():
         raise Exception("config.yaml does not exist. Try running 'switch new' to auto-create it.")
     with open("config.yaml") as f:
         return yaml.load(f, Loader=yaml.FullLoader)
+
+
+def load_dotenv():
+    try:
+        # Try to load environment variables from .env file using dotenv package.
+        # If package is not installed, nothing happens.
+        from dotenv import load_dotenv
+
+        load_dotenv()
+    except ImportError:
+        pass
