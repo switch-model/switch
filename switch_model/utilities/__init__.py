@@ -22,7 +22,7 @@ string_types = (str,)
 interactive_session = not hasattr(main, '__file__')
 
 
-class _AbstractModel(AbstractModel):
+class CustomAbstractModel(AbstractModel):
     """
     Class that wraps pyomo's AbstractModel and adds custom features.
 
@@ -95,7 +95,7 @@ def create_model(module_list=None, args=sys.argv[1:]):
     create_model(module_list, args=[])
 
     """
-    model = _AbstractModel()
+    model = CustomAbstractModel()
 
     # Load modules
     if module_list is None:
