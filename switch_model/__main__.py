@@ -18,6 +18,7 @@ def main():
         "get_inputs",
         "--version",
         "drop",
+        "sampling",
         "new",
     ]
     if len(sys.argv) >= 2 and sys.argv[1] in cmds:
@@ -47,6 +48,8 @@ def main():
             from switch_model.upgrade import main
         elif cmd == "get_inputs":
             from switch_model.wecc.get_inputs import main
+        elif cmd == "sampling":
+            from switch_model.wecc.sampling import main
         elif cmd == "drop":
             from switch_model.tools.drop import main
         elif cmd == "new":
