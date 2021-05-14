@@ -14,20 +14,13 @@ import os
 from typing import Iterable, List
 
 # Switch packages
-from switch_model.utilities import query_yes_no, load_config, StepTimer
+from switch_model.utilities import query_yes_no, load_config, StepTimer, load_dotenv
 
 # Third-party packages
 import psycopg2 as pg
 import pandas as pd
 
-try:
-    # Try to load environment variables from .env file using dotenv package.
-    # If package is not installed, nothing happens.
-    from dotenv import load_dotenv
-
-    load_dotenv()
-except ImportError:
-    pass
+load_dotenv()
 
 
 def write_csv_from_query(cursor, fname: str, headers: List[str], query: str):
