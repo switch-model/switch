@@ -17,11 +17,11 @@ import psycopg2.extras as extras
 import yaml
 
 # Local imports
+from switch_model.utilities import query_yes_no
 from switch_model.wecc.utilities import connect
 from .utils import insert_to_db
 from .utils import get_load_data
 from .utils import timeit
-from .utils import confirm
 from .utils import logger
 from .sampling import peak_median
 
@@ -206,7 +206,7 @@ def main():
     # Optional arguments
     parser.add_argument(
         "--config_file",
-        default="config.yaml",
+        default="sampling.yaml",
         type=str,
         help="Configuration file to use",
     )
@@ -219,16 +219,15 @@ def main():
 
     # Exit if you are not sure if you want to overwrite
     if args.overwrite:
-        print("You are about to overwrite some data from the Database!")
-        if not confirm():
+        if not query_yes_no("You are about to overwrite some data from the Database! Confirm?"):
             sys.exit()
 
-    # NOTE: This is a safety measure. Maybe unnecesary?
-    print(f"Using {args.config_file} to run to proceed with the sampling.")
-    if not confirm():
-        sys.exit()
     with open(args.config_file) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
+
+    # NOTE: This is a safety measure. Maybe unnecesary?
+    if not query_yes_no(f"Do you want to run the sampling with {args.config_file}?"):
+        sys.exit()
 
     print("\nStarting Sampling Script\n")
 

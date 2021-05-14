@@ -5,6 +5,7 @@
 #------------------------
 # Sampling configuration
 #------------------------
+# TODO make template more appropriate (don't hardcode specific values)
 study_timeframe:
   id: 10
   name: Testing
@@ -15,7 +16,7 @@ study_timeframe:
 periods:
   start_year: 2016
   end_year: 2055
-  length: 10 
+  length: 10
 
 load:
   scenario_id: 115 # Scenario for using as load
