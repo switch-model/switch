@@ -714,22 +714,21 @@ def create_csvs():
             "carbon_cap_tco2_per_yr_CA",
             "carbon_cost_dollar_per_tco2",
         ],
-        """select period, AVG(carbon_cap_tco2_per_yr) as carbon_cap_tco2_per_yr, AVG(carbon_cap_tco2_per_yr_CA) as carbon_cap_tco2_per_yr_CA,
-                    '.' as  carbon_cost_dollar_per_tco2
-                from 
-                (select carbon_cap_tco2_per_yr, carbon_cap_tco2_per_yr_CA, year, 
-                        (case when 
-                        year >= period.start_year 
-                        and year <= period.start_year + length_yrs -1 then label else 0 end) as period
-                        from switch.carbon_cap
-                        join switch.period on(year>=start_year)
-                        where study_timeframe_id = {id1} and carbon_cap_scenario_id = {id2}) as w
-                where period!=0
-                group by period
-                order by 1;
-                """.format(
-            id1=study_timeframe_id, id2=carbon_cap_scenario_id
-        ),
+        f"""
+        select period, AVG(carbon_cap_tco2_per_yr) as carbon_cap_tco2_per_yr, AVG(carbon_cap_tco2_per_yr_CA) as carbon_cap_tco2_per_yr_CA,
+            '.' as  carbon_cost_dollar_per_tco2
+        from 
+        (select carbon_cap_tco2_per_yr, carbon_cap_tco2_per_yr_CA, year, 
+                (case when 
+                year >= period.start_year 
+                and year <= period.start_year + length_yrs -1 then label else 0 end) as period
+                from switch.carbon_cap
+                join switch.period on(year>=start_year)
+                where study_timeframe_id = {study_timeframe_id} and carbon_cap_scenario_id = {carbon_cap_scenario_id}) as w
+        where period!=0
+        group by period
+        order by 1;
+        """
     )
 
     ########################################################
@@ -740,21 +739,20 @@ def create_csvs():
             db_cursor,
             "rps_targets",
             ["load_zone", "period", "rps_target"],
-            """select load_zone, w.period as period, avg(rps_target) as rps_target
-                            from
-                            (select load_zone, rps_target,
-                            (case when 
-                            year >= period.start_year 
-                            and year <= period.start_year + length_yrs -1 then label else 0 end) as period
-                            from switch.rps_target
-                            join switch.period on(year>=start_year)
-                            where study_timeframe_id = {id1} and rps_scenario_id = {id2}) as w
-                    where period!=0
-                    group by load_zone, period
-                    order by 1, 2;
-                    """.format(
-                id1=study_timeframe_id, id2=rps_scenario_id
-            ),
+            f"""
+            select load_zone, w.period as period, avg(rps_target) as rps_target
+                    from
+                    (select load_zone, rps_target,
+                    (case when 
+                    year >= period.start_year 
+                    and year <= period.start_year + length_yrs -1 then label else 0 end) as period
+                    from switch.rps_target
+                    join switch.period on(year>=start_year)
+                    where study_timeframe_id = {study_timeframe_id} and rps_scenario_id = {rps_scenario_id}) as w
+            where period!=0
+            group by load_zone, period
+            order by 1, 2;
+            """
         )
 
     ########################################################
