@@ -48,17 +48,6 @@ def timeit(f_py=None, to_log=None):
 # return decorator
 
 
-def confirm():
-    notification_str = "Please respond with 'y' or 'n'"
-    while True:
-        choice = input("Confirm [Y/n]?").lower()
-        if choice in "yes" or not choice:
-            return True
-        if choice in "no":
-            return False
-        print(notification_str)
-
-
 @timeit(to_log=True)
 def get_load_data(
     demand_scenario_id: int,
