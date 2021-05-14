@@ -86,9 +86,10 @@ setup(
             "sympy",
         ],
         # These packages are installed when one runs 'pip install --editable .[dev]'
-        "dev": ["ipdb", "black", "psycopg2-binary"],
+        "dev": ["ipdb", "black"],
         # In this case 'pip install --editable .[plotting]'
         "plotting": ["ggplot"],
+        "wecc": ["loguru", "psycopg2-binary"]
     },
     entry_points={
         "console_scripts": [

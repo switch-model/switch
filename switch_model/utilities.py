@@ -6,11 +6,10 @@ Utility functions for Switch.
 """
 from __future__ import print_function
 
-import os, types, importlib, re, sys, argparse, time, datetime
+import os, sys, argparse, time, datetime
 import __main__ as main
 from pyomo.environ import *
 import pyomo.opt
-import yaml
 
 # Define string_types (same as six.string_types). This is useful for
 # distinguishing between strings and other iterables.
@@ -746,22 +745,3 @@ def query_yes_no(question, default="yes"):
         else:
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n').\n")
-
-
-def load_config():
-    """Read the config.yaml configuration file"""
-    if not os.path.isfile("config.yaml"):
-        raise Exception("config.yaml does not exist. Try running 'switch new' to auto-create it.")
-    with open("config.yaml") as f:
-        return yaml.load(f, Loader=yaml.FullLoader)
-
-
-def load_dotenv():
-    try:
-        # Try to load environment variables from .env file using dotenv package.
-        # If package is not installed, nothing happens.
-        from dotenv import load_dotenv
-
-        load_dotenv()
-    except ImportError:
-        pass

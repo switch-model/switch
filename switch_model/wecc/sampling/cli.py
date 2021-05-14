@@ -17,7 +17,7 @@ import psycopg2.extras as extras
 import yaml
 
 # Local imports
-from .db_connect import connect
+from switch_model.wecc.utilities import connect
 from .utils import insert_to_db
 from .utils import get_load_data
 from .utils import timeit
