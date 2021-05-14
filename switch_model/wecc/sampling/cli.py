@@ -5,35 +5,24 @@ This is script handles the inputs for the sampling scripts.
 
 # Standard packages
 import argparse
-from pathlib import Path
 import sys
-import time
-import typing
 
 # Third-party packages
-import numpy as np
-import pandas as pd
-import psycopg2.extras as extras
 import yaml
 
 # Local imports
 from switch_model.utilities import query_yes_no
 from switch_model.wecc.utilities import connect
-from .utils import insert_to_db
-from .utils import get_load_data
-from .utils import timeit
-from .utils import logger
+from .utils import insert_to_db, timeit
 from .sampling import peak_median
 
 # The schema is general for the script
 SCHEMA = "switch"
 OVERWRITE = True
 
-# Start db connection
-db_conn = connect()
 
 @timeit
-def insert_study_timeframe_id(study_id, name, description, db_conn=db_conn, **kwargs):
+def insert_study_timeframe_id(study_id, name, description, **kwargs):
     table_name = "study_timeframe"
     columns = ["study_timeframe_id", "name", "description"]
     id_column = "study_timeframe_id"
@@ -51,7 +40,6 @@ def insert_study_timeframe_id(study_id, name, description, db_conn=db_conn, **kw
         columns,
         values,
         schema=SCHEMA,
-        db_conn=db_conn,
         id_column=id_column,
         id_var=study_id,
         **kwargs,
@@ -61,21 +49,9 @@ def insert_study_timeframe_id(study_id, name, description, db_conn=db_conn, **kw
 
 
 @timeit
-def insert_periods(
-    study_id, start_year, end_year, period_length, db_conn=db_conn, **kwargs
-):
-    table_name = "period"
-    columns = [
-        "study_timeframe_id",
-        "period_id",
-        "start_year",
-        "label",
-        "length_yrs",
-        "end_year",
-    ]
-    id_column = "study_timeframe_id"
-
+def insert_periods(study_id, start_year, end_year, period_length, **kwargs):
     # Get values to insert
+    # TODO specify number of periods instead of end year
     period_range = range(start_year, end_year, period_length)
     values = [
         (
@@ -98,12 +74,18 @@ def insert_periods(
 
     # Calling insert function
     insert_to_db(
-        table_name,
-        columns,
-        values,
+        table_name="period",
+        columns=[
+            "study_timeframe_id",
+            "period_id",
+            "start_year",
+            "label",
+            "length_yrs",
+            "end_year",
+        ],
+        values=values,
         schema=SCHEMA,
-        db_conn=db_conn,
-        id_column=id_column,
+        id_column="study_timeframe_id",
         id_var=study_id,
         **kwargs,
     )
@@ -112,27 +94,22 @@ def insert_periods(
 
 @timeit
 def insert_time_sample(study_id, time_sample_id, name, method, description, **kwargs):
-    table_name = "time_sample"
-    columns = [
-        "time_sample_id",
-        "study_timeframe_id",
-        "name",
-        "method",
-        "description",
-    ]
     # TODO: Ask paty what makes sense here. If using study_timeframe_id or time_sample_id
-    id_column = "time_sample_id"
-
     values = [(time_sample_id, study_id, name, method, description)]
 
-    if kwargs.get("verobse"):
+    if kwargs.get("verbose"):
         print(values)
     insert_to_db(
-        table_name,
-        columns,
-        values,
-        db_conn=db_conn,
-        id_column=id_column,
+        table_name="time_sample",
+        columns=[
+            "time_sample_id",
+            "study_timeframe_id",
+            "name",
+            "method",
+            "description",
+        ],
+        values=values,
+        id_column="time_sample_id",
         id_var=time_sample_id,
         **kwargs,
     )
@@ -148,7 +125,6 @@ def insert_timeseries_tps(
     number_tps,
     period_values,
     method=None,
-    db_conn=db_conn,
     verbose=None,
     **kwargs,
 ):
@@ -161,7 +137,6 @@ def insert_timeseries_tps(
         time_sample_id,
         number_tps,
         period_values,
-        db_conn=db_conn,
         **kwargs,
     )
 
@@ -178,7 +153,6 @@ def insert_timeseries_tps(
         ts_table_name,
         timeseries.columns,
         [tuple(r) for r in timeseries.to_numpy()],
-        db_conn=db_conn,
         id_column=id_column,
         id_var=time_sample_id,
         **kwargs,
@@ -187,7 +161,6 @@ def insert_timeseries_tps(
         tps_table_name,
         sampled_tps.columns,
         [tuple(r) for r in sampled_tps.to_numpy()],
-        db_conn=db_conn,
         id_column=id_column,
         id_var=time_sample_id,
         **kwargs,
@@ -199,7 +172,6 @@ def insert_timeseries_tps(
 
 
 def main():
-
     # Start CLI
     parser = argparse.ArgumentParser()
 
@@ -212,10 +184,13 @@ def main():
     )
 
     # General commands
-    parser.add_argument("-v", "--verbose", action="store_true")
-    parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument("-v", "--verbose", default=False, action="store_true")
+    parser.add_argument("--overwrite", default=False, action="store_true")
 
     args = parser.parse_args()
+
+    # Start db connection
+    db_conn = connect()
 
     # Exit if you are not sure if you want to overwrite
     if args.overwrite:
@@ -238,7 +213,7 @@ def main():
     description = data["study_timeframe"].get("description")
 
     insert_study_timeframe_id(
-        study_id, name, description, overwrite=args.overwrite, verbose=args.verbose
+        study_id, name, description, overwrite=args.overwrite, verbose=args.verbose, db_conn=db_conn
     )
 
     # Read period configuration
@@ -253,6 +228,7 @@ def main():
         period_length,
         overwrite=args.overwrite,
         verbose=args.verbose,
+        db_conn=db_conn
     )
 
     # Timesample
@@ -271,6 +247,7 @@ def main():
         description,
         overwrite=args.overwrite,
         verbose=args.verbose,
+        db_conn=db_conn
     )
 
     insert_timeseries_tps(
@@ -281,6 +258,7 @@ def main():
         period_values,
         overwrite=args.overwrite,
         verbose=args.verbose,
+        db_conn=db_conn
     )
     print("+ Done.")
 
