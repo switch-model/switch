@@ -7,10 +7,9 @@ from __future__ import print_function
 import sys, os
 import switch_model
 
-# print "running {} as {}.".format(__file__, __name__)
-
 
 def main():
+    # TODO make a proper command line tool with help information for each option
     cmds = [
         "solve",
         "solve-scenarios",
@@ -20,6 +19,7 @@ def main():
         "--version",
         "drop",
         "sampling",
+        "new",
     ]
     if len(sys.argv) >= 2 and sys.argv[1] in cmds:
         # If users run a script from the command line, the location of the script
@@ -52,6 +52,8 @@ def main():
             from switch_model.wecc.sampling import main
         elif cmd == "drop":
             from switch_model.tools.drop import main
+        elif cmd == "new":
+            from switch_model.tools.new import main
         main()
     else:
         print(
