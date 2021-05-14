@@ -187,7 +187,7 @@ def drop_from_file(filename, foreign_key, valid_ids, args):
     path = os.path.join(args.inputs_dir, filename)
 
     if not os.path.exists(path):
-        return
+        return 0
 
     df = pandas.read_csv(path)
     count = len(df)
