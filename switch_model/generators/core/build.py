@@ -402,31 +402,20 @@ def define_components(mod):
         ],
     )
 
-    # Everywhere in Switch we use BuildGen but we want the solver to
-    # use ScaledBuildGen as this value is within a more reasonable numeric
-    # range.
-    scaling_factor_BuildGen = 10**-3
-
-    def bounds_ScaledBuildGen(model, g, bld_yr):
+    def bounds_BuildGen(model, g, bld_yr):
         if (g, bld_yr) in model.PREDETERMINED_GEN_BLD_YRS:
             return (
-                model.gen_predetermined_cap[g, bld_yr] * scaling_factor_BuildGen,
-                model.gen_predetermined_cap[g, bld_yr] * scaling_factor_BuildGen,
+                model.gen_predetermined_cap[g, bld_yr],
+                model.gen_predetermined_cap[g, bld_yr],
             )
         elif g in model.CAPACITY_LIMITED_GENS:
             # This does not replace Max_Build_Potential because
             # Max_Build_Potential applies across all build years.
-            return 0, model.gen_capacity_limit_mw[g] * scaling_factor_BuildGen
+            return (0, model.gen_capacity_limit_mw[g])
         else:
-            return 0, None
+            return (0, None)
 
-    mod.ScaledBuildGen = Var(
-        mod.GEN_BLD_YRS, within=NonNegativeReals, bounds=bounds_ScaledBuildGen
-    )
-    mod.BuildGen = Expression(
-        mod.GEN_BLD_YRS,
-        rule=lambda m, g, bld_yr: m.ScaledBuildGen[g, bld_yr] / scaling_factor_BuildGen,
-    )
+    mod.BuildGen = Var(mod.GEN_BLD_YRS, within=NonNegativeReals, bounds=bounds_BuildGen)
     # Some projects are retired before the first study period, so they
     # don't appear in the objective function or any constraints.
     # In this case, pyomo may leave the variable value undefined even

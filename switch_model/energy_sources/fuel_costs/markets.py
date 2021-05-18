@@ -269,18 +269,12 @@ def define_components(mod):
         bounds=lambda m, rfm, p, st: (
             0,
             (
-                m.rfm_supply_tier_limit[rfm, p, st] * scaling_factor_ConsumeFuelTier
+                m.rfm_supply_tier_limit[rfm, p, st]
                 if value(m.rfm_supply_tier_limit[rfm, p, st]) != float("inf")
                 else None
             ),
         ),
     )
-    mod.ConsumeFuelTier = Expression(
-        mod.RFM_SUPPLY_TIERS,
-        rule=lambda m, rfm, p, st: m.ScaledConsumeFuelTier[rfm, p, st]
-        / scaling_factor_ConsumeFuelTier,
-    )
-
     # The if statement in the upper bound of ConsumeFuelTier is a
     # work-around for a Pyomo bug in writing a cpxlp problem file for
     # glpk. Lines 771-774 of pyomo/repn/plugins/cpxlp.py prints '<= inf'
