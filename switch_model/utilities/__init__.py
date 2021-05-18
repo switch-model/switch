@@ -6,7 +6,7 @@ Utility functions for Switch.
 """
 from __future__ import print_function
 
-import os, sys, argparse, time, datetime, traceback
+import os, sys, argparse, time, datetime, traceback, types
 import switch_model.__main__ as main
 from pyomo.environ import *
 from switch_model.utilities.scaling import _ScaledVariable, _get_unscaled_expression
