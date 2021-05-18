@@ -542,8 +542,7 @@ def define_arguments(argparser):
     argparser.add_argument(
         "--sorted-output", default=False, action='store_true',
         dest='sorted_output',
-        help='Write generic variable result values in sorted order'
-    )
+        help='Write generic variable result values in sorted order')
 
 
 def add_recommended_args(argparser):
