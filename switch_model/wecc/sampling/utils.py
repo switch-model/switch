@@ -188,7 +188,7 @@ def get_median_days(data, number=6, freq="MS", identifier="M"):
         # years.append(group.loc[index_median.strftime("%Y-%m-%d")].reset_index())
         years.append(index_median.strftime("%Y-%m-%d"))
     # output_data = pd.concat(years, sort=True)
-    return np.array(years)
+    return years
 
 
 def get_next_prv_day(date):
