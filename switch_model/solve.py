@@ -197,7 +197,7 @@ def main(args=None, return_model=False, return_instance=False):
                 if instance.options.verbose:
                     timer.step_time()  # restart counter for next step
 
-                if not instance.options.no_save_solution:
+                if instance.options.save_solution:
                     save_results(instance, instance.options.outputs_dir)
                     if instance.options.verbose:
                         print("Saved results in {:.2f} s.".format(timer.step_time()))
@@ -657,11 +657,10 @@ def define_arguments(argparser):
         help="Load a previously saved solution; useful for re-running post-solve code or interactively exploring the model (via --interact).",
     )
     argparser.add_argument(
-        "--no-save-solution",
+        "--save-solution",
         default=False,
         action="store_true",
-        help="Don't save solution after model is solved. Without this flag, model solution will be saved in a pickle"
-        "file allowing for later inspection via --reload-prior-solution.",
+        help="Save the solution to a pickle file after model is solved to allow for later inspection via --reload-prior-solution.",
     )
     argparser.add_argument(
         "--interact",
@@ -675,6 +674,13 @@ def define_arguments(argparser):
         action="store_true",
         help="Break and enter the Python Debugger at key points during the solving process.",
     )
+    argparser.add_argument(
+        "--sig-figs-output",
+        default=5,
+        type=int,
+        help="The number of significant digits to include in the output by default",
+    )
+
     argparser.add_argument(
         "--sorted-output",
         default=False,
