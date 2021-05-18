@@ -1,7 +1,13 @@
 import numpy as np
 import pandas as pd
 
-from .utils import get_median_days, get_peak_days, logger, get_next_prv_day, get_load_data
+from .utils import (
+    get_median_days,
+    get_peak_days,
+    logger,
+    get_next_prv_day,
+    get_load_data,
+)
 
 
 def sample_timepoints(
@@ -24,22 +30,24 @@ def sample_timepoints(
         "timestamp_utc",
         "id",
     ]
-    df = data.copy()
+    df = data.set_index("timestamp_utc").copy()
     delta_t = int(24 / number_tps)
 
     sampled_timepoints_list = []
     for date in dates:
         if peak:
             prev_day, next_day = get_next_prv_day(date)
-            subset = df.loc[prev_day:next_day]
-            subset_peak = subset.idxmax()[0]
+            subset = df.loc[prev_day:next_day].copy()
+            # FIXME: Maybe we want to only pass the data with the demand series instead of
+            # having all the other columns
+            subset_peak = subset["demand_mw"].idxmax()
             tps = subset[
                 subset_peak
                 - pd.Timedelta(value=delta_t * 2, unit="hours") : subset_peak
                 + pd.Timedelta(value=(delta_t * 2 + delta_t), unit="hours") : delta_t
             ]
         else:
-            subset = total.loc[date]
+            subset = df[date].copy()
             tps = subset[::delta_t]  # raise KeyError("Odd number of timepoints")
             # # raise NotImplementedError("Blame the developer!")
         # # TODO: Add a more robust sampling strategy that is able to check
@@ -57,7 +65,7 @@ def sample_timepoints(
         data["id"] = "P"
     else:
         data["id"] = "M"
-    data = data[columns]
+    data = data.reset_index()[columns]
     return data
 
 
