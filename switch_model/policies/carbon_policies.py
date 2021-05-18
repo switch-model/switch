@@ -58,11 +58,17 @@ def define_components(model):
         ),
     )
 
+    # We use a scaling factor to improve the numerical properties
+    # of the model. The scaling factor was determined using trial
+    # and error and this tool https://github.com/staadecker/lp-analyzer.
+    # Learn more by reading the documentation on Numerical Issues.
+    enforce_carbon_cap_scaling_factor = 1e-1
     model.Enforce_Carbon_Cap = Constraint(
         model.PERIODS,
         rule=lambda m, p: Constraint.Skip
         if m.carbon_cap_tco2_per_yr[p] == float("inf")
-        else m.AnnualEmissions[p] <= m.carbon_cap_tco2_per_yr[p],
+        else m.AnnualEmissions[p] * enforce_carbon_cap_scaling_factor
+        <= m.carbon_cap_tco2_per_yr[p] * enforce_carbon_cap_scaling_factor,
         doc=("Enforces the carbon cap for generation-related CO2 emissions."),
     )
 
