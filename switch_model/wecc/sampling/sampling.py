@@ -170,6 +170,10 @@ def peak_median(
             )
         )
     sampled_tps = pd.concat(sampled_tps).sort_values("timestamp_utc")
+
+    # FIXME: For some reasone I grab a duplicated raw_timepoint_id. However, I do not know
+    # where it came from. This is a quick fix
+    sampled_tps = sampled_tps.drop_duplicates(subset=["raw_timepoint_id"])
     timeseries = _get_timeseries(
         sampled_tps,
         study_timeframe_id=study_id,
