@@ -6,7 +6,7 @@ Utility functions for Switch.
 """
 from __future__ import print_function
 
-import os, types, importlib, re, sys, argparse, time, datetime
+import os, sys, argparse, time, datetime, traceback
 import switch_model.__main__ as main
 from pyomo.environ import *
 from switch_model.utilities.scaling import _ScaledVariable, _get_unscaled_expression
@@ -111,7 +111,7 @@ def create_model(module_list=None, args=sys.argv[1:]):
     # Bind utility functions to the model as class objects
     # Should we be formally extending their class instead?
     _add_min_data_check(model)
-    model.has_discrete_variables = types.MethodType(has_discrete_variables, model)
+    model.has_discrete_variables = None  # Will get set during post_solve(), used to determine if we should use duals
     model.get_modules = types.MethodType(get_modules, model)
     model.load_inputs = types.MethodType(load_inputs, model)
     model.pre_solve = types.MethodType(pre_solve, model)
@@ -179,7 +179,30 @@ class StepTimer(object):
         """
         Reset timer to current time and return time elapsed since last step as a formatted string.
         """
-        return f"{self.step_time():.2f}"
+        return format_seconds(self.step_time())
+
+
+def format_seconds(seconds):
+    """
+    Takes in a number of seconds and returns a string
+    representing the seconds broken into hours, minutes and seconds.
+
+    For example, format_seconds(3750.4) returns '1 h 2 min 30.40 s'.
+    """
+    minutes = int(seconds // 60)
+    hours = int(minutes // 60)
+    remainder_sec = seconds % 60
+    remainder_min = minutes % 60
+
+    output_str = ""
+
+    if hours != 0:
+        output_str += f"{hours} h "
+    if minutes != 0:
+        output_str += f"{remainder_min} min "
+    output_str += f"{remainder_sec:.2f} s"
+
+    return output_str
 
 
 def load_inputs(model, inputs_dir=None, attach_data_portal=True):
@@ -199,7 +222,7 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=True):
         if hasattr(module, "load_inputs"):
             module.load_inputs(model, data, inputs_dir)
     if model.options.verbose:
-        print("Data read in {:.2f} s.\n".format(timer.step_time()))
+        print(f"Data read in {timer.step_time_as_str()}.\n")
 
     # At some point, pyomo deprecated 'create' in favor of 'create_instance'.
     # Determine which option is available and use that.
@@ -208,7 +231,7 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=True):
     else:
         instance = model.create(data)
     if model.options.verbose:
-        print("Instance created from data in {:.2f} s.\n".format(timer.step_time()))
+        print(f"Instance created from data in {timer.step_time_as_str()}.\n")
 
     if attach_data_portal:
         instance.DataPortal = data
@@ -304,13 +327,34 @@ def post_solve(instance, outputs_dir=None):
     if not os.path.exists(outputs_dir):
         os.makedirs(outputs_dir)
 
+    # Used to determine if we should use dual values
+    # If the model has discrete variables dual values aren't meaningful
+    # Note that before model.has_discrete_variables was a function
+    # that ran has_discrete_variables() everytime.
+    # This was quite time consuming (~10s per call)
+    # Instead, now we call has_discrete_variables() once during post_solve and save the result
+    # TODO Ideally, we only call has_discrete_variables() once **and
+    #  only if we need it** (lazy implementation). This would require more work however
+    #  but could save 10s during post-solve if we never use modules that use has_discrete_variabels.
+    instance.has_discrete_variables = has_discrete_variables(instance)
+
     # TODO: implement a check to call post solve functions only if
     # solver termination condition is not 'infeasible' or 'unknown'
     # (the latter may occur when there are problems with licenses, etc)
 
     for module in instance.get_modules():
         if hasattr(module, "post_solve"):
-            module.post_solve(instance, outputs_dir)
+            # Try-catch is so that if one module fails on post-solve
+            # the other modules still run
+            try:
+                module.post_solve(instance, outputs_dir)
+            except Exception:
+                # Print the error that would normally be thrown with the
+                # full stack trace and an explanatory message
+                print(
+                    f"ERROR: Module {module.__name__} threw an Exception while running post_solve(). "
+                    f"Moving on to the next module.\n{traceback.format_exc()}"
+                )
 
 
 def min_data_check(model, *mandatory_model_components):

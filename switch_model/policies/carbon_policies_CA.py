@@ -141,7 +141,7 @@ def post_solve(model, outdir):
         # Only print the carbon cap dual value if it exists and if the problem
         # is purely linear.
         if (
-            not model.has_discrete_variables()
+            not model.has_discrete_variables
             and model.Enforce_Carbon_Cap[period] in model.dual
         ):
             row.append(
