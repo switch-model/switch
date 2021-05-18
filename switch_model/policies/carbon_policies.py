@@ -58,17 +58,18 @@ def define_components(model):
         ),
     )
 
-    # Carbon caps when specified in tons of CO2 are normally very large numbers ~10^8
-    # We express the constraint in terms of thousands of tons of CO2 to avoid numerical
-    # issues while solving
-    scaling_factor_Enforce_Carbon_Cap = 10**-3
+    # We use a scaling factor to improve the numerical properties
+    # of the model. The scaling factor was determined using trial
+    # and error and this tool https://github.com/staadecker/lp-analyzer.
+    # Learn more by reading the documentation on Numerical Issues.
+    enforce_carbon_cap_scaling_factor = 1e-1
     model.Enforce_Carbon_Cap = Constraint(
         model.PERIODS,
         rule=lambda m, p: Constraint.Skip
         if m.carbon_cap_tco2_per_yr[p] == float("inf")
-        else m.AnnualEmissions[p] * scaling_factor_Enforce_Carbon_Cap
-        <= m.carbon_cap_tco2_per_yr[p] * scaling_factor_Enforce_Carbon_Cap,
-        doc="Enforces the carbon cap for generation-related CO2 emissions.",
+        else m.AnnualEmissions[p] * enforce_carbon_cap_scaling_factor
+        <= m.carbon_cap_tco2_per_yr[p] * enforce_carbon_cap_scaling_factor,
+        doc=("Enforces the carbon cap for generation-related CO2 emissions."),
     )
 
     model.Enforce_Carbon_Cap_NOx = Constraint(
@@ -218,15 +219,13 @@ def post_solve(model, outdir):
             },
         ]
 
-        has_discrete_variables = model.has_discrete_variables()
-
         for GHG in GHGs:
             row.extend([GHG["AnnualEmissions"][period], GHG["cap"][period]])
 
             # Only print the carbon cap dual value if it exists and if the problem
             # is purely linear.
             if (
-                not has_discrete_variables
+                not model.has_discrete_variables
                 and period in GHG["Enforce_Carbon_Cap"]
                 and GHG["Enforce_Carbon_Cap"][period] in model.dual
             ):

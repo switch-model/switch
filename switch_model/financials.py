@@ -307,10 +307,13 @@ def define_dynamic_components(mod):
     mod.SystemCost = Expression(
         rule=lambda m: sum(m.SystemCostPerPeriod[p] for p in m.PERIODS)
     )
-    scaling_factor_Minimize_System_Cost = 10**-7
+    # We use a scaling factor to improve the numerical properties
+    # of the model. The scaling factor was determined using trial
+    # and error and this tool https://github.com/staadecker/lp-analyzer.
+    # Learn more by reading the documentation on Numerical Issues.
+    objective_func_scaling_factor = 1e-3
     mod.Minimize_System_Cost = Objective(
-        rule=lambda m: m.SystemCost * scaling_factor_Minimize_System_Cost,
-        sense=minimize,
+        rule=lambda m: m.SystemCost * objective_func_scaling_factor, sense=minimize
     )
 
 
@@ -333,6 +336,7 @@ def load_inputs(mod, switch_data, inputs_dir):
 def post_solve(instance, outdir):
     m = instance
     # Overall electricity costs
+    # TODO use write_table
     normalized_dat = [
         {
             "PERIOD": p,

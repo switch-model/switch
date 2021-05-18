@@ -1,202 +1,199 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# Copyright 2017 The Switch Authors. All rights reserved.
-# Licensed under the Apache License, Version 2, which is in the LICENSE file.
-# Renewable and Appropriate Energy Laboratory, UC Berkeley.
-# Operations, Control and Markets laboratory at Pontificia Universidad
-# Católica de Chile.
+"""
+Script to retrieve data inputs for the Switch WECC model from the database.
+Data is formatted into corresponding .csv files.
+
+Note: previously we used an SSH tunnel to connect to the database.
+That code was removed however it can still be found at this commit
+273be083c743e0527c2753356a101c479fe053e8 on the REAM-lab repo.
+(https://github.com/REAM-lab/switch/tree/273be083c743e0527c2753356a101c479fe053e8)
 """
 
-Retrieves data inputs for the Switch WECC model from the database. Data
-is formatted into corresponding .csv or .dat files.
-
-"""
-
+# Standard packages
 import argparse
-# import getpass
 import os
-import sys
-import time
+from typing import Iterable, List
 
+# Switch packages
+from switch_model.utilities import query_yes_no, load_config, StepTimer
+
+# Third-party packages
 import psycopg2 as pg
-# import sshtunnel
+import pandas as pd
+
+try:
+    # Try to load environment variables from .env file using dotenv package.
+    # If package is not installed, nothing happens.
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
 
 
-def write_csv(fname, headers, cursor):
-    with open(
-        fname + ".csv", "w"
-    ) as f:  # Paty: open() opens file named fname and only allows us to (re)write on it ('w'). "with" keyword ensures the file is closed at the end of the function.
-        f.write(
-            ",".join(headers) + os.linesep
-        )  # Paty: str.join(headers) joins the strings in the sequence "headers" and separates them with string "str"
-        for row in cursor:
+def write_csv_from_query(cursor, fname: str, headers: List[str], query: str):
+    """Create CSV file from cursor."""
+    print(f"{fname}.csv... ", flush=True)
+    cursor.execute(query)
+    data = cursor.fetchall()
+    write_csv(data, fname, headers, log=False)
+    if not data:
+        print("Warning: File is empty.")
+
+
+def write_csv(data: Iterable[List], fname, headers: List[str], log=True):
+    """Create CSV file from Iterable."""
+    if log:
+        print(f"{fname}.csv... ", flush=True)
+    with open(fname + ".csv", "w") as f:
+        f.write(",".join(headers) + os.linesep)
+        for row in data:
             # Replace None values with dots for Pyomo. Also turn all datatypes into strings
             row_as_clean_strings = [
                 "." if element is None else str(element) for element in row
             ]
             f.write(
                 ",".join(row_as_clean_strings) + os.linesep
-            )  # concatenates "line" separated by tabs, and appends \n
+            )  # concatenates "line" separated by commas, and appends \n
 
 
-db_cursor = None
-db_connection = None
-tunnel = None
+# List of modules that is used to generate modules.txt
+modules = [
+    # Core modules
+    "switch_model",
+    "switch_model.timescales",
+    "switch_model.financials",
+    "switch_model.balancing.load_zones",
+    "switch_model.energy_sources.properties",
+    "switch_model.generators.core.build",
+    "switch_model.generators.core.dispatch",
+    "switch_model.reporting",
+    # Custom Modules
+    "switch_model.generators.core.no_commit",
+    "switch_model.generators.extensions.hydro_simple",
+    "switch_model.generators.extensions.storage",
+    "switch_model.energy_sources.fuel_costs.markets",
+    "switch_model.transmission.transport.build",
+    "switch_model.transmission.transport.dispatch",
+    "switch_model.policies.carbon_policies",
+    "switch_model.policies.rps_unbundled",
+    # "switch_model.reporting.basic_exports_wecc",
+]
 
 
-# def shutdown():
-# global db_cursor
-# global db_connection
-# global tunnel
-# if db_cursor:
-# db_cursor.close()
-# db_cursor = None
-# if db_connection:
-# db_connection.close()
-# db_connection = None
-# # os.chdir('..')
-# if tunnel:
-# tunnel.stop()
-# tunnel = None
+def switch_to_input_dir(config):
+    inputs_dir = config["inputs_dir"]
 
-
-# Make sure the ssh tunnel is shutdown properly when python exits, even if an exception has been raised.
-# Hmm. the ssh tunnel still manages to hang before atexit gets called.
-# atexit.register(shutdown)
-
-
-def main():
-    #     global db_cursor
-    # global db_connection
-    # global tunnel
-    start_time = time.time()
-
-    # parser = argparse.ArgumentParser(
-    # usage="get_switch_pyomo_input_tables.py [--help] [options]",
-    # description="Write SWITCH input files from database tables. Default \
-    # options asume an SSH tunnel has been opened between the local port 5432\
-    # and the Postgres port at the remote host where the database is stored.",
-    # formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    # )
-    # parser.add_argument(
-    # "-H",
-    # "--hostname",
-    # dest="host",
-    # type=str,
-    # default="switch-db2.erg.berkeley.edu",
-    # metavar="hostname",
-    # help="Database host address",
-    # )
-    # parser.add_argument(
-    # "-P",
-    # "--port",
-    # dest="port",
-    # type=int,
-    # default=5432,
-    # metavar="port",
-    # help="Database host port",
-    # )
-    # parser.add_argument(
-    # "-U",
-    # "--user",
-    # dest="user",
-    # type=str,
-    # default=getpass.getuser(),
-    # metavar="username",
-    # help="Database username",
-    # )
-    # parser.add_argument(
-    # "-D",
-    # "--database",
-    # dest="database",
-    # type=str,
-    # default="switch_wecc",
-    # metavar="dbname",
-    # help="Database name",
-    # )
-    # parser.add_argument(
-    # "-s",
-    # type=int,
-    # required=True,
-    # metavar="scenario_id",
-    # help="Scenario ID for the simulation",
-    # )
-    # parser.add_argument(
-    # "-i",
-    # type=str,
-    # default="inputs",
-    # metavar="inputsdir",
-    # help="Directory where the inputs will be built",
-    # )
-    # args = parser.parse_args()
-
-    # passw = getpass.getpass("Enter database password for user %s:" % args.user)
-
-    # # Connection settings are determined by parsed command line inputs
-    # # Start an ssh tunnel because the database only permits local connections
-    # tunnel = sshtunnel.SSHTunnelForwarder(
-    # args.host,
-    # ssh_username=args.user,
-    # ssh_pkey=os.path.join(os.path.expanduser("~"), ".ssh", "id_rsa"),
-    # remote_bind_address=("127.0.0.1", args.port),
-    # )
-    # tunnel.start()
-    # try:
-    # db_connection = psycopg2.connect(
-    # database=args.database,
-    # user=args.user,
-    # host="127.0.0.1",
-    # port=tunnel.local_bind_port,
-    # password=passw,
-    # )
-    # except:
-    # tunnel.stop()
-    # raise
-    # print("Connection to database established...")
-
-    inputs_dir = "test_inputs"
+    # Create inputs_dir if it doesn't exist
     if not os.path.exists(inputs_dir):
         os.makedirs(inputs_dir)
-        print("Inputs directory created...")
+        print("Inputs directory created.")
     else:
-        print("Inputs directory exists, so contents will be overwritten...")
+        if not query_yes_no(
+            "Inputs directory already exists. Allow contents to be overwritten?"
+        ):
+            raise Exception("User cancelled run.")
 
-    # db_cursor = db_connection.cursor()
+    os.chdir(inputs_dir)
+    return inputs_dir
 
-    # Test db connection for debugging...
-    # db_cursor.execute("select 1 + 1 as x;")
-    # print db_cursor.fetchone()
-    # shutdown()
-    # sys.exit("Finished our test")
 
-    def connect():
-        # TODO: this should be an enviromental variable
-        db_url = "postgresql://pesap@localhost:5432/wecc"
-        conn = pg.connect(db_url, options=f"-c search_path=switch")
-        return conn
+def connect(schema="switch"):
+    """Connects to the Postgres DB
 
+    This function uses the environment variables to get the URL to connect to the DB. Both
+    password and user should be passed directly on the URL for safety purposes.
+
+    Parameters
+    ----------
+    schema: str Schema of the DB to look for tables. Default is switch
+
+    Returns
+    -------
+    conn: Database connection object from psycopg2
+    """
+    db_url = os.getenv("DB_URL")
+    if db_url is None:
+        raise Exception(
+            "Please set the environment variable 'DB_URL' to the database URL."
+            "The format is normally: postgresql://<user>:<password>@<host>:5432/<database>"
+        )
+
+    conn = pg.connect(
+        db_url,
+        options=f"-c search_path={schema}",
+    )
+
+    if conn is None:
+        raise SystemExit(
+            "Failed to connect to PostgreSQL database."
+            "Ensure that the database url is correct, format should normally be:"
+            "postgresql://<user>:<password>@<host>:5432/<database>"
+        )
+
+    # TODO: Send this to the logger
+    print("Connection established to PostgreSQL database.")
+    return conn
+
+
+def create_csvs():
+    timer = StepTimer()
+
+    # Create command line tool, just provides help information
+    parser = argparse.ArgumentParser(
+        description="Write SWITCH input files from database tables.",
+        epilog="""
+        This tool will populate the inputs folder with the data from the PostgreSQL database.
+        config.yaml specifies the scenario parameters. 
+        The environment variable DB_URL specifies the url to connect to the database. """,
+    )
+    parser.parse_args()  # Makes switch get_inputs --help works
+
+    # Load values from config.yaml
+    full_config = load_config()
+    switch_to_input_dir(full_config)
+    config = full_config["get_inputs"]
+    scenario_id = config["scenario_id"]
+
+    # Connect to database
     db_conn = connect()
     db_cursor = db_conn.cursor()
-    ############################################################################################################
-    # These next variables determine which input data is used, though some are only for documentation and result exports.
 
-    scenario_id = 148
+    print(f"\nStarting to copy data from the database to the input files.")
 
     db_cursor.execute(
-        """
-		SELECT name, description, study_timeframe_id, time_sample_id, demand_scenario_id,  
-			fuel_simple_price_scenario_id, generation_plant_scenario_id,
-			generation_plant_cost_scenario_id,
-			generation_plant_existing_and_planned_scenario_id,
-			hydro_simple_scenario_id, carbon_cap_scenario_id,
-			supply_curves_scenario_id, regional_fuel_market_scenario_id,
-			zone_to_regional_fuel_market_scenario_id, rps_scenario_id,
-			enable_dr, enable_ev
-		FROM switch.scenario WHERE scenario_id = %s""",
-        [scenario_id],
+        f"""SELECT
+            name,
+            description,
+            study_timeframe_id,
+            time_sample_id,
+            demand_scenario_id,
+            fuel_simple_price_scenario_id,
+            generation_plant_scenario_id,
+            generation_plant_cost_scenario_id,
+            generation_plant_existing_and_planned_scenario_id,
+            hydro_simple_scenario_id,
+            carbon_cap_scenario_id,
+            supply_curves_scenario_id,
+            regional_fuel_market_scenario_id,
+            zone_to_regional_fuel_market_scenario_id,
+            rps_scenario_id,
+            enable_dr,
+            enable_ev
+        FROM switch.scenario
+        WHERE scenario_id = {scenario_id};"""
     )
-    s_details = db_cursor.fetchone()
-    # name, description, sample_ts_scenario_id, hydro_scenario_meta_id, fuel_id, gen_costs_id, new_projects_id, carbon_tax_id, carbon_cap_id, rps_id, lz_hourly_demand_id, gen_info_id, load_zones_scenario_id, existing_projects_id, demand_growth_id = s_details[1], s_details[2], s_details[3], s_details[4], s_details[5], s_details[6], s_details[7], s_details[8], s_details[9], s_details[10], s_details[11], s_details[12], s_details[13], s_details[14], s_details[15]
+    s_details = list(db_cursor.fetchone())
+
+    # Allow overriding from config
+    if "study_timeframe_id" in config:
+        s_details[2] = config["study_timeframe_id"]
+    if "time_sample_id" in config:
+        s_details[3] = config["time_sample_id"]
+    if "demand_scenario_id" in config:
+        s_details[4] = config["demand_scenario_id"]
+    if "rps_scenario_id" in config:
+        s_details[14] = config["rps_scenario_id"]
+
     name = s_details[0]
     description = s_details[1]
     study_timeframe_id = s_details[2]
@@ -215,66 +212,55 @@ def main():
     enable_dr = s_details[15]
     enable_ev = s_details[16]
 
-    os.chdir(inputs_dir)
-
-    # The format for csv files is:
-    # col1_name col2_name ...
-    # [rows of data]
-
-    # The format for dat files is the same as in AMPL dat files.
-
-    print(
-        '\nStarting data copying from the database to input files for scenario: "%s"'
-        % name
-    )
+    print(f"Scenario: {scenario_id}: {name}.\n")
 
     # Write general scenario parameters into a documentation file
-    print("Writing scenario documentation into scenario_params.txt.")
-    db_cursor.execute(
-        "SELECT * FROM switch.scenario WHERE scenario_id = %s", [scenario_id]
-    )
-    s_details = db_cursor.fetchone()
     colnames = [desc[0] for desc in db_cursor.description]
     with open("scenario_params.txt", "w") as f:
-        f.write("Scenario id: %s\n" % scenario_id)
-        f.write("Scenario name: %s\n" % name)
-        f.write("Scenario notes: %s\n" % description)
+        f.write(f"Scenario id: {scenario_id}\n")
+        f.write(f"Scenario name: {name}\n")
+        f.write(f"Scenario notes: {description}\n")
         for i, col in enumerate(colnames):
-            f.write("{}: {}\n".format(col, s_details[i]))
+            f.write(f"{col}: {s_details[i]}\n")
+    print("scenario_params.txt...")
 
     ########################################################
     # Which input specification are we writing against?
     with open("switch_inputs_version.txt", "w") as f:
-        f.write("2.0.0b2" + os.linesep)
+        f.write("2.0.5" + os.linesep)
+    print("switch_inputs_version.txt...")
+
+    with open("modules.txt", "w") as f:
+        for module in modules:
+            f.write(module + os.linesep)
+    print("modules.txt...")
 
     ########################################################
     # TIMESCALES
 
-    print("  periods.csv...")
-    db_cursor.execute(
-        """
-		select label, start_year as period_start, end_year as period_end
-		from period where study_timeframe_id=%s
-		order by 1;""",
-        [study_timeframe_id],
+    # periods.csv
+    write_csv_from_query(
+        db_cursor,
+        "periods",
+        ["INVESTMENT_PERIOD", "period_start", "period_end"],
+        f"""
+        select
+          label  as label, --This is to fix build year problem
+          start_year as period_start,
+          end_year as period_end
+        from
+          switch.period
+        where
+          study_timeframe_id = {study_timeframe_id}
+        order by
+          1;
+        """,
     )
-    write_csv("periods", ["INVESTMENT_PERIOD", "period_start", "period_end"], db_cursor)
 
-    print("  timeseries.csv...")
+    # timeseries.csv
     timeseries_id_select = "date_part('year', first_timepoint_utc)|| '_' || replace(sampled_timeseries.name, ' ', '_') as timeseries"
-    db_cursor.execute(
-        (
-            """select {timeseries_id_select}, t.label as ts_period, 
-					hours_per_tp as ts_duration_of_tp, num_timepoints as ts_num_tps, 
-					scaling_to_period as ts_scale_to_period
-					from switch.sampled_timeseries
-						join period as t using(period_id)
-					where sampled_timeseries.time_sample_id={id}
-					order by label;
-					"""
-        ).format(timeseries_id_select=timeseries_id_select, id=time_sample_id)
-    )
-    write_csv(
+    write_csv_from_query(
+        db_cursor,
         "timeseries",
         [
             "TIMESERIES",
@@ -283,64 +269,89 @@ def main():
             "ts_num_tps",
             "ts_scale_to_period",
         ],
-        db_cursor,
+        # TODO what's happening here
+        f"""
+            select
+              date_part('year', first_timepoint_utc)|| '_' || replace(
+                sampled_timeseries.name, ' ', '_'
+              ) as timeseries,
+              t.label  as ts_period,
+              hours_per_tp as ts_duration_of_tp,
+              num_timepoints as ts_num_tps,
+              scaling_to_period as ts_scale_to_period
+            from
+              switch.sampled_timeseries
+              join switch.period as t using(period_id, study_timeframe_id)
+            where
+              sampled_timeseries.time_sample_id = {time_sample_id}
+            order by
+              label;""",
     )
 
-    print("  timepoints.csv...")
-    db_cursor.execute(
-        (
-            """select raw_timepoint_id as timepoint_id, to_char(timestamp_utc, 'YYYYMMDDHH24') as timestamp, 
-					{timeseries_id_select}
-					from sampled_timepoint as t
-						join sampled_timeseries using(sampled_timeseries_id)
-					where t.time_sample_id={id}
-					order by 1;
-					"""
-        ).format(timeseries_id_select=timeseries_id_select, id=time_sample_id)
+    # timepoints.csv
+    write_csv_from_query(
+        db_cursor,
+        "timepoints",
+        ["timepoint_id", "timestamp", "timeseries"],
+        f"""
+            select
+              raw_timepoint_id as timepoint_id,
+              to_char(timestamp_utc, 'YYYYMMDDHH24') as timestamp,
+              date_part('year', first_timepoint_utc)|| '_' || replace(
+                sampled_timeseries.name, ' ', '_'
+              ) as timeseries
+            from
+              switch.sampled_timepoint as t
+              join switch.sampled_timeseries using(
+                sampled_timeseries_id, study_timeframe_id
+              )
+            where
+              t.time_sample_id = {time_sample_id}
+              and t.study_timeframe_id = {study_timeframe_id}
+            order by
+              1;
+            """,
     )
-    write_csv("timepoints", ["timepoint_id", "timestamp", "timeseries"], db_cursor)
 
     ########################################################
     # LOAD ZONES
 
-    # done
-    print("  load_zones.csv...")
-    db_cursor.execute(
-        """SELECT name, ccs_distance_km as zone_ccs_distance_km, load_zone_id as zone_dbid 
-					FROM switch.load_zone  
-					ORDER BY 1;
-					"""
-    )
-    write_csv(
-        "load_zones", ["LOAD_ZONE", "zone_ccs_distance_km", "zone_dbid"], db_cursor
+    write_csv_from_query(
+        db_cursor,
+        "load_zones",
+        ["LOAD_ZONE", "zone_ccs_distance_km", "zone_dbid"],
+        """
+        SELECT 
+            name, 
+            ccs_distance_km as zone_ccs_distance_km, 
+            load_zone_id as zone_dbid 
+        FROM switch.load_zone  
+        ORDER BY 1;
+        """,
     )
 
-    print("  loads.csv...")
-    db_cursor.execute(
-        """
-		select load_zone_name, t.raw_timepoint_id as timepoint, 
-			CASE WHEN demand_mw < 0 THEN 0 ELSE demand_mw END as zone_demand_mw
-		from sampled_timepoint as t
-			join demand_timeseries as d using(raw_timepoint_id)
-		where t.time_sample_id=%(id)s
-			and demand_scenario_id=%(id2)s
-		order by 1,2;
-		""",
-        {"id": time_sample_id, "id2": demand_scenario_id},
+    # loads.csv
+    write_csv_from_query(
+        db_cursor,
+        "loads",
+        ["LOAD_ZONE", "TIMEPOINT", "zone_demand_mw"],
+        f"""
+            select load_zone_name, t.raw_timepoint_id as timepoint, 
+                CASE WHEN demand_mw < 0 THEN 0 ELSE demand_mw END as zone_demand_mw
+            from sampled_timepoint as t
+                join demand_timeseries as d using(raw_timepoint_id)
+            where t.time_sample_id={time_sample_id}
+                and demand_scenario_id={demand_scenario_id}
+            order by 1,2;
+            """,
     )
-    write_csv("loads", ["LOAD_ZONE", "TIMEPOINT", "zone_demand_mw"], db_cursor)
 
     ########################################################
     # BALANCING AREAS [Pending zone_coincident_peak_demand.csv]
 
-    print("  balancing_areas.csv...")
-    db_cursor.execute(
-        """SELECT balancing_area, quickstart_res_load_frac, quickstart_res_wind_frac, quickstart_res_solar_frac,spinning_res_load_frac, 
-					spinning_res_wind_frac, spinning_res_solar_frac 
-					FROM switch.balancing_areas;
-					"""
-    )
-    write_csv(
+    # balancing_areas.csv
+    write_csv_from_query(
+        db_cursor,
         "balancing_areas",
         [
             "BALANCING_AREAS",
@@ -351,16 +362,28 @@ def main():
             "spinning_res_wind_frac",
             "spinning_res_solar_frac",
         ],
-        db_cursor,
+        """
+        SELECT 
+            balancing_area, 
+            quickstart_res_load_frac, 
+            quickstart_res_wind_frac, 
+            quickstart_res_solar_frac,
+            spinning_res_load_frac, 
+            spinning_res_wind_frac, 
+            spinning_res_solar_frac 
+        FROM switch.balancing_areas;""",
     )
 
-    print("  zone_balancing_areas.csv...")
-    db_cursor.execute(
-        """SELECT name, reserves_area as balancing_area 
-					FROM switch.load_zone;
-					"""
+    # zone_balancing_areas.csv
+    write_csv_from_query(
+        db_cursor,
+        "zone_balancing_areas",
+        ["LOAD_ZONE", "balancing_area"],
+        """
+        SELECT 
+            name, reserves_area as balancing_area 
+        FROM switch.load_zone;""",
     )
-    write_csv("zone_balancing_areas", ["LOAD_ZONE", "balancing_area"], db_cursor)
 
     # Paty: in this version of switch this tables is named zone_coincident_peak_demand.csv
     # PATY: PENDING csv!
@@ -383,17 +406,9 @@ def main():
     ########################################################
     # TRANSMISSION
 
-    print("  transmission_lines.csv...")
-    db_cursor.execute(
-        """SELECT start_load_zone_id || '-' || end_load_zone_id, t1.name, t2.name, 
-					trans_length_km, trans_efficiency, existing_trans_cap_mw 
-					FROM switch.transmission_lines
-					join load_zone as t1 on(t1.load_zone_id=start_load_zone_id)
-					join load_zone as t2 on(t2.load_zone_id=end_load_zone_id)  
-					ORDER BY 2,3;
-					"""
-    )
-    write_csv(
+    # transmission_lines.csv
+    write_csv_from_query(
+        db_cursor,
         "transmission_lines",
         [
             "TRANSMISSION_LINE",
@@ -403,18 +418,19 @@ def main():
             "trans_efficiency",
             "existing_trans_cap",
         ],
-        db_cursor,
+        """
+         SELECT start_load_zone_id || '-' || end_load_zone_id, t1.name, t2.name,
+             trans_length_km, trans_efficiency, existing_trans_cap_mw
+         FROM switch.transmission_lines
+             join load_zone as t1 on(t1.load_zone_id=start_load_zone_id)
+             join load_zone as t2 on(t2.load_zone_id=end_load_zone_id)
+         ORDER BY 2,3;
+         """,
     )
 
-    print("  trans_optional_params.csv...")
-    db_cursor.execute(
-        """SELECT start_load_zone_id || '-' || end_load_zone_id, transmission_line_id, derating_factor, terrain_multiplier, 
-					new_build_allowed 
-					FROM switch.transmission_lines 
-					ORDER BY 1;
-					"""
-    )
-    write_csv(
+    # trans_optional_params.csv
+    write_csv_from_query(
+        db_cursor,
         "trans_optional_params",
         [
             "TRANSMISSION_LINE",
@@ -423,59 +439,84 @@ def main():
             "trans_terrain_multiplier",
             "trans_new_build_allowed",
         ],
-        db_cursor,
+        """
+        SELECT start_load_zone_id || '-' || end_load_zone_id, 
+            transmission_line_id, derating_factor, terrain_multiplier,
+            new_build_allowed
+        FROM switch.transmission_lines
+        ORDER BY 1;
+        """,
     )
 
-    print("  trans_params.dat...")
-    with open("trans_params.dat", "w") as f:
-        f.write(
-            "param trans_capital_cost_per_mw_km:=1150;\n"
-        )  # $1150 opposed to $1000 to reflect change to US$2016
-        f.write(
-            "param trans_lifetime_yrs:=20;\n"
-        )  # Paty: check what lifetime has been used for the wecc
-        f.write("param trans_fixed_om_fraction:=0.03;\n")
-        # f.write("param distribution_loss_rate:=0.0652;\n")
+    # trans_params.csv
+    write_csv(
+        [
+            [
+                1150,  # $1150 opposed to $1000 to reflect change to US$2016
+                20,  # Paty: check what lifetime has been used for the wecc
+                0.03,
+                # 0.0652 for column distribution_loss_rate, however this is no longer used
+            ]
+        ],
+        "trans_params",
+        [
+            "trans_capital_cost_per_mw_km",
+            "trans_lifetime_yrs",
+            "trans_fixed_om_fraction",
+        ],
+    )
 
     ########################################################
     # FUEL
 
-    print("  fuels.csv...")
-    db_cursor.execute(
-        """SELECT name, co2_intensity, upstream_co2_intensity 
-					FROM switch.energy_source WHERE is_fuel IS TRUE;
-					"""
+    # fuels.csv
+    write_csv_from_query(
+        db_cursor,
+        "fuels",
+        ["fuel", "co2_intensity", "upstream_co2_intensity"],
+        """
+        SELECT name, co2_intensity, upstream_co2_intensity 
+        FROM switch.energy_source 
+        WHERE is_fuel IS TRUE;
+        """,
     )
-    write_csv("fuels", ["fuel", "co2_intensity", "upstream_co2_intensity"], db_cursor)
 
-    print("  non_fuel_energy_sources.csv...")
-    db_cursor.execute(
-        """SELECT name 
-					FROM switch.energy_source 
-					WHERE is_fuel IS FALSE;
-					"""
+    # non_fuel_energy_sources.csv
+
+    write_csv_from_query(
+        db_cursor,
+        "non_fuel_energy_sources",
+        ["energy_source"],
+        """
+        SELECT name 
+        FROM switch.energy_source 
+        WHERE is_fuel IS FALSE;
+        """,
     )
-    write_csv("non_fuel_energy_sources", ["energy_source"], db_cursor)
 
     # Fuel projections are yearly averages in the DB. For now, Switch only accepts fuel prices per period, so they are averaged.
-    print("  fuel_cost.csv")
-    db_cursor.execute(
-        """select load_zone_name as load_zone, fuel, period, AVG(fuel_price) as fuel_cost 
-					from 
-					(select load_zone_name, fuel, fuel_price, projection_year, 
-							(case when 
-							projection_year >= period.start_year 
-							and projection_year <= period.start_year + length_yrs -1 then label else 0 end) as period
-							from switch.fuel_simple_price_yearly
-							join switch.period on(projection_year>=start_year)
-							where study_timeframe_id = %s and fuel_simple_scenario_id = %s) as w
-					where period!=0
-					group by load_zone_name, fuel, period
-					order by 1,2,3;
-					"""
-        % (study_timeframe_id, fuel_simple_price_scenario_id)
+    # fuel_cost.csv
+    write_csv_from_query(
+        db_cursor,
+        "fuel_cost",
+        ["load_zone", "fuel", "period", "fuel_cost"],
+        f"""
+        select load_zone_name as load_zone, fuel, period  as period, AVG(fuel_price) as fuel_cost 
+		from (
+		    select load_zone_name, fuel, fuel_price, projection_year, 
+		        (  
+		            case when projection_year >= period.start_year 
+					and projection_year <= period.start_year + length_yrs -1 then label else 0 end
+				) as period
+				from switch.fuel_simple_price_yearly
+				join switch.period on(projection_year>=start_year)
+				where study_timeframe_id = {study_timeframe_id} and fuel_simple_scenario_id = {fuel_simple_price_scenario_id}
+		) as w
+		where period!=0
+		group by load_zone_name, fuel, period
+		order by 1,2,3;
+		""",
     )
-    write_csv("fuel_cost", ["load_zone", "fuel", "period", "fuel_cost"], db_cursor)
 
     ########################################################
     # GENERATORS
@@ -485,38 +526,9 @@ def main():
     # 		 gen_ccs_energy_load,
     #        gen_ccs_capture_efficiency,
     #        gen_is_distributed
-    print("  generation_projects_info.csv...")
-    db_cursor.execute(
-        (
-            """select 
-				generation_plant_id, 
-				gen_tech, 
-				energy_source as gen_energy_source, 
-				t2.name as gen_load_zone, 
-				max_age as gen_max_age, 
-				is_variable as gen_is_variable, 
-				is_baseload as gen_is_baseload,
-				full_load_heat_rate as gen_full_load_heat_rate, 
-				variable_o_m as gen_variable_om,
-				connect_cost_per_mw as gen_connect_cost_per_mw,
-				generation_plant_id as gen_dbid, 
-				scheduled_outage_rate as gen_scheduled_outage_rate,
-				forced_outage_rate as gen_forced_outage_rate, 
-				capacity_limit_mw as gen_capacity_limit_mw,
-				min_build_capacity as gen_min_build_capacity, 
-				is_cogen as gen_is_cogen,
-				storage_efficiency as gen_storage_efficiency,
-				store_to_release_ratio as gen_store_to_release_ratio
-			from generation_plant as t
-			join load_zone as t2 using(load_zone_id)
-			join generation_plant_scenario_member using(generation_plant_id)
-			where generation_plant_scenario_id={id1}
-			order by gen_dbid;
-					"""
-        ).format(id1=generation_plant_scenario_id)
-    )
-
-    write_csv(
+    # generation_projects_info.csv
+    write_csv_from_query(
+        db_cursor,
         "generation_projects_info",
         [
             "GENERATION_PROJECT",
@@ -538,34 +550,61 @@ def main():
             "gen_storage_efficiency",
             "gen_store_to_release_ratio",
         ],
-        db_cursor,
+        f"""
+            select
+            generation_plant_id,
+            gen_tech,
+            energy_source as gen_energy_source,
+            t2.name as gen_load_zone,
+            max_age as gen_max_age,
+            is_variable as gen_is_variable,
+            is_baseload as gen_is_baseload,
+            full_load_heat_rate as gen_full_load_heat_rate,
+            variable_o_m as gen_variable_om,
+            connect_cost_per_mw as gen_connect_cost_per_mw,
+            generation_plant_id as gen_dbid,
+            scheduled_outage_rate as gen_scheduled_outage_rate,
+            forced_outage_rate as gen_forced_outage_rate,
+            final_capacity_limit_mw as gen_capacity_limit_mw,
+            min_build_capacity as gen_min_build_capacity,
+            is_cogen as gen_is_cogen,
+            storage_efficiency as gen_storage_efficiency,
+            store_to_release_ratio as gen_store_to_release_ratio
+            from generation_plant as t
+            join load_zone as t2 using(load_zone_id)
+            join generation_plant_scenario_member using(generation_plant_id)
+            where generation_plant_scenario_id={generation_plant_scenario_id}
+            order by gen_dbid;
+            """,
     )
 
-    print("  gen_build_predetermined.csv...")
-    db_cursor.execute(
-        (
-            """select generation_plant_id, build_year, capacity as gen_predetermined_cap  
-					from generation_plant_existing_and_planned 
-					join generation_plant as t using(generation_plant_id)
-					join generation_plant_scenario_member using(generation_plant_id)
-					where generation_plant_scenario_id={id1}
-					and generation_plant_existing_and_planned_scenario_id={id2}
-					;
-				"""
-        ).format(
-            id1=generation_plant_scenario_id,
-            id2=generation_plant_existing_and_planned_scenario_id,
-        )
-    )
-    write_csv(
+    # gen_build_predetermined.csv
+    write_csv_from_query(
+        db_cursor,
         "gen_build_predetermined",
         ["GENERATION_PROJECT", "build_year", "gen_predetermined_cap"],
-        db_cursor,
+        f"""select generation_plant_id, build_year, capacity as gen_predetermined_cap  
+                from generation_plant_existing_and_planned 
+                join generation_plant as t using(generation_plant_id)
+                join generation_plant_scenario_member using(generation_plant_id)
+                where generation_plant_scenario_id={generation_plant_scenario_id}
+                and generation_plant_existing_and_planned_scenario_id={generation_plant_existing_and_planned_scenario_id}
+                ;
+                """,
     )
 
-    print("  gen_build_costs.csv...")
-    db_cursor.execute(
-        """
+    # gen_build_costs.csv
+    write_csv_from_query(
+        db_cursor,
+        "gen_build_costs",
+        [
+            "GENERATION_PROJECT",
+            "build_year",
+            "gen_overnight_cost",
+            "gen_fixed_om",
+            "gen_storage_energy_overnight_cost",
+        ],
+        f"""
         select generation_plant_id, generation_plant_cost.build_year, 
             overnight_cost as gen_overnight_cost, fixed_o_m as gen_fixed_om,
             storage_energy_capacity_cost_per_mwh as gen_storage_energy_overnight_cost 
@@ -573,9 +612,9 @@ def main():
           JOIN generation_plant_existing_and_planned USING (generation_plant_id)
           JOIN generation_plant_scenario_member using(generation_plant_id)
           join generation_plant as t1 using(generation_plant_id)
-        WHERE generation_plant_scenario_id=%(gen_plant_scenario)s 
-          AND generation_plant_cost.generation_plant_cost_scenario_id=%(cost_scenario)s
-          AND generation_plant_existing_and_planned_scenario_id=%(ep_id)s
+        WHERE generation_plant_scenario_id={generation_plant_scenario_id} 
+          AND generation_plant_cost.generation_plant_cost_scenario_id={generation_plant_cost_scenario_id}
+          AND generation_plant_existing_and_planned_scenario_id={generation_plant_existing_and_planned_scenario_id}
         UNION
         SELECT generation_plant_id, period.label, 
             avg(overnight_cost) as gen_overnight_cost, avg(fixed_o_m) as gen_fixed_om,
@@ -585,70 +624,45 @@ def main():
           JOIN period on(build_year>=start_year and build_year<=end_year)
           JOIN generation_plant_scenario_member using(generation_plant_id)
           join generation_plant as t1 using(generation_plant_id)
-        WHERE generation_plant_scenario_id=%(gen_plant_scenario)s 
-          AND period.study_timeframe_id=%(timeframe)s 
-          AND generation_plant_cost.generation_plant_cost_scenario_id=%(cost_scenario)s
+        WHERE generation_plant_scenario_id={generation_plant_scenario_id} 
+          AND period.study_timeframe_id={study_timeframe_id} 
+          AND generation_plant_cost.generation_plant_cost_scenario_id={generation_plant_cost_scenario_id}
         GROUP BY 1,2
         ORDER BY 1,2;""",
-        {
-            "timeframe": study_timeframe_id,
-            "cost_scenario": generation_plant_cost_scenario_id,
-            "gen_plant_scenario": generation_plant_scenario_id,
-            "ep_id": generation_plant_existing_and_planned_scenario_id,
-        },
-    )
-    write_csv(
-        "gen_build_costs",
-        [
-            "GENERATION_PROJECT",
-            "build_year",
-            "gen_overnight_cost",
-            "gen_fixed_om",
-            "gen_storage_energy_overnight_cost",
-        ],
-        db_cursor,
     )
 
     ########################################################
     # FINANCIALS
 
-    print("  financials.dat...")
-    with open("financials.dat", "w") as f:
-        f.write("param base_financial_year := 2016;\n")
-        f.write("param interest_rate := .07;\n")
-        f.write("param discount_rate := .07;\n")
-
+    write_csv(
+        [[2016, 0.07, 0.07]],
+        "financials",
+        ["base_financial_year", "interest_rate", "discount_rate"],
+    )
     ########################################################
     # VARIABLE CAPACITY FACTORS
 
     # Pyomo will raise an error if a capacity factor is defined for a project on a timepoint when it is no longer operational (i.e. Canela 1 was built on 2007 and has a 30 year max age, so for tp's ocurring later than 2037, its capacity factor must not be written in the table).
 
-    print("  variable_capacity_factors.csv...")
-    db_cursor.execute(
-        """
-	    select generation_plant_id, t.raw_timepoint_id, capacity_factor  
-        FROM variable_capacity_factors_historical v
-            JOIN projection_to_future_timepoint ON(v.raw_timepoint_id = historical_timepoint_id)
-            JOIN generation_plant_scenario_member USING(generation_plant_id)
-            JOIN sampled_timepoint as t ON(t.raw_timepoint_id = future_timepoint_id)
-        WHERE generation_plant_scenario_id = %(generation_plant_scenario)s
-            AND t.time_sample_id=%(id)s
-        """,
-        {
-            "id": time_sample_id,
-            "generation_plant_scenario": generation_plant_scenario_id,
-        },
-    )
-    write_csv(
+    # variable_capacity_factors.csv
+    write_csv_from_query(
+        db_cursor,
         "variable_capacity_factors",
         ["GENERATION_PROJECT", "timepoint", "gen_max_capacity_factor"],
-        db_cursor,
+        f"""
+            select generation_plant_id, t.raw_timepoint_id, capacity_factor
+            FROM variable_capacity_factors_exist_and_candidate_gen v
+                JOIN generation_plant_scenario_member USING(generation_plant_id)
+                JOIN sampled_timepoint as t ON(t.raw_timepoint_id = v.raw_timepoint_id)
+            WHERE generation_plant_scenario_id = {generation_plant_scenario_id}
+                AND t.time_sample_id={time_sample_id};
+            """,
     )
 
     ########################################################
     # HYDROPOWER
 
-    print("  hydro_timeseries.csv...")
+    # hydro_timeseries.csv
     # 	db_cursor.execute(("""select generation_plant_id as hydro_project,
     # 					{timeseries_id_select},
     # 					hydro_min_flow_mw, hydro_avg_flow_mw
@@ -663,61 +677,36 @@ def main():
     # zone + watershed. Eventually, we may rethink this derating, but it is a reasonable
     # approximation for a large hydro fleet where plant outages are individual random events.
     # Negative flows are replaced by 0.01.
-    db_cursor.execute(
-        (
-            """
-		select generation_plant_id as hydro_project, 
-			{timeseries_id_select}, 
-			CASE WHEN hydro_min_flow_mw <= 0 THEN 0.01 
-			WHEN hydro_min_flow_mw > capacity_limit_mw*(1-forced_outage_rate) THEN capacity_limit_mw*(1-forced_outage_rate)
-			ELSE hydro_min_flow_mw END, 
-			CASE WHEN hydro_avg_flow_mw <= 0 THEN 0.01 ELSE
-			least(hydro_avg_flow_mw, (capacity_limit_mw) * (1-forced_outage_rate)) END as hydro_avg_flow_mw
-		from hydro_historical_monthly_capacity_factors
-			join sampled_timeseries on(month = date_part('month', first_timepoint_utc) and year = date_part('year', first_timepoint_utc))
-			join generation_plant using (generation_plant_id)
-			join generation_plant_scenario_member using(generation_plant_id)
-		where generation_plant_scenario_id = {id3} 
-		and hydro_simple_scenario_id={id1}
-			and time_sample_id = {id2};
-		"""
-        ).format(
-            timeseries_id_select=timeseries_id_select,
-            id1=hydro_simple_scenario_id,
-            id2=time_sample_id,
-            id3=generation_plant_scenario_id,
-        )
-    )
-    write_csv(
+    write_csv_from_query(
+        db_cursor,
         "hydro_timeseries",
         ["hydro_project", "timeseries", "hydro_min_flow_mw", "hydro_avg_flow_mw"],
-        db_cursor,
+        f"""
+        select generation_plant_id as hydro_project, 
+            {timeseries_id_select}, 
+            CASE WHEN hydro_min_flow_mw <= 0 THEN 0.01 
+            WHEN hydro_min_flow_mw > capacity_limit_mw*(1-forced_outage_rate) THEN capacity_limit_mw*(1-forced_outage_rate)
+            ELSE hydro_min_flow_mw END, 
+            CASE WHEN hydro_avg_flow_mw <= 0 THEN 0.01 ELSE
+            least(hydro_avg_flow_mw, (capacity_limit_mw) * (1-forced_outage_rate)) END as hydro_avg_flow_mw
+        from hydro_historical_monthly_capacity_factors
+            join sampled_timeseries on(month = date_part('month', first_timepoint_utc) and year = date_part('year', first_timepoint_utc))
+            join generation_plant using (generation_plant_id)
+            join generation_plant_scenario_member using(generation_plant_id)
+        where generation_plant_scenario_id = {generation_plant_scenario_id} 
+        and hydro_simple_scenario_id={hydro_simple_scenario_id}
+            and time_sample_id = {time_sample_id}
+        order by 1;
+        """,
     )
 
     ########################################################
     # CARBON CAP
 
     # future work: join with table with carbon_cost_dollar_per_tco2
-    print("  carbon_policies.csv...")
-    db_cursor.execute(
-        (
-            """select period, AVG(carbon_cap_tco2_per_yr) as carbon_cap_tco2_per_yr, AVG(carbon_cap_tco2_per_yr_CA) as carbon_cap_tco2_per_yr_CA,
-						'.' as  carbon_cost_dollar_per_tco2
-					from 
-					(select carbon_cap_tco2_per_yr, carbon_cap_tco2_per_yr_CA, year, 
-							(case when 
-							year >= period.start_year 
-							and year <= period.start_year + length_yrs -1 then label else 0 end) as period
-							from switch.carbon_cap
-							join switch.period on(year>=start_year)
-							where study_timeframe_id = {id1} and carbon_cap_scenario_id = {id2}) as w
-					where period!=0
-					group by period
-					order by 1;
-					"""
-        ).format(id1=study_timeframe_id, id2=carbon_cap_scenario_id)
-    )
-    write_csv(
+    # carbon_policies.csv
+    write_csv_from_query(
+        db_cursor,
         "carbon_policies",
         [
             "PERIOD",
@@ -725,52 +714,54 @@ def main():
             "carbon_cap_tco2_per_yr_CA",
             "carbon_cost_dollar_per_tco2",
         ],
-        db_cursor,
+        f"""
+        select period, AVG(carbon_cap_tco2_per_yr) as carbon_cap_tco2_per_yr, AVG(carbon_cap_tco2_per_yr_CA) as carbon_cap_tco2_per_yr_CA,
+            '.' as  carbon_cost_dollar_per_tco2
+        from 
+        (select carbon_cap_tco2_per_yr, carbon_cap_tco2_per_yr_CA, year, 
+                (case when 
+                year >= period.start_year 
+                and year <= period.start_year + length_yrs -1 then label else 0 end) as period
+                from switch.carbon_cap
+                join switch.period on(year>=start_year)
+                where study_timeframe_id = {study_timeframe_id} and carbon_cap_scenario_id = {carbon_cap_scenario_id}) as w
+        where period!=0
+        group by period
+        order by 1;
+        """
     )
 
     ########################################################
     # RPS
     if rps_scenario_id is not None:
-        print("  rps_targets.csv...")
-        db_cursor.execute(
-            (
-                """select load_zone, w.period as period, avg(rps_target) as rps_target
-								from
-								(select load_zone, rps_target,
-								(case when 
-								year >= period.start_year 
-								and year <= period.start_year + length_yrs -1 then label else 0 end) as period
-								from switch.rps_target
-								join switch.period on(year>=start_year)
-								where study_timeframe_id = {id1} and rps_scenario_id = {id2}) as w
-						where period!=0
-						group by load_zone, period
-						order by 1, 2;
-						"""
-            ).format(id1=study_timeframe_id, id2=rps_scenario_id)
+        # rps_targets.csv
+        write_csv_from_query(
+            db_cursor,
+            "rps_targets",
+            ["load_zone", "period", "rps_target"],
+            f"""
+            select load_zone, w.period as period, avg(rps_target) as rps_target
+                    from
+                    (select load_zone, rps_target,
+                    (case when 
+                    year >= period.start_year 
+                    and year <= period.start_year + length_yrs -1 then label else 0 end) as period
+                    from switch.rps_target
+                    join switch.period on(year>=start_year)
+                    where study_timeframe_id = {study_timeframe_id} and rps_scenario_id = {rps_scenario_id}) as w
+            where period!=0
+            group by load_zone, period
+            order by 1, 2;
+            """
         )
-        write_csv("rps_targets", ["load_zone", "period", "rps_target"], db_cursor)
 
     ########################################################
     # BIO_SOLID SUPPLY CURVE
 
     if supply_curves_scenario_id is not None:
-        print("  fuel_supply_curves.csv...")
-        db_cursor.execute(
-            (
-                """
-			select regional_fuel_market, label as period, tier, unit_cost, 
-					(case when max_avail_at_cost is null then 'inf' 
-						else max_avail_at_cost::varchar end) as max_avail_at_cost
-			from switch.fuel_supply_curves
-			join switch.period on(year>=start_year)
-			where year=FLOOR(period.start_year + length_yrs/2-1)
-			and study_timeframe_id = {id1} 
-			and supply_curves_scenario_id = {id2};
-						"""
-            ).format(id1=study_timeframe_id, id2=supply_curves_scenario_id)
-        )
-        write_csv(
+        # fuel_supply_curves.csv
+        write_csv_from_query(
+            db_cursor,
             "fuel_supply_curves",
             [
                 "regional_fuel_market",
@@ -779,116 +770,76 @@ def main():
                 "unit_cost",
                 "max_avail_at_cost",
             ],
-            db_cursor,
+            f"""
+                select regional_fuel_market, label as period, tier, unit_cost, 
+                        (case when max_avail_at_cost is null then 'inf' 
+                            else max_avail_at_cost::varchar end) as max_avail_at_cost
+                from switch.fuel_supply_curves
+                join switch.period on(year>=start_year)
+                where year=FLOOR(period.start_year + length_yrs/2-1)
+                and study_timeframe_id = {study_timeframe_id} 
+                and supply_curves_scenario_id = {supply_curves_scenario_id};
+                            """,
         )
 
-        print("  regional_fuel_markets.csv...")
-        db_cursor.execute(
-            (
-                """
-			select regional_fuel_market, fuel 
-			from switch.regional_fuel_market
-			where regional_fuel_market_scenario_id={id};
-						"""
-            ).format(id=regional_fuel_market_scenario_id)
-        )
-        write_csv("regional_fuel_markets", ["regional_fuel_market", "fuel"], db_cursor)
+    # regional_fuel_markets.csv
+    write_csv_from_query(
+        db_cursor,
+        "regional_fuel_markets",
+        ["regional_fuel_market", "fuel"],
+        f"""
+        select regional_fuel_market, fuel 
+        from switch.regional_fuel_market
+        where regional_fuel_market_scenario_id={regional_fuel_market_scenario_id};
+                    """,
+    )
 
-        print("  zone_to_regional_fuel_market.csv...")
-        db_cursor.execute(
-            (
-                """
-			select load_zone, regional_fuel_market 
-			from switch.zone_to_regional_fuel_market
-			where zone_to_regional_fuel_market_scenario_id={id};
-						"""
-            ).format(id=zone_to_regional_fuel_market_scenario_id)
-        )
-        write_csv(
-            "zone_to_regional_fuel_market",
-            ["load_zone", "regional_fuel_market"],
-            db_cursor,
-        )
+    # zone_to_regional_fuel_market.csv
+    write_csv_from_query(
+        db_cursor,
+        "zone_to_regional_fuel_market",
+        ["load_zone", "regional_fuel_market"],
+        f"""
+        select load_zone, regional_fuel_market 
+        from switch.zone_to_regional_fuel_market
+        where zone_to_regional_fuel_market_scenario_id={zone_to_regional_fuel_market_scenario_id};
+                    """,
+    )
 
     ########################################################
     # DEMAND RESPONSE
     if enable_dr is not None:
-        print("  dr_data.csv...")
-        db_cursor.execute(
-            (
-                """
-			select load_zone_name as load_zone, sampled_timepoint.raw_timepoint_id AS timepoint, 
-			case 
-				when load_zone_id>=10 and load_zone_id<=21 and extract(year from sampled_timepoint.timestamp_utc)=2020 then 0.003*demand_mw
-    			when load_zone_id>=10 and load_zone_id<=21 and extract(year from sampled_timepoint.timestamp_utc)=2030 then 0.02*demand_mw
-    			when load_zone_id>=10 and load_zone_id<=21 and extract(year from sampled_timepoint.timestamp_utc)=2040 then 0.07*demand_mw
-    			when load_zone_id>=10 and load_zone_id<=21 and extract(year from sampled_timepoint.timestamp_utc)=2050 then 0.1*demand_mw
-    			when (load_zone_id<10 or load_zone_id>21) and extract(year from sampled_timepoint.timestamp_utc)=2020 then 0*demand_mw
-    			when (load_zone_id<10 or load_zone_id>21) and extract(year from sampled_timepoint.timestamp_utc)=2030 then 0.03*demand_mw
-    			when (load_zone_id<10 or load_zone_id>21) and extract(year from sampled_timepoint.timestamp_utc)=2040 then 0.02*demand_mw
-    			when (load_zone_id<10 or load_zone_id>21) and extract(year from sampled_timepoint.timestamp_utc)=2050 then 0.07*demand_mw
-    		end as dr_shift_down_limit,
-    		NULL as dr_shift_up_limit
-			from sampled_timepoint
-			left join demand_timeseries on sampled_timepoint.raw_timepoint_id=demand_timeseries.raw_timepoint_id
-			where demand_scenario_id = {id1} 
-			and study_timeframe_id = {id2}
-			order by demand_scenario_id, load_zone_id, sampled_timepoint.raw_timepoint_id;
-						"""
-            ).format(id1=demand_scenario_id, id2=study_timeframe_id)
-        )
-        write_csv(
+        write_csv_from_query(
+            db_cursor,
             "dr_data",
             ["LOAD_ZONE", "timepoint", "dr_shift_down_limit", "dr_shift_up_limit"],
-            db_cursor,
+            f"""
+                select load_zone_name as load_zone, sampled_timepoint.raw_timepoint_id AS timepoint, 
+                case 
+                    when load_zone_id>=10 and load_zone_id<=21 and extract(year from sampled_timepoint.timestamp_utc)=2020 then 0.003*demand_mw
+                    when load_zone_id>=10 and load_zone_id<=21 and extract(year from sampled_timepoint.timestamp_utc)=2030 then 0.02*demand_mw
+                    when load_zone_id>=10 and load_zone_id<=21 and extract(year from sampled_timepoint.timestamp_utc)=2040 then 0.07*demand_mw
+                    when load_zone_id>=10 and load_zone_id<=21 and extract(year from sampled_timepoint.timestamp_utc)=2050 then 0.1*demand_mw
+                    when (load_zone_id<10 or load_zone_id>21) and extract(year from sampled_timepoint.timestamp_utc)=2020 then 0*demand_mw
+                    when (load_zone_id<10 or load_zone_id>21) and extract(year from sampled_timepoint.timestamp_utc)=2030 then 0.03*demand_mw
+                    when (load_zone_id<10 or load_zone_id>21) and extract(year from sampled_timepoint.timestamp_utc)=2040 then 0.02*demand_mw
+                    when (load_zone_id<10 or load_zone_id>21) and extract(year from sampled_timepoint.timestamp_utc)=2050 then 0.07*demand_mw
+                end as dr_shift_down_limit,
+                NULL as dr_shift_up_limit
+                from sampled_timepoint
+                left join demand_timeseries on sampled_timepoint.raw_timepoint_id=demand_timeseries.raw_timepoint_id
+                where demand_scenario_id = {demand_scenario_id} 
+                and study_timeframe_id = {study_timeframe_id}
+                order by demand_scenario_id, load_zone_id, sampled_timepoint.raw_timepoint_id;
+                            """,
         )
 
     ########################################################
     # ELECTRICAL VEHICLES
     if enable_ev is not None:
-        print("  ev_limits.csv...")
-        db_cursor.execute(
-            (
-                """
-			SELECT load_zone_name as load_zone, raw_timepoint_id as timepoint,
-			(CASE 
-				WHEN raw_timepoint_id=max_raw_timepoint_id THEN ev_cumulative_charge_upper_mwh
-				ELSE ev_cumulative_charge_lower_mwh
-			END) AS ev_cumulative_charge_lower_mwh,
-			ev_cumulative_charge_upper_mwh,
-			ev_charge_limit as ev_charge_limit_mw
-			FROM(
-			--Table sample_points: with the sample points
-				SELECT 
-					load_zone_id, 
-					ev_profiles_per_timepoint_v3.raw_timepoint_id, 
-					sampled_timeseries_id, 
-					sampled_timepoint.timestamp_utc, 
-					load_zone_name, 
-					ev_cumulative_charge_lower_mwh, 
-					ev_cumulative_charge_upper_mwh, 
-					ev_charge_limit  FROM ev_profiles_per_timepoint_v3
-				LEFT JOIN sampled_timepoint
-				ON ev_profiles_per_timepoint_v3.raw_timepoint_id = sampled_timepoint.raw_timepoint_id 
-				WHERE study_timeframe_id = {id}
-				--END sample_points
-			)AS sample_points
-			LEFT JOIN(
-			--Table max_raw: with max raw_timepoint_id per _sample_timesseries_id
-			SELECT 
-				sampled_timeseries_id,
-				MAX(raw_timepoint_id) AS max_raw_timepoint_id
-			FROM sampled_timepoint 
-			WHERE study_timeframe_id = {id}
-			GROUP BY sampled_timeseries_id
-			--END max_raw
-			)AS max_raw
-			ON max_raw.sampled_timeseries_id=sample_points.sampled_timeseries_id
-			ORDER BY load_zone_id, raw_timepoint_id ;
-						"""
-            ).format(id=study_timeframe_id)
-        )
-        write_csv(
+        # ev_limits.csv
+        write_csv_from_query(
+            db_cursor,
             "ev_limits",
             [
                 "LOAD_ZONE",
@@ -897,12 +848,56 @@ def main():
                 "ev_cumulative_charge_upper_mwh",
                 "ev_charge_limit_mw",
             ],
-            db_cursor,
+            f"""
+                SELECT load_zone_name as load_zone, raw_timepoint_id as timepoint,
+                (CASE 
+                    WHEN raw_timepoint_id=max_raw_timepoint_id THEN ev_cumulative_charge_upper_mwh
+                    ELSE ev_cumulative_charge_lower_mwh
+                END) AS ev_cumulative_charge_lower_mwh,
+                ev_cumulative_charge_upper_mwh,
+                ev_charge_limit as ev_charge_limit_mw
+                FROM(
+                --Table sample_points: with the sample points
+                    SELECT 
+                        load_zone_id, 
+                        ev_profiles_per_timepoint_v3.raw_timepoint_id, 
+                        sampled_timeseries_id, 
+                        sampled_timepoint.timestamp_utc, 
+                        load_zone_name, 
+                        ev_cumulative_charge_lower_mwh, 
+                        ev_cumulative_charge_upper_mwh, 
+                        ev_charge_limit  FROM ev_profiles_per_timepoint_v3
+                    LEFT JOIN sampled_timepoint
+                    ON ev_profiles_per_timepoint_v3.raw_timepoint_id = sampled_timepoint.raw_timepoint_id 
+                    WHERE study_timeframe_id = {study_timeframe_id}
+                    --END sample_points
+                )AS sample_points
+                LEFT JOIN(
+                --Table max_raw: with max raw_timepoint_id per _sample_timesseries_id
+                SELECT 
+                    sampled_timeseries_id,
+                    MAX(raw_timepoint_id) AS max_raw_timepoint_id
+                FROM sampled_timepoint 
+                WHERE study_timeframe_id = {study_timeframe_id}
+                GROUP BY sampled_timeseries_id
+                --END max_raw
+                )AS max_raw
+                ON max_raw.sampled_timeseries_id=sample_points.sampled_timeseries_id
+                ORDER BY load_zone_id, raw_timepoint_id ;
+                            """,
         )
 
-    end_time = time.time()
+    print(f"\nScript took {timer.step_time_as_str()} seconds to build input tables.")
 
-    print("\nScript took %s seconds building input tables." % (end_time - start_time))
+
+def post_process():
+    # No post-process at the moment
+    pass
+
+
+def main():
+    create_csvs()
+    post_process()
 
 
 if __name__ == "__main__":
