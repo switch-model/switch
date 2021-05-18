@@ -6,24 +6,55 @@ Utility functions for Switch.
 """
 from __future__ import print_function
 
-import os, types, importlib, re, sys, argparse, time, datetime
-import __main__ as main
+import os, sys, argparse, time, datetime, traceback
+import switch_model.__main__ as main
 from pyomo.environ import *
+from switch_model.utilities.scaling import _ScaledVariable, _get_unscaled_expression
 import pyomo.opt
+import yaml
 
 # Define string_types (same as six.string_types). This is useful for
 # distinguishing between strings and other iterables.
-try:
-    # Python 2
-    string_types = (basestring,)
-except NameError:
-    # Python 3
-    string_types = (str,)
+string_types = (str,)
 
 # Check whether this is an interactive session (determined by whether
 # __main__ has a __file__ attribute). Scripts can check this value to
 # determine what level of output to display.
 interactive_session = not hasattr(main, '__file__')
+
+
+class CustomAbstractModel(AbstractModel):
+    """
+    Class that wraps pyomo's AbstractModel and adds custom features.
+
+    Currently the only difference between this class and pyomo's AbstractModel
+    is that this class supports variable scaling. See utilities/scaling.py for
+    more details.
+    """
+
+    def __setattr__(self, key, val):
+        # __setattr__ is called whenever we set an attribute
+        # to the model (e.g. model.some_key = some_value)
+        # We want to do as normal unless we try assigning a _ScaledVariable to the model.
+        if isinstance(val, _ScaledVariable):
+            # If we are assigning a _ScaledVariable to the model then we actually
+            # want to assign both a scaled variable and an unscaled expression to the model
+            # We want to assign the scaled variable to a key with a prefix '_scaled_'
+            # and the unscaled expression to the key without the prefix.
+            # This way throughout the SWITCH code the unscaled expression will be used however
+            # pyomo will be using the scaled variable when solving.
+
+            # Set the unscaled_name of the variable
+            val.unscaled_name = key
+            # Set the name of the scaled variable
+            val.scaled_name = "_scaled_" + key
+            # Add the scaled variable to the model with the name we just found
+            super().__setattr__(val.scaled_name, val)
+            # Add the unscaled expression to the model with the original value provided by 'key'
+            super().__setattr__(key, _get_unscaled_expression(val))
+        else:
+            super().__setattr__(key, val)
+
 
 def define_AbstractModel(*module_list, **kwargs):
     # stub to provide old functionality as we move to a simpler calling convention
@@ -65,7 +96,7 @@ def create_model(module_list=None, args=sys.argv[1:]):
     create_model(module_list, args=[])
 
     """
-    model = AbstractModel()
+    model = CustomAbstractModel()
 
     # Load modules
     if module_list is None:
@@ -78,7 +109,7 @@ def create_model(module_list=None, args=sys.argv[1:]):
     # Bind utility functions to the model as class objects
     # Should we be formally extending their class instead?
     _add_min_data_check(model)
-    model.has_discrete_variables = types.MethodType(has_discrete_variables, model)
+    model.has_discrete_variables = None  # Will get set during post_solve(), used to determine if we should use duals
     model.get_modules = types.MethodType(get_modules, model)
     model.load_inputs = types.MethodType(load_inputs, model)
     model.pre_solve = types.MethodType(pre_solve, model)
@@ -129,8 +160,10 @@ class StepTimer(object):
     Use timer = StepTimer() to create a timer, then retrieve elapsed time and/or
     reset the timer at each step by calling timer.step_time()
     """
+
     def __init__(self):
         self.start_time = time.time()
+
     def step_time(self):
         """
         Reset timer to current time and return time elapsed since last step.
@@ -138,6 +171,35 @@ class StepTimer(object):
         last_start = self.start_time
         self.start_time = now = time.time()
         return now - last_start
+
+    def step_time_as_str(self):
+        """
+        Reset timer to current time and return time elapsed since last step as a formatted string.
+        """
+        return format_seconds(self.step_time())
+
+def format_seconds(seconds):
+    """
+    Takes in a number of seconds and returns a string
+    representing the seconds broken into hours, minutes and seconds.
+
+    For example, format_seconds(3750.4) returns '1 h 2 min 30.40 s'.
+    """
+    minutes = int(seconds // 60)
+    hours = int(minutes // 60)
+    remainder_sec = seconds % 60
+    remainder_min = minutes % 60
+
+    output_str = ""
+
+    if hours != 0:
+        output_str += f"{hours} h "
+    if minutes != 0:
+        output_str += f"{remainder_min} min "
+    output_str += f"{remainder_sec:.2f} s"
+
+    return output_str
+
 
 def load_inputs(model, inputs_dir=None, attach_data_portal=True):
     """
@@ -156,7 +218,7 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=True):
         if hasattr(module, 'load_inputs'):
             module.load_inputs(model, data, inputs_dir)
     if model.options.verbose:
-        print("Data read in {:.2f} s.\n".format(timer.step_time()))
+        print(f"Data read in {timer.step_time_as_str()}.\n")
 
     # At some point, pyomo deprecated 'create' in favor of 'create_instance'.
     # Determine which option is available and use that.
@@ -165,7 +227,7 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=True):
     else:
         instance = model.create(data)
     if model.options.verbose:
-        print("Instance created from data in {:.2f} s.\n".format(timer.step_time()))
+        print(f"Instance created from data in {timer.step_time_as_str()}.\n")
 
     if attach_data_portal:
         instance.DataPortal = data
@@ -243,14 +305,32 @@ def post_solve(instance, outputs_dir=None):
     if not os.path.exists(outputs_dir):
         os.makedirs(outputs_dir)
 
+    # Used to determine if we should use dual values
+    # If the model has discrete variables dual values aren't meaningful
+    # Note that before model.has_discrete_variables was a function
+    # that ran has_discrete_variables() everytime.
+    # This was quite time consuming (~10s per call)
+    # Instead, now we call has_discrete_variables() once during post_solve and save the result
+    # TODO Ideally, we only call has_discrete_variables() once **and
+    #  only if we need it** (lazy implementation). This would require more work however
+    #  but could save 10s during post-solve if we never use modules that use has_discrete_variabels.
+    instance.has_discrete_variables = has_discrete_variables(instance)
+
     # TODO: implement a check to call post solve functions only if
     # solver termination condition is not 'infeasible' or 'unknown'
     # (the latter may occur when there are problems with licenses, etc)
 
     for module in instance.get_modules():
         if hasattr(module, 'post_solve'):
-            module.post_solve(instance, outputs_dir)
-
+            # Try-catch is so that if one module fails on post-solve
+            # the other modules still run
+            try:
+                module.post_solve(instance, outputs_dir)
+            except Exception:
+                # Print the error that would normally be thrown with the
+                # full stack trace and an explanatory message
+                print(f"ERROR: Module {module.__name__} threw an Exception while running post_solve(). "
+                      f"Moving on to the next module.\n{traceback.format_exc()}")
 
 def min_data_check(model, *mandatory_model_components):
     """
@@ -483,7 +563,7 @@ def load_aug(switch_data, optional=False, auto_select=False,
     elif suffix == 'csv':
         separator = ','
     else:
-        raise switch_model.utilities.InputError('Unrecognized file type for input file {}'.format(path))
+        raise InputError(f'Unrecognized file type for input file {path}')
     # TODO: parse this more formally, e.g. using csv module
     headers = headers_line.strip().split(separator)
     # Skip if the file is empty.
@@ -743,3 +823,11 @@ def query_yes_no(question, default="yes"):
         else:
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n').\n")
+
+
+def load_config():
+    """Read the config.yaml configuration file"""
+    if not os.path.isfile("config.yaml"):
+        raise Exception("config.yaml does not exist. Try running 'switch new' to auto-create it.")
+    with open("config.yaml") as f:
+        return yaml.load(f, Loader=yaml.FullLoader)

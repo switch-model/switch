@@ -20,6 +20,7 @@ dependency on load_zones.
 """
 from __future__ import print_function
 from switch_model.utilities import string_types
+from switch_model.utilities.scaling import get_unscaled_var
 dependencies = 'switch_model.financials'
 
 
@@ -50,6 +51,19 @@ def define_arguments(argparser):
         help="List of expressions to save in addition to variables; can also be 'all' or 'none'."
     )
 
+
+def format_row(row, sig_digits):
+    row = [get_value(v) for v in row]
+    sig_digits_formatter = "{0:." + str(sig_digits) + "g}"
+    for (i, v) in enumerate(row):
+        if isinstance(v, float):
+            if abs(v) < 1e-10:
+                row[i] = 0
+            else:
+                row[i] = sig_digits_formatter.format(v)
+    return tuple(row)
+
+
 def write_table(instance, *indexes, **kwargs):
     # there must be a way to accept specific named keyword arguments and
     # also an open-ended list of positional arguments (*indexes), but I
@@ -57,35 +71,23 @@ def write_table(instance, *indexes, **kwargs):
     output_file = kwargs["output_file"]
     headings = kwargs["headings"]
     values = kwargs["values"]
-    digits = kwargs.get('digits', 6)
+    digits = instance.options.sig_figs_output
 
     with open(output_file, 'w') as f:
         w = csv.writer(f, dialect="switch-csv")
         # write header row
         w.writerow(list(headings))
         # write the data
-        def format_row(row):
-            row = [value(v) for v in row]
-            sig_digits = "{0:." + str(digits) + "g}"
-            for (i, v) in enumerate(row):
-                if isinstance(v, float):
-                    if abs(v) < 1e-10:
-                        row[i] = 0
-                    else:
-                        row[i] = sig_digits.format(v)
-            return tuple(row)
-
         try:
-            w.writerows(
-                format_row(row=values(instance, *unpack_elements(x)))
-                for x in itertools.product(*indexes)
-            )
+            rows = (format_row(values(instance, *unpack_elements(x)), digits) for x in
+                    itertools.product(*indexes))
+            w.writerows(sorted(rows) if instance.options.sorted_output else rows)
         except TypeError: # lambda got wrong number of arguments
             # use old code, which doesn't unpack the indices
             w.writerows(
                 # TODO: flatten x (unpack tuples) like Pyomo before calling values()
                 # That may cause problems elsewhere though...
-                format_row(row=values(instance, *x))
+                format_row(values(instance, *x), digits)
                 for x in itertools.product(*indexes)
             )
             print("DEPRECATION WARNING: switch_model.reporting.write_table() was called with a function")
@@ -135,6 +137,7 @@ def save_generic_results(instance, outdir, sorted_output):
         components += [getattr(instance, c) for c in instance.options.save_expressions]
 
     for var in components:
+        var = get_unscaled_var(instance, var)
         output_file = os.path.join(outdir, '%s.csv' % var.name)
         with open(output_file, 'w') as fh:
             writer = csv.writer(fh, dialect='switch-csv')
@@ -148,11 +151,11 @@ def save_generic_results(instance, outdir, sorted_output):
                 # increased speed. Sorting is available if wanted.
                 items = sorted(var.items()) if sorted_output else list(var.items())
                 for key, obj in items:
-                    writer.writerow(tuple(make_iterable(key)) + (get_value(obj),))
+                    writer.writerow(format_row(tuple(make_iterable(key)) + (obj,), instance.options.sig_figs_output))
             else:
                 # single-valued variable
                 writer.writerow([var.name])
-                writer.writerow([get_value(obj)])
+                writer.writerow(format_row([obj], instance.options.sig_figs_output))
 
 def get_value(obj):
     """
@@ -217,6 +220,5 @@ def save_cost_components(m, outdir):
         list(cost_dict.keys()),
         output_file=os.path.join(outdir, "cost_components.csv"),
         headings=('component', 'npv_cost'),
-        values=lambda m, c: (c, cost_dict[c]),
-        digits=16
+        values=lambda m, c: (c, cost_dict[c])
     )

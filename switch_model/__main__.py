@@ -7,10 +7,19 @@ from __future__ import print_function
 import sys, os
 import switch_model
 
-# print "running {} as {}.".format(__file__, __name__)
 
 def main():
-    cmds = ["solve", "solve-scenarios", "test", "upgrade", "get_inputs", "--version", "drop"]
+    # TODO make a proper command line tool with help information for each option
+    cmds = [
+        "solve",
+        "solve-scenarios",
+        "test",
+        "upgrade",
+        "get_inputs",
+        "--version",
+        "drop",
+        "new"
+    ]
     if len(sys.argv) >= 2 and sys.argv[1] in cmds:
         # If users run a script from the command line, the location of the script
         # gets added to the start of sys.path; if they call a module from the
@@ -29,21 +38,28 @@ def main():
             print("Switch model version " + switch_model.__version__)
             return 0
         if cmd == "solve":
-            from .solve import main
+            from switch_model.solve import main
         elif cmd == "solve-scenarios":
-            from .solve_scenarios import main
+            from switch_model.solve_scenarios import main
         elif cmd == "test":
-            from .test import main
+            from switch_model.test import main
         elif cmd == "upgrade":
             from switch_model.upgrade import main
         elif cmd == "get_inputs":
             from switch_model.wecc.get_inputs import main
         elif cmd == "drop":
             from switch_model.tools.drop import main
+        elif cmd == "new":
+            from switch_model.tools.new import main
         main()
     else:
-        print("Usage: {} {{{}}} ...".format(os.path.basename(sys.argv[0]), ", ".join(cmds)))
+        print(
+            "Usage: {} {{{}}} ...".format(
+                os.path.basename(sys.argv[0]), ", ".join(cmds)
+            )
+        )
         print("Use one of these commands with --help for more information.")
+
 
 if __name__ == "__main__":
     main()

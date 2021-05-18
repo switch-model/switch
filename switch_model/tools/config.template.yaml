@@ -1,0 +1,25 @@
+# This is a template for configuration file used by switch
+# This is a test for the configuration file for the get_inputs
+# For connecting to the database we need add the .env file where we place the environment
+# variables for your own computer
+---
+
+# ------------------
+# General config
+# ------------------
+inputs_dir: inputs
+
+# --------------------------------
+# Config used by switch get_inputs
+# --------------------------------
+get_inputs:
+  # Database information
+  schema: switch
+
+  # Scenario configuration
+  scenario_id: <FILL_IN>
+  #  the following parameters are optional and will override the defaults for that scenario
+  #  study_timeframe_id: <FILL_IN>
+  #  time_sample_id: <FILL_IN>
+  #  demand_scenario_id: <FILL_IN>
+  #  rps_scenario_id: <FILL_IN>
