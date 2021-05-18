@@ -24,6 +24,9 @@ def main(args=None, return_model=False, return_instance=False):
         # additional arguments specified on the command line
         args = get_option_file_args(extra_args=sys.argv[1:])
 
+    # Parse the --recommended and --recommended-debug flags to replace them with their placeholder
+    args = parse_recommended_args(args)
+
     # Get options needed before any modules are loaded
     pre_module_options = parse_pre_module_options(args)
 
@@ -422,14 +425,13 @@ def iterate_module_func(m, module, func, converged):
 
 
 def define_arguments(argparser):
-    # callback function to define model configuration arguments while the model is built
+    """callback function to define model configuration arguments while the model is built"""
 
-    # add arguments needed before modules are loaded
-    # here to add them to the solve.py help
+    # These flags were already processed, we only re-add them here
+    # so that they appear in the help text (switch solve --help)
     add_pre_module_args(argparser)
-
-    # add standard module arguments (not used later, but this adds them to the help)
     add_module_args(argparser)
+    add_recommended_args(argparser)
 
     # iteration options
     argparser.add_argument(
@@ -542,6 +544,55 @@ def define_arguments(argparser):
         "--sorted-output", default=False, action='store_true',
         dest='sorted_output',
         help='Write generic variable result values in sorted order')
+
+
+def add_recommended_args(argparser):
+    """
+    Adds the --recommended and --recommended-debug flags.
+    These flags are aliases for a bunch of other existing flags that
+    are recommended.
+    """
+    argparser.add_argument(
+        "--recommended", default=False, action='store_true',
+        help='Equivalent to running with all of the following options: --solver gurobi -v --sorted-output --stream-output --log-run --solver-io python --solver-options-string "method=2 BarHomogeneous=1 FeasibilityTol=1e-5"'
+    )
+
+    argparser.add_argument(
+        "--recommended-debug", default=False, action='store_true',
+        help='Equivalent to running with all of the following options: --solver gurobi -v --sorted-output --keepfiles --tempdir temp --stream-output --symbolic-solver-labels --log-run --debug --solver-options-string "method=2 BarHomogeneous=1 FeasibilityTol=1e-5"'
+    )
+
+
+def parse_recommended_args(args):
+    argparser = _ArgumentParser(add_help=False)
+    add_recommended_args(argparser)
+    options = argparser.parse_known_args(args)[0]
+
+    if options.recommended and options.recommended_debug:
+        raise Exception("Can't use both --recommended and --recommended-debug")
+    if not options.recommended and not options.recommended_debug:
+        return args
+
+    # If you change the flags, make sure to update the help text in
+    # the function above.
+    # Note we don't append but rather prepend so that flags can override the --recommend or
+    # --recommend-debug flags.
+    args = [
+               '--solver', 'gurobi',
+               '-v',
+               '--sorted-output',
+               '--stream-output',
+               '--log-run',
+               '--debug',
+               '--solver-options-string',
+               'method=2 BarHomogeneous=1 FeasibilityTol=1e-5'
+           ] + args
+    if options.recommended:
+        args = ['--solver-io', 'python'] + args
+    if options.recommended_debug:
+        args = ['--keepfiles', '--tempdir', 'temp', '--symbolic-solver-labels'] + args
+
+    return args
 
 
 def add_module_args(parser):
