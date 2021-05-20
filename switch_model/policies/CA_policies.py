@@ -11,6 +11,7 @@ Three possible policy constraints can be specified in ca_policies.csv. See docum
 import os
 from pyomo.environ import Set, Param, Expression, Constraint, PercentFraction
 import switch_model.reporting as reporting
+import seaborn as sns
 
 
 def define_components(mod):
@@ -233,3 +234,11 @@ def post_solve(model, outdir):
             m.ca_min_gen_period_ratio[p],
         ],
     )
+
+
+def graph(grapher):
+    # Plot emissions over time
+    ax = grapher.get_new_axes()
+    df = grapher.read_csv("outputs/ca_policies.csv")
+    sns.barplot(x="PERIOD", y="AnnualEmissions_tCO2_per_yr_CA", data=df, ax=ax)
+    grapher.save_plot("emissions_CA")

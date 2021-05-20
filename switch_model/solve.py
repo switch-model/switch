@@ -810,7 +810,7 @@ def parse_pre_module_options(args):
     return pre_module_args
 
 
-def get_module_list(args):
+def get_module_list(args=None):
     # parse module options
     parser = _ArgumentParser(allow_abbrev=False, add_help=False)
     add_module_args(parser)
