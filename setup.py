@@ -89,7 +89,7 @@ setup(
         # These packages are installed when one runs 'pip install --editable .[dev]'
         "dev": ["ipdb", "black", "psycopg2-binary"],
         # In this case 'pip install --editable .[plotting]'
-        "plotting": ["ggplot"],
+        "plotting": ["matplotlib", "seaborn"],
     },
     entry_points={
         "console_scripts": [

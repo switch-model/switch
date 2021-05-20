@@ -26,6 +26,7 @@ from __future__ import division
 import os
 from pyomo.environ import Set, Param, Expression, Constraint, Suffix
 import switch_model.reporting as reporting
+import seaborn as sns
 
 def define_components(model):
     model.carbon_cap_tco2_per_yr = Param(model.PERIODS, default=float('inf'), doc=(
@@ -182,3 +183,17 @@ def post_solve(model, outdir):
                   "carbon_cost_dollar_per_tch4", "carbon_cost_annual_total_ch4",
                   ),
         values=get_row)
+
+
+def graph(grapher):
+    # Plot emissions over time
+    ax = grapher.get_new_axes()
+    df = grapher.read_csv("outputs/emissions.csv")
+    sns.barplot(x='PERIOD', y='AnnualEmissions_tCO2_per_yr', data=df, ax=ax)
+    grapher.save_plot("emissions")
+
+    # Plot emissions dual values
+    ax = grapher.get_new_axes()
+    df = grapher.read_csv("outputs/emissions.csv")
+    sns.barplot(x='PERIOD', y='carbon_cap_dual_future_dollar_per_tco2', data=df, ax=ax)
+    grapher.save_plot("emissions_duals")
