@@ -209,7 +209,8 @@ def create_csvs():
     carbon_cap_scenario_id = s_details[10]
     supply_curves_scenario_id = s_details[11]
     regional_fuel_market_scenario_id = s_details[12]
-    zone_to_regional_fuel_market_scenario_id = s_details[13]
+    # Unused
+    # zone_to_regional_fuel_market_scenario_id = s_details[13]
     rps_scenario_id = s_details[14]
     enable_dr = s_details[15]
     enable_ev = s_details[16]
@@ -817,7 +818,7 @@ def create_csvs():
         f"""
         select load_zone, regional_fuel_market 
         from switch.zone_to_regional_fuel_market
-        where zone_to_regional_fuel_market_scenario_id={zone_to_regional_fuel_market_scenario_id};
+        where regional_fuel_market_scenario_id={regional_fuel_market_scenario_id};
                     """,
     )
 
