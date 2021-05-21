@@ -238,7 +238,6 @@ def post_solve(model, outdir):
 
 def graph(grapher):
     # Plot emissions over time
-    ax = grapher.get_new_axes()
+    ax = grapher.get_new_axes("emissions_CA")
     df = grapher.read_csv("outputs/ca_policies.csv")
     sns.barplot(x="PERIOD", y="AnnualEmissions_tCO2_per_yr_CA", data=df, ax=ax)
-    grapher.save_plot("emissions_CA")

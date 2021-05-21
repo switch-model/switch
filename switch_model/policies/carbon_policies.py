@@ -278,13 +278,11 @@ def post_solve(model, outdir):
 
 def graph(grapher):
     # Plot emissions over time
-    ax = grapher.get_new_axes()
+    ax = grapher.get_new_axes("emissions")
     df = grapher.read_csv("outputs/emissions.csv")
     sns.barplot(x="PERIOD", y="AnnualEmissions_tCO2_per_yr", data=df, ax=ax)
-    grapher.save_plot("emissions")
 
     # Plot emissions dual values
-    ax = grapher.get_new_axes()
+    ax = grapher.get_new_axes("emissions_duals")
     df = grapher.read_csv("outputs/emissions.csv")
     sns.barplot(x="PERIOD", y="carbon_cap_dual_future_dollar_per_tco2", data=df, ax=ax)
-    grapher.save_plot("emissions_duals")
