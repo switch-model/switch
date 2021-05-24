@@ -27,7 +27,7 @@ class GraphData:
         if csv not in self.dfs:
             self.dfs[csv] = pd.read_csv(os.path.join(self.dir_mapping[folder], csv + ".csv"))
 
-        return self.dfs[csv]
+        return self.dfs[csv].copy()  # we return a copy so the source doesn't get modified
 
 
 class GraphTools:
@@ -60,7 +60,7 @@ class GraphTools:
     def set_style(self):
         sns.set()
 
-    def get_new_axes(self, out):
+    def get_new_axes(self, out, title=None):
         """Returns a set of matplotlib axes that can be used to graph."""
         # If we're on the first compare_dir, we want to create the set of axes
         if self.active_compare_dir == 0:
@@ -72,6 +72,10 @@ class GraphTools:
             # Set a title to each subplot
             for i, a in enumerate(ax):
                 a.set_title(self.compare_dirs[i].rel_path)
+
+            # Set a title for the figure
+            if title is not None:
+                fig.suptitle(title)
 
             # Save the axes to module_figures
             self.module_figures[out] = (fig, ax)
@@ -179,6 +183,8 @@ def parse_args():
                         help="Specify a list of runs to compare")
     parser.add_argument("--graphs-dir", default="graphs", type=str,
                         help="Name of the folder where the graphs should be saved")
+    parser.add_argument("--overwrite", default=False, action="store_true",
+                        help="Don't prompt before overwriting the existing folder")
 
     args = parser.parse_args()
     args.compare = list(map(CompareDir, args.compare))
@@ -195,11 +201,11 @@ def get_graphing_folder(args):
 
     # Remove the directory if it already exists
     if os.path.exists(graphs_dir):
-        if not query_yes_no(f"Folder '{graphs_dir}' already exists. Are you sure you want to delete all its contents?"):
+        if not args.overwrite and not query_yes_no(
+                f"Folder '{graphs_dir}' already exists. Are you sure you want to delete all its contents?"):
             raise Exception("User aborted operation.")
-        shutil.rmtree(graphs_dir)
-
-    # Then recreate it so that its empty to the reader.
-    os.makedirs(graphs_dir)
+    else:
+        # Then recreate it so that its empty to the reader.
+        os.mkdir(graphs_dir)
 
     return graphs_dir
