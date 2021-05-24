@@ -693,3 +693,24 @@ def post_solve(m, outdir):
             m.GenFixedOMCosts[g, p],
         ),
     )
+
+
+def graph(tools):
+    ax = tools.get_new_axes(
+        out="technology_breakdown", title="Breakdown of total capacity"
+    )
+    df = tools.get_dataframe(csv="gen_cap")
+    capacity_df = df.pivot_table(
+        index="PERIOD",
+        columns="gen_energy_source",
+        values="GenCapacity",
+        aggfunc=tools.np.sum,
+        fill_value=0,
+    )
+    capacity_df.plot(
+        kind="bar",
+        ax=ax,
+        stacked=True,
+        ylabel="Generation Capacity (MW)",
+        xlabel="Period",
+    )
