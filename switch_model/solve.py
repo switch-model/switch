@@ -810,7 +810,7 @@ def parse_pre_module_options(args):
     return pre_module_args
 
 
-def get_module_list(args=None):
+def get_module_list(args=None, include_solve_module=True):
     # parse module options
     parser = _ArgumentParser(allow_abbrev=False, add_help=False)
     add_module_args(parser)
@@ -863,7 +863,8 @@ def get_module_list(args=None):
                     )
 
     # add this module, since it has callbacks, e.g. define_arguments for iteration and suffixes
-    modules.append("switch_model.solve")
+    if include_solve_module:
+        modules.append("switch_model.solve")
 
     return modules
 

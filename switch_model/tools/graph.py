@@ -1,5 +1,5 @@
-import importlib, sys, argparse, os, shutil, enum
-from typing import List, Dict
+import importlib, sys, argparse, os, enum
+from typing import List
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -62,16 +62,50 @@ class GraphTools:
         self.pd = pd
         self.np = np
 
-        self.set_style()
+        # Provide useful mappings
+        self.energy_source_map = {
+            "Bio_Gas": "Biomass",
+            "Bio_Liquid": "Biomass",
+            "Bio_Solid": "Biomass",
+            "DistillateFuelOil": "Oil",
+            "ResidualFuelOil": "Oil",
+            "Waste_Heat": "Waste Heat",
+            "Electricity": "Battery Storage",
+            "Water": "Hydro (pumped & not pumped)",
+            "Uranium": "Nuclear",
+        }
 
-    def set_style(self):
+        self.energy_source_color_map = {
+            "Oil": "black",
+            "Biomass": "#008b45",
+            "Coal": "#8b5a2b",
+            "Gas": "#666666",
+            "Geothermal": "red",
+            "Solar": "gold",
+            "Nuclear": "blueviolet",
+            "Hydro (pumped & not pumped)": "#0066CC",
+            "Wind": "deepskyblue",
+            "Battery Storage": "aquamarine",
+            "Waste Heat": "brown",
+            "Other": "white",
+        }
+
+        # Set the style
         sns.set()
 
-    def get_new_axes(self, out, title=None):
+    def get_energy_source_color_map(self, n):
+        return {
+            source: [color] * n
+            for source, color in self.energy_source_color_map.items()
+        }
+
+    def get_new_axes(self, out, title=None, size=(8, 5)):
         """Returns a set of matplotlib axes that can be used to graph."""
         # If we're on the first compare_dir, we want to create the set of axes
         if self.active_compare_dir == 0:
-            fig, ax = plt.subplots(nrows=1, ncols=self.num_compares)
+            fig, ax = plt.subplots(
+                nrows=1, ncols=self.num_compares, sharey=True, sharex=True
+            )
             # If num_compares is 1, ax is not a list but we want it to be a list
             if self.num_compares == 1:
                 ax = [ax]
@@ -83,6 +117,8 @@ class GraphTools:
             # Set a title for the figure
             if title is not None:
                 fig.suptitle(title)
+
+            fig.set_size_inches(size[0] * self.num_compares, size[1])
 
             # Save the axes to module_figures
             self.module_figures[out] = (fig, ax)
@@ -103,7 +139,7 @@ class GraphTools:
                 func_graph(self)
 
         for name, (fig, ax) in self.module_figures.items():
-            fig.savefig(os.path.join(self.graph_dir, name))
+            fig.savefig(os.path.join(self.graph_dir, name), bbox_inches="tight")
         self.module_figures = {}
 
 
@@ -131,11 +167,13 @@ def main():
     # Read the cli arguments
     args = parse_args()
 
-    # Get the folder where we should save the graphs
-    graph_dir = get_graphing_folder(args)
-
     # Load the SWITCH modules
     module_names = load_modules(args.compare)
+    if len(module_names) == 0:
+        return
+
+    # Get the folder where we should save the graphs
+    graph_dir = get_graphing_folder(args)
 
     # Initialize the graphing tool
     graph_tools = GraphTools(compare_dirs=args.compare, graph_dir=graph_dir)
@@ -165,7 +203,7 @@ def load_modules(compare_dirs):
     def read_modules_txt(compare_dir):
         """Returns a sorted list of all the modules in a run folder (by reading modules.txt)"""
         with compare_dir:
-            module_list = switch_model.solve.get_module_list()
+            module_list = switch_model.solve.get_module_list(include_solve_module=False)
         return np.sort(module_list)
 
     print(f"Loading modules...")
