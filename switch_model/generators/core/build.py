@@ -702,7 +702,7 @@ def graph(tools):
     # Get a new set of axis to create a breakdown of the generation capacity
     ax = tools.get_new_axes(
         out="generation_capacity_per_period",
-        title="Breakdown of total generation capacity",
+        title="Online generating capacity by period",
     )
     # Load gen_cap.csv
     df = tools.get_dataframe(csv="gen_cap")
@@ -736,7 +736,11 @@ def graph(tools):
         kind="bar",
         ax=ax,
         stacked=True,
-        ylabel="Generation Capacity (GW)",
+        ylabel="Capacity Online (GW)",
         xlabel="Period",
         color=tools.get_energy_source_color_map(len("PERIOD")),
     )
+
+
+def compare(tools):
+    pass
