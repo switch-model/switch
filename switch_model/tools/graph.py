@@ -65,6 +65,9 @@ class GraphData:
         ):  # set() drops duplicates, so if not unique len() will be less
             raise Exception("Scenario names are not unique.")
 
+        # Disables warnings that will occur since we are constantly returning only a slice of our master dataframe
+        pd.options.mode.chained_assignment = None
+
     def _load_dataframe(self, csv, folder):
         """Loads the dataframe into self.dfs[csv]"""
         df_all_scenarios: List[pd.DataFrame] = []
@@ -198,21 +201,24 @@ class GraphTools:
     def get_new_axes(self, out, *args, **kwargs):
         """Returns a set of matplotlib axes that can be used to graph."""
         # If we're on the first scenario, we want to create the set of axes
-        if self.active_scenario == 0:
+        if self.is_compare_mode or self.active_scenario == 0:
             self._create_axes(out, *args, **kwargs)
 
         # Fetch the axes in the (fig, axs) tuple then select the axis for the active scenario
-        return self.module_figures[out][1][self.active_scenario]
+        return self.module_figures[out][1][
+            0 if self.is_compare_mode else self.active_scenario
+        ]
 
     def get_dataframe(self, *args, **kwargs):
         """Returns the dataframe for the active scenario"""
         if self.is_compare_mode:
-            self.graph_data.get_dataframe_all_scenarios(*args, **kwargs)
+            return self.graph_data.get_dataframe_all_scenarios(*args, **kwargs)
         else:
             return self.graph_data.get_dataframe(self.active_scenario, *args, **kwargs)
 
     def graph_module(self, func_graph):
         """Runs the graphing function for each comparison run"""
+        self.is_compare_mode = False
         # For each scenario
         for i, scenario in enumerate(self.scenarios):
             # Set the active scenario index so that other functions behave properly
@@ -222,9 +228,14 @@ class GraphTools:
         self.active_scenario = None  # Reset to none to avoid accidentally selecting data when not graphing per scenario
 
         # Save the graphs
-        self.save_plots()
+        self._save_plots()
 
-    def save_plots(self):
+    def compare_module(self, func_compare):
+        self.is_compare_mode = True
+        func_compare(self)
+        self._save_plots()
+
+    def _save_plots(self):
         for name, (fig, axs) in self.module_figures.items():
             fig.savefig(os.path.join(self.graph_dir, name), bbox_inches="tight")
         # Reset our module_figures dict
@@ -256,18 +267,15 @@ def main():
 
     # Loop through every graphing module
     print(f"Graphing modules:")
-    graph_tools.is_compare_mode = False
     for name, func_graph in iterate_modules(module_names, "graph"):
         # Graph
         print(f"{name}.graph()...")
         graph_tools.graph_module(func_graph)
 
     if len(args.scenarios) > 1:
-        graph_tools.is_compare_mode = True
         for name, func_compare in iterate_modules(module_names, "compare"):
             print(f"{name}.compare()...")
-            func_compare(graph_tools)
-            graph_tools.save_plots()
+            graph_tools.compare_module(func_compare)
 
     print(f"Took {timer.step_time_as_str()} to generate all graphs.")
 
