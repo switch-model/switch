@@ -606,8 +606,31 @@ def post_solve(m, outdir):
             m.gen_tech[g], m.gen_load_zone[g], m.gen_energy_source[g],
             m.GenCapacity[g, p], m.GenCapitalCosts[g, p], m.GenFixedOMCosts[g, p]))
 
+
 def graph(tools):
-    ax = tools.get_new_axes(out="technology_breakdown", title="Breakdown of total capacity")
+    # ---------------------------------- #
+    # generation_capacity_per_period.png #
+    # ---------------------------------- #
+    # Get a new set of axis to create a breakdown of the generation capacity
+    ax = tools.get_new_axes(out="generation_capacity_per_period", title="Breakdown of total generation capacity")
+    # Load gen_cap.csv
     df = tools.get_dataframe(csv="gen_cap")
-    capacity_df = df.pivot_table(index='PERIOD', columns='gen_energy_source', values='GenCapacity', aggfunc=tools.np.sum, fill_value=0)
-    capacity_df.plot(kind='bar', ax=ax, stacked=True, ylabel="Generation Capacity (MW)", xlabel="Period")
+    # Map energy sources to technology type
+    df['gen_tech_type'] = df['gen_energy_source'].apply(lambda x: tools.energy_source_map.get(x, x))
+    # Aggregate by gen_tech_type and PERIOD by summing the generation capacity
+    capacity_df = df.pivot_table(index='PERIOD', columns='gen_tech_type', values='GenCapacity', aggfunc=tools.np.sum,
+                                 fill_value=0)
+    capacity_df = capacity_df * 1e-3  # Convert values to GW
+
+    # For generation types that make less than 1% in every period, group them under "Other"
+    cutoff = 0.01
+    total_gen_per_period = capacity_df.sum(axis=1)
+    tech_should_be_other = capacity_df.lt(total_gen_per_period * cutoff, axis=0).all()
+    capacity_df = capacity_df.groupby(axis=1, by=lambda c: "Other" if tech_should_be_other[c] else c).sum()
+
+    # Sort columns by the last period
+    capacity_df = capacity_df.sort_values(by=capacity_df.index[-1], axis=1)
+
+    # Plot
+    capacity_df.plot(kind='bar', ax=ax, stacked=True, ylabel="Generation Capacity (GW)", xlabel="Period",
+                     color=tools.get_energy_source_color_map(len('PERIOD')))
