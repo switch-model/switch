@@ -187,17 +187,23 @@ def post_solve(model, outdir):
 def graph(tools):
     df_emissions = tools.get_dataframe(csv="emissions")
     # Plot emissions over time
+    df_emissions['AnnualEmissions_tCO2_per_yr'] *= 1e-6
+    ax = tools.get_new_axes(out="emissions", title="Emissions per period")
     tools.sns.barplot(
         x='PERIOD',
         y='AnnualEmissions_tCO2_per_yr',
         data=df_emissions,
-        ax=tools.get_new_axes(out="emissions")
+        ax=ax
     )
+    ax.set_ylabel('CO2 Emissions (MMtCO2/yr)')
 
     # Plot emissions dual values
+    ax = tools.get_new_axes(out="emissions_duals", title="Carbon cap dual values per period")
+    df_emissions['carbon_cap_dual_future_dollar_per_tco2'] *= -1 # Flip to positive values
     tools.sns.barplot(
         x='PERIOD',
         y='carbon_cap_dual_future_dollar_per_tco2',
         data=df_emissions,
-        ax=tools.get_new_axes(out="emissions_duals")
+        ax=ax
     )
+    ax.set_ylabel('Dual values ($/tCO2)')

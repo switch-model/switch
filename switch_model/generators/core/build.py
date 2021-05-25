@@ -612,7 +612,7 @@ def graph(tools):
     # generation_capacity_per_period.png #
     # ---------------------------------- #
     # Get a new set of axis to create a breakdown of the generation capacity
-    ax = tools.get_new_axes(out="generation_capacity_per_period", title="Breakdown of total generation capacity")
+    ax = tools.get_new_axes(out="generation_capacity_per_period", title="Online generating capacity by period")
     # Load gen_cap.csv
     df = tools.get_dataframe(csv="gen_cap")
     # Map energy sources to technology type
@@ -632,5 +632,8 @@ def graph(tools):
     capacity_df = capacity_df.sort_values(by=capacity_df.index[-1], axis=1)
 
     # Plot
-    capacity_df.plot(kind='bar', ax=ax, stacked=True, ylabel="Generation Capacity (GW)", xlabel="Period",
+    capacity_df.plot(kind='bar', ax=ax, stacked=True, ylabel="Capacity Online (GW)", xlabel="Period",
                      color=tools.get_energy_source_color_map(len('PERIOD')))
+
+def compare(tools):
+    pass
