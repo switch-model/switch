@@ -199,7 +199,7 @@ def graph(tools):
 
     # Plot emissions dual values
     ax = tools.get_new_axes(out="emissions_duals", title="Carbon cap dual values per period")
-    df_emissions['carbon_cap_dual_future_dollar_per_tco2'] *= -1 # Flip to positive values
+    df_emissions['carbon_cap_dual_future_dollar_per_tco2'] *= -1  # Flip to positive values
     tools.sns.barplot(
         x='PERIOD',
         y='carbon_cap_dual_future_dollar_per_tco2',
