@@ -281,7 +281,11 @@ def graph(tools):
     df_emissions["AnnualEmissions_tCO2_per_yr"] *= 1e-6
     ax = tools.get_new_axes(out="emissions", title="Emissions per period")
     tools.sns.barplot(
-        x="PERIOD", y="AnnualEmissions_tCO2_per_yr", data=df_emissions, ax=ax
+        x="PERIOD",
+        y="AnnualEmissions_tCO2_per_yr",
+        data=df_emissions,
+        ax=ax,
+        color="gray",
     )
     ax.set_ylabel("CO2 Emissions (MMtCO2/yr)")
 
@@ -293,6 +297,10 @@ def graph(tools):
         "carbon_cap_dual_future_dollar_per_tco2"
     ] *= -1  # Flip to positive values
     tools.sns.barplot(
-        x="PERIOD", y="carbon_cap_dual_future_dollar_per_tco2", data=df_emissions, ax=ax
+        x="PERIOD",
+        y="carbon_cap_dual_future_dollar_per_tco2",
+        data=df_emissions,
+        ax=ax,
+        color="gray",
     )
     ax.set_ylabel("Dual values ($/tCO2)")

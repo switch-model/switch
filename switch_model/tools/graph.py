@@ -127,7 +127,7 @@ class GraphTools:
         self.np = np
 
         # Provide useful mappings
-        self.energy_source_map = {
+        self._energy_source_map = {
             "Bio_Gas": "Biomass",
             "Bio_Liquid": "Biomass",
             "Bio_Solid": "Biomass",
@@ -197,6 +197,11 @@ class GraphTools:
             source: [color] * n
             for source, color in self._energy_source_color_map.items()
         }
+
+    def get_gen_tech_type_from_energy_source(self, en_source):
+        return self._energy_source_map.get(
+            en_source, en_source
+        )  # second param is the default
 
     def get_new_axes(self, out, *args, **kwargs):
         """Returns a set of matplotlib axes that can be used to graph."""

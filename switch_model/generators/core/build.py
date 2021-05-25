@@ -708,7 +708,7 @@ def graph(tools):
     df = tools.get_dataframe(csv="gen_cap")
     # Map energy sources to technology type
     df["gen_tech_type"] = df["gen_energy_source"].apply(
-        lambda x: tools.energy_source_map.get(x, x)
+        tools.get_gen_tech_type_from_energy_source
     )
     # Aggregate by gen_tech_type and PERIOD by summing the generation capacity
     capacity_df = df.pivot_table(
@@ -720,12 +720,15 @@ def graph(tools):
     )
     capacity_df = capacity_df * 1e-3  # Convert values to GW
 
-    # For generation types that make less than 1% in every period, group them under "Other"
-    cutoff = 0.01
-    total_gen_per_period = capacity_df.sum(axis=1)
-    tech_should_be_other = capacity_df.lt(total_gen_per_period * cutoff, axis=0).all()
+    # For generation types that make less than 2% in every period, group them under "Other"
+    # ---------
+    # sum the generation across the energy_sources for each period, 2% of that is the cutoff for that period
+    cutoff_per_period = capacity_df.sum(axis=1) * 0.02
+    # Check for each technology if it's below the cutoff for every period
+    is_below_cutoff = capacity_df.lt(cutoff_per_period, axis=0).all()
+    # groupby if the technology is below the cutoff
     capacity_df = capacity_df.groupby(
-        axis=1, by=lambda c: "Other" if tech_should_be_other[c] else c
+        axis=1, by=lambda c: "Other" if is_below_cutoff[c] else c
     ).sum()
 
     # Sort columns by the last period
