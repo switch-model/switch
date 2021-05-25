@@ -18,12 +18,13 @@ from switch_model.utilities import (
     LogOutput,
     warn,
     query_yes_no,
+    format_seconds,
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 
 
 def main(args=None, return_model=False, return_instance=False):
-
+    start_to_end_timer = StepTimer()
     timer = StepTimer()
     if args is None:
         # combine default arguments read from options.txt file with
@@ -127,7 +128,7 @@ def main(args=None, return_model=False, return_instance=False):
             print(
                 "=======================================================================\n"
             )
-            print("Model created in {:.2f} s.".format(timer.step_time()))
+            print(f"Model created in {format_seconds(timer.step_time())}.")
             print("Loading inputs...")
 
         # create an instance (also reports time spent reading data and loading into model)
@@ -138,9 +139,7 @@ def main(args=None, return_model=False, return_instance=False):
         instance.pre_solve()
         if instance.options.verbose:
             print(
-                "Total time spent constructing model: {:.2f} s.\n".format(
-                    timer.step_time()
-                )
+                f"Total time spent constructing model: {format_seconds(timer.step_time())}.\n"
             )
 
         if instance.options.enable_breakpoints:
@@ -171,9 +170,7 @@ def main(args=None, return_model=False, return_instance=False):
             reload_prior_solution_from_pickle(instance, instance.options.outputs_dir)
             if instance.options.verbose:
                 print(
-                    "Loaded previous results into model instance in {:.2f} s.".format(
-                        timer.step_time()
-                    )
+                    f"Loaded previous results into model instance in {format_seconds(timer.step_time())}."
                 )
         else:
             # solve the model (reports time for each step as it goes)
@@ -200,7 +197,7 @@ def main(args=None, return_model=False, return_instance=False):
                 if not instance.options.no_save_solution:
                     save_results(instance, instance.options.outputs_dir)
                     if instance.options.verbose:
-                        print("Saved results in {:.2f} s.".format(timer.step_time()))
+                        print(f"Saved results in {format_seconds(timer.step_time())}.")
 
         if instance.options.enable_breakpoints:
             print(
@@ -217,10 +214,12 @@ def main(args=None, return_model=False, return_instance=False):
             instance.post_solve()
             if instance.options.verbose:
                 print(
-                    "Post solve processing completed in {:.2f} s.".format(
-                        timer.step_time()
-                    )
+                    f"Post solve processing completed in {format_seconds(timer.step_time())}."
                 )
+        if instance.options.verbose:
+            print(
+                f"Total time spent running SWITCH: {format_seconds(start_to_end_timer.step_time())}."
+            )
 
     # end of LogOutput block
 
@@ -949,9 +948,7 @@ def solve(model):
 
     if model.options.verbose:
         print(
-            "Solved model. Total time spent in solver: {:2f} s.".format(
-                timer.step_time()
-            )
+            f"Solved model. Total time spent in solver: {format_seconds(timer.step_time())}."
         )
 
     if model.options.enable_breakpoints:
