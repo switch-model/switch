@@ -193,7 +193,8 @@ def graph(tools):
         x='PERIOD',
         y='AnnualEmissions_tCO2_per_yr',
         data=df_emissions,
-        ax=ax
+        ax=ax,
+        color='gray'
     )
     ax.set_ylabel('CO2 Emissions (MMtCO2/yr)')
 
@@ -204,6 +205,7 @@ def graph(tools):
         x='PERIOD',
         y='carbon_cap_dual_future_dollar_per_tco2',
         data=df_emissions,
-        ax=ax
+        ax=ax,
+        color='gray'
     )
     ax.set_ylabel('Dual values ($/tCO2)')
