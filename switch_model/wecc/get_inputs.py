@@ -163,40 +163,38 @@ def create_csvs():
 
     print(f"\nStarting to copy data from the database to the input files.")
 
+    scenario_params = [
+        "name",
+        "description",
+        "study_timeframe_id",
+        "time_sample_id",
+        "demand_scenario_id",
+        "fuel_simple_price_scenario_id",
+        "generation_plant_scenario_id",
+        "generation_plant_cost_scenario_id",
+        "generation_plant_existing_and_planned_scenario_id",
+        "hydro_simple_scenario_id",
+        "carbon_cap_scenario_id",
+        "supply_curves_scenario_id",
+        "regional_fuel_market_scenario_id",
+        "rps_scenario_id",
+        "enable_dr",
+        "enable_ev",
+        "ca_policies_scenario_id"
+    ]
+
     db_cursor.execute(
         f"""SELECT
-            name,
-            description,
-            study_timeframe_id,
-            time_sample_id,
-            demand_scenario_id,
-            fuel_simple_price_scenario_id,
-            generation_plant_scenario_id,
-            generation_plant_cost_scenario_id,
-            generation_plant_existing_and_planned_scenario_id,
-            hydro_simple_scenario_id,
-            carbon_cap_scenario_id,
-            supply_curves_scenario_id,
-            regional_fuel_market_scenario_id,
-            zone_to_regional_fuel_market_scenario_id,
-            rps_scenario_id,
-            enable_dr,
-            enable_ev,
-            ca_policies_scenario_id
+            {",".join(scenario_params)}
         FROM switch.scenario
         WHERE scenario_id = {scenario_id};"""
     )
     s_details = list(db_cursor.fetchone())
 
     # Allow overriding from config
-    if "study_timeframe_id" in config:
-        s_details[2] = config["study_timeframe_id"]
-    if "time_sample_id" in config:
-        s_details[3] = config["time_sample_id"]
-    if "demand_scenario_id" in config:
-        s_details[4] = config["demand_scenario_id"]
-    if "rps_scenario_id" in config:
-        s_details[14] = config["rps_scenario_id"]
+    for i, param_name in enumerate(scenario_params):
+        if param_name in config:
+            s_details[i] = config[param_name]
 
     name = s_details[0]
     description = s_details[1]
@@ -211,12 +209,10 @@ def create_csvs():
     carbon_cap_scenario_id = s_details[10]
     supply_curves_scenario_id = s_details[11]
     regional_fuel_market_scenario_id = s_details[12]
-    # Unused
-    # zone_to_regional_fuel_market_scenario_id = s_details[13]
-    rps_scenario_id = s_details[14]
-    enable_dr = s_details[15]
-    enable_ev = s_details[16]
-    ca_policies_scenario_id = s_details[17]
+    rps_scenario_id = s_details[13]
+    enable_dr = s_details[14]
+    enable_ev = s_details[15]
+    ca_policies_scenario_id = s_details[16]
 
     print(f"Scenario: {scenario_id}: {name}.\n")
 
