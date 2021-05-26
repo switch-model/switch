@@ -90,7 +90,7 @@ def post_solve(model, outdir):
                model.carbon_cap_tco2_per_yr_CA[period]]
         # Only print the carbon cap dual value if it exists and if the problem
         # is purely linear.
-        if not model.has_discrete_variables() and model.Enforce_Carbon_Cap[period] in model.dual:
+        if not model.has_discrete_variables and model.Enforce_Carbon_Cap[period] in model.dual:
             row.append(model.dual[model.Enforce_Carbon_Cap[period]] / 
                        model.bring_annual_costs_to_base_year[period])
         else:
