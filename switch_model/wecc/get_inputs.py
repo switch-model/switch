@@ -425,6 +425,7 @@ def create_csvs():
          FROM switch.transmission_lines
              join load_zone as t1 on(t1.load_zone_id=start_load_zone_id)
              join load_zone as t2 on(t2.load_zone_id=end_load_zone_id)
+         WHERE start_load_zone_id <= end_load_zone_id 
          ORDER BY 2,3;
          """,
     )

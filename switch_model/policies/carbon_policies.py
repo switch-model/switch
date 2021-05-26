@@ -213,15 +213,13 @@ def post_solve(model, outdir):
             },
         ]
 
-        has_discrete_variables = model.has_discrete_variables()
-
         for GHG in GHGs:
             row.extend([GHG["AnnualEmissions"][period], GHG["cap"][period]])
 
             # Only print the carbon cap dual value if it exists and if the problem
             # is purely linear.
             if (
-                not has_discrete_variables
+                not model.has_discrete_variables
                 and period in GHG["Enforce_Carbon_Cap"]
                 and GHG["Enforce_Carbon_Cap"][period] in model.dual
             ):
