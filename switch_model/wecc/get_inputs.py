@@ -45,14 +45,14 @@ def write_csv(data: Iterable[List], fname, headers: List[str], log=True):
     if log:
         print(f"{fname}.csv... ", flush=True)
     with open(fname + ".csv", "w") as f:
-        f.write(",".join(headers) + os.linesep)
+        f.write(",".join(headers) + "\n")
         for row in data:
             # Replace None values with dots for Pyomo. Also turn all datatypes into strings
             row_as_clean_strings = [
                 "." if element is None else str(element) for element in row
             ]
             f.write(
-                ",".join(row_as_clean_strings) + os.linesep
+                ",".join(row_as_clean_strings) + "\n"
             )  # concatenates "line" separated by commas, and appends \n
 
 
@@ -226,12 +226,12 @@ def create_csvs():
     ########################################################
     # Which input specification are we writing against?
     with open("switch_inputs_version.txt", "w") as f:
-        f.write("2.0.5" + os.linesep)
+        f.write("2.0.5\n")
     print("switch_inputs_version.txt...")
 
     with open("modules.txt", "w") as f:
         for module in modules:
-            f.write(module + os.linesep)
+            f.write(module + "\n")
     print("modules.txt...")
 
     ########################################################
