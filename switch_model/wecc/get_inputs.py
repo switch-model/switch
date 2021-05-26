@@ -146,7 +146,10 @@ def create_csvs():
         config.yaml specifies the scenario parameters. 
         The environment variable DB_URL specifies the url to connect to the database. """,
     )
-    parser.parse_args()  # Makes switch get_inputs --help works
+    parser.add_argument("--skip-cf", default=False, action='store_true',
+                        help="Skip creation variable_capacity_factors.csv. Useful when debugging and one doesn't"
+                             "want to wait for the command.")
+    args = parser.parse_args()  # Makes switch get_inputs --help works
 
     # Load values from config.yaml
     full_config = load_config()
@@ -208,7 +211,8 @@ def create_csvs():
     carbon_cap_scenario_id = s_details[10]
     supply_curves_scenario_id = s_details[11]
     regional_fuel_market_scenario_id = s_details[12]
-    zone_to_regional_fuel_market_scenario_id = s_details[13]
+    # Unused
+    # zone_to_regional_fuel_market_scenario_id = s_details[13]
     rps_scenario_id = s_details[14]
     enable_dr = s_details[15]
     enable_ev = s_details[16]
@@ -421,6 +425,7 @@ def create_csvs():
          FROM switch.transmission_lines
              join load_zone as t1 on(t1.load_zone_id=start_load_zone_id)
              join load_zone as t2 on(t2.load_zone_id=end_load_zone_id)
+         WHERE start_load_zone_id <= end_load_zone_id 
          ORDER BY 2,3;
          """,
     )
@@ -642,19 +647,20 @@ def create_csvs():
     # Pyomo will raise an error if a capacity factor is defined for a project on a timepoint when it is no longer operational (i.e. Canela 1 was built on 2007 and has a 30 year max age, so for tp's ocurring later than 2037, its capacity factor must not be written in the table).
 
     # variable_capacity_factors.csv
-    write_csv_from_query(
-        db_cursor,
-        "variable_capacity_factors",
-        ["GENERATION_PROJECT", "timepoint", "gen_max_capacity_factor"],
-        f"""
-            select generation_plant_id, t.raw_timepoint_id, capacity_factor
-            FROM variable_capacity_factors_exist_and_candidate_gen v
-                JOIN generation_plant_scenario_member USING(generation_plant_id)
-                JOIN sampled_timepoint as t ON(t.raw_timepoint_id = v.raw_timepoint_id)
-            WHERE generation_plant_scenario_id = {generation_plant_scenario_id}
-                AND t.time_sample_id={time_sample_id};
-            """,
-    )
+    if not args.skip_cf:
+        write_csv_from_query(
+            db_cursor,
+            "variable_capacity_factors",
+            ["GENERATION_PROJECT", "timepoint", "gen_max_capacity_factor"],
+            f"""
+                select generation_plant_id, t.raw_timepoint_id, capacity_factor
+                FROM variable_capacity_factors_exist_and_candidate_gen v
+                    JOIN generation_plant_scenario_member USING(generation_plant_id)
+                    JOIN sampled_timepoint as t ON(t.raw_timepoint_id = v.raw_timepoint_id)
+                WHERE generation_plant_scenario_id = {generation_plant_scenario_id}
+                    AND t.time_sample_id={time_sample_id};
+                """,
+        )
 
     ########################################################
     # HYDROPOWER
@@ -799,7 +805,7 @@ def create_csvs():
         f"""
         select load_zone, regional_fuel_market 
         from switch.zone_to_regional_fuel_market
-        where zone_to_regional_fuel_market_scenario_id={zone_to_regional_fuel_market_scenario_id};
+        where regional_fuel_market_scenario_id={regional_fuel_market_scenario_id};
                     """,
     )
 
