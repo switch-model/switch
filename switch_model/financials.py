@@ -322,6 +322,7 @@ def load_inputs(mod, switch_data, inputs_dir):
 def post_solve(instance, outdir):
     m = instance
     # Overall electricity costs
+    # TODO use write_table
     normalized_dat = [
         {
         	"PERIOD": p,
