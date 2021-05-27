@@ -10,6 +10,7 @@ from __future__ import division
 from pyomo.environ import *
 import os
 import pandas as pd
+from switch_model.reporting import write_table
 
 dependencies = "switch_model.timescales"
 
@@ -357,7 +358,9 @@ def post_solve(instance, outdir):
     ]
     df = pd.DataFrame(normalized_dat)
     df.set_index(["PERIOD"], inplace=True)
-    df.to_csv(os.path.join(outdir, "electricity_cost.csv"))
+    write_table(
+        instance, df=df, output_file=os.path.join(outdir, "electricity_cost.csv")
+    )
     # Itemized annual costs
     annualized_costs = [
         {
@@ -395,4 +398,4 @@ def post_solve(instance, outdir):
     ]
     df = pd.DataFrame(annualized_costs)
     df.set_index(["PERIOD", "Component"], inplace=True)
-    df.to_csv(os.path.join(outdir, "costs_itemized.csv"))
+    write_table(instance, output_file=os.path.join(outdir, "costs_itemized.csv"), df=df)

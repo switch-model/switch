@@ -471,7 +471,11 @@ def post_solve(instance, outdir):
             "timestamp": instance.tp_timestamp[t],
             "tp_weight_in_year_hrs": instance.tp_weight_in_year[t],
             "period": instance.tp_period[t],
+            "is_renewable": g in instance.VARIABLE_GENS,
             "DispatchGen_MW": value(instance.DispatchGen[g, t]),
+            "Curtailment_MW": value(
+                instance.DispatchUpperLimit[g, t] - instance.DispatchGen[g, t]
+            ),
             "Energy_GWh_typical_yr": value(
                 instance.DispatchGen[g, t] * instance.tp_weight_in_year[t] / 1000
             ),
@@ -520,13 +524,17 @@ def post_solve(instance, outdir):
     ]
     dispatch_full_df = pd.DataFrame(dispatch_normalized_dat)
     dispatch_full_df.set_index(["generation_project", "timestamp"], inplace=True)
-    dispatch_full_df.to_csv(os.path.join(outdir, "dispatch.csv"))
+    write_table(
+        instance, output_file=os.path.join(outdir, "dispatch.csv"), df=dispatch_full_df
+    )
 
     annual_summary = dispatch_full_df.groupby(
         ["gen_tech", "gen_energy_source", "period"]
     ).sum()
-    annual_summary.to_csv(
-        os.path.join(outdir, "dispatch_annual_summary.csv"),
+    write_table(
+        instance,
+        output_file=os.path.join(outdir, "dispatch_annual_summary.csv"),
+        df=annual_summary,
         columns=[
             "Energy_GWh_typical_yr",
             "VariableOMCost_per_yr",
@@ -540,8 +548,10 @@ def post_solve(instance, outdir):
     zonal_annual_summary = dispatch_full_df.groupby(
         ["gen_tech", "gen_load_zone", "gen_energy_source", "period"]
     ).sum()
-    zonal_annual_summary.to_csv(
-        os.path.join(outdir, "dispatch_zonal_annual_summary.csv"),
+    write_table(
+        instance,
+        output_file=os.path.join(outdir, "dispatch_zonal_annual_summary.csv"),
+        df=zonal_annual_summary,
         columns=[
             "Energy_GWh_typical_yr",
             "VariableOMCost_per_yr",
