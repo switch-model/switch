@@ -393,7 +393,7 @@ def _add_min_data_check(model):
     ...     else:
     ...         instance_fail = mod.create()
     ... except ValueError as e:
-    ...     print e  # doctest: +NORMALIZE_WHITESPACE
+    ...     print(e)  # doctest: +NORMALIZE_WHITESPACE
     ERROR: Constructing component 'min_data_check_2' from data=None failed:
         ValueError: Values are not provided for every element of the mandatory
         parameter 'paramA_empty'. Missing data for 2 values, including: [1, 2]

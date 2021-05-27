@@ -1,25 +1,3 @@
-This contains version 2 of the Switch electricity planning model.
-This optimization model is modular and can be used with varying levels
-of complexity. Look in the examples directory for demonstrations of
-using Switch for investment planning or production cost simulation. The
-examples enable varying levels of model complexity by choosing which
-modules to include.
-
-See INSTALL for installation instructions.
-
-To generate documentation, go to the doc folder and run ./make_doc.sh.
-This will build html documentation files from python doc strings which
-will include descriptions of each module, their intentions, model
-components they define, and what input files they expect.
-
-TESTING
-To test the entire codebase, run this command from the root directory:
-	python run_tests.py
-
-EXAMPLES
-To run an example, navigate to an example directory and run the command:
-	switch solve --verbose --log-run
-
 CONFIGURING YOUR OWN MODELS
 
 At a minimum, each model requires a list of SWITCH modules to define the model
