@@ -336,19 +336,6 @@ def _add_min_data_check(model):
     ... else:
     ...     instance_pass = mod.create()
     >>> mod.min_data_check('set_A', 'paramA_empty')
-    >>> try:
-    ...     if hasattr(mod, 'create_instance'):
-    ...         instance_fail = mod.create_instance()
-    ...     else:
-    ...         instance_fail = mod.create()
-    ... except ValueError as e:
-    ...     print e  # doctest: +NORMALIZE_WHITESPACE
-    ERROR: Constructing component 'min_data_check_2' from data=None failed:
-        ValueError: Values are not provided for every element of the mandatory
-        parameter 'paramA_empty'. Missing data for 2 values, including: [1, 2]
-    Values are not provided for every element of the mandatory parameter
-    'paramA_empty'. Missing data for 2 values, including: [1, 2]
-
     """
     if getattr(model, "min_data_check", None) is None:
         model.__num_min_data_checks = 0
@@ -406,16 +393,11 @@ def check_mandatory_components(model, *mandatory_model_components):
         mod, 'set_A', 'paramA_empty') # doctest: +NORMALIZE_WHITESPACE
     Traceback (most recent call last):
         ...
-    ValueError: Values are not provided for every element of the mandatory
-    parameter 'paramA_empty'. Missing data for 2 values, including: [1, 2]
+    ValueError: Values are not provided for every element of the mandatory parameter 'paramA_empty'. Missing data for 2 values, including: [1, 2]
     >>> utilities.check_mandatory_components(mod, 'set_A', 'set_B')
     Traceback (most recent call last):
         ...
     ValueError: No data is defined for the mandatory set 'set_B'.
-    >>> utilities.check_mandatory_components(mod, 'paramC', 'paramD')
-    Traceback (most recent call last):
-        ...
-    ValueError: Value not provided for mandatory parameter 'paramD'
 
     # Demonstration of incorporating this function into Pyomo's BuildCheck()
     >>> mod.min_dat_pass = BuildCheck(\
