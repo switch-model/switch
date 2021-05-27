@@ -19,7 +19,20 @@ get_inputs:
   # Scenario configuration
   scenario_id: <FILL_IN>
   #  the following parameters are optional and will override the defaults for that scenario
-  #  study_timeframe_id: <FILL_IN>
-  #  time_sample_id: <FILL_IN>
-  #  demand_scenario_id: <FILL_IN>
-  #  rps_scenario_id: <FILL_IN>
+  #  this should only be used for preliminary exploration of scenarios or for testing
+  #  if a scenario is part of research, it should be included in the database as a row in the scenarios table.
+  #  study_timeframe_id:
+  #  time_sample_id:
+  #  demand_scenario_id:
+  #  fuel_simple_price_scenario_id:
+  #  generation_plant_scenario_id:
+  #  generation_plant_cost_scenario_id:
+  #  generation_plant_existing_and_planned_scenario_id:
+  #  hydro_simple_scenario_id:
+  #  carbon_cap_scenario_id:
+  #  supply_curves_scenario_id:
+  #  regional_fuel_market_scenario_id:
+  #  rps_scenario_id:
+  #  enable_dr:
+  #  enable_ev:
+  #  ca_policies_scenario_id:
