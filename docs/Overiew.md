@@ -1,53 +1,100 @@
-CONFIGURING YOUR OWN MODELS
+# Switch / Ream Overview
 
-At a minimum, each model requires a list of SWITCH modules to define the model
-and a set of input files to provide the data. The SWITCH framework and
-individual modules also accept command-line arguments to change their behavior.
+## What is Switch?
 
-Each SWITCH model or collection of models is defined in a specific directory
-(e.g., examples/3zone_toy). This directory contains one or more subdirectories
-that hold input data and results (e.g., "inputs" and "outputs"). The models in
-the examples directory show the type of text files used to provide inputs for a
-model. You can change any of the model's input data by editing the *.csv files
-in the input directory.
+Switch is a tool based on [linear programming](https://en.wikipedia.org/wiki/Linear_programming)
+that allows us to model the electricity grid. Like all linear programming tools
+it has 4 components:
 
-SWITCH contains a number of different modules, which can be selected and
-combined to create models with different capabilities and amounts of detail.
-You can look through the *.py files within switch_mod and its subdirectories to
-see the standard modules that are available and the columns that each one will
-read from the input files. You can also add modules of your own by creating
-Python files in the main model directory and adding their name (without the
-".py") to the module list, discussed below. These should define the same
-functions as the standard modules (e.g., define_components()).
+- Fixed parameters (e.g. region X requires 200MW of energy at a given time and date)
 
-Each model has a text file which lists the modules that will be used for that
-model. Normally this file is called "modules.txt" and is stored in the main
-model directory or in an inputs subdirectory. SWITCH will automatically look in
-those locations for this list; alternatively, you can specify a different file
-with the "--module-list" argument.
+- An objective (in our case to minimize the total cost)
 
-Use "switch --help", "switch solve --help" or "switch solve-scenarios --help"
-to see a list of command-line arguments that are available.
+- Variables (e.g. how much power should power plant Y produce at a given time and date)
 
-You can specify these arguments on the command line when you solve the model
-(e.g., "switch solve --solver cplex"). You can also place frequently used
-arguments in a file called "options.txt" in the main model directory. These can
-all be on one line, or they can be placed on multiple lines for easier
-readability (be sure to include the "--" part in all the argument names in
-options.txt). The "switch solve" command first reads all the arguments from
-options.txt, and then applies any arguments you specified on the command line.
-If the same argument is specified multiple times, the last one takes priority.
+- Constraints (e.g. by 2050 there should be no CO2 emitting plans in operation)
 
-You can also define scenarios, which are sets of command-line arguments to
-define different models. These additional arguments can be placed in a scenario
-list file, usually called "scenarios.txt" in the main model directory (or you
-can use a different file specified by "--scenario-list"). Each scenario should
-be defined on a single line, which includes a "--scenario-name" argument and
-any other arguments needed to define the scenario. "switch solve-scenarios"
-will solve all the scenarios listed in this file. For each scenario, it will
-first apply all arguments from options.txt, then arguments from the relevant
-line of scenarios.txt, then any arguments specified on the command line.
+Switch will automatically find the optimal set of variables (the variables that minimize
+the total cost) while still respecting the constraints. By varying our
+constraints and parameters we can study how different _scenarios_ affect the
+optimal electricity grid.
 
-After the model runs, results will be written in comma-separated text files (with
-extension .csv) in the "outputs" directory (or some other directory
-specified via the "--outputs-dir" argument).
+Now, Switch is a capacity expansion model which means it optimizes
+two things: what to build and how to dispatch. More specifically,
+it optimizes the following:
+
+- Variables that optimize what to build:
+
+    - `BuildGen` : How much power capacity (units MW) to build at given power plants.
+    - `BuildStorageEnergy` : How much energy storage (units MWh) to build at given storage plants.
+    - `BuildTx` : How much transmission lines to build between regions (called load zones).
+    
+- Variables that optimize how to dispatch:
+
+    - `DispatchGen`: How much power should a plant provide at a give date and time (called timepoint)
+    - `DispatchTx` : How much power to transmit through the transmission lines at a given timepoint
+    - `ChargeStorage`: How much energy should go into a storage plant during a given timepoint
+    
+There are a few other variables in the model, 
+but they go beyond the scope of this overview.
+
+## The organizational stuff
+
+- This repository of Switch is a fork (a modified copy) of [https://github.com/switch-model/switch](https://github.com/switch-model/switch)
+  (referred to as the upstream repository).
+  
+- The upstream repository is used by many research groups beyond REAM.
+
+- Since creating the fork, we have made improvements and changes to the upstream code.
+
+- We occasionally contribute to the upstream code to make that code available to other groups.
+
+## Switch from a software perspective
+
+### The `switch_model` library
+
+The core software component of Switch is the Python library `switch_model`
+stored in this repository. The library defines the constraints, parameters,
+objectives and variables of the model. Internally, it uses the [Pyomo](https://pyomo.readthedocs.io/en/stable/),
+a Python optimization
+library. It also provides a command line tool, `switch` to interact with the model.
+For example, after installing the library (see [`Usage.md`](Usage.md)), you
+could run `switch solve` to get the optimized variables.
+
+One useful command is `switch --help` to lists all the available `switch` commands.
+
+### Switch workflow
+
+The diagram below gives an overview of the Switch workflow from start to finish.
+
+![Workflow Overview](./img/Switch%20Overview%20Diagram.png)
+
+Here's a breakdown of the steps. Details of how to actually perform each step are
+found in [`Usage.md`](./Usage.md).
+
+1. All the input data (i.e. fixed parameters, which constraints to apply, etc.)
+are stored in a PostgreSQL database at UCSD.
+   
+2. To get started, you pull the input data that you need from the server
+   into your local input folder (`switch get_inputs`).
+Now the input data is stored in .csv files.
+   
+3. Now you run the switch model with the inputs folder (`switch solve --recommended`).
+   The data gets loaded and then
+passed on to a linear program solver via Pyomo. The solver will take a few hours to
+   find the optimal variables before returning the results to the switch model which will
+   automatically create an outputs folder will all the variables in .csv files.
+   
+4. You can run `switch graph` to produce a graphs folder with useful graphics to
+help analyze the results.
+
+### Modularity
+
+One central concept in Switch is modularity.
+The code is divided into modules that can be added or removed from
+a specific scenario. For example, the module `switch_model.policies.carbon_policies`
+adds a carbon cap to the model. In the `inputs` folder, the file `modules.txt`
+lists all the modules that are to be used. By adding or removing `switch_model.policies.carbon_policies`
+from `modules.txt` you can specify whether you want to include a carbon cap or not.
+`modules.txt` is autogenerated based on the scenario you're retrieving.
+
