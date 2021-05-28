@@ -114,11 +114,19 @@ def define_components(mod):
     mod.hydro_avg_flow_mw = Param(
         mod.HYDRO_GEN_TS_RAW, within=NonNegativeReals, default=0.0
     )
+
+    # We use a scaling factor to improve the numerical properties
+    # of the model. The scaling factor was determined using trial
+    # and error and this tool https://github.com/staadecker/lp-analyzer.
+    # Learn more by reading the documentation on Numerical Issues.
+    enforce_hydro_avg_flow_scaling_factor = 1e1
     mod.Enforce_Hydro_Avg_Flow = Constraint(
         mod.HYDRO_GEN_TS,
         rule=lambda m, g, ts: (
-            sum(m.DispatchGen[g, t] for t in m.TPS_IN_TS[ts]) / m.ts_num_tps[ts]
-            == m.hydro_avg_flow_mw[g, ts]
+            enforce_hydro_avg_flow_scaling_factor
+            * sum(m.DispatchGen[g, t] for t in m.TPS_IN_TS[ts])
+            / m.ts_num_tps[ts]
+            == m.hydro_avg_flow_mw[g, ts] * enforce_hydro_avg_flow_scaling_factor
         ),
     )
 
