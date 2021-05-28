@@ -7,34 +7,25 @@ from pyomo.environ import *
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
 import pyomo.version
 
-import sys, os, time, shlex, re, inspect, textwrap, types
-try:
-    # Python 2
-    import cPickle as pickle
-except ImportError:
-    import pickle
-
-try:
-    # Python 2
-    input = raw_input
-except NameError:
-    pass
+import sys, os, shlex, re, inspect, textwrap, types, pickle
 
 import switch_model
 from switch_model.utilities import (
-    create_model, _ArgumentParser, StepTimer, make_iterable, LogOutput, warn
+    create_model, _ArgumentParser, StepTimer, make_iterable, LogOutput, warn, query_yes_no, format_seconds
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
-import pdb
 
 
 def main(args=None, return_model=False, return_instance=False):
-
+    start_to_end_timer = StepTimer()
     timer = StepTimer()
     if args is None:
         # combine default arguments read from options.txt file with
         # additional arguments specified on the command line
         args = get_option_file_args(extra_args=sys.argv[1:])
+
+    # Parse the --recommended and --recommended-debug flags to replace them with their placeholder
+    args = parse_recommended_args(args)
 
     # Get options needed before any modules are loaded
     pre_module_options = parse_pre_module_options(args)
@@ -119,7 +110,7 @@ def main(args=None, return_model=False, return_instance=False):
             if iterate_modules:
                 print("Iteration modules:", iterate_modules)
             print("=======================================================================\n")
-            print("Model created in {:.2f} s.".format(timer.step_time()))
+            print(f"Model created in {format_seconds(timer.step_time())}.")
             print("Loading inputs...")
 
         # create an instance (also reports time spent reading data and loading into model)
@@ -129,12 +120,12 @@ def main(args=None, return_model=False, return_instance=False):
 
         instance.pre_solve()
         if instance.options.verbose:
-            print("Total time spent constructing model: {:.2f} s.\n".format(timer.step_time()))
+            print(f"Total time spent constructing model: {format_seconds(timer.step_time())}.\n")
 
         if instance.options.enable_breakpoints:
             print("Breaking after constructing model.  See "
                   "https://docs.python.org/3/library/pdb.html for instructions on using pdb.")
-            pdb.set_trace()
+            breakpoint()
 
         # return the instance as-is if requested
         if return_instance:
@@ -156,10 +147,7 @@ def main(args=None, return_model=False, return_instance=False):
             print('Loading prior solution...')
             reload_prior_solution_from_pickle(instance, instance.options.outputs_dir)
             if instance.options.verbose:
-                print(
-                    'Loaded previous results into model instance in {:.2f} s.'
-                    .format(timer.step_time())
-                )
+                print(f'Loaded previous results into model instance in {format_seconds(timer.step_time())}.')
         else:
             # solve the model (reports time for each step as it goes)
             if iterate_modules:
@@ -179,15 +167,15 @@ def main(args=None, return_model=False, return_instance=False):
                 if instance.options.verbose:
                     timer.step_time() # restart counter for next step
 
-                if not instance.options.no_save_solution:
+                if instance.options.save_solution:
                     save_results(instance, instance.options.outputs_dir)
                     if instance.options.verbose:
-                        print('Saved results in {:.2f} s.'.format(timer.step_time()))
+                        print(f'Saved results in {format_seconds(timer.step_time())}.')
 
         if instance.options.enable_breakpoints:
             print("Breaking before post_solve. See "
                   "https://docs.python.org/3/library/pdb.html for instructions on using pdb.")
-            pdb.set_trace()
+            breakpoint()
 
         # report results
         # (repeated if model is reloaded, to automatically run any new export code)
@@ -196,7 +184,9 @@ def main(args=None, return_model=False, return_instance=False):
                 print("Executing post solve functions...")
             instance.post_solve()
             if instance.options.verbose:
-                print("Post solve processing completed in {:.2f} s.".format(timer.step_time()))
+                print(f"Post solve processing completed in {format_seconds(timer.step_time())}.")
+        if instance.options.verbose:
+            print(f"Total time spent running SWITCH: {format_seconds(start_to_end_timer.step_time())}.")
 
     # end of LogOutput block
 
@@ -337,7 +327,7 @@ def reload_prior_solution_from_csvs(instance):
                 except KeyError:
                     raise KeyError(
                         "Unable to set value for {}[{}]; index is invalid."
-                        .format(var.name, keys)
+                        .format(var.name, index)
                     )
                 if row[-1] == '':
                     # Variables that are not used in the model end up with no
@@ -434,14 +424,13 @@ def iterate_module_func(m, module, func, converged):
 
 
 def define_arguments(argparser):
-    # callback function to define model configuration arguments while the model is built
+    """callback function to define model configuration arguments while the model is built"""
 
-    # add arguments needed before modules are loaded
-    # here to add them to the solve.py help
+    # These flags were already processed, we only re-add them here
+    # so that they appear in the help text (switch solve --help)
     add_pre_module_args(argparser)
-
-    # add standard module arguments (not used later, but this adds them to the help)
     add_module_args(argparser)
+    add_recommended_args(argparser)
 
     # iteration options
     argparser.add_argument(
@@ -536,9 +525,8 @@ def define_arguments(argparser):
         '--reload-prior-solution', default=False, action='store_true',
         help='Load a previously saved solution; useful for re-running post-solve code or interactively exploring the model (via --interact).')
     argparser.add_argument(
-        '--no-save-solution', default=False, action='store_true',
-        help="Don't save solution after model is solved. Without this flag, model solution will be saved in a pickle"
-             "file allowing for later inspection via --reload-prior-solution.")
+        '--save-solution', default=False, action='store_true',
+        help="Save the solution to a pickle file after model is solved to allow for later inspection via --reload-prior-solution.")
     argparser.add_argument(
         '--interact', default=False, action='store_true',
         help='Enter interactive shell after solving the instance to enable inspection of the solved model.')
@@ -547,9 +535,63 @@ def define_arguments(argparser):
         help='Break and enter the Python Debugger at key points during the solving process.'
     )
     argparser.add_argument(
+        "--sig-figs-output", default=5, type=int,
+        help='The number of significant digits to include in the output by default'
+    )
+
+    argparser.add_argument(
         "--sorted-output", default=False, action='store_true',
         dest='sorted_output',
         help='Write generic variable result values in sorted order')
+
+
+def add_recommended_args(argparser):
+    """
+    Adds the --recommended and --recommended-debug flags.
+    These flags are aliases for a bunch of other existing flags that
+    are recommended.
+    """
+    argparser.add_argument(
+        "--recommended", default=False, action='store_true',
+        help='Equivalent to running with all of the following options: --solver gurobi -v --sorted-output --stream-output --log-run --solver-io python --solver-options-string "method=2 BarHomogeneous=1 FeasibilityTol=1e-5"'
+    )
+
+    argparser.add_argument(
+        "--recommended-debug", default=False, action='store_true',
+        help='Equivalent to running with all of the following options: --solver gurobi -v --sorted-output --keepfiles --tempdir temp --stream-output --symbolic-solver-labels --log-run --debug --solver-options-string "method=2 BarHomogeneous=1 FeasibilityTol=1e-5"'
+    )
+
+
+def parse_recommended_args(args):
+    argparser = _ArgumentParser(add_help=False)
+    add_recommended_args(argparser)
+    options = argparser.parse_known_args(args)[0]
+
+    if options.recommended and options.recommended_debug:
+        raise Exception("Can't use both --recommended and --recommended-debug")
+    if not options.recommended and not options.recommended_debug:
+        return args
+
+    # If you change the flags, make sure to update the help text in
+    # the function above.
+    # Note we don't append but rather prepend so that flags can override the --recommend or
+    # --recommend-debug flags.
+    args = [
+               '--solver', 'gurobi',
+               '-v',
+               '--sorted-output',
+               '--stream-output',
+               '--log-run',
+               '--debug',
+               '--solver-options-string',
+               'method=2 BarHomogeneous=1 FeasibilityTol=1e-5'
+           ] + args
+    if options.recommended:
+        args = ['--solver-io', 'python'] + args
+    if options.recommended_debug:
+        args = ['--keepfiles', '--tempdir', 'temp', '--symbolic-solver-labels'] + args
+
+    return args
 
 
 def add_module_args(parser):
@@ -777,12 +819,12 @@ def solve(model):
     results = model.solver_manager.solve(model, opt=model.solver, **solver_args)
 
     if model.options.verbose:
-        print("Solved model. Total time spent in solver: {:2f} s.".format(timer.step_time()))
+        print(f"Solved model. Total time spent in solver: {format_seconds(timer.step_time())}.")
 
     if model.options.enable_breakpoints:
-        print("Breaking after solving model (have not yet checked for feasibility). See "
+        print("Breaking after solving model. See "
               "https://docs.python.org/3/library/pdb.html for instructions on using pdb.")
-        pdb.set_trace()
+        breakpoint()
 
     # Treat infeasibility as an error, rather than trying to load and save the results
     # (note: in this case, results.solver.status may be SolverStatus.warning instead of
@@ -921,40 +963,6 @@ def save_results(instance, outdir):
         pickle.dump(instance.last_results, fh, protocol=-1)
     # remove the solution from the results object, to minimize long-term memory use
     instance.last_results.solution.clear()
-
-
-
-def query_yes_no(question, default="yes"):
-    """Ask a yes/no question via input() and return their answer.
-
-    "question" is a string that is presented to the user.
-    "default" is the presumed answer if the user just hits <Enter>.
-        It must be "yes" (the default), "no" or None (meaning
-        an answer is required of the user).
-
-    The "answer" return value is True for "yes" or False for "no".
-    """
-    valid = {"yes": True, "y": True, "ye": True,
-             "no": False, "n": False}
-    if default is None:
-        prompt = " [y/n] "
-    elif default == "yes":
-        prompt = " [Y/n] "
-    elif default == "no":
-        prompt = " [y/N] "
-    else:
-        raise ValueError("invalid default answer: '%s'" % default)
-
-    while True:
-        sys.stdout.write(question + prompt)
-        choice = input().lower()
-        if default is not None and choice == '':
-            return valid[default]
-        elif choice in valid:
-            return valid[choice]
-        else:
-            sys.stdout.write("Please respond with 'yes' or 'no' "
-                             "(or 'y' or 'n').\n")
 
 
 ###############

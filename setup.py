@@ -73,6 +73,7 @@ setup(
         "pint",  # needed by Pyomo when we run our tests, but not included
         "testfixtures",  # used for standard tests
         "pandas",  # used for input upgrades and testing that functionality
+        "gurobipy"
     ],
     extras_require={
         # packages used for advanced demand response, progressive hedging
