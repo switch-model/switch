@@ -73,7 +73,8 @@ setup(
         "pint",  # needed by Pyomo when we run our tests, but not included
         "testfixtures",  # used for standard tests
         "pandas",  # used for input upgrades and testing that functionality
-        "gurobipy"
+        "pyyaml",  # used to read configurations for switch
+        "gurobipy", # gives bindings to connect directly to gurobi
     ],
     extras_require={
         # packages used for advanced demand response, progressive hedging
@@ -85,15 +86,14 @@ setup(
             'rpy2;python_version>="3.0"',
             "sympy",
         ],
-        "dev": ["ipdb"],
+        # These packages are installed when one runs 'pip install --editable .[dev]'
+        "dev": ["ipdb", "black", "psycopg2-binary"],
+        # In this case 'pip install --editable .[plotting]'
         "plotting": ["ggplot"],
-        "database_access": ["psycopg2-binary"],
     },
     entry_points={
         "console_scripts": [
             "switch = switch_model.__main__:main",
-            # FIXME: This looks very crappy. I will try to fix it 
-            "sampling = switch_model.cli.cli:cli",
         ]
     },
 )
