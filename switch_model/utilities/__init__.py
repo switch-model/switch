@@ -6,9 +6,10 @@ Utility functions for Switch.
 """
 from __future__ import print_function
 
-import os, types, importlib, sys, argparse, time, datetime, traceback
-import __main__ as main
+import os, types, importlib, re, sys, argparse, time, datetime, traceback
+import switch_model.__main__ as main
 from pyomo.environ import *
+from switch_model.utilities.scaling import _ScaledVariable, _get_unscaled_expression
 import pyomo.opt
 import yaml
 
@@ -20,6 +21,40 @@ string_types = (str,)
 # __main__ has a __file__ attribute). Scripts can check this value to
 # determine what level of output to display.
 interactive_session = not hasattr(main, '__file__')
+
+
+class CustomAbstractModel(AbstractModel):
+    """
+    Class that wraps pyomo's AbstractModel and adds custom features.
+
+    Currently the only difference between this class and pyomo's AbstractModel
+    is that this class supports variable scaling. See utilities/scaling.py for
+    more details.
+    """
+
+    def __setattr__(self, key, val):
+        # __setattr__ is called whenever we set an attribute
+        # to the model (e.g. model.some_key = some_value)
+        # We want to do as normal unless we try assigning a _ScaledVariable to the model.
+        if isinstance(val, _ScaledVariable):
+            # If we are assigning a _ScaledVariable to the model then we actually
+            # want to assign both a scaled variable and an unscaled expression to the model
+            # We want to assign the scaled variable to a key with a prefix '_scaled_'
+            # and the unscaled expression to the key without the prefix.
+            # This way throughout the SWITCH code the unscaled expression will be used however
+            # pyomo will be using the scaled variable when solving.
+
+            # Set the unscaled_name of the variable
+            val.unscaled_name = key
+            # Set the name of the scaled variable
+            val.scaled_name = "_scaled_" + key
+            # Add the scaled variable to the model with the name we just found
+            super().__setattr__(val.scaled_name, val)
+            # Add the unscaled expression to the model with the original value provided by 'key'
+            super().__setattr__(key, _get_unscaled_expression(val))
+        else:
+            super().__setattr__(key, val)
+
 
 def define_AbstractModel(*module_list, **kwargs):
     # stub to provide old functionality as we move to a simpler calling convention
@@ -61,7 +96,7 @@ def create_model(module_list=None, args=sys.argv[1:]):
     create_model(module_list, args=[])
 
     """
-    model = AbstractModel()
+    model = CustomAbstractModel()
 
     # Load modules
     if module_list is None:
@@ -528,7 +563,7 @@ def load_aug(switch_data, optional=False, auto_select=False,
     elif suffix == 'csv':
         separator = ','
     else:
-        raise InputError('Unrecognized file type for input file {}'.format(path))
+        raise InputError(f'Unrecognized file type for input file {path}')
     # TODO: parse this more formally, e.g. using csv module
     headers = headers_line.strip().split(separator)
     # Skip if the file is empty.
