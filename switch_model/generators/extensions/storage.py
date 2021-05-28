@@ -225,7 +225,7 @@ def define_components(mod):
 
     mod.LandUse = Expression(
         mod.STORAGE_GENS, mod.PERIODS,
-        rule=lambda m, g, p: m.land_use_rate[g] * m.StorageEnergyCapacity[g, p]
+        rule=lambda m, g, p: m.gen_land_use_rate[g] * m.StorageEnergyCapacity[g, p]
     )
 
     mod.STORAGE_GEN_TPS = Set(
@@ -333,8 +333,9 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     generation_projects_info.csv
         GENERATION_PROJECT, ...
-        gen_storage_efficiency, gen_store_to_release_ratio*,
+        gen_storage_efficiency, gen_discharge_ratio*, gen_store_to_release_ratio*,
         gen_storage_energy_to_power_ratio*, gen_storage_max_cycles_per_year*
+        gen_hourly_decay_rate*, gen_land_use_rate*
 
     gen_build_costs.csv
         GENERATION_PROJECT, build_year, ...
@@ -355,8 +356,24 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, 'generation_projects_info.csv'),
         auto_select=True,
-        optional_params=['gen_store_to_release_ratio', 'gen_storage_energy_to_power_ratio', 'gen_storage_max_cycles_per_year'],
-        param=(mod.gen_storage_efficiency, mod.gen_store_to_release_ratio, mod.gen_storage_energy_to_power_ratio, mod.gen_storage_max_cycles_per_year))
+        optional_params=[
+            'gen_store_to_release_ratio',
+            'gen_discharge_ratio',
+            'gen_storage_energy_to_power_ratio',
+            'gen_storage_max_cycles_per_year',
+            'gen_hourly_decay_rate',
+            'gen_land_use_rate',
+        ],
+        param=(
+            mod.gen_storage_efficiency,
+            mod.gen_discharge_efficiency,
+            mod.gen_store_to_release_ratio,
+            mod.gen_storage_energy_to_power_ratio,
+            mod.gen_storage_max_cycles_per_year,
+            mod.gen_hourly_decay_rate,
+            mod.gen_land_use_rate
+        )
+    )
     # Base the set of storage projects on storage efficiency being specified.
     # TODO: define this in a more normal way
     switch_data.data()['STORAGE_GENS'] = {
