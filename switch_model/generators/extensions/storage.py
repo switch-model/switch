@@ -72,7 +72,7 @@ def define_components(mod):
     storage that slowly looses its charge over time. Default is 0 (no decay).
 
     gen_land_use_rate[STORAGE_GENS] is the amount of land used in square meters per MWh
-    of storage for the given storage technology.
+    of storage for the given storage technology. Defaults to 0.
 
     gen_storage_energy_overnight_cost[(g, bld_yr) in
     STORAGE_GEN_BLD_YRS] is the overnight capital cost per MWh of
@@ -138,7 +138,7 @@ def define_components(mod):
         mod.STORAGE_GENS,
         within=PercentFraction,
         default=1,
-        help="The percent of stored energy that reaches the grid during discharging",
+        doc="The percent of stored energy that reaches the grid during discharging",
     )
     # TODO: rename to gen_charge_to_discharge_ratio?
     mod.gen_store_to_release_ratio = Param(
@@ -154,13 +154,13 @@ def define_components(mod):
         mod.STORAGE_GENS,
         within=PercentFraction,
         default=0,
-        help="Percent of stored energy lost per hour.",
+        doc="Percent of stored energy lost per hour.",
     )
     mod.gen_land_use_rate = Param(
         mod.STORAGE_GENS,
         within=NonNegativeReals,
-        default=None,
-        help="meters squared of land used per MWh of storage",
+        default=0,
+        doc="Meters squared of land used per MWh of storage",
     )
 
     # TODO: build this set up instead of filtering down, to improve performance
@@ -311,7 +311,7 @@ def define_components(mod):
             storage_efficiency ** m.tp_duration_hrs[t]
         ) * m.StateOfCharge[g, m.tp_previous[t]]
         # Energy change due to flow in or out of the battery (StorageFlow).
-        flow_energy = m.StorageFlow * (
+        flow_energy = m.StorageFlow[g, t] * (
             # If there's no decay, it's simply StorageFlow * tp_duration_hrs
             m.tp_duration_hrs[t]
             if m.gen_hourly_decay_rate[g] == 0
