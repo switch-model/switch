@@ -66,6 +66,12 @@ def define_components(mod):
     Note that this describes the energy component and the overnight_cost
     describes the power component.
 
+    gen_predetermined_storage_energy_mwh[(g, bld_yr) in
+    PREDETERMINED_GEN_BLD_YRS] is the amount of storage that has either been
+    installed previously, or is slated for installation and is not a free
+    decision variable. This is analogous to gen_predetermined_cap, but in
+    units of energy of storage capacity (MWh) rather than power (MW).
+
     BuildStorageEnergy[(g, bld_yr) in STORAGE_GEN_BLD_YRS]
     is a decision of how much energy capacity to build onto a storage
     project. This is analogous to BuildGen, but for energy rather than power.
@@ -132,16 +138,61 @@ def define_components(mod):
         mod.STORAGE_GEN_BLD_YRS, within=NonNegativeReals
     )
     mod.min_data_check("gen_storage_energy_overnight_cost")
-    mod.BuildStorageEnergy = Var(mod.STORAGE_GEN_BLD_YRS, within=NonNegativeReals)
+    mod.gen_predetermined_storage_energy_mwh = Param(
+        mod.PREDETERMINED_GEN_BLD_YRS, within=NonNegativeReals
+    )
+    mod.PREDETERMINED_STORAGE_GEN_BLD_YRS = Set(
+        initialize=mod.PREDETERMINED_GEN_BLD_YRS,
+        filter=lambda m, g, bld_yr: (g, bld_yr)
+        in m.gen_predetermined_storage_energy_mwh,
+    )
+
+    def bounds_BuildStorageEnergy(m, g, bld_yr):
+        if (g, bld_yr) in m.PREDETERMINED_STORAGE_GEN_BLD_YRS:
+            return (
+                m.gen_predetermined_storage_energy_mwh[g, bld_yr],
+                m.gen_predetermined_storage_energy_mwh[g, bld_yr],
+            )
+        else:
+            return (0, None)
+
+    mod.BuildStorageEnergy = Var(
+        mod.STORAGE_GEN_BLD_YRS,
+        within=NonNegativeReals,
+        bounds=bounds_BuildStorageEnergy,
+    )
+
+    # Some projects are retired before the first study period, so they
+    # don't appear in the objective function or any constraints.
+    # In this case, pyomo may leave the variable value undefined even
+    # after a solve, instead of assigning a value within the allowed
+    # range. This causes errors in the Progressive Hedging code, which
+    # expects every variable to have a value after the solve. So as a
+    # starting point we assign an appropriate value to all the existing
+    # projects here.
+    # TODO Don't include projects that are retired in the first study period in
+    #   the model in the first place. Same thing in build.py with BuildGen.
+    def BuildStorageEnergy_assign_default_value(m, g, bld_yr):
+        m.BuildStorageEnergy[g, bld_yr] = m.gen_predetermined_storage_energy_mwh[
+            g, bld_yr
+        ]
+
+    mod.BuildStorageEnergy_assign_default_value = BuildAction(
+        mod.PREDETERMINED_STORAGE_GEN_BLD_YRS,
+        rule=BuildStorageEnergy_assign_default_value,
+    )
 
     # Summarize capital costs of energy storage for the objective function.
     mod.StorageEnergyInstallCosts = Expression(
         mod.PERIODS,
         rule=lambda m, p: sum(
-            m.BuildStorageEnergy[g, bld_yr]
-            * m.gen_storage_energy_overnight_cost[g, bld_yr]
-            * crf(m.interest_rate, m.gen_max_age[g])
-            for (g, bld_yr) in m.STORAGE_GEN_BLD_YRS
+            sum(
+                m.BuildStorageEnergy[g, bld_yr]
+                * m.gen_storage_energy_overnight_cost[g, bld_yr]
+                * crf(m.interest_rate, m.gen_max_age[g])
+                for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]
+            )
+            for g in m.STORAGE_GENS
         ),
     )
     mod.Cost_Components_Per_Period.append("StorageEnergyInstallCosts")
@@ -261,6 +312,10 @@ def load_inputs(mod, switch_data, inputs_dir):
         GENERATION_PROJECT, build_year, ...
         gen_storage_energy_overnight_cost
 
+    gen_build_predetermined.csv
+        GENERATION_PROJECT, build_year, ...,
+        gen_predetermined_storage_energy_mwh*
+
     """
 
     # TODO: maybe move these columns to a storage_gen_info file to avoid the weird index
@@ -294,6 +349,12 @@ def load_inputs(mod, switch_data, inputs_dir):
         auto_select=True,
         param=(mod.gen_storage_energy_overnight_cost),
     )
+    switch_data.load_aug(
+        optional=True,
+        auto_select=True,
+        filename=os.path.join(inputs_dir, "gen_build_predetermined.csv"),
+        param=(mod.gen_predetermined_storage_energy_mwh,),
+    )
 
 
 def post_solve(instance, outdir):
@@ -304,6 +365,7 @@ def post_solve(instance, outdir):
     """
     import switch_model.reporting as reporting
 
+    # Write how much is built each build year for each project to storage_builds.csv
     reporting.write_table(
         instance,
         instance.STORAGE_GEN_BLD_YRS,
@@ -323,6 +385,7 @@ def post_solve(instance, outdir):
             m.BuildStorageEnergy[g, bld_yr],
         ),
     )
+    # Write the total capacity for each project at each period to storage_capacity.csv
     reporting.write_table(
         instance,
         instance.STORAGE_GEN_PERIODS,
@@ -342,6 +405,7 @@ def post_solve(instance, outdir):
             m.StorageEnergyCapacity[g, p],
         ),
     )
+    # Write how much is dispatched by each project at each time point to storage_dispatch.csv
     reporting.write_table(
         instance,
         instance.STORAGE_GEN_TPS,

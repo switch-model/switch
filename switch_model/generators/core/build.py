@@ -9,6 +9,7 @@ import os
 from pyomo.environ import *
 from switch_model.financials import capital_recovery_factor as crf
 from switch_model.reporting import write_table
+from switch_model.utilities.scaling import get_assign_default_value_rule
 
 dependencies = (
     "switch_model.timescales",
@@ -344,19 +345,32 @@ def define_components(mod):
     mod.min_data_check("gen_predetermined_cap")
 
     def gen_build_can_operate_in_period(m, g, build_year, period):
+        # If a period has the same name as a predetermined build year then we have a problem.
+        # For example, consider what happens if we have both a period named 2020
+        # and a predetermined build in 2020. In this case, "build_year in m.PERIODS"
+        # will be True even if the project is a 2020 predetermined build.
+        # This will result in the "online" variable being the start of the period rather
+        # than the prebuild year which can cause issues such as
+        # the project retiring too soon.
+        #
+        # Our fix is to not use years as IDs for the PERIODS set (e.g. instead we name
+        # our periods IP_2020, IP_2030, etc.). This ensures a predetermined build year will
+        # never be found in m.PERIODS.
+        # TODO: Add a safety check to the model to make sure that no PERIODS have the same name
+        #   as a pre-determined build year.
         if build_year in m.PERIODS:
             online = m.period_start[build_year]
         else:
             online = build_year
         retirement = online + m.gen_max_age[g]
+        # Previously the code read return online <= m.period_start[period] < retirement
+        # However using the midpoint of the period as the "cutoff" seems more correct so
+        # we've made the switch.
         return (
             online
             <= m.period_start[period] + 0.5 * m.period_length_years[period]
             < retirement
         )
-        # This is probably more correct, but is a different behavior
-        # mid_period = m.period_start[period] + 0.5 * m.period_length_years[period]
-        # return online <= m.period_start[period] and mid_period <= retirement
 
     # The set of periods when a project built in a certain year will be online
     mod.PERIODS_FOR_GEN_BLD_YR = Set(
@@ -410,11 +424,9 @@ def define_components(mod):
     # expects every variable to have a value after the solve. So as a
     # starting point we assign an appropriate value to all the existing
     # projects here.
-    def BuildGen_assign_default_value(m, g, bld_yr):
-        m.BuildGen[g, bld_yr] = m.gen_predetermined_cap[g, bld_yr]
-
     mod.BuildGen_assign_default_value = BuildAction(
-        mod.PREDETERMINED_GEN_BLD_YRS, rule=BuildGen_assign_default_value
+        mod.PREDETERMINED_GEN_BLD_YRS,
+        rule=get_assign_default_value_rule("BuildGen", "gen_predetermined_cap"),
     )
 
     # note: in pull request 78, commit e7f870d..., GEN_PERIODS
@@ -441,10 +453,18 @@ def define_components(mod):
         ),
     )
 
+    # We use a scaling factor to improve the numerical properties
+    # of the model. The scaling factor was determined using trial
+    # and error and this tool https://github.com/staadecker/lp-analyzer.
+    # Learn more by reading the documentation on Numerical Issues.
+    max_build_potential_scaling_factor = 1e-1
     mod.Max_Build_Potential = Constraint(
         mod.CAPACITY_LIMITED_GENS,
         mod.PERIODS,
-        rule=lambda m, g, p: (m.gen_capacity_limit_mw[g] >= m.GenCapacity[g, p]),
+        rule=lambda m, g, p: (
+            m.gen_capacity_limit_mw[g] * max_build_potential_scaling_factor
+            >= m.GenCapacity[g, p] * max_build_potential_scaling_factor
+        ),
     )
 
     # The following components enforce minimum capacity build-outs.
@@ -648,7 +668,7 @@ def load_inputs(mod, switch_data, inputs_dir):
 def post_solve(m, outdir):
     write_table(
         m,
-        sorted(m.GEN_PERIODS) if m.options.sorted_output else m.GEN_PERIODS,
+        m.GEN_PERIODS,
         output_file=os.path.join(outdir, "gen_cap.csv"),
         headings=(
             "GENERATION_PROJECT",
