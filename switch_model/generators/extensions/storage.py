@@ -6,6 +6,7 @@ This module defines storage technologies. It builds on top of generic
 generators, adding components for deciding how much energy to build into
 storage, when to charge, energy accounting, etc.
 """
+import math
 
 from pyomo.environ import *
 import os, collections
@@ -35,6 +36,13 @@ def define_components(mod):
     for extended time perios, then those behaviors will need to be
     modeled in more detail.
 
+    gen_discharge_efficiency[STORAGE_GENS] describes the efficiency during
+    discharging. A discharge efficiency of 0.90 means that 95% of the energy
+    stored reaches the grid during discharging. Note that gen_storage_efficiency
+    is the efficiency while charging. To only specify the round trip efficiency
+    set gen_storage_efficiency to the round trip efficiency and leave this
+    parameter at its default of 1.
+
     gen_store_to_release_ratio[STORAGE_GENS] describes the maximum rate
     that energy can be stored, expressed as a ratio of discharge power
     capacity. This is an optional parameter and will default to 1. If a
@@ -52,6 +60,13 @@ def define_components(mod):
     the number of charge/discharge cycles each storage project can perform
     per year; one cycle is defined as discharging an amount of energy
     equal to the storage capacity of the project.
+
+    gen_hourly_decay_rate[STORAGE_GENS] is the fraction of the charge that is lost
+    over an hour. This is used for certain types of storage such as thermal energy
+    storage that slowly looses its charge over time. Default is 0 (no decay).
+
+    gen_land_use_rate[STORAGE_GENS] is the amount of land used in square meters per MWh
+    of storage for the given storage technology.
 
     gen_storage_energy_overnight_cost[(g, bld_yr) in
     STORAGE_GEN_BLD_YRS] is the overnight capital cost per MWh of
@@ -101,6 +116,8 @@ def define_components(mod):
     State_Of_Charge_Upper_Limit[(g, t) in STORAGE_GEN_TPS]
     constrains StateOfCharge based on installed energy capacity.
 
+    LandUseRate[g, period] is an expression for the amount of land used
+    in meters squared for a given storage project during a given period.
     """
 
     mod.STORAGE_GENS = Set(within=mod.GENERATION_PROJECTS)
@@ -111,6 +128,12 @@ def define_components(mod):
     mod.gen_storage_efficiency = Param(
         mod.STORAGE_GENS,
         within=PercentFraction)
+    mod.gen_discharge_efficiency = Param(
+        mod.STORAGE_GENS,
+        within=PercentFraction,
+        default=1,
+        help="The percent of stored energy that reaches the grid during discharging"
+    )
     # TODO: rename to gen_charge_to_discharge_ratio?
     mod.gen_store_to_release_ratio = Param(
         mod.STORAGE_GENS,
@@ -124,6 +147,18 @@ def define_components(mod):
         mod.STORAGE_GENS,
         within=NonNegativeReals,
         default=float('inf'))
+    mod.gen_hourly_decay_rate = Param(
+        mod.STORAGE_GENS,
+        within=PercentFraction,
+        default=0,
+        help="Percent of stored energy lost per hour."
+    )
+    mod.gen_land_use_rate = Param(
+        mod.STORAGE_GENS,
+        within=NonNegativeReals,
+        default=None,
+        help="meters squared of land used per MWh of storage"
+    )
 
     # TODO: build this set up instead of filtering down, to improve performance
     mod.STORAGE_GEN_BLD_YRS = Set(
@@ -188,6 +223,11 @@ def define_components(mod):
             m.BuildStorageEnergy[g, bld_yr]
             for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, period]))
 
+    mod.LandUse = Expression(
+        mod.STORAGE_GENS, mod.PERIODS,
+        rule=lambda m, g, p: m.land_use_rate[g] * m.StorageEnergyCapacity[g, p]
+    )
+
     mod.STORAGE_GEN_TPS = Set(
         dimen=2,
         initialize=lambda m: (
@@ -237,11 +277,30 @@ def define_components(mod):
         mod.STORAGE_GEN_TPS,
         within=NonNegativeReals)
 
+    mod.StorageFlow = Expression(
+        mod.STORAGE_GEN_TPS,
+        rule=lambda m, g, t:
+        m.ChargeStorage[g, t] * m.gen_storage_efficiency[g] - m.DispatchGen[g, t] / m.gen_discharge_efficiency[g]
+    )
+
     def Track_State_Of_Charge_rule(m, g, t):
-        return m.StateOfCharge[g, t] == \
-            m.StateOfCharge[g, m.tp_previous[t]] + \
-            (m.ChargeStorage[g, t] * m.gen_storage_efficiency[g] -
-             m.DispatchGen[g, t]) * m.tp_duration_hrs[t]
+        storage_efficiency = 1 - m.gen_hourly_decay_rate[g]
+        # Energy in storage that remains from the energy in storage at the previous timepoint
+        carry_over_energy = (storage_efficiency ** m.tp_duration_hrs[t]) * m.StateOfCharge[g, m.tp_previous[t]]
+        # Energy change due to flow in or out of the battery (StorageFlow).
+        flow_energy = m.StorageFlow * (
+            # If there's no decay, it's simply StorageFlow * tp_duration_hrs
+            m.tp_duration_hrs[t] if m.gen_hourly_decay_rate[g] == 0 else
+            # If there is decay, we need to account for energy decay during the timepoint duration.
+            # To derivive the following expression, simply solve the differential equation:
+            # dZ/dt = -rZ + StorageFlow
+            # where r is the instantaneous decay rate, Z is the state of charge and t is time.
+            # Note that exp(-r) = (1 - hourly_decay_rate).
+            (storage_efficiency ** m.tp_duration_hrs[t] - 1) / math.log(storage_efficiency)
+        )
+
+        return m.StateOfCharge[g, t] == carry_over_energy + flow_energy
+
     mod.Track_State_Of_Charge = Constraint(
         mod.STORAGE_GEN_TPS,
         rule=Track_State_Of_Charge_rule)
