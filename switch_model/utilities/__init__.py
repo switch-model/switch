@@ -11,6 +11,7 @@ import switch_model.__main__ as main
 from pyomo.environ import *
 from switch_model.utilities.scaling import _ScaledVariable, _get_unscaled_expression
 import pyomo.opt
+import yaml
 
 # Define string_types (same as six.string_types). This is useful for
 # distinguishing between strings and other iterables.
@@ -171,6 +172,11 @@ class StepTimer(object):
         self.start_time = now = time.time()
         return now - last_start
 
+    def step_time_as_str(self):
+        """
+        Reset timer to current time and return time elapsed since last step as a formatted string.
+        """
+        return format_seconds(self.step_time())
 
 def format_seconds(seconds):
     """
@@ -817,3 +823,11 @@ def query_yes_no(question, default="yes"):
         else:
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n').\n")
+
+
+def load_config():
+    """Read the config.yaml configuration file"""
+    if not os.path.isfile("config.yaml"):
+        raise Exception("config.yaml does not exist. Try running 'switch new' to auto-create it.")
+    with open("config.yaml") as f:
+        return yaml.load(f, Loader=yaml.FullLoader)
