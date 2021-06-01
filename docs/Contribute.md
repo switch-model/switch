@@ -1,0 +1,37 @@
+# Contributing Code
+
+This document describes the best practices for contributing code.
+
+## The process
+
+Whenever you wish to make a change to the switch code, use the following
+procedure.
+
+1. Create a new git branch.
+
+2. Make your changes on that branch.
+
+3. Once your changes are final and ready to be added to the switch main
+branch, create a pull request on Github.
+   
+4. Get someone to review and then merge your changes on Github.
+
+For more information read [this excellent guide](https://guides.github.com/introduction/flow/) (5 min read).
+
+## Testing your changes
+
+Before contributing code, it's important to test your changes.
+
+Switch doesn't have an excellent way to test its code so you mainly
+need to be careful and compare the results before and after your changes
+to see if your change is working as expected. Make use of `switch graph`
+and `switch compare` to see how your changes have altered the results.
+
+Switch does however have a small test suite which you can run by calling
+`python run_tests.py` in the switch root directory. This will ensure
+that the results of the examples in `examples/` haven't changed. This is
+useful if you're making a change to the switch code that you believe should 
+not change the final results (e.g. a refactor). If your changes are
+supposed to alter the results of the examples, you'll need
+to follow the instructions that appear on screen to suppress the errors
+produced by `python run_tests.py`.
