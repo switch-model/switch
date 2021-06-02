@@ -651,7 +651,12 @@ def create_csvs():
             "variable_capacity_factors",
             ["GENERATION_PROJECT", "timepoint", "gen_max_capacity_factor"],
             f"""
-                select generation_plant_id, t.raw_timepoint_id, capacity_factor
+                select 
+                    generation_plant_id, 
+                    t.raw_timepoint_id, 
+                    -- we round down when the capacity factor is less than 1e-5 to avoid numerical issues and simplify our model
+                    -- performance wise this doesn't have any significant impact
+                    case when abs(capacity_factor) < 0.00001 then 0 else capacity_factor end
                 FROM variable_capacity_factors_exist_and_candidate_gen v
                     JOIN generation_plant_scenario_member USING(generation_plant_id)
                     JOIN sampled_timepoint as t ON(t.raw_timepoint_id = v.raw_timepoint_id)
@@ -777,7 +782,13 @@ def create_csvs():
                             else max_avail_at_cost::varchar end) as max_avail_at_cost
                 from switch.fuel_supply_curves
                 join switch.period on(year>=start_year)
-                where year=FLOOR(period.start_year + length_yrs/2-1)
+                where year=FLOOR(period.start_year + length_yrs/2-1) 
+                -- we filter out extremly large unit_costs that are only used to indicate that we should never
+                -- buy at this price point. This is to simplify the model and improve its numerical properties.
+                and not (
+                    unit_cost > 1e9
+                    and max_avail_at_cost is null
+                )
                 and study_timeframe_id = {study_timeframe_id} 
                 and supply_curves_scenario_id = {supply_curves_scenario_id};
                             """,
