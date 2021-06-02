@@ -3,6 +3,8 @@
 
 ### Data ###
 *.csv
+# Don't ignore data in switch_model.csv
+!switch_model/**/*.csv
 *.dat
 *.efx
 *.gbr

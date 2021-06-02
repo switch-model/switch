@@ -707,13 +707,11 @@ def graph(tools):
     # Load gen_cap.csv
     df = tools.get_dataframe(csv="gen_cap")
     # Map energy sources to technology type
-    df["gen_tech_type"] = df["gen_energy_source"].apply(
-        tools.get_gen_tech_type_from_energy_source
-    )
+    df = tools.add_gen_type_column(df)
     # Aggregate by gen_tech_type and PERIOD by summing the generation capacity
     capacity_df = df.pivot_table(
         index="PERIOD",
-        columns="gen_tech_type",
+        columns="gen_type",
         values="GenCapacity",
         aggfunc=tools.np.sum,
         fill_value=0,
@@ -741,7 +739,7 @@ def graph(tools):
         stacked=True,
         ylabel="Capacity Online (GW)",
         xlabel="Period",
-        color=tools.get_energy_source_color_map(len("PERIOD")),
+        color=tools.get_colors(len(capacity_df.index)),
     )
 
 
