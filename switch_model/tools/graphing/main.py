@@ -96,7 +96,10 @@ class GraphData:
 
 
 class GraphTools:
-    """Object that is passed in graph( ). Provides utilities to make graphing easier"""
+    """
+    Object that is passed in graph().
+    Provides utilities to make graphing easier and standardized.
+    """
 
     def __init__(self, scenarios, graph_dir):
         """
@@ -126,37 +129,13 @@ class GraphTools:
         self.pd = pd
         self.np = np
 
-        # Provide useful mappings
-        self._energy_source_map = {
-            "Bio_Gas": "Biomass",
-            "Bio_Liquid": "Biomass",
-            "Bio_Solid": "Biomass",
-            "DistillateFuelOil": "Oil",
-            "ResidualFuelOil": "Oil",
-            "Waste_Heat": "Waste Heat",
-            "Electricity": "Battery Storage",
-            "Water": "Hydro (pumped & not pumped)",
-            "Uranium": "Nuclear"
-        }
-
-        self._energy_source_color_map = {
-            # Color names use X11 colors
-            "Oil": "black",
-            "Biomass": "#008b45",
-            "Coal": "#8b5a2b",
-            "Gas": "#666666",
-            "Geothermal": "red",
-            "Solar": "gold",
-            "Nuclear": "blueviolet",
-            "Hydro (pumped & not pumped)": "#0066CC",
-            "Wind": "deepskyblue",
-            "Battery Storage": "aquamarine",
-            "Waste Heat": "brown",
-            "Other": "white"
-        }
-
         # Set the style to Seaborn default style
         sns.set()
+
+        # Read the tech_colors and tech_types csv files.
+        folder = os.path.dirname(__file__)
+        self._tech_types = pd.read_csv(os.path.join(folder, "tech_types.csv"))
+        self._tech_colors = pd.read_csv(os.path.join(folder, "tech_colors.csv"))
 
     def _create_axes(self, out, title=None, size=(8, 5)):
         """Create a set of axes"""
@@ -184,17 +163,6 @@ class GraphTools:
 
         # Save the axes to module_figures
         self.module_figures[out] = (fig, ax)
-
-    def get_energy_source_color_map(self, n) -> Dict[str, List[str]]:
-        """
-        Returns a colormap, which is a dictionary mapping a energy source to a list of elements of the same color
-
-        @param n is the length of the list, normally the length of the series that the color map is used for
-        """
-        return {source: [color] * n for source, color in self._energy_source_color_map.items()}
-
-    def get_gen_tech_type_from_energy_source(self, en_source):
-        return self._energy_source_map.get(en_source, en_source) # second param is the default
 
     def get_new_axes(self, out, *args, **kwargs):
         """Returns a set of matplotlib axes that can be used to graph."""
@@ -240,6 +208,29 @@ class GraphTools:
     def get_active_scenario_path(self):
         return self.scenarios[self.active_scenario].path
 
+    def add_gen_type_column(self, df: pd.DataFrame, map_name='default', gen_tech_col='gen_tech',
+                            energy_source_col='gen_energy_source'):
+        """
+        Returns a dataframe that contains a column called gen_type which
+        is essentially a group of the gen_tech and gen_energy_source columns.
+        """
+        filtered_tech_types = self._tech_types[self._tech_types['map_name'] == map_name][
+            ['gen_tech', 'energy_source', 'gen_type']]
+        return df.merge(
+            filtered_tech_types,
+            left_on=[gen_tech_col, energy_source_col],
+            right_on=['gen_tech', 'energy_source'],
+            validate="many_to_one"
+        )
+
+    def get_colors(self, n, map_name='default'):
+        """
+        Returns an object that can be passed to color= when doing a bar plot.
+        @param n is the number of bars
+        @param map_name is the name of the technology mapping in use
+        """
+        filtered_tech_colors = self._tech_colors[self._tech_colors['map_name'] == map_name]
+        return {r['gen_type']: [r['color']] * n for _, r in filtered_tech_colors.iterrows()}
 
 def graph_scenarios(scenarios: List[Scenario], graph_dir):
     # Start a timer
