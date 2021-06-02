@@ -135,8 +135,6 @@ def connect(schema="switch"):
     return conn
 
 
-SKIP_VAR_CAPACITY_FACTORS = True
-
 def create_csvs():
     timer = StepTimer()
 
