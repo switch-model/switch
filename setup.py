@@ -74,6 +74,7 @@ setup(
         "testfixtures",  # used for standard tests
         "pandas",  # used for input upgrades and testing that functionality
         "pyyaml",  # used to read configurations for switch
+        "gurobipy", # gives bindings to connect directly to gurobi
     ],
     extras_require={
         # packages used for advanced demand response, progressive hedging

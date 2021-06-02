@@ -45,14 +45,14 @@ def write_csv(data: Iterable[List], fname, headers: List[str], log=True):
     if log:
         print(f"{fname}.csv... ", flush=True)
     with open(fname + ".csv", "w") as f:
-        f.write(",".join(headers) + os.linesep)
+        f.write(",".join(headers) + "\n")
         for row in data:
             # Replace None values with dots for Pyomo. Also turn all datatypes into strings
             row_as_clean_strings = [
                 "." if element is None else str(element) for element in row
             ]
             f.write(
-                ",".join(row_as_clean_strings) + os.linesep
+                ",".join(row_as_clean_strings) + "\n"
             )  # concatenates "line" separated by commas, and appends \n
 
 
@@ -148,7 +148,10 @@ def create_csvs():
         config.yaml specifies the scenario parameters. 
         The environment variable DB_URL specifies the url to connect to the database. """,
     )
-    parser.parse_args()  # Makes switch get_inputs --help works
+    parser.add_argument("--skip-cf", default=False, action='store_true',
+                        help="Skip creation variable_capacity_factors.csv. Useful when debugging and one doesn't"
+                             "want to wait for the command.")
+    args = parser.parse_args()  # Makes switch get_inputs --help works
 
     # Load values from config.yaml
     full_config = load_config()
@@ -162,39 +165,36 @@ def create_csvs():
 
     print(f"\nStarting to copy data from the database to the input files.")
 
+    scenario_params = [
+        "name",
+        "description",
+        "study_timeframe_id",
+        "time_sample_id",
+        "demand_scenario_id",
+        "fuel_simple_price_scenario_id",
+        "generation_plant_scenario_id",
+        "generation_plant_cost_scenario_id",
+        "generation_plant_existing_and_planned_scenario_id",
+        "hydro_simple_scenario_id",
+        "carbon_cap_scenario_id",
+        "supply_curves_scenario_id",
+        "regional_fuel_market_scenario_id",
+        "rps_scenario_id",
+        "enable_dr",
+        "enable_ev"
+    ]
     db_cursor.execute(
         f"""SELECT
-            name,
-            description,
-            study_timeframe_id,
-            time_sample_id,
-            demand_scenario_id,
-            fuel_simple_price_scenario_id,
-            generation_plant_scenario_id,
-            generation_plant_cost_scenario_id,
-            generation_plant_existing_and_planned_scenario_id,
-            hydro_simple_scenario_id,
-            carbon_cap_scenario_id,
-            supply_curves_scenario_id,
-            regional_fuel_market_scenario_id,
-            zone_to_regional_fuel_market_scenario_id,
-            rps_scenario_id,
-            enable_dr,
-            enable_ev
+            {",".join(scenario_params)}
         FROM switch.scenario
         WHERE scenario_id = {scenario_id};"""
     )
     s_details = list(db_cursor.fetchone())
 
     # Allow overriding from config
-    if "study_timeframe_id" in config:
-        s_details[2] = config["study_timeframe_id"]
-    if "time_sample_id" in config:
-        s_details[3] = config["time_sample_id"]
-    if "demand_scenario_id" in config:
-        s_details[4] = config["demand_scenario_id"]
-    if "rps_scenario_id" in config:
-        s_details[14] = config["rps_scenario_id"]
+    for i, param_name in enumerate(scenario_params):
+        if param_name in config:
+            s_details[i] = config[param_name]
 
     name = s_details[0]
     description = s_details[1]
@@ -209,10 +209,9 @@ def create_csvs():
     carbon_cap_scenario_id = s_details[10]
     supply_curves_scenario_id = s_details[11]
     regional_fuel_market_scenario_id = s_details[12]
-    zone_to_regional_fuel_market_scenario_id = s_details[13]
-    rps_scenario_id = s_details[14]
-    enable_dr = s_details[15]
-    enable_ev = s_details[16]
+    rps_scenario_id = s_details[13]
+    enable_dr = s_details[14]
+    enable_ev = s_details[15]
 
     print(f"Scenario: {scenario_id}: {name}.\n")
 
@@ -229,12 +228,12 @@ def create_csvs():
     ########################################################
     # Which input specification are we writing against?
     with open("switch_inputs_version.txt", "w") as f:
-        f.write("2.0.5" + os.linesep)
+        f.write("2.0.5\n")
     print("switch_inputs_version.txt...")
 
     with open("modules.txt", "w") as f:
         for module in modules:
-            f.write(module + os.linesep)
+            f.write(module + "\n")
     print("modules.txt...")
 
     ########################################################
@@ -426,6 +425,7 @@ def create_csvs():
          FROM switch.transmission_lines
              join load_zone as t1 on(t1.load_zone_id=start_load_zone_id)
              join load_zone as t2 on(t2.load_zone_id=end_load_zone_id)
+         WHERE start_load_zone_id <= end_load_zone_id 
          ORDER BY 2,3;
          """,
     )
@@ -647,7 +647,7 @@ def create_csvs():
     # Pyomo will raise an error if a capacity factor is defined for a project on a timepoint when it is no longer operational (i.e. Canela 1 was built on 2007 and has a 30 year max age, so for tp's ocurring later than 2037, its capacity factor must not be written in the table).
 
     # variable_capacity_factors.csv
-    if not SKIP_VAR_CAPACITY_FACTORS:
+    if not args.skip_cf:
         write_csv_from_query(
             db_cursor,
             "variable_capacity_factors",
@@ -816,7 +816,7 @@ def create_csvs():
         f"""
         select load_zone, regional_fuel_market 
         from switch.zone_to_regional_fuel_market
-        where zone_to_regional_fuel_market_scenario_id={zone_to_regional_fuel_market_scenario_id};
+        where regional_fuel_market_scenario_id={regional_fuel_market_scenario_id};
                     """,
     )
 

@@ -10,6 +10,7 @@ from __future__ import division
 from pyomo.environ import *
 import os
 import pandas as pd
+from switch_model.reporting import write_table
 
 dependencies = 'switch_model.timescales'
 
@@ -300,8 +301,13 @@ def define_dynamic_components(mod):
     # so it's best to define a separate expression and use that for these purposes.
     mod.SystemCost = Expression(
         rule=lambda m: sum(m.SystemCostPerPeriod[p] for p in m.PERIODS))
+    # We use a scaling factor to improve the numerical properties
+    # of the model. The scaling factor was determined using trial
+    # and error and this tool https://github.com/staadecker/lp-analyzer.
+    # Learn more by reading the documentation on Numerical Issues.
+    objective_func_scaling_factor = 1e-3
     mod.Minimize_System_Cost = Objective(
-        rule=lambda m: m.SystemCost,
+        rule=lambda m: m.SystemCost * objective_func_scaling_factor,
         sense=minimize)
 
 
@@ -322,6 +328,7 @@ def load_inputs(mod, switch_data, inputs_dir):
 def post_solve(instance, outdir):
     m = instance
     # Overall electricity costs
+    # TODO use write_table
     normalized_dat = [
         {
         	"PERIOD": p,
@@ -340,7 +347,7 @@ def post_solve(instance, outdir):
     ]
     df = pd.DataFrame(normalized_dat)
     df.set_index(["PERIOD"], inplace=True)
-    df.to_csv(os.path.join(outdir, "electricity_cost.csv"))
+    write_table(instance, df=df, output_file=os.path.join(outdir, "electricity_cost.csv"))
     # Itemized annual costs
     annualized_costs = [
         {
@@ -369,4 +376,4 @@ def post_solve(instance, outdir):
     ]
     df = pd.DataFrame(annualized_costs)
     df.set_index(["PERIOD", "Component"], inplace=True)
-    df.to_csv(os.path.join(outdir, "costs_itemized.csv"))
+    write_table(instance, output_file=os.path.join(outdir, "costs_itemized.csv"), df=df)

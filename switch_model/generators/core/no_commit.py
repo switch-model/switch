@@ -99,10 +99,17 @@ def define_components(mod):
         rule=lambda m, g, t:
             m.DispatchGen[g, t] == m.DispatchBaseloadByPeriod[g, m.tp_period[t]])
 
+    # We use a scaling factor to improve the numerical properties
+    # of the model. The scaling factor was determined using trial
+    # and error and this tool https://github.com/staadecker/lp-analyzer.
+    # Learn more by reading the documentation on Numerical Issues.
+    enforce_dispatch_upper_limit_scaling_factor = 1e4
     mod.Enforce_Dispatch_Upper_Limit = Constraint(
         mod.GEN_TPS,
-        rule=lambda m, g, t: (
-            m.DispatchGen[g, t] <= m.DispatchUpperLimit[g, t]))
+        rule=lambda m, g, t:
+        m.DispatchGen[g, t] * enforce_dispatch_upper_limit_scaling_factor
+        <= enforce_dispatch_upper_limit_scaling_factor * m.DispatchUpperLimit[g, t]
+    )
 
     mod.GenFuelUseRate_Calculate = Constraint(
         mod.GEN_TP_FUELS,
