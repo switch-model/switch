@@ -1,0 +1,7 @@
+LOAD_ZONE,PERIOD,zone_expected_coincident_peak_demand
+North,2020,6
+CA_Central,2020,4
+CA_South,2020,10
+North,2030,8
+CA_Central,2030,6
+CA_South,2030,12

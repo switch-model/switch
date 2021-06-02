@@ -179,8 +179,10 @@ def create_csvs():
         "regional_fuel_market_scenario_id",
         "rps_scenario_id",
         "enable_dr",
-        "enable_ev"
+        "enable_ev",
+        "ca_policies_scenario_id"
     ]
+
     db_cursor.execute(
         f"""SELECT
             {",".join(scenario_params)}
@@ -210,6 +212,7 @@ def create_csvs():
     rps_scenario_id = s_details[13]
     enable_dr = s_details[14]
     enable_ev = s_details[15]
+    ca_policies_scenario_id = s_details[16]
 
     print(f"Scenario: {scenario_id}: {name}.\n")
 
@@ -228,11 +231,6 @@ def create_csvs():
     with open("switch_inputs_version.txt", "w") as f:
         f.write("2.0.5\n")
     print("switch_inputs_version.txt...")
-
-    with open("modules.txt", "w") as f:
-        for module in modules:
-            f.write(module + "\n")
-    print("modules.txt...")
 
     ########################################################
     # TIMESCALES
@@ -899,7 +897,66 @@ def create_csvs():
                             """,
         )
 
+    ca_policies(db_cursor, ca_policies_scenario_id, study_timeframe_id)
+    create_modules_txt()
+
     print(f"\nScript took {timer.step_time_as_str()} seconds to build input tables.")
+
+
+def ca_policies(db_cursor, ca_policies_scenario_id, study_timeframe_id):
+    if ca_policies_scenario_id is None:
+        return
+    elif ca_policies_scenario_id == 0:
+        # scenario_id 0 means
+        # "Cali must generate 80% of its load at each timepoint for all periods that have generation in 2030 or later"
+        query = f"""
+        select
+          p.label  as PERIOD, --This is to fix build year problem
+          case when p.end_year >= 2030 then 0.8 end as ca_min_gen_timepoint_ratio,
+          null as ca_min_gen_period_ratio,
+          null as carbon_cap_tco2_per_yr_CA
+        from
+          switch.period as p
+        where
+          study_timeframe_id = {study_timeframe_id}
+        order by
+          1;
+        """
+    elif ca_policies_scenario_id == 1:
+        # scenario_id 1 means
+        # "Cali must generate 80% of its load at each timepoint for all periods that have generation in 2030 or later"
+
+        query = f"""
+        select
+            p.label  as PERIOD, --This is to fix build year problem
+            null as ca_min_gen_timepoint_ratio,
+            case when p.end_year >= 2030 then 0.8 end as ca_min_gen_period_ratio,
+            null as carbon_cap_tco2_per_yr_CA
+        from
+            switch.period as p
+        where
+            study_timeframe_id = {study_timeframe_id}
+        order by
+            1;
+        """
+    else:
+        raise Exception(f"Unknown ca_policies_scenario_id {ca_policies_scenario_id}")
+
+    write_csv_from_query(
+        db_cursor,
+        "ca_policies",
+        ['PERIOD', 'ca_min_gen_timepoint_ratio', 'ca_min_gen_period_ratio', 'carbon_cap_tco2_per_yr_CA'],
+        query
+    )
+
+    modules.append('switch_model.policies.CA_policies')
+
+
+def create_modules_txt():
+    print("modules.txt...")
+    with open("modules.txt", "w") as f:
+        for module in modules:
+            f.write(module + "\n")
 
 
 def post_process():

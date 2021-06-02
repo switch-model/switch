@@ -35,3 +35,4 @@ get_inputs:
   #  rps_scenario_id:
   #  enable_dr:
   #  enable_ev:
+  #  ca_policies_scenario_id:
