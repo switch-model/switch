@@ -51,27 +51,38 @@ def define_arguments(argparser):
         help="List of expressions to save in addition to variables; can also be 'all' or 'none'."
     )
 
+def get_cell_formatter(sig_digits):
+    sig_digits_formatter = "{0:." + str(sig_digits) + "g}"
+
+    def format_cell(c):
+        if not isinstance(c, float):
+            return c
+        if abs(c) < 1e-8:
+            return 0
+        else:
+            return sig_digits_formatter.format(c)
+    return format_cell
+
 
 def format_row(row, sig_digits):
-    row = [get_value(v) for v in row]
-    sig_digits_formatter = "{0:." + str(sig_digits) + "g}"
-    for (i, v) in enumerate(row):
-        if isinstance(v, float):
-            if abs(v) < 1e-10:
-                row[i] = 0
-            else:
-                row[i] = sig_digits_formatter.format(v)
-    return tuple(row)
+    cell_formatter = get_cell_formatter(sig_digits)
+    return tuple(cell_formatter(get_value(v)) for v in row)
 
 
 def write_table(instance, *indexes, **kwargs):
     # there must be a way to accept specific named keyword arguments and
     # also an open-ended list of positional arguments (*indexes), but I
     # don't know what that is.
-    output_file = kwargs["output_file"]
+    output_file = kwargs.pop("output_file")
+    digits = instance.options.sig_figs_output
+
+    if 'df' in kwargs:
+        df = kwargs.pop('df')
+        df.applymap(get_cell_formatter(digits)).to_csv(output_file, **kwargs)
+        return
+
     headings = kwargs["headings"]
     values = kwargs["values"]
-    digits = instance.options.sig_figs_output
 
     with open(output_file, 'w') as f:
         w = csv.writer(f, dialect="switch-csv")
@@ -192,7 +203,7 @@ def get_value(obj):
 
 def save_total_cost_value(instance, outdir):
     with open(os.path.join(outdir, 'total_cost.txt'), 'w') as fh:
-        fh.write('{}\n'.format(value(instance.SystemCost)))
+        fh.write('{}\n'.format(round(value(instance.SystemCost), ndigits=2)))
 
 
 def save_cost_components(m, outdir):
