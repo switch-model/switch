@@ -219,7 +219,7 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=True):
         if hasattr(module, 'load_inputs'):
             module.load_inputs(model, data, inputs_dir)
     if model.options.verbose:
-        print(f"Data read in {format_seconds(timer.step_time())}.\n")
+        print(f"Data read in {timer.step_time_as_str()}.\n")
 
     # At some point, pyomo deprecated 'create' in favor of 'create_instance'.
     # Determine which option is available and use that.
@@ -228,7 +228,7 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=True):
     else:
         instance = model.create(data)
     if model.options.verbose:
-        print(f"Instance created from data in {format_seconds(timer.step_time())}.\n")
+        print(f"Instance created from data in {timer.step_time_as_str()}.\n")
 
     if attach_data_portal:
         instance.DataPortal = data
