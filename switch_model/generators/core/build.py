@@ -643,36 +643,51 @@ def graph(tools):
     # ---------------------------------- #
     # Load generation_projects_info.csv
     gen_info = tools.get_dataframe(csv='generation_projects_info', folder=tools.folders.INPUTS)
-    # Filter out projects with unlimited capacity since we can't consider those
-    gen_info = gen_info[gen_info['gen_capacity_limit_mw'] != "."]
-    gen_info['gen_capacity_limit_mw'] = tools.pd.to_numeric(gen_info["gen_capacity_limit_mw"])
+    # Filter out projects with unlimited capacity since we can't consider those (coerce converts '.' to NaN)
+    gen_info['gen_capacity_limit_mw'] = tools.pd.to_numeric(gen_info["gen_capacity_limit_mw"], errors='coerce')
     # Add the capacity_limit to the gen_cap dataframe which has the total capacity at each period
     df = gen_cap.merge(
         gen_info[["GENERATION_PROJECT", "gen_capacity_limit_mw"]],
         on='GENERATION_PROJECT',
         validate='many_to_one'
     )
+    # Get the predetermined generation
+    predetermined = tools.get_dataframe(csv="gen_build_predetermined", folder=tools.folders.INPUTS)
+    # Filter out projects that are predetermined
+    df = df[~df["GENERATION_PROJECT"].isin(predetermined["GENERATION_PROJECT"])]
     # Make PERIOD a category to ensure x-axis labels don't fill in years between period
     # TODO we should order this by period here to ensure they're in increasing order
     df["PERIOD"] = df["PERIOD"].astype("category")
+    # Get gen_types that have projects with unlimited buildout
+    unlimited_gen_types = df[df['gen_capacity_limit_mw'].isna()]['gen_type'].drop_duplicates()
+    # Filter out unlimited generation
+    df = df[~df['gen_capacity_limit_mw'].isna()]
     # Sum the GenCapacity and gen_capacity_limit_mw for all projects in the same period and type
     df = df.groupby(['PERIOD', 'gen_type']).sum()
     # Create a dataframe that's the division of the Capacity and the capacity limit
     df = (df['GenCapacity'] / df['gen_capacity_limit_mw']).unstack()
     # Filter out generation types that don't make up a large percent of the energy mix to decultter graph
-    df = df.loc[:, ~is_below_cutoff]
+    # df = df.loc[:, ~is_below_cutoff]
 
     # Set the name of the legend.
     df = df.rename_axis("Type", axis='columns')
+    # Add a * to tech
+    df = df.rename(lambda c: f"{c}*" if c in unlimited_gen_types.values else c, axis='columns')
     # Get axes to graph on
     ax = tools.get_new_axes(
-        out="gen_buildout_per_tech", title="Percent of capacity built against maximum buildable capacity.",
-        note="Note 1: projects that have no capacity limit are excluded from calculations making this graph potentially misleading."
-             "\nNote 2: This graph includes predetermined projects (which are built at 100%).")
+        out="gen_buildout_per_tech_no_pred", title="Buildout relative to max allowed for period",
+        note="\nNote 1: This graph excludes predetermined buildout and projects that have no capacity limit."
+             "\nTechnologies that contain projects with no capacity limit are marked by a * and their graphs may"
+             "be misleading.")
     # Plot
-    df.plot(ax=ax, kind='line', color=tools.get_colors(), xlabel='Period')
+    colors = tools.get_colors()
+    # Add the same colors but with a * to support our legend.
+    colors.update({f"{k}*": v for k, v in colors.items()})
+    df.plot(ax=ax, kind='line', color=colors, xlabel='Period')
     # Set the y-axis to use percent
     ax.yaxis.set_major_formatter(tools.mplt.ticker.PercentFormatter(1.0))
+    # Horizontal line at 100%
+    ax.axhline(y=1, linestyle="--", color='b')
 
 def compare(tools):
     pass
