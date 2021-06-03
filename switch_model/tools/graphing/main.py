@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 import seaborn as sns
+import matplotlib
 
 import switch_model.solve
 from switch_model.utilities import StepTimer
@@ -128,6 +129,8 @@ class GraphTools:
         self.sns = sns
         self.pd = pd
         self.np = np
+        self.mplt= matplotlib
+        self.folders = GraphDataFolder
 
         # Set the style to Seaborn default style
         sns.set()
@@ -137,7 +140,7 @@ class GraphTools:
         self._tech_types = pd.read_csv(os.path.join(folder, "tech_types.csv"))
         self._tech_colors = pd.read_csv(os.path.join(folder, "tech_colors.csv"))
 
-    def _create_axes(self, out, title=None, size=(8, 5)):
+    def _create_axes(self, out, title=None, size=(8, 5), note=None):
         """Create a set of axes"""
         num_subplot_columns = 1 if self.is_compare_mode else self.num_scenarios
         fig, ax = plt.subplots(nrows=1, ncols=num_subplot_columns, sharey='row')
@@ -157,6 +160,9 @@ class GraphTools:
             print(f"Warning: no title set for graph {out}.csv. Specify 'title=' in get_new_axes()")
         else:
             fig.suptitle(title)
+
+        if note is not None:
+            fig.text(0.5, -0.1, note, wrap=True, horizontalalignment='center', fontsize=10)
 
         # Set figure size based on numbers of subplots
         fig.set_size_inches(size[0] * num_subplot_columns, size[1])
@@ -223,14 +229,17 @@ class GraphTools:
             validate="many_to_one"
         )
 
-    def get_colors(self, n, map_name='default'):
+    def get_colors(self, n=None, map_name='default'):
         """
         Returns an object that can be passed to color= when doing a bar plot.
-        @param n is the number of bars
+        @param n should be specified when using a stacked bar chart as the number of bars
         @param map_name is the name of the technology mapping in use
         """
         filtered_tech_colors = self._tech_colors[self._tech_colors['map_name'] == map_name]
-        return {r['gen_type']: [r['color']] * n for _, r in filtered_tech_colors.iterrows()}
+        if n is not None:
+            return {r['gen_type']: [r['color']] * n for _, r in filtered_tech_colors.iterrows()}
+        else:
+            return {r['gen_type']: r['color'] for _, r in filtered_tech_colors.iterrows()}
 
 def graph_scenarios(scenarios: List[Scenario], graph_dir):
     # Start a timer
