@@ -666,9 +666,9 @@ def graph(tools):
     df = df.rename_axis("Type", axis='columns')
     # Get axes to graph on
     ax = tools.get_new_axes(
-        out="gen_buildout_per_tech", title="Percent of maximum capacity that is built.",
+        out="gen_buildout_per_tech", title="Percent of capacity built against maximum buildable capacity.",
         note="Note 1: projects that have no capacity limit are excluded from calculations making this graph potentially misleading."
-             "\nNote 2: includes predetermined projects.")
+             "\nNote 2: This graph includes predetermined projects (which are built at 100%).")
     # Plot
     df.plot(ax=ax, kind='line', color=tools.get_colors(), xlabel='Period')
     # Set the y-axis to use percent

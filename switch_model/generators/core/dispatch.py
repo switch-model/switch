@@ -14,11 +14,6 @@ import os, collections
 from pyomo.environ import *
 from switch_model.reporting import write_table
 import pandas as pd
-try:
-    from ggplot import *
-    can_plot = True
-except:
-    can_plot = False
 
 dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
     'switch_model.financials', 'switch_model.energy_sources.properties', \
@@ -465,7 +460,6 @@ def post_solve(instance, outdir):
                  "DispatchEmissions_tCO2_per_typical_yr", "DispatchEmissions_tNOx_per_typical_yr",
                  "DispatchEmissions_tSO2_per_typical_yr", "DispatchEmissions_tCH4_per_typical_yr"])
 
-
     zonal_annual_summary = dispatch_full_df.groupby(
         ['gen_tech', "gen_load_zone", "gen_energy_source", "period"]
     ).sum()
@@ -476,11 +470,25 @@ def post_solve(instance, outdir):
                  "DispatchEmissions_tSO2_per_typical_yr", "DispatchEmissions_tCH4_per_typical_yr"]
     )
 
-    if can_plot:
-        annual_summary_plot = ggplot(
-                annual_summary.reset_index(),
-                aes(x='period', weight="Energy_GWh_typical_yr", fill="factor(gen_tech)")
-            ) + \
-            geom_bar(position="stack") + \
-            scale_y_continuous(name='Energy (GWh/yr)') + theme_bw()
-        annual_summary_plot.save(filename=os.path.join(outdir, "dispatch_annual_summary.pdf"))
+
+def graph(tools):
+    dispatch = tools.get_dataframe(csv='dispatch')
+    dispatch = tools.add_gen_type_column(dispatch)
+    dispatch = dispatch[["gen_type", "timestamp", "DispatchGen_MW"]]
+    dispatch = dispatch.groupby(["gen_type", "timestamp"], as_index=False).sum()
+    dispatch["datetime"] = tools.pd.to_datetime(dispatch["timestamp"], format="%Y%m%d%H")
+    year = max(dispatch["datetime"].dt.year)
+    dispatch["hour"] = dispatch["datetime"].dt.hour
+    dispatch["quarter"] = dispatch["datetime"].dt.quarter
+    dispatch = dispatch.loc[dispatch["datetime"].dt.year == year]
+    print(dispatch["datetime"].dt.day.drop_duplicates())
+    dispatch = dispatch.groupby(["hour", "gen_type", "quarter"], as_index=False).sum()[["quarter", "hour", "gen_type", "DispatchGen_MW"]]
+    for quarter in range(1, 5):
+        quarter_dispatch = dispatch[dispatch['quarter'] == quarter]
+        quarter_dispatch = quarter_dispatch.pivot(index='hour', columns='gen_type', values='DispatchGen_MW')
+        quarter_dispatch.loc["Total"] = quarter_dispatch.sum()
+        quarter_dispatch = quarter_dispatch.sort_values(by='Total', axis=1)
+        quarter_dispatch = quarter_dispatch[:-1]
+        print(quarter_dispatch.head())
+        ax = tools.get_new_axes(out=f"dispatch-q{quarter}", title=f"Average dispatch during Quarter {quarter} 2050")
+        quarter_dispatch.plot.area(ax=ax, color=tools.get_colors())
