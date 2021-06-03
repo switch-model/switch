@@ -33,14 +33,14 @@ def write_csv(data: Iterable[List], fname, headers: List[str], log=True):
     if log:
         print(f"{fname}.csv... ", flush=True)
     with open(fname + ".csv", "w") as f:
-        f.write(",".join(headers) + os.linesep)
+        f.write(",".join(headers) + "\n")
         for row in data:
             # Replace None values with dots for Pyomo. Also turn all datatypes into strings
             row_as_clean_strings = [
                 "." if element is None else str(element) for element in row
             ]
             f.write(
-                ",".join(row_as_clean_strings) + os.linesep
+                ",".join(row_as_clean_strings) + "\n"
             )  # concatenates "line" separated by commas, and appends \n
 
 
@@ -96,7 +96,10 @@ def create_csvs():
         config.yaml specifies the scenario parameters. 
         The environment variable DB_URL specifies the url to connect to the database. """,
     )
-    parser.parse_args()  # Makes switch get_inputs --help works
+    parser.add_argument("--skip-cf", default=False, action='store_true',
+                        help="Skip creation variable_capacity_factors.csv. Useful when debugging and one doesn't"
+                             "want to wait for the command.")
+    args = parser.parse_args()  # Makes switch get_inputs --help works
 
     # Load values from config.yaml
     full_config = load_config()
@@ -110,39 +113,38 @@ def create_csvs():
 
     print(f"\nStarting to copy data from the database to the input files.")
 
+    scenario_params = [
+        "name",
+        "description",
+        "study_timeframe_id",
+        "time_sample_id",
+        "demand_scenario_id",
+        "fuel_simple_price_scenario_id",
+        "generation_plant_scenario_id",
+        "generation_plant_cost_scenario_id",
+        "generation_plant_existing_and_planned_scenario_id",
+        "hydro_simple_scenario_id",
+        "carbon_cap_scenario_id",
+        "supply_curves_scenario_id",
+        "regional_fuel_market_scenario_id",
+        "rps_scenario_id",
+        "enable_dr",
+        "enable_ev",
+        "ca_policies_scenario_id"
+    ]
+
     db_cursor.execute(
         f"""SELECT
-            name,
-            description,
-            study_timeframe_id,
-            time_sample_id,
-            demand_scenario_id,
-            fuel_simple_price_scenario_id,
-            generation_plant_scenario_id,
-            generation_plant_cost_scenario_id,
-            generation_plant_existing_and_planned_scenario_id,
-            hydro_simple_scenario_id,
-            carbon_cap_scenario_id,
-            supply_curves_scenario_id,
-            regional_fuel_market_scenario_id,
-            zone_to_regional_fuel_market_scenario_id,
-            rps_scenario_id,
-            enable_dr,
-            enable_ev
+            {",".join(scenario_params)}
         FROM switch.scenario
         WHERE scenario_id = {scenario_id};"""
     )
     s_details = list(db_cursor.fetchone())
 
     # Allow overriding from config
-    if "study_timeframe_id" in config:
-        s_details[2] = config["study_timeframe_id"]
-    if "time_sample_id" in config:
-        s_details[3] = config["time_sample_id"]
-    if "demand_scenario_id" in config:
-        s_details[4] = config["demand_scenario_id"]
-    if "rps_scenario_id" in config:
-        s_details[14] = config["rps_scenario_id"]
+    for i, param_name in enumerate(scenario_params):
+        if param_name in config:
+            s_details[i] = config[param_name]
 
     name = s_details[0]
     description = s_details[1]
@@ -157,10 +159,10 @@ def create_csvs():
     carbon_cap_scenario_id = s_details[10]
     supply_curves_scenario_id = s_details[11]
     regional_fuel_market_scenario_id = s_details[12]
-    zone_to_regional_fuel_market_scenario_id = s_details[13]
-    rps_scenario_id = s_details[14]
-    enable_dr = s_details[15]
-    enable_ev = s_details[16]
+    rps_scenario_id = s_details[13]
+    enable_dr = s_details[14]
+    enable_ev = s_details[15]
+    ca_policies_scenario_id = s_details[16]
 
     print(f"Scenario: {scenario_id}: {name}.\n")
 
@@ -177,13 +179,8 @@ def create_csvs():
     ########################################################
     # Which input specification are we writing against?
     with open("switch_inputs_version.txt", "w") as f:
-        f.write("2.0.5" + os.linesep)
+        f.write("2.0.5\n")
     print("switch_inputs_version.txt...")
-
-    with open("modules.txt", "w") as f:
-        for module in modules:
-            f.write(module + os.linesep)
-    print("modules.txt...")
 
     ########################################################
     # TIMESCALES
@@ -374,6 +371,7 @@ def create_csvs():
          FROM switch.transmission_lines
              join load_zone as t1 on(t1.load_zone_id=start_load_zone_id)
              join load_zone as t2 on(t2.load_zone_id=end_load_zone_id)
+         WHERE start_load_zone_id <= end_load_zone_id 
          ORDER BY 2,3;
          """,
     )
@@ -595,19 +593,25 @@ def create_csvs():
     # Pyomo will raise an error if a capacity factor is defined for a project on a timepoint when it is no longer operational (i.e. Canela 1 was built on 2007 and has a 30 year max age, so for tp's ocurring later than 2037, its capacity factor must not be written in the table).
 
     # variable_capacity_factors.csv
-    write_csv_from_query(
-        db_cursor,
-        "variable_capacity_factors",
-        ["GENERATION_PROJECT", "timepoint", "gen_max_capacity_factor"],
-        f"""
-            select generation_plant_id, t.raw_timepoint_id, capacity_factor
-            FROM variable_capacity_factors_exist_and_candidate_gen v
-                JOIN generation_plant_scenario_member USING(generation_plant_id)
-                JOIN sampled_timepoint as t ON(t.raw_timepoint_id = v.raw_timepoint_id)
-            WHERE generation_plant_scenario_id = {generation_plant_scenario_id}
-                AND t.time_sample_id={time_sample_id};
-            """,
-    )
+    if not args.skip_cf:
+        write_csv_from_query(
+            db_cursor,
+            "variable_capacity_factors",
+            ["GENERATION_PROJECT", "timepoint", "gen_max_capacity_factor"],
+            f"""
+                select 
+                    generation_plant_id, 
+                    t.raw_timepoint_id, 
+                    -- we round down when the capacity factor is less than 1e-5 to avoid numerical issues and simplify our model
+                    -- performance wise this doesn't have any significant impact
+                    case when abs(capacity_factor) < 0.00001 then 0 else capacity_factor end
+                FROM variable_capacity_factors_exist_and_candidate_gen v
+                    JOIN generation_plant_scenario_member USING(generation_plant_id)
+                    JOIN sampled_timepoint as t ON(t.raw_timepoint_id = v.raw_timepoint_id)
+                WHERE generation_plant_scenario_id = {generation_plant_scenario_id}
+                    AND t.time_sample_id={time_sample_id};
+                """,
+        )
 
     ########################################################
     # HYDROPOWER
@@ -664,22 +668,21 @@ def create_csvs():
             "carbon_cap_tco2_per_yr_CA",
             "carbon_cost_dollar_per_tco2",
         ],
-        """select period, AVG(carbon_cap_tco2_per_yr) as carbon_cap_tco2_per_yr, AVG(carbon_cap_tco2_per_yr_CA) as carbon_cap_tco2_per_yr_CA,
-                    '.' as  carbon_cost_dollar_per_tco2
-                from 
-                (select carbon_cap_tco2_per_yr, carbon_cap_tco2_per_yr_CA, year, 
-                        (case when 
-                        year >= period.start_year 
-                        and year <= period.start_year + length_yrs -1 then label else 0 end) as period
-                        from switch.carbon_cap
-                        join switch.period on(year>=start_year)
-                        where study_timeframe_id = {id1} and carbon_cap_scenario_id = {id2}) as w
-                where period!=0
-                group by period
-                order by 1;
-                """.format(
-            id1=study_timeframe_id, id2=carbon_cap_scenario_id
-        ),
+        f"""
+        select period, AVG(carbon_cap_tco2_per_yr) as carbon_cap_tco2_per_yr, AVG(carbon_cap_tco2_per_yr_CA) as carbon_cap_tco2_per_yr_CA,
+            '.' as  carbon_cost_dollar_per_tco2
+        from 
+        (select carbon_cap_tco2_per_yr, carbon_cap_tco2_per_yr_CA, year, 
+                (case when 
+                year >= period.start_year 
+                and year <= period.start_year + length_yrs -1 then label else 0 end) as period
+                from switch.carbon_cap
+                join switch.period on(year>=start_year)
+                where study_timeframe_id = {study_timeframe_id} and carbon_cap_scenario_id = {carbon_cap_scenario_id}) as w
+        where period!=0
+        group by period
+        order by 1;
+        """
     )
 
     ########################################################
@@ -690,21 +693,20 @@ def create_csvs():
             db_cursor,
             "rps_targets",
             ["load_zone", "period", "rps_target"],
-            """select load_zone, w.period as period, avg(rps_target) as rps_target
-                            from
-                            (select load_zone, rps_target,
-                            (case when 
-                            year >= period.start_year 
-                            and year <= period.start_year + length_yrs -1 then label else 0 end) as period
-                            from switch.rps_target
-                            join switch.period on(year>=start_year)
-                            where study_timeframe_id = {id1} and rps_scenario_id = {id2}) as w
-                    where period!=0
-                    group by load_zone, period
-                    order by 1, 2;
-                    """.format(
-                id1=study_timeframe_id, id2=rps_scenario_id
-            ),
+            f"""
+            select load_zone, w.period as period, avg(rps_target) as rps_target
+                    from
+                    (select load_zone, rps_target,
+                    (case when 
+                    year >= period.start_year 
+                    and year <= period.start_year + length_yrs -1 then label else 0 end) as period
+                    from switch.rps_target
+                    join switch.period on(year>=start_year)
+                    where study_timeframe_id = {study_timeframe_id} and rps_scenario_id = {rps_scenario_id}) as w
+            where period!=0
+            group by load_zone, period
+            order by 1, 2;
+            """
         )
 
     ########################################################
@@ -728,7 +730,13 @@ def create_csvs():
                             else max_avail_at_cost::varchar end) as max_avail_at_cost
                 from switch.fuel_supply_curves
                 join switch.period on(year>=start_year)
-                where year=FLOOR(period.start_year + length_yrs/2-1)
+                where year=FLOOR(period.start_year + length_yrs/2-1) 
+                -- we filter out extremly large unit_costs that are only used to indicate that we should never
+                -- buy at this price point. This is to simplify the model and improve its numerical properties.
+                and not (
+                    unit_cost > 1e9
+                    and max_avail_at_cost is null
+                )
                 and study_timeframe_id = {study_timeframe_id} 
                 and supply_curves_scenario_id = {supply_curves_scenario_id};
                             """,
@@ -754,7 +762,7 @@ def create_csvs():
         f"""
         select load_zone, regional_fuel_market 
         from switch.zone_to_regional_fuel_market
-        where zone_to_regional_fuel_market_scenario_id={zone_to_regional_fuel_market_scenario_id};
+        where regional_fuel_market_scenario_id={regional_fuel_market_scenario_id};
                     """,
     )
 
@@ -839,7 +847,66 @@ def create_csvs():
                             """,
         )
 
+    ca_policies(db_cursor, ca_policies_scenario_id, study_timeframe_id)
+    create_modules_txt()
+
     print(f"\nScript took {timer.step_time_as_str()} seconds to build input tables.")
+
+
+def ca_policies(db_cursor, ca_policies_scenario_id, study_timeframe_id):
+    if ca_policies_scenario_id is None:
+        return
+    elif ca_policies_scenario_id == 0:
+        # scenario_id 0 means
+        # "Cali must generate 80% of its load at each timepoint for all periods that have generation in 2030 or later"
+        query = f"""
+        select
+          p.label  as PERIOD, --This is to fix build year problem
+          case when p.end_year >= 2030 then 0.8 end as ca_min_gen_timepoint_ratio,
+          null as ca_min_gen_period_ratio,
+          null as carbon_cap_tco2_per_yr_CA
+        from
+          switch.period as p
+        where
+          study_timeframe_id = {study_timeframe_id}
+        order by
+          1;
+        """
+    elif ca_policies_scenario_id == 1:
+        # scenario_id 1 means
+        # "Cali must generate 80% of its load at each timepoint for all periods that have generation in 2030 or later"
+
+        query = f"""
+        select
+            p.label  as PERIOD, --This is to fix build year problem
+            null as ca_min_gen_timepoint_ratio,
+            case when p.end_year >= 2030 then 0.8 end as ca_min_gen_period_ratio,
+            null as carbon_cap_tco2_per_yr_CA
+        from
+            switch.period as p
+        where
+            study_timeframe_id = {study_timeframe_id}
+        order by
+            1;
+        """
+    else:
+        raise Exception(f"Unknown ca_policies_scenario_id {ca_policies_scenario_id}")
+
+    write_csv_from_query(
+        db_cursor,
+        "ca_policies",
+        ['PERIOD', 'ca_min_gen_timepoint_ratio', 'ca_min_gen_period_ratio', 'carbon_cap_tco2_per_yr_CA'],
+        query
+    )
+
+    modules.append('switch_model.policies.CA_policies')
+
+
+def create_modules_txt():
+    print("modules.txt...")
+    with open("modules.txt", "w") as f:
+        for module in modules:
+            f.write(module + "\n")
 
 
 def post_process():
