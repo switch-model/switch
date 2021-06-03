@@ -4,7 +4,7 @@ from switch_model.utilities import query_yes_no
 from switch_model.tools.graphing.main import Scenario, graph_scenarios
 
 
-def main():
+def main(args=None):
     # Create the command line interface
     parser = argparse.ArgumentParser(
         description="Create graphs for a single set of SWITCH results."
@@ -21,7 +21,7 @@ def main():
         action="store_true",
         help="Don't prompt before overwriting the existing folder",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(args)
 
     # If directory already exists, verify we should overwrite its contents
     if os.path.exists(args.graph_dir):

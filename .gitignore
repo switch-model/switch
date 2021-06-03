@@ -19,6 +19,7 @@
 *.xml
 *.pickle
 examples/**/info.txt
+examples/**/*.png
 
 ### dotenv ###
 .env

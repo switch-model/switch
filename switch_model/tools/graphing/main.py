@@ -203,7 +203,10 @@ class GraphTools:
             # Set the active scenario index so that other functions behave properly
             self.active_scenario = i
             # Call the graphing function
-            func_graph(self)
+            try:
+                func_graph(self)
+            except Exception as e:
+                print(f"Failed to graph. Error: {e}.")
         self.active_scenario = None  # Reset to none to avoid accidentally selecting data when not graphing per scenario
 
         # Save the graphs

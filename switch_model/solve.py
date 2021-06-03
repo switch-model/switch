@@ -21,6 +21,7 @@ from switch_model.utilities import (
     create_info_file,
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
+from switch_model.tools.graphing import graph
 
 
 def main(args=None, return_model=False, return_instance=False):
@@ -215,6 +216,9 @@ def main(args=None, return_model=False, return_instance=False):
             instance.post_solve()
             if instance.options.verbose:
                 print(f"Post solve processing completed in {timer.step_time_as_str()}.")
+
+        if instance.options.graph:
+            graph.main(args="")
 
         total_time = start_to_end_timer.step_time_as_str()
         create_info_file(
@@ -689,6 +693,12 @@ def define_arguments(argparser):
         dest="sorted_output",
         help="Write generic variable result values in sorted order",
     )
+    argparser.add_argument(
+        "--graph",
+        default=False,
+        action="store_true",
+        help="Automatically run switch graph after post solve",
+    )
 
 
 def add_recommended_args(argparser):
@@ -734,6 +744,7 @@ def parse_recommended_args(args):
         "--stream-output",
         "--log-run",
         "--debug",
+        "--graph",
         "--solver-options-string",
         "method=2 BarHomogeneous=1 FeasibilityTol=1e-5",
     ] + args
