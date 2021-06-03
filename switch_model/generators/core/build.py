@@ -9,6 +9,7 @@ import os
 from pyomo.environ import *
 from switch_model.financials import capital_recovery_factor as crf
 from switch_model.reporting import write_table
+from switch_model.utilities.scaling import get_assign_default_value_rule
 
 dependencies = (
     "switch_model.timescales",
@@ -423,11 +424,9 @@ def define_components(mod):
     # expects every variable to have a value after the solve. So as a
     # starting point we assign an appropriate value to all the existing
     # projects here.
-    def BuildGen_assign_default_value(m, g, bld_yr):
-        m.BuildGen[g, bld_yr] = m.gen_predetermined_cap[g, bld_yr]
-
     mod.BuildGen_assign_default_value = BuildAction(
-        mod.PREDETERMINED_GEN_BLD_YRS, rule=BuildGen_assign_default_value
+        mod.PREDETERMINED_GEN_BLD_YRS,
+        rule=get_assign_default_value_rule("BuildGen", "gen_predetermined_cap"),
     )
 
     # note: in pull request 78, commit e7f870d..., GEN_PERIODS
@@ -454,10 +453,18 @@ def define_components(mod):
         ),
     )
 
+    # We use a scaling factor to improve the numerical properties
+    # of the model. The scaling factor was determined using trial
+    # and error and this tool https://github.com/staadecker/lp-analyzer.
+    # Learn more by reading the documentation on Numerical Issues.
+    max_build_potential_scaling_factor = 1e-1
     mod.Max_Build_Potential = Constraint(
         mod.CAPACITY_LIMITED_GENS,
         mod.PERIODS,
-        rule=lambda m, g, p: (m.gen_capacity_limit_mw[g] >= m.GenCapacity[g, p]),
+        rule=lambda m, g, p: (
+            m.gen_capacity_limit_mw[g] * max_build_potential_scaling_factor
+            >= m.GenCapacity[g, p] * max_build_potential_scaling_factor
+        ),
     )
 
     # The following components enforce minimum capacity build-outs.
@@ -661,7 +668,7 @@ def load_inputs(mod, switch_data, inputs_dir):
 def post_solve(m, outdir):
     write_table(
         m,
-        sorted(m.GEN_PERIODS) if m.options.sorted_output else m.GEN_PERIODS,
+        m.GEN_PERIODS,
         output_file=os.path.join(outdir, "gen_cap.csv"),
         headings=(
             "GENERATION_PROJECT",
