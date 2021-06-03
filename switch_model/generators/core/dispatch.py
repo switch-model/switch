@@ -547,32 +547,56 @@ def post_solve(instance, outdir):
 
 
 def graph(tools):
+    # Read dispatch.csv
     dispatch = tools.get_dataframe(csv="dispatch")
-    dispatch = tools.add_gen_type_column(dispatch)
-    dispatch = dispatch[["gen_type", "timestamp", "DispatchGen_MW"]]
+    # Add the technology type column and filter out unneeded columns
+    dispatch = tools.add_gen_type_column(dispatch)[
+        ["gen_type", "timestamp", "DispatchGen_MW"]
+    ]
+    # Sum the DispatchGen_MW for all technology types and timepoints
     dispatch = dispatch.groupby(["gen_type", "timestamp"], as_index=False).sum()
-    dispatch["datetime"] = tools.pd.to_datetime(
-        dispatch["timestamp"], format="%Y%m%d%H"
-    )
-    year = max(dispatch["datetime"].dt.year)
-    dispatch["hour"] = dispatch["datetime"].dt.hour
-    dispatch["quarter"] = dispatch["datetime"].dt.quarter
-    dispatch = dispatch.loc[dispatch["datetime"].dt.year == year]
-    print(dispatch["datetime"].dt.day.drop_duplicates())
+    # Create a datetime column with the datetime format
+    # dispatch["datetime"] = tools.pd.to_datetime(dispatch["timestamp"], format="%Y%m%d%H")
+    dispatch.index = tools.pd.to_datetime(dispatch["timestamp"], format="%Y%m%d%H")
+    # Keep only the last year
+    last_year = max(dispatch.index.year)
+    dispatch = dispatch.loc[dispatch.index.year == last_year]
+    # Convert to time zone
+    dispatch = dispatch.tz_localize("utc").tz_convert("US/Pacific")
+    # Add an hour and quarter column
+    dispatch["hour"] = dispatch.index.hour
+    dispatch["quarter"] = dispatch.index.quarter
+    # Sum across all technologies that are in the same hour and quarter
     dispatch = dispatch.groupby(["hour", "gen_type", "quarter"], as_index=False).sum()[
         ["quarter", "hour", "gen_type", "DispatchGen_MW"]
     ]
+    # Scale to GW
+    dispatch["DispatchGen_MW"] *= 1e-3
+    # for each quarter...
     for quarter in range(1, 5):
+        # get the dispatch for that quarter
         quarter_dispatch = dispatch[dispatch["quarter"] == quarter]
+        # Make it into a proper dataframe
         quarter_dispatch = quarter_dispatch.pivot(
             index="hour", columns="gen_type", values="DispatchGen_MW"
         )
-        quarter_dispatch.loc["Total"] = quarter_dispatch.sum()
-        quarter_dispatch = quarter_dispatch.sort_values(by="Total", axis=1)
+        # Sort the technologies by standard deviation to have the smoothest ones at the bottom of the stacked area plot
+        quarter_dispatch.loc["std"] = quarter_dispatch.std()
+        quarter_dispatch = quarter_dispatch.sort_values(by="std", axis=1)
         quarter_dispatch = quarter_dispatch[:-1]
-        print(quarter_dispatch.head())
+        # Get axes
         ax = tools.get_new_axes(
             out=f"dispatch-q{quarter}",
-            title=f"Average dispatch during Quarter {quarter} 2050",
+            title=f"Average dispatch during Quarter {quarter} of {last_year}",
+            note="This is only for diagnostics."
+            "\nAll timepoints in a quarter are summed equally regardless of their actual weighting leading to potentially misleading results.",
         )
-        quarter_dispatch.plot.area(ax=ax, color=tools.get_colors())
+        # Rename to make legend proper
+        quarter_dispatch = quarter_dispatch.rename_axis("Type", axis="columns")
+        # Plot
+        quarter_dispatch.plot.area(
+            ax=ax,
+            color=tools.get_colors(),
+            xlabel="Hour of day (PST)",
+            ylabel="Sum of all dispatch (GW)",
+        )
