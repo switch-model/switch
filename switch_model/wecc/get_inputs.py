@@ -134,6 +134,7 @@ def connect(schema="switch"):
     print("Connection established to PostgreSQL database.")
     return conn
 
+
 def create_csvs():
     timer = StepTimer()
 
