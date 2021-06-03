@@ -308,4 +308,7 @@ gurobi.log
 *.pdb
 *.sqlite3
 
+### VIM ###
+tags
+
 # End of https://www.toptal.com/developers/gitignore/api/macos,python,venv,data,visualstudiocode,pycharm,jupyternotebooks,dotenv,virtualenv
