@@ -472,6 +472,9 @@ def post_solve(instance, outdir):
 
 
 def graph(tools):
+    # --------------------- #
+    # dispatch.png          #
+    # --------------------- #
     # Read dispatch.csv
     dispatch = tools.get_dataframe(csv='dispatch')
     # Add the technology type column and filter out unneeded columns
@@ -513,4 +516,37 @@ def graph(tools):
         # Rename to make legend proper
         quarter_dispatch = quarter_dispatch.rename_axis("Type", axis='columns')
         # Plot
-        quarter_dispatch.plot.area(ax=ax, color=tools.get_colors(), xlabel="Hour of day (PST)", ylabel="Sum of all dispatch (GW)")
+        quarter_dispatch.plot.area(ax=ax, color=tools.get_colors(), xlabel="Hour of day (PST)",
+                                   ylabel="Sum of all dispatch (GW)")
+
+    # ---------------------------------- #
+    # total_dispatch.png                 #
+    # ---------------------------------- #
+    # read dispatch_annual_summary.csv
+    total_dispatch = tools.get_dataframe(csv="dispatch_annual_summary")
+    # add type column
+    total_dispatch = tools.add_gen_type_column(total_dispatch)
+    # aggregate and pivot
+    total_dispatch = total_dispatch.pivot_table(columns="gen_type", index="period", values="Energy_GWh_typical_yr",
+                                                aggfunc=tools.np.sum)
+    # Convert values to TWh
+    total_dispatch *= 1E-3
+
+    # For generation types that make less than 2% in every period, group them under "Other"
+    # ---------
+    # sum the generation across the energy_sources for each period, 2% of that is the cutoff for that period
+    cutoff_per_period = total_dispatch.sum(axis=1) * 0.02
+    # Check for each technology if it's below the cutoff for every period
+    is_below_cutoff = total_dispatch.lt(cutoff_per_period, axis=0).all()
+    # groupby if the technology is below the cutoff
+    total_dispatch = total_dispatch.groupby(axis=1, by=lambda c: "Other" if is_below_cutoff[c] else c).sum()
+
+    # Sort columns by the last period
+    total_dispatch = total_dispatch.sort_values(by=total_dispatch.index[-1], axis=1)
+    # Give proper name for legend
+    total_dispatch = total_dispatch.rename_axis("Type", axis=1)
+    # Get axis
+    ax = tools.get_new_axes(out="total_dispatch", title="Total dispatched electricity")
+    # Plot
+    total_dispatch.plot(kind='bar', stacked=True, ax=ax, color=tools.get_colors(len(total_dispatch)),
+                        xlabel="Period", ylabel="Total dispatched electricity (TWh)")
