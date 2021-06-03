@@ -25,10 +25,13 @@
 
 4. Activate the newly created environment: `conda activate switch`.
 
-5. Install the `switch_model` library using: `pip install --editable .[dev]`. Note
-   the `--editable` flag indicating that the `switch` command will always use your latest local
-   copy. That is, you don't need to reinstall the package after making a change to it.
-
+5. Install the `switch_model` library using: `pip install --editable .[dev]`. 
+   The `--editable` flag indicates that the `switch` command will always use your latest local
+   copy. That is, you won't need to reinstall the package after making a change to the switch code. 
+   Adding `[dev]` in the command results in extra packages required for development being installed.
+   These packages are listed in `extra_require` in `setup.py`. There are other options for example,
+   `pip install --editable .[plotting,dev]` would install packages for plotting and development.
+   
 6. Run `switch --help` to make sure your package installed properly.
 
 ## Preparing a scenario
