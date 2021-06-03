@@ -377,3 +377,14 @@ def post_solve(instance, outdir):
     df = pd.DataFrame(annualized_costs)
     df.set_index(["PERIOD", "Component"], inplace=True)
     write_table(instance, output_file=os.path.join(outdir, "costs_itemized.csv"), df=df)
+
+
+def graph(tools):
+    costs_itemized = tools.get_dataframe(csv="costs_itemized")
+    # Remove elements with zero cost
+    costs_itemized = costs_itemized[costs_itemized['AnnualCost_Real'] != 0]
+    costs_itemized = costs_itemized.pivot(columns="Component", index='PERIOD', values="AnnualCost_Real")
+    costs_itemized *= 1E-9
+    costs_itemized = costs_itemized.sort_values(axis=1, by=costs_itemized.index[-1])
+    ax = tools.get_new_axes(out="costs", title="Itemized costs per period")
+    costs_itemized.plot(ax=ax, kind='bar', stacked=True, xlabel="Period", ylabel='Billions of dollars (Real)')
