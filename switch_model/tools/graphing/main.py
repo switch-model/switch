@@ -9,8 +9,7 @@ from matplotlib import pyplot as plt
 import seaborn as sns
 import matplotlib
 
-import switch_model.solve
-from switch_model.utilities import StepTimer
+from switch_model.utilities import StepTimer, get_module_list
 
 original_working_dir = os.getcwd()
 
@@ -282,25 +281,25 @@ def iterate_modules(module_names, func_name):
             yield name, getattr(module, func_name)
 
 
-def load_modules(compare_dirs):
+def load_modules(scenarios):
     """Loads all the modules found in modules.txt"""
 
-    def read_modules_txt(compare_dir):
+    def read_modules_txt(scenario_dir):
         """Returns a sorted list of all the modules in a run folder (by reading modules.txt)"""
-        with compare_dir:
-            module_list = switch_model.solve.get_module_list(include_solve_module=False)
+        with scenario_dir:
+            module_list = get_module_list(include_solve_module=False)
         return np.sort(module_list)
 
     print(f"Loading modules...")
     # Split compare_dirs into a base and a list of others
-    compare_dir_base, compare_dir_others = compare_dirs[0], compare_dirs[1:]
-    module_names = read_modules_txt(compare_dir_base)
+    scenario_base, other_scenarios = scenarios[0], scenarios[1:]
+    module_names = read_modules_txt(scenario_base)
 
     # Check that all the compare_dirs have equivalent modules.txt
-    for compare_dir_other in compare_dir_others:
-        if not np.array_equal(module_names, read_modules_txt(compare_dir_other)):
-            print(f"WARNING: modules.txt is not equivalent between {compare_dir_base} and {compare_dir_other}."
-                  f"We will use the modules.txt in {compare_dir_base} however this may result in missing graphs and/or errors.")
+    for scenario in other_scenarios:
+        if not np.array_equal(module_names, read_modules_txt(scenario)):
+            print(f"WARNING: modules.txt is not equivalent between {scenario_base.name} and {scenario.name}. "
+                  f"We will use the modules.txt in {scenario_base.name} however this may result in missing graphs and/or errors.")
 
     # Import the modules
     for module_name in module_names:

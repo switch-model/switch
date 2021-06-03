@@ -102,7 +102,7 @@ def create_model(module_list=None, args=sys.argv[1:]):
     # Load modules
     if module_list is None:
         import switch_model.solve
-        module_list = switch_model.solve.get_module_list(args)
+        module_list = get_module_list(args)
     model.module_list = module_list
     for m in module_list:
         importlib.import_module(m)
@@ -833,3 +833,79 @@ def create_info_file(output_path, run_time=None):
     content += f"Host name: {platform.node()}\n"
     with open(os.path.join(output_path, "info.txt"), "w") as f:
         f.write(content)
+
+
+def get_module_list(args=None, include_solve_module=True):
+    # parse module options
+    parser = _ArgumentParser(allow_abbrev=False, add_help=False)
+    add_module_args(parser)
+    module_options = parser.parse_known_args(args=args)[0]
+
+    # identify modules to load
+    module_list_file = module_options.module_list
+
+    # search first in the current directory
+    if module_list_file is None and os.path.exists("modules.txt"):
+        module_list_file = "modules.txt"
+    # search next in the inputs directory ('inputs' by default)
+    if module_list_file is None:
+        test_path = os.path.join(module_options.inputs_dir, "modules.txt")
+        if os.path.exists(test_path):
+            module_list_file = test_path
+    if module_list_file is None:
+        # note: this could be a RuntimeError, but then users can't do "switch solve --help" in a random directory
+        # (alternatively, we could provide no warning at all, since the user can specify --include-modules in the arguments)
+        print("WARNING: No module list found. Please create a modules.txt file with a list of modules to use for the model.")
+        modules = []
+    else:
+        # if it exists, the module list contains one module name per row (no .py extension)
+        # we strip whitespace from either end (because those errors can be annoyingly hard to debug).
+        # We also omit blank lines and lines that start with "#"
+        # Otherwise take the module names as given.
+        with open(module_list_file) as f:
+            modules = [r.strip() for r in f.read().splitlines()]
+        modules = [m for m in modules if m and not m.startswith("#")]
+
+    # adjust modules as requested by the user
+    # include_exclude_modules format: [('include', [mod1, mod2]), ('exclude', [mod3])]
+    for action, mods in module_options.include_exclude_modules:
+        if action == 'include':
+            for module_name in mods:
+                if module_name not in modules:  # maybe we should raise an error if already present?
+                    modules.append(module_name)
+        if action == 'exclude':
+            for module_name in mods:
+                try:
+                    modules.remove(module_name)
+                except ValueError:
+                    raise ValueError(            # maybe we should just pass?
+                        'Unable to exclude module {} because it was not '
+                        'previously included.'.format(module_name)
+                    )
+
+    # add this module, since it has callbacks, e.g. define_arguments for iteration and suffixes
+    if include_solve_module:
+        modules.append("switch_model.solve")
+
+    return modules
+
+
+def add_module_args(parser):
+    parser.add_argument(
+        "--module-list", default=None,
+        help='Text file with a list of modules to include in the model (default is "modules.txt")'
+    )
+    parser.add_argument(
+        "--include-modules", "--include-module", dest="include_exclude_modules", nargs='+',
+        action='include', default=[],
+        help="Module(s) to add to the model in addition to any specified with --module-list file"
+    )
+    parser.add_argument(
+        "--exclude-modules", "--exclude-module", dest="include_exclude_modules", nargs='+',
+        action='exclude', default=[],
+        help="Module(s) to remove from the model after processing --module-list file and prior --include-modules arguments"
+    )
+    # note: we define --inputs-dir here because it may be used to specify the location of
+    # the module list, which is needed before it is loaded.
+    parser.add_argument("--inputs-dir", default="inputs",
+        help='Directory containing input files (default is "inputs")')
