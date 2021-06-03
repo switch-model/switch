@@ -18,6 +18,7 @@
 *.vcf
 *.xml
 *.pickle
+examples/**/info.txt
 
 ### dotenv ###
 .env

@@ -18,7 +18,7 @@ from switch_model.utilities import (
     LogOutput,
     warn,
     query_yes_no,
-    format_seconds,
+    create_info_file,
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 
@@ -215,10 +215,14 @@ def main(args=None, return_model=False, return_instance=False):
             instance.post_solve()
             if instance.options.verbose:
                 print(f"Post solve processing completed in {timer.step_time_as_str()}.")
+
+        total_time = start_to_end_timer.step_time_as_str()
+        create_info_file(
+            getattr(instance.options, "outputs_dir", "outputs"), run_time=total_time
+        )
+
         if instance.options.verbose:
-            print(
-                f"Total time spent running SWITCH: {format_seconds(start_to_end_timer.step_time())}."
-            )
+            print(f"Total time spent running SWITCH: {total_time}.")
 
     # end of LogOutput block
 
