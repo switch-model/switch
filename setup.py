@@ -36,7 +36,7 @@ setup(
     license="Apache License 2.0",
     platforms=["any"],
     description="Switch Power System Planning Model",
-    long_description=read("README"),
+    long_description=read("README.md"),
     long_description_content_type="text/markdown",
     classifiers=[
         # from https://pypi.org/classifiers/
