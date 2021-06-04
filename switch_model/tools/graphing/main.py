@@ -134,11 +134,6 @@ class GraphTools:
         # Set the style to Seaborn default style
         sns.set()
 
-        # Read the tech_colors and tech_types csv files.
-        folder = os.path.dirname(__file__)
-        self._tech_types = pd.read_csv(os.path.join(folder, "tech_types.csv"))
-        self._tech_colors = pd.read_csv(os.path.join(folder, "tech_colors.csv"))
-
     def _create_axes(self, out, title=None, size=(8, 5), note=None):
         """Create a set of axes"""
         num_subplot_columns = 1 if self.is_compare_mode else self.num_scenarios
@@ -223,7 +218,15 @@ class GraphTools:
         Returns a dataframe that contains a column called gen_type which
         is essentially a group of the gen_tech and gen_energy_source columns.
         """
-        filtered_tech_types = self._tech_types[self._tech_types['map_name'] == map_name][
+        # If there's no mapping, we simply make the mapping the sum of both columns
+        # Read the tech_colors and tech_types csv files.
+        try:
+            tech_types = self.get_dataframe(csv="tech_types", folder=self.folders.INPUTS)
+        except:
+            df = df.copy()
+            df['gen_type'] = df[gen_tech_col] + "_" + df[energy_source_col]
+            return df
+        filtered_tech_types = tech_types[tech_types['map_name'] == map_name][
             ['gen_tech', 'energy_source', 'gen_type']]
         return df.merge(
             filtered_tech_types,
@@ -238,7 +241,11 @@ class GraphTools:
         @param n should be specified when using a stacked bar chart as the number of bars
         @param map_name is the name of the technology mapping in use
         """
-        filtered_tech_colors = self._tech_colors[self._tech_colors['map_name'] == map_name]
+        try:
+            tech_colors = self.get_dataframe(csv="tech_colors", folder=self.folders.INPUTS)
+        except:
+            return None
+        filtered_tech_colors = tech_colors[tech_colors['map_name'] == map_name]
         if n is not None:
             return {r['gen_type']: [r['color']] * n for _, r in filtered_tech_colors.iterrows()}
         else:
