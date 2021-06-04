@@ -28,15 +28,15 @@ def create_sampling_config():
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Tool to setup your folder for either a new run or a new sampling config."
+        description="Tool to setup either a new scenario folder or a new sampling config."
     )
     parser.add_argument(
         "type",
-        choices=["run", "sampling_config"],
-        help="Pick between setting up a new run or a sampling strategy.",
+        choices=["scenario", "sampling_config"],
+        help="Pick between setting up a new scenario folder or a sampling strategy.",
     )
     args = parser.parse_args()
-    if args.type == "run":
+    if args.type == "scenario":
         create_run_config()
     elif args.type == "sampling_config":
         create_sampling_config()
