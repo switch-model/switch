@@ -742,6 +742,10 @@ def graph(tools):
         color=tools.get_colors(len(capacity_df.index)),
     )
 
+    graph_buildout_per_tech(tools, gen_cap)
+
+
+def graph_buildout_per_tech(tools, gen_cap):
     # ---------------------------------- #
     # gen_buildout_per_tech.png          #
     # ---------------------------------- #
@@ -774,7 +778,11 @@ def graph(tools):
     ].drop_duplicates()
     # Filter out unlimited generation
     df = df[~df["gen_capacity_limit_mw"].isna()]
-    # Sum the GenCapacity and gen_capacity_limit_mw for all projects in the same period and type
+    if (
+        df.size == 0
+    ):  # in this case there are no projects that have a limit on build capacity
+        return
+        # Sum the GenCapacity and gen_capacity_limit_mw for all projects in the same period and type
     df = df.groupby(["PERIOD", "gen_type"]).sum()
     # Create a dataframe that's the division of the Capacity and the capacity limit
     df = (df["GenCapacity"] / df["gen_capacity_limit_mw"]).unstack()

@@ -589,6 +589,9 @@ def graph(tools):
     for quarter in range(1, 5):
         # get the dispatch for that quarter
         quarter_dispatch = dispatch[dispatch["quarter"] == quarter]
+        # Skip if no timepoints in quarter
+        if len(quarter_dispatch) == 0:
+            continue
         # Make it into a proper dataframe
         quarter_dispatch = quarter_dispatch.pivot(
             index="hour", columns="gen_type", values="DispatchGen_MW"
