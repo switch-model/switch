@@ -816,9 +816,15 @@ def load_config():
         return yaml.load(f, Loader=yaml.FullLoader)
 
 
-def get_git_hash():
-    return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=os.path.dirname(__file__)).strip().decode("UTF-8")
+def run_command(command):
+    return subprocess.check_output(command.split(" "), cwd=os.path.dirname(__file__)).strip().decode("UTF-8")
 
+
+def get_git_hash():
+    return run_command("git rev-parse HEAD")
+
+def get_git_branch():
+    return run_command("git rev-parse --abbrev-ref HEAD")
 
 def create_info_file(output_path, run_time=None):
     content = ""
@@ -826,8 +832,9 @@ def create_info_file(output_path, run_time=None):
     content += f"End time: {datetime.datetime.now().strftime('%H:%M:%S')}\n"
     try:
         content += f"SWITCH Git Commit Hash: {get_git_hash()}\n"
+        content += f"SWITCH Git Branch: {get_git_branch()}\n"
     except:
-        print("Warning: failed to get commit hash for info.txt.")
+        print("Warning: failed to get commit hash or branch for info.txt.")
     if run_time is not None:
         content += f"Run time: {run_time}\n"
     content += f"Host name: {platform.node()}\n"
