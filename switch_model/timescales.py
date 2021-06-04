@@ -11,6 +11,7 @@ from __future__ import division
 import os
 from pyomo.environ import *
 from . import utilities
+from .reporting import write_table
 
 hours_per_year = 8766
 
@@ -459,4 +460,18 @@ def load_inputs(mod, switch_data, inputs_dir):
         select=("timepoint_id", "timestamp", "timeseries"),
         index=mod.TIMEPOINTS,
         param=(mod.tp_timestamp, mod.tp_ts),
+    )
+
+
+def post_solve(mod, outdir):
+    """
+    Output timepoints.csv where each row contains a timepoint,
+    its duration per year, its corresponding timeseries and period
+    """
+    write_table(
+        mod,
+        mod.TIMEPOINTS,
+        output_file=os.path.join(outdir, "timepoints.csv"),
+        headings=("timepoint", "hours_per_year", "timeseries", "period"),
+        values=lambda m, t: (t, m.tp_weight_in_year[t], m.tp_ts[t], m.tp_period[t]),
     )
