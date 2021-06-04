@@ -1,4 +1,4 @@
-import importlib
+import importlib, traceback
 import os
 import sys
 from typing import List, Dict, Tuple
@@ -204,8 +204,11 @@ class GraphTools:
             # Call the graphing function
             try:
                 func_graph(self)
-            except Exception as e:
-                print(f"Failed to graph. Error: {e}.")
+            except Exception:
+                print(
+                    f"ERROR: Module threw an Exception while running graph(). "
+                    f"Moving on to the next module.\n{traceback.format_exc()}"
+                )
         self.active_scenario = None  # Reset to none to avoid accidentally selecting data when not graphing per scenario
 
         # Save the graphs
