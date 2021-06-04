@@ -189,7 +189,7 @@ def main(args=None, return_model=False, return_instance=False):
                 print(f"Post solve processing completed in {timer.step_time_as_str()}.")
 
         if instance.options.graph:
-            graph.main(args="")
+            graph.main(args=["--overwrite"])
 
         total_time = start_to_end_timer.step_time_as_str()
         create_info_file(getattr(instance.options, "outputs_dir", "outputs"), run_time=total_time)
