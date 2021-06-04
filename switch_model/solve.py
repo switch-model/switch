@@ -725,7 +725,7 @@ def add_recommended_args(argparser):
 
 
 def parse_recommended_args(args):
-    argparser = _ArgumentParser(add_help=False)
+    argparser = _ArgumentParser(add_help=False, allow_abbrev=False)
     add_recommended_args(argparser)
     options = argparser.parse_known_args(args)[0]
 
