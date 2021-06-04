@@ -300,3 +300,15 @@ def post_solve(instance, outdir):
             for component in m.Zone_Power_Withdrawals
         ),
     )
+
+
+def graph(tools):
+    load_balance = tools.get_dataframe(csv="load_balance")
+    # TODO weight per timepoint weight
+    # TODO merge period
+    ax = tools.get_new_axes(
+        "energy_balance_duals", title="Energy balance duals per period"
+    )
+    load_balance["normalized_energy_balance_duals_dollar_per_mwh"].plot.box(
+        ax=ax, xlabel="Period", ylabel="Energy balance duals ($/MWh)"
+    )
