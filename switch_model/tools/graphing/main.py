@@ -139,10 +139,13 @@ class GraphTools:
         # Set the style to Seaborn default style
         sns.set()
 
-    def _create_axes(self, out, title=None, size=(8, 5), note=None):
+    def _create_axes(self, out, size=(8, 5), **kwargs):
         """Create a set of axes"""
         num_subplot_columns = 1 if self.is_compare_mode else self.num_scenarios
-        fig, ax = plt.subplots(nrows=1, ncols=num_subplot_columns, sharey="row")
+        fig = GraphTools._create_figure(
+            out, size=(size[0] * num_subplot_columns, size[1]), **kwargs
+        )
+        ax = fig.subplots(nrows=1, ncols=num_subplot_columns, sharey="row")
 
         # If num_subplot_columns is 1, ax is not a list but we want it to be a list
         # so we replace ax with [ax]
@@ -154,10 +157,29 @@ class GraphTools:
             for i, a in enumerate(ax):
                 a.set_title(f"Scenario: {self.scenarios[i].name}")
 
+        return fig, ax
+
+    def get_new_axes(self, out, *args, **kwargs):
+        """Returns a set of matplotlib axes that can be used to graph."""
+        # If we're on the first scenario, we want to create the set of axes
+        if self.is_compare_mode or self.active_scenario == 0:
+            self.module_figures[out] = self._create_axes(out, *args, **kwargs)
+
+        # Fetch the axes in the (fig, axs) tuple then select the axis for the active scenario
+        return self.module_figures[out][1][
+            0 if self.is_compare_mode else self.active_scenario
+        ]
+
+    @staticmethod
+    def _create_figure(
+        out, title=None, note=None, size=None, xlabel=None, ylabel=None, **kwargs
+    ):
+        fig = plt.figure(**kwargs)
+
         # Set a title for the figure
         if title is None:
             print(
-                f"Warning: no title set for graph {out}.csv. Specify 'title=' in get_new_axes()"
+                f"Warning: no title set for graph {out}.csv. Specify 'title=' in get_new_axes() or get_new_figure()."
             )
         else:
             fig.suptitle(title)
@@ -168,21 +190,26 @@ class GraphTools:
             )
 
         # Set figure size based on numbers of subplots
-        fig.set_size_inches(size[0] * num_subplot_columns, size[1])
+        if size is not None:
+            fig.set_size_inches(size[0], size[1])
 
-        # Save the axes to module_figures
-        self.module_figures[out] = (fig, ax)
+        if xlabel is not None:
+            fig.text(0.5, 0.01, xlabel, ha="center")
+        if ylabel is not None:
+            fig.text(0.01, 0.5, ylabel, va="center", rotation="vertical")
 
-    def get_new_axes(self, out, *args, **kwargs):
-        """Returns a set of matplotlib axes that can be used to graph."""
-        # If we're on the first scenario, we want to create the set of axes
-        if self.is_compare_mode or self.active_scenario == 0:
-            self._create_axes(out, *args, **kwargs)
+        return fig
 
-        # Fetch the axes in the (fig, axs) tuple then select the axis for the active scenario
-        return self.module_figures[out][1][
-            0 if self.is_compare_mode else self.active_scenario
-        ]
+    def get_new_figure(self, out, *args, **kwargs):
+        # Append the scenario name to the file name
+        if self.is_compare_mode:
+            out += self.scenarios[self.active_scenario].name
+        # Create the figure
+        fig = self._create_figure(out, *args, **kwargs)
+        # Save it to the outputs
+        self.module_figures[out] = (fig, None)
+        # Return the figure
+        return fig
 
     def get_dataframe(self, *args, **kwargs):
         """Returns the dataframe for the active scenario"""
@@ -217,7 +244,7 @@ class GraphTools:
         self._save_plots()
 
     def _save_plots(self):
-        for name, (fig, axs) in self.module_figures.items():
+        for name, (fig, _) in self.module_figures.items():
             fig.savefig(os.path.join(self.graph_dir, name), bbox_inches="tight")
         # Reset our module_figures dict
         self.module_figures = {}
@@ -240,7 +267,7 @@ class GraphTools:
         # Read the tech_colors and tech_types csv files.
         try:
             tech_types = self.get_dataframe(
-                csv="tech_types", folder=self.folders.INPUTS
+                csv="graph_tech_types", folder=self.folders.INPUTS
             )
         except:
             df = df.copy()
@@ -264,7 +291,7 @@ class GraphTools:
         """
         try:
             tech_colors = self.get_dataframe(
-                csv="tech_colors", folder=self.folders.INPUTS
+                csv="graph_tech_colors", folder=self.folders.INPUTS
             )
         except:
             return None
@@ -278,6 +305,148 @@ class GraphTools:
             return {
                 r["gen_type"]: r["color"] for _, r in filtered_tech_colors.iterrows()
             }
+
+    def add_timestamp_info(self, df, timestamp_col="timestamp"):
+        """
+        Adds two time dimensions to the table as well as the timestamp weight.
+        Can read the dimensions from graph_timestamps.csv.
+        graph_timestamps.csv should have columns timestamp,time_1,time_2,weight
+        """
+        try:
+            timestamp_mapping = self.get_dataframe(
+                csv="graph_timestamp_map", folder=self.folders.INPUTS
+            )
+        except FileNotFoundError:
+            timepoints = self.get_dataframe(
+                csv="timepoints", folder=self.folders.INPUTS
+            )
+            timeseries = self.get_dataframe(
+                csv="timeseries", folder=self.folders.INPUTS
+            )
+
+            timepoints = timepoints.merge(
+                timeseries,
+                how="left",
+                left_on="timeseries",
+                right_on="TIMESERIES",
+                validate="many_to_one",
+            )
+
+            timestamp_mapping = timepoints[["timestamp", "ts_period", "timeseries"]]
+            timestamp_mapping.columns = ["timestamp", "time_row", "time_column"]
+        df = df.merge(
+            timestamp_mapping,
+            how="left",
+            left_on=timestamp_col,
+            right_on="timestamp",
+        )
+
+        # Add hour column
+        df["hour"] = (
+            pd.to_datetime(df[timestamp_col], format="%Y%m%d%H")
+            .dt.tz_localize("utc")
+            .dt.tz_convert("US/Pacific")
+            .dt.hour
+        )
+
+        return df
+
+    def graph_time_matrix(self, df, value_column, out, title, ylabel):
+        # Add the technology type column and filter out unneeded columns
+        df = self.add_gen_type_column(df)
+        # Keep only important columns
+        df = df[["gen_type", "timestamp", value_column]]
+        # Sum the values for all technology types and timepoints
+        df = df.groupby(["gen_type", "timestamp"], as_index=False).sum()
+        # Add the columns time_row and time_column
+        df = self.add_timestamp_info(df)
+        # Sum across all technologies that are in the same hour and quarter
+        df = df.groupby(
+            ["hour", "gen_type", "time_column", "time_row"], as_index=False
+        ).mean()
+
+        rows = df["time_row"].drop_duplicates()
+        nrows = min(len(rows), 6)
+        ncols = 0
+        for row in rows:
+            columns = df[df["time_row"] == row]["time_column"].drop_duplicates()
+            ncols = max(ncols, len(columns))
+        ncols = min(ncols, 8)
+        fig = self.get_new_figure(
+            out=out,
+            title=title,
+            size=(10 * ncols / nrows, 8),
+            ylabel=ylabel,
+            xlabel="Time of day (PST)",
+        )
+
+        ax = fig.subplots(nrows, ncols, sharey="row", sharex=False, squeeze=False)
+
+        # Sort the technologies by standard deviation to have the smoothest ones at the bottom of the stacked area plot
+        df_all = df.pivot_table(
+            index="hour", columns="gen_type", values=value_column, aggfunc=np.sum
+        )
+        ordered_columns = df_all.std().sort_values().index
+
+        legend = {}
+
+        # for each quarter...
+        for ri in range(nrows):
+            row = rows.iloc[ri]
+            df_row = df[df["time_row"] == row]
+            columns = df_row["time_column"].drop_duplicates()
+            for ci in range(ncols):
+                column = columns.iloc[ci]
+                current_ax = ax[ri][ci]
+                # get the dispatch for that quarter
+                sub_df = df_row.loc[df["time_column"] == column]
+                # Skip if no timepoints in quarter
+                if len(sub_df) == 0:
+                    continue
+                # Make it into a proper dataframe
+                sub_df = sub_df.pivot(
+                    index="hour", columns="gen_type", values=value_column
+                )
+                sub_df = sub_df.reindex(columns=ordered_columns)
+                # # Fill hours with no data with zero so x-axis doesn't skip hours
+                # all_hours = tools.np.arange(0, 24, 1)
+                # missing_hours = all_hours[~tools.np.isin(all_hours, sub_df.index)]
+                # sub_df = sub_df.append(tools.pd.DataFrame(index=missing_hours)).sort_index().fillna(0)
+                # Get axes
+
+                # Rename to make legend proper
+                sub_df = sub_df.rename_axis("Type", axis="columns")
+                # Plot
+                colors = self.get_colors()
+                if colors is None:
+                    sub_df.plot.area(
+                        ax=current_ax,
+                        stacked=True,
+                        xlabel=column,
+                        ylabel=row,
+                        xticks=[],
+                        legend=False,
+                    )
+                else:
+                    sub_df.plot.area(
+                        ax=current_ax,
+                        stacked=True,
+                        color=colors,
+                        xlabel=column,
+                        ylabel=row,
+                        xticks=[],
+                        legend=False,
+                    )
+                # Get all the legend labels and add them to legend dictionary.
+                # Since it's a dictionary, duplicates are dropped
+                handles, labels = current_ax.get_legend_handles_labels()
+                for i in range(len(handles)):
+                    legend[labels[i]] = handles[i]
+        # Remove space between subplot columns
+        fig.subplots_adjust(wspace=0)
+        # Add the legend
+        legend_pairs = legend.items()
+        fig.legend([h for _, h in legend_pairs], [l for l, _ in legend_pairs])
 
 
 def graph_scenarios(scenarios: List[Scenario], graph_dir):

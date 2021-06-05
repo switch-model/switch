@@ -471,7 +471,12 @@ def post_solve(mod, outdir):
     write_table(
         mod,
         mod.TIMEPOINTS,
-        output_file=os.path.join(outdir, "timepoints.csv"),
-        headings=("timepoint", "hours_per_year", "timeseries", "period"),
-        values=lambda m, t: (t, m.tp_weight_in_year[t], m.tp_ts[t], m.tp_period[t]),
+        output_file=os.path.join(outdir, "timestamps.csv"),
+        headings=("timestamp", "hours_per_year", "timeseries", "period"),
+        values=lambda m, t: (
+            m.tp_timestamp[t],
+            m.tp_weight_in_year[t],
+            m.tp_ts[t],
+            m.tp_period[t],
+        ),
     )

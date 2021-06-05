@@ -136,25 +136,7 @@ def connect(schema="switch"):
     return conn
 
 
-def create_csvs():
-    timer = StepTimer()
-
-    # Create command line tool, just provides help information
-    parser = argparse.ArgumentParser(
-        description="Write SWITCH input files from database tables.",
-        epilog="""
-        This tool will populate the inputs folder with the data from the PostgreSQL database.
-        config.yaml specifies the scenario parameters. 
-        The environment variable DB_URL specifies the url to connect to the database. """,
-    )
-    parser.add_argument("--skip-cf", default=False, action='store_true',
-                        help="Skip creation variable_capacity_factors.csv. Useful when debugging and one doesn't"
-                             "want to wait for the command.")
-    args = parser.parse_args()  # Makes switch get_inputs --help works
-
-    # Load values from config.yaml
-    full_config = load_config()
-    switch_to_input_dir(full_config)
+def query_db(full_config, skip_cf):
     config = full_config["get_inputs"]
     scenario_id = config["scenario_id"]
 
@@ -644,7 +626,7 @@ def create_csvs():
     # Pyomo will raise an error if a capacity factor is defined for a project on a timepoint when it is no longer operational (i.e. Canela 1 was built on 2007 and has a 30 year max age, so for tp's ocurring later than 2037, its capacity factor must not be written in the table).
 
     # variable_capacity_factors.csv
-    if not args.skip_cf:
+    if not skip_cf:
         write_csv_from_query(
             db_cursor,
             "variable_capacity_factors",
@@ -901,15 +883,6 @@ def create_csvs():
     ca_policies(db_cursor, ca_policies_scenario_id, study_timeframe_id)
     create_modules_txt()
 
-    graph_config = os.path.join(os.path.dirname(__file__), "graph_config")
-    print("tech_colors.csv...")
-    shutil.copy(os.path.join(graph_config, "tech_colors.csv"), "tech_colors.csv")
-    print("tech_types.csv...")
-    shutil.copy(os.path.join(graph_config, "tech_types.csv"), "tech_types.csv")
-
-    print(f"\nScript took {timer.step_time_as_str()} seconds to build input tables.")
-
-
 def ca_policies(db_cursor, ca_policies_scenario_id, study_timeframe_id):
     if ca_policies_scenario_id is None:
         return
@@ -968,12 +941,62 @@ def create_modules_txt():
 
 def post_process():
     # No post-process at the moment
+    graph_config = os.path.join(os.path.dirname(__file__), "graph_config")
+    print("graph_tech_colors.csv...")
+    shutil.copy(os.path.join(graph_config, "graph_tech_colors.csv"), "graph_tech_colors.csv")
+    print("graph_tech_types.csv...")
+    shutil.copy(os.path.join(graph_config, "graph_tech_types.csv"), "graph_tech_types.csv")
+    create_graph_timestamp_map()
+
+
+def create_graph_timestamp_map():
+    print("graph_timestamp_map.csv...")
+    timepoints = pd.read_csv("timepoints.csv", index_col=False)
+    timeseries = pd.read_csv("timeseries.csv", index_col=False)
+
+    timepoints = timepoints.merge(
+        timeseries,
+        how='left',
+        left_on='timeseries',
+        right_on='TIMESERIES',
+        validate="many_to_one"
+    )
+
+    timepoints["time_column"] = timepoints["timeseries"].apply(lambda c: c.partition("-")[2])
+
+    timestamp_map = timepoints[["timestamp", "ts_period", "time_column"]]
+    timestamp_map.columns = ["timestamp", "time_row", "time_column"]
+    timestamp_map.to_csv("graph_timestamp_map.csv", index=False)
+
     pass
 
 
 def main():
-    create_csvs()
+    timer = StepTimer()
+
+    # Create command line tool, just provides help information
+    parser = argparse.ArgumentParser(
+        description="Write SWITCH input files from database tables.",
+        epilog="""
+                This tool will populate the inputs folder with the data from the PostgreSQL database.
+                config.yaml specifies the scenario parameters. 
+                The environment variable DB_URL specifies the url to connect to the database. """,
+    )
+    parser.add_argument("--skip-cf", default=False, action='store_true',
+                        help="Skip creation variable_capacity_factors.csv. Useful when debugging and one doesn't"
+                             "want to wait for the command.")
+    parser.add_argument("--only-post", default=False, action='store_true',
+                        help="Only run the post solve functions (don't query db)")
+    args = parser.parse_args()  # Makes switch get_inputs --help works
+
+    # Load values from config.yaml
+    full_config = load_config()
+    switch_to_input_dir(full_config)
+
+    if not args.only_post:
+        query_db(full_config, skip_cf=args.skip_cf)
     post_process()
+    print(f"\nScript took {timer.step_time_as_str()} seconds to build input tables.")
 
 
 if __name__ == "__main__":
