@@ -229,8 +229,10 @@ def post_solve(model, outdir):
                 and period in GHG["Enforce_Carbon_Cap"]
                 and GHG["Enforce_Carbon_Cap"][period] in model.dual
             ):
+                # Note: We multiply by 1000 since our objective function is in terms of thousands of dollars
                 row.append(
                     model.dual[GHG["Enforce_Carbon_Cap"][period]]
+                    * 1000
                     / model.bring_annual_costs_to_base_year[period]
                 )
             else:
