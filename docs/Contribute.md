@@ -22,10 +22,11 @@ For more information read [this excellent guide](https://guides.github.com/intro
 
 Before contributing code, it's important to test your changes.
 
-Switch doesn't have an excellent way to test its code so you mainly
-need to be careful and compare the results before and after your changes
-to see if your change is working as expected. Make use of `switch graph`
-and `switch compare` to see how your changes have altered the results.
+The most important is to run `switch compare` between the previous stable version and the new version
+to ensure there's no unexpected change. Beyond that, switch doesn't have an 
+excellent way to test its code so you mainly need to be careful and compare 
+the results before and after your changes to see if your change is working 
+as expected. 
 
 Switch does however have a small test suite which you can run by calling
 `python run_tests.py` in the switch root directory. This will ensure

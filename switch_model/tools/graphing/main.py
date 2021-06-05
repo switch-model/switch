@@ -202,8 +202,8 @@ class GraphTools:
 
     def get_new_figure(self, out, *args, **kwargs):
         # Append the scenario name to the file name
-        if self.is_compare_mode:
-            out += self.scenarios[self.active_scenario].name
+        if len(self.scenarios) > 1:
+            out += "_" + self.scenarios[self.active_scenario].name
         # Create the figure
         fig = self._create_figure(out, *args, **kwargs)
         # Save it to the outputs
