@@ -365,7 +365,7 @@ class GraphTools:
             ["hour", "gen_type", "time_column", "time_row"], as_index=False
         ).mean()
 
-        rows = df["time_row"].drop_duplicates()
+        rows = df["time_row"].drop_duplicates().sort_values()
         nrows = min(len(rows), 6)
         ncols = 0
         for row in rows:
@@ -394,7 +394,7 @@ class GraphTools:
         for ri in range(nrows):
             row = rows.iloc[ri]
             df_row = df[df["time_row"] == row]
-            columns = df_row["time_column"].drop_duplicates()
+            columns = df_row["time_column"].drop_duplicates().sort_values()
             for ci in range(ncols):
                 column = columns.iloc[ci]
                 current_ax = ax[ri][ci]
