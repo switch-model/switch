@@ -75,7 +75,9 @@ class GraphData:
         """Loads the dataframe into self.dfs[csv]"""
         df_all_scenarios: List[pd.DataFrame] = []
         for i, scenario in enumerate(self.scenarios):
-            df = pd.read_csv(os.path.join(scenario.path, folder, csv + ".csv"))
+            df = pd.read_csv(
+                os.path.join(scenario.path, folder, csv + ".csv"), index_col=False
+            )
             df["scenario_name"] = scenario.name
             df["scenario_index"] = i
             df_all_scenarios.append(df)
