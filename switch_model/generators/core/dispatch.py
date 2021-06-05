@@ -475,69 +475,40 @@ def post_solve(instance, outdir):
 
 
 def graph(tools):
+    graph_hourly_dispatch(tools)
     graph_curtailment_per_tech(tools)
-    graph_curtailment_per_hour(tools)
+    graph_hourly_curtailment(tools)
     graph_total_dispatch(tools)
-    graph_dispatch(tools)
 
 
-def graph_dispatch(tools):
-    # --------------------- #
-    # dispatch.png          #
-    # --------------------- #
+def graph_hourly_dispatch(tools):
+    """
+    Generates a matrix of hourly dispatch plots for each time region
+    """
     # Read dispatch.csv
     df = tools.get_dataframe(csv='dispatch')
-    # Add the technology type column and filter out unneeded columns
-    df = tools.add_gen_type_column(df)
-    # Weight the dispatch based on the weight of the timepoint and convert to GW
-    df["weighted_dispatch_GW"] = df["DispatchGen_MW"] * df["tp_weight_in_year_hrs"] / 8760000
-    # Keep only important columns
-    df = df[["gen_type", "timestamp", "weighted_dispatch_GW"]]
-    # Sum the DispatchGen_MW for all technology types and timepoints
-    df = df.groupby(["gen_type", "timestamp"], as_index=False).sum()
-    # Create a datetime column with the datetime format
-    # dispatch["datetime"] = tools.pd.to_datetime(dispatch["timestamp"], format="%Y%m%d%H")
-    df.index = tools.pd.to_datetime(df["timestamp"], format="%Y%m%d%H")
-    # Keep only the last year
-    last_year = max(df.index.year)
-    df = df.loc[df.index.year == last_year]
-    # Convert to time zone
-    df = df.tz_localize("utc").tz_convert("US/Pacific")
-    # Add an hour and quarter column
-    df["hour"] = df.index.hour
-    df["quarter"] = df.index.quarter
-    # Sum across all technologies that are in the same hour and quarter
-    df = df.groupby(["hour", "gen_type", "quarter"], as_index=False).sum()[
-        ["quarter", "hour", "gen_type", "weighted_dispatch_GW"]]
-    # for each quarter...
-    for quarter in range(1, 5):
-        # get the dispatch for that quarter
-        quarter_dispatch = df[df['quarter'] == quarter]
-        # Skip if no timepoints in quarter
-        if len(quarter_dispatch) == 0:
-            continue
-        # Make it into a proper dataframe
-        quarter_dispatch = quarter_dispatch.pivot(index='hour', columns='gen_type', values='weighted_dispatch_GW')
-        # Sort the technologies by standard deviation to have the smoothest ones at the bottom of the stacked area plot
-        quarter_dispatch.loc["std"] = quarter_dispatch.std()
-        quarter_dispatch = quarter_dispatch.sort_values(by='std', axis=1)
-        quarter_dispatch = quarter_dispatch[:-1]
-        # Fill hours with no data with zero so x-axis doesn't skip hours
-        all_hours = tools.np.arange(0, 24, 1)
-        missing_hours = all_hours[~tools.np.isin(all_hours, quarter_dispatch.index)]
-        quarter_dispatch = quarter_dispatch.append(tools.pd.DataFrame(index=missing_hours)).sort_index().fillna(0)
-        # Get axes
-        ax = tools.get_new_axes(
-            out=f"dispatch-q{quarter}",
-            title=f"Average daily dispatch during Quarter {quarter} of {last_year}",
-            note="Spikiness appears if different sampling strategies exist and don't occupy the same hour."
-                 "\nTimepoints are weighted based on their yearly weight."
-        )
-        # Rename to make legend proper
-        quarter_dispatch = quarter_dispatch.rename_axis("Type", axis='columns')
-        # Plot
-        quarter_dispatch.plot.bar(ax=ax, stacked=True, color=tools.get_colors(), xlabel="Hour of day (PST)",
-                                  ylabel="Average daily dispatch (GW)")
+    # Convert to GW
+    df["DispatchGen_GW"] = df["DispatchGen_MW"] / 1000
+    # Plot Dispatch
+    tools.graph_time_matrix(df, "DispatchGen_GW",
+                      out="dispatch",
+                      title="Average daily dispatch",
+                      ylabel="Average daily dispatch (MW)")
+
+
+def graph_hourly_curtailment(tools):
+    # Read dispatch.csv
+    df = tools.get_dataframe(csv='dispatch')
+    # Keep only renewable
+    df = df[df["is_renewable"]]
+    # Plot curtailment
+    tools.graph_time_matrix(
+        df,
+        "Curtailment_MW",
+        out="curtailment",
+        title="Average daily curtailment",
+        ylabel="Average daily curtailment (MW)"
+    )
 
 
 def graph_total_dispatch(tools):
@@ -589,7 +560,8 @@ def graph_curtailment_per_tech(tools):
     df = df.groupby(["period", "gen_type"], as_index=False).sum()
     df["Percent Curtailed"] = df["Curtailment_MW"] / (df['DispatchGen_MW'] + df["Curtailment_MW"])
     df = df.pivot_table(index="period", columns="gen_type", values="Percent Curtailed")
-
+    if len(df) == 0:  # No dispatch from renewable technologies
+        return
     # Set the name of the legend.
     df = df.rename_axis("Type", axis='columns')
     # Get axes to graph on
@@ -602,62 +574,3 @@ def graph_curtailment_per_tech(tools):
     # ax.axhline(y=1, linestyle="--", color='b')
 
 
-def graph_curtailment_per_hour(tools):
-    # --------------------- #
-    # dispatch.png          #
-    # --------------------- #
-    # Read dispatch.csv
-    df = tools.get_dataframe(csv='dispatch')
-    # Keep only renewable
-    df = df[df["is_renewable"]]
-    # Add the technology type column and filter out unneeded columns
-    df = tools.add_gen_type_column(df)
-    # Weight the dispatch based on the weight of the timepoint and convert to GW
-    df["weighted_Curtailment_MW"] = df["Curtailment_MW"] * df["tp_weight_in_year_hrs"] / 8760
-    # Keep only important columns
-    df = df[["gen_type", "timestamp", "weighted_Curtailment_MW"]]
-    # Sum the DispatchGen_MW for all technology types and timepoints
-    df = df.groupby(["gen_type", "timestamp"], as_index=False).sum()
-    # Create a datetime column with the datetime format
-    # dispatch["datetime"] = tools.pd.to_datetime(dispatch["timestamp"], format="%Y%m%d%H")
-    df.index = tools.pd.to_datetime(df["timestamp"], format="%Y%m%d%H")
-    # Keep only the last year
-    last_year = max(df.index.year)
-    df = df.loc[df.index.year == last_year]
-    # Convert to time zone
-    df = df.tz_localize("utc").tz_convert("US/Pacific")
-    # Add an hour and quarter column
-    df["hour"] = df.index.hour
-    df["quarter"] = df.index.quarter
-    # Sum across all technologies that are in the same hour and quarter
-    df = df.groupby(["hour", "gen_type", "quarter"], as_index=False).sum()[
-        ["quarter", "hour", "gen_type", "weighted_Curtailment_MW"]]
-    # for each quarter...
-    for quarter in range(1, 5):
-        # get the dispatch for that quarter
-        quarter_dispatch = df[df['quarter'] == quarter]
-        # Skip if no timepoints in quarter
-        if len(quarter_dispatch) == 0:
-            continue
-        # Make it into a proper dataframe
-        quarter_dispatch = quarter_dispatch.pivot(index='hour', columns='gen_type', values='weighted_Curtailment_MW')
-        # Sort the technologies by standard deviation to have the smoothest ones at the bottom of the stacked area plot
-        quarter_dispatch.loc["std"] = quarter_dispatch.std()
-        quarter_dispatch = quarter_dispatch.sort_values(by='std', axis=1)
-        quarter_dispatch = quarter_dispatch[:-1]
-        # Fill hours with no data with zero so x-axis doesn't skip hours
-        all_hours = tools.np.arange(0, 24, 1)
-        missing_hours = all_hours[~tools.np.isin(all_hours, quarter_dispatch.index)]
-        quarter_dispatch = quarter_dispatch.append(tools.pd.DataFrame(index=missing_hours)).sort_index().fillna(0)
-        # Get axes
-        ax = tools.get_new_axes(
-            out=f"curtailment-q{quarter}",
-            title=f"Average daily curtailment during Quarter {quarter} of {last_year}",
-            note="Spikiness appears if different sampling strategies exist and don't occupy the same hour."
-                 "\nTimepoints are weighted based on their yearly weight."
-        )
-        # Rename to make legend proper
-        quarter_dispatch = quarter_dispatch.rename_axis("Type", axis='columns')
-        # Plot
-        quarter_dispatch.plot.bar(ax=ax, stacked=True, color=tools.get_colors(), xlabel="Hour of day (PST)",
-                                  ylabel="Average daily curtailment (MW)")
