@@ -649,6 +649,9 @@ def graph_buildout_per_tech(tools, gen_cap):
     gen_info = tools.get_dataframe(csv='generation_projects_info', folder=tools.folders.INPUTS)
     # Filter out projects with unlimited capacity since we can't consider those (coerce converts '.' to NaN)
     gen_info['gen_capacity_limit_mw'] = tools.pd.to_numeric(gen_info["gen_capacity_limit_mw"], errors='coerce')
+    # Set the type to be the same to ensure merge works
+    gen_cap["GENERATION_PROJECT"] = gen_cap["GENERATION_PROJECT"].astype(object)
+    gen_info["GENERATION_PROJECT"] = gen_info["GENERATION_PROJECT"].astype(object)
     # Add the capacity_limit to the gen_cap dataframe which has the total capacity at each period
     df = gen_cap.merge(
         gen_info[["GENERATION_PROJECT", "gen_capacity_limit_mw"]],
@@ -687,8 +690,9 @@ def graph_buildout_per_tech(tools, gen_cap):
              "be misleading.")
     # Plot
     colors = tools.get_colors()
-    # Add the same colors but with a * to support our legend.
-    colors.update({f"{k}*": v for k, v in colors.items()})
+    if colors is not None:
+        # Add the same colors but with a * to support our legend.
+        colors.update({f"{k}*": v for k, v in colors.items()})
     df.plot(ax=ax, kind='line', color=colors, xlabel='Period')
     # Set the y-axis to use percent
     ax.yaxis.set_major_formatter(tools.mplt.ticker.PercentFormatter(1.0))
