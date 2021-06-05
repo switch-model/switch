@@ -305,6 +305,9 @@ def define_dynamic_components(mod):
     # of the model. The scaling factor was determined using trial
     # and error and this tool https://github.com/staadecker/lp-analyzer.
     # Learn more by reading the documentation on Numerical Issues.
+    #
+    # WARNING: Dual values depend on this factor. We have already scaled the duals by a factor of 1000
+    # so if you change this scaling factor, make sure to change the dual value multiplier everywhere duals are used
     objective_func_scaling_factor = 1e-3
     mod.Minimize_System_Cost = Objective(
         rule=lambda m: m.SystemCost * objective_func_scaling_factor,
