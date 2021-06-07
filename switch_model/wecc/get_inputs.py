@@ -130,7 +130,8 @@ def create_csvs():
         "rps_scenario_id",
         "enable_dr",
         "enable_ev",
-        "ca_policies_scenario_id"
+        "ca_policies_scenario_id",
+        "enable_planning_reserves"
     ]
 
     db_cursor.execute(
@@ -163,6 +164,7 @@ def create_csvs():
     enable_dr = s_details[14]
     enable_ev = s_details[15]
     ca_policies_scenario_id = s_details[16]
+    enable_planning_reserves = s_details[17]
 
     print(f"Scenario: {scenario_id}: {name}.\n")
 
@@ -371,7 +373,7 @@ def create_csvs():
          FROM switch.transmission_lines
              join load_zone as t1 on(t1.load_zone_id=start_load_zone_id)
              join load_zone as t2 on(t2.load_zone_id=end_load_zone_id)
-         WHERE start_load_zone_id <= end_load_zone_id 
+         WHERE start_load_zone_id <= end_load_zone_id 	
          ORDER BY 2,3;
          """,
     )
@@ -517,7 +519,9 @@ def create_csvs():
             min_build_capacity as gen_min_build_capacity,
             is_cogen as gen_is_cogen,
             storage_efficiency as gen_storage_efficiency,
-            store_to_release_ratio as gen_store_to_release_ratio
+            store_to_release_ratio as gen_store_to_release_ratio,
+            -- hardcode all projects to be allowed as a reserve. might later make this more granular
+            1 as gen_can_provide_cap_reserves
             from generation_plant as t
             join load_zone as t2 using(load_zone_id)
             join generation_plant_scenario_member using(generation_plant_id)
@@ -630,7 +634,7 @@ def create_csvs():
     # units, but rarely or never for virtual hydro units that aggregate all hydro in a zone or
     # zone + watershed. Eventually, we may rethink this derating, but it is a reasonable
     # approximation for a large hydro fleet where plant outages are individual random events.
-    # Negative flows are replaced by 0.01.
+    # Negative flows are replaced by 0.
     write_csv_from_query(
         db_cursor,
         "hydro_timeseries",
@@ -638,11 +642,13 @@ def create_csvs():
         f"""
         select generation_plant_id as hydro_project, 
             {timeseries_id_select}, 
-            CASE WHEN hydro_min_flow_mw <= 0 THEN 0.01 
-            WHEN hydro_min_flow_mw > capacity_limit_mw*(1-forced_outage_rate) THEN capacity_limit_mw*(1-forced_outage_rate)
-            ELSE hydro_min_flow_mw END, 
-            CASE WHEN hydro_avg_flow_mw <= 0 THEN 0.01 ELSE
-            least(hydro_avg_flow_mw, (capacity_limit_mw) * (1-forced_outage_rate)) END as hydro_avg_flow_mw
+            CASE 
+                WHEN hydro_min_flow_mw <= 0 THEN 0 
+                ELSE least(hydro_min_flow_mw, capacity_limit_mw * (1-forced_outage_rate)) END, 
+            CASE 
+                WHEN hydro_avg_flow_mw <= 0 THEN 0 
+                ELSE least(hydro_avg_flow_mw, capacity_limit_mw * (1-forced_outage_rate)) END 
+            as hydro_avg_flow_mw
         from hydro_historical_monthly_capacity_factors
             join sampled_timeseries on(month = date_part('month', first_timepoint_utc) and year = date_part('year', first_timepoint_utc))
             join generation_plant using (generation_plant_id)
@@ -848,6 +854,8 @@ def create_csvs():
         )
 
     ca_policies(db_cursor, ca_policies_scenario_id, study_timeframe_id)
+    if enable_planning_reserves:
+        planning_reserves(db_cursor, time_sample_id, hydro_simple_scenario_id)
     create_modules_txt()
 
     print(f"\nScript took {timer.step_time_as_str()} seconds to build input tables.")
@@ -901,6 +909,63 @@ def ca_policies(db_cursor, ca_policies_scenario_id, study_timeframe_id):
 
     modules.append('switch_model.policies.CA_policies')
 
+
+def planning_reserves(db_cursor, time_sample_id, hydro_simple_scenario_id):
+    # reserve_capacity_value.csv specifies the capacity factors that should be used when calculating
+    # the reserves. By default, the capacity factor defaults to gen_max_capacity_factor for renewable
+    # projects with variable output and 1.0 for other plants. This is all fine except for hydropower
+    # where it doesn't make sense for the reserve capacity factor to be 1.0 since hydropower
+    # is limited by hydro_avg_flow_mw. Therefore, we override the default of 1.0 for hydropower
+    # generation and instead set the capacity factor as the hydro_avg_flow_mw / capacity_limit_mw.
+    write_csv_from_query(
+        db_cursor,
+        "reserve_capacity_value",
+        ["GENERATION_PROJECT","timepoint","gen_capacity_value"],
+        f"""
+        select 
+            generation_plant_id, 
+            raw_timepoint_id,
+            -- zero out capacity_factors that are less than 1e-5 in magnitude to simplify the model
+            case when abs(capacity_factor) < 1e-5 then 0 else capacity_factor end
+        from switch.sampled_timepoint as t
+        left join (
+            select generation_plant_id, year, month, hydro_avg_flow_mw / capacity_limit_mw as capacity_factor 
+            from switch.hydro_historical_monthly_capacity_factors
+            left join switch.generation_plant
+                using(generation_plant_id) 
+            where hydro_simple_scenario_id = {hydro_simple_scenario_id}
+        ) as h
+            on (
+                month = date_part('month', timestamp_utc) and
+                year = date_part('year', timestamp_utc)
+            )
+        where time_sample_id = {time_sample_id};
+        """
+    )
+
+    write_csv_from_query(
+        db_cursor,
+        "planning_reserve_requirement_zones",
+        ["PLANNING_RESERVE_REQUIREMENT", "LOAD_ZONE"],
+        """
+        SELECT
+            planning_reserve_requirement, load_zone
+        FROM switch.planning_reserve_zones
+        """
+    )
+
+    write_csv_from_query(
+        db_cursor,
+        "planning_reserve_requirements",
+        ["PLANNING_RESERVE_REQUIREMENT", "prr_cap_reserve_margin", "prr_enforcement_timescale"],
+        """
+        SELECT
+            planning_reserve_requirement, prr_cap_reserve_margin, prr_enforcement_timescale
+        FROM switch.planning_reserve_requirements
+        """
+    )
+
+    modules.append("switch_model.balancing.planning_reserves")
 
 def create_modules_txt():
     print("modules.txt...")

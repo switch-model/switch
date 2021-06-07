@@ -36,3 +36,4 @@ get_inputs:
   #  enable_dr:
   #  enable_ev:
   #  ca_policies_scenario_id:
+  #  enable_planning_reserves:
