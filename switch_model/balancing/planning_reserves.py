@@ -210,8 +210,15 @@ def define_components(model):
             return 1.0
 
     model.gen_capacity_value = Param(
-        model.GEN_TPS,
-        within=PercentFraction,
+        # Note we pass in the product of both sets rather than GEN_TPS
+        # since GEN_TPS only includes timepoints in periods where the generation
+        # is online (e.g. not retired). Passing in only capacity values
+        # where the generation is online would complicate our get_inputs.py so instead we
+        # accept all parameters and are ok if they are not all used.
+        model.GENERATION_PROJECTS * model.TIMEPOINTS,
+        # Previously domain was PercentFraction however we want to allow renewable factors greater than 1
+        # or less than 0.
+        within=Reals,
         default=gen_capacity_value_default,
         validate=lambda m, value, g, t: (
             value == 0.0 if not m.gen_can_provide_cap_reserves[g] else True
