@@ -15,12 +15,14 @@ from switch_model.utilities import query_yes_no
 from switch_model.wecc.utilities import connect
 from .utils import insert_to_db, timeit
 from .sampler_peak_median import peak_median
+from .sampler_year_round import sample_year_round
 
 # The schema is general for the script
 SCHEMA = "switch"
 
 sampling_methods = {
-    "peak_median": peak_median
+    "peak_median": peak_median,
+    "year_round": sample_year_round
 }
 
 

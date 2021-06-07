@@ -23,9 +23,9 @@ sampling:
   name: Peak and median
   description: >
     Template sampling config.
-  method: peak_median # Another option is 365
-  # Only specify when using the 365 method
-  365:
+  method: peak_median # Another option is year_round
+  # Only specify when using the year_round
+  year_round:
     # Time delta between timepoints.
     # Must be a divisor or 24.
     # Therefore options are 1, 2, 3, 4, 6, 8, 12
@@ -33,7 +33,7 @@ sampling:
     hours_per_tp: 4
     # Hour of the first timepoint (UTC).
     # Must be less than hours_per_tp. Recommended is 0.
-    start_hour: 0
+    first_hour: 0
   # Only include when using the peak_median method
   peak_median:
     number_tps: 6 # Number of timepoints in a timeseries
