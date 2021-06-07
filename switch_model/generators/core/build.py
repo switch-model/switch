@@ -185,6 +185,7 @@ def define_components(mod):
     - Allow early capacity retirements with savings on fixed O&M
 
     """
+    # This set is defined by generation_projects_info.csv
     mod.GENERATION_PROJECTS = Set()
     mod.gen_dbid = Param(mod.GENERATION_PROJECTS, default=lambda m, g: g)
     mod.gen_tech = Param(mod.GENERATION_PROJECTS)
@@ -310,8 +311,10 @@ def define_components(mod):
         initialize=lambda m, f: m.GENS_BY_ENERGY_SOURCE[f]
     )
 
+    # This set is defined by gen_build_predetermined.csv
     mod.PREDETERMINED_GEN_BLD_YRS = Set(
         dimen=2)
+    # This set is defined by gen_build_costs.csv
     mod.GEN_BLD_YRS = Set(
         dimen=2,
         validate=lambda m, g, bld_yr: (

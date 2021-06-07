@@ -1,0 +1,197 @@
+---
+title: "analyze variable cap factor data baseline"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r Removing solar and wind variable capacity factors from var cap factors table after retirement year of existing renewable generators}
+
+
+library(tidyverse)
+library(lubridate)
+library(stringr)
+library(RColorBrewer)
+library(httr)
+
+#high level directory
+#MAC
+directory <- "/Users/juliaszinai/Dropbox/Linux_work/switch/WECC/"
+
+setwd(directory)
+
+#read in variable_CF
+variable_cf <-read.table(file=paste(directory,'id_171_WECC_2020_baseline_noWEAP/inputs/variable_capacity_factors.tab',sep=""), sep="\t", header=TRUE)
+
+#count the number of time points per generation_project, should all be the same (576)
+
+variable_cf_tp_counts <- variable_cf %>% group_by(GENERATION_PROJECT) %>% summarise(n = n())
+
+#read in gen project list
+generation_plant <-read.table(file=paste(directory,'id_171_WECC_2020_baseline_noWEAP_no_retired_vcf/inputs/generation_projects_info.tab',sep=""), sep="\t", header=TRUE)
+
+#join gen plant with vcf
+gen_plant_vcf <- variable_cf %>% left_join(dplyr::select(generation_plant, GENERATION_PROJECT, gen_tech, gen_max_age, gen_energy_source, gen_is_variable) , by = c("GENERATION_PROJECT"="GENERATION_PROJECT"))
+
+# #filter the negative variable_cf
+# gen_plant_vcf_negative <- gen_plant_vcf %>% filter(gen_max_capacity_factor < 0)
+# 
+# table(gen_plant_vcf_negative$gen_tech)
+# 
+# table(gen_plant_vcf$gen_tech)
+
+#read in the already built (existing) generators
+pre_deter_gen_plant <-read.table(file=paste(directory,'id_171_WECC_2020_baseline_noWEAP_no_retired_vcf/inputs/gen_build_predetermined.tab',sep=""), sep="\t", header=TRUE)
+
+#checking how many build years there are per plant id
+pre_deter_build_year_counts <- pre_deter_gen_plant %>% group_by(GENERATION_PROJECT) %>% summarise(n = n())
+
+#finding the maximum (latest) build_year by plant
+pre_deter_max_build_year <- pre_deter_gen_plant %>% group_by(GENERATION_PROJECT) %>% summarize(build_year_max = max(build_year), total_gen_predetermined_cap = sum(gen_predetermined_cap))
+
+pre_deter_max_build_year_counts <- pre_deter_max_build_year %>% group_by(GENERATION_PROJECT) %>% summarise(n = n())
+
+#join the latest build_year by plant with the variable cap factors
+gen_plant_vcf_pre_deter <- left_join(gen_plant_vcf, pre_deter_max_build_year, by = c("GENERATION_PROJECT"="GENERATION_PROJECT"))
+
+#read in time points table that has timestamps
+timepoints <-read.table(file=paste(directory,'id_171_WECC_2020_baseline_noWEAP_no_retired_vcf/inputs/timepoints.tab',sep=""), sep="\t", header=TRUE)
+
+#read in the periods to get the period start and end years, because the data should be kept if the period start year < retirement year, not the period mid_point year 
+#(for example, period start year is 2016 for period 2020, which runs from 2016 to 2025)
+#read in periods table that has period start and end years and period year (ie 2020)
+periods <-read.table(file=paste(directory,'id_171_WECC_2020_baseline_noWEAP_no_retired_vcf/inputs/periods.tab',sep=""), sep="\t", header=TRUE)
+
+#read in timeseries table that has the period corresponding to the timeseries that is in the hydro timeseries table
+timeseries <-read.table(file=paste(directory,'id_171_WECC_2020_baseline_noWEAP_no_retired_vcf/inputs/timeseries.tab',sep=""), sep="\t", header=TRUE)
+
+#join the timeseries table with the periods to get start and end year
+timeseries_period <- left_join(timeseries, periods, c("ts_period" = "INVESTMENT_PERIOD"))
+
+#join the timepoints with the timeseries and period data
+timepoints_period <- timepoints %>% left_join(dplyr::select(timeseries_period, TIMESERIES, ts_period, period_start, period_end), by = c("timeseries" = "TIMESERIES"))
+
+#join time stamps with variable cap factors, max age from gen_plant, and build_year from pre_determined table
+gen_plant_vcf_pre_deter_ts <- left_join(gen_plant_vcf_pre_deter, timepoints_period, by = c("timepoint" = "timepoint_id"))
+
+# gen_plant_vcf_pre_deter_ts$timepoint_year <- as.numeric(substr(gen_plant_vcf_pre_deter_ts$timestamp, 1, 4))
+
+#calculating retirement year as latest build year + max age
+gen_plant_vcf_pre_deter_ts$retire_year <- gen_plant_vcf_pre_deter_ts$gen_max_age + gen_plant_vcf_pre_deter_ts$build_year_max
+
+#flag time points as 1 if the period start year (not the timeseries year) is after retirement year
+gen_plant_vcf_pre_deter_ts$cf_after_retirement <- ifelse(gen_plant_vcf_pre_deter_ts$period_start < gen_plant_vcf_pre_deter_ts$retire_year, 0, 1)
+
+#categorizing the candidate generators (with no retirement year) as 0 on after retirement
+gen_plant_vcf_pre_deter_ts$cf_after_retirement2 <- ifelse(is.na(gen_plant_vcf_pre_deter_ts$cf_after_retirement), 0, gen_plant_vcf_pre_deter_ts$cf_after_retirement)
+
+#checking counts of retired time points by plant
+gen_plant_vcf_retire_counts <- gen_plant_vcf_pre_deter_ts %>% group_by(GENERATION_PROJECT, cf_after_retirement2) %>% summarise(n = n())
+#checking total counts of retired time points
+gen_plant_vcf_retire_counts2 <- gen_plant_vcf_pre_deter_ts %>% group_by(cf_after_retirement2) %>% summarise(n = n())
+
+#for the time points with variable cap factors that happen after each generator's retirement year, set the variable capacity factor to 0
+variable_capacity_factors_no_retire <- gen_plant_vcf_pre_deter_ts 
+
+variable_capacity_factors_no_retire$gen_max_capacity_factor <- ifelse(variable_capacity_factors_no_retire$cf_after_retirement2 == 1, 0, variable_capacity_factors_no_retire$gen_max_capacity_factor)
+
+# #filter out the time points with variable cap factors that happen after each generator's retirement year
+# variable_capacity_factors_no_retire <- gen_plant_vcf_pre_deter_ts %>% filter(cf_after_retirement2 != 1)
+
+#just selecting the original columns and output as tab file 
+variable_capacity_factors_no_retire_clean <- variable_capacity_factors_no_retire %>% dplyr::select(GENERATION_PROJECT, timepoint, gen_max_capacity_factor)
+
+write.table(variable_capacity_factors_no_retire_clean, paste(directory,'id_171_WECC_2020_baseline_noWEAP_no_retired_vcf/inputs/variable_capacity_factors_no_retire_clean.tab',sep=""), row.names=FALSE, col.names=TRUE, quote=FALSE, sep="\t")
+
+
+```
+
+
+
+```{r Removing hydro capacity factors from hydro time series table after retirement year of existing hydropower}
+
+#high level directory
+#MAC
+directory <- "/Users/juliaszinai/Dropbox/Linux_work/switch/WECC/"
+
+setwd(directory)
+
+SWITCH_scenario <- "id_174_WECC_2020_baseline_AvgHydro_noCAES_no_WEAP"
+
+#read in hydro timeseries
+hydro_timeseries <-read.table(file=paste(directory, SWITCH_scenario, '/inputs/hydro_timeseries.tab',sep=""), sep="\t", header=TRUE)
+
+#make a copy of the original timeseries
+write.table(hydro_timeseries, paste(directory,SWITCH_scenario,'/inputs/hydro_timeseries_original.tab',sep=""), row.names=FALSE, col.names=TRUE, quote=FALSE, sep="\t")
+
+
+#count the number of time points per generation_project, should all be the same (3)
+hydro_timeseries_tp_counts <- hydro_timeseries %>% group_by(hydro_project) %>% summarise(n = n())
+
+#read in gen project list
+generation_plant <-read.table(file=paste(directory,SWITCH_scenario,'/inputs/generation_projects_info.tab',sep=""), sep="\t", header=TRUE)
+
+#join gen plant with hydro timeseries
+gen_plant_hydro <- hydro_timeseries %>% left_join(dplyr::select(generation_plant, GENERATION_PROJECT, gen_tech, gen_max_age, gen_energy_source, gen_is_variable) , by = c("hydro_project"="GENERATION_PROJECT"))
+
+#read in the already built (existing) generators
+pre_deter_gen_plant <-read.table(file=paste(directory,SWITCH_scenario,'/inputs/gen_build_predetermined.tab',sep=""), sep="\t", header=TRUE)
+
+#finding the maximum (latest) build_year by plant
+pre_deter_max_build_year <- pre_deter_gen_plant %>% group_by(GENERATION_PROJECT) %>% summarize(build_year_max = max(build_year), total_gen_predetermined_cap = sum(gen_predetermined_cap))
+
+pre_deter_max_build_year_counts <- pre_deter_max_build_year %>% group_by(GENERATION_PROJECT) %>% summarise(n = n())
+
+#join the latest build_year by plant with the hydro timeseries
+gen_plant_hydro_pre_deter <- left_join(gen_plant_hydro, pre_deter_max_build_year, by = c("hydro_project"="GENERATION_PROJECT"))
+
+#parse out the year from the timeseries for each plant
+gen_plant_hydro_pre_deter$timeseries_year <- as.numeric(substr(gen_plant_hydro_pre_deter$timeseries, 1, 4))
+
+#read in periods table that has period start and end years and period year (ie 2020)
+periods <-read.table(file=paste(directory,SWITCH_scenario,'/inputs/periods.tab',sep=""), sep="\t", header=TRUE)
+
+#read in timeseries table that has the period corresponding to the timeseries that is in the hydro timeseries table
+timeseries <-read.table(file=paste(directory,SWITCH_scenario,'/inputs/timeseries.tab',sep=""), sep="\t", header=TRUE)
+
+#join the timeseries table with the periods to get start and end year
+timeseries_period <- left_join(timeseries, periods, c("ts_period" = "INVESTMENT_PERIOD"))
+
+#join the period info by time series with the hydro time series
+gen_plant_hydro_pre_deter <- left_join(gen_plant_hydro_pre_deter, timeseries_period, by = c("timeseries" = "TIMESERIES"))
+
+#calculating retirement year as latest build year + max age
+gen_plant_hydro_pre_deter$retire_year <- gen_plant_hydro_pre_deter$gen_max_age + gen_plant_hydro_pre_deter$build_year_max
+
+#flag time points as 1 if the period start year (not the timeseries year) is after retirement year
+gen_plant_hydro_pre_deter$cf_after_retirement <- ifelse(gen_plant_hydro_pre_deter$period_start < gen_plant_hydro_pre_deter$retire_year, 0, 1)
+
+#categorizing the candidate generators (with no retirement year) as 0 on after retirement
+gen_plant_hydro_pre_deter$cf_after_retirement2 <- ifelse(is.na(gen_plant_hydro_pre_deter$cf_after_retirement), 0, gen_plant_hydro_pre_deter$cf_after_retirement)
+
+#checking counts of retired time points by plant
+gen_plant_hydro_retire_counts <- gen_plant_hydro_pre_deter %>% group_by(hydro_project, cf_after_retirement2) %>% summarise(n = n())
+#checking total counts of retired time points
+gen_plant_hydro_retire_counts2 <- gen_plant_hydro_pre_deter %>% group_by(cf_after_retirement2) %>% summarise(n = n())
+
+# #filter out the time points with hydro cap factors that happen after each generator's retirement year
+hydro_timeseries_no_retire <- gen_plant_hydro_pre_deter 
+
+hydro_timeseries_no_retire$hydro_min_flow_mw <- ifelse(hydro_timeseries_no_retire$cf_after_retirement2 == 1, 0, hydro_timeseries_no_retire$hydro_min_flow_mw)
+hydro_timeseries_no_retire$hydro_avg_flow_mw <- ifelse(hydro_timeseries_no_retire$cf_after_retirement2 == 1, 0, hydro_timeseries_no_retire$hydro_avg_flow_mw)
+
+# #filter out the time points with hydro cap factors that happen after each generator's retirement year
+# hydro_timeseries_no_retire <- gen_plant_hydro_pre_deter %>% filter(cf_after_retirement2 != 1)
+
+#just selecting the original columns and output as tab file 
+hydro_timeseries_no_retire_clean <- hydro_timeseries_no_retire %>% dplyr::select(hydro_project,	timeseries,	hydro_min_flow_mw,	hydro_avg_flow_mw)
+
+write.table(hydro_timeseries_no_retire_clean, paste(directory,SWITCH_scenario,'/inputs/hydro_timeseries_no_retire_clean.tab',sep=""), row.names=FALSE, col.names=TRUE, quote=FALSE, sep="\t")
+
+
+
+```
+
