@@ -12,7 +12,9 @@ def sample_year_round(
     hours_per_tp = method_config["hours_per_tp"]
     first_hour = method_config["first_hour"]
     last_hour = first_hour + 24 - hours_per_tp
-    tp_per_day = 24 / hours_per_tp
+    # Note later in the code we skip Feb 29th for consistency accross periods.
+    # Hence always 365 days.
+    tp_per_year = 24 * 365 / hours_per_tp
     time_delta = pd.Timedelta(hours_per_tp, unit="hours")
 
     timeseries = []
@@ -26,13 +28,12 @@ def sample_year_round(
         sampled_timeseries_id = i + 1  # sampled_timeseries_id start ids at 1 for consistency with db
         first_timepoint_utc = pd.Timestamp(year=label, month=1, day=1, hour=first_hour)
         last_timepoint_utc = pd.Timestamp(year=label, month=12, day=31, hour=last_hour)
-        num_days = 366 if first_timepoint_utc.is_leap_year else 365
         timeseries.append((
             sampled_timeseries_id,
-            period_id,  # period_id
+            period_id,
             f"{label}-year-round",  # ts_name
             hours_per_tp,
-            num_days * tp_per_day,  # number of timepoints per ts
+            tp_per_year,
             first_timepoint_utc,
             last_timepoint_utc,
             length_yrs  # scaling_to_period (In a 10 year period, there's 10 timeseries per period)
@@ -41,11 +42,14 @@ def sample_year_round(
         # Create the timepoints row
         timepoint_timestamp = first_timepoint_utc
         while timepoint_timestamp <= last_timepoint_utc:
-            timepoints.append((
-                sampled_timeseries_id,
-                period_id,
-                timepoint_timestamp
-            ))
+            # We skip Feb. 29th to ensure that all our periods have the same number of days.
+            # This guarantees consistency accross periods so that comparisons are accurate.
+            if not (timepoint_timestamp.month == 2 and timepoint_timestamp.day == 29):
+                timepoints.append((
+                    sampled_timeseries_id,
+                    period_id,
+                    timepoint_timestamp
+                ))
             timepoint_timestamp += time_delta
 
     timeseries = pd.DataFrame(timeseries, columns=[
