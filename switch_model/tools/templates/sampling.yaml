@@ -27,5 +27,4 @@ sampling:
   name: Peak and median
   method: peak_median
   description: >
-    Modified peak and median day.
-...
+    Template sampling config.
