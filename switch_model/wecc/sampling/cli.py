@@ -14,7 +14,7 @@ import yaml
 from switch_model.utilities import query_yes_no
 from switch_model.wecc.utilities import connect
 from .utils import insert_to_db, timeit
-from .peak_median import peak_median
+from .sampler_peak_median import peak_median
 
 # The schema is general for the script
 SCHEMA = "switch"
@@ -93,8 +93,7 @@ def main():
     name = sampling_config.get("name")
     method = sampling_config.get("method")
     description = sampling_config.get("description")
-    number_tps = sampling_config.get("number_tps")
-    demand_scenario_id = data["load"].get("scenario_id")
+    method_config = sampling_config[method]
 
     # arguments to pass to queries
     kwargs = {
@@ -160,13 +159,16 @@ def main():
     sampler = sampling_methods[method]
     # Get the sampled timeseries and sampled_tps rows
     timeseries, sampled_tps = sampler(
-        demand_scenario_id,
-        study_id,
-        time_sample_id,
-        number_tps,
-        period_values,
+        method_config=method_config,
+        period_values=period_values,
         **kwargs,
     )
+
+    # Add the time_sample_id and study_timeframe_id columns
+    timeseries["study_timeframe_id"] = study_id
+    timeseries["time_sample_id"] = time_sample_id
+    sampled_tps["study_timeframe_id"] = study_id
+    sampled_tps["time_sample_id"] = time_sample_id
 
     # Insert the sampled_timeseries into the database
     insert_to_db(
