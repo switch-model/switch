@@ -7,12 +7,18 @@ This script:
 import shutil
 import os
 import argparse
+from switch_model.utilities import query_yes_no
 
 
 def copy_template_to_workdir(template_name):
+    dest = os.path.join(os.getcwd(), template_name)
+
+    if os.path.exists(dest) and not query_yes_no(f"{template_name} already exists. Do you want to reset it?"):
+        return
+
     shutil.copyfile(
         os.path.join(os.path.dirname(__file__), f"templates/{template_name}"),
-        os.path.join(os.getcwd(), template_name)
+        dest
     )
 
 
