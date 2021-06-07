@@ -15,8 +15,6 @@ def sample_timepoints(
     load_data,
     dates,
     peak,
-    study_timeframe_id,
-    time_stample_id,
     period_id,
     number_tps: int = 6,
 ):
@@ -28,8 +26,6 @@ def sample_timepoints(
     columns_to_return = [
         "date",
         "raw_timepoint_id",
-        "study_timeframe_id",
-        "time_sample_id",
         "period_id",
         "timestamp_utc",
         "id",
@@ -66,8 +62,6 @@ def sample_timepoints(
     # Merge all the sampled timepoints
     data = pd.concat(sampled_timepoints_list)
     # Add info columns
-    data["study_timeframe_id"] = study_timeframe_id
-    data["time_sample_id"] = time_stample_id
     data["period_id"] = period_id
     data["id"] = "P" if peak else "M"
     data = data.reset_index()
@@ -78,9 +72,6 @@ def sample_timepoints(
 def _get_timeseries(
     data: pd.DataFrame,
     number_tps: int = 6,
-    study_timeframe_id=10,
-    time_stample_id=7,
-    # period_id=1,
     *args,
     **kwargs,
 ):
@@ -103,8 +94,6 @@ def _get_timeseries(
     df.loc[:, "name"] = df.timestamp_utc.dt.strftime(f"%Y-%m-%d") + "_" + identifier
     df.loc[:, "num_timepoints"] = number_tps
     df.loc[:, "hours_per_tp"] = int(24 / number_tps)
-    df.loc[:, "study_timeframe_id"] = study_timeframe_id
-    df.loc[:, "time_sample_id"] = time_stample_id
     # df.loc[:, "period_id"] = period_id
     df = _scaling(df, *args, **kwargs)
     df = df.sort_values("date").reset_index(drop=True)
@@ -130,14 +119,13 @@ def _scaling(data, scale_to_period=10, days_in_month=31, scaling_dict=None):
 
 
 def peak_median(
-    demand_scenario_id,
-    study_id,
-    time_sample_id,
-    number_tps,
     period_values,
+    method_config,
     db_conn=None,
     **kwargs,
 ):
+    number_tps = method_config.get("number_tps")
+    demand_scenario_id = method_config.get("demand_scenario_id")
 
     # Get load data
     df = get_load_data(demand_scenario_id, db_conn=db_conn, **kwargs)
@@ -165,8 +153,6 @@ def peak_median(
                 df_tmp,
                 peak_days,
                 number_tps=number_tps,
-                study_timeframe_id=study_id,
-                time_stample_id=time_sample_id,
                 period_id=period_id,
                 peak=True,
             )
@@ -176,8 +162,6 @@ def peak_median(
             sample_timepoints(
                 df_tmp,
                 median_days,
-                time_stample_id=time_sample_id,
-                study_timeframe_id=study_id,
                 period_id=period_id,
                 peak=False
             )
@@ -192,8 +176,6 @@ def peak_median(
     # Get the timeseries for the given timepoints
     timeseries = _get_timeseries(
         sampled_tps,
-        study_timeframe_id=study_id,
-        time_stample_id=time_sample_id,
         scale_to_period=scale_to_period,
     )
     # Filter out the id column
@@ -206,16 +188,12 @@ def peak_median(
     )
     columns = [
         "raw_timepoint_id",
-        "study_timeframe_id",
-        "time_sample_id",
         "sampled_timeseries_id",
         "period_id",
         "timestamp_utc",
     ]
     columns_ts = [
         "sampled_timeseries_id",
-        "study_timeframe_id",
-        "time_sample_id",
         "period_id",
         "name",
         "hours_per_tp",
