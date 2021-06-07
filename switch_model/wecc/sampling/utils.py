@@ -135,8 +135,10 @@ def read_from_db(
     query = f"""
         SELECT {columns} 
         FROM {schema}.{table_name}
-        WHERE {where_clause};
         """
+    if where_clause is not None:
+        query += f" WHERE {where_clause}"
+    query += ";"
 
     if verbose:
         print(query)
