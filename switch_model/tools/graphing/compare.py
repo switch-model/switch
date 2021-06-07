@@ -9,7 +9,13 @@ Run 'switch compare -h' for details.
 
 def main():
     # Create the command line interface
-    parser = argparse.ArgumentParser(description="Create graphs that compare multiple scenario outputs.")
+    parser = argparse.ArgumentParser(
+        description="Create graphs that compare multiple scenario outputs.",
+        epilog="Example:\n\nswitch compare low-vs-high-demand .\low-demand .\high-demand --names 'Low Demand' 'High Demand'"
+               "\n\nThis command will generate comparison graphs in a folder called 'low-vs-high-demand'. The graphs will be "
+               " based on the scenarios in folders ./low-demand and ./high-demand. The graphs will use 'Low Demand' and 'High Demand'"
+               "in the legends and where applicable.",
+        formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("graph_dir", type=str,
                         help="Name of the folder where the graphs should be saved")
     parser.add_argument("scenarios", nargs="+",
