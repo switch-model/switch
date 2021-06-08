@@ -471,11 +471,10 @@ def _add_min_data_check(model):
 
 
 def has_discrete_variables(model):
-    all_elements = lambda v: v.itervalues() if v.is_indexed() else [v]
     return any(
         v.is_binary() or v.is_integer()
         for variable in model.component_objects(Var, active=True)
-        for v in all_elements(variable)
+        for v in (variable.itervalues() if variable.is_indexed() else [variable])
     )
 
 

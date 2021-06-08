@@ -102,19 +102,48 @@ def post_solve(instance, outdir):
     write_table(
         instance,
         instance.TRANS_TIMEPOINTS,
-        headings=("load_zone_from", "load_zone_to", "timepoint", "dispatch", "dual"),
-        values=lambda m, z_f, z_t, t: (
-            z_f,
-            z_t,
-            t,
-            m.DispatchTx[z_f, z_t, t],
+        headings=(
+            "load_zone_from",
+            "load_zone_to",
+            "timestamp",
+            "transmission_dispatch",
+            "dispatch_limit",
+            "transmission_limit_dual",
+        ),
+        values=lambda m, zone_from, zone_to, t: (
+            zone_from,
+            zone_to,
+            m.tp_timestamp[t],
+            m.DispatchTx[zone_from, zone_to, t],
+            m.TxCapacityNameplateAvailable[
+                m.trans_d_line[zone_from, zone_to], m.tp_period[t]
+            ],
             m.get_dual(
                 "Maximum_DispatchTx",
-                z_f,
-                z_t,
+                zone_from,
+                zone_to,
                 t,
                 divider=m.bring_timepoint_costs_to_base_year[t],
             ),
         ),
         output_file=os.path.join(outdir, "transmission_dispatch.csv"),
     )
+
+
+def graph(tools):
+    dispatch = tools.get_dataframe("transmission_dispatch")
+    dispatch = tools.add_timestamp_info(dispatch)
+    dispatch["transmission_limit_dual"] = tools.pd.to_numeric(
+        dispatch["transmission_limit_dual"], errors="coerce"
+    )
+    dispatch = dispatch[["transmission_limit_dual", "time_row"]]
+    dispatch = dispatch.pivot(columns="time_row", values="transmission_limit_dual")
+    if dispatch.count().sum() != 0:
+        ax = tools.get_new_axes(
+            "transmission_limit_duals", title="Transmission limit duals per period"
+        )
+        dispatch.plot.box(
+            ax=ax,
+            xlabel="Period",
+            ylabel="Transmission limit duals ($/MW)",
+        )
