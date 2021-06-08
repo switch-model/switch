@@ -8,6 +8,9 @@ Switch model.
 
 from pyomo.environ import *
 
+import os
+from switch_model.reporting import write_table
+
 dependencies = (
     "switch_model.timescales",
     "switch_model.balancing.load_zones",
@@ -93,3 +96,25 @@ def define_components(mod):
     )
     # Register net transmission as contributing to zonal energy balance
     mod.Zone_Power_Injections.append("TXPowerNet")
+
+
+def post_solve(instance, outdir):
+    write_table(
+        instance,
+        instance.TRANS_TIMEPOINTS,
+        headings=("load_zone_from", "load_zone_to", "timepoint", "dispatch", "dual"),
+        values=lambda m, z_f, z_t, t: (
+            z_f,
+            z_t,
+            t,
+            m.DispatchTx[z_f, z_t, t],
+            m.get_dual(
+                "Maximum_DispatchTx",
+                z_f,
+                z_t,
+                t,
+                divider=m.bring_timepoint_costs_to_base_year[t],
+            ),
+        ),
+        output_file=os.path.join(outdir, "transmission_dispatch.csv"),
+    )
