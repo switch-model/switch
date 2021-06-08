@@ -256,11 +256,11 @@ def post_solve(instance, outdir):
 def graph(tools):
     load_balance = tools.get_dataframe(csv='load_balance')
     load_balance = tools.add_timestamp_info(load_balance)
-    ax = tools.get_new_axes("energy_balance_duals", title="Energy balance duals per period")
     load_balance["energy_balance_duals"] = tools.pd.to_numeric(load_balance["normalized_energy_balance_duals_dollar_per_mwh"], errors="coerce") / 10
     load_balance = load_balance[["energy_balance_duals", "time_row"]]
     load_balance = load_balance.pivot(columns="time_row", values="energy_balance_duals")
     if load_balance.count().sum() != 0:
+        ax = tools.get_new_axes("energy_balance_duals", title="Energy balance duals per period")
         load_balance.plot.box(
             ax=ax,
             xlabel='Period',
