@@ -11,10 +11,14 @@ def sample_year_round(
 ):
     hours_per_tp = method_config["hours_per_tp"]
     first_hour = method_config["first_hour"]
+    skip_day_one = method_config["skip_day_one"]
+    # Note later in the code we skip Feb 29th for consistency across periods.
+    # We also allow skipping Jan. 1st since we don't have all the capacity factors for that year.
+    # As such there's either 364 or 365 days
+    days_per_year = 364 if skip_day_one else 365
+    first_day = 2 if skip_day_one else 1
     last_hour = first_hour + 24 - hours_per_tp
-    # Note later in the code we skip Feb 29th for consistency accross periods.
-    # Hence always 365 days.
-    tp_per_year = 24 * 365 / hours_per_tp
+    tp_per_year = 24 * days_per_year / hours_per_tp
     time_delta = pd.Timedelta(hours_per_tp, unit="hours")
 
     timeseries = []
@@ -26,7 +30,7 @@ def sample_year_round(
 
         # Create a timeseries row
         sampled_timeseries_id = i + 1  # sampled_timeseries_id start ids at 1 for consistency with db
-        first_timepoint_utc = pd.Timestamp(year=label, month=1, day=1, hour=first_hour)
+        first_timepoint_utc = pd.Timestamp(year=label, month=1, day=first_day, hour=first_hour)
         last_timepoint_utc = pd.Timestamp(year=label, month=12, day=31, hour=last_hour)
         timeseries.append((
             sampled_timeseries_id,
@@ -36,7 +40,10 @@ def sample_year_round(
             tp_per_year,
             first_timepoint_utc,
             last_timepoint_utc,
-            length_yrs  # scaling_to_period (In a 10 year period, there's 10 timeseries per period)
+            # scaling_to_period factor is number of timeseries in a period
+            # that is equal to the number of hours in a period / number of hours in a period
+            # 8766h is the average length of a year
+            (length_yrs * 8766) / (24 * days_per_year)
         ))
 
         # Create the timepoints row

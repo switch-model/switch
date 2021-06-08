@@ -34,6 +34,10 @@ sampling:
     # Hour of the first timepoint (UTC).
     # Must be less than hours_per_tp. Recommended is 0.
     first_hour: 0
+    # Decide if you should skip the first day. 1 for true, 0 for false.
+    # If true, it becomes a 364-day sampling.
+    # This is useful since some data may be missing for day 1 due to time zone conversions.
+    skip_day_one: 1
   # Only include when using the peak_median method
   peak_median:
     number_tps: 6 # Number of timepoints in a timeseries
