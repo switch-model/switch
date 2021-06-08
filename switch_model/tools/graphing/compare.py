@@ -1,11 +1,11 @@
-import argparse, os
-from switch_model.tools.graphing.main import Scenario, graph_scenarios
-from switch_model.utilities import query_yes_no
-
 """
 Tool to generate graphs that compare multiple scenario outputs.
 Run 'switch compare -h' for details.
 """
+
+import argparse, os
+from switch_model.tools.graphing.main import Scenario, graph_scenarios
+from switch_model.utilities import query_yes_no
 
 def main():
     # Create the command line interface
