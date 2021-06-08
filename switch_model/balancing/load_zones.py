@@ -112,9 +112,8 @@ def define_components(mod):
         ),
     )
 
-    # Make sure the model has a dual suffix since we use the duals in post_solve()
-    if not hasattr(mod, "dual"):
-        mod.dual = Suffix(direction=Suffix.IMPORT)
+    # Make sure the model has duals enabled since we use the duals in post_solve()
+    mod.enable_duals()
 
 
 def define_dynamic_components(mod):
@@ -209,37 +208,6 @@ def post_solve(instance, outdir):
     load_balance_annual.csv contains the energy injections and withdrawals
     throughout a year across all zones.
     """
-
-    def get_load_balance_row(m, z, t):
-        # Add index to row
-        row = [z, m.tp_timestamp[t]]
-
-        # If duals are available, add the duals for the energy balance constraint
-        # as a proxy for LMP
-        if not m.has_discrete_variables and m.Zone_Energy_Balance[z, t] in m.dual:
-            # We need to divide by the timepoint weight since the dual gives us
-            # the cost of responding to an extra 1 MW of demand in that zone
-            # for that timepoint. However, the cost during that timepoint gets
-            # scaled up to fill part of the period. So if we want the cost
-            # for just one hour we need to divide by the number of hours
-            # taken by that timepoint, during the period. This is m.tp_weight.
-            # Note that this is the cost per hour for an extra MW or
-            # equivalently the cost of providing an extra MWh.
-            # Note: We multiply by 1000 since our objective function is in terms of thousands of dollars
-            row.append(m.dual[m.Zone_Energy_Balance[z, t]] * 1000 / m.tp_weight[t])
-        else:
-            row.append(".")
-
-        # Add contributions to energy balance to the row
-        row.extend(
-            [getattr(m, component)[z, t] for component in m.Zone_Power_Injections]
-        )
-        row.extend(
-            [-getattr(m, component)[z, t] for component in m.Zone_Power_Withdrawals]
-        )
-
-        return row
-
     write_table(
         instance,
         instance.LOAD_ZONES,
@@ -251,7 +219,18 @@ def post_solve(instance, outdir):
             "normalized_energy_balance_duals_dollar_per_mwh",
         )
         + tuple(instance.Zone_Power_Injections + instance.Zone_Power_Withdrawals),
-        values=get_load_balance_row,
+        values=lambda m, z, t: (
+            z,
+            m.tp_timestamp[t],
+            m.get_dual(
+                "Zone_Energy_Balance",
+                z,
+                t,
+                divider=m.bring_timepoint_costs_to_base_year[t],
+            ),
+        )
+        + tuple(getattr(m, component)[z, t] for component in m.Zone_Power_Injections)
+        + tuple(-getattr(m, component)[z, t] for component in m.Zone_Power_Withdrawals),
     )
 
     def get_component_per_year(m, z, p, component):
