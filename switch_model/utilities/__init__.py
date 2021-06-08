@@ -24,7 +24,7 @@ string_types = (str,)
 interactive_session = not hasattr(main, '__file__')
 
 
-class CustomAbstractModel(AbstractModel):
+class CustomModel(AbstractModel):
     """
     Class that wraps pyomo's AbstractModel and adds custom features.
 
@@ -32,6 +32,16 @@ class CustomAbstractModel(AbstractModel):
     is that this class supports variable scaling. See utilities/scaling.py for
     more details.
     """
+
+    def __init__(self, *args, **kwargs):
+        super(CustomModel, self).__init__(*args, **kwargs)
+        self.can_use_duals = None
+        # We use a scaling factor for our objective function
+        # to improve the numerical properties
+        # of the model. The scaling factor was determined using trial
+        # and error and this tool https://github.com/staadecker/lp-analyzer.
+        # Learn more by reading the documentation on Numerical Issues.
+        self.objective_scaling_factor = 1e-3
 
     def __setattr__(self, key, val):
         # __setattr__ is called whenever we set an attribute
@@ -55,6 +65,48 @@ class CustomAbstractModel(AbstractModel):
             super().__setattr__(key, _get_unscaled_expression(val))
         else:
             super().__setattr__(key, val)
+
+    def get_dual(self, component_name: str, *args, divider=None, invalid_return="."):
+        """
+        Returns the dual value for the given component.
+
+        @param component_name: Name of the constraint to return the dual value for
+        @param *args: Indexes of the component. For example, if the component is the energy
+                        balance constraint, *args would be z, t for load_zone and timepoint
+        @param divider: How much to divide the dual by. This is useful since the undivided dual
+                        represents the increase in cost after scaling costs to the base year.
+                        Often however, we wish to know the increase in cost prior to scaling,
+                        for example the increase in cost of just one timepoint. As such
+                        divider is often m.bring_timepoint_costs_to_base_year[t] or
+                        m.bring_annual_costs_to_base_year[p].
+        @param invalid_return: is what to return when the dual value doesn't exist. Defaults to "."
+                                since normally duals are being outputed to a file and "." is used for
+                                missing values.
+        """
+        # Get the component
+        component = getattr(self, component_name)
+
+        # If can_use_duals has not been set, set it with by checking has_discrete_variables
+        if self.can_use_duals is None:
+            # If the model has discrete variables dual values aren't meaningful and therefore we don't produce them
+            self.can_use_duals = not has_discrete_variables(self)
+
+        # Get the dual value if available
+        if self.can_use_duals and args in component and component[args] in self.dual:
+            # We divide by the scaling factor to undo the effects of it on the dual values
+            dual = self.dual[component[args]] / self.objective_scaling_factor
+            if divider:
+                dual /= divider
+            return dual
+        else:
+            return invalid_return
+
+    def enable_duals(self):
+        """
+        Enables duals if not already enabled
+        """
+        if not hasattr(self, "dual"):
+            self.dual = Suffix(direction=Suffix.IMPORT)
 
 
 def define_AbstractModel(*module_list, **kwargs):
@@ -97,7 +149,7 @@ def create_model(module_list=None, args=sys.argv[1:]):
     create_model(module_list, args=[])
 
     """
-    model = CustomAbstractModel()
+    model = CustomModel()
 
     # Load modules
     if module_list is None:
@@ -110,7 +162,6 @@ def create_model(module_list=None, args=sys.argv[1:]):
     # Bind utility functions to the model as class objects
     # Should we be formally extending their class instead?
     _add_min_data_check(model)
-    model.has_discrete_variables = None  # Will get set during post_solve(), used to determine if we should use duals
     model.get_modules = types.MethodType(get_modules, model)
     model.load_inputs = types.MethodType(load_inputs, model)
     model.pre_solve = types.MethodType(pre_solve, model)
@@ -225,6 +276,13 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=True):
     # Determine which option is available and use that.
     if hasattr(model, 'create_instance'):
         instance = model.create_instance(data)
+        # We want our functions from CustomModel to be accessible
+        # Somehow simply setting the class to CustomModel allows us to do this
+        # This is the same thing that happens in the Pyomo library at the end of
+        # model.create_instance(). Note that Pyomo's ConcreteModel is basically the same as
+        # our CustomModel so we're not causing any issues by changing from ConcreteModel
+        # to CustomModel
+        instance.__class__ = CustomModel
     else:
         instance = model.create(data)
     if model.options.verbose:
@@ -305,17 +363,6 @@ def post_solve(instance, outputs_dir=None):
         outputs_dir = getattr(instance.options, "outputs_dir", "outputs")
     if not os.path.exists(outputs_dir):
         os.makedirs(outputs_dir)
-
-    # Used to determine if we should use dual values
-    # If the model has discrete variables dual values aren't meaningful
-    # Note that before model.has_discrete_variables was a function
-    # that ran has_discrete_variables() everytime.
-    # This was quite time consuming (~10s per call)
-    # Instead, now we call has_discrete_variables() once during post_solve and save the result
-    # TODO Ideally, we only call has_discrete_variables() once **and
-    #  only if we need it** (lazy implementation). This would require more work however
-    #  but could save 10s during post-solve if we never use modules that use has_discrete_variabels.
-    instance.has_discrete_variables = has_discrete_variables(instance)
 
     # TODO: implement a check to call post solve functions only if
     # solver termination condition is not 'infeasible' or 'unknown'

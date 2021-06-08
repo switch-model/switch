@@ -85,8 +85,7 @@ def define_components(m):
         raise
 
     # Make sure the model has dual and rc suffixes
-    if not hasattr(m, "dual"):
-        m.dual = Suffix(direction=Suffix.IMPORT)
+    m.enable_duals()
     if not hasattr(m, "rc"):
         m.rc = Suffix(direction=Suffix.IMPORT)
 
