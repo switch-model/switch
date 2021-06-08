@@ -194,6 +194,6 @@ def get_median_days(data, number=6, freq="MS", identifier="M"):
 def get_next_prv_day(date):
     if not isinstance(date, pd.Timestamp):
         date = pd.to_datetime(date)
-    prev_day = date + pd.Timedelta(value=-24, unit="hours")
-    next_day = date + pd.Timedelta(value=24, unit="hours")
+    prev_day = date + pd.Timedelta(value=-1, unit="day")
+    next_day = date + pd.Timedelta(value=1, unit="day")
     return prev_day, next_day
