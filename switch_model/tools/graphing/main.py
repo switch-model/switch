@@ -1,20 +1,30 @@
-import importlib, traceback
+"""
+Code used by 'switch compare' and 'switch graph' to running the graphing functions.
+"""
+# Standard packages
+import importlib
+import traceback
 import os
 import sys
+import warnings
 from typing import List, Dict, Tuple
 
+# Third-party packages
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 import seaborn as sns
 import matplotlib
 
+# Local imports
 from switch_model.utilities import StepTimer, get_module_list
 
-original_working_dir = os.getcwd()
 
+class _GraphDataFolder:
+    """
+    Accessible via tools.folders.OUTPUTS or tools.folders.INPUTS.
+    """
 
-class GraphDataFolder:
     OUTPUTS = "outputs"
     INPUTS = "inputs"
 
@@ -48,19 +58,20 @@ class Scenario:
         os.chdir(Scenario.root_path)
 
 
-class GraphData:
+class GraphTools:
     """
-    Object that stores and handles loading csv into dataframes data for different scenarios.
+    Object that is passed in graph().
+    Provides utilities to make graphing easier and standardized.
     """
 
-    def __init__(self, scenarios: List[Scenario]):
-        self.scenarios: List[Scenario] = scenarios
+    def __init__(self, scenarios: List[Scenario], graph_dir: str):
+        """
+        Create the GraphTools.
 
-        # Here we store a mapping of csv file names to their dataframes.
-        # Each dataframe has a column called 'scenario' that specifies which scenario
-        # a given row belongs to
-        self.dfs: Dict[str, pd.DataFrame] = {}
-
+        @param scenarios list of scenarios that we should run graphing for
+                graph_dir directory where graphs should be saved
+        @param graph_dir folder where graphs should be outputed to
+        """
         # Check that the scenario names are unique
         all_names = list(map(lambda s: s.name, scenarios))
         if len(all_names) > len(
@@ -68,13 +79,47 @@ class GraphData:
         ):  # set() drops duplicates, so if not unique len() will be less
             raise Exception("Scenario names are not unique.")
 
-        # Disables warnings that will occur since we are constantly returning only a slice of our master dataframe
+        self._scenarios: List[Scenario] = scenarios
+        self.graph_dir = graph_dir
+
+        # Here we store a mapping of csv file names to their dataframes.
+        # Each dataframe has a column called 'scenario' that specifies which scenario
+        # a given row belongs to.
+        self._dfs: Dict[str, pd.DataFrame] = {}
+
+        self._num_scenarios = len(scenarios)
+
+        # When True we are running compare(), when False we are running graph()
+        # compare() is to create graphs for multiple scenarios
+        # graph() is to create a graph just for the data of the active scenario
+        self._is_compare_mode = False
+
+        # When in graph mode, we move between scenarios. This index specifies the current scenario
+        self._active_scenario = None
+        # Maps a file name to a tuple where the tuple holds (fig, axs), the matplotlib figure and axes
+        self._module_figures: Dict[str, Tuple] = {}
+
+        # Provide link to useful libraries
+        self.sns = sns
+        self.pd = pd
+        self.np = np
+        self.mplt = matplotlib
+
+        self.folders = _GraphDataFolder
+
+        # Set the style to Seaborn default style
+        sns.set()
+
+        # Disables pandas warnings that will occur since we are constantly returning only a slice of our master dataframe
         pd.options.mode.chained_assignment = None
 
     def _load_dataframe(self, csv, folder):
-        """Loads the dataframe into self.dfs[csv]"""
+        """
+        Reads a csv file for every scenario and returns a single dataframe containing
+        the rows from every scenario with a column for the scenario name and index.
+        """
         df_all_scenarios: List[pd.DataFrame] = []
-        for i, scenario in enumerate(self.scenarios):
+        for i, scenario in enumerate(self._scenarios):
             df = pd.read_csv(
                 os.path.join(scenario.path, folder, csv + ".csv"), index_col=False
             )
@@ -82,66 +127,13 @@ class GraphData:
             df["scenario_index"] = i
             df_all_scenarios.append(df)
 
-        self.dfs[csv] = pd.concat(df_all_scenarios)
-
-    def get_dataframe(self, scenario_index, csv, folder=GraphDataFolder.OUTPUTS):
-        """Return a dataframe filtered by the scenario_name"""
-        if csv not in self.dfs:
-            self._load_dataframe(csv, folder)
-
-        df = self.dfs[csv]
-        return df[df["scenario_index"] == scenario_index]
-
-    def get_dataframe_all_scenarios(self, csv, folder=GraphDataFolder.OUTPUTS):
-        """Fetch the dataframe containing all the scenarios"""
-        if csv not in self.dfs:
-            self._load_dataframe(csv, folder)
-
-        return self.dfs[csv].copy()  # We return a copy so the source isn't modified
-
-
-class GraphTools:
-    """
-    Object that is passed in graph().
-    Provides utilities to make graphing easier and standardized.
-    """
-
-    def __init__(self, scenarios, graph_dir):
-        """
-        Create the GraphTools.
-
-        @param scenarios list of scenarios that we should run graphing for
-                graph_dir directory where graphs should be saved
-        """
-        self.scenarios: List[Scenario] = scenarios
-        self.graph_dir = graph_dir
-
-        # Number of graphs to display side by side
-        self.num_scenarios = len(scenarios)
-        # Create an instance of GraphData which stores the csv dataframes
-        self.graph_data = GraphData(self.scenarios)
-        # When True we are running compare(), when False we are running graph()
-        # compare() is to create graphs for multiple scenarios
-        # graph() is to create a graph just for the data of the active scenario
-        self.is_compare_mode = False
-        # When in graph mode, we move between scenarios. This index specifies the current scenario
-        self.active_scenario = None
-        # Maps a file name to a tuple where the tuple holds (fig, axs), the matplotlib figure and axes
-        self.module_figures: Dict[str, Tuple] = {}
-
-        # Provide link to useful libraries
-        self.sns = sns
-        self.pd = pd
-        self.np = np
-        self.mplt = matplotlib
-        self.folders = GraphDataFolder
-
-        # Set the style to Seaborn default style
-        sns.set()
+        return pd.concat(df_all_scenarios)
 
     def _create_axes(self, out, size=(8, 5), **kwargs):
-        """Create a set of axes"""
-        num_subplot_columns = 1 if self.is_compare_mode else self.num_scenarios
+        """
+        Create a set of matplotlib axes
+        """
+        num_subplot_columns = 1 if self._is_compare_mode else self._num_scenarios
         fig = GraphTools._create_figure(
             out, size=(size[0] * num_subplot_columns, size[1]), **kwargs
         )
@@ -155,20 +147,9 @@ class GraphTools:
         # Set a title to each subplot
         if num_subplot_columns > 1:
             for i, a in enumerate(ax):
-                a.set_title(f"Scenario: {self.scenarios[i].name}")
+                a.set_title(f"Scenario: {self._scenarios[i].name}")
 
         return fig, ax
-
-    def get_new_axes(self, out, *args, **kwargs):
-        """Returns a set of matplotlib axes that can be used to graph."""
-        # If we're on the first scenario, we want to create the set of axes
-        if self.is_compare_mode or self.active_scenario == 0:
-            self.module_figures[out] = self._create_axes(out, *args, **kwargs)
-
-        # Fetch the axes in the (fig, axs) tuple then select the axis for the active scenario
-        return self.module_figures[out][1][
-            0 if self.is_compare_mode else self.active_scenario
-        ]
 
     @staticmethod
     def _create_figure(
@@ -178,8 +159,8 @@ class GraphTools:
 
         # Set a title for the figure
         if title is None:
-            print(
-                f"Warning: no title set for graph {out}.csv. Specify 'title=' in get_new_axes() or get_new_figure()."
+            warnings.warn(
+                f"No title set for graph {out}.csv. Specify 'title=' in get_new_axes() or get_new_figure()."
             )
         else:
             fig.suptitle(title)
@@ -200,31 +181,48 @@ class GraphTools:
 
         return fig
 
+    def get_new_axes(self, out, *args, **kwargs):
+        """Returns a set of matplotlib axes that can be used to graph."""
+        # If we're on the first scenario, we want to create the set of axes
+        if self._is_compare_mode or self._active_scenario == 0:
+            self._module_figures[out] = self._create_axes(out, *args, **kwargs)
+
+        # Fetch the axes in the (fig, axs) tuple then select the axis for the active scenario
+        return self._module_figures[out][1][
+            0 if self._is_compare_mode else self._active_scenario
+        ]
+
     def get_new_figure(self, out, *args, **kwargs):
-        # Append the scenario name to the file name
-        if len(self.scenarios) > 1:
-            out += "_" + self.scenarios[self.active_scenario].name
+        # Append the scenario name to the file name if we have multiple scenarios
+        if self._num_scenarios > 1:
+            out += "_" + self._scenarios[self._active_scenario].name
         # Create the figure
         fig = self._create_figure(out, *args, **kwargs)
         # Save it to the outputs
-        self.module_figures[out] = (fig, None)
+        self._module_figures[out] = (fig, None)
         # Return the figure
         return fig
 
-    def get_dataframe(self, *args, **kwargs):
-        """Returns the dataframe for the active scenario"""
-        if self.is_compare_mode:
-            return self.graph_data.get_dataframe_all_scenarios(*args, **kwargs)
-        else:
-            return self.graph_data.get_dataframe(self.active_scenario, *args, **kwargs)
+    def get_dataframe(self, csv, folder=_GraphDataFolder.OUTPUTS):
+        """Returns the dataframe for the active scenario."""
+        if csv not in self._dfs:
+            self._dfs[csv] = self._load_dataframe(csv, folder)
+
+        df_copy = self._dfs[csv].copy()  # We return a copy so the source isn't modified
+
+        # If we're not comparing, we only return the rows corresponding to the active scenario
+        if not self._is_compare_mode:
+            df_copy = df_copy[df_copy["scenario_index"] == self._active_scenario]
+
+        return df_copy
 
     def graph_module(self, func_graph):
         """Runs the graphing function for each comparison run"""
-        self.is_compare_mode = False
+        self._is_compare_mode = False
         # For each scenario
-        for i, scenario in enumerate(self.scenarios):
+        for i, scenario in enumerate(self._scenarios):
             # Set the active scenario index so that other functions behave properly
-            self.active_scenario = i
+            self._active_scenario = i
             # Call the graphing function
             try:
                 func_graph(self)
@@ -233,24 +231,25 @@ class GraphTools:
                     f"ERROR: Module threw an Exception while running graph(). "
                     f"Moving on to the next module.\n{traceback.format_exc()}"
                 )
-        self.active_scenario = None  # Reset to none to avoid accidentally selecting data when not graphing per scenario
+        self._active_scenario = None  # Reset to none to avoid accidentally selecting data when not graphing per scenario
 
         # Save the graphs
         self._save_plots()
 
     def compare_module(self, func_compare):
-        self.is_compare_mode = True
+        self._is_compare_mode = True
         func_compare(self)
         self._save_plots()
 
     def _save_plots(self):
-        for name, (fig, _) in self.module_figures.items():
+        for name, (fig, _) in self._module_figures.items():
             fig.savefig(os.path.join(self.graph_dir, name), bbox_inches="tight")
         # Reset our module_figures dict
-        self.module_figures = {}
+        self._module_figures = {}
 
     def get_active_scenario_path(self):
-        return self.scenarios[self.active_scenario].path
+        """Returns the path of the current scenario folder."""
+        return self._scenarios[self._active_scenario].path
 
     def add_gen_type_column(
         self,
@@ -269,7 +268,7 @@ class GraphTools:
             tech_types = self.get_dataframe(
                 csv="graph_tech_types", folder=self.folders.INPUTS
             )
-        except:
+        except FileNotFoundError:
             df = df.copy()
             df["gen_type"] = df[gen_tech_col] + "_" + df[energy_source_col]
             return df
@@ -504,9 +503,10 @@ def load_modules(scenarios):
     # Check that all the compare_dirs have equivalent modules.txt
     for scenario in other_scenarios:
         if not np.array_equal(module_names, read_modules_txt(scenario)):
-            print(
-                f"WARNING: modules.txt is not equivalent between {scenario_base.name} and {scenario.name}. "
-                f"We will use the modules.txt in {scenario_base.name} however this may result in missing graphs and/or errors."
+            warnings.warn(
+                f"modules.txt is not equivalent between {scenario_base.name} and {scenario.name}. "
+                f"We will use the modules.txt in {scenario_base.name} however this may result "
+                f"in missing graphs and/or errors."
             )
 
     # Import the modules
