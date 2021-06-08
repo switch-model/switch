@@ -45,7 +45,7 @@ class Scenario:
     root_path = os.getcwd()
 
     def __init__(self, rel_path, name):
-        self.path = os.path.join(Scenario.root_path, rel_path)
+        self.path = os.path.normpath(os.path.join(Scenario.root_path, rel_path))
         self.name = name
 
         if not os.path.isdir(self.path):
@@ -489,9 +489,9 @@ def iterate_modules(module_names, func_name):
 def load_modules(scenarios):
     """Loads all the modules found in modules.txt"""
 
-    def read_modules_txt(scenario_dir):
+    def read_modules_txt(scenario):
         """Returns a sorted list of all the modules in a run folder (by reading modules.txt)"""
-        with scenario_dir:
+        with scenario:
             module_list = get_module_list(include_solve_module=False)
         return np.sort(module_list)
 
