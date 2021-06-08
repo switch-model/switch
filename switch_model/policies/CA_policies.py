@@ -237,6 +237,9 @@ def post_solve(model, outdir):
 
 def graph(tools):
     # Plot emissions over time
-    ax = tools.get_new_axes(out="emissions_CA")
+    ax = tools.get_new_axes(out="emissions_CA", title="California's Total Emissions")
     df = tools.get_dataframe(csv="ca_policies")
-    tools.sns.barplot(x="PERIOD", y="AnnualEmissions_tCO2_per_yr_CA", data=df, ax=ax)
+    df = df.set_index("PERIOD")
+    df["AnnualEmissions_tCO2_per_yr_CA"].plot(
+        ax=ax, kind="bar", ylabel="Annual Emissions (tCO2)", xlabel="Year"
+    )
