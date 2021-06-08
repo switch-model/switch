@@ -394,7 +394,7 @@ class GraphTools:
             row = rows.iloc[ri]
             df_row = df[df["time_row"] == row]
             columns = df_row["time_column"].drop_duplicates().sort_values()
-            for ci in range(ncols):
+            for ci in range(min(ncols, len(columns))):
                 column = columns.iloc[ci]
                 current_ax = ax[ri][ci]
                 # get the dispatch for that quarter
