@@ -1,0 +1,9 @@
+load_zone,regional_fuel_market
+North,All_DistOil
+CA_Central,All_DistOil
+CA_South,All_DistOil
+North,All_NG
+CA_Central,All_NG
+CA_South,All_NG
+North,North_Bio
+CA_South,South_Bio

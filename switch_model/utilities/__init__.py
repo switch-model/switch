@@ -6,7 +6,8 @@ Utility functions for Switch.
 """
 from __future__ import print_function
 
-import os, types, importlib, re, sys, argparse, time, datetime, traceback
+import os, types, importlib, re, sys, argparse, time, datetime, traceback, subprocess, platform
+
 import switch_model.__main__ as main
 from pyomo.environ import *
 from switch_model.utilities.scaling import _ScaledVariable, _get_unscaled_expression
@@ -218,7 +219,7 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=True):
         if hasattr(module, 'load_inputs'):
             module.load_inputs(model, data, inputs_dir)
     if model.options.verbose:
-        print(f"Data read in {format_seconds(timer.step_time())}.\n")
+        print(f"Data read in {timer.step_time_as_str()}.\n")
 
     # At some point, pyomo deprecated 'create' in favor of 'create_instance'.
     # Determine which option is available and use that.
@@ -227,7 +228,7 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=True):
     else:
         instance = model.create(data)
     if model.options.verbose:
-        print(f"Instance created from data in {format_seconds(timer.step_time())}.\n")
+        print(f"Instance created from data in {timer.step_time_as_str()}.\n")
 
     if attach_data_portal:
         instance.DataPortal = data
@@ -813,3 +814,29 @@ def load_config():
         raise Exception("config.yaml does not exist. Try running 'switch new' to auto-create it.")
     with open("config.yaml") as f:
         return yaml.load(f, Loader=yaml.FullLoader)
+
+
+def run_command(command):
+    return subprocess.check_output(command.split(" "), cwd=os.path.dirname(__file__)).strip().decode("UTF-8")
+
+
+def get_git_hash():
+    return run_command("git rev-parse HEAD")
+
+def get_git_branch():
+    return run_command("git rev-parse --abbrev-ref HEAD")
+
+def create_info_file(output_path, run_time=None):
+    content = ""
+    content += f"End date: {datetime.datetime.now().strftime('%Y-%m-%d')}\n"
+    content += f"End time: {datetime.datetime.now().strftime('%H:%M:%S')}\n"
+    try:
+        content += f"SWITCH Git Commit Hash: {get_git_hash()}\n"
+        content += f"SWITCH Git Branch: {get_git_branch()}\n"
+    except:
+        print("Warning: failed to get commit hash or branch for info.txt.")
+    if run_time is not None:
+        content += f"Run time: {run_time}\n"
+    content += f"Host name: {platform.node()}\n"
+    with open(os.path.join(output_path, "info.txt"), "w") as f:
+        f.write(content)

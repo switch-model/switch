@@ -11,7 +11,7 @@ import sys, os, shlex, re, inspect, textwrap, types, pickle
 
 import switch_model
 from switch_model.utilities import (
-    create_model, _ArgumentParser, StepTimer, make_iterable, LogOutput, warn, query_yes_no, format_seconds
+    create_model, _ArgumentParser, StepTimer, make_iterable, LogOutput, warn, query_yes_no, create_info_file
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 
@@ -110,7 +110,7 @@ def main(args=None, return_model=False, return_instance=False):
             if iterate_modules:
                 print("Iteration modules:", iterate_modules)
             print("=======================================================================\n")
-            print(f"Model created in {format_seconds(timer.step_time())}.")
+            print(f"Model created in {timer.step_time_as_str()}.")
             print("Loading inputs...")
 
         # create an instance (also reports time spent reading data and loading into model)
@@ -120,7 +120,7 @@ def main(args=None, return_model=False, return_instance=False):
 
         instance.pre_solve()
         if instance.options.verbose:
-            print(f"Total time spent constructing model: {format_seconds(timer.step_time())}.\n")
+            print(f"Total time spent constructing model: {timer.step_time_as_str()}.\n")
 
         if instance.options.enable_breakpoints:
             print("Breaking after constructing model.  See "
@@ -147,7 +147,7 @@ def main(args=None, return_model=False, return_instance=False):
             print('Loading prior solution...')
             reload_prior_solution_from_pickle(instance, instance.options.outputs_dir)
             if instance.options.verbose:
-                print(f'Loaded previous results into model instance in {format_seconds(timer.step_time())}.')
+                print(f'Loaded previous results into model instance in {timer.step_time_as_str()}.')
         else:
             # solve the model (reports time for each step as it goes)
             if iterate_modules:
@@ -170,7 +170,7 @@ def main(args=None, return_model=False, return_instance=False):
                 if instance.options.save_solution:
                     save_results(instance, instance.options.outputs_dir)
                     if instance.options.verbose:
-                        print(f'Saved results in {format_seconds(timer.step_time())}.')
+                        print(f'Saved results in {timer.step_time_as_str()}.')
 
         if instance.options.enable_breakpoints:
             print("Breaking before post_solve. See "
@@ -184,9 +184,13 @@ def main(args=None, return_model=False, return_instance=False):
                 print("Executing post solve functions...")
             instance.post_solve()
             if instance.options.verbose:
-                print(f"Post solve processing completed in {format_seconds(timer.step_time())}.")
+                print(f"Post solve processing completed in {timer.step_time_as_str()}.")
+
+        total_time = start_to_end_timer.step_time_as_str()
+        create_info_file(getattr(instance.options, "outputs_dir", "outputs"), run_time=total_time)
+
         if instance.options.verbose:
-            print(f"Total time spent running SWITCH: {format_seconds(start_to_end_timer.step_time())}.")
+            print(f"Total time spent running SWITCH: {total_time}.")
 
     # end of LogOutput block
 
@@ -819,7 +823,7 @@ def solve(model):
     results = model.solver_manager.solve(model, opt=model.solver, **solver_args)
 
     if model.options.verbose:
-        print(f"Solved model. Total time spent in solver: {format_seconds(timer.step_time())}.")
+        print(f"Solved model. Total time spent in solver: {timer.step_time_as_str()}.")
 
     if model.options.enable_breakpoints:
         print("Breaking after solving model. See "
