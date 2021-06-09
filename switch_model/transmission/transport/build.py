@@ -362,6 +362,8 @@ def post_solve(instance, outdir):
             "trans_length_km": mod.trans_length_km[tx],
             "trans_efficiency": mod.trans_efficiency[tx],
             "trans_derating_factor": mod.trans_derating_factor[tx],
+            "existing_trans_cap": mod.existing_trans_cap[tx],
+            "BuildTx": value(mod.BuildTx[tx, p]) if (tx, p) in mod.BuildTx else ".",
             "TxCapacityNameplate": value(mod.TxCapacityNameplate[tx, p]),
             "TxCapacityNameplateAvailable": value(
                 mod.TxCapacityNameplateAvailable[tx, p]
