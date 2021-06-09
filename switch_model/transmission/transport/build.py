@@ -341,11 +341,13 @@ def post_solve(instance, outdir):
         	"trans_lz2": mod.trans_lz2[tx],
         	"trans_dbid": mod.trans_dbid[tx],
         	"trans_length_km": mod.trans_length_km[tx],
-        	"trans_efficiency": mod.trans_efficiency[tx],
-        	"trans_derating_factor": mod.trans_derating_factor[tx],
-        	"TxCapacityNameplate": value(mod.TxCapacityNameplate[tx,p]),
-        	"TxCapacityNameplateAvailable": value(mod.TxCapacityNameplateAvailable[tx,p]),
-        	"TotalAnnualCost": value(mod.TxCapacityNameplate[tx,p] * mod.trans_cost_annual[tx])
+            "trans_efficiency": mod.trans_efficiency[tx],
+            "trans_derating_factor": mod.trans_derating_factor[tx],
+            "existing_trans_cap": mod.existing_trans_cap[tx],
+            "BuildTx": value(mod.BuildTx[tx, p]) if (tx, p) in mod.BuildTx else ".",
+            "TxCapacityNameplate": value(mod.TxCapacityNameplate[tx, p]),
+            "TxCapacityNameplateAvailable": value(mod.TxCapacityNameplateAvailable[tx, p]),
+            "TotalAnnualCost": value(mod.TxCapacityNameplate[tx, p] * mod.trans_cost_annual[tx])
         } for tx, p in mod.TRANSMISSION_LINES * mod.PERIODS
     ]
     tx_build_df = pd.DataFrame(normalized_dat)
