@@ -138,6 +138,8 @@ def graph(tools):
     )
     dispatch = dispatch[["transmission_limit_dual", "time_row"]]
     dispatch = dispatch.pivot(columns="time_row", values="transmission_limit_dual")
+    # Multiply the duals by -1 since the formulation gives negative duals
+    dispatch *= -1
     if dispatch.count().sum() != 0:
         ax = tools.get_new_axes(
             "transmission_limit_duals", title="Transmission limit duals per period"
