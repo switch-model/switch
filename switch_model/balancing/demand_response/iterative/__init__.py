@@ -636,7 +636,8 @@ def electricity_marginal_cost(m, z, tp, prod):
         component = m.Satisfy_Spinning_Reserve_Down_Requirement[m.zone_balancing_area[z], tp]
     else:
         raise ValueError('Unrecognized electricity product: {}.'.format(prod))
-    return m.dual[component]/m.bring_timepoint_costs_to_base_year[tp]
+    # Note: We multiply by 1000 since our objective function is in terms of thousands of dollars
+    return m.dual[component]/m.bring_timepoint_costs_to_base_year[tp] * 1000
 
 def electricity_demand(m, z, tp, prod):
     """Return total consumption of product prod in load_zone z during timepoint tp (negative if customers supply product)."""
@@ -676,7 +677,8 @@ def calibrate_model(m):
     # For now, we just assume the base price was $180/MWh, which is HECO's average price in
     # 2007 according to EIA form 826.
     # TODO: add in something for the fixed costs, to make marginal cost commensurate with the base_price
-    #baseCosts = [m.dual[m.EnergyBalance[z, tp]] for z in m.LOAD_ZONES for tp in m.TIMEPOINTS]
+    # Note: We multiply by 1000 since our objective function is in terms of thousands of dollars
+    #baseCosts = [m.dual[m.EnergyBalance[z, tp]] * 1000 for z in m.LOAD_ZONES for tp in m.TIMEPOINTS]
     base_price = 180  # average retail price for 2007 ($/MWh)
     m.base_data = [(
         z,

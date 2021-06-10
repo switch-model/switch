@@ -77,7 +77,7 @@ def define_components(mod):
 
     """
 
-    mod.LOAD_ZONES = Set()
+    mod.LOAD_ZONES = Set(dimen=1)
     mod.ZONE_TIMEPOINTS = Set(dimen=2,
         initialize=lambda m: m.LOAD_ZONES * m.TIMEPOINTS,
         doc="The cross product of load zones and timepoints, used for indexing.")
@@ -220,7 +220,8 @@ def post_solve(instance, outdir):
             # taken by that timepoint, during the period. This is m.tp_weight.
             # Note that this is the cost per hour for an extra MW or
             # equivalently the cost of providing an extra MWh.
-            row.append(m.dual[m.Zone_Energy_Balance[z, t]] / m.tp_weight[t])
+            # Note: We multiply by 1000 since our objective function is in terms of thousands of dollars
+            row.append(m.dual[m.Zone_Energy_Balance[z, t]] * 1000 / m.tp_weight[t])
         else:
             row.append(".")
 
@@ -266,3 +267,19 @@ def post_solve(instance, outdir):
         + tuple(-sum(get_component_per_year(m, z, p, component) for z in m.LOAD_ZONES)
                 for component in m.Zone_Power_Withdrawals)
     )
+
+
+def graph(tools):
+    load_balance = tools.get_dataframe(csv='load_balance')
+    load_balance = tools.add_timestamp_info(load_balance)
+    ax = tools.get_new_axes("energy_balance_duals", title="Energy balance duals per period")
+    load_balance["energy_balance_duals"] = tools.pd.to_numeric(load_balance["normalized_energy_balance_duals_dollar_per_mwh"], errors="coerce") / 10
+    load_balance = load_balance[["energy_balance_duals", "time_row"]]
+    load_balance = load_balance.pivot(columns="time_row", values="energy_balance_duals")
+    if load_balance.count().sum() != 0:
+        load_balance.plot.box(
+            ax=ax,
+            xlabel='Period',
+            ylabel='Energy balance duals (cents/kWh)',
+            logy=True,
+        )
