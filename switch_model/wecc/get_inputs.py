@@ -136,6 +136,34 @@ def connect(schema="switch"):
     return conn
 
 
+def main():
+    timer = StepTimer()
+
+    # Create command line tool, just provides help information
+    parser = argparse.ArgumentParser(
+        description="Write SWITCH input files from database tables.",
+        epilog="""
+        This tool will populate the inputs folder with the data from the PostgreSQL database.
+        config.yaml specifies the scenario parameters. 
+        The environment variable DB_URL specifies the url to connect to the database. """,
+    )
+    parser.add_argument("--skip-cf", default=False, action='store_true',
+                        help="Skip creation variable_capacity_factors.csv. Useful when debugging and one doesn't"
+                             "want to wait for the command.")
+    parser.add_argument("--post-only", default=False, action='store_true',
+                        help="Only run the post solve functions (don't query db)")
+    args = parser.parse_args()  # Makes switch get_inputs --help works
+
+    # Load values from config.yaml
+    full_config = load_config()
+    switch_to_input_dir(full_config)
+
+    if not args.post_only:
+        query_db(full_config, skip_cf=args.skip_cf)
+    post_process()
+    print(f"\nScript took {timer.step_time_as_str()} seconds to build input tables.")
+
+
 def query_db(full_config, skip_cf):
     config = full_config["get_inputs"]
     scenario_id = config["scenario_id"]
@@ -891,6 +919,7 @@ def query_db(full_config, skip_cf):
         planning_reserves(db_cursor, time_sample_id, hydro_simple_scenario_id)
     create_modules_txt()
 
+
 def ca_policies(db_cursor, ca_policies_scenario_id, study_timeframe_id):
     if ca_policies_scenario_id is None:
         return
@@ -938,7 +967,6 @@ def ca_policies(db_cursor, ca_policies_scenario_id, study_timeframe_id):
     )
 
     modules.append('switch_model.policies.CA_policies')
-
 
 def planning_reserves(db_cursor, time_sample_id, hydro_simple_scenario_id):
     # reserve_capacity_value.csv specifies the capacity factors that should be used when calculating
@@ -997,6 +1025,7 @@ def planning_reserves(db_cursor, time_sample_id, hydro_simple_scenario_id):
 
     modules.append("switch_model.balancing.planning_reserves")
 
+
 def create_modules_txt():
     print("modules.txt...")
     with open("modules.txt", "w") as f:
@@ -1005,13 +1034,56 @@ def create_modules_txt():
 
 
 def post_process():
-    # No post-process at the moment
+    fix_prebuild_conflict_bug()
+    # Graphing post process
     graph_config = os.path.join(os.path.dirname(__file__), "graph_config")
     print("graph_tech_colors.csv...")
     shutil.copy(os.path.join(graph_config, "graph_tech_colors.csv"), "graph_tech_colors.csv")
     print("graph_tech_types.csv...")
     shutil.copy(os.path.join(graph_config, "graph_tech_types.csv"), "graph_tech_types.csv")
     create_graph_timestamp_map()
+
+
+def fix_prebuild_conflict_bug():
+    """
+    This post-processing step is necessary to pass the no_predetermined_bld_yr_vs_period_conflict BuildCheck.
+    Basically we are moving all the 2020 predetermined build years to 2019 to avoid a conflict with the 2020 period.
+    See generators.core.build.py for details.
+    """
+    periods = pd.read_csv("periods.csv", index_col=False)
+    if 2020 not in periods["INVESTMENT_PERIOD"].values:
+        return
+
+    # Read two files that need modification
+    gen_build_costs = pd.read_csv("gen_build_costs.csv", index_col=False)
+    gen_build_predetermined = pd.read_csv("gen_build_predetermined.csv", index_col=False)
+    # Save their size
+    rows_prior = gen_build_costs.size, gen_build_predetermined.size
+    # Save columns of gen_build_costs
+    gen_build_costs_col = gen_build_costs.columns
+    # Merge to know which rows are prebuild
+    gen_build_costs = gen_build_costs.merge(
+        gen_build_predetermined,
+        on=["GENERATION_PROJECT", "build_year"],
+        how='left'
+    )
+
+    # If row is prebuild and in 2020, replace it with 2019
+    gen_build_costs.loc[
+        (~gen_build_costs["gen_predetermined_cap"].isna()) & (gen_build_costs["build_year"] == 2020),
+        "build_year"] = 2019
+    # If row is in 2020 replace it with 2019
+    gen_build_predetermined.loc[gen_build_predetermined["build_year"] == 2020, "build_year"] = 2019
+    # Go back to original column set
+    gen_build_costs = gen_build_costs[gen_build_costs_col]
+
+    # Ensure the size is still the same
+    rows_post = gen_build_costs.size, gen_build_predetermined.size
+    assert rows_post == rows_prior
+
+    # Write the files back out
+    gen_build_costs.to_csv("gen_build_costs.csv", index=False)
+    gen_build_predetermined.to_csv("gen_build_predetermined.csv", index=False)
 
 
 def create_graph_timestamp_map():
@@ -1032,36 +1104,6 @@ def create_graph_timestamp_map():
     timestamp_map = timepoints[["timestamp", "ts_period", "time_column"]]
     timestamp_map.columns = ["timestamp", "time_row", "time_column"]
     timestamp_map.to_csv("graph_timestamp_map.csv", index=False)
-
-    pass
-
-
-def main():
-    timer = StepTimer()
-
-    # Create command line tool, just provides help information
-    parser = argparse.ArgumentParser(
-        description="Write SWITCH input files from database tables.",
-        epilog="""
-                This tool will populate the inputs folder with the data from the PostgreSQL database.
-                config.yaml specifies the scenario parameters. 
-                The environment variable DB_URL specifies the url to connect to the database. """,
-    )
-    parser.add_argument("--skip-cf", default=False, action='store_true',
-                        help="Skip creation variable_capacity_factors.csv. Useful when debugging and one doesn't"
-                             "want to wait for the command.")
-    parser.add_argument("--only-post", default=False, action='store_true',
-                        help="Only run the post solve functions (don't query db)")
-    args = parser.parse_args()  # Makes switch get_inputs --help works
-
-    # Load values from config.yaml
-    full_config = load_config()
-    switch_to_input_dir(full_config)
-
-    if not args.only_post:
-        query_db(full_config, skip_cf=args.skip_cf)
-    post_process()
-    print(f"\nScript took {timer.step_time_as_str()} seconds to build input tables.")
 
 
 if __name__ == "__main__":
