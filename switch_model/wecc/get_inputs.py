@@ -1042,6 +1042,10 @@ def fix_prebuild_conflict_bug():
     Basically we are moving all the 2020 predetermined build years to 2019 to avoid a conflict with the 2020 period.
     See generators.core.build.py for details.
     """
+    periods = pd.read_csv("periods.csv", index_col=False)
+    if 2020 not in periods["INVESTMENT_PERIOD"].values:
+        return
+
     # Read two files that need modification
     gen_build_costs = pd.read_csv("gen_build_costs.csv", index_col=False)
     gen_build_predetermined = pd.read_csv("gen_build_predetermined.csv", index_col=False)
