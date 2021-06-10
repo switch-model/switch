@@ -413,7 +413,8 @@ def total_direct_costs_per_year(m, period):
 
 def electricity_marginal_cost(m, z, tp):
     """Return marginal cost of production per MWh in load_zone z during timepoint tp."""
-    return m.dual[m.Energy_Balance[z, tp]]/m.bring_timepoint_costs_to_base_year[tp]
+    # Note: We multiply by 1000 since our objective function is in terms of thousands of dollars
+    return m.dual[m.Energy_Balance[z, tp]]/m.bring_timepoint_costs_to_base_year[tp] * 1000
 
 def electricity_demand(m, z, tp):
     """Return total electricity consumption by customers in load_zone z during timepoint tp."""

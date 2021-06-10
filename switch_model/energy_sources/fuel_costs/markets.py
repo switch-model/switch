@@ -205,12 +205,13 @@ def define_components(mod):
 
     """
 
-    mod.REGIONAL_FUEL_MARKETS = Set()
+    mod.REGIONAL_FUEL_MARKETS = Set(dimen=1)
     mod.rfm_fuel = Param(mod.REGIONAL_FUEL_MARKETS, within=mod.FUELS)
     mod.ZONE_RFMS = Set(
         dimen=2, validate=lambda m, z, rfm: (
             rfm in m.REGIONAL_FUEL_MARKETS and z in m.LOAD_ZONES))
     mod.ZONE_FUELS = Set(
+        ordered=False,
         dimen=2, initialize=lambda m: set(
             (z, m.rfm_fuel[rfm]) for (z, rfm) in m.ZONE_RFMS))
 
@@ -224,6 +225,7 @@ def define_components(mod):
     mod.min_data_check('REGIONAL_FUEL_MARKETS', 'rfm_fuel', 'zone_rfm')
     mod.ZONES_IN_RFM = Set(
         mod.REGIONAL_FUEL_MARKETS,
+        ordered=False,
         initialize=lambda m, rfm: set(
             z for (z, r) in m.ZONE_RFMS if r == rfm))
 
@@ -239,6 +241,7 @@ def define_components(mod):
         'RFM_SUPPLY_TIERS', 'rfm_supply_tier_cost', 'rfm_supply_tier_limit')
     mod.SUPPLY_TIERS_FOR_RFM_PERIOD = Set(
         mod.REGIONAL_FUEL_MARKETS, mod.PERIODS, dimen=3,
+        ordered=False,
         initialize=lambda m, rfm, ip: set(
             (r, p, st) for (r, p, st) in m.RFM_SUPPLY_TIERS
             if r == rfm and p == ip))
