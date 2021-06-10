@@ -114,7 +114,7 @@ def main(args=None, return_model=False, return_instance=False):
             print("Loading inputs...")
 
         # create an instance (also reports time spent reading data and loading into model)
-        instance = model.load_inputs()
+        instance = model.load_inputs(attach_data_portal=False)
 
         #### Below here, we refer to instance instead of model ####
 
