@@ -595,8 +595,8 @@ def query_db(full_config, skip_cf):
     write_csv_from_query(
         db_cursor,
         "gen_build_predetermined",
-        ["GENERATION_PROJECT", "build_year", "gen_predetermined_cap"],
-        f"""select generation_plant_id, build_year, capacity as gen_predetermined_cap  
+        ["GENERATION_PROJECT", "build_year", "gen_predetermined_cap", "gen_predetermined_storage_energy_mwh"],
+        f"""select generation_plant_id, build_year, capacity as gen_predetermined_cap, gen_predetermined_storage_energy_mwh  
                 from generation_plant_existing_and_planned 
                 join generation_plant as t using(generation_plant_id)
                 join generation_plant_scenario_member using(generation_plant_id)
