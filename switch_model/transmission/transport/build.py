@@ -177,7 +177,7 @@ def define_components(mod):
 
     """
 
-    mod.TRANSMISSION_LINES = Set()
+    mod.TRANSMISSION_LINES = Set(dimen=1)
     mod.trans_lz1 = Param(mod.TRANSMISSION_LINES, within=mod.LOAD_ZONES)
     mod.trans_lz2 = Param(mod.TRANSMISSION_LINES, within=mod.LOAD_ZONES)
     # we don't do a min_data_check for TRANSMISSION_LINES, because it may be empty for model
@@ -262,6 +262,7 @@ def define_components(mod):
     mod.DIRECTIONAL_TX = Set(dimen=2, initialize=init_DIRECTIONAL_TX)
     mod.TX_CONNECTIONS_TO_ZONE = Set(
         mod.LOAD_ZONES,
+        ordered=False,
         initialize=lambda m, lz: set(
             z for z in m.LOAD_ZONES if (z, lz) in m.DIRECTIONAL_TX
         ),
@@ -376,4 +377,17 @@ def post_solve(instance, outdir):
     tx_build_df.set_index(["TRANSMISSION_LINE", "PERIOD"], inplace=True)
     write_table(
         instance, df=tx_build_df, output_file=os.path.join(outdir, "transmission.csv")
+    )
+
+
+def graph(tools):
+    transmission = tools.get_dataframe("transmission")
+    transmission = transmission.groupby("PERIOD").sum()["TxCapacityNameplate"]
+    transmission *= 1e-3
+
+    ax = tools.get_new_axes(
+        out="transmission_capacity", title="Transmission capacity per period"
+    )
+    transmission.plot(
+        kind="bar", ax=ax, xlabel="Period", ylabel="Transmission capacity (GW)"
     )
