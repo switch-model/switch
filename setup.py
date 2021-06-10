@@ -67,6 +67,7 @@ setup(
         "planning",
         "optimization",
     ],
+    python_requires='>=3.7',
     install_requires=[
         "Pyomo",  # We need a version that works with glpk 4.60+
         "pyutilib",
