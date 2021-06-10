@@ -310,13 +310,18 @@ def graph(tools):
         "energy_balance_duals", title="Energy balance duals per period"
     )
     load_balance["energy_balance_duals"] = (
-        load_balance["normalized_energy_balance_duals_dollar_per_mwh"] / 10
+        tools.pd.to_numeric(
+            load_balance["normalized_energy_balance_duals_dollar_per_mwh"],
+            errors="coerce",
+        )
+        / 10
     )
     load_balance = load_balance[["energy_balance_duals", "time_row"]]
     load_balance = load_balance.pivot(columns="time_row", values="energy_balance_duals")
-    load_balance.plot.box(
-        ax=ax,
-        xlabel="Period",
-        ylabel="Energy balance duals (cents/kWh)",
-        logy=True,
-    )
+    if load_balance.count().sum() != 0:
+        load_balance.plot.box(
+            ax=ax,
+            xlabel="Period",
+            ylabel="Energy balance duals (cents/kWh)",
+            logy=True,
+        )

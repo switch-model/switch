@@ -1,3 +1,9 @@
+"""
+Tool to generate graphs for a scenario.
+
+Run "switch graph -h" for details.
+"""
+
 import os, argparse
 
 from switch_model.utilities import query_yes_no
