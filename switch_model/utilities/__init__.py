@@ -10,6 +10,7 @@ import os, types, importlib, re, sys, argparse, time, datetime, traceback, subpr
 
 import switch_model.__main__ as main
 from pyomo.environ import *
+from pyomo.core.base.set import UnknownSetDimen
 from switch_model.utilities.scaling import _ScaledVariable, _get_unscaled_expression
 import pyomo.opt
 import yaml
@@ -267,6 +268,8 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=True):
         inputs_dir = getattr(model.options, "inputs_dir", "inputs")
 
     # Load data; add a fancier load function to the data portal
+    if model.options.verbose:
+        print("Reading data...")
     timer = StepTimer()
     data = DataPortal(model=model)
     data.load_aug = types.MethodType(load_aug, data)
@@ -278,6 +281,8 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=True):
 
     # At some point, pyomo deprecated 'create' in favor of 'create_instance'.
     # Determine which option is available and use that.
+    if model.options.verbose:
+        print("Creating instance...")
     if hasattr(model, "create_instance"):
         instance = model.create_instance(data)
         # We want our functions from CustomModel to be accessible
@@ -474,7 +479,7 @@ def has_discrete_variables(model):
     return any(
         v.is_binary() or v.is_integer()
         for variable in model.component_objects(Var, active=True)
-        for v in (variable.itervalues() if variable.is_indexed() else [variable])
+        for v in (variable.values() if variable.is_indexed() else [variable])
     )
 
 
@@ -535,7 +540,7 @@ def check_mandatory_components(model, *mandatory_model_components):
     for component_name in mandatory_model_components:
         obj = getattr(model, component_name)
         o_class = type(obj).__name__
-        if o_class == "SimpleSet" or o_class == "OrderedSimpleSet":
+        if o_class == "ScalarSet" or o_class == "OrderedScalarSet":
             if len(obj) == 0:
                 raise ValueError(
                     "No data is defined for the mandatory set '{}'.".format(
@@ -564,7 +569,7 @@ def check_mandatory_components(model, *mandatory_model_components):
                         + "the mandatory indexed set '{}'"
                     ).format(component_name)
                 )
-        elif o_class == "SimpleParam":
+        elif o_class == "ScalarParam":
             if obj.value is None:
                 raise ValueError(
                     "Value not provided for mandatory parameter '{}'".format(
@@ -671,10 +676,19 @@ def load_aug(
     # Grab the dimensionality of the index param if it was provided.
     if "index" in kwds:
         num_indexes = kwds["index"].dimen
+        if num_indexes == UnknownSetDimen:
+            raise Exception(
+                f"Index {kwds['index'].name} has unknown dimension. Specify dimen= during its creation."
+            )
     # Next try the first parameter's index.
     elif len(params) > 0:
         try:
-            num_indexes = params[0].index_set().dimen
+            indexed_set = params[0].index_set()
+            num_indexes = indexed_set.dimen
+            if num_indexes == UnknownSetDimen:
+                raise Exception(
+                    f"{indexed_set.name} has unknown dimension. Specify dimen= during its creation."
+                )
         except (ValueError, AttributeError):
             num_indexes = 0
     # Default to 0 if both methods failed.

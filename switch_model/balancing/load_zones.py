@@ -78,7 +78,7 @@ def define_components(mod):
 
     """
 
-    mod.LOAD_ZONES = Set()
+    mod.LOAD_ZONES = Set(dimen=1)
     mod.ZONE_TIMEPOINTS = Set(
         dimen=2,
         initialize=lambda m: m.LOAD_ZONES * m.TIMEPOINTS,

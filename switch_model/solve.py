@@ -7,7 +7,7 @@ from pyomo.environ import *
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
 import pyomo.version
 
-import sys, os, shlex, re, inspect, textwrap, types, pickle
+import sys, os, shlex, re, inspect, textwrap, types, pickle, traceback
 
 import switch_model
 from switch_model.utilities import (
@@ -135,7 +135,6 @@ def main(args=None, return_model=False, return_instance=False):
                 "=======================================================================\n"
             )
             print(f"Model created in {timer.step_time_as_str()}.")
-            print("Loading inputs...")
 
         # create an instance (also reports time spent reading data and loading into model)
         instance = model.load_inputs()
@@ -318,7 +317,7 @@ def patch_pyomo():
             # create and inject a new version of the method
             add_solution_code = add_solution_code.replace(old_code, new_code)
             replace_method(ModelSolutions, "add_solution", add_solution_code)
-        else:
+        elif pyomo.version.version_info[:2] >= (5, 0):
             print(
                 "NOTE: The patch to pyomo.core.base.PyomoModel.ModelSolutions.add_solution "
                 "has been deactivated because the Pyomo source code has changed. "
@@ -1017,7 +1016,15 @@ def solve(model):
     # file on disk, but the instance cannot.
     # https://stackoverflow.com/questions/39941520/pyomo-ipopt-does-not-return-solution
     #
-    model.solutions.store_to(results)
+    try:
+        model.solutions.store_to(results)
+    except:
+        # Print the error that would normally be thrown with the
+        # full stack trace and an explanatory message
+        print(
+            f"ERROR: Failed to save solution after solving. Exception was caught and we're moving on to post_solve()"
+            f"\n{traceback.format_exc()}"
+        )
 
     # Cache a copy of the results object, to allow saving and restoring model
     # solutions later.

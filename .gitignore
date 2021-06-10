@@ -18,6 +18,7 @@
 examples/**/outputs/*.csv
 examples/**/outputs/*.txt
 examples/**/graphs/*.png
+examples/**/info.txt
 
 ### dotenv ###
 .env

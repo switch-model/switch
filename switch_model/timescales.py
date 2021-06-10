@@ -228,12 +228,12 @@ def define_components(mod):
 
     """
 
-    mod.PERIODS = Set(ordered=True)
+    mod.PERIODS = Set(ordered=True, dimen=1)
     mod.period_start = Param(mod.PERIODS, within=NonNegativeReals)
     mod.period_end = Param(mod.PERIODS, within=NonNegativeReals)
     mod.min_data_check("PERIODS", "period_start", "period_end")
 
-    mod.TIMESERIES = Set(ordered=True)
+    mod.TIMESERIES = Set(ordered=True, dimen=1)
     mod.ts_period = Param(mod.TIMESERIES, within=mod.PERIODS)
     mod.ts_duration_of_tp = Param(mod.TIMESERIES, within=PositiveReals)
     mod.ts_num_tps = Param(mod.TIMESERIES, within=PositiveIntegers)
@@ -246,7 +246,7 @@ def define_components(mod):
         "ts_scale_to_period",
     )
 
-    mod.TIMEPOINTS = Set(ordered=True)
+    mod.TIMEPOINTS = Set(ordered=True, dimen=1)
     mod.tp_ts = Param(mod.TIMEPOINTS, within=mod.TIMESERIES)
     mod.min_data_check("TIMEPOINTS", "tp_ts")
     mod.tp_timestamp = Param(mod.TIMEPOINTS, default=lambda m, t: t)

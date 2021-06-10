@@ -191,14 +191,16 @@ def define_components(mod):
 
     """
     # This set is defined by generation_projects_info.csv
-    mod.GENERATION_PROJECTS = Set()
-    mod.gen_dbid = Param(mod.GENERATION_PROJECTS, default=lambda m, g: g)
-    mod.gen_tech = Param(mod.GENERATION_PROJECTS)
+    mod.GENERATION_PROJECTS = Set(dimen=1)
+    mod.gen_dbid = Param(mod.GENERATION_PROJECTS, default=lambda m, g: g, within=Any)
+    mod.gen_tech = Param(mod.GENERATION_PROJECTS, within=Any)
     mod.GENERATION_TECHNOLOGIES = Set(
-        initialize=lambda m: {m.gen_tech[g] for g in m.GENERATION_PROJECTS}
+        ordered=False,
+        initialize=lambda m: {m.gen_tech[g] for g in m.GENERATION_PROJECTS},
     )
     mod.gen_energy_source = Param(
         mod.GENERATION_PROJECTS,
+        within=Any,
         validate=lambda m, val, g: val in m.ENERGY_SOURCES or val == "multiple",
     )
     mod.gen_load_zone = Param(mod.GENERATION_PROJECTS, within=mod.LOAD_ZONES)
@@ -380,21 +382,31 @@ def define_components(mod):
         mod.GEN_BLD_YRS,
         within=mod.PERIODS,
         ordered=True,
-        initialize=lambda m, g, bld_yr: set(
+        initialize=lambda m, g, bld_yr: [
             period
             for period in m.PERIODS
             if gen_build_can_operate_in_period(m, g, bld_yr, period)
+        ],
+    )
+
+    mod.BLD_YRS_FOR_GEN = Set(
+        mod.GENERATION_PROJECTS,
+        ordered=False,
+        initialize=lambda m, g: set(
+            bld_yr for (gen, bld_yr) in m.GEN_BLD_YRS if gen == g
         ),
     )
+
     # The set of build years that could be online in the given period
     # for the given project.
     mod.BLD_YRS_FOR_GEN_PERIOD = Set(
         mod.GENERATION_PROJECTS,
         mod.PERIODS,
+        ordered=False,
         initialize=lambda m, g, period: set(
             bld_yr
-            for (gen, bld_yr) in m.GEN_BLD_YRS
-            if gen == g and gen_build_can_operate_in_period(m, g, bld_yr, period)
+            for bld_yr in m.BLD_YRS_FOR_GEN[g]
+            if gen_build_can_operate_in_period(m, g, bld_yr, period)
         ),
     )
     # The set of periods when a generator is available to run
@@ -476,6 +488,7 @@ def define_components(mod):
         mod.GENERATION_PROJECTS, within=NonNegativeReals, default=0
     )
     mod.NEW_GEN_WITH_MIN_BUILD_YEARS = Set(
+        dimen=2,
         initialize=mod.NEW_GEN_BLD_YRS,
         filter=lambda m, g, p: (m.gen_min_build_capacity[g] > 0),
     )

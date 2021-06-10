@@ -101,7 +101,7 @@ def define_components(mod):
     """
 
     mod.NON_FUEL_ENERGY_SOURCES = Set()
-    mod.FUELS = Set()
+    mod.FUELS = Set(dimen=1)
 
     mod.f_co2_intensity = Param(mod.FUELS, within=NonNegativeReals)
     mod.f_upstream_co2_intensity = Param(mod.FUELS, within=Reals, default=0)
