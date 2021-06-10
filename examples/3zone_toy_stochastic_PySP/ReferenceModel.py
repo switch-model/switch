@@ -39,7 +39,7 @@ print("loading model...")
 # mandatory switch argument parser is interferring with pysp's command line tools
 #model = switch_model.solve.main(return_model=True)
 
-module_list = switch_model.solve.get_module_list(args=None)
+module_list = utilities.get_module_list(args=None)
 model = utilities.create_model(module_list, args=[])
 
 # The following code augments the model object with Expressions for the

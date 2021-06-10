@@ -1,0 +1,14 @@
+map_name,gen_type,color
+default,Biomass,green
+default,Coal,saddlebrown
+default,Gas,gray
+default,Geothermal,red
+default,Hydro,royalblue
+default,Nuclear,blueviolet
+default,Oil,orange
+default,Solar,gold
+default,Storage,aquamarine
+default,Waste,black
+default,Wave,blue
+default,Wind,deepskyblue
+default,Other,white

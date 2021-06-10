@@ -11,11 +11,15 @@ That code was removed however it can still be found at this commit
 # Standard packages
 import argparse
 import os
+import shutil
 from typing import Iterable, List
 
 # Switch packages
 from switch_model.utilities import query_yes_no, StepTimer
 from switch_model.wecc.utilities import load_config, connect
+
+# Third-party packages
+import pandas as pd
 
 
 def write_csv_from_query(cursor, fname: str, headers: List[str], query: str):
@@ -85,7 +89,7 @@ def switch_to_input_dir(config):
     return inputs_dir
 
 
-def create_csvs():
+def main():
     timer = StepTimer()
 
     # Create command line tool, just provides help information
@@ -99,11 +103,21 @@ def create_csvs():
     parser.add_argument("--skip-cf", default=False, action='store_true',
                         help="Skip creation variable_capacity_factors.csv. Useful when debugging and one doesn't"
                              "want to wait for the command.")
+    parser.add_argument("--post-only", default=False, action='store_true',
+                        help="Only run the post solve functions (don't query db)")
     args = parser.parse_args()  # Makes switch get_inputs --help works
 
     # Load values from config.yaml
     full_config = load_config()
     switch_to_input_dir(full_config)
+
+    if not args.post_only:
+        query_db(full_config, skip_cf=args.skip_cf)
+    post_process()
+    print(f"\nScript took {timer.step_time_as_str()} seconds to build input tables.")
+
+
+def query_db(full_config, skip_cf):
     config = full_config["get_inputs"]
     scenario_id = config["scenario_id"]
 
@@ -597,7 +611,7 @@ def create_csvs():
     # Pyomo will raise an error if a capacity factor is defined for a project on a timepoint when it is no longer operational (i.e. Canela 1 was built on 2007 and has a 30 year max age, so for tp's ocurring later than 2037, its capacity factor must not be written in the table).
 
     # variable_capacity_factors.csv
-    if not args.skip_cf:
+    if not skip_cf:
         write_csv_from_query(
             db_cursor,
             "variable_capacity_factors",
@@ -858,8 +872,6 @@ def create_csvs():
         planning_reserves(db_cursor, time_sample_id, hydro_simple_scenario_id)
     create_modules_txt()
 
-    print(f"\nScript took {timer.step_time_as_str()} seconds to build input tables.")
-
 
 def ca_policies(db_cursor, ca_policies_scenario_id, study_timeframe_id):
     if ca_policies_scenario_id is None:
@@ -908,7 +920,6 @@ def ca_policies(db_cursor, ca_policies_scenario_id, study_timeframe_id):
     )
 
     modules.append('switch_model.policies.CA_policies')
-
 
 def planning_reserves(db_cursor, time_sample_id, hydro_simple_scenario_id):
     # reserve_capacity_value.csv specifies the capacity factors that should be used when calculating
@@ -967,6 +978,7 @@ def planning_reserves(db_cursor, time_sample_id, hydro_simple_scenario_id):
 
     modules.append("switch_model.balancing.planning_reserves")
 
+
 def create_modules_txt():
     print("modules.txt...")
     with open("modules.txt", "w") as f:
@@ -975,13 +987,76 @@ def create_modules_txt():
 
 
 def post_process():
-    # No post-process at the moment
-    pass
+    fix_prebuild_conflict_bug()
+    # Graphing post process
+    graph_config = os.path.join(os.path.dirname(__file__), "graph_config")
+    print("graph_tech_colors.csv...")
+    shutil.copy(os.path.join(graph_config, "graph_tech_colors.csv"), "graph_tech_colors.csv")
+    print("graph_tech_types.csv...")
+    shutil.copy(os.path.join(graph_config, "graph_tech_types.csv"), "graph_tech_types.csv")
+    create_graph_timestamp_map()
 
 
-def main():
-    create_csvs()
-    post_process()
+def fix_prebuild_conflict_bug():
+    """
+    This post-processing step is necessary to pass the no_predetermined_bld_yr_vs_period_conflict BuildCheck.
+    Basically we are moving all the 2020 predetermined build years to 2019 to avoid a conflict with the 2020 period.
+    See generators.core.build.py for details.
+    """
+    periods = pd.read_csv("periods.csv", index_col=False)
+    if 2020 not in periods["INVESTMENT_PERIOD"].values:
+        return
+
+    # Read two files that need modification
+    gen_build_costs = pd.read_csv("gen_build_costs.csv", index_col=False)
+    gen_build_predetermined = pd.read_csv("gen_build_predetermined.csv", index_col=False)
+    # Save their size
+    rows_prior = gen_build_costs.size, gen_build_predetermined.size
+    # Save columns of gen_build_costs
+    gen_build_costs_col = gen_build_costs.columns
+    # Merge to know which rows are prebuild
+    gen_build_costs = gen_build_costs.merge(
+        gen_build_predetermined,
+        on=["GENERATION_PROJECT", "build_year"],
+        how='left'
+    )
+
+    # If row is prebuild and in 2020, replace it with 2019
+    gen_build_costs.loc[
+        (~gen_build_costs["gen_predetermined_cap"].isna()) & (gen_build_costs["build_year"] == 2020),
+        "build_year"] = 2019
+    # If row is in 2020 replace it with 2019
+    gen_build_predetermined.loc[gen_build_predetermined["build_year"] == 2020, "build_year"] = 2019
+    # Go back to original column set
+    gen_build_costs = gen_build_costs[gen_build_costs_col]
+
+    # Ensure the size is still the same
+    rows_post = gen_build_costs.size, gen_build_predetermined.size
+    assert rows_post == rows_prior
+
+    # Write the files back out
+    gen_build_costs.to_csv("gen_build_costs.csv", index=False)
+    gen_build_predetermined.to_csv("gen_build_predetermined.csv", index=False)
+
+
+def create_graph_timestamp_map():
+    print("graph_timestamp_map.csv...")
+    timepoints = pd.read_csv("timepoints.csv", index_col=False)
+    timeseries = pd.read_csv("timeseries.csv", index_col=False)
+
+    timepoints = timepoints.merge(
+        timeseries,
+        how='left',
+        left_on='timeseries',
+        right_on='TIMESERIES',
+        validate="many_to_one"
+    )
+
+    timepoints["time_column"] = timepoints["timeseries"].apply(lambda c: c.partition("-")[2])
+
+    timestamp_map = timepoints[["timestamp", "ts_period", "time_column"]]
+    timestamp_map.columns = ["timestamp", "time_row", "time_column"]
+    timestamp_map.to_csv("graph_timestamp_map.csv", index=False)
 
 
 if __name__ == "__main__":

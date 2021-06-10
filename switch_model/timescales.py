@@ -11,6 +11,7 @@ from __future__ import division
 import os
 from pyomo.environ import *
 from . import utilities
+from .reporting import write_table
 
 hours_per_year = 8766
 
@@ -227,12 +228,12 @@ def define_components(mod):
 
     """
 
-    mod.PERIODS = Set(ordered=True)
+    mod.PERIODS = Set(ordered=True, dimen=1)
     mod.period_start = Param(mod.PERIODS, within=NonNegativeReals)
     mod.period_end = Param(mod.PERIODS, within=NonNegativeReals)
     mod.min_data_check('PERIODS', 'period_start', 'period_end')
 
-    mod.TIMESERIES = Set(ordered=True)
+    mod.TIMESERIES = Set(ordered=True, dimen=1)
     mod.ts_period = Param(mod.TIMESERIES, within=mod.PERIODS)
     mod.ts_duration_of_tp = Param(mod.TIMESERIES, within=PositiveReals)
     mod.ts_num_tps = Param(mod.TIMESERIES, within=PositiveIntegers)
@@ -241,7 +242,7 @@ def define_components(mod):
         'TIMESERIES', 'ts_period', 'ts_duration_of_tp', 'ts_num_tps',
         'ts_scale_to_period')
 
-    mod.TIMEPOINTS = Set(ordered=True)
+    mod.TIMEPOINTS = Set(ordered=True, dimen=1)
     mod.tp_ts = Param(mod.TIMEPOINTS, within=mod.TIMESERIES)
     mod.min_data_check('TIMEPOINTS', 'tp_ts')
     mod.tp_timestamp = Param(mod.TIMEPOINTS, default=lambda m, t: t)
@@ -415,3 +416,16 @@ def load_inputs(mod, switch_data, inputs_dir):
         select=('timepoint_id', 'timestamp', 'timeseries'),
         index=mod.TIMEPOINTS,
         param=(mod.tp_timestamp, mod.tp_ts))
+
+def post_solve(mod, outdir):
+    """
+    Output timepoints.csv where each row contains a timepoint,
+    its duration per year, its corresponding timeseries and period
+    """
+    write_table(
+        mod,
+        mod.TIMEPOINTS,
+        output_file=os.path.join(outdir, "timestamps.csv"),
+        headings=("timepoint", "timestamp", "hours_per_year", "timeseries", "period"),
+        values=lambda m, t: (t, m.tp_timestamp[t], m.tp_weight_in_year[t], m.tp_ts[t], m.tp_period[t])
+    )

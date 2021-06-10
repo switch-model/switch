@@ -29,15 +29,15 @@ def sample_timepoints(
         "period_id",
         "timestamp_utc",
         "id",
+        "day_no",
     ]
     df = load_data.set_index("timestamp_utc").copy()
     delta_t = int(24 / number_tps)
 
     sampled_timepoints_list = []
-    for date in dates:
+    for num, date in enumerate(dates):
         if peak:
-            prev_day, next_day = get_next_prv_day(date)
-            subset = df.loc[prev_day:next_day].copy()
+            subset = df.loc[date].copy()
             # FIXME: Maybe we want to only pass the data with the demand series instead of
             # having all the other columns
             # Find timepoint with peak load
@@ -52,21 +52,21 @@ def sample_timepoints(
             subset = df.loc[date].copy()
             tps = subset[::delta_t]  # raise KeyError("Odd number of timepoints")
             # # raise NotImplementedError("Blame the developer!")
+        tps = tps.copy()
         # # TODO: Add a more robust sampling strategy that is able to check
         # # if the sampling is on the day before and check if the max is in the sampling
         # tps = data_filter.iloc[date_loc::delta_t]
         # if len(tps) != number_tps:
         # # FIXME: There is problem if the day is at the end I need to fix this
         # tps = data_filter.iloc[0::delta_t]
+        id_label = "P" if peak else "M"
+        tps.loc[:, "id"] = id_label
+        tps.loc[:, "day_no"] = f"{num}_{id_label}"
         sampled_timepoints_list.append(tps)
-    # Merge all the sampled timepoints
     data = pd.concat(sampled_timepoints_list)
-    # Add info columns
-    data["period_id"] = period_id
-    data["id"] = "P" if peak else "M"
-    data = data.reset_index()
-    data["date"] = data["timestamp_utc"].dt.date
-    return data[columns_to_return]
+    data.loc[:, "period_id"] = period_id
+    data = data.reset_index()[columns_to_return]
+    return data
 
 
 def _get_timeseries(
@@ -78,17 +78,19 @@ def _get_timeseries(
     df = data.copy()
     # TODO: Add a new argument to identify groups of days.
     df.loc[:, "date"] = df.timestamp_utc.dt.date
+    # df.loc[:, "date"] = df.timestamp_utc.dt.strftime("%Y-%m").values
     df.loc[:, "days_in_month"] = df.timestamp_utc.dt.days_in_month
     df["year"] = df.timestamp_utc.dt.year
     df["leap_year"] = df["year"] % 4
     df["days_in_year"] = np.where(df["leap_year"] == 0, 366, 365)
     # Get first timepoint for each date
-    df["first_timepoint_utc"] = df.groupby("date")["timestamp_utc"].transform("first")
+    df["first_timepoint_utc"] = df.groupby(["period_id", "day_no"])[
+        "timestamp_utc"
+    ].transform("first")
     # Get last timepoint for each date FIXME: This might not work if peak is found in the transition between two dates.
-    df["last_timepoint_utc"] = df.groupby("date")["timestamp_utc"].transform("last")
-
-    # Get only duplicate
-    df = df.drop_duplicates("date")
+    df["last_timepoint_utc"] = df.groupby(["period_id", "day_no"])[
+        "timestamp_utc"
+    ].transform("last")
 
     identifier = df["id"]
     df.loc[:, "name"] = df.timestamp_utc.dt.strftime(f"%Y-%m-%d") + "_" + identifier
@@ -98,6 +100,9 @@ def _get_timeseries(
     df = _scaling(df, *args, **kwargs)
     df = df.sort_values("date").reset_index(drop=True)
     df.index = df.index.rename("sampled_timeseries_id")
+
+    # Get only duplicate
+    df = df.drop_duplicates(subset=["period_id", "day_no"])
     return df.reset_index()
 
 
@@ -116,6 +121,18 @@ def _scaling(data, scale_to_period=10, days_in_month=31, scaling_dict=None):
         / (12 * df["days_in_month"])  # (df["hours_per_tp"] * df["num_timepoints"])
     )
     return df
+
+
+def method4(
+    demand_scenario_id,
+    study_id,
+    time_sample_id,
+    number_tps,
+    period_values,
+    db_conn=None,
+    **kwargs,
+):
+    ...
 
 
 def peak_median(
@@ -145,8 +162,13 @@ def peak_median(
         df_tmp = df[df.timestamp_utc.dt.year == label].reset_index(drop=True)
         # Get days with median load
         median_days: List[str] = get_median_days(df_tmp)
+        if "2040-01-18" in median_days:
+            idx = median_days.index("2040-01-18")
+            median_days[idx] = "2040-01-16"
         # Get days of peak load
         peak_days: List[str] = get_peak_days(df_tmp)
+        assert len(peak_days) == 12
+        assert len(median_days) == 12
         # Add the peak day timepoints
         sampled_tps.append(
             sample_timepoints(
@@ -172,7 +194,7 @@ def peak_median(
 
     # FIXME: For some reasone I grab a duplicated raw_timepoint_id. However, I do not know
     # where it came from. This is a quick fix
-    sampled_tps = sampled_tps.drop_duplicates(subset=["raw_timepoint_id"])
+    # sampled_tps = sampled_tps.drop_duplicates(subset=["raw_timepoint_id"])
     # Get the timeseries for the given timepoints
     timeseries = _get_timeseries(
         sampled_tps,
@@ -180,12 +202,6 @@ def peak_median(
     )
     # Filter out the id column
     sampled_to_db = sampled_tps.loc[:, ~sampled_tps.columns.isin(["id"])]
-    sampled_tps_tms = pd.merge(
-        sampled_to_db,
-        timeseries[["sampled_timeseries_id", "date"]],
-        how="right",
-        on="date",
-    )
     columns = [
         "raw_timepoint_id",
         "sampled_timeseries_id",
@@ -202,5 +218,14 @@ def peak_median(
         "last_timepoint_utc",
         "scaling_to_period",
     ]
+    sampled_tps_tms = pd.merge(
+        sampled_to_db,
+        timeseries[["sampled_timeseries_id", "period_id", "day_no"]],
+        how="right",
+        on=["period_id", "day_no"],
+    )
+
+    # FIXME: Overlaping timepoints cause troubles on the DB
+    breakpoint()
 
     return timeseries[columns_ts], sampled_tps_tms[columns]
