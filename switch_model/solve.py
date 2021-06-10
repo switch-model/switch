@@ -7,7 +7,7 @@ from pyomo.environ import *
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
 import pyomo.version
 
-import sys, os, shlex, re, inspect, textwrap, types, pickle
+import sys, os, shlex, re, inspect, textwrap, types, pickle, gc
 
 import switch_model
 from switch_model.utilities import (
@@ -166,6 +166,10 @@ def main(args=None, return_model=False, return_instance=False):
             if not os.path.isdir(instance.options.outputs_dir):
                 raise
 
+        # We no longer need model (only using instance) so we can garbage collect it to optimize our memory usage
+        del model
+        gc.collect()
+
         if instance.options.reload_prior_solution:
             print("Loading prior solution...")
             reload_prior_solution_from_pickle(instance, instance.options.outputs_dir)
@@ -180,6 +184,9 @@ def main(args=None, return_model=False, return_instance=False):
                     print("Iterating model...")
                 iterate(instance, iterate_modules)
             else:
+                # Cleanup iterate_modules since unused
+                del iterate_modules
+                gc.collect()
                 results = solve(instance)
                 if instance.options.verbose:
                     print("")
@@ -259,26 +266,6 @@ def patch_pyomo():
     if not patched_pyomo:
         patched_pyomo = True
         # patch Pyomo if needed
-
-        # Pyomo 4.2 and 4.3 mistakenly discard the original rule during
-        # Expression.construct. This makes it impossible to reconstruct
-        # expressions (e.g., for iterated models). So we patch it.
-        if (4, 2) <= pyomo.version.version_info[:2] <= (4, 3):
-            # test whether patch is needed:
-            m = ConcreteModel()
-            m.e = Expression(rule=lambda m: 0)
-            if hasattr(m.e, "_init_rule") and m.e._init_rule is None:
-                # add a deprecation warning here when we stop supporting Pyomo 4.2 or 4.3
-                old_construct = pyomo.environ.Expression.construct
-
-                def new_construct(self, *args, **kwargs):
-                    # save rule, call the function, then restore it
-                    _init_rule = self._init_rule
-                    old_construct(self, *args, **kwargs)
-                    self._init_rule = _init_rule
-
-                pyomo.environ.Expression.construct = new_construct
-            del m
 
         # Pyomo 5.1.1 (and maybe others) is very slow to load prior solutions because
         # it does a full-component search for each component name as it assigns the
@@ -1006,6 +993,8 @@ def solve(model):
 
         TempfileManager.tempdir = model.options.tempdir
 
+    # Cleanup memory before entering solver to use up as little memory as possible.
+    gc.collect()
     results = model.solver_manager.solve(model, opt=model.solver, **solver_args)
 
     if model.options.verbose:
