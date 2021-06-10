@@ -564,7 +564,7 @@ def graph_curtailment_per_tech(tools):
     df["period"] = df["period"].astype("category")
     df = df.groupby(["period", "gen_type"], as_index=False).sum()
     df["Percent Curtailed"] = df["Curtailment_MW"] / (df['DispatchGen_MW'] + df["Curtailment_MW"])
-    df = df.pivot_table(index="period", columns="gen_type", values="Percent Curtailed")
+    df = df.pivot(index="period", columns="gen_type", values="Percent Curtailed").fillna(0)
     if len(df) == 0:  # No dispatch from renewable technologies
         return
     # Set the name of the legend.

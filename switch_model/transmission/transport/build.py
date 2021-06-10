@@ -352,3 +352,19 @@ def post_solve(instance, outdir):
     tx_build_df = pd.DataFrame(normalized_dat)
     tx_build_df.set_index(["TRANSMISSION_LINE", "PERIOD"], inplace=True)
     write_table(instance, df=tx_build_df, output_file=os.path.join(outdir, "transmission.csv"))
+
+def graph(tools):
+    transmission = tools.get_dataframe("transmission")
+    transmission = transmission.groupby("PERIOD").sum()["TxCapacityNameplate"]
+    transmission *= 1e-3
+
+    ax = tools.get_new_axes(
+        out="transmission_capacity",
+        title="Transmission capacity per period"
+    )
+    transmission.plot(
+        kind='bar',
+        ax=ax,
+        xlabel="Period",
+        ylabel="Transmission capacity (GW)"
+    )

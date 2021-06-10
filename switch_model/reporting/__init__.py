@@ -70,11 +70,12 @@ def format_row(row, sig_digits):
     return tuple(cell_formatter(get_value(v)) for v in row)
 
 
-def write_table(instance, *indexes, **kwargs):
+def write_table(instance, *indexes, output_file=None, **kwargs):
     # there must be a way to accept specific named keyword arguments and
     # also an open-ended list of positional arguments (*indexes), but I
     # don't know what that is.
-    output_file = kwargs.pop("output_file")
+    if output_file is None:
+        raise Exception("Must specify output_file in write_table()")
     digits = instance.options.sig_figs_output
 
     if 'df' in kwargs:
