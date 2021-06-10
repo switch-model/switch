@@ -233,3 +233,13 @@ def post_solve(model, outdir):
             m.ca_min_gen_period_ratio[p],
         ],
     )
+
+
+def graph(tools):
+    # Plot emissions over time
+    ax = tools.get_new_axes(out="emissions_CA", title="California's Total Emissions")
+    df = tools.get_dataframe(csv="ca_policies")
+    df = df.set_index("PERIOD")
+    df["AnnualEmissions_tCO2_per_yr_CA"].plot(
+        ax=ax, kind="bar", ylabel="Annual Emissions (tCO2)", xlabel="Year"
+    )

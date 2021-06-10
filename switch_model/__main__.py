@@ -18,8 +18,9 @@ def main():
         "get_inputs",
         "--version",
         "drop",
-        "sampling",
         "new",
+        "graph",
+        "compare" "sampling",
     ]
     if len(sys.argv) >= 2 and sys.argv[1] in cmds:
         # If users run a script from the command line, the location of the script
@@ -60,6 +61,10 @@ def main():
             from switch_model.tools.drop import main
         elif cmd == "new":
             from switch_model.tools.new import main
+        elif cmd == "graph":
+            from switch_model.tools.graphing.graph import main
+        elif cmd == "compare":
+            from switch_model.tools.graphing.compare import main
         main()
     else:
         print(
