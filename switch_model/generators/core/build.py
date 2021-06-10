@@ -314,6 +314,13 @@ def define_components(mod):
     # This set is defined by gen_build_predetermined.csv
     mod.PREDETERMINED_GEN_BLD_YRS = Set(
         dimen=2)
+    mod.PREDETERMINED_BLD_YRS = Set(
+        dimen=1,
+        ordered=False,
+        initialize=lambda m: set(bld_yr for (g, bld_yr) in m.PREDETERMINED_GEN_BLD_YRS),
+        doc="Set of all the years where pre-determined builds occurs."
+    )
+
     # This set is defined by gen_build_costs.csv
     mod.GEN_BLD_YRS = Set(
         dimen=2,
@@ -335,14 +342,8 @@ def define_components(mod):
         # and a predetermined build in 2020. In this case, "build_year in m.PERIODS"
         # will be True even if the project is a 2020 predetermined build.
         # This will result in the "online" variable being the start of the period rather
-        # than the prebuild year which can cause issues such as
-        # the project retiring too soon.
-        #
-        # Our fix is to not use years as IDs for the PERIODS set (e.g. instead we name
-        # our periods IP_2020, IP_2030, etc.). This ensures a predetermined build year will
-        # never be found in m.PERIODS.
-        # TODO: Add a safety check to the model to make sure that no PERIODS have the same name
-        #   as a pre-determined build year.
+        # than the prebuild year which can cause issues such as the project retiring too soon.
+        # To prevent this we've added the no_predetermined_bld_yr_vs_period_conflict BuildCheck below.
         if build_year in m.PERIODS:
             online = m.period_start[build_year]
         else:
@@ -352,6 +353,14 @@ def define_components(mod):
         # However using the midpoint of the period as the "cutoff" seems more correct so
         # we've made the switch.
         return online <= m.period_start[period] + 0.5 * m.period_length_years[period] < retirement
+
+    # This verifies that a predetermined build year doesn't conflict with a period since if that's the case
+    # gen_build_can_operate_in_period will mistaken the prebuild for an investment build
+    # (see note in gen_build_can_operate_in_period)
+    mod.no_predetermined_bld_yr_vs_period_conflict = BuildCheck(
+        mod.PREDETERMINED_BLD_YRS, mod.PERIODS,
+        rule=lambda m, bld_yr, p: bld_yr != p
+    )
 
     # The set of periods when a project built in a certain year will be online
     mod.PERIODS_FOR_GEN_BLD_YR = Set(
