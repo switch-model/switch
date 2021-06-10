@@ -14,11 +14,6 @@ import os, collections
 from pyomo.environ import *
 from switch_model.reporting import write_table
 import pandas as pd
-try:
-    from ggplot import *
-    can_plot = True
-except:
-    can_plot = False
 
 dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
     'switch_model.financials', 'switch_model.energy_sources.properties', \
@@ -176,7 +171,7 @@ def define_components(mod):
         if len(m.period_active_gen_dict) == 0:
             delattr(m, 'period_active_gen_dict')
         return result
-    mod.GENS_IN_PERIOD = Set(mod.PERIODS, initialize=period_active_gen_rule,
+    mod.GENS_IN_PERIOD = Set(mod.PERIODS, ordered=False, initialize=period_active_gen_rule,
         doc="The set of projects active in a given period.")
 
     mod.TPS_FOR_GEN = Set(
@@ -201,6 +196,7 @@ def define_components(mod):
         return result
     mod.TPS_FOR_GEN_IN_PERIOD = Set(
         mod.GENERATION_PROJECTS, mod.PERIODS,
+        ordered=False,
         within=mod.TIMEPOINTS, initialize=init)
 
     mod.GEN_TPS = Set(
@@ -238,33 +234,37 @@ def define_components(mod):
     mod.DispatchGenByFuel_Constraint = Constraint(
         mod.FUEL_BASED_GEN_TPS,
         rule=lambda m, g, t: sum(m.DispatchGenByFuel[g, t, f] for f in m.FUELS_FOR_GEN[g]) == m.DispatchGen[g, t])
+
+    # Only used to improve the performance of calculating ZoneTotalCentralDispatch and ZoneTotalDistributedDispatch
+    mod.GENS_FOR_ZONE_TPS = Set(
+        mod.LOAD_ZONES, mod.TIMEPOINTS,
+        ordered=False,
+        initialize=lambda m, z, t: set(g for g in m.GENS_IN_ZONE[z] if (g, t) in m.GEN_TPS)
+    )
+
+    # If we use the local_td module, divide distributed generation into a separate expression so that we can
+    # put it in the distributed node's power balance equations
+    using_local_td = hasattr(mod, "Distributed_Power_Injections")
+
     mod.ZoneTotalCentralDispatch = Expression(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         rule=lambda m, z, t: \
-            sum(m.DispatchGen[p, t]
-                for p in m.GENS_IN_ZONE[z]
-                if (p, t) in m.GEN_TPS and not m.gen_is_distributed[p]) -
-            sum(m.DispatchGen[p, t] * m.gen_ccs_energy_load[p]
-                for p in m.GENS_IN_ZONE[z]
-                if (p, t) in m.GEN_TPS and p in m.CCS_EQUIPPED_GENS),
+        sum(m.DispatchGen[g, t]
+            for g in m.GENS_FOR_ZONE_TPS[z, t] if not using_local_td or not m.gen_is_distributed[g]) -
+        sum(m.DispatchGen[g, t] * m.gen_ccs_energy_load[g]
+            for g in m.CCS_EQUIPPED_GENS if g in m.GENS_FOR_ZONE_TPS[z, t]),
         doc="Net power from grid-tied generation projects.")
     mod.Zone_Power_Injections.append('ZoneTotalCentralDispatch')
 
-    # Divide distributed generation into a separate expression so that we can
-    # put it in the distributed node's power balance equations if local_td is
-    # included.
-    mod.ZoneTotalDistributedDispatch = Expression(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
-        rule=lambda m, z, t: \
-            sum(m.DispatchGen[g, t]
-                for g in m.GENS_IN_ZONE[z]
-                if (g, t) in m.GEN_TPS and m.gen_is_distributed[g]),
-        doc="Total power from distributed generation projects."
-    )
-    try:
+    if using_local_td:
+        mod.ZoneTotalDistributedDispatch = Expression(
+            mod.LOAD_ZONES, mod.TIMEPOINTS,
+            rule=lambda m, z, t: \
+                sum(m.DispatchGen[g, t]
+                    for g in m.GENS_IN_ZONE_TPS[z, t] if m.gen_is_distributed[g]),
+            doc="Total power from distributed generation projects."
+        )
         mod.Distributed_Power_Injections.append('ZoneTotalDistributedDispatch')
-    except AttributeError:
-        mod.Zone_Power_Injections.append('ZoneTotalDistributedDispatch')
 
     def init_gen_availability(m, g):
         if m.gen_is_baseload[g]:
@@ -466,7 +466,6 @@ def post_solve(instance, outdir):
                          "DispatchEmissions_tCO2_per_typical_yr", "DispatchEmissions_tNOx_per_typical_yr",
                          "DispatchEmissions_tSO2_per_typical_yr", "DispatchEmissions_tCH4_per_typical_yr"])
 
-
     zonal_annual_summary = dispatch_full_df.groupby(
         ['gen_tech', "gen_load_zone", "gen_energy_source", "period"]
     ).sum()
@@ -479,11 +478,104 @@ def post_solve(instance, outdir):
                  "DispatchEmissions_tSO2_per_typical_yr", "DispatchEmissions_tCH4_per_typical_yr"]
     )
 
-    if can_plot:
-        annual_summary_plot = ggplot(
-                annual_summary.reset_index(),
-                aes(x='period', weight="Energy_GWh_typical_yr", fill="factor(gen_tech)")
-            ) + \
-            geom_bar(position="stack") + \
-            scale_y_continuous(name='Energy (GWh/yr)') + theme_bw()
-        annual_summary_plot.save(filename=os.path.join(outdir, "dispatch_annual_summary.pdf"))
+
+def graph(tools):
+    graph_hourly_dispatch(tools)
+    graph_curtailment_per_tech(tools)
+    graph_hourly_curtailment(tools)
+    graph_total_dispatch(tools)
+
+
+def graph_hourly_dispatch(tools):
+    """
+    Generates a matrix of hourly dispatch plots for each time region
+    """
+    # Read dispatch.csv
+    df = tools.get_dataframe(csv='dispatch')
+    # Convert to GW
+    df["DispatchGen_GW"] = df["DispatchGen_MW"] / 1000
+    # Plot Dispatch
+    tools.graph_time_matrix(df, "DispatchGen_GW",
+                      out="dispatch",
+                      title="Average daily dispatch",
+                      ylabel="Average daily dispatch (MW)")
+
+
+def graph_hourly_curtailment(tools):
+    # Read dispatch.csv
+    df = tools.get_dataframe(csv='dispatch')
+    # Keep only renewable
+    df = df[df["is_renewable"]]
+    # Plot curtailment
+    tools.graph_time_matrix(
+        df,
+        "Curtailment_MW",
+        out="curtailment",
+        title="Average daily curtailment",
+        ylabel="Average daily curtailment (MW)"
+    )
+
+
+def graph_total_dispatch(tools):
+    # ---------------------------------- #
+    # total_dispatch.png                 #
+    # ---------------------------------- #
+    # read dispatch_annual_summary.csv
+    total_dispatch = tools.get_dataframe(csv="dispatch_annual_summary")
+    # add type column
+    total_dispatch = tools.add_gen_type_column(total_dispatch)
+    # aggregate and pivot
+    total_dispatch = total_dispatch.pivot_table(columns="gen_type", index="period", values="Energy_GWh_typical_yr",
+                                                aggfunc=tools.np.sum)
+    # Convert values to TWh
+    total_dispatch *= 1E-3
+
+    # For generation types that make less than 2% in every period, group them under "Other"
+    # ---------
+    # sum the generation across the energy_sources for each period, 2% of that is the cutoff for that period
+    cutoff_per_period = total_dispatch.sum(axis=1) * 0.02
+    # Check for each technology if it's below the cutoff for every period
+    is_below_cutoff = total_dispatch.lt(cutoff_per_period, axis=0).all()
+    # groupby if the technology is below the cutoff
+    total_dispatch = total_dispatch.groupby(axis=1, by=lambda c: "Other" if is_below_cutoff[c] else c).sum()
+
+    # Sort columns by the last period
+    total_dispatch = total_dispatch.sort_values(by=total_dispatch.index[-1], axis=1)
+    # Give proper name for legend
+    total_dispatch = total_dispatch.rename_axis("Type", axis=1)
+    # Get axis
+    ax = tools.get_new_axes(out="total_dispatch", title="Total dispatched electricity")
+    # Plot
+    total_dispatch.plot(kind='bar', stacked=True, ax=ax, color=tools.get_colors(len(total_dispatch)),
+                        xlabel="Period", ylabel="Total dispatched electricity (TWh)")
+
+
+def graph_curtailment_per_tech(tools):
+    # ---------------------------------- #
+    # curtailment_per_tech.png          #
+    # ---------------------------------- #
+    # Load dispatch.csv
+    df = tools.get_dataframe(csv='dispatch')
+    df = tools.add_gen_type_column(df)
+    df["Total"] = df['DispatchGen_MW'] + df["Curtailment_MW"]
+    df = df[df["is_renewable"]]
+    # Make PERIOD a category to ensure x-axis labels don't fill in years between period
+    # TODO we should order this by period here to ensure they're in increasing order
+    df["period"] = df["period"].astype("category")
+    df = df.groupby(["period", "gen_type"], as_index=False).sum()
+    df["Percent Curtailed"] = df["Curtailment_MW"] / (df['DispatchGen_MW'] + df["Curtailment_MW"])
+    df = df.pivot_table(index="period", columns="gen_type", values="Percent Curtailed")
+    if len(df) == 0:  # No dispatch from renewable technologies
+        return
+    # Set the name of the legend.
+    df = df.rename_axis("Type", axis='columns')
+    # Get axes to graph on
+    ax = tools.get_new_axes(out="curtailment_per_period", title="Percent of total dispatchable capacity curtailed")
+    # Plot
+    df.plot(ax=ax, kind='line', color=tools.get_colors(), xlabel='Period')
+    # Set the y-axis to use percent
+    ax.yaxis.set_major_formatter(tools.mplt.ticker.PercentFormatter(1.0))
+    # Horizontal line at 100%
+    # ax.axhline(y=1, linestyle="--", color='b')
+
+

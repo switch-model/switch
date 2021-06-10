@@ -69,6 +69,7 @@ def define_components(mod):
         validate=lambda m, g, ts: (g in m.GENERATION_PROJECTS) & (ts in m.TIMESERIES))
 
     mod.HYDRO_GENS = Set(
+        ordered=False,
         initialize=lambda m: set(g for (g, ts) in m.HYDRO_GEN_TS_RAW),
         doc="Dispatchable hydro projects")
     mod.HYDRO_GEN_TS = Set(
