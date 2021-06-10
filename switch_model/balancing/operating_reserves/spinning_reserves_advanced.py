@@ -438,10 +438,12 @@ def define_components(m):
     # and generation projects that can provide reserves
     # note: these are also the indexing sets of the above set arrays; maybe that could be used?
     m.SPINNING_RESERVE_TYPES_FROM_GENS = Set(
-        initialize=lambda m: set(rt for (g, rt) in m.GEN_SPINNING_RESERVE_TYPES)
+        ordered=False,
+        initialize=lambda m: set(rt for (g, rt) in m.GEN_SPINNING_RESERVE_TYPES),
     )
     m.SPINNING_RESERVE_CAPABLE_GENS = Set(
-        initialize=lambda m: set(g for (g, rt) in m.GEN_SPINNING_RESERVE_TYPES)
+        ordered=False,
+        initialize=lambda m: set(g for (g, rt) in m.GEN_SPINNING_RESERVE_TYPES),
     )
 
     # slice GEN_SPINNING_RESERVE_TYPES both ways for later use

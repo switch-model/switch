@@ -75,7 +75,7 @@ from pyomo.environ import *
 
 print "creating model for scenario input generation..."
 
-module_list = switch_model.solve.get_module_list(args=None)
+module_list = utilities.get_module_list(args=None)
 model = utilities.create_model(module_list)
 
 print "model successfully created..."

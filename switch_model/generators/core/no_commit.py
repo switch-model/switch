@@ -81,28 +81,25 @@ def define_components(mod):
     # and dispatch.
     mod.BASELOAD_GEN_PERIODS = Set(
         dimen=2,
-        rule=lambda m: [(g, p) for g in m.BASELOAD_GENS for p in m.PERIODS_FOR_GEN[g]],
+        initialize=lambda m: [
+            (g, p) for g in m.BASELOAD_GENS for p in m.PERIODS_FOR_GEN[g]
+        ],
     )
     mod.BASELOAD_GEN_TPS = Set(
         dimen=2,
-        rule=lambda m: [
+        initialize=lambda m: [
             (g, t) for g, p in m.BASELOAD_GEN_PERIODS for t in m.TPS_IN_PERIOD[p]
         ],
     )
 
     mod.DispatchBaseloadByPeriod = Var(mod.BASELOAD_GEN_PERIODS)
 
-    def DispatchUpperLimit_expr(m, g, t):
-        if g in m.VARIABLE_GENS:
-            return (
-                m.GenCapacityInTP[g, t]
-                * m.gen_availability[g]
-                * m.gen_max_capacity_factor[g, t]
-            )
-        else:
-            return m.GenCapacityInTP[g, t] * m.gen_availability[g]
-
-    mod.DispatchUpperLimit = Expression(mod.GEN_TPS, rule=DispatchUpperLimit_expr)
+    mod.DispatchUpperLimit = Expression(
+        mod.GEN_TPS,
+        rule=lambda m, g, t: m.GenCapacityInTP[g, t]
+        * m.gen_availability[g]
+        * (m.gen_max_capacity_factor[g, t] if m.gen_is_variable[g] else 1),
+    )
 
     mod.Enforce_Dispatch_Baseload_Flat = Constraint(
         mod.BASELOAD_GEN_TPS,
@@ -114,12 +111,10 @@ def define_components(mod):
     # of the model. The scaling factor was determined using trial
     # and error and this tool https://github.com/staadecker/lp-analyzer.
     # Learn more by reading the documentation on Numerical Issues.
-    enforce_dispatch_upper_limit_scaling_factor = 1e4
     mod.Enforce_Dispatch_Upper_Limit = Constraint(
         mod.GEN_TPS,
-        rule=lambda m, g, t: m.DispatchGen[g, t]
-        * enforce_dispatch_upper_limit_scaling_factor
-        <= enforce_dispatch_upper_limit_scaling_factor * m.DispatchUpperLimit[g, t],
+        rule=lambda m, g, t: m.DispatchGen[g, t] * 1e4
+        <= 1e4 * m.DispatchUpperLimit[g, t],
     )
 
     mod.GenFuelUseRate_Calculate = Constraint(
