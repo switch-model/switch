@@ -68,13 +68,15 @@ setup(
         "optimization",
     ],
     install_requires=[
-        "Pyomo==5.6.5",  # We need a version that works with glpk 4.60+
-        "pyutilib==5.8.0",
+        "Pyomo",  # We need a version that works with glpk 4.60+
+        "pyutilib",
         "pint",  # needed by Pyomo when we run our tests, but not included
         "testfixtures",  # used for standard tests
         "pandas",  # used for input upgrades and testing that functionality
         "gurobipy",  # used to provided python bindings for Gurobi for faster solving
         "pyyaml",  # used to read configurations for switch
+        "matplotlib",
+        "seaborn"
     ],
     extras_require={
         # packages used for advanced demand response, progressive hedging
@@ -88,8 +90,6 @@ setup(
         ],
         # These packages are installed when one runs 'pip install --editable .[dev]'
         "dev": ["ipdb", "black", "psycopg2-binary"],
-        # In this case 'pip install --editable .[plotting]'
-        "plotting": ["ggplot"],
     },
     entry_points={
         "console_scripts": [

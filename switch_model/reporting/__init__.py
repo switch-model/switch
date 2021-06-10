@@ -35,6 +35,7 @@ try:
 except ImportError:
     import pickle
 from pyomo.environ import value, Var, Expression
+from pyomo.core.base.set import UnknownSetDimen
 from switch_model.utilities import make_iterable
 
 csv.register_dialect(
@@ -174,13 +175,15 @@ def save_generic_results(instance, outdir, sorted_output):
         with open(output_file, "w") as fh:
             writer = csv.writer(fh, dialect="switch-csv")
             if var.is_indexed():
-                index_name = var.index_set().name
+                index_set = var.index_set()
+                index_name = index_set.name
+                if index_set.dimen == UnknownSetDimen:
+                    raise Exception(
+                        f"Index {index_name} has unknown dimension. Specify dimen= during its creation."
+                    )
                 # Write column headings
                 writer.writerow(
-                    [
-                        "%s_%d" % (index_name, i + 1)
-                        for i in range(var.index_set().dimen)
-                    ]
+                    ["%s_%d" % (index_name, i + 1) for i in range(index_set.dimen)]
                     + [var.name]
                 )
                 # Results are saved in a random order by default for

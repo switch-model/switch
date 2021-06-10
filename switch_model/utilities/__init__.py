@@ -10,6 +10,7 @@ import os, types, importlib, re, sys, argparse, time, datetime, traceback, subpr
 
 import switch_model.__main__ as main
 from pyomo.environ import *
+from pyomo.core.base.set import UnknownSetDimen
 from switch_model.utilities.scaling import _ScaledVariable, _get_unscaled_expression
 import pyomo.opt
 import yaml
@@ -104,7 +105,7 @@ def create_model(module_list=None, args=sys.argv[1:]):
     if module_list is None:
         import switch_model.solve
 
-        module_list = switch_model.solve.get_module_list(args)
+        module_list = get_module_list(args)
     model.module_list = module_list
     for m in module_list:
         importlib.import_module(m)
@@ -216,6 +217,8 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=True):
         inputs_dir = getattr(model.options, "inputs_dir", "inputs")
 
     # Load data; add a fancier load function to the data portal
+    if model.options.verbose:
+        print("Reading data...")
     timer = StepTimer()
     data = DataPortal(model=model)
     data.load_aug = types.MethodType(load_aug, data)
@@ -227,6 +230,8 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=True):
 
     # At some point, pyomo deprecated 'create' in favor of 'create_instance'.
     # Determine which option is available and use that.
+    if model.options.verbose:
+        print("Creating instance...")
     if hasattr(model, "create_instance"):
         instance = model.create_instance(data)
     else:
@@ -424,7 +429,7 @@ def _add_min_data_check(model):
 
 
 def has_discrete_variables(model):
-    all_elements = lambda v: v.itervalues() if v.is_indexed() else [v]
+    all_elements = lambda v: v.values() if v.is_indexed() else [v]
     return any(
         v.is_binary() or v.is_integer()
         for variable in model.component_objects(Var, active=True)
@@ -489,7 +494,7 @@ def check_mandatory_components(model, *mandatory_model_components):
     for component_name in mandatory_model_components:
         obj = getattr(model, component_name)
         o_class = type(obj).__name__
-        if o_class == "SimpleSet" or o_class == "OrderedSimpleSet":
+        if o_class == "ScalarSet" or o_class == "OrderedScalarSet":
             if len(obj) == 0:
                 raise ValueError(
                     "No data is defined for the mandatory set '{}'.".format(
@@ -518,7 +523,7 @@ def check_mandatory_components(model, *mandatory_model_components):
                         + "the mandatory indexed set '{}'"
                     ).format(component_name)
                 )
-        elif o_class == "SimpleParam":
+        elif o_class == "ScalarParam":
             if obj.value is None:
                 raise ValueError(
                     "Value not provided for mandatory parameter '{}'".format(
@@ -625,10 +630,19 @@ def load_aug(
     # Grab the dimensionality of the index param if it was provided.
     if "index" in kwds:
         num_indexes = kwds["index"].dimen
+        if num_indexes == UnknownSetDimen:
+            raise Exception(
+                f"Index {kwds['index'].name} has unknown dimension. Specify dimen= during its creation."
+            )
     # Next try the first parameter's index.
     elif len(params) > 0:
         try:
-            num_indexes = params[0].index_set().dimen
+            indexed_set = params[0].index_set()
+            num_indexes = indexed_set.dimen
+            if num_indexes == UnknownSetDimen:
+                raise Exception(
+                    f"{indexed_set.name} has unknown dimension. Specify dimen= during its creation."
+                )
         except (ValueError, AttributeError):
             num_indexes = 0
     # Default to 0 if both methods failed.
@@ -910,3 +924,95 @@ def create_info_file(output_path, run_time=None):
     content += f"Host name: {platform.node()}\n"
     with open(os.path.join(output_path, "info.txt"), "w") as f:
         f.write(content)
+
+
+def get_module_list(args=None, include_solve_module=True):
+    # parse module options
+    parser = _ArgumentParser(allow_abbrev=False, add_help=False)
+    add_module_args(parser)
+    module_options = parser.parse_known_args(args=args)[0]
+
+    # identify modules to load
+    module_list_file = module_options.module_list
+
+    # search first in the current directory
+    if module_list_file is None and os.path.exists("modules.txt"):
+        module_list_file = "modules.txt"
+    # search next in the inputs directory ('inputs' by default)
+    if module_list_file is None:
+        test_path = os.path.join(module_options.inputs_dir, "modules.txt")
+        if os.path.exists(test_path):
+            module_list_file = test_path
+    if module_list_file is None:
+        # note: this could be a RuntimeError, but then users can't do "switch solve --help" in a random directory
+        # (alternatively, we could provide no warning at all, since the user can specify --include-modules in the arguments)
+        print(
+            "WARNING: No module list found. Please create a modules.txt file with a list of modules to use for the model."
+        )
+        modules = []
+    else:
+        # if it exists, the module list contains one module name per row (no .py extension)
+        # we strip whitespace from either end (because those errors can be annoyingly hard to debug).
+        # We also omit blank lines and lines that start with "#"
+        # Otherwise take the module names as given.
+        with open(module_list_file) as f:
+            modules = [r.strip() for r in f.read().splitlines()]
+        modules = [m for m in modules if m and not m.startswith("#")]
+
+    # adjust modules as requested by the user
+    # include_exclude_modules format: [('include', [mod1, mod2]), ('exclude', [mod3])]
+    for action, mods in module_options.include_exclude_modules:
+        if action == "include":
+            for module_name in mods:
+                if (
+                    module_name not in modules
+                ):  # maybe we should raise an error if already present?
+                    modules.append(module_name)
+        if action == "exclude":
+            for module_name in mods:
+                try:
+                    modules.remove(module_name)
+                except ValueError:
+                    raise ValueError(  # maybe we should just pass?
+                        "Unable to exclude module {} because it was not "
+                        "previously included.".format(module_name)
+                    )
+
+    # add this module, since it has callbacks, e.g. define_arguments for iteration and suffixes
+    if include_solve_module:
+        modules.append("switch_model.solve")
+
+    return modules
+
+
+def add_module_args(parser):
+    parser.add_argument(
+        "--module-list",
+        default=None,
+        help='Text file with a list of modules to include in the model (default is "modules.txt")',
+    )
+    parser.add_argument(
+        "--include-modules",
+        "--include-module",
+        dest="include_exclude_modules",
+        nargs="+",
+        action="include",
+        default=[],
+        help="Module(s) to add to the model in addition to any specified with --module-list file",
+    )
+    parser.add_argument(
+        "--exclude-modules",
+        "--exclude-module",
+        dest="include_exclude_modules",
+        nargs="+",
+        action="exclude",
+        default=[],
+        help="Module(s) to remove from the model after processing --module-list file and prior --include-modules arguments",
+    )
+    # note: we define --inputs-dir here because it may be used to specify the location of
+    # the module list, which is needed before it is loaded.
+    parser.add_argument(
+        "--inputs-dir",
+        default="inputs",
+        help='Directory containing input files (default is "inputs")',
+    )
