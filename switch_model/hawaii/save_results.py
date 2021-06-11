@@ -29,8 +29,7 @@ import switch_model.financials as financials
 
 def define_components(m):
     # Make sure the model has a dual suffix
-    if not hasattr(m, "dual"):
-        m.dual = Suffix(direction=Suffix.IMPORT)
+    m.enable_duals()
 
 
 def post_solve(m, outputs_dir):

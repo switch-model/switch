@@ -75,8 +75,7 @@ def define_components(m):
     demand_module = sys.modules[m.options.dr_demand_module]
 
     # Make sure the model has dual and rc suffixes
-    if not hasattr(m, "dual"):
-        m.dual = Suffix(direction=Suffix.IMPORT)
+    m.enable_duals()
     if not hasattr(m, "rc"):
         m.rc = Suffix(direction=Suffix.IMPORT)
 
