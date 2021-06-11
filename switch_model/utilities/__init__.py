@@ -202,7 +202,7 @@ def format_seconds(seconds):
     return output_str
 
 
-def load_inputs(model, inputs_dir=None, attach_data_portal=True):
+def load_inputs(model, inputs_dir=None, attach_data_portal=False):
     """
     Load input data for an AbstractModel using the modules in the given
     list and return a model instance. This is implemented as calling the
