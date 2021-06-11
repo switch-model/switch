@@ -61,9 +61,9 @@ def define_components(mod):
     per year; one cycle is defined as discharging an amount of energy
     equal to the storage capacity of the project.
 
-    gen_hourly_decay_rate[STORAGE_GENS] is the fraction of the charge that is lost
-    over an hour. This is used for certain types of storage such as thermal energy
-    storage that slowly looses its charge over time. Default is 0 (no decay).
+    gen_self_discharge_rate[STORAGE_GENS] is the fraction of the charge that is lost
+    over a day. This is used for certain types of storage such as thermal energy
+    storage that slowly looses its charge over time. Default is 0 (no self discharge).
 
     gen_land_use_rate[STORAGE_GENS] is the amount of land used in square meters per MWh
     of storage for the given storage technology. Defaults to 0.
@@ -147,11 +147,11 @@ def define_components(mod):
         mod.STORAGE_GENS,
         within=NonNegativeReals,
         default=float('inf'))
-    mod.gen_hourly_decay_rate = Param(
+    mod.gen_self_discharge_rate = Param(
         mod.STORAGE_GENS,
         within=PercentFraction,
         default=0,
-        doc="Percent of stored energy lost per hour."
+        doc="Percent of stored energy lost per day."
     )
     mod.gen_land_use_rate = Param(
         mod.STORAGE_GENS,
@@ -293,19 +293,20 @@ def define_components(mod):
     )
 
     def Track_State_Of_Charge_rule(m, g, t):
-        storage_efficiency = 1 - m.gen_hourly_decay_rate[g]
+        storage_efficiency = 1 - m.gen_self_discharge_rate[g]
+        tp_duration_days = m.tp_duration_hrs[t] / 24
         # Energy in storage that remains from the energy in storage at the previous timepoint
-        carry_over_energy = (storage_efficiency ** m.tp_duration_hrs[t]) * m.StateOfCharge[g, m.tp_previous[t]]
+        carry_over_energy = m.StateOfCharge[g, m.tp_previous[t]] * storage_efficiency ** tp_duration_days
         # Energy change due to flow in or out of the battery (StorageFlow).
         flow_energy = m.StorageFlow[g, t] * (
             # If there's no decay, it's simply StorageFlow * tp_duration_hrs
-            m.tp_duration_hrs[t] if m.gen_hourly_decay_rate[g] == 0 else
+            m.tp_duration_hrs[t] if storage_efficiency == 1 else
             # If there is decay, we need to account for energy decay during the timepoint duration.
-            # To derivive the following expression, simply solve the differential equation:
+            # To derive the following expression, simply solve the differential equation:
             # dZ/dt = -rZ + StorageFlow
             # where r is the instantaneous decay rate, Z is the state of charge and t is time.
-            # Note that exp(-r) = (1 - hourly_decay_rate).
-            (storage_efficiency ** m.tp_duration_hrs[t] - 1) / math.log(storage_efficiency)
+            # Note that exp(-24r) = (1 - daily_decay_rate).
+            24 * (storage_efficiency ** tp_duration_days - 1) / math.log(storage_efficiency)
         )
 
         return m.StateOfCharge[g, t] == carry_over_energy + flow_energy
@@ -344,7 +345,7 @@ def load_inputs(mod, switch_data, inputs_dir):
         GENERATION_PROJECT, ...
         gen_storage_efficiency, gen_discharge_ratio*, gen_store_to_release_ratio*,
         gen_storage_energy_to_power_ratio*, gen_storage_max_cycles_per_year*
-        gen_hourly_decay_rate*, gen_land_use_rate*
+        gen_self_discharge_rate*, gen_land_use_rate*
 
     gen_build_costs.csv
         GENERATION_PROJECT, build_year, ...
@@ -370,7 +371,7 @@ def load_inputs(mod, switch_data, inputs_dir):
             'gen_discharge_ratio',
             'gen_storage_energy_to_power_ratio',
             'gen_storage_max_cycles_per_year',
-            'gen_hourly_decay_rate',
+            'gen_self_discharge_rate',
             'gen_land_use_rate',
         ],
         param=(
@@ -379,7 +380,7 @@ def load_inputs(mod, switch_data, inputs_dir):
             mod.gen_store_to_release_ratio,
             mod.gen_storage_energy_to_power_ratio,
             mod.gen_storage_max_cycles_per_year,
-            mod.gen_hourly_decay_rate,
+            mod.gen_self_discharge_rate,
             mod.gen_land_use_rate
         )
     )
