@@ -335,7 +335,8 @@ def query_db(full_config, skip_cf):
             name, 
             ccs_distance_km as zone_ccs_distance_km, 
             load_zone_id as zone_dbid 
-        FROM switch.load_zone  
+        FROM switch.load_zone
+        WHERE name != '_ALL_ZONES'  
         ORDER BY 1;
         """,
     )
@@ -1057,6 +1058,7 @@ def fix_prebuild_conflict_bug():
     Basically we are moving all the 2020 predetermined build years to 2019 to avoid a conflict with the 2020 period.
     See generators.core.build.py for details.
     """
+    print("Shifting 2020 prebuilds to 2019...")
     periods = pd.read_csv("periods.csv", index_col=False)
     if 2020 not in periods["INVESTMENT_PERIOD"].values:
         return
@@ -1111,6 +1113,9 @@ def create_graph_timestamp_map():
     timestamp_map = timepoints[["timestamp", "ts_period", "time_column"]]
     timestamp_map.columns = ["timestamp", "time_row", "time_column"]
     timestamp_map.to_csv("graph_timestamp_map.csv", index=False)
+
+def replace_all_zones():
+    print("Replacing _ALL_ZONES plants with a plant in each zone.")
 
 
 if __name__ == "__main__":
