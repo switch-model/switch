@@ -560,6 +560,10 @@ def query_db(full_config, skip_cf):
             "gen_is_cogen",
             "gen_storage_efficiency",
             "gen_store_to_release_ratio",
+            "gen_can_provide_cap_reserves",
+            "gen_self_discharge_rate",
+            "gen_discharge_efficiency",
+            "gen_land_use_rate"
         ],
         f"""
             select
@@ -582,7 +586,10 @@ def query_db(full_config, skip_cf):
             storage_efficiency as gen_storage_efficiency,
             store_to_release_ratio as gen_store_to_release_ratio,
             -- hardcode all projects to be allowed as a reserve. might later make this more granular
-            1 as gen_can_provide_cap_reserves
+            1 as gen_can_provide_cap_reserves,
+            daily_self_discharge_rate,
+            discharge_efficiency,
+            land_use_rate
             from generation_plant as t
             join load_zone as t2 using(load_zone_id)
             join generation_plant_scenario_member using(generation_plant_id)
