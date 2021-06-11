@@ -677,6 +677,13 @@ def define_arguments(argparser):
         help="Write generic variable result values in sorted order",
     )
 
+    argparser.add_argument(
+        "--threads",
+        type=int,
+        default=None,
+        help="Number of threads to be used while solving. Currently only supported for Gurobi",
+    )
+
 
 def add_recommended_args(argparser):
     """
@@ -724,8 +731,9 @@ def parse_recommended_args(args):
         "--solver-options-string",
         "method=2 BarHomogeneous=1 FeasibilityTol=1e-5",
     ] + args
-    if options.recommended:
-        args = ["--solver-io", "python"] + args
+    # We use to use solver-io=python however the seperation of processes is useful in helping the OS
+    # if options.recommended:
+    #     args = ['--solver-io', 'python'] + args
     if options.recommended_debug:
         args = ["--keepfiles", "--tempdir", "temp", "--symbolic-solver-labels"] + args
 
@@ -936,6 +944,13 @@ def solve(model):
             model.options.solver_options_string += " ResultFile={}".format(
                 iis_file_path
             )
+
+        if model.options.threads:
+            # If no string is passed make the string empty so we can add to it
+            if model.options.solver_options_string is None:
+                model.options.solver_options_string = ""
+
+            model.options.solver_options_string += f" Threads={model.options.threads}"
 
         # patch for Pyomo < 4.2
         # note: Pyomo added an options_string argument to solver.solve() in Pyomo 4.2 rev 10587.
