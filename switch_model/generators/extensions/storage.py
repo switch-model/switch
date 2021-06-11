@@ -126,7 +126,7 @@ def define_components(mod):
     in meters squared for a given storage project during a given period.
     """
 
-    mod.STORAGE_GENS = Set(within=mod.GENERATION_PROJECTS)
+    mod.STORAGE_GENS = Set(within=mod.GENERATION_PROJECTS, dimen=1)
     mod.STORAGE_GEN_PERIODS = Set(
         within=mod.GEN_PERIODS,
         initialize=lambda m: [
@@ -163,11 +163,11 @@ def define_components(mod):
         doc="Meters squared of land used per MWh of storage",
     )
 
-    # TODO: build this set up instead of filtering down, to improve performance
     mod.STORAGE_GEN_BLD_YRS = Set(
         dimen=2,
-        initialize=mod.GEN_BLD_YRS,
-        filter=lambda m, g, bld_yr: g in m.STORAGE_GENS,
+        initialize=lambda m: [
+            (g, bld_yr) for g in m.STORAGE_GENS for bld_yr in m.BLD_YRS_FOR_GEN[g]
+        ],
     )
     mod.gen_storage_energy_overnight_cost = Param(
         mod.STORAGE_GEN_BLD_YRS, within=NonNegativeReals
@@ -217,8 +217,10 @@ def define_components(mod):
         rule=BuildStorageEnergy_assign_default_value,
     )
 
-    # Summarize capital costs of energy storage for the objective function.
-    mod.StorageEnergyInstallCosts = Expression(
+    # Summarize capital costs of energy storage for the objective function
+    # Note: A bug in to 2.0.0b3 - 2.0.5, assigned costs that were several times
+    # too high
+    mod.StorageEnergyFixedCost = Expression(
         mod.PERIODS,
         rule=lambda m, p: sum(
             sum(
@@ -230,7 +232,15 @@ def define_components(mod):
             for g in m.STORAGE_GENS
         ),
     )
-    mod.Cost_Components_Per_Period.append("StorageEnergyInstallCosts")
+    mod.Cost_Components_Per_Period.append("StorageEnergyFixedCost")
+
+    # 2.0.0b3 code:
+    # mod.StorageEnergyInstallCosts = Expression(
+    # mod.PERIODS,
+    # rule=lambda m, p: sum(m.BuildStorageEnergy[g, bld_yr] *
+    #            m.gen_storage_energy_overnight_cost[g, bld_yr] *
+    #            crf(m.interest_rate, m.gen_max_age[g])
+    #            for (g, bld_yr) in m.STORAGE_GEN_BLD_YRS))
 
     mod.StorageEnergyCapacity = Expression(
         mod.STORAGE_GENS,

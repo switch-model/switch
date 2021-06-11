@@ -35,7 +35,8 @@ def define_components(mod):
         mod.LOAD_ZONES, default="system_wide_balancing_area"
     )
     mod.BALANCING_AREAS = Set(
-        initialize=lambda m: set(m.zone_balancing_area[z] for z in m.LOAD_ZONES)
+        ordered=False,
+        initialize=lambda m: set(m.zone_balancing_area[z] for z in m.LOAD_ZONES),
     )
     mod.ZONES_IN_BALANCING_AREA = Set(
         mod.BALANCING_AREAS,
