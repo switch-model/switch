@@ -41,9 +41,9 @@ def sample_year_round(
             first_timepoint_utc,
             last_timepoint_utc,
             # scaling_to_period factor is number of timeseries in a period
-            # that is equal to the number of hours in a period / number of hours in a period
-            # 8766h is the average length of a year
-            (length_yrs * 8766) / (24 * days_per_year)
+            # that is equal to the number of days in a period / number of days in a timeseries
+            # On average there are 365.25 days per year
+            (length_yrs * 365.25) / days_per_year
         ))
 
         # Create the timepoints row
