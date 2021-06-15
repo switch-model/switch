@@ -50,7 +50,7 @@ def sample_year_round(
         timepoint_timestamp = first_timepoint_utc
         while timepoint_timestamp <= last_timepoint_utc:
             # We skip Feb. 29th to ensure that all our periods have the same number of days.
-            # This guarantees consistency accross periods so that comparisons are accurate.
+            # This guarantees consistency across periods so that comparisons are accurate.
             if not (timepoint_timestamp.month == 2 and timepoint_timestamp.day == 29):
                 timepoints.append((
                     sampled_timeseries_id,
