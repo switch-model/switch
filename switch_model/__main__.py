@@ -20,7 +20,7 @@ def main():
         "drop",
         "new",
         "graph",
-        "compare"
+        "compare",
         "sampling",
     ]
     if len(sys.argv) >= 2 and sys.argv[1] in cmds:
