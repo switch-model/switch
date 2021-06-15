@@ -20,7 +20,8 @@ def main():
         "drop",
         "new",
         "graph",
-        "compare" "sampling",
+        "compare",
+        "sampling",
     ]
     if len(sys.argv) >= 2 and sys.argv[1] in cmds:
         # If users run a script from the command line, the location of the script
