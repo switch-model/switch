@@ -336,6 +336,7 @@ def query_db(full_config, skip_cf):
             ccs_distance_km as zone_ccs_distance_km, 
             load_zone_id as zone_dbid 
         FROM switch.load_zone  
+        WHERE name != '_ALL_ZONES'
         ORDER BY 1;
         """,
     )
