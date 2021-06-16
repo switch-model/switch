@@ -7,7 +7,7 @@ from pyomo.environ import *
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
 import pyomo.version
 
-import sys, os, shlex, re, inspect, textwrap, types, pickle
+import sys, os, shlex, re, inspect, textwrap, types, pickle, traceback
 
 import switch_model
 from switch_model.utilities import (
@@ -19,8 +19,11 @@ from switch_model.utilities import (
     warn,
     query_yes_no,
     create_info_file,
+    get_module_list,
+    add_module_args,
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
+from switch_model.tools.graphing import graph
 
 
 def main(args=None, return_model=False, return_instance=False):
@@ -132,7 +135,6 @@ def main(args=None, return_model=False, return_instance=False):
                 "=======================================================================\n"
             )
             print(f"Model created in {timer.step_time_as_str()}.")
-            print("Loading inputs...")
 
         # create an instance (also reports time spent reading data and loading into model)
         instance = model.load_inputs()
@@ -215,6 +217,9 @@ def main(args=None, return_model=False, return_instance=False):
             instance.post_solve()
             if instance.options.verbose:
                 print(f"Post solve processing completed in {timer.step_time_as_str()}.")
+
+        if instance.options.graph:
+            graph.main(args=["--overwrite"])
 
         total_time = start_to_end_timer.step_time_as_str()
         create_info_file(
@@ -312,7 +317,7 @@ def patch_pyomo():
             # create and inject a new version of the method
             add_solution_code = add_solution_code.replace(old_code, new_code)
             replace_method(ModelSolutions, "add_solution", add_solution_code)
-        else:
+        elif pyomo.version.version_info[:2] >= (5, 0):
             print(
                 "NOTE: The patch to pyomo.core.base.PyomoModel.ModelSolutions.add_solution "
                 "has been deactivated because the Pyomo source code has changed. "
@@ -689,6 +694,12 @@ def define_arguments(argparser):
         dest="sorted_output",
         help="Write generic variable result values in sorted order",
     )
+    argparser.add_argument(
+        "--graph",
+        default=False,
+        action="store_true",
+        help="Automatically run switch graph after post solve",
+    )
 
 
 def add_recommended_args(argparser):
@@ -713,7 +724,7 @@ def add_recommended_args(argparser):
 
 
 def parse_recommended_args(args):
-    argparser = _ArgumentParser(add_help=False)
+    argparser = _ArgumentParser(add_help=False, allow_abbrev=False)
     add_recommended_args(argparser)
     options = argparser.parse_known_args(args)[0]
 
@@ -734,6 +745,7 @@ def parse_recommended_args(args):
         "--stream-output",
         "--log-run",
         "--debug",
+        "--graph",
         "--solver-options-string",
         "method=2 BarHomogeneous=1 FeasibilityTol=1e-5",
     ] + args
@@ -743,39 +755,6 @@ def parse_recommended_args(args):
         args = ["--keepfiles", "--tempdir", "temp", "--symbolic-solver-labels"] + args
 
     return args
-
-
-def add_module_args(parser):
-    parser.add_argument(
-        "--module-list",
-        default=None,
-        help='Text file with a list of modules to include in the model (default is "modules.txt")',
-    )
-    parser.add_argument(
-        "--include-modules",
-        "--include-module",
-        dest="include_exclude_modules",
-        nargs="+",
-        action="include",
-        default=[],
-        help="Module(s) to add to the model in addition to any specified with --module-list file",
-    )
-    parser.add_argument(
-        "--exclude-modules",
-        "--exclude-module",
-        dest="include_exclude_modules",
-        nargs="+",
-        action="exclude",
-        default=[],
-        help="Module(s) to remove from the model after processing --module-list file and prior --include-modules arguments",
-    )
-    # note: we define --inputs-dir here because it may be used to specify the location of
-    # the module list, which is needed before it is loaded.
-    parser.add_argument(
-        "--inputs-dir",
-        default="inputs",
-        help='Directory containing input files (default is "inputs")',
-    )
 
 
 def add_pre_module_args(parser):
@@ -812,64 +791,6 @@ def parse_pre_module_options(args):
     pre_module_args = parser.parse_known_args(args=args)[0]
 
     return pre_module_args
-
-
-def get_module_list(args):
-    # parse module options
-    parser = _ArgumentParser(allow_abbrev=False, add_help=False)
-    add_module_args(parser)
-    module_options = parser.parse_known_args(args=args)[0]
-
-    # identify modules to load
-    module_list_file = module_options.module_list
-
-    # search first in the current directory
-    if module_list_file is None and os.path.exists("modules.txt"):
-        module_list_file = "modules.txt"
-    # search next in the inputs directory ('inputs' by default)
-    if module_list_file is None:
-        test_path = os.path.join(module_options.inputs_dir, "modules.txt")
-        if os.path.exists(test_path):
-            module_list_file = test_path
-    if module_list_file is None:
-        # note: this could be a RuntimeError, but then users can't do "switch solve --help" in a random directory
-        # (alternatively, we could provide no warning at all, since the user can specify --include-modules in the arguments)
-        print(
-            "WARNING: No module list found. Please create a modules.txt file with a list of modules to use for the model."
-        )
-        modules = []
-    else:
-        # if it exists, the module list contains one module name per row (no .py extension)
-        # we strip whitespace from either end (because those errors can be annoyingly hard to debug).
-        # We also omit blank lines and lines that start with "#"
-        # Otherwise take the module names as given.
-        with open(module_list_file) as f:
-            modules = [r.strip() for r in f.read().splitlines()]
-        modules = [m for m in modules if m and not m.startswith("#")]
-
-    # adjust modules as requested by the user
-    # include_exclude_modules format: [('include', [mod1, mod2]), ('exclude', [mod3])]
-    for action, mods in module_options.include_exclude_modules:
-        if action == "include":
-            for module_name in mods:
-                if (
-                    module_name not in modules
-                ):  # maybe we should raise an error if already present?
-                    modules.append(module_name)
-        if action == "exclude":
-            for module_name in mods:
-                try:
-                    modules.remove(module_name)
-                except ValueError:
-                    raise ValueError(  # maybe we should just pass?
-                        "Unable to exclude module {} because it was not "
-                        "previously included.".format(module_name)
-                    )
-
-    # add this module, since it has callbacks, e.g. define_arguments for iteration and suffixes
-    modules.append("switch_model.solve")
-
-    return modules
 
 
 def get_iteration_list(m):
@@ -1095,7 +1016,15 @@ def solve(model):
     # file on disk, but the instance cannot.
     # https://stackoverflow.com/questions/39941520/pyomo-ipopt-does-not-return-solution
     #
-    model.solutions.store_to(results)
+    try:
+        model.solutions.store_to(results)
+    except:
+        # Print the error that would normally be thrown with the
+        # full stack trace and an explanatory message
+        print(
+            f"ERROR: Failed to save solution after solving. Exception was caught and we're moving on to post_solve()"
+            f"\n{traceback.format_exc()}"
+        )
 
     # Cache a copy of the results object, to allow saving and restoring model
     # solutions later.
