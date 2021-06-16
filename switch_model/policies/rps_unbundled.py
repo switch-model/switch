@@ -75,6 +75,7 @@ def define_components(mod):
         within=Boolean,
         default=False)
     mod.RPS_ENERGY_SOURCES = Set(
+        ordered=False,
         initialize=lambda m: set(m.NON_FUEL_ENERGY_SOURCES) | \
             set(f for f in m.FUELS if m.f_rps_eligible[f]))
 
@@ -97,6 +98,7 @@ def define_components(mod):
     mod.RPSNonFuelEnergy = Expression(
         mod.PERIODS,
         rule=lambda m, p: sum(m.DispatchGen[g, t] * m.tp_weight[t]
+            # TODO improve performance
             for g in m.NON_FUEL_BASED_GENS 
                 for t in m.TPS_FOR_GEN_IN_PERIOD[g, p]))
 

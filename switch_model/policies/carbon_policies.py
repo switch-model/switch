@@ -160,7 +160,8 @@ def post_solve(model, outdir):
             # is purely linear.
             if not model.has_discrete_variables and period in GHG["Enforce_Carbon_Cap"] and GHG["Enforce_Carbon_Cap"][
                 period] in model.dual:
-                row.append(model.dual[GHG["Enforce_Carbon_Cap"][period]] /
+                # Note: We multiply by 1000 since our objective function is in terms of thousands of dollars
+                row.append(model.dual[GHG["Enforce_Carbon_Cap"][period]] * 1000 /
                            model.bring_annual_costs_to_base_year[period])
             else:
                 row.append('.')
@@ -182,3 +183,30 @@ def post_solve(model, outdir):
                   "carbon_cost_dollar_per_tch4", "carbon_cost_annual_total_ch4",
                   ),
         values=get_row)
+
+
+def graph(tools):
+    df_emissions = tools.get_dataframe(csv="emissions")
+    # Plot emissions over time
+    df_emissions['AnnualEmissions_tCO2_per_yr'] *= 1e-6
+    ax = tools.get_new_axes(out="emissions", title="Emissions per period")
+    tools.sns.barplot(
+        x='PERIOD',
+        y='AnnualEmissions_tCO2_per_yr',
+        data=df_emissions,
+        ax=ax,
+        color='gray'
+    )
+    ax.set_ylabel('CO2 Emissions (MMtCO2/yr)')
+
+    # Plot emissions dual values
+    ax = tools.get_new_axes(out="emissions_duals", title="Carbon cap dual values per period")
+    df_emissions['carbon_cap_dual_future_dollar_per_tco2'] *= -1  # Flip to positive values
+    tools.sns.barplot(
+        x='PERIOD',
+        y='carbon_cap_dual_future_dollar_per_tco2',
+        data=df_emissions,
+        ax=ax,
+        color='gray'
+    )
+    ax.set_ylabel('Dual values ($/tCO2)')
