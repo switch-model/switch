@@ -128,7 +128,7 @@ def define_components(model):
     will not reflect any DER activities.
     """
     model.PLANNING_RESERVE_REQUIREMENTS = Set(
-        doc="Areas and times where planning reserve margins are specified."
+        doc="Areas and times where planning reserve margins are specified.", dimen=1
     )
     model.PRR_ZONES = Set(
         dimen=2,
