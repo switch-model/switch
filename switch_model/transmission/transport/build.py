@@ -181,7 +181,7 @@ def define_components(mod):
     # (e.g., island interconnect scenarios). However, presence of this column will still be
     # checked by load_data_aug.
     mod.min_data_check('trans_lz1', 'trans_lz2')
-    mod.trans_dbid = Param(mod.TRANSMISSION_LINES, default=lambda m, tx: tx)
+    mod.trans_dbid = Param(mod.TRANSMISSION_LINES, default=lambda m, tx: tx, within=Any)
     mod.trans_length_km = Param(mod.TRANSMISSION_LINES, within=NonNegativeReals)
     mod.trans_efficiency = Param(
         mod.TRANSMISSION_LINES,

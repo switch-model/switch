@@ -89,6 +89,44 @@ def switch_to_input_dir(config):
     return inputs_dir
 
 
+def connect(schema="switch"):
+    """Connects to the Postgres DB
+
+    This function uses the environment variables to get the URL to connect to the DB. Both
+    password and user should be passed directly on the URL for safety purposes.
+
+    Parameters
+    ----------
+    schema: str Schema of the DB to look for tables. Default is switch
+
+    Returns
+    -------
+    conn: Database connection object from psycopg2
+    """
+    db_url = os.getenv("DB_URL")
+    if db_url is None:
+        raise Exception(
+            "Please set the environment variable 'DB_URL' to the database URL."
+            "The format is normally: postgresql://<user>:<password>@<host>:5432/<database>"
+        )
+
+    conn = pg.connect(
+        db_url,
+        options=f"-c search_path={schema}",
+    )
+
+    if conn is None:
+        raise SystemExit(
+            "Failed to connect to PostgreSQL database."
+            "Ensure that the database url is correct, format should normally be:"
+            "postgresql://<user>:<password>@<host>:5432/<database>"
+        )
+
+    # TODO: Send this to the logger
+    print("Connection established to PostgreSQL database.")
+    return conn
+
+
 def main():
     timer = StepTimer()
 
@@ -289,6 +327,7 @@ def query_db(full_config, skip_cf):
             ccs_distance_km as zone_ccs_distance_km, 
             load_zone_id as zone_dbid 
         FROM switch.load_zone  
+        WHERE name != '_ALL_ZONES'
         ORDER BY 1;
         """,
     )

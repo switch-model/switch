@@ -261,7 +261,7 @@ def define_components(mod):
             mod.LOAD_ZONES, mod.TIMEPOINTS,
             rule=lambda m, z, t: \
                 sum(m.DispatchGen[g, t]
-                    for g in m.GENS_IN_ZONE_TPS[z, t] if m.gen_is_distributed[g]),
+                    for g in m.GENS_FOR_ZONE_TPS[z, t] if m.gen_is_distributed[g]),
             doc="Total power from distributed generation projects."
         )
         mod.Distributed_Power_Injections.append('ZoneTotalDistributedDispatch')
