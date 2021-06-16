@@ -147,7 +147,7 @@ def define_components(model):
             value in ('all_timepoints', 'peak_load'),
         doc=("Determines whether planning reserve requirements are enforced in "
              "each timepoint, or just timepoints with peak load (zone_demand_mw)."),
-        domain=Any
+        within=Any
     )
     def get_peak_timepoints(m, prr):
         """
