@@ -1,0 +1,45 @@
+# This is the test configuration file for the Sampling script
+# We are moving away from a CLI approach to a configuration-file oriented
+#
+# Configuration of the sampling strategy
+#------------------------
+# Sampling configuration
+#------------------------
+# TODO make template more appropriate (don't hardcode specific values)
+study_timeframe:
+  id: 10
+  name: Testing
+  description: >
+    This is a test study timeframe id and example of how we can add multiple lines of text
+    to support the description of this document
+
+periods:
+  start_year: 2016
+  end_year: 2055
+  length: 10
+
+sampling:
+  id: 9 # Add description to this ID
+  name: Peak and median
+  description: >
+    Template sampling config.
+  method: peak_median # Another option is year_round
+  # Only specify when using the year_round
+  year_round:
+    # Time delta between timepoints.
+    # Must be a divisor or 24.
+    # Therefore options are 1, 2, 3, 4, 6, 8, 12
+    # Specifying 1 gives an 8760 run.
+    hours_per_tp: 4
+    # Hour of the first timepoint (UTC).
+    # Must be less than hours_per_tp. Recommended is 0.
+    first_hour: 0
+    # Decide if you should skip the first day. 1 for true, 0 for false.
+    # If true, it becomes a 364-day sampling.
+    # This is useful since some data may be missing for day 1 due to time zone conversions.
+    skip_day_one: 1
+  # Only include when using the peak_median method
+  peak_median:
+    number_tps: 6 # Number of timepoints in a timeseries
+    # Load scenario to use to find peak and median days
+    demand_scenario_id: 115

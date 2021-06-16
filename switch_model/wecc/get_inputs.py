@@ -15,20 +15,11 @@ import shutil
 from typing import Iterable, List
 
 # Switch packages
-from switch_model.utilities import query_yes_no, load_config, StepTimer
+from switch_model.utilities import query_yes_no, StepTimer
+from switch_model.wecc.utilities import load_config, connect
 
 # Third-party packages
-import psycopg2 as pg
 import pandas as pd
-
-try:
-    # Try to load environment variables from .env file using dotenv package.
-    # If package is not installed, nothing happens.
-    from dotenv import load_dotenv
-
-    load_dotenv()
-except ImportError:
-    pass
 
 
 def write_csv_from_query(cursor, fname: str, headers: List[str], query: str):
@@ -96,45 +87,6 @@ def switch_to_input_dir(config):
 
     os.chdir(inputs_dir)
     return inputs_dir
-
-
-def connect(schema="switch"):
-    """Connects to the Postgres DB
-
-    This function uses the environment variables to get the URL to connect to the DB. Both
-    password and user should be passed directly on the URL for safety purposes.
-
-    Parameters
-    ----------
-    schema: str Schema of the DB to look for tables. Default is switch
-
-    Returns
-    -------
-    conn: Database connection object from psycopg2
-    """
-    db_url = os.getenv("DB_URL")
-    if db_url is None:
-        raise Exception(
-            "Please set the environment variable 'DB_URL' to the database URL."
-            "The format is normally: postgresql://<user>:<password>@<host>:5432/<database>"
-        )
-
-    conn = pg.connect(
-        db_url,
-        options=f"-c search_path={schema}",
-    )
-
-    if conn is None:
-        raise SystemExit(
-            "Failed to connect to PostgreSQL database."
-            "Ensure that the database url is correct, format should normally be:"
-            "postgresql://<user>:<password>@<host>:5432/<database>"
-        )
-
-    # TODO: Send this to the logger
-    print("Connection established to PostgreSQL database.")
-    return conn
-
 
 def main():
     timer = StepTimer()
