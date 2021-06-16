@@ -8,7 +8,6 @@ from __future__ import print_function
 
 import os, types, importlib, re, sys, argparse, time, datetime, traceback, subprocess, platform
 
-import switch_model.__main__ as main
 from pyomo.environ import *
 from pyomo.core.base.set import UnknownSetDimen
 from switch_model.utilities.scaling import _ScaledVariable, _get_unscaled_expression
@@ -17,11 +16,6 @@ import pyomo.opt
 # Define string_types (same as six.string_types). This is useful for
 # distinguishing between strings and other iterables.
 string_types = (str,)
-
-# Check whether this is an interactive session (determined by whether
-# __main__ has a __file__ attribute). Scripts can check this value to
-# determine what level of output to display.
-interactive_session = not hasattr(main, "__file__")
 
 
 class CustomModel(AbstractModel):
