@@ -873,18 +873,6 @@ def solve(model):
 
             model.options.solver_options_string += f" Threads={model.options.threads}"
 
-        # patch for Pyomo < 4.2
-        # note: Pyomo added an options_string argument to solver.solve() in Pyomo 4.2 rev 10587.
-        # (See https://software.sandia.gov/trac/pyomo/browser/pyomo/trunk/pyomo/opt/base/solvers.py?rev=10587 )
-        # This is misreported in the documentation as options=, but options= actually accepts a dictionary.
-        if model.options.solver_options_string and not hasattr(
-            model.solver, "_options_string_to_dict"
-        ):
-            for k, v in _options_string_to_dict(
-                model.options.solver_options_string
-            ).items():
-                model.solver.options[k] = v
-
         model.solver_manager = SolverManagerFactory(model.options.solver_manager)
 
     # get solver arguments
@@ -906,10 +894,6 @@ def solve(model):
     # while i is not None:
     #     c, i = m._decl_order[i]
     #     solver_args[suffixes].append(c.name)
-
-    # patch for Pyomo < 4.2
-    if not hasattr(model.solver, "_options_string_to_dict"):
-        solver_args.pop("options_string", "")
 
     # patch Pyomo to retrieve MIP duals from cplex if needed
     if model.options.retrieve_cplex_mip_duals:
@@ -1012,26 +996,6 @@ def solve(model):
             f" {results.solver.termination_condition}"
         )
 
-    ### process and return solution ###
-
-    # Load the solution data into the results object (it only has execution
-    # metadata by default in recent versions of Pyomo). This will enable us to
-    # save and restore model solutions; the results object can be pickled to a
-    # file on disk, but the instance cannot.
-    # https://stackoverflow.com/questions/39941520/pyomo-ipopt-does-not-return-solution
-    #
-    try:
-        model.solutions.store_to(results)
-    except:
-        # Print the error that would normally be thrown with the
-        # full stack trace and an explanatory message
-        print(
-            f"ERROR: Failed to save solution after solving. Exception was caught and we're moving on to post_solve()"
-            f"\n{traceback.format_exc()}"
-        )
-
-    # Cache a copy of the results object, to allow saving and restoring model
-    # solutions later.
     model.last_results = results
     return results
 
@@ -1067,33 +1031,6 @@ def retrieve_cplex_mip_duals():
     new_create_command_line.is_patched = True
     if not getattr(CPLEXSHELL.create_command_line, "is_patched", False):
         CPLEXSHELL.create_command_line = new_create_command_line
-
-
-# taken from https://software.sandia.gov/trac/pyomo/browser/pyomo/trunk/pyomo/opt/base/solvers.py?rev=10784
-# This can be removed when all users are on Pyomo 4.2
-import pyutilib
-
-
-def _options_string_to_dict(istr):
-    ans = {}
-    istr = istr.strip()
-    if not istr:
-        return ans
-    if istr[0] == "'" or istr[0] == '"':
-        istr = eval(istr)
-    tokens = pyutilib.misc.quote_split("[ ]+", istr)
-    for token in tokens:
-        index = token.find("=")
-        if index == -1:
-            raise ValueError(
-                "Solver options must have the form option=value: '{}'".format(istr)
-            )
-        try:
-            val = eval(token[(index + 1) :])
-        except:
-            val = token[(index + 1) :]
-        ans[token[:index]] = val
-    return ans
 
 
 def save_results(instance, outdir):
