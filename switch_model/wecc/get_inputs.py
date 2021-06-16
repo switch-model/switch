@@ -246,6 +246,31 @@ def query_db(full_config, skip_cf):
     print("switch_inputs_version.txt...")
 
     ########################################################
+    # Create temporary table called temp_generation_plant_ids
+    # This table has one column (generation_plant_id) containing
+    # the plant ids for this scenario
+    # This table can be joined on to filter out unused generation plants as follow
+    # JOIN temp_generation_plant_ids USING(generation_plant_id)
+    db_cursor.execute(
+        f"""
+        CREATE TEMPORARY TABLE temp_generation_plant_ids (
+            generation_plant_id integer
+        );
+        
+        INSERT INTO temp_generation_plant_ids (
+            SELECT generation_plant_id
+        FROM generation_plant_scenario_member
+            WHERE generation_plant_scenario_id={generation_plant_scenario_id}
+        UNION
+        SELECT generation_plant_id
+            FROM generation_plant_scenario_group_member
+            JOIN generation_plant_group_member USING (generation_plant_group_id)
+                WHERE generation_plant_scenario_id={generation_plant_scenario_id}
+        );
+        """
+    )
+
+    ########################################################
     # TIMESCALES
 
     # periods.csv
@@ -593,8 +618,7 @@ def query_db(full_config, skip_cf):
             land_use_rate
             from generation_plant as t
             join load_zone as t2 using(load_zone_id)
-            join generation_plant_scenario_member using(generation_plant_id)
-            where generation_plant_scenario_id={generation_plant_scenario_id}
+            JOIN temp_generation_plant_ids USING(generation_plant_id)
             order by gen_dbid;
             """,
     )
@@ -607,9 +631,8 @@ def query_db(full_config, skip_cf):
         f"""select generation_plant_id, build_year, capacity as gen_predetermined_cap, gen_predetermined_storage_energy_mwh  
                 from generation_plant_existing_and_planned 
                 join generation_plant as t using(generation_plant_id)
-                join generation_plant_scenario_member using(generation_plant_id)
-                where generation_plant_scenario_id={generation_plant_scenario_id}
-                and generation_plant_existing_and_planned_scenario_id={generation_plant_existing_and_planned_scenario_id}
+                JOIN temp_generation_plant_ids USING(generation_plant_id)
+                WHERE generation_plant_existing_and_planned_scenario_id={generation_plant_existing_and_planned_scenario_id}
                 ;
                 """,
     )
@@ -631,10 +654,9 @@ def query_db(full_config, skip_cf):
             storage_energy_capacity_cost_per_mwh as gen_storage_energy_overnight_cost 
         FROM generation_plant_cost
           JOIN generation_plant_existing_and_planned USING (generation_plant_id)
-          JOIN generation_plant_scenario_member using(generation_plant_id)
+          JOIN temp_generation_plant_ids USING(generation_plant_id)
           join generation_plant as t1 using(generation_plant_id)
-        WHERE generation_plant_scenario_id={generation_plant_scenario_id} 
-          AND generation_plant_cost.generation_plant_cost_scenario_id={generation_plant_cost_scenario_id}
+        WHERE generation_plant_cost.generation_plant_cost_scenario_id={generation_plant_cost_scenario_id}
           AND generation_plant_existing_and_planned_scenario_id={generation_plant_existing_and_planned_scenario_id}
         UNION
         SELECT generation_plant_id, period.label, 
@@ -643,10 +665,9 @@ def query_db(full_config, skip_cf):
         FROM generation_plant_cost 
           JOIN generation_plant using(generation_plant_id) 
           JOIN period on(build_year>=start_year and build_year<=end_year)
-          JOIN generation_plant_scenario_member using(generation_plant_id)
+          JOIN temp_generation_plant_ids USING(generation_plant_id)
           join generation_plant as t1 using(generation_plant_id)
-        WHERE generation_plant_scenario_id={generation_plant_scenario_id} 
-          AND period.study_timeframe_id={study_timeframe_id} 
+        WHERE period.study_timeframe_id={study_timeframe_id} 
           AND generation_plant_cost.generation_plant_cost_scenario_id={generation_plant_cost_scenario_id}
         GROUP BY 1,2
         ORDER BY 1,2;""",
@@ -679,10 +700,9 @@ def query_db(full_config, skip_cf):
                     -- performance wise this doesn't have any significant impact
                     case when abs(capacity_factor) < 0.00001 then 0 else capacity_factor end
                 FROM variable_capacity_factors_exist_and_candidate_gen v
-                    JOIN generation_plant_scenario_member USING(generation_plant_id)
+                    JOIN temp_generation_plant_ids USING(generation_plant_id)
                     JOIN sampled_timepoint as t ON(t.raw_timepoint_id = v.raw_timepoint_id)
-                WHERE generation_plant_scenario_id = {generation_plant_scenario_id}
-                    AND t.time_sample_id={time_sample_id};
+                WHERE t.time_sample_id={time_sample_id};
                 """,
         )
 
@@ -721,9 +741,8 @@ def query_db(full_config, skip_cf):
         from hydro_historical_monthly_capacity_factors
             join sampled_timeseries on(month = date_part('month', first_timepoint_utc) and year = date_part('year', first_timepoint_utc))
             join generation_plant using (generation_plant_id)
-            join generation_plant_scenario_member using(generation_plant_id)
-        where generation_plant_scenario_id = {generation_plant_scenario_id} 
-        and hydro_simple_scenario_id={hydro_simple_scenario_id}
+            JOIN temp_generation_plant_ids USING(generation_plant_id)
+        where hydro_simple_scenario_id={hydro_simple_scenario_id}
             and time_sample_id = {time_sample_id}
         order by 1;
         """,
