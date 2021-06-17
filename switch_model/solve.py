@@ -668,13 +668,18 @@ def add_extra_suffixes(model):
 
 
 def solve(model):
-    if not hasattr(model, "solver"):
+    if hasattr(model, "solver"):
+        solver = model.solver
+        solver_manager = model.solver_manager
+    else:
         # Create a solver object the first time in. We don't do this until a solve is
         # requested, because sometimes a different solve function may be used,
         # with its own solver object (e.g., with runph or a parallel solver server).
         # In those cases, we don't want to go through the expense of creating an
         # unused solver object, or get errors if the solver options are invalid.
-        model.solver = SolverFactory(model.options.solver, solver_io=model.options.solver_io)
+        #
+        # Note previously solver was saved in model however this is very memory inefficient.
+        solver = SolverFactory(model.options.solver, solver_io=model.options.solver_io)
 
         # If this option is enabled, gurobi will output an IIS to outputs\iis.ilp.
         if model.options.gurobi_find_iis:
@@ -697,7 +702,7 @@ def solve(model):
 
             model.options.solver_options_string += f" Threads={model.options.threads}"
 
-        model.solver_manager = SolverManagerFactory(model.options.solver_manager)
+        solver_manager = SolverManagerFactory(model.options.solver_manager)
 
     # get solver arguments
     solver_args = dict(
@@ -740,7 +745,7 @@ def solve(model):
 
     # Cleanup memory before entering solver to use up as little memory as possible.
     gc.collect()
-    results = model.solver_manager.solve(model, opt=model.solver, **solver_args)
+    results = solver_manager.solve(model, opt=solver, **solver_args)
 
     if model.options.verbose:
         print(f"Solved model. Total time spent in solver: {timer.step_time_as_str()}.")
