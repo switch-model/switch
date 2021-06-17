@@ -146,7 +146,6 @@ def main(args=None, return_model=False, return_instance=False):
 
         # We no longer need model (only using instance) so we can garbage collect it to optimize our memory usage
         del model
-        gc.collect()
 
         if instance.options.reload_prior_solution:
             print('Loading prior solution...')
@@ -167,12 +166,7 @@ def main(args=None, return_model=False, return_instance=False):
                 # Note we've refactored to avoid using the results variable in this scope
                 # to reduce the memory use during post-solve
                 solve(instance)
-                if instance.options.save_solution:
-                    if instance.options.verbose:
-                        timer.step_time()  # restart counter for next step
-                    save_results(instance, instance.options.outputs_dir)
-                    if instance.options.verbose:
-                        print(f'Saved results in {timer.step_time_as_str()}.')
+                gc.collect()
 
         if instance.options.enable_breakpoints:
             print("Breaking before post_solve. See "
@@ -817,7 +811,16 @@ def solve(model):
             print('Solver message: {}'.format(results.solver.message))
         print("")
 
-    return results
+    if model.options.save_solution:
+        if model.options.verbose:
+            timer.step_time()  # restart counter for next step
+        save_results(model, model.options.outputs_dir)
+        if model.options.verbose:
+            print(f'Saved results in {timer.step_time_as_str()}.')
+
+    # Save memory by not storing the solutions
+    del model.solutions
+    del results
 
 def retrieve_cplex_mip_duals():
     """patch Pyomo's solver to retrieve duals and reduced costs for MIPs
