@@ -134,6 +134,10 @@ def post_solve(instance, outdir):
 
 
 def save_generic_results(instance, outdir, sorted_output):
+    variables_dir = os.path.join(outdir, "variables")
+    if not os.path.exists(variables_dir):
+        os.mkdir(variables_dir)
+
     components = list(instance.component_objects(Var))
     # add Expression objects that should be saved, if any
     if 'none' in instance.options.save_expressions:
@@ -151,7 +155,7 @@ def save_generic_results(instance, outdir, sorted_output):
 
     for var in components:
         var = get_unscaled_var(instance, var)
-        output_file = os.path.join(outdir, '%s.csv' % var.name)
+        output_file = os.path.join(variables_dir, '%s.csv' % var.name)
         with open(output_file, 'w') as fh:
             writer = csv.writer(fh, dialect='switch-csv')
             if var.is_indexed():

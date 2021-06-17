@@ -6,8 +6,10 @@ from __future__ import print_function
 from pyomo.environ import *
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
 import pyomo.version
+import pandas as pd
 
 import sys, os, shlex, re, inspect, textwrap, types, pickle, traceback, gc
+import warnings
 
 import switch_model
 from switch_model.utilities import (
@@ -148,6 +150,13 @@ def main(args=None, return_model=False, return_instance=False):
         del model
         gc.collect()
 
+        if instance.options.warm_start:
+            if instance.options.verbose:
+                timer.step_time()
+            warm_start(instance)
+            if instance.options.verbose:
+                print(f"Loaded warm start inputs in {timer.step_time_as_str()}.")
+
         if instance.options.reload_prior_solution:
             print('Loading prior solution...')
             reload_prior_solution_from_pickle(instance, instance.options.outputs_dir)
@@ -220,9 +229,29 @@ def main(args=None, return_model=False, return_instance=False):
         code.interact(banner=banner, local=dict(list(globals().items()) + list(locals().items())))
 
 
+def warm_start(instance):
+    """
+    This function loads in the variables from a previous run
+    and starts out our model at these variables to make it reach
+    a solution faster.
+    """
+    warm_start_dir = os.path.join(instance.options.warm_start, "outputs", "variables")
+    if not os.path.isdir(warm_start_dir):
+        warnings.warn(
+            f"Path {warm_start_dir} does not exist and cannot be used to warm start solver. Warm start skipped.")
+        return
+
+    for filename in os.listdir(warm_start_dir):
+        component_name = filename[:-4]  # Remove the .csv from the filename
+        component = getattr(instance, component_name)
+        df = pd.read_csv(os.path.join(warm_start_dir, filename), index_col=list(range(component._index.dimen)))
+        for index, val in df.iterrows():
+            component[index] = val[0] # We use [0] since val is
+
+
 def reload_prior_solution_from_pickle(instance, outdir):
     with open(os.path.join(outdir, 'results.pickle'), 'rb') as fh:
-         results = pickle.load(fh)
+        results = pickle.load(fh)
     instance.solutions.load_from(results)
     return instance
 
@@ -550,6 +579,11 @@ def define_arguments(argparser):
         help="Number of threads to be used while solving. Currently only supported for Gurobi"
     )
 
+    argparser.add_argument(
+        "--warm-start", default=None,
+        help="Path to folder of directory to use for warm start"
+    )
+
 
 def add_recommended_args(argparser):
     """
@@ -710,7 +744,8 @@ def solve(model):
         options_string=model.options.solver_options_string,
         keepfiles=model.options.keepfiles,
         tee=model.options.tee,
-        symbolic_solver_labels=model.options.symbolic_solver_labels
+        symbolic_solver_labels=model.options.symbolic_solver_labels,
+        warmstart=(model.options.warm_start is not None)
     )
     # drop all the unspecified options
     solver_args = {k: v for (k, v) in solver_args.items() if v is not None}
