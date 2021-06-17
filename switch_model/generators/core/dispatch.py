@@ -420,8 +420,10 @@ def post_solve(instance, outdir):
         )
     )
 
-
-    dispatch_normalized_dat = [{
+    # Note we've refactored to create the Dataframe in one
+    # line to reduce the overall memory consumption during
+    # the most intensive part of post-solve (this function)
+    dispatch_full_df = pd.DataFrame([{
         "generation_project": g,
         "gen_dbid": instance.gen_dbid[g],
         "gen_tech": instance.gen_tech[g],
@@ -440,7 +442,7 @@ def post_solve(instance, outdir):
             instance.tp_weight_in_year[t]),
         "DispatchEmissions_tCO2_per_typical_yr": value(sum(
             instance.DispatchEmissions[g, t, f] * instance.tp_weight_in_year[t]
-              for f in instance.FUELS_FOR_GEN[g]
+            for f in instance.FUELS_FOR_GEN[g]
         )) if instance.gen_uses_fuel[g] else 0,
         "DispatchEmissions_tNOx_per_typical_yr": value(sum(
             instance.DispatchEmissionsNOx[g, t, f] * instance.tp_weight_in_year[t]
@@ -454,8 +456,7 @@ def post_solve(instance, outdir):
             instance.DispatchEmissionsCH4[g, t, f] * instance.tp_weight_in_year[t]
             for f in instance.FUELS_FOR_GEN[g]
         )) if instance.gen_uses_fuel[g] else 0
-    } for g, t in instance.GEN_TPS ]
-    dispatch_full_df = pd.DataFrame(dispatch_normalized_dat)
+    } for g, t in instance.GEN_TPS])
     dispatch_full_df.set_index(["generation_project", "timestamp"], inplace=True)
     write_table(instance, output_file=os.path.join(outdir, "dispatch.csv"), df=dispatch_full_df)
 
