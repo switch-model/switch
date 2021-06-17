@@ -235,18 +235,21 @@ def warm_start(instance):
     and starts out our model at these variables to make it reach
     a solution faster.
     """
-    warm_start_dir = os.path.join(instance.options.warm_start, "outputs", "variables")
+    warm_start_dir = os.path.join(instance.options.warm_start, "outputs")
     if not os.path.isdir(warm_start_dir):
         warnings.warn(
             f"Path {warm_start_dir} does not exist and cannot be used to warm start solver. Warm start skipped.")
         return
 
-    for filename in os.listdir(warm_start_dir):
-        component_name = filename[:-4]  # Remove the .csv from the filename
-        component = getattr(instance, component_name)
-        df = pd.read_csv(os.path.join(warm_start_dir, filename), index_col=list(range(component._index.dimen)))
+    for variable in instance.component_objects(Var):
+        filename = variable.name + ".csv"
+        filepath = os.path.join(warm_start_dir, filename)
+        if not os.path.exists(filepath):
+            warnings.warn(f"Skipping warm start for set {variable} since {filepath} does not exist.")
+            continue
+        df = pd.read_csv(filepath, index_col=list(range(variable._index.dimen)))
         for index, val in df.iterrows():
-            component[index] = val[0] # We use [0] since val is
+            variable[index] = val[0]  # We use [0] since val is
 
 
 def reload_prior_solution_from_pickle(instance, outdir):
