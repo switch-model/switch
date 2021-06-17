@@ -188,23 +188,14 @@ def main(args=None, return_model=False, return_instance=False):
             else:
                 # Cleanup iterate_modules since unused
                 del iterate_modules
+                # Garbage collect to reduce memory use during solving
                 gc.collect()
-                results = solve(instance)
-                if instance.options.verbose:
-                    print("")
-                    print(
-                        "Optimization termination condition was {}.".format(
-                            results.solver.termination_condition
-                        )
-                    )
-                    if str(results.solver.message) != "<undefined>":
-                        print("Solver message: {}".format(results.solver.message))
-                    print("")
-
-                if instance.options.verbose:
-                    timer.step_time()  # restart counter for next step
-
+                # Note we've refactored to avoid using the results variable in this scope
+                # to reduce the memory use during post-solve
+                solve(instance)
                 if instance.options.save_solution:
+                    if instance.options.verbose:
+                        timer.step_time()  # restart counter for next step
                     save_results(instance, instance.options.outputs_dir)
                     if instance.options.verbose:
                         print(f"Saved results in {timer.step_time_as_str()}.")
@@ -996,7 +987,17 @@ def solve(model):
             f" {results.solver.termination_condition}"
         )
 
-    model.last_results = results
+    if model.options.verbose:
+        print("")
+        print(
+            "Optimization termination condition was {}.".format(
+                results.solver.termination_condition
+            )
+        )
+        if str(results.solver.message) != "<undefined>":
+            print("Solver message: {}".format(results.solver.message))
+        print("")
+
     return results
 
 

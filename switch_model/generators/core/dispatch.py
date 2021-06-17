@@ -469,68 +469,73 @@ def post_solve(instance, outdir):
         ),
     )
 
-    dispatch_normalized_dat = [
-        {
-            "generation_project": g,
-            "gen_dbid": instance.gen_dbid[g],
-            "gen_tech": instance.gen_tech[g],
-            "gen_load_zone": instance.gen_load_zone[g],
-            "gen_energy_source": instance.gen_energy_source[g],
-            "timestamp": instance.tp_timestamp[t],
-            "tp_weight_in_year_hrs": instance.tp_weight_in_year[t],
-            "period": instance.tp_period[t],
-            "is_renewable": g in instance.VARIABLE_GENS,
-            "DispatchGen_MW": value(instance.DispatchGen[g, t]),
-            "Curtailment_MW": value(
-                instance.DispatchUpperLimit[g, t] - instance.DispatchGen[g, t]
-            ),
-            "Energy_GWh_typical_yr": value(
-                instance.DispatchGen[g, t] * instance.tp_weight_in_year[t] / 1000
-            ),
-            "VariableOMCost_per_yr": value(
-                instance.DispatchGen[g, t]
-                * instance.gen_variable_om[g]
-                * instance.tp_weight_in_year[t]
-            ),
-            "DispatchEmissions_tCO2_per_typical_yr": value(
-                sum(
-                    instance.DispatchEmissions[g, t, f] * instance.tp_weight_in_year[t]
-                    for f in instance.FUELS_FOR_GEN[g]
-                )
-            )
-            if instance.gen_uses_fuel[g]
-            else 0,
-            "DispatchEmissions_tNOx_per_typical_yr": value(
-                sum(
-                    instance.DispatchEmissionsNOx[g, t, f]
+    # Note we've refactored to create the Dataframe in one
+    # line to reduce the overall memory consumption during
+    # the most intensive part of post-solve (this function)
+    dispatch_full_df = pd.DataFrame(
+        [
+            {
+                "generation_project": g,
+                "gen_dbid": instance.gen_dbid[g],
+                "gen_tech": instance.gen_tech[g],
+                "gen_load_zone": instance.gen_load_zone[g],
+                "gen_energy_source": instance.gen_energy_source[g],
+                "timestamp": instance.tp_timestamp[t],
+                "tp_weight_in_year_hrs": instance.tp_weight_in_year[t],
+                "period": instance.tp_period[t],
+                "is_renewable": g in instance.VARIABLE_GENS,
+                "DispatchGen_MW": value(instance.DispatchGen[g, t]),
+                "Curtailment_MW": value(
+                    instance.DispatchUpperLimit[g, t] - instance.DispatchGen[g, t]
+                ),
+                "Energy_GWh_typical_yr": value(
+                    instance.DispatchGen[g, t] * instance.tp_weight_in_year[t] / 1000
+                ),
+                "VariableOMCost_per_yr": value(
+                    instance.DispatchGen[g, t]
+                    * instance.gen_variable_om[g]
                     * instance.tp_weight_in_year[t]
-                    for f in instance.FUELS_FOR_GEN[g]
+                ),
+                "DispatchEmissions_tCO2_per_typical_yr": value(
+                    sum(
+                        instance.DispatchEmissions[g, t, f]
+                        * instance.tp_weight_in_year[t]
+                        for f in instance.FUELS_FOR_GEN[g]
+                    )
                 )
-            )
-            if instance.gen_uses_fuel[g]
-            else 0,
-            "DispatchEmissions_tSO2_per_typical_yr": value(
-                sum(
-                    instance.DispatchEmissionsSO2[g, t, f]
-                    * instance.tp_weight_in_year[t]
-                    for f in instance.FUELS_FOR_GEN[g]
+                if instance.gen_uses_fuel[g]
+                else 0,
+                "DispatchEmissions_tNOx_per_typical_yr": value(
+                    sum(
+                        instance.DispatchEmissionsNOx[g, t, f]
+                        * instance.tp_weight_in_year[t]
+                        for f in instance.FUELS_FOR_GEN[g]
+                    )
                 )
-            )
-            if instance.gen_uses_fuel[g]
-            else 0,
-            "DispatchEmissions_tCH4_per_typical_yr": value(
-                sum(
-                    instance.DispatchEmissionsCH4[g, t, f]
-                    * instance.tp_weight_in_year[t]
-                    for f in instance.FUELS_FOR_GEN[g]
+                if instance.gen_uses_fuel[g]
+                else 0,
+                "DispatchEmissions_tSO2_per_typical_yr": value(
+                    sum(
+                        instance.DispatchEmissionsSO2[g, t, f]
+                        * instance.tp_weight_in_year[t]
+                        for f in instance.FUELS_FOR_GEN[g]
+                    )
                 )
-            )
-            if instance.gen_uses_fuel[g]
-            else 0,
-        }
-        for g, t in instance.GEN_TPS
-    ]
-    dispatch_full_df = pd.DataFrame(dispatch_normalized_dat)
+                if instance.gen_uses_fuel[g]
+                else 0,
+                "DispatchEmissions_tCH4_per_typical_yr": value(
+                    sum(
+                        instance.DispatchEmissionsCH4[g, t, f]
+                        * instance.tp_weight_in_year[t]
+                        for f in instance.FUELS_FOR_GEN[g]
+                    )
+                )
+                if instance.gen_uses_fuel[g]
+                else 0,
+            }
+            for g, t in instance.GEN_TPS
+        ]
+    )
     dispatch_full_df.set_index(["generation_project", "timestamp"], inplace=True)
     write_table(
         instance, output_file=os.path.join(outdir, "dispatch.csv"), df=dispatch_full_df
