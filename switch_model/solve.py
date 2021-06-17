@@ -23,6 +23,7 @@ from switch_model.utilities import (
     create_info_file,
     get_module_list,
     add_module_args,
+    _ScaledVariable,
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 from switch_model.tools.graphing import graph
@@ -280,17 +281,21 @@ def warm_start(instance):
 
     # Loop through every variable in our model
     for variable in instance.component_objects(Var):
-        filepath = os.path.join(warm_start_dir, variable.name + ".csv")
+        scaled = isinstance(variable, _ScaledVariable)
+        varname = variable.unscaled_name if scaled else variable.name
+        scaling = variable.scaling_factor if scaled else 1
+
+        filepath = os.path.join(warm_start_dir, varname + ".csv")
         if not os.path.exists(filepath):
             warnings.warn(
-                f"Skipping warm start for set {variable.name} since {filepath} does not exist."
+                f"Skipping warm start for set {varname} since {filepath} does not exist."
             )
             continue
         df = pd.read_csv(filepath, index_col=list(range(variable._index.dimen)))
         for index, val in df.iterrows():
             try:
-                variable[index] = val[0]
-            except KeyError:
+                variable[index] = val[0] * scaling
+            except (KeyError, ValueError):
                 # If the index isn't valid that's ok, just don't warm start that variable
                 pass
 
