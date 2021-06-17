@@ -65,8 +65,7 @@ def get_cell_formatter(sig_digits):
     return format_cell
 
 
-def format_row(row, sig_digits):
-    cell_formatter = get_cell_formatter(sig_digits)
+def format_row(row, cell_formatter):
     return tuple(cell_formatter(get_value(v)) for v in row)
 
 
@@ -76,11 +75,11 @@ def write_table(instance, *indexes, output_file=None, **kwargs):
     # don't know what that is.
     if output_file is None:
         raise Exception("Must specify output_file in write_table()")
-    digits = instance.options.sig_figs_output
+    cell_formatter = get_cell_formatter(instance.options.sig_figs_output)
 
     if 'df' in kwargs:
         df = kwargs.pop('df')
-        df.applymap(get_cell_formatter(digits)).to_csv(output_file, **kwargs)
+        df.applymap(cell_formatter).to_csv(output_file, **kwargs)
         return
 
     headings = kwargs["headings"]
@@ -92,7 +91,7 @@ def write_table(instance, *indexes, output_file=None, **kwargs):
         w.writerow(list(headings))
         # write the data
         try:
-            rows = (format_row(values(instance, *unpack_elements(x)), digits) for x in
+            rows = (format_row(values(instance, *unpack_elements(x)), cell_formatter) for x in
                     itertools.product(*indexes))
             w.writerows(sorted(rows) if instance.options.sorted_output else rows)
         except TypeError: # lambda got wrong number of arguments
@@ -100,7 +99,7 @@ def write_table(instance, *indexes, output_file=None, **kwargs):
             w.writerows(
                 # TODO: flatten x (unpack tuples) like Pyomo before calling values()
                 # That may cause problems elsewhere though...
-                format_row(values(instance, *x), digits)
+                format_row(values(instance, *x), cell_formatter)
                 for x in itertools.product(*indexes)
             )
             print("DEPRECATION WARNING: switch_model.reporting.write_table() was called with a function")
@@ -134,6 +133,8 @@ def post_solve(instance, outdir):
 
 
 def save_generic_results(instance, outdir, sorted_output):
+    cell_formatter = get_cell_formatter(instance.options.sig_figs_output)
+
     components = list(instance.component_objects(Var))
     # add Expression objects that should be saved, if any
     if 'none' in instance.options.save_expressions:
@@ -167,11 +168,11 @@ def save_generic_results(instance, outdir, sorted_output):
                 # increased speed. Sorting is available if wanted.
                 items = sorted(var.items()) if sorted_output else list(var.items())
                 for key, obj in items:
-                    writer.writerow(format_row(tuple(make_iterable(key)) + (obj,), instance.options.sig_figs_output))
+                    writer.writerow(format_row(tuple(make_iterable(key)) + (obj,), cell_formatter))
             else:
                 # single-valued variable
                 writer.writerow([var.name])
-                writer.writerow(format_row([obj], instance.options.sig_figs_output))
+                writer.writerow(format_row([obj], cell_formatter))
 
 def get_value(obj):
     """
