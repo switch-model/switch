@@ -241,15 +241,19 @@ def warm_start(instance):
             f"Path {warm_start_dir} does not exist and cannot be used to warm start solver. Warm start skipped.")
         return
 
+    # Loop through every variable in our model
     for variable in instance.component_objects(Var):
-        filename = variable.name + ".csv"
-        filepath = os.path.join(warm_start_dir, filename)
+        filepath = os.path.join(warm_start_dir, variable.name + ".csv")
         if not os.path.exists(filepath):
-            warnings.warn(f"Skipping warm start for set {variable} since {filepath} does not exist.")
+            warnings.warn(f"Skipping warm start for set {variable.name} since {filepath} does not exist.")
             continue
         df = pd.read_csv(filepath, index_col=list(range(variable._index.dimen)))
         for index, val in df.iterrows():
-            variable[index] = val[0]  # We use [0] since val is
+            try:
+                variable[index] = val[0]
+            except KeyError:
+                # If the index isn't valid that's ok, just don't warm start that variable
+                pass
 
 
 def reload_prior_solution_from_pickle(instance, outdir):
