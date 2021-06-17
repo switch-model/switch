@@ -949,7 +949,7 @@ def solve(model):
             os.makedirs(model.options.tempdir)
 
         # from https://pyomo.readthedocs.io/en/stable/working_models.html#changing-the-temporary-directory
-        from pyutilib.services import TempfileManager
+        from pyomo.common.tempfiles import TempfileManager
 
         TempfileManager.tempdir = model.options.tempdir
 
