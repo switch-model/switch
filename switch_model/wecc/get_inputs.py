@@ -1105,7 +1105,7 @@ def replace_plants_in_zone_all():
 
     # Read load_zones.csv
     load_zones = pd.read_csv("load_zones.csv", index_col=False)
-    load_zones["dbid_suffix"] = "_" + load_zones["dbid"].astype(str)
+    load_zones["dbid_suffix"] = "_" + load_zones["zone_dbid"].astype(str)
     num_zones = len(load_zones)
 
     def replace_rows(plants_to_copy, filename, df=None, plants_col="GENERATION_PROJECT", load_column=None):
