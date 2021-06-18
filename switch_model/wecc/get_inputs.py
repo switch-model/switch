@@ -1045,8 +1045,9 @@ def fix_prebuild_conflict_bug():
         return
 
     # Read two files that need modification
-    gen_build_costs = pd.read_csv("gen_build_costs.csv", index_col=False)
-    gen_build_predetermined = pd.read_csv("gen_build_predetermined.csv", index_col=False)
+    gen_build_costs = pd.read_csv("gen_build_costs.csv", index_col=False, dtype={"GENERATION_PROJECT": str})
+    gen_build_predetermined = pd.read_csv("gen_build_predetermined.csv", index_col=False,
+                                          dtype={"GENERATION_PROJECT": str})
     # Save their size
     rows_prior = gen_build_costs.size, gen_build_predetermined.size
     # Save columns of gen_build_costs
@@ -1161,7 +1162,7 @@ def replace_plants_in_zone_all():
         return
     # If to_replace has variable capacity factors we raise exceptions
     # since the variabale capacity factors won't be the same across zones
-    if not all(to_replace["gen_is_variable"] == 0):
+    if any(to_replace["gen_is_variable"] == 1):
         raise Exception("generation_projects_info.csv contains variable plants "
                         "with load zone _ALL_ZONES. This is not allowed since "
                         "copying variable capacity factors to all "
