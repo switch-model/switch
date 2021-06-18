@@ -7,7 +7,9 @@ the csvs in the inputs folder.
 import os
 
 import pandas as pd
+from switch_model.wecc.get_inputs import replace_plants_in_zone_all
 
+scenario_params = {}
 
 def fetch_df(tab_name):
     tab_name_to_gid = {
@@ -29,6 +31,7 @@ def filer_by_scenario(df, column_name):
     if scenario == "":
         scenario = 0
     scenario = int(scenario)
+    scenario_params[column_name] = scenario
     df = df[df[column_name] == scenario]
     return df.drop(column_name, axis=1)
 
@@ -40,12 +43,11 @@ def cross_join(df1, df2):
     ).drop("key", axis=1)
 
 
-def append_to_input_file(filename, to_add):
-    path = os.path.join("inputs", filename)
-    df = pd.read_csv(path, index_col=False)
+def append_to_csv(filename, to_add):
+    df = pd.read_csv(filename, index_col=False)
     col = df.columns
     df = pd.concat([df, to_add], ignore_index=True)[col]
-    df.to_csv(path, index=False)
+    df.to_csv(filename, index=False)
 
 
 def get_gen_constants():
@@ -56,11 +58,26 @@ def get_gen_constants():
 
 
 def main():
+    # Move to input directory
+    os.chdir("inputs")
+
+    # Get the generation storage plants from Google Sheet
     gen_constants = get_gen_constants()
     gen_plants = fetch_df("plants")
     gen_plants = cross_join(gen_plants, gen_constants)
 
-    append_to_input_file("generation_projects_info.csv", gen_plants)
+    # Append the storage plants to the inputs
+    append_to_csv("generation_projects_info.csv", gen_plants)
+
+    # Get the plant costs from GSheets and append to costs
+    storage_costs = filer_by_scenario(fetch_df("costs"), "costs_scenario")
+    append_to_csv("gen_build_costs.csv", storage_costs)
+
+    # Change plants with _ALL_ZONES to a plant in every zone
+    replace_plants_in_zone_all()
+
+    # Create add_storage_info.csv
+    pd.DataFrame([scenario_params]).transpose().to_csv("add_storage_info.csv", header=False)
 
 
 if __name__ == "__main__":
