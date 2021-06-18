@@ -5,18 +5,9 @@
 from __future__ import print_function
 
 import argparse
+import importlib
 import sys
 import switch_model
-import switch_model.solve as solve
-import switch_model.solve_scenarios as solve_scenarios
-import switch_model.test as test
-import switch_model.upgrade as upgrade
-import switch_model.wecc.get_inputs as get_inputs
-import switch_model.tools.drop as drop
-import switch_model.tools.graphing.graph as graph
-import switch_model.tools.graphing.compare as compare
-import switch_model.wecc.__main__ as db
-import switch_model.tools.new as new
 
 
 def version():
@@ -30,23 +21,30 @@ def version():
     return 0
 
 
+def get_module_runner(module):
+    def runner():
+        importlib.import_module(module).main()
+
+    return runner
+
+
 cmds = {
-    "solve": solve.main,
-    "solve-scenarios": solve_scenarios.main,
-    "test": test.main,
-    "upgrade": upgrade.main,
-    "get_inputs": get_inputs.main,
-    "--version": version,
-    "drop": drop.main,
-    "new": new.main,
-    "graph": graph.main,
-    "compare": compare.main,
-    "db": db.main,
+    "solve": get_module_runner("switch_model.solve"),
+    "solve-scenarios": get_module_runner("switch_model.solve_scenarios"),
+    "test": get_module_runner("switch_model.test"),
+    "upgrade": get_module_runner("switch_model.upgrade"),
+    "get_inputs": get_module_runner("switch_model.wecc.get_inputs"),
+    "--version": get_module_runner("version"),
+    "drop": get_module_runner("switch_model.tools.drop"),
+    "new": get_module_runner("switch_model.tools.new"),
+    "graph": get_module_runner("switch_model.tools.graphing.graph"),
+    "compare": get_module_runner("switch_model.tools.graphing.compare"),
+    "db": get_module_runner("switch_model.wecc.__main__"),
 }
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
         "subcommand", choices=cmds.keys(), help="The possible switch subcommands"
     )
@@ -65,7 +63,6 @@ def main():
     # adjust the argument list to make it look like someone ran "python -m <module>" directly
     sys.argv[0] += " " + sys.argv[1]
     del sys.argv[1]
-
     cmds[args.subcommand]()
 
 
