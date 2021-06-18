@@ -144,6 +144,9 @@ def main(
         # create an instance (also reports time spent reading data and loading into model)
         instance = model.load_inputs(attach_data_portal=attach_data_portal)
 
+        if instance.options.warm_start:
+            warm_start(instance)
+
         #### Below here, we refer to instance instead of model ####
 
         instance.pre_solve()
@@ -175,13 +178,6 @@ def main(
 
         # We no longer need model (only using instance) so we can garbage collect it to optimize our memory usage
         del model
-
-        if instance.options.warm_start:
-            if instance.options.verbose:
-                timer.step_time()
-            warm_start(instance)
-            if instance.options.verbose:
-                print(f"Loaded warm start inputs in {timer.step_time_as_str()}.")
 
         if instance.options.reload_prior_solution:
             print("Loading prior solution...")
@@ -259,6 +255,7 @@ def warm_start(instance):
     and starts out our model at these variables to make it reach
     a solution faster.
     """
+    warm_start_timer = StepTimer()
     warm_start_dir = os.path.join(instance.options.warm_start, "outputs")
     if not os.path.isdir(warm_start_dir):
         warnings.warn(
@@ -285,6 +282,8 @@ def warm_start(instance):
             except (KeyError, ValueError):
                 # If the index isn't valid that's ok, just don't warm start that variable
                 pass
+
+    print(f"Loaded warm start inputs in {warm_start_timer.step_time_as_str()}.")
 
 
 def reload_prior_solution_from_pickle(instance, outdir):
