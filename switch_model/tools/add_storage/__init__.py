@@ -56,6 +56,25 @@ def get_gen_constants():
     df = df.set_index("param_name")
     return df.transpose()
 
+def drop_previous_candidate_storage():
+    # Get the generation projects
+    gen = pd.read_csv("generation_projects_info.csv", index_col=False)
+    # Find generation projects that are both storage and not predetermined (i.e. candidate)
+    predetermined_gen = pd.read_csv("gen_build_predetermined.csv", index_col=False)["GENERATION_PROJECT"]
+    should_drop = (gen["gen_tech"] == "Battery_Storage") & ~gen["GENERATION_PROJECT"].isin(predetermined_gen)
+    # Find projects that we should drop (candidate storage)
+    gen_to_drop = gen[should_drop]["GENERATION_PROJECT"]
+    # Verify we're dropping the right amount
+    assert len(gen_to_drop) == 50 # 50 is the number of load zones. we expect one candidate per load zone
+
+    # Drop and write output
+    gen = gen[~should_drop]
+    gen.to_csv("generation_projects_info.csv", index=False)
+
+    # Drop the dropped generation projects from gen_build_costs.csv
+    costs = pd.read_csv("gen_build_costs.csv", index_col=False)
+    costs = costs[~costs["GENERATION_PROJECT"].isin(gen_to_drop)]
+    costs.to_csv("gen_build_costs.csv", index=False)
 
 def main(run_post_solve=True, scenario_config=None, change_dir=True):
     print("Adding candidate storage from GSheets...")
@@ -67,6 +86,9 @@ def main(run_post_solve=True, scenario_config=None, change_dir=True):
     # Move to input directory
     if change_dir:
         os.chdir("inputs")
+
+    # Drop previous candidate storage from inputs
+    drop_previous_candidate_storage()
 
     # Get the generation storage plants from Google Sheet
     gen_constants = get_gen_constants()
