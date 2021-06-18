@@ -1114,6 +1114,10 @@ def replace_plants_in_zone_all():
         # Extract the rows that need copying
         should_copy = df[plants_col].isin(plants_to_copy)
         rows_to_copy = df[should_copy]
+
+        if rows_to_copy.empty:
+            return
+
         # Filter out the plants that need replacing from our data frame
         df = df[~should_copy]
         # replacement is the cross join of the plants that need replacement
