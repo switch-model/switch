@@ -11,6 +11,8 @@ import os, types, importlib, re, sys, argparse, time, datetime, traceback, subpr
 import switch_model.__main__ as main
 from pyomo.environ import *
 from pyomo.core.base.set import UnknownSetDimen
+from pyomo.dataportal import DataManagerFactory
+from pyomo.dataportal.plugins.csv_table import CSVTable
 from switch_model.utilities.scaling import _ScaledVariable, _get_unscaled_expression
 import pyomo.opt
 import yaml
@@ -738,9 +740,28 @@ def load_aug(
         # Skip the file.  Note that we are only doing this after having
         # validated the file's column headings.
         return
+
+    # Use our custom DataManager to allow 'inf' in csvs.
+    if kwds["filename"][-4:] == ".csv":
+        kwds["using"] = "switch_csv"
     # All done with cleaning optional bits. Pass the updated arguments
     # into the DataPortal.load() function.
     switch_data.load(**kwds)
+
+
+# Register a custom data manager that wraps the default CSVTable DataManager
+# This data manager does the same as CSVTable but converts 'inf' to float("inf")
+# This is necessary since Pyomo no longer converts inf to float('inf') and is
+# now throwing errors when we it expects a number but we input inf.
+@DataManagerFactory.register("switch_csv")
+class SwitchCSVDataManger(CSVTable):
+    def process(self, model, data, default):
+        status = super().process(model, data, default)
+        for values in data[self.options.namespace].values():
+            for index, val in values.items():
+                if val == "inf":
+                    values[index] = float("inf")
+        return status
 
 
 class ExtendAction(argparse.Action):
