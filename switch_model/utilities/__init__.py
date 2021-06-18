@@ -292,6 +292,8 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=True):
 
     if attach_data_portal:
         instance.DataPortal = data
+    else:
+        del data
     return instance
 
 

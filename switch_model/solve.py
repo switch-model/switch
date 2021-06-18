@@ -6,8 +6,10 @@ from __future__ import print_function
 from pyomo.environ import *
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
 import pyomo.version
+import pandas as pd
 
 import sys, os, shlex, re, inspect, textwrap, types, pickle, traceback, gc
+import warnings
 
 import switch_model
 from switch_model.utilities import (
@@ -21,6 +23,7 @@ from switch_model.utilities import (
     create_info_file,
     get_module_list,
     add_module_args,
+    _ScaledVariable,
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 from switch_model.tools.graphing import graph
@@ -170,7 +173,13 @@ def main(args=None, return_model=False, return_instance=False):
 
         # We no longer need model (only using instance) so we can garbage collect it to optimize our memory usage
         del model
-        gc.collect()
+
+        if instance.options.warm_start:
+            if instance.options.verbose:
+                timer.step_time()
+            warm_start(instance)
+            if instance.options.verbose:
+                print(f"Loaded warm start inputs in {timer.step_time_as_str()}.")
 
         if instance.options.reload_prior_solution:
             print("Loading prior solution...")
@@ -188,26 +197,12 @@ def main(args=None, return_model=False, return_instance=False):
             else:
                 # Cleanup iterate_modules since unused
                 del iterate_modules
+                # Garbage collect to reduce memory use during solving
                 gc.collect()
-                results = solve(instance)
-                if instance.options.verbose:
-                    print("")
-                    print(
-                        "Optimization termination condition was {}.".format(
-                            results.solver.termination_condition
-                        )
-                    )
-                    if str(results.solver.message) != "<undefined>":
-                        print("Solver message: {}".format(results.solver.message))
-                    print("")
-
-                if instance.options.verbose:
-                    timer.step_time()  # restart counter for next step
-
-                if instance.options.save_solution:
-                    save_results(instance, instance.options.outputs_dir)
-                    if instance.options.verbose:
-                        print(f"Saved results in {timer.step_time_as_str()}.")
+                # Note we've refactored to avoid using the results variable in this scope
+                # to reduce the memory use during post-solve
+                solve(instance)
+                gc.collect()
 
         if instance.options.enable_breakpoints:
             print(
@@ -254,6 +249,40 @@ def main(args=None, return_model=False, return_instance=False):
         code.interact(
             banner=banner, local=dict(list(globals().items()) + list(locals().items()))
         )
+
+
+def warm_start(instance):
+    """
+    This function loads in the variables from a previous run
+    and starts out our model at these variables to make it reach
+    a solution faster.
+    """
+    warm_start_dir = os.path.join(instance.options.warm_start, "outputs")
+    if not os.path.isdir(warm_start_dir):
+        warnings.warn(
+            f"Path {warm_start_dir} does not exist and cannot be used to warm start solver. Warm start skipped."
+        )
+        return
+
+    # Loop through every variable in our model
+    for variable in instance.component_objects(Var):
+        scaled = isinstance(variable, _ScaledVariable)
+        varname = variable.unscaled_name if scaled else variable.name
+        scaling = variable.scaling_factor if scaled else 1
+
+        filepath = os.path.join(warm_start_dir, varname + ".csv")
+        if not os.path.exists(filepath):
+            warnings.warn(
+                f"Skipping warm start for set {varname} since {filepath} does not exist."
+            )
+            continue
+        df = pd.read_csv(filepath, index_col=list(range(variable._index.dimen)))
+        for index, val in df.iterrows():
+            try:
+                variable[index] = val[0] * scaling
+            except (KeyError, ValueError):
+                # If the index isn't valid that's ok, just don't warm start that variable
+                pass
 
 
 def reload_prior_solution_from_pickle(instance, outdir):
@@ -695,6 +724,12 @@ def define_arguments(argparser):
         help="Number of threads to be used while solving. Currently only supported for Gurobi",
     )
 
+    argparser.add_argument(
+        "--warm-start",
+        default=None,
+        help="Path to folder of directory to use for warm start",
+    )
+
 
 def add_recommended_args(argparser):
     """
@@ -840,15 +875,18 @@ def add_extra_suffixes(model):
 
 
 def solve(model):
-    if not hasattr(model, "solver"):
+    if hasattr(model, "solver"):
+        solver = model.solver
+        solver_manager = model.solver_manager
+    else:
         # Create a solver object the first time in. We don't do this until a solve is
         # requested, because sometimes a different solve function may be used,
         # with its own solver object (e.g., with runph or a parallel solver server).
         # In those cases, we don't want to go through the expense of creating an
         # unused solver object, or get errors if the solver options are invalid.
-        model.solver = SolverFactory(
-            model.options.solver, solver_io=model.options.solver_io
-        )
+        #
+        # Note previously solver was saved in model however this is very memory inefficient.
+        solver = SolverFactory(model.options.solver, solver_io=model.options.solver_io)
 
         # If this option is enabled, gurobi will output an IIS to outputs\iis.ilp.
         if model.options.gurobi_find_iis:
@@ -873,7 +911,7 @@ def solve(model):
 
             model.options.solver_options_string += f" Threads={model.options.threads}"
 
-        model.solver_manager = SolverManagerFactory(model.options.solver_manager)
+        solver_manager = SolverManagerFactory(model.options.solver_manager)
 
     # get solver arguments
     solver_args = dict(
@@ -881,6 +919,7 @@ def solve(model):
         keepfiles=model.options.keepfiles,
         tee=model.options.tee,
         symbolic_solver_labels=model.options.symbolic_solver_labels,
+        warmstart=(model.options.warm_start is not None),
     )
     # drop all the unspecified options
     solver_args = {k: v for (k, v) in solver_args.items() if v is not None}
@@ -909,13 +948,13 @@ def solve(model):
             os.makedirs(model.options.tempdir)
 
         # from https://pyomo.readthedocs.io/en/stable/working_models.html#changing-the-temporary-directory
-        from pyutilib.services import TempfileManager
+        from pyomo.common.tempfiles import TempfileManager
 
         TempfileManager.tempdir = model.options.tempdir
 
     # Cleanup memory before entering solver to use up as little memory as possible.
     gc.collect()
-    results = model.solver_manager.solve(model, opt=model.solver, **solver_args)
+    results = solver_manager.solve(model, opt=solver, **solver_args)
 
     if model.options.verbose:
         print(f"Solved model. Total time spent in solver: {timer.step_time_as_str()}.")
@@ -996,8 +1035,27 @@ def solve(model):
             f" {results.solver.termination_condition}"
         )
 
-    model.last_results = results
-    return results
+    if model.options.verbose:
+        print("")
+        print(
+            "Optimization termination condition was {}.".format(
+                results.solver.termination_condition
+            )
+        )
+        if str(results.solver.message) != "<undefined>":
+            print("Solver message: {}".format(results.solver.message))
+        print("")
+
+    if model.options.save_solution:
+        if model.options.verbose:
+            timer.step_time()  # restart counter for next step
+        save_results(model, model.options.outputs_dir)
+        if model.options.verbose:
+            print(f"Saved results in {timer.step_time_as_str()}.")
+
+    # Save memory by not storing the solutions
+    del model.solutions
+    del results
 
 
 def retrieve_cplex_mip_duals():
