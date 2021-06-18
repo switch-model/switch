@@ -6,13 +6,15 @@ from __future__ import print_function
 from pyomo.environ import *
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
 import pyomo.version
+import pandas as pd
 
 import sys, os, shlex, re, inspect, textwrap, types, pickle, traceback, gc
+import warnings
 
 import switch_model
 from switch_model.utilities import (
     create_model, _ArgumentParser, StepTimer, make_iterable, LogOutput, warn, query_yes_no, create_info_file,
-    get_module_list, add_module_args
+    get_module_list, add_module_args, _ScaledVariable
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 from switch_model.tools.graphing import graph
@@ -147,6 +149,13 @@ def main(args=None, return_model=False, return_instance=False):
         # We no longer need model (only using instance) so we can garbage collect it to optimize our memory usage
         del model
 
+        if instance.options.warm_start:
+            if instance.options.verbose:
+                timer.step_time()
+            warm_start(instance)
+            if instance.options.verbose:
+                print(f"Loaded warm start inputs in {timer.step_time_as_str()}.")
+
         if instance.options.reload_prior_solution:
             print('Loading prior solution...')
             reload_prior_solution_from_pickle(instance, instance.options.outputs_dir)
@@ -208,9 +217,40 @@ def main(args=None, return_model=False, return_instance=False):
         code.interact(banner=banner, local=dict(list(globals().items()) + list(locals().items())))
 
 
+def warm_start(instance):
+    """
+    This function loads in the variables from a previous run
+    and starts out our model at these variables to make it reach
+    a solution faster.
+    """
+    warm_start_dir = os.path.join(instance.options.warm_start, "outputs")
+    if not os.path.isdir(warm_start_dir):
+        warnings.warn(
+            f"Path {warm_start_dir} does not exist and cannot be used to warm start solver. Warm start skipped.")
+        return
+
+    # Loop through every variable in our model
+    for variable in instance.component_objects(Var):
+        scaled = isinstance(variable, _ScaledVariable)
+        varname = variable.unscaled_name if scaled else variable.name
+        scaling = variable.scaling_factor if scaled else 1
+
+        filepath = os.path.join(warm_start_dir, varname + ".csv")
+        if not os.path.exists(filepath):
+            warnings.warn(f"Skipping warm start for set {varname} since {filepath} does not exist.")
+            continue
+        df = pd.read_csv(filepath, index_col=list(range(variable._index.dimen)))
+        for index, val in df.iterrows():
+            try:
+                variable[index] = val[0] * scaling
+            except (KeyError, ValueError):
+                # If the index isn't valid that's ok, just don't warm start that variable
+                pass
+
+
 def reload_prior_solution_from_pickle(instance, outdir):
     with open(os.path.join(outdir, 'results.pickle'), 'rb') as fh:
-         results = pickle.load(fh)
+        results = pickle.load(fh)
     instance.solutions.load_from(results)
     return instance
 
@@ -538,6 +578,11 @@ def define_arguments(argparser):
         help="Number of threads to be used while solving. Currently only supported for Gurobi"
     )
 
+    argparser.add_argument(
+        "--warm-start", default=None,
+        help="Path to folder of directory to use for warm start"
+    )
+
 
 def add_recommended_args(argparser):
     """
@@ -703,7 +748,8 @@ def solve(model):
         options_string=model.options.solver_options_string,
         keepfiles=model.options.keepfiles,
         tee=model.options.tee,
-        symbolic_solver_labels=model.options.symbolic_solver_labels
+        symbolic_solver_labels=model.options.symbolic_solver_labels,
+        warmstart=(model.options.warm_start is not None)
     )
     # drop all the unspecified options
     solver_args = {k: v for (k, v) in solver_args.items() if v is not None}
@@ -734,7 +780,7 @@ def solve(model):
             os.makedirs(model.options.tempdir)
 
         # from https://pyomo.readthedocs.io/en/stable/working_models.html#changing-the-temporary-directory
-        from pyutilib.services import TempfileManager
+        from pyomo.common.tempfiles import TempfileManager
         TempfileManager.tempdir = model.options.tempdir
 
     # Cleanup memory before entering solver to use up as little memory as possible.
