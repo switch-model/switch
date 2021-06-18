@@ -27,12 +27,12 @@ def fetch_df(tab_name):
 
 
 def filer_by_scenario(df, column_name):
-    scenario = input(f"Which scenario do you want for '{column_name}' (default 0) : ")
-    if scenario == "":
-        scenario = 0
-    scenario = int(scenario)
-    scenario_params[column_name] = scenario
-    df = df[df[column_name] == scenario]
+    if column_name not in scenario_params:
+        scenario = input(f"Which scenario do you want for '{column_name}' (default 0) : ")
+        if scenario == "":
+            scenario = 0
+        scenario_params[column_name] = int(scenario)
+    df = df[df[column_name] == scenario_params[column_name]]
     return df.drop(column_name, axis=1)
 
 
@@ -57,9 +57,16 @@ def get_gen_constants():
     return df.transpose()
 
 
-def main():
+def main(run_post_solve=True, scenario_config=None, change_dir=True):
+    print("Adding candidate storage from GSheets...")
+    global scenario_params
+    # If a config is passed use it when filtering by scenario
+    if scenario_config is not None:
+        scenario_params = scenario_config
+
     # Move to input directory
-    os.chdir("inputs")
+    if change_dir:
+        os.chdir("inputs")
 
     # Get the generation storage plants from Google Sheet
     gen_constants = get_gen_constants()
@@ -74,7 +81,8 @@ def main():
     append_to_csv("gen_build_costs.csv", storage_costs)
 
     # Change plants with _ALL_ZONES to a plant in every zone
-    replace_plants_in_zone_all()
+    if run_post_solve:
+        replace_plants_in_zone_all()
 
     # Create add_storage_info.csv
     pd.DataFrame([scenario_params]).transpose().to_csv("add_storage_info.csv", header=False)

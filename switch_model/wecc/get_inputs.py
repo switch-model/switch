@@ -104,6 +104,8 @@ def main():
                              "want to wait for the command.")
     parser.add_argument("--post-only", default=False, action='store_true',
                         help="Only run the post solve functions (don't query db)")
+    parser.add_argument("--add-storage", default=False, action='store_true',
+                        help="Flag used by Martin while studying LDES. You likely don't need this.")
     args = parser.parse_args()  # Makes switch get_inputs --help works
 
     # Load values from config.yaml
@@ -112,6 +114,13 @@ def main():
 
     if not args.post_only:
         query_db(full_config, skip_cf=args.skip_cf)
+    if args.add_storage:
+        from switch_model.tools.add_storage import main
+        main(
+            run_post_solve=False, # We will run post solve automatically right afterwards
+            scenario_config=full_config["add_storage"],
+            change_dir=False
+        )
     post_process()
     print(f"\nScript took {timer.step_time_as_str()} seconds to build input tables.")
 
