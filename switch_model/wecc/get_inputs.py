@@ -335,7 +335,7 @@ def query_db(full_config, skip_cf):
             name, 
             ccs_distance_km as zone_ccs_distance_km, 
             load_zone_id as zone_dbid 
-        FROM switch.load_zone  
+        FROM switch.load_zone
         WHERE name != '_ALL_ZONES'
         ORDER BY 1;
         """,
@@ -1050,6 +1050,50 @@ def post_process():
     print("graph_tech_types.csv...")
     shutil.copy(os.path.join(graph_config, "graph_tech_types.csv"), "graph_tech_types.csv")
     create_graph_timestamp_map()
+    replace_plants_in_zone_all()
+
+
+def fix_prebuild_conflict_bug():
+    """
+    This post-processing step is necessary to pass the no_predetermined_bld_yr_vs_period_conflict BuildCheck.
+    Basically we are moving all the 2020 predetermined build years to 2019 to avoid a conflict with the 2020 period.
+    See generators.core.build.py for details.
+    """
+    print("Shifting 2020 prebuilds to 2019...")
+    periods = pd.read_csv("periods.csv", index_col=False)
+    if 2020 not in periods["INVESTMENT_PERIOD"].values:
+        return
+
+    # Read two files that need modification
+    gen_build_costs = pd.read_csv("gen_build_costs.csv", index_col=False)
+    gen_build_predetermined = pd.read_csv("gen_build_predetermined.csv", index_col=False)
+    # Save their size
+    rows_prior = gen_build_costs.size, gen_build_predetermined.size
+    # Save columns of gen_build_costs
+    gen_build_costs_col = gen_build_costs.columns
+    # Merge to know which rows are prebuild
+    gen_build_costs = gen_build_costs.merge(
+        gen_build_predetermined,
+        on=["GENERATION_PROJECT", "build_year"],
+        how='left'
+    )
+
+    # If row is prebuild and in 2020, replace it with 2019
+    gen_build_costs.loc[
+        (~gen_build_costs["gen_predetermined_cap"].isna()) & (gen_build_costs["build_year"] == 2020),
+        "build_year"] = 2019
+    # If row is in 2020 replace it with 2019
+    gen_build_predetermined.loc[gen_build_predetermined["build_year"] == 2020, "build_year"] = 2019
+    # Go back to original column set
+    gen_build_costs = gen_build_costs[gen_build_costs_col]
+
+    # Ensure the size is still the same
+    rows_post = gen_build_costs.size, gen_build_predetermined.size
+    assert rows_post == rows_prior
+
+    # Write the files back out
+    gen_build_costs.to_csv("gen_build_costs.csv", index=False)
+    gen_build_predetermined.to_csv("gen_build_predetermined.csv", index=False)
 
 
 def fix_prebuild_conflict_bug():
@@ -1112,6 +1156,49 @@ def create_graph_timestamp_map():
     timestamp_map = timepoints[["timestamp", "ts_period", "time_column"]]
     timestamp_map.columns = ["timestamp", "time_row", "time_column"]
     timestamp_map.to_csv("graph_timestamp_map.csv", index=False)
+
+
+def replace_plants_in_zone_all():
+    """
+    This post-process step replaces all the generation projects that have a load called
+    _ALL_ZONES with a generation project for each load zone.
+    """
+    print("Replacing _ALL_ZONES plants with a plant in each zone...")
+
+    # Read load_zones.csv and generation_projects_info.csv
+    load_zones = pd.read_csv("load_zones.csv", index_col=False)
+    plants = pd.read_csv("generation_projects_info.csv", index_col=False)
+    plants_col = plants.columns
+    num_plants = len(plants)
+    num_zones = len(load_zones)
+    # Find the plants that need replacing
+    needs_replacing = plants["gen_load_zone"] == "_ALL_ZONES"
+    to_replace = plants[needs_replacing]
+    # If no plant needs replacing end there
+    if to_replace.empty:
+        return
+    # Filter out the plants that need replacing from our data frame
+    plants = plants[~needs_replacing]
+    # replacement is the cross join of the plants that need replacement
+    # with the load zones. The cross join is done by joining over a column called
+    # key that is always 1.
+    replacement = to_replace.assign(key=1).merge(
+        load_zones.assign(key=1),
+        on='key'
+    )
+
+    # Set gen_load_zone to be the LOAD_ZONE column
+    replacement["gen_load_zone"] = replacement["LOAD_ZONE"]
+    # Keep the same columns as originally
+    replacement = replacement[plants_col]
+
+    # Add the replacement plants to our dataframe
+    plants = plants.append(replacement)
+
+    assert len(plants) == num_plants - len(to_replace) + len(to_replace) * num_zones
+
+    plants.to_csv("generation_projects_info.csv", index=False)
+
 
 
 if __name__ == "__main__":
