@@ -31,7 +31,7 @@ cmds = {
     "test": get_module_runner("switch_model.test"),
     "upgrade": get_module_runner("switch_model.upgrade"),
     "get_inputs": get_module_runner("switch_model.wecc.get_inputs"),
-    "--version": get_module_runner("version"),
+    "version": version,
     "drop": get_module_runner("switch_model.tools.drop"),
     "new": get_module_runner("switch_model.tools.new"),
     "graph": get_module_runner("switch_model.tools.graphing.graph"),
