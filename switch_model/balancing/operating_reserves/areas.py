@@ -30,7 +30,7 @@ def define_components(mod):
 
     """
 
-    mod.zone_balancing_area = Param(mod.LOAD_ZONES, default='system_wide_balancing_area')
+    mod.zone_balancing_area = Param(mod.LOAD_ZONES, default='system_wide_balancing_area', within=Any)
     mod.BALANCING_AREAS = Set(
         ordered=False,
         initialize=lambda m: set(
