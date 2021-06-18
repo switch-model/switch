@@ -76,7 +76,7 @@ def define_components(mod):
         | set(f for f in m.FUELS if m.f_rps_eligible[f])
     )
 
-    mod.RPS_PERIODS = Set(validate=lambda m, p: p in m.PERIODS)
+    mod.RPS_PERIODS = Set(dimen=1, validate=lambda m, p: p in m.PERIODS)
     mod.rps_target = Param(
         mod.ZONE_PERIODS,
         within=NonNegativeReals,
