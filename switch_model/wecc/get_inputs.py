@@ -550,7 +550,8 @@ def query_db(full_config, skip_cf):
             "gen_can_provide_cap_reserves",
             "gen_self_discharge_rate",
             "gen_discharge_efficiency",
-            "gen_land_use_rate"
+            "gen_land_use_rate",
+            "gen_storage_energy_to_power_ratio"
         ],
         f"""
             select
@@ -576,7 +577,8 @@ def query_db(full_config, skip_cf):
             1 as gen_can_provide_cap_reserves,
             daily_self_discharge_rate,
             discharge_efficiency,
-            land_use_rate
+            land_use_rate,
+            gen_storage_energy_to_power_ratio
             from generation_plant as t
             join load_zone as t2 using(load_zone_id)
             JOIN temp_generation_plant_ids USING(generation_plant_id)
