@@ -37,7 +37,7 @@ def define_components(mod):
     modeled in more detail.
 
     gen_discharge_efficiency[STORAGE_GENS] describes the efficiency during
-    discharging. A discharge efficiency of 0.90 means that 95% of the energy
+    discharging. A discharge efficiency of 0.90 means that 90% of the energy
     stored reaches the grid during discharging. Note that gen_storage_efficiency
     is the efficiency while charging. To only specify the round trip efficiency
     set gen_storage_efficiency to the round trip efficiency and leave this
@@ -63,7 +63,7 @@ def define_components(mod):
 
     gen_self_discharge_rate[STORAGE_GENS] is the fraction of the charge that is lost
     over a day. This is used for certain types of storage such as thermal energy
-    storage that slowly looses its charge over time. Default is 0 (no self discharge).
+    storage that slowly loses its charge over time. Default is 0 (no self discharge).
 
     gen_land_use_rate[STORAGE_GENS] is the amount of land used in square meters per MWh
     of storage for the given storage technology. Defaults to 0.
