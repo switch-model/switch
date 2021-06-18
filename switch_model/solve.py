@@ -6,8 +6,10 @@ from __future__ import print_function
 from pyomo.environ import *
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
 import pyomo.version
+import pandas as pd
 
-import sys, os, shlex, re, inspect, textwrap, types, pickle, traceback
+import sys, os, shlex, re, inspect, textwrap, types, pickle, traceback, gc
+import warnings
 
 import switch_model
 from switch_model.utilities import (
@@ -21,6 +23,7 @@ from switch_model.utilities import (
     create_info_file,
     get_module_list,
     add_module_args,
+    _ScaledVariable,
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 from switch_model.tools.graphing import graph
@@ -137,7 +140,7 @@ def main(args=None, return_model=False, return_instance=False):
             print(f"Model created in {timer.step_time_as_str()}.")
 
         # create an instance (also reports time spent reading data and loading into model)
-        instance = model.load_inputs()
+        instance = model.load_inputs(attach_data_portal=False)
 
         #### Below here, we refer to instance instead of model ####
 
@@ -168,6 +171,16 @@ def main(args=None, return_model=False, return_instance=False):
             if not os.path.isdir(instance.options.outputs_dir):
                 raise
 
+        # We no longer need model (only using instance) so we can garbage collect it to optimize our memory usage
+        del model
+
+        if instance.options.warm_start:
+            if instance.options.verbose:
+                timer.step_time()
+            warm_start(instance)
+            if instance.options.verbose:
+                print(f"Loaded warm start inputs in {timer.step_time_as_str()}.")
+
         if instance.options.reload_prior_solution:
             print("Loading prior solution...")
             reload_prior_solution_from_pickle(instance, instance.options.outputs_dir)
@@ -182,25 +195,14 @@ def main(args=None, return_model=False, return_instance=False):
                     print("Iterating model...")
                 iterate(instance, iterate_modules)
             else:
-                results = solve(instance)
-                if instance.options.verbose:
-                    print("")
-                    print(
-                        "Optimization termination condition was {}.".format(
-                            results.solver.termination_condition
-                        )
-                    )
-                    if str(results.solver.message) != "<undefined>":
-                        print("Solver message: {}".format(results.solver.message))
-                    print("")
-
-                if instance.options.verbose:
-                    timer.step_time()  # restart counter for next step
-
-                if instance.options.save_solution:
-                    save_results(instance, instance.options.outputs_dir)
-                    if instance.options.verbose:
-                        print(f"Saved results in {timer.step_time_as_str()}.")
+                # Cleanup iterate_modules since unused
+                del iterate_modules
+                # Garbage collect to reduce memory use during solving
+                gc.collect()
+                # Note we've refactored to avoid using the results variable in this scope
+                # to reduce the memory use during post-solve
+                solve(instance)
+                gc.collect()
 
         if instance.options.enable_breakpoints:
             print(
@@ -249,6 +251,40 @@ def main(args=None, return_model=False, return_instance=False):
         )
 
 
+def warm_start(instance):
+    """
+    This function loads in the variables from a previous run
+    and starts out our model at these variables to make it reach
+    a solution faster.
+    """
+    warm_start_dir = os.path.join(instance.options.warm_start, "outputs")
+    if not os.path.isdir(warm_start_dir):
+        warnings.warn(
+            f"Path {warm_start_dir} does not exist and cannot be used to warm start solver. Warm start skipped."
+        )
+        return
+
+    # Loop through every variable in our model
+    for variable in instance.component_objects(Var):
+        scaled = isinstance(variable, _ScaledVariable)
+        varname = variable.unscaled_name if scaled else variable.name
+        scaling = variable.scaling_factor if scaled else 1
+
+        filepath = os.path.join(warm_start_dir, varname + ".csv")
+        if not os.path.exists(filepath):
+            warnings.warn(
+                f"Skipping warm start for set {varname} since {filepath} does not exist."
+            )
+            continue
+        df = pd.read_csv(filepath, index_col=list(range(variable._index.dimen)))
+        for index, val in df.iterrows():
+            try:
+                variable[index] = val[0] * scaling
+            except (KeyError, ValueError):
+                # If the index isn't valid that's ok, just don't warm start that variable
+                pass
+
+
 def reload_prior_solution_from_pickle(instance, outdir):
     with open(os.path.join(outdir, "results.pickle"), "rb") as fh:
         results = pickle.load(fh)
@@ -264,26 +300,6 @@ def patch_pyomo():
     if not patched_pyomo:
         patched_pyomo = True
         # patch Pyomo if needed
-
-        # Pyomo 4.2 and 4.3 mistakenly discard the original rule during
-        # Expression.construct. This makes it impossible to reconstruct
-        # expressions (e.g., for iterated models). So we patch it.
-        if (4, 2) <= pyomo.version.version_info[:2] <= (4, 3):
-            # test whether patch is needed:
-            m = ConcreteModel()
-            m.e = Expression(rule=lambda m: 0)
-            if hasattr(m.e, "_init_rule") and m.e._init_rule is None:
-                # add a deprecation warning here when we stop supporting Pyomo 4.2 or 4.3
-                old_construct = pyomo.environ.Expression.construct
-
-                def new_construct(self, *args, **kwargs):
-                    # save rule, call the function, then restore it
-                    _init_rule = self._init_rule
-                    old_construct(self, *args, **kwargs)
-                    self._init_rule = _init_rule
-
-                pyomo.environ.Expression.construct = new_construct
-            del m
 
         # Pyomo 5.1.1 (and maybe others) is very slow to load prior solutions because
         # it does a full-component search for each component name as it assigns the
@@ -701,6 +717,19 @@ def define_arguments(argparser):
         help="Automatically run switch graph after post solve",
     )
 
+    argparser.add_argument(
+        "--threads",
+        type=int,
+        default=None,
+        help="Number of threads to be used while solving. Currently only supported for Gurobi",
+    )
+
+    argparser.add_argument(
+        "--warm-start",
+        default=None,
+        help="Path to folder of directory to use for warm start",
+    )
+
 
 def add_recommended_args(argparser):
     """
@@ -749,8 +778,9 @@ def parse_recommended_args(args):
         "--solver-options-string",
         "method=2 BarHomogeneous=1 FeasibilityTol=1e-5",
     ] + args
-    if options.recommended:
-        args = ["--solver-io", "python"] + args
+    # We use to use solver-io=python however the seperation of processes is useful in helping the OS
+    # if options.recommended:
+    #     args = ['--solver-io', 'python'] + args
     if options.recommended_debug:
         args = ["--keepfiles", "--tempdir", "temp", "--symbolic-solver-labels"] + args
 
@@ -845,15 +875,18 @@ def add_extra_suffixes(model):
 
 
 def solve(model):
-    if not hasattr(model, "solver"):
+    if hasattr(model, "solver"):
+        solver = model.solver
+        solver_manager = model.solver_manager
+    else:
         # Create a solver object the first time in. We don't do this until a solve is
         # requested, because sometimes a different solve function may be used,
         # with its own solver object (e.g., with runph or a parallel solver server).
         # In those cases, we don't want to go through the expense of creating an
         # unused solver object, or get errors if the solver options are invalid.
-        model.solver = SolverFactory(
-            model.options.solver, solver_io=model.options.solver_io
-        )
+        #
+        # Note previously solver was saved in model however this is very memory inefficient.
+        solver = SolverFactory(model.options.solver, solver_io=model.options.solver_io)
 
         # If this option is enabled, gurobi will output an IIS to outputs\iis.ilp.
         if model.options.gurobi_find_iis:
@@ -871,19 +904,14 @@ def solve(model):
                 iis_file_path
             )
 
-        # patch for Pyomo < 4.2
-        # note: Pyomo added an options_string argument to solver.solve() in Pyomo 4.2 rev 10587.
-        # (See https://software.sandia.gov/trac/pyomo/browser/pyomo/trunk/pyomo/opt/base/solvers.py?rev=10587 )
-        # This is misreported in the documentation as options=, but options= actually accepts a dictionary.
-        if model.options.solver_options_string and not hasattr(
-            model.solver, "_options_string_to_dict"
-        ):
-            for k, v in _options_string_to_dict(
-                model.options.solver_options_string
-            ).items():
-                model.solver.options[k] = v
+        if model.options.threads:
+            # If no string is passed make the string empty so we can add to it
+            if model.options.solver_options_string is None:
+                model.options.solver_options_string = ""
 
-        model.solver_manager = SolverManagerFactory(model.options.solver_manager)
+            model.options.solver_options_string += f" Threads={model.options.threads}"
+
+        solver_manager = SolverManagerFactory(model.options.solver_manager)
 
     # get solver arguments
     solver_args = dict(
@@ -891,6 +919,7 @@ def solve(model):
         keepfiles=model.options.keepfiles,
         tee=model.options.tee,
         symbolic_solver_labels=model.options.symbolic_solver_labels,
+        warmstart=(model.options.warm_start is not None),
     )
     # drop all the unspecified options
     solver_args = {k: v for (k, v) in solver_args.items() if v is not None}
@@ -904,10 +933,6 @@ def solve(model):
     # while i is not None:
     #     c, i = m._decl_order[i]
     #     solver_args[suffixes].append(c.name)
-
-    # patch for Pyomo < 4.2
-    if not hasattr(model.solver, "_options_string_to_dict"):
-        solver_args.pop("options_string", "")
 
     # patch Pyomo to retrieve MIP duals from cplex if needed
     if model.options.retrieve_cplex_mip_duals:
@@ -923,11 +948,13 @@ def solve(model):
             os.makedirs(model.options.tempdir)
 
         # from https://pyomo.readthedocs.io/en/stable/working_models.html#changing-the-temporary-directory
-        from pyutilib.services import TempfileManager
+        from pyomo.common.tempfiles import TempfileManager
 
         TempfileManager.tempdir = model.options.tempdir
 
-    results = model.solver_manager.solve(model, opt=model.solver, **solver_args)
+    # Cleanup memory before entering solver to use up as little memory as possible.
+    gc.collect()
+    results = solver_manager.solve(model, opt=solver, **solver_args)
 
     if model.options.verbose:
         print(f"Solved model. Total time spent in solver: {timer.step_time_as_str()}.")
@@ -1008,28 +1035,27 @@ def solve(model):
             f" {results.solver.termination_condition}"
         )
 
-    ### process and return solution ###
-
-    # Load the solution data into the results object (it only has execution
-    # metadata by default in recent versions of Pyomo). This will enable us to
-    # save and restore model solutions; the results object can be pickled to a
-    # file on disk, but the instance cannot.
-    # https://stackoverflow.com/questions/39941520/pyomo-ipopt-does-not-return-solution
-    #
-    try:
-        model.solutions.store_to(results)
-    except:
-        # Print the error that would normally be thrown with the
-        # full stack trace and an explanatory message
+    if model.options.verbose:
+        print("")
         print(
-            f"ERROR: Failed to save solution after solving. Exception was caught and we're moving on to post_solve()"
-            f"\n{traceback.format_exc()}"
+            "Optimization termination condition was {}.".format(
+                results.solver.termination_condition
+            )
         )
+        if str(results.solver.message) != "<undefined>":
+            print("Solver message: {}".format(results.solver.message))
+        print("")
 
-    # Cache a copy of the results object, to allow saving and restoring model
-    # solutions later.
-    model.last_results = results
-    return results
+    if model.options.save_solution:
+        if model.options.verbose:
+            timer.step_time()  # restart counter for next step
+        save_results(model, model.options.outputs_dir)
+        if model.options.verbose:
+            print(f"Saved results in {timer.step_time_as_str()}.")
+
+    # Save memory by not storing the solutions
+    del model.solutions
+    del results
 
 
 def retrieve_cplex_mip_duals():
@@ -1063,33 +1089,6 @@ def retrieve_cplex_mip_duals():
     new_create_command_line.is_patched = True
     if not getattr(CPLEXSHELL.create_command_line, "is_patched", False):
         CPLEXSHELL.create_command_line = new_create_command_line
-
-
-# taken from https://software.sandia.gov/trac/pyomo/browser/pyomo/trunk/pyomo/opt/base/solvers.py?rev=10784
-# This can be removed when all users are on Pyomo 4.2
-import pyutilib
-
-
-def _options_string_to_dict(istr):
-    ans = {}
-    istr = istr.strip()
-    if not istr:
-        return ans
-    if istr[0] == "'" or istr[0] == '"':
-        istr = eval(istr)
-    tokens = pyutilib.misc.quote_split("[ ]+", istr)
-    for token in tokens:
-        index = token.find("=")
-        if index == -1:
-            raise ValueError(
-                "Solver options must have the form option=value: '{}'".format(istr)
-            )
-        try:
-            val = eval(token[(index + 1) :])
-        except:
-            val = token[(index + 1) :]
-        ans[token[:index]] = val
-    return ans
 
 
 def save_results(instance, outdir):
