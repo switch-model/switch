@@ -254,7 +254,7 @@ def define_components(mod):
     """
     #################
     # Nodes of the water network
-    mod.WATER_NODES = Set()
+    mod.WATER_NODES = Set(dimen=1)
     mod.WNODE_TPS = Set(
         dimen=2,
         initialize=lambda m: m.WATER_NODES * m.TIMEPOINTS)
@@ -288,7 +288,8 @@ def define_components(mod):
     #################
     # Reservoir nodes
     mod.RESERVOIRS = Set(
-        within=mod.WATER_NODES)
+        within=mod.WATER_NODES,
+        dimen=1)
     mod.RESERVOIR_TPS = Set(
         dimen=2,
         initialize=lambda m: m.RESERVOIRS * m.TIMEPOINTS)
@@ -337,7 +338,7 @@ def define_components(mod):
 
     ################
     # Edges of the water network
-    mod.WATER_CONNECTIONS = Set()
+    mod.WATER_CONNECTIONS = Set(dimen=1)
     mod.WCON_TPS = Set(
         dimen=2,
         initialize=lambda m: m.WATER_CONNECTIONS * m.TIMEPOINTS)
@@ -358,10 +359,12 @@ def define_components(mod):
     mod.min_data_check('water_node_from', 'water_node_to')
     mod.INWARD_WCONS_TO_WNODE = Set(
         mod.WATER_NODES,
+        ordered=False,
         initialize=lambda m, wn: set(wc for wc in m.WATER_CONNECTIONS
             if m.water_node_to[wc] == wn))
     mod.OUTWARD_WCONS_FROM_WNODE = Set(
         mod.WATER_NODES,
+        ordered=False,
         initialize=lambda m, wn: set(wc for wc in m.WATER_CONNECTIONS
             if m.water_node_from[wc] == wn))
     mod.DispatchWater = Var(
@@ -415,6 +418,7 @@ def define_components(mod):
     ################
     # Hydro projects
     mod.HYDRO_GENS = Set(
+        dimen=1,
         validate=lambda m, val: val in m.GENERATION_PROJECTS)
     mod.HYDRO_GEN_TPS = Set(
         initialize=mod.GEN_TPS,
@@ -424,6 +428,7 @@ def define_components(mod):
         within=NonNegativeReals)
     mod.hydraulic_location = Param(
         mod.HYDRO_GENS,
+        within=Any,
         validate=lambda m, val, g: val in m.WATER_CONNECTIONS)
     mod.TurbinateFlow = Var(
         mod.HYDRO_GEN_TPS,

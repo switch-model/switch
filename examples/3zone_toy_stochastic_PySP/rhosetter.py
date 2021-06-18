@@ -15,7 +15,6 @@ resource allocation problems. Computational  Management Science.
 """
 from __future__ import print_function
 from pyomo.environ import Objective
-from switch_model.utilities import iteritems
 
 try:
     from pyomo.repn import generate_standard_repn    # Pyomo >=5.6
