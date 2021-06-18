@@ -5,7 +5,7 @@ from __future__ import print_function
 from pyomo.environ import *
 from pyomo.core.base.numvalue import native_numeric_types
 import switch_model.solve
-from switch_model.utilities import iteritems
+
 
 def define_components(m):
     if m.options.solver in ('cplex', 'cplexamp', 'gurobi', 'gurobi_ampl'):

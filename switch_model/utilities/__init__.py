@@ -6,7 +6,7 @@ Utility functions for Switch.
 """
 from __future__ import print_function
 
-import os, types, importlib, re, sys, argparse, time, datetime, traceback, subprocess, platform
+import os, types, sys, argparse, time, datetime, traceback, subprocess, platform
 
 import switch_model.__main__ as main
 from pyomo.environ import *
@@ -156,7 +156,6 @@ def create_model(module_list=None, args=sys.argv[1:]):
 
     # Load modules
     if module_list is None:
-        import switch_model.solve
         module_list = get_module_list(args)
     model.module_list = module_list
     for m in module_list:
@@ -256,7 +255,7 @@ def format_seconds(seconds):
     return output_str
 
 
-def load_inputs(model, inputs_dir=None, attach_data_portal=True):
+def load_inputs(model, inputs_dir=None, attach_data_portal=False):
     """
     Load input data for an AbstractModel using the modules in the given
     list and return a model instance. This is implemented as calling the
@@ -326,7 +325,7 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
             component = getattr(model, component_name)
             comp_class = type(component).__name__
             component_data = instance.DataPortal.data(name=component_name)
-            if comp_class == 'SimpleSet' or comp_class == 'OrderedSimpleSet':
+            if comp_class in ('ScalarSet', 'OrderedScalarSet', 'AbstractOrderedScalarSet'):
                 f.write(
                     "set {} := {};\n"
                     .format(component_name, join_space(component_data))
@@ -335,16 +334,16 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
                 if component_data:  # omit components for which no data were provided
                     f.write("param {} := \n".format(component_name))
                     for key, value in (
-                        sorted(iteritems(component_data))
+                        sorted(component_data.items())
                         if sorted_output
-                        else iteritems(component_data)
+                        else component_data.items()
                     ):
                         f.write(" {} {}\n".format(join_space(key), quote_str(value)))
                     f.write(";\n")
-            elif comp_class == 'SimpleParam':
+            elif comp_class == 'ScalarParam':
                 f.write("param {} := {};\n".format(component_name, component_data))
             elif comp_class == 'IndexedSet':
-                for key, vals in iteritems(component_data):
+                for key, vals in component_data.items():
                     f.write(
                         "set {}[{}] := {};\n"
                         .format(component_name, join_comma(key), join_space(vals))
@@ -436,7 +435,7 @@ def _add_min_data_check(model):
     >>> mod = AbstractModel()
     >>> _add_min_data_check(mod)
     >>> mod.set_A = Set(initialize=[1,2])
-    >>> mod.paramA_full = Param(mod.set_A, initialize={1:'a',2:'b'})
+    >>> mod.paramA_full = Param(mod.set_A, initialize={1:'a',2:'b'}, within=Any)
     >>> mod.paramA_empty = Param(mod.set_A)
     >>> mod.min_data_check('set_A', 'paramA_full')
     >>> if hasattr(mod, 'create_instance'):
@@ -483,7 +482,7 @@ def check_mandatory_components(model, *mandatory_model_components):
     >>> import switch_model.utilities as utilities
     >>> mod = ConcreteModel()
     >>> mod.set_A = Set(initialize=[1,2])
-    >>> mod.paramA_full = Param(mod.set_A, initialize={1:'a',2:'b'})
+    >>> mod.paramA_full = Param(mod.set_A, initialize={1:'a',2:'b'}, within=Any)
     >>> mod.paramA_empty = Param(mod.set_A)
     >>> mod.set_B = Set()
     >>> mod.paramB_empty = Param(mod.set_B)
@@ -706,11 +705,16 @@ def load_aug(switch_data, optional=False, auto_select=False,
 class SwitchCSVDataManger(CSVTable):
     def process(self, model, data, default):
         status = super().process(model, data, default)
-        for values in data[self.options.namespace].values():
+        self.convert_inf_to_float(data[self.options.namespace])
+        return status
+
+    @staticmethod
+    def convert_inf_to_float(data):
+        for values in data.values():
             for index, val in values.items():
                 if val == "inf":
                     values[index] = float("inf")
-        return status
+
 
 class ExtendAction(argparse.Action):
     """Create or extend list with the provided items"""
@@ -842,14 +846,6 @@ class LogOutput(object):
             sys.stdout = self.stdout
             sys.stderr = self.stderr
             self.log_file.close()
-
-def iteritems(obj):
-    """ Iterator of key, value pairs for obj;
-    equivalent to obj.items() on Python 3+ and obj.iteritems() on Python 2 """
-    try:
-        return obj.iteritems()
-    except AttributeError: # Python 3+
-        return obj.items()
 
 
 def query_yes_no(question, default="yes"):
