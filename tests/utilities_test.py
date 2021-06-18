@@ -23,7 +23,7 @@ class UtilitiesTest(unittest.TestCase):
     def test_save_inputs_as_dat(self):
         (model, instance) = switch_model.solve.main(
             args=["--inputs-dir", os.path.join('examples', '3zone_toy', 'inputs')],
-            return_model=True, return_instance=True
+            return_model=True, return_instance=True, attach_data_portal=True
         )
         temp_dir = tempfile.mkdtemp(prefix="switch_test_")
         try:
@@ -31,16 +31,18 @@ class UtilitiesTest(unittest.TestCase):
             utilities.save_inputs_as_dat(model, instance, save_path=dat_path)
             reloaded_data = DataPortal(model=model)
             reloaded_data.load(filename=dat_path)
+            # Replace 'inf' with inf since Pyomo no longer does
+            utilities.SwitchCSVDataManger.convert_inf_to_float(reloaded_data._data[None])
             compare(reloaded_data.data(), instance.DataPortal.data())
         finally:
             shutil.rmtree(temp_dir)
 
     def test_check_mandatory_components(self):
-        from pyomo.environ import ConcreteModel, Param, Set
+        from pyomo.environ import ConcreteModel, Param, Set, Any
         from switch_model.utilities import check_mandatory_components
         mod = ConcreteModel()
         mod.set_A = Set(initialize=[1,2])
-        mod.paramA_full = Param(mod.set_A, initialize={1:'a',2:'b'})
+        mod.paramA_full = Param(mod.set_A, initialize={1:'a',2:'b'}, within=Any)
         mod.paramA_empty = Param(mod.set_A)
         mod.set_B = Set()
         mod.paramB_empty = Param(mod.set_B)
@@ -59,11 +61,11 @@ class UtilitiesTest(unittest.TestCase):
 
     def test_min_data_check(self):
         from switch_model.utilities import _add_min_data_check
-        from pyomo.environ import AbstractModel, Param, Set
+        from pyomo.environ import AbstractModel, Param, Set, Any
         mod = AbstractModel()
         _add_min_data_check(mod)
         mod.set_A = Set(initialize=[1,2])
-        mod.paramA_full = Param(mod.set_A, initialize={1:'a',2:'b'})
+        mod.paramA_full = Param(mod.set_A, initialize={1:'a',2:'b'}, within=Any)
         mod.paramA_empty = Param(mod.set_A)
         mod.min_data_check('set_A', 'paramA_full')
         self.assertIsNotNone(mod.create_instance())

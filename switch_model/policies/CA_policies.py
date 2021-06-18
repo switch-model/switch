@@ -9,7 +9,7 @@ For example, "CA_PGE_BAY" gives a state code of "CA" and will be considered as p
 Three possible policy constraints can be specified in ca_policies.csv. See documentation below.
 """
 import os
-from pyomo.environ import Set, Param, Expression, Constraint, PercentFraction
+from pyomo.environ import Set, Param, Expression, Constraint, PercentFraction, Any
 import switch_model.reporting as reporting
 
 
@@ -66,6 +66,7 @@ def define_components(mod):
         mod.LOAD_ZONES,
         # Returns the letters before the first underscore, if there's no underscore, simply return the entire id
         rule=lambda m, z: z.partition("_")[0],
+        within=Any,
         doc="Two-letter state code for each load zone inferred from the load zone id.",
     )
 

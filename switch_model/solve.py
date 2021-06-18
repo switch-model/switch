@@ -29,7 +29,9 @@ from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 from switch_model.tools.graphing import graph
 
 
-def main(args=None, return_model=False, return_instance=False):
+def main(
+    args=None, return_model=False, return_instance=False, attach_data_portal=False
+):
     start_to_end_timer = StepTimer()
     timer = StepTimer()
     if args is None:
@@ -140,7 +142,7 @@ def main(args=None, return_model=False, return_instance=False):
             print(f"Model created in {timer.step_time_as_str()}.")
 
         # create an instance (also reports time spent reading data and loading into model)
-        instance = model.load_inputs(attach_data_portal=False)
+        instance = model.load_inputs(attach_data_portal=attach_data_portal)
 
         #### Below here, we refer to instance instead of model ####
 
@@ -919,8 +921,11 @@ def solve(model):
         keepfiles=model.options.keepfiles,
         tee=model.options.tee,
         symbolic_solver_labels=model.options.symbolic_solver_labels,
-        warmstart=(model.options.warm_start is not None),
     )
+
+    if model.options.warm_start is not None:
+        solver_args["warmstart"] = True
+
     # drop all the unspecified options
     solver_args = {k: v for (k, v) in solver_args.items() if v is not None}
 

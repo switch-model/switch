@@ -77,6 +77,7 @@ def define_components(mod):
     )
 
     mod.HYDRO_GENS = Set(
+        dimen=1,
         ordered=False,
         initialize=lambda m: set(g for (g, ts) in m.HYDRO_GEN_TS_RAW),
         doc="Dispatchable hydro projects",
