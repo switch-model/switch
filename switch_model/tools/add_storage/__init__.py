@@ -1,7 +1,7 @@
 """
 This package was created by Martin Staadecker
 when studying long duration energy storage. It
-allows adding storage technologies from a csv file to
+allows adding storage technologies from a Google Sheet to
 the csvs in the inputs folder.
 """
 import os
@@ -9,9 +9,13 @@ import os
 import pandas as pd
 from switch_model.wecc.get_inputs import replace_plants_in_zone_all
 
+# Parameters picked for Google Sheet
 scenario_params = {}
 
 def fetch_df(tab_name):
+    """
+    Returns a dataframe from the google sheet
+    """
     tab_name_to_gid = {
         "constants": 0,
         "plants": 889129113,
@@ -27,6 +31,9 @@ def fetch_df(tab_name):
 
 
 def filer_by_scenario(df, column_name):
+    """
+    Filters a dataframe by a scenario param
+    """
     if column_name not in scenario_params:
         scenario = input(f"Which scenario do you want for '{column_name}' (default 0) : ")
         if scenario == "":
@@ -44,6 +51,9 @@ def cross_join(df1, df2):
 
 
 def append_to_csv(filename, to_add):
+    """
+    Used to append a dataframe to an input .csv file
+    """
     df = pd.read_csv(filename, index_col=False)
     col = df.columns
     df = pd.concat([df, to_add], ignore_index=True)[col]
@@ -57,6 +67,9 @@ def get_gen_constants():
     return df.transpose()
 
 def drop_previous_candidate_storage():
+    """
+    Drops all candidate storage from the model
+    """
     # Get the generation projects
     gen = pd.read_csv("generation_projects_info.csv", index_col=False)
     # Find generation projects that are both storage and not predetermined (i.e. candidate)
