@@ -36,3 +36,11 @@ not change the final results (e.g. a refactor). If your changes are
 supposed to alter the results of the examples, you'll need
 to follow the instructions that appear on screen to suppress the errors
 produced by `python run_tests.py`.
+
+## Contributing graphs
+
+Read [`docs/Graphs.md`](./Graphs.md) to see learn to add graphs.
+
+## Modifying the database
+
+Read [`docs/Database.md`](./Database.md) to learn about the database.
