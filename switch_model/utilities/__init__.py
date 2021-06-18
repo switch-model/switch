@@ -15,7 +15,6 @@ from pyomo.dataportal import DataManagerFactory
 from pyomo.dataportal.plugins.csv_table import CSVTable
 from switch_model.utilities.scaling import _ScaledVariable, _get_unscaled_expression
 import pyomo.opt
-import yaml
 
 # Define string_types (same as six.string_types). This is useful for
 # distinguishing between strings and other iterables.
@@ -948,16 +947,6 @@ def query_yes_no(question, default="yes"):
             return valid[choice]
         else:
             sys.stdout.write("Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n")
-
-
-def load_config():
-    """Read the config.yaml configuration file"""
-    if not os.path.isfile("config.yaml"):
-        raise Exception(
-            "config.yaml does not exist. Try running 'switch new' to auto-create it."
-        )
-    with open("config.yaml") as f:
-        return yaml.load(f, Loader=yaml.FullLoader)
 
 
 def run_command(command):
