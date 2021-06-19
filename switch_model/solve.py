@@ -27,6 +27,7 @@ from switch_model.utilities import (
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 from switch_model.tools.graphing import graph
+from switch_model.utilities.patches import patch_pyomo
 
 
 def main(
@@ -291,79 +292,6 @@ def reload_prior_solution_from_pickle(instance, outdir):
         results = pickle.load(fh)
     instance.solutions.load_from(results)
     return instance
-
-
-patched_pyomo = False
-
-
-def patch_pyomo():
-    global patched_pyomo
-    if not patched_pyomo:
-        patched_pyomo = True
-        # patch Pyomo if needed
-
-        # Pyomo 5.1.1 (and maybe others) is very slow to load prior solutions because
-        # it does a full-component search for each component name as it assigns the
-        # data. This ends up taking longer than solving the model. So we micro-
-        # patch pyomo.core.base.PyomoModel.ModelSolutions.add_solution to use
-        # Pyomo's built-in caching system for component names.
-        # TODO: create a pull request for Pyomo to do this
-        # NOTE: space inside the long quotes is significant; must match the Pyomo code
-        old_code = """
-                    for obj in instance.component_data_objects(Var):
-                        cache[obj.name] = obj
-                    for obj in instance.component_data_objects(Objective, active=True):
-                        cache[obj.name] = obj
-                    for obj in instance.component_data_objects(Constraint, active=True):
-                        cache[obj.name] = obj"""
-        new_code = """
-                    # use buffer to avoid full search of component for data object
-                    # which introduces a delay that is quadratic in model size
-                    buf=dict()
-                    for obj in instance.component_data_objects(Var):
-                        cache[obj.getname(fully_qualified=True, name_buffer=buf)] = obj
-                    for obj in instance.component_data_objects(Objective, active=True):
-                        cache[obj.getname(fully_qualified=True, name_buffer=buf)] = obj
-                    for obj in instance.component_data_objects(Constraint, active=True):
-                        cache[obj.getname(fully_qualified=True, name_buffer=buf)] = obj"""
-
-        from pyomo.core.base.PyomoModel import ModelSolutions
-
-        add_solution_code = inspect.getsource(ModelSolutions.add_solution)
-        if old_code in add_solution_code:
-            # create and inject a new version of the method
-            add_solution_code = add_solution_code.replace(old_code, new_code)
-            replace_method(ModelSolutions, "add_solution", add_solution_code)
-        elif pyomo.version.version_info[:2] >= (5, 0):
-            print(
-                "NOTE: The patch to pyomo.core.base.PyomoModel.ModelSolutions.add_solution "
-                "has been deactivated because the Pyomo source code has changed. "
-                "Check whether this patch is still needed and edit {} accordingly.".format(
-                    __file__
-                )
-            )
-
-
-def replace_method(class_ref, method_name, new_source_code):
-    """
-    Replace specified class method with a compiled version of new_source_code.
-    """
-    orig_method = getattr(class_ref, method_name)
-    # compile code into a function
-    workspace = dict()
-    exec(textwrap.dedent(new_source_code), workspace)
-    new_method = workspace[method_name]
-    # create a new function with the same body, but using the old method's namespace
-    new_func = types.FunctionType(
-        new_method.__code__,
-        orig_method.__globals__,
-        orig_method.__name__,
-        orig_method.__defaults__,
-        orig_method.__closure__,
-    )
-    # note: this normal function will be automatically converted to an unbound
-    # method when it is assigned as an attribute of a class
-    setattr(class_ref, method_name, new_func)
 
 
 def reload_prior_solution_from_csvs(instance):
