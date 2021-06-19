@@ -43,3 +43,4 @@ get_inputs:
 add_storage:
   costs_scenario: 0
   constant_scenario: 0
+  plants_scenario: 0

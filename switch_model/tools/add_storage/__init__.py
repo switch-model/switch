@@ -13,7 +13,7 @@ from switch_model.wecc.get_inputs import replace_plants_in_zone_all
 scenario_params = {}
 
 
-def fetch_df(tab_name):
+def fetch_df(tab_name, key=None):
     """
     Returns a dataframe from the google sheet
     """
@@ -22,6 +22,8 @@ def fetch_df(tab_name):
     sheet_id = "1SJrj039T1T95NLTs964VQnsfZgo2QWCo29x2ireVYcU"
     url = f"https://docs.google.com/spreadsheet/ccc?key={sheet_id}&output=csv&gid={gid}"
     df = pd.read_csv(url, index_col=False).replace("FALSE", 0).replace("TRUE", 1)
+    if key is not None:
+        df = filer_by_scenario(df, key)
     return df
 
 
@@ -44,19 +46,21 @@ def cross_join(df1, df2):
     return df1.assign(key=1).merge(df2.assign(key=1), on="key").drop("key", axis=1)
 
 
-def append_to_csv(filename, to_add):
+def append_to_csv(filename, to_add, primary_key=None):
     """
     Used to append a dataframe to an input .csv file
     """
     df = pd.read_csv(filename, index_col=False)
     col = df.columns
     df = pd.concat([df, to_add], ignore_index=True)[col]
+    # Confirm that primary_key is unique
+    if primary_key is not None:
+        assert len(df[primary_key]) == len(df[primary_key].drop_duplicates())
     df.to_csv(filename, index=False)
 
 
 def get_gen_constants():
-    df = fetch_df("constants")
-    df = filer_by_scenario(df, "constant_scenario")
+    df = fetch_df("constants", "constant_scenario")
     df = df.set_index("param_name")
     return df.transpose()
 
@@ -107,15 +111,21 @@ def main(run_post_solve=True, scenario_config=None, change_dir=True):
 
     # Get the generation storage plants from Google Sheet
     gen_constants = get_gen_constants()
-    gen_plants = fetch_df("plants")
+    gen_plants = fetch_df("plants", "plants_scenario")
     gen_plants = cross_join(gen_plants, gen_constants)
 
     # Append the storage plants to the inputs
-    append_to_csv("generation_projects_info.csv", gen_plants)
+    append_to_csv(
+        "generation_projects_info.csv", gen_plants, primary_key="GENERATION_PROJECT"
+    )
 
     # Get the plant costs from GSheets and append to costs
-    storage_costs = filer_by_scenario(fetch_df("costs"), "costs_scenario")
-    append_to_csv("gen_build_costs.csv", storage_costs)
+    storage_costs = fetch_df("costs", "costs_scenario")
+    append_to_csv(
+        "gen_build_costs.csv",
+        storage_costs,
+        primary_key=["GENERATION_PROJECT", "build_year"],
+    )
 
     # Change plants with _ALL_ZONES to a plant in every zone
     if run_post_solve:
