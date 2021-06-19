@@ -1047,9 +1047,9 @@ def fix_prebuild_conflict_bug():
         return
 
     # Read two files that need modification
-    gen_build_costs = pd.read_csv("gen_build_costs.csv", index_col=False, dtype={"GENERATION_PROJECT": str})
+    gen_build_costs = pd.read_csv("gen_build_costs.csv", index_col=False, dtype={"GENERATION_PROJECT": int})
     gen_build_predetermined = pd.read_csv("gen_build_predetermined.csv", index_col=False,
-                                          dtype={"GENERATION_PROJECT": str})
+                                          dtype={"GENERATION_PROJECT": int})
     # Save their size
     rows_prior = gen_build_costs.size, gen_build_predetermined.size
     # Save columns of gen_build_costs
@@ -1120,9 +1120,6 @@ def replace_plants_in_zone_all():
         df_col = df.columns
         df_rows = len(df)
 
-        # Force the plants_col to string type to allow concating
-        df = df.astype({plants_col: str})
-
         # Extract the rows that need copying
         should_copy = df[plants_col].isin(plants_to_copy)
         rows_to_copy = df[should_copy]
@@ -1140,7 +1137,7 @@ def replace_plants_in_zone_all():
             on='key',
         )
 
-        replacement[plants_col] = replacement[plants_col] + replacement["dbid_suffix"]
+        replacement[plants_col] = replacement[plants_col].astype(str) + replacement["dbid_suffix"]
 
         if load_column is not None:
             # Set gen_load_zone to be the LOAD_ZONE column
@@ -1156,7 +1153,7 @@ def replace_plants_in_zone_all():
 
         df.to_csv(filename, index=False)
 
-    plants = pd.read_csv("generation_projects_info.csv", index_col=False)
+    plants = pd.read_csv("generation_projects_info.csv", index_col=False, dtype={"GENERATION_PROJECT": int})
     # Find the plants that need replacing
     to_replace = plants[plants["gen_load_zone"] == "_ALL_ZONES"]
     # If no plant needs replacing end there
@@ -1171,7 +1168,7 @@ def replace_plants_in_zone_all():
                         "zones is not implemented (and likely unwanted).")
 
     plants_to_replace = to_replace["GENERATION_PROJECT"]
-    replace_rows(plants_to_replace, "generation_projects_info.csv", load_column="gen_load_zone")
+    replace_rows(plants_to_replace, "generation_projects_info.csv", load_column="gen_load_zone", df=plants)
     replace_rows(plants_to_replace, "gen_build_costs.csv")
     replace_rows(plants_to_replace, "gen_build_predetermined.csv")
 
