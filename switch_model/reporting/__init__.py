@@ -19,6 +19,7 @@ dependency on load_zones.
 
 """
 from __future__ import print_function
+from pyomo.core.base.misc import sorted_robust
 from switch_model.utilities import string_types
 from switch_model.utilities.scaling import get_unscaled_var
 dependencies = 'switch_model.financials'
@@ -93,7 +94,7 @@ def write_table(instance, *indexes, output_file=None, **kwargs):
         try:
             rows = (format_row(values(instance, *unpack_elements(x)), cell_formatter) for x in
                     itertools.product(*indexes))
-            w.writerows(sorted(rows) if instance.options.sorted_output else rows)
+            w.writerows(sorted_robust(rows) if instance.options.sorted_output else rows)
         except TypeError: # lambda got wrong number of arguments
             # use old code, which doesn't unpack the indices
             w.writerows(
