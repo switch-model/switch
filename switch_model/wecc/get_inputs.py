@@ -15,20 +15,11 @@ import shutil
 from typing import Iterable, List
 
 # Switch packages
-from switch_model.utilities import query_yes_no, load_config, StepTimer
+from switch_model.utilities import query_yes_no, StepTimer
+from switch_model.wecc.utilities import load_config, connect
 
 # Third-party packages
-import psycopg2 as pg
 import pandas as pd
-
-try:
-    # Try to load environment variables from .env file using dotenv package.
-    # If package is not installed, nothing happens.
-    from dotenv import load_dotenv
-
-    load_dotenv()
-except ImportError:
-    pass
 
 
 def write_csv_from_query(cursor, fname: str, headers: List[str], query: str):
@@ -96,45 +87,6 @@ def switch_to_input_dir(config):
 
     os.chdir(inputs_dir)
     return inputs_dir
-
-
-def connect(schema="switch"):
-    """Connects to the Postgres DB
-
-    This function uses the environment variables to get the URL to connect to the DB. Both
-    password and user should be passed directly on the URL for safety purposes.
-
-    Parameters
-    ----------
-    schema: str Schema of the DB to look for tables. Default is switch
-
-    Returns
-    -------
-    conn: Database connection object from psycopg2
-    """
-    db_url = os.getenv("DB_URL")
-    if db_url is None:
-        raise Exception(
-            "Please set the environment variable 'DB_URL' to the database URL."
-            "The format is normally: postgresql://<user>:<password>@<host>:5432/<database>"
-        )
-
-    conn = pg.connect(
-        db_url,
-        options=f"-c search_path={schema}",
-    )
-
-    if conn is None:
-        raise SystemExit(
-            "Failed to connect to PostgreSQL database."
-            "Ensure that the database url is correct, format should normally be:"
-            "postgresql://<user>:<password>@<host>:5432/<database>"
-        )
-
-    # TODO: Send this to the logger
-    print("Connection established to PostgreSQL database.")
-    return conn
-
 
 def main():
     timer = StepTimer()
@@ -337,11 +289,11 @@ def query_db(full_config, skip_cf):
         "load_zones",
         ["LOAD_ZONE", "zone_ccs_distance_km", "zone_dbid"],
         """
-        SELECT
-            name,
-            ccs_distance_km as zone_ccs_distance_km,
-            load_zone_id as zone_dbid
-        FROM switch.load_zone
+        SELECT 
+            name, 
+            ccs_distance_km as zone_ccs_distance_km, 
+            load_zone_id as zone_dbid 
+        FROM switch.load_zone  
         WHERE name != '_ALL_ZONES'
         ORDER BY 1;
         """,
@@ -554,7 +506,10 @@ def query_db(full_config, skip_cf):
             "gen_is_cogen",
             "gen_storage_efficiency",
             "gen_store_to_release_ratio",
-            "gen_can_provide_cap_reserves"
+            "gen_can_provide_cap_reserves",
+            "gen_self_discharge_rate",
+            "gen_discharge_efficiency",
+            "gen_land_use_rate"
         ],
         f"""
             select
@@ -577,7 +532,10 @@ def query_db(full_config, skip_cf):
             storage_efficiency as gen_storage_efficiency,
             store_to_release_ratio as gen_store_to_release_ratio,
             -- hardcode all projects to be allowed as a reserve. might later make this more granular
-            1 as gen_can_provide_cap_reserves
+            1 as gen_can_provide_cap_reserves,
+            daily_self_discharge_rate,
+            discharge_efficiency,
+            land_use_rate
             from switch.generation_plant as t
             join switch.load_zone as t2 using(load_zone_id)
             join switch.generation_plant_scenario_member using(generation_plant_id)
@@ -1046,6 +1004,7 @@ def post_process():
     print("graph_tech_types.csv...")
     shutil.copy(os.path.join(graph_config, "graph_tech_types.csv"), "graph_tech_types.csv")
     create_graph_timestamp_map()
+    replace_plants_in_zone_all()
 
 
 def fix_prebuild_conflict_bug():
@@ -1054,6 +1013,7 @@ def fix_prebuild_conflict_bug():
     Basically we are moving all the 2020 predetermined build years to 2019 to avoid a conflict with the 2020 period.
     See generators.core.build.py for details.
     """
+    print("Shifting 2020 prebuilds to 2019...")
     periods = pd.read_csv("periods.csv", index_col=False)
     if 2020 not in periods["INVESTMENT_PERIOD"].values:
         return
@@ -1108,6 +1068,80 @@ def create_graph_timestamp_map():
     timestamp_map = timepoints[["timestamp", "ts_period", "time_column"]]
     timestamp_map.columns = ["timestamp", "time_row", "time_column"]
     timestamp_map.to_csv("graph_timestamp_map.csv", index=False)
+
+
+def replace_plants_in_zone_all():
+    """
+    This post-process step replaces all the generation projects that have a load called
+    _ALL_ZONES with a generation project for each load zone.
+    """
+    print("Replacing _ALL_ZONES plants with a plant in each zone...")
+
+    # Read load_zones.csv
+    load_zones = pd.read_csv("load_zones.csv", index_col=False)
+    load_zones["dbid_suffix"] = "_" + load_zones["zone_dbid"].astype(str)
+    num_zones = len(load_zones)
+
+    def replace_rows(plants_to_copy, filename, df=None, plants_col="GENERATION_PROJECT", load_column=None):
+        # If the df does not already exist, read the file
+        if df is None:
+            df = pd.read_csv(filename, index_col=False)
+
+        # Save the columns for later use
+        df_col = df.columns
+        df_rows = len(df)
+
+        # Force the plants_col to string type to allow concating
+        df = df.astype({plants_col: str})
+
+        # Extract the rows that need copying
+        should_copy = df[plants_col].isin(plants_to_copy)
+        rows_to_copy = df[should_copy]
+        # Filter out the plants that need replacing from our data frame
+        df = df[~should_copy]
+        # replacement is the cross join of the plants that need replacement
+        # with the load zones. The cross join is done by joining over a column called
+        # key that is always 1.
+        replacement = rows_to_copy.assign(key=1).merge(
+            load_zones.assign(key=1),
+            on='key',
+        )
+
+        replacement[plants_col] = replacement[plants_col] + replacement["dbid_suffix"]
+
+        if load_column is not None:
+            # Set gen_load_zone to be the LOAD_ZONE column
+            replacement[load_column] = replacement["LOAD_ZONE"]
+
+        # Keep the same columns as originally
+        replacement = replacement[df_col]
+
+        # Add the replacement plants to our dataframe
+        df = df.append(replacement)
+
+        assert len(df) == df_rows + len(rows_to_copy) * (num_zones - 1)
+
+        df.to_csv(filename, index=False)
+
+    plants = pd.read_csv("generation_projects_info.csv", index_col=False)
+    # Find the plants that need replacing
+    to_replace = plants[plants["gen_load_zone"] == "_ALL_ZONES"]
+    # If no plant needs replacing end there
+    if to_replace.empty:
+        return
+    # If to_replace has variable capacity factors we raise exceptions
+    # since the variabale capacity factors won't be the same across zones
+    if not all(to_replace["gen_is_variable"] == 0):
+        raise Exception("generation_projects_info.csv contains variable plants "
+                        "with load zone _ALL_ZONES. This is not allowed since "
+                        "copying variable capacity factors to all "
+                        "zones is not implemented (and likely unwanted).")
+
+    plants_to_replace = to_replace["GENERATION_PROJECT"]
+    replace_rows(plants_to_replace, "generation_projects_info.csv", load_column="gen_load_zone")
+    replace_rows(plants_to_replace, "gen_build_costs.csv")
+    replace_rows(plants_to_replace, "gen_build_predetermined.csv")
+
 
 
 if __name__ == "__main__":

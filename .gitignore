@@ -2,9 +2,6 @@
 # Edit at https://www.toptal.com/developers/gitignore?templates=macos,python,venv,data,visualstudiocode,pycharm,jupyternotebooks,dotenv,virtualenv
 
 ### Data ###
-*.csv
-# Don't ignore data in switch_model.csv
-!switch_model/**/*.csv
 *.dat
 *.efx
 *.gbr
@@ -18,8 +15,10 @@
 *.vcf
 *.xml
 *.pickle
+examples/**/outputs/*.csv
+examples/**/outputs/*.txt
+examples/**/graphs/*.png
 examples/**/info.txt
-examples/**/*.png
 
 ### dotenv ###
 .env
@@ -311,5 +310,8 @@ gurobi.log
 *.mdb
 *.pdb
 *.sqlite3
+
+### VIM ###
+tags
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,python,venv,data,visualstudiocode,pycharm,jupyternotebooks,dotenv,virtualenv
