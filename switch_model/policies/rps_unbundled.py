@@ -80,6 +80,7 @@ def define_components(mod):
             set(f for f in m.FUELS if m.f_rps_eligible[f]))
 
     mod.RPS_PERIODS = Set(
+        dimen=1,
         validate=lambda m, p: p in m.PERIODS)
     mod.rps_target = Param(
         mod.ZONE_PERIODS,
@@ -98,8 +99,7 @@ def define_components(mod):
     mod.RPSNonFuelEnergy = Expression(
         mod.PERIODS,
         rule=lambda m, p: sum(m.DispatchGen[g, t] * m.tp_weight[t]
-            # TODO improve performance
-            for g in m.NON_FUEL_BASED_GENS 
+            for g in m.NON_FUEL_BASED_GENS
                 for t in m.TPS_FOR_GEN_IN_PERIOD[g, p]))
 
     # We use a scaling factor to improve the numerical properties

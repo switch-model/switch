@@ -71,8 +71,7 @@ def define_components(model):
         doc="Enforces the carbon cap for generation-related CH4 emissions.")
 
     # Make sure the model has a dual suffix for determining implicit carbon costs
-    if not hasattr(model, "dual"):
-        model.dual = Suffix(direction=Suffix.IMPORT)
+    model.enable_duals()
 
     model.carbon_cost_dollar_per_tco2 = Param(
         model.PERIODS, default=0.0,
@@ -139,35 +138,34 @@ def post_solve(model, outdir):
     values will not be exported.
     """
     def get_row(model, period):
-        row = [period]
-
         # Loop through all 4 green house gases (GHG) and add the value to the row.
         GHGs = [
             {"AnnualEmissions": model.AnnualEmissions, "cap": model.carbon_cap_tco2_per_yr,
-             "cost_per_t": model.carbon_cost_dollar_per_tco2, "Enforce_Carbon_Cap": model.Enforce_Carbon_Cap},
+             "cost_per_t": model.carbon_cost_dollar_per_tco2, "Enforce_Carbon_Cap": "Enforce_Carbon_Cap"},
             {"AnnualEmissions": model.AnnualEmissionsNOx, "cap": model.carbon_cap_tnox_per_yr,
-             "cost_per_t": model.carbon_cost_dollar_per_tnox, "Enforce_Carbon_Cap": model.Enforce_Carbon_Cap_NOx},
+             "cost_per_t": model.carbon_cost_dollar_per_tnox, "Enforce_Carbon_Cap": "Enforce_Carbon_Cap_NOx"},
             {"AnnualEmissions": model.AnnualEmissionsSO2, "cap": model.carbon_cap_tso2_per_yr,
-             "cost_per_t": model.carbon_cost_dollar_per_tso2, "Enforce_Carbon_Cap": model.Enforce_Carbon_Cap_SO2},
+             "cost_per_t": model.carbon_cost_dollar_per_tso2, "Enforce_Carbon_Cap": "Enforce_Carbon_Cap_SO2"},
             {"AnnualEmissions": model.AnnualEmissionsCH4, "cap": model.carbon_cap_tch4_per_yr,
-             "cost_per_t": model.carbon_cost_dollar_per_tch4, "Enforce_Carbon_Cap": model.Enforce_Carbon_Cap_CH4},
+             "cost_per_t": model.carbon_cost_dollar_per_tch4, "Enforce_Carbon_Cap": "Enforce_Carbon_Cap_CH4"},
         ]
 
-        for GHG in GHGs:
-            row.extend([GHG["AnnualEmissions"][period], GHG["cap"][period]])
-
-            # Only print the carbon cap dual value if it exists and if the problem
-            # is purely linear.
-            if not model.has_discrete_variables and period in GHG["Enforce_Carbon_Cap"] and GHG["Enforce_Carbon_Cap"][
-                period] in model.dual:
-                # Note: We multiply by 1000 since our objective function is in terms of thousands of dollars
-                row.append(model.dual[GHG["Enforce_Carbon_Cap"][period]] * 1000 /
-                           model.bring_annual_costs_to_base_year[period])
-            else:
-                row.append('.')
-
-            row.extend([GHG["cost_per_t"][period], GHG["cost_per_t"][period] * GHG["AnnualEmissions"][period]])
-        return row
+        return (period,) + tuple(
+            c
+            for GHG in GHGs
+            for c in
+            (
+                GHG["AnnualEmissions"][period],
+                GHG["cap"][period],
+                model.get_dual(
+                    GHG["Enforce_Carbon_Cap"],
+                    period,
+                    divider=model.bring_annual_costs_to_base_year[period]
+                ),
+                GHG["cost_per_t"][period],
+                GHG["cost_per_t"][period] * GHG["AnnualEmissions"][period]
+            )
+        )
 
     reporting.write_table(
         model, model.PERIODS,

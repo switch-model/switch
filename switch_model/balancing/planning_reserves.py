@@ -146,7 +146,8 @@ def define_components(model):
         validate=lambda m, value, prr:
             value in ('all_timepoints', 'peak_load'),
         doc=("Determines whether planning reserve requirements are enforced in "
-             "each timepoint, or just timepoints with peak load (zone_demand_mw).")
+             "each timepoint, or just timepoints with peak load (zone_demand_mw)."),
+        within=Any
     )
     def get_peak_timepoints(m, prr):
         """

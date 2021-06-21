@@ -61,8 +61,7 @@ def define_components(m):
     demand_module = sys.modules[m.options.dr_demand_module]
 
     # Make sure the model has dual and rc suffixes
-    if not hasattr(m, "dual"):
-        m.dual = Suffix(direction=Suffix.IMPORT)
+    m.enable_duals()
     if not hasattr(m, "rc"):
         m.rc = Suffix(direction=Suffix.IMPORT)
 
@@ -531,7 +530,7 @@ def calibrate_model(m):
     # other_costs that will bring total_direct_costs_per_year() up to the baseline
     # annual_revenue level.
     annual_revenue = dict(zip(list(m.PERIODS), [0.0]*len(m.PERIODS)))
-    for (z, tp), (load, price) in utilities.iteritems(m.base_data_dict):
+    for (z, tp), (load, price) in m.base_data_dict.items():
         annual_revenue[m.tp_period[tp]] += load * prices * m.tp_weight_in_year[tp]
     for p in m.PERIODS:
         # m.other_costs[p] = annual_revenue[p] - total_direct_costs_per_year(m, p)

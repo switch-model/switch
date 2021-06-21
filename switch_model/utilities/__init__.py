@@ -6,14 +6,15 @@ Utility functions for Switch.
 """
 from __future__ import print_function
 
-import os, types, importlib, re, sys, argparse, time, datetime, traceback, subprocess, platform
+import os, types, sys, argparse, time, datetime, traceback, subprocess, platform
 
 import switch_model.__main__ as main
 from pyomo.environ import *
 from pyomo.core.base.set import UnknownSetDimen
+from pyomo.dataportal import DataManagerFactory
+from pyomo.dataportal.plugins.csv_table import CSVTable
 from switch_model.utilities.scaling import _ScaledVariable, _get_unscaled_expression
 import pyomo.opt
-import yaml
 
 # Define string_types (same as six.string_types). This is useful for
 # distinguishing between strings and other iterables.
@@ -25,7 +26,7 @@ string_types = (str,)
 interactive_session = not hasattr(main, '__file__')
 
 
-class CustomAbstractModel(AbstractModel):
+class CustomModel(AbstractModel):
     """
     Class that wraps pyomo's AbstractModel and adds custom features.
 
@@ -33,6 +34,16 @@ class CustomAbstractModel(AbstractModel):
     is that this class supports variable scaling. See utilities/scaling.py for
     more details.
     """
+
+    def __init__(self, *args, **kwargs):
+        super(CustomModel, self).__init__(*args, **kwargs)
+        self.can_use_duals = None
+        # We use a scaling factor for our objective function
+        # to improve the numerical properties
+        # of the model. The scaling factor was determined using trial
+        # and error and this tool https://github.com/staadecker/lp-analyzer.
+        # Learn more by reading the documentation on Numerical Issues.
+        self.objective_scaling_factor = 1e-3
 
     def __setattr__(self, key, val):
         # __setattr__ is called whenever we set an attribute
@@ -56,6 +67,48 @@ class CustomAbstractModel(AbstractModel):
             super().__setattr__(key, _get_unscaled_expression(val))
         else:
             super().__setattr__(key, val)
+
+    def get_dual(self, component_name: str, *args, divider=None, invalid_return="."):
+        """
+        Returns the dual value for the given component.
+
+        @param component_name: Name of the constraint to return the dual value for
+        @param *args: Indexes of the component. For example, if the component is the energy
+                        balance constraint, *args would be z, t for load_zone and timepoint
+        @param divider: How much to divide the dual by. This is useful since the undivided dual
+                        represents the increase in cost after scaling costs to the base year.
+                        Often however, we wish to know the increase in cost prior to scaling,
+                        for example the increase in cost of just one timepoint. As such
+                        divider is often m.bring_timepoint_costs_to_base_year[t] or
+                        m.bring_annual_costs_to_base_year[p].
+        @param invalid_return: is what to return when the dual value doesn't exist. Defaults to "."
+                                since normally duals are being outputed to a file and "." is used for
+                                missing values.
+        """
+        # Get the component
+        component = getattr(self, component_name)
+
+        # If can_use_duals has not been set, set it with by checking has_discrete_variables
+        if self.can_use_duals is None:
+            # If the model has discrete variables dual values aren't meaningful and therefore we don't produce them
+            self.can_use_duals = not has_discrete_variables(self)
+
+        # Get the dual value if available
+        if self.can_use_duals and args in component and component[args] in self.dual:
+            # We divide by the scaling factor to undo the effects of it on the dual values
+            dual = self.dual[component[args]] / self.objective_scaling_factor
+            if divider:
+                dual /= divider
+            return dual
+        else:
+            return invalid_return
+
+    def enable_duals(self):
+        """
+        Enables duals if not already enabled
+        """
+        if not hasattr(self, "dual"):
+            self.dual = Suffix(direction=Suffix.IMPORT)
 
 
 def define_AbstractModel(*module_list, **kwargs):
@@ -98,11 +151,10 @@ def create_model(module_list=None, args=sys.argv[1:]):
     create_model(module_list, args=[])
 
     """
-    model = CustomAbstractModel()
+    model = CustomModel()
 
     # Load modules
     if module_list is None:
-        import switch_model.solve
         module_list = get_module_list(args)
     model.module_list = module_list
     for m in module_list:
@@ -111,7 +163,6 @@ def create_model(module_list=None, args=sys.argv[1:]):
     # Bind utility functions to the model as class objects
     # Should we be formally extending their class instead?
     _add_min_data_check(model)
-    model.has_discrete_variables = None  # Will get set during post_solve(), used to determine if we should use duals
     model.get_modules = types.MethodType(get_modules, model)
     model.load_inputs = types.MethodType(load_inputs, model)
     model.pre_solve = types.MethodType(pre_solve, model)
@@ -203,7 +254,7 @@ def format_seconds(seconds):
     return output_str
 
 
-def load_inputs(model, inputs_dir=None, attach_data_portal=True):
+def load_inputs(model, inputs_dir=None, attach_data_portal=False):
     """
     Load input data for an AbstractModel using the modules in the given
     list and return a model instance. This is implemented as calling the
@@ -230,6 +281,13 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=True):
         print("Creating instance...")
     if hasattr(model, 'create_instance'):
         instance = model.create_instance(data)
+        # We want our functions from CustomModel to be accessible
+        # Somehow simply setting the class to CustomModel allows us to do this
+        # This is the same thing that happens in the Pyomo library at the end of
+        # model.create_instance(). Note that Pyomo's ConcreteModel is basically the same as
+        # our CustomModel so we're not causing any issues by changing from ConcreteModel
+        # to CustomModel
+        instance.__class__ = CustomModel
     else:
         instance = model.create(data)
     if model.options.verbose:
@@ -237,6 +295,8 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=True):
 
     if attach_data_portal:
         instance.DataPortal = data
+    else:
+        del data
     return instance
 
 
@@ -264,7 +324,7 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
             component = getattr(model, component_name)
             comp_class = type(component).__name__
             component_data = instance.DataPortal.data(name=component_name)
-            if comp_class == 'SimpleSet' or comp_class == 'OrderedSimpleSet':
+            if comp_class in ('ScalarSet', 'OrderedScalarSet', 'AbstractOrderedScalarSet'):
                 f.write(
                     "set {} := {};\n"
                     .format(component_name, join_space(component_data))
@@ -273,16 +333,16 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
                 if component_data:  # omit components for which no data were provided
                     f.write("param {} := \n".format(component_name))
                     for key, value in (
-                        sorted(iteritems(component_data))
+                        sorted(component_data.items())
                         if sorted_output
-                        else iteritems(component_data)
+                        else component_data.items()
                     ):
                         f.write(" {} {}\n".format(join_space(key), quote_str(value)))
                     f.write(";\n")
-            elif comp_class == 'SimpleParam':
+            elif comp_class == 'ScalarParam':
                 f.write("param {} := {};\n".format(component_name, component_data))
             elif comp_class == 'IndexedSet':
-                for key, vals in iteritems(component_data):
+                for key, vals in component_data.items():
                     f.write(
                         "set {}[{}] := {};\n"
                         .format(component_name, join_comma(key), join_space(vals))
@@ -310,17 +370,6 @@ def post_solve(instance, outputs_dir=None):
         outputs_dir = getattr(instance.options, "outputs_dir", "outputs")
     if not os.path.exists(outputs_dir):
         os.makedirs(outputs_dir)
-
-    # Used to determine if we should use dual values
-    # If the model has discrete variables dual values aren't meaningful
-    # Note that before model.has_discrete_variables was a function
-    # that ran has_discrete_variables() everytime.
-    # This was quite time consuming (~10s per call)
-    # Instead, now we call has_discrete_variables() once during post_solve and save the result
-    # TODO Ideally, we only call has_discrete_variables() once **and
-    #  only if we need it** (lazy implementation). This would require more work however
-    #  but could save 10s during post-solve if we never use modules that use has_discrete_variabels.
-    instance.has_discrete_variables = has_discrete_variables(instance)
 
     # TODO: implement a check to call post solve functions only if
     # solver termination condition is not 'infeasible' or 'unknown'
@@ -385,7 +434,7 @@ def _add_min_data_check(model):
     >>> mod = AbstractModel()
     >>> _add_min_data_check(mod)
     >>> mod.set_A = Set(initialize=[1,2])
-    >>> mod.paramA_full = Param(mod.set_A, initialize={1:'a',2:'b'})
+    >>> mod.paramA_full = Param(mod.set_A, initialize={1:'a',2:'b'}, within=Any)
     >>> mod.paramA_empty = Param(mod.set_A)
     >>> mod.min_data_check('set_A', 'paramA_full')
     >>> if hasattr(mod, 'create_instance'):
@@ -400,11 +449,10 @@ def _add_min_data_check(model):
 
 
 def has_discrete_variables(model):
-    all_elements = lambda v: v.values() if v.is_indexed() else [v]
     return any(
         v.is_binary() or v.is_integer()
         for variable in model.component_objects(Var, active=True)
-        for v in all_elements(variable)
+        for v in (variable.values() if variable.is_indexed() else [variable])
     )
 
 def check_mandatory_components(model, *mandatory_model_components):
@@ -433,7 +481,7 @@ def check_mandatory_components(model, *mandatory_model_components):
     >>> import switch_model.utilities as utilities
     >>> mod = ConcreteModel()
     >>> mod.set_A = Set(initialize=[1,2])
-    >>> mod.paramA_full = Param(mod.set_A, initialize={1:'a',2:'b'})
+    >>> mod.paramA_full = Param(mod.set_A, initialize={1:'a',2:'b'}, within=Any)
     >>> mod.paramA_empty = Param(mod.set_A)
     >>> mod.set_B = Set()
     >>> mod.paramB_empty = Param(mod.set_B)
@@ -640,9 +688,31 @@ def load_aug(switch_data, optional=False, auto_select=False,
         # Skip the file.  Note that we are only doing this after having
         # validated the file's column headings.
         return
+
+    # Use our custom DataManager to allow 'inf' in csvs.
+    if kwds["filename"][-4:] == ".csv":
+        kwds['using'] = "switch_csv"
     # All done with cleaning optional bits. Pass the updated arguments
     # into the DataPortal.load() function.
     switch_data.load(**kwds)
+
+# Register a custom data manager that wraps the default CSVTable DataManager
+# This data manager does the same as CSVTable but converts 'inf' to float("inf")
+# This is necessary since Pyomo no longer converts inf to float('inf') and is
+# now throwing errors when we it expects a number but we input inf.
+@DataManagerFactory.register('switch_csv')
+class SwitchCSVDataManger(CSVTable):
+    def process(self, model, data, default):
+        status = super().process(model, data, default)
+        self.convert_inf_to_float(data[self.options.namespace])
+        return status
+
+    @staticmethod
+    def convert_inf_to_float(data):
+        for values in data.values():
+            for index, val in values.items():
+                if val == "inf":
+                    values[index] = float("inf")
 
 
 class ExtendAction(argparse.Action):
@@ -776,14 +846,6 @@ class LogOutput(object):
             sys.stderr = self.stderr
             self.log_file.close()
 
-def iteritems(obj):
-    """ Iterator of key, value pairs for obj;
-    equivalent to obj.items() on Python 3+ and obj.iteritems() on Python 2 """
-    try:
-        return obj.iteritems()
-    except AttributeError: # Python 3+
-        return obj.items()
-
 
 def query_yes_no(question, default="yes"):
     """Ask a yes/no question via input() and return their answer.
@@ -818,17 +880,8 @@ def query_yes_no(question, default="yes"):
                              "(or 'y' or 'n').\n")
 
 
-def load_config():
-    """Read the config.yaml configuration file"""
-    if not os.path.isfile("config.yaml"):
-        raise Exception("config.yaml does not exist. Try running 'switch new' to auto-create it.")
-    with open("config.yaml") as f:
-        return yaml.load(f, Loader=yaml.FullLoader)
-
-
 def run_command(command):
     return subprocess.check_output(command.split(" "), cwd=os.path.dirname(__file__)).strip().decode("UTF-8")
-
 
 def get_git_hash():
     return run_command("git rev-parse HEAD")

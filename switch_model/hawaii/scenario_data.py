@@ -28,7 +28,7 @@ from __future__ import print_function
 import time, sys, collections, os
 from textwrap import dedent
 from switch_model import __version__ as switch_version
-from switch_model.utilities import iteritems
+
 
 # NOTE: instead of using the python csv writer, this directly writes tables to
 # file in a customized, pyomo-friendly .csv format. This uses commas between columns
@@ -1057,7 +1057,7 @@ def write_indexed_set_dat_file(output_file, set_name, query, arguments):
                 sn=set_name,
                 idx=', '.join(k),
                 items=' '.join(v))
-            for k, v in iteritems(data_dict)
+            for k, v in data_dict.items()
         ])
 
     print("time taken: {dur:.2f}s".format(dur=time.time()-start))
