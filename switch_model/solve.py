@@ -10,16 +10,19 @@ import pandas as pd
 
 import sys, os, shlex, re, inspect, textwrap, types, pickle, traceback, gc
 import warnings
+import datetime
+import platform
 
 from pyomo.solvers.plugins.solvers.direct_or_persistent_solver import DirectOrPersistentSolver
 
 import switch_model
 from switch_model.utilities import (
-    create_model, _ArgumentParser, StepTimer, make_iterable, LogOutput, warn, query_yes_no, create_info_file,
-    get_module_list, add_module_args, _ScaledVariable
+    create_model, _ArgumentParser, StepTimer, make_iterable, LogOutput, warn, query_yes_no,
+    get_module_list, add_module_args, _ScaledVariable, add_git_info
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 from switch_model.tools.graphing import graph
+from switch_model.utilities.results_info import save_info, add_info, ResultsInfoSection
 
 
 def main(args=None, return_model=False, return_instance=False, attach_data_portal=False):
@@ -103,6 +106,9 @@ def main(args=None, return_model=False, return_instance=False, attach_data_porta
             if not os.path.isdir(model.options.outputs_dir):
                 raise IOError("Directory specified for prior solution does not exist.")
 
+        add_info("Host name", platform.node(), section=ResultsInfoSection.GENERAL)
+        add_git_info()
+
         # get a list of modules to iterate through
         iterate_modules = get_iteration_list(model)
 
@@ -111,7 +117,7 @@ def main(args=None, return_model=False, return_instance=False, attach_data_porta
             print("Switch {}, http://switch-model.org".format(switch_model.__version__))
             print("=======================================================================")
             print("Arguments:")
-            print(", ".join(k+"="+repr(v) for k, v in model.options.__dict__.items() if v))
+            print(", ".join(k + "=" + repr(v) for k, v in model.options.__dict__.items() if v))
             print("Modules:\n"+", ".join(m for m in modules))
             if iterate_modules:
                 print("Iteration modules:", iterate_modules)
@@ -198,7 +204,15 @@ def main(args=None, return_model=False, return_instance=False, attach_data_porta
             graph.main(args=["--overwrite"])
 
         total_time = start_to_end_timer.step_time_as_str()
-        create_info_file(getattr(instance.options, "outputs_dir", "outputs"), run_time=total_time)
+        add_info("Total run time", total_time, section=ResultsInfoSection.GENERAL)
+
+        add_info("End date", datetime.datetime.now().strftime('%Y-%m-%d'), section=ResultsInfoSection.GENERAL)
+        add_info("End time", datetime.datetime.now().strftime('%H:%M:%S'), section=ResultsInfoSection.GENERAL)
+
+        save_info(
+            os.path.join(getattr(instance.options, "outputs_dir", "outputs"),
+                         "info.txt")
+        )
 
         if instance.options.verbose:
             print(f"Total time spent running SWITCH: {total_time}.")
@@ -814,30 +828,6 @@ def solve(model):
             print("more information may be available by setting the appropriate flags in the ")
             print('solver_options_string and calling this script with "--suffixes iis" or "--gurobi-find-iis".')
         raise RuntimeError("Infeasible model")
-
-    # Raise an error if the solver failed to produce a solution
-    # Note that checking for results.solver.status in {SolverStatus.ok,
-    # SolverStatus.warning} is not enough because with a warning there will
-    # sometimes be a solution and sometimes not.
-    # Note: the results object originally contains values for model components
-    # in results.solution.variable, etc., but pyomo.solvers.solve erases it via
-    # result.solution.clear() after calling model.solutions.load_from() with it.
-    # load_from() loads values into the model.solutions._entry, so we check there.
-    # (See pyomo.PyomoModel.ModelSolutions.add_solution() for the code that
-    # actually creates _entry).
-    # Another option might be to check that model.solutions[-1].status (previously
-    # result.solution.status, but also cleared) is in
-    # pyomo.opt.SolutionStatus.['optimal', 'bestSoFar', 'feasible', 'globallyOptimal', 'locallyOptimal'],
-    # but this seems pretty foolproof (if undocumented).
-    if len(model.solutions[-1]._entry['variable']) == 0:
-        # no solution returned
-        print("Solver terminated without a solution.")
-        print("  Solver Status: ", results.solver.status)
-        print("  Solution Status: ", model.solutions[-1].status)
-        print("  Termination Condition: ", results.solver.termination_condition)
-        if model.options.solver == 'glpk' and results.solver.termination_condition == TerminationCondition.other:
-            print("Hint: glpk has been known to classify infeasible problems as 'other'.")
-        raise RuntimeError("Solver failed to find an optimal solution.")
 
     # Report any warnings; these are written to stderr so users can find them in
     # error logs (e.g. on HPC systems). These can occur, e.g., if solver reaches
