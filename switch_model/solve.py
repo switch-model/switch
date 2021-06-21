@@ -11,6 +11,8 @@ import pandas as pd
 import sys, os, shlex, re, inspect, textwrap, types, pickle, traceback, gc
 import warnings
 
+from pyomo.solvers.plugins.solvers.direct_or_persistent_solver import DirectOrPersistentSolver
+
 import switch_model
 from switch_model.utilities import (
     create_model, _ArgumentParser, StepTimer, make_iterable, LogOutput, warn, query_yes_no, create_info_file,
@@ -186,6 +188,7 @@ def main(args=None, return_model=False, return_instance=False, attach_data_porta
         # (repeated if model is reloaded, to automatically run any new export code)
         if not instance.options.no_post_solve:
             if instance.options.verbose:
+                timer.step_time()
                 print("Executing post solve functions...")
             instance.post_solve()
             if instance.options.verbose:
@@ -749,6 +752,7 @@ def solve(model):
         keepfiles=model.options.keepfiles,
         tee=model.options.tee,
         symbolic_solver_labels=model.options.symbolic_solver_labels,
+        save_results=model.options.save_solution if isinstance(solver, DirectOrPersistentSolver) else None,
     )
 
     if model.options.warm_start is not None:
