@@ -589,7 +589,10 @@ def graph_curtailment_per_tech(tools):
     # Get axes to graph on
     ax = tools.get_new_axes(out="curtailment_per_period", title="Percent of total dispatchable capacity curtailed")
     # Plot
-    df.plot(ax=ax, kind='line', color=tools.get_colors(), xlabel='Period')
+    color = tools.get_colors()
+    kwargs = dict() if color is None else dict(color=color)
+    df.plot(ax=ax, kind='line',  xlabel='Period', **kwargs)
+
     # Set the y-axis to use percent
     ax.yaxis.set_major_formatter(tools.mplt.ticker.PercentFormatter(1.0))
     # Horizontal line at 100%
