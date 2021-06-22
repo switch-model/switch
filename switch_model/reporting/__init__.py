@@ -167,7 +167,7 @@ def save_generic_results(instance, outdir, sorted_output):
                                 [var.name])
                 # Results are saved in a random order by default for
                 # increased speed. Sorting is available if wanted.
-                items = sorted(var.items()) if sorted_output else list(var.items())
+                items = sorted_robust(var.items()) if sorted_output else list(var.items())
                 for key, obj in items:
                     writer.writerow(format_row(tuple(make_iterable(key)) + (obj,), cell_formatter))
             else:
