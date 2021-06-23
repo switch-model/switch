@@ -96,7 +96,7 @@ def main():
         description="Write SWITCH input files from database tables.",
         epilog="""
         This tool will populate the inputs folder with the data from the PostgreSQL database.
-        config.yaml specifies the scenario parameters. 
+        config.yaml specifies the scenario parameters.
         The environment variable DB_URL specifies the url to connect to the database. """,
     )
     parser.add_argument("--skip-cf", default=False, action='store_true',
@@ -152,8 +152,11 @@ def query_db(full_config, skip_cf):
         "rps_scenario_id",
         "enable_dr",
         "enable_ev",
+        "transmission_base_capital_cost_scenario_id",
         "ca_policies_scenario_id",
-        "enable_planning_reserves"
+        "enable_planning_reserves",
+        "generation_plant_technologies_scenario_id",
+        "variable_o_m_cost_scenario_id"
     ]
 
     db_cursor.execute(
@@ -185,8 +188,11 @@ def query_db(full_config, skip_cf):
     rps_scenario_id = s_details[13]
     enable_dr = s_details[14]
     enable_ev = s_details[15]
-    ca_policies_scenario_id = s_details[16]
-    enable_planning_reserves = s_details[17]
+    transmission_base_capital_cost_scenario_id = s_details[16]
+    ca_policies_scenario_id = s_details[17]
+    enable_planning_reserves = s_details[18]
+    generation_plant_technologies_scenario_id =s_details[19]
+    variable_o_m_cost_scenario_id = s_details[20]
 
     print(f"Scenario: {scenario_id}: {name}.\n")
 
@@ -321,7 +327,7 @@ def query_db(full_config, skip_cf):
             name, 
             ccs_distance_km as zone_ccs_distance_km, 
             load_zone_id as zone_dbid 
-        FROM switch.load_zone
+        FROM switch.load_zone  
         WHERE name != '_ALL_ZONES'
         ORDER BY 1;
         """,
@@ -333,7 +339,7 @@ def query_db(full_config, skip_cf):
         "loads",
         ["LOAD_ZONE", "TIMEPOINT", "zone_demand_mw"],
         f"""
-            select load_zone_name, t.raw_timepoint_id as timepoint, 
+            select load_zone_name, t.raw_timepoint_id as timepoint,
                 CASE WHEN demand_mw < 0 THEN 0 ELSE demand_mw END as zone_demand_mw
             from sampled_timepoint as t
                 join demand_timeseries as d using(raw_timepoint_id)
@@ -360,14 +366,14 @@ def query_db(full_config, skip_cf):
             "spinning_res_solar_frac",
         ],
         """
-        SELECT 
-            balancing_area, 
-            quickstart_res_load_frac, 
-            quickstart_res_wind_frac, 
+        SELECT
+            balancing_area,
+            quickstart_res_load_frac,
+            quickstart_res_wind_frac,
             quickstart_res_solar_frac,
-            spinning_res_load_frac, 
-            spinning_res_wind_frac, 
-            spinning_res_solar_frac 
+            spinning_res_load_frac,
+            spinning_res_wind_frac,
+            spinning_res_solar_frac
         FROM switch.balancing_areas;""",
     )
 
@@ -377,8 +383,8 @@ def query_db(full_config, skip_cf):
         "zone_balancing_areas",
         ["LOAD_ZONE", "balancing_area"],
         """
-        SELECT 
-            name, reserves_area as balancing_area 
+        SELECT
+            name, reserves_area as balancing_area
         FROM switch.load_zone;""",
     )
 
@@ -414,54 +420,41 @@ def query_db(full_config, skip_cf):
             "trans_length_km",
             "trans_efficiency",
             "existing_trans_cap",
-        ],
-        """
-         SELECT start_load_zone_id || '-' || end_load_zone_id, t1.name, t2.name,
-             trans_length_km, trans_efficiency, existing_trans_cap_mw
-         FROM switch.transmission_lines
-             join load_zone as t1 on(t1.load_zone_id=start_load_zone_id)
-             join load_zone as t2 on(t2.load_zone_id=end_load_zone_id)
-         WHERE start_load_zone_id <= end_load_zone_id 	
-         ORDER BY 2,3;
-         """,
-    )
-
-    # trans_optional_params.csv
-    write_csv_from_query(
-        db_cursor,
-        "trans_optional_params",
-        [
-            "TRANSMISSION_LINE",
             "trans_dbid",
             "trans_derating_factor",
             "trans_terrain_multiplier",
             "trans_new_build_allowed",
         ],
         """
-        SELECT start_load_zone_id || '-' || end_load_zone_id, 
-            transmission_line_id, derating_factor, terrain_multiplier,
+         SELECT start_load_zone_id || '-' || end_load_zone_id, t1.name, t2.name,
+             trans_length_km, trans_efficiency, existing_trans_cap_mw, transmission_line_id,
+            derating_factor, terrain_multiplier * transmission_cost_econ_multiplier as terrain_multiplier,
             new_build_allowed
-        FROM switch.transmission_lines
-        ORDER BY 1;
-        """,
+         FROM switch.transmission_lines
+             join load_zone as t1 on(t1.load_zone_id=start_load_zone_id)
+             join load_zone as t2 on(t2.load_zone_id=end_load_zone_id)
+         WHERE start_load_zone_id < end_load_zone_id
+         ORDER BY 2,3;
+         """,
     )
 
     # trans_params.csv
-    write_csv(
-        [
-            [
-                1150,  # $1150 opposed to $1000 to reflect change to US$2016
-                20,  # Paty: check what lifetime has been used for the wecc
-                0.03,
-                # 0.0652 for column distribution_loss_rate, however this is no longer used
-            ]
-        ],
+    write_csv_from_query(
+        db_cursor,
         "trans_params",
         [
             "trans_capital_cost_per_mw_km",
             "trans_lifetime_yrs",
-            "trans_fixed_om_fraction",
+            "trans_fixed_om_fraction"
         ],
+        f"""
+        SELECT trans_capital_cost_per_mw_km,
+            20 as trans_lifetime_yrs,
+            0.03 as trans_fixed_om_fraction
+        FROM switch.transmission_base_capital_cost
+        WHERE transmission_base_capital_cost_scenario_id = {transmission_base_capital_cost_scenario_id}
+        ORDER BY 1;
+        """,
     )
 
     ########################################################
@@ -473,8 +466,8 @@ def query_db(full_config, skip_cf):
         "fuels",
         ["fuel", "co2_intensity", "upstream_co2_intensity"],
         """
-        SELECT name, co2_intensity, upstream_co2_intensity 
-        FROM switch.energy_source 
+        SELECT name, co2_intensity, upstream_co2_intensity
+        FROM switch.energy_source
         WHERE is_fuel IS TRUE;
         """,
     )
@@ -486,8 +479,8 @@ def query_db(full_config, skip_cf):
         "non_fuel_energy_sources",
         ["energy_source"],
         """
-        SELECT name 
-        FROM switch.energy_source 
+        SELECT name
+        FROM switch.energy_source
         WHERE is_fuel IS FALSE;
         """,
     )
@@ -499,11 +492,11 @@ def query_db(full_config, skip_cf):
         "fuel_cost",
         ["load_zone", "fuel", "period", "fuel_cost"],
         f"""
-        select load_zone_name as load_zone, fuel, period  as period, AVG(fuel_price) as fuel_cost 
+        select load_zone_name as load_zone, fuel, period  as period, AVG(fuel_price) as fuel_cost
 		from (
-		    select load_zone_name, fuel, fuel_price, projection_year, 
-		        (  
-		            case when projection_year >= period.start_year 
+		    select load_zone_name, fuel, fuel_price, projection_year,
+		        (
+		            case when projection_year >= period.start_year
 					and projection_year <= period.start_year + length_yrs -1 then label else 0 end
 				) as period
 				from switch.fuel_simple_price_yearly
@@ -555,22 +548,22 @@ def query_db(full_config, skip_cf):
         ],
         f"""
             select
-            generation_plant_id,
-            gen_tech,
-            energy_source as gen_energy_source,
+            t.generation_plant_id,
+            t.gen_tech,
+            t.energy_source as gen_energy_source,
             t2.name as gen_load_zone,
-            max_age as gen_max_age,
-            is_variable as gen_is_variable,
-            is_baseload as gen_is_baseload,
-            full_load_heat_rate as gen_full_load_heat_rate,
-            variable_o_m as gen_variable_om,
-            connect_cost_per_mw as gen_connect_cost_per_mw,
-            generation_plant_id as gen_dbid,
-            scheduled_outage_rate as gen_scheduled_outage_rate,
-            forced_outage_rate as gen_forced_outage_rate,
-            final_capacity_limit_mw as gen_capacity_limit_mw,
-            min_build_capacity as gen_min_build_capacity,
-            is_cogen as gen_is_cogen,
+            t.max_age as gen_max_age,
+            t.is_variable as gen_is_variable,
+            gt.is_baseload as gen_is_baseload,
+            t.full_load_heat_rate as gen_full_load_heat_rate,
+            vom.variable_o_m as gen_variable_om,
+            t.connect_cost_per_mw as gen_connect_cost_per_mw,
+            t.generation_plant_id as gen_dbid,
+            gt.scheduled_outage_rate as gen_scheduled_outage_rate,
+            gt.forced_outage_rate as gen_forced_outage_rate,
+            t.final_capacity_limit_mw as gen_capacity_limit_mw,
+            t.min_build_capacity as gen_min_build_capacity,
+            t.is_cogen as gen_is_cogen,
             storage_efficiency as gen_storage_efficiency,
             store_to_release_ratio as gen_store_to_release_ratio,
             -- hardcode all projects to be allowed as a reserve. might later make this more granular
@@ -579,9 +572,17 @@ def query_db(full_config, skip_cf):
             discharge_efficiency,
             land_use_rate,
             gen_storage_energy_to_power_ratio
-            from generation_plant as t
-            join load_zone as t2 using(load_zone_id)
+            from switch.generation_plant as t
+            join switch.load_zone as t2 using(load_zone_id)
             JOIN temp_generation_plant_ids USING(generation_plant_id)
+            join switch.variable_o_m_costs as vom
+            on vom.gen_tech = t.gen_tech
+            and vom.energy_source = t.energy_source
+            join switch.generation_plant_technologies as gt
+            on gt.gen_tech = t.gen_tech
+            and gt.energy_source = t.energy_source
+            where variable_o_m_cost_scenario_id = {variable_o_m_cost_scenario_id}
+            and generation_plant_technologies_scenario_id = {generation_plant_technologies_scenario_id}
             order by gen_dbid;
             """,
     )
@@ -591,8 +592,8 @@ def query_db(full_config, skip_cf):
         db_cursor,
         "gen_build_predetermined",
         ["GENERATION_PROJECT", "build_year", "gen_predetermined_cap", "gen_predetermined_storage_energy_mwh"],
-        f"""select generation_plant_id, build_year, capacity as gen_predetermined_cap, gen_predetermined_storage_energy_mwh  
-                from generation_plant_existing_and_planned 
+        f"""select generation_plant_id, build_year, capacity as gen_predetermined_cap, gen_predetermined_storage_energy_mwh
+                from generation_plant_existing_and_planned
                 join generation_plant as t using(generation_plant_id)
                 JOIN temp_generation_plant_ids USING(generation_plant_id)
                 WHERE generation_plant_existing_and_planned_scenario_id={generation_plant_existing_and_planned_scenario_id}
@@ -612,9 +613,9 @@ def query_db(full_config, skip_cf):
             "gen_storage_energy_overnight_cost",
         ],
         f"""
-        select generation_plant_id, generation_plant_cost.build_year, 
+        select generation_plant_id, generation_plant_cost.build_year,
             overnight_cost as gen_overnight_cost, fixed_o_m as gen_fixed_om,
-            storage_energy_capacity_cost_per_mwh as gen_storage_energy_overnight_cost 
+            storage_energy_capacity_cost_per_mwh as gen_storage_energy_overnight_cost
         FROM generation_plant_cost
           JOIN generation_plant_existing_and_planned USING (generation_plant_id)
           JOIN temp_generation_plant_ids USING(generation_plant_id)
@@ -622,11 +623,11 @@ def query_db(full_config, skip_cf):
         WHERE generation_plant_cost.generation_plant_cost_scenario_id={generation_plant_cost_scenario_id}
           AND generation_plant_existing_and_planned_scenario_id={generation_plant_existing_and_planned_scenario_id}
         UNION
-        SELECT generation_plant_id, period.label, 
+        SELECT generation_plant_id, period.label,
             avg(overnight_cost) as gen_overnight_cost, avg(fixed_o_m) as gen_fixed_om,
             avg(storage_energy_capacity_cost_per_mwh) as gen_storage_energy_overnight_cost
-        FROM generation_plant_cost 
-          JOIN generation_plant using(generation_plant_id) 
+        FROM generation_plant_cost
+          JOIN generation_plant using(generation_plant_id)
           JOIN period on(build_year>=start_year and build_year<=end_year)
           JOIN temp_generation_plant_ids USING(generation_plant_id)
           join generation_plant as t1 using(generation_plant_id)
@@ -639,8 +640,9 @@ def query_db(full_config, skip_cf):
     ########################################################
     # FINANCIALS
 
+    #updated from $2016 and 7%
     write_csv(
-        [[2016, 0.07, 0.07]],
+        [[2018, 0.05, 0.05]],
         "financials",
         ["base_financial_year", "interest_rate", "discount_rate"],
     )
@@ -656,9 +658,9 @@ def query_db(full_config, skip_cf):
             "variable_capacity_factors",
             ["GENERATION_PROJECT", "timepoint", "gen_max_capacity_factor"],
             f"""
-                select 
-                    generation_plant_id, 
-                    t.raw_timepoint_id, 
+                select
+                    generation_plant_id,
+                    t.raw_timepoint_id,
                     -- we round down when the capacity factor is less than 1e-5 to avoid numerical issues and simplify our model
                     -- performance wise this doesn't have any significant impact
                     case when abs(capacity_factor) < 0.00001 then 0 else capacity_factor end
@@ -692,14 +694,14 @@ def query_db(full_config, skip_cf):
         "hydro_timeseries",
         ["hydro_project", "timeseries", "hydro_min_flow_mw", "hydro_avg_flow_mw"],
         f"""
-        select generation_plant_id as hydro_project, 
-            {timeseries_id_select}, 
-            CASE 
-                WHEN hydro_min_flow_mw <= 0 THEN 0 
-                ELSE least(hydro_min_flow_mw, capacity_limit_mw * (1-forced_outage_rate)) END, 
-            CASE 
-                WHEN hydro_avg_flow_mw <= 0 THEN 0 
-                ELSE least(hydro_avg_flow_mw, capacity_limit_mw * (1-forced_outage_rate)) END 
+        select generation_plant_id as hydro_project,
+            {timeseries_id_select},
+            CASE
+                WHEN hydro_min_flow_mw <= 0 THEN 0
+                ELSE least(hydro_min_flow_mw, capacity_limit_mw * (1-forced_outage_rate)) END,
+            CASE
+                WHEN hydro_avg_flow_mw <= 0 THEN 0
+                ELSE least(hydro_avg_flow_mw, capacity_limit_mw * (1-forced_outage_rate)) END
             as hydro_avg_flow_mw
         from hydro_historical_monthly_capacity_factors
             join sampled_timeseries on(month = date_part('month', first_timepoint_utc) and year = date_part('year', first_timepoint_utc))
@@ -728,10 +730,10 @@ def query_db(full_config, skip_cf):
         f"""
         select period, AVG(carbon_cap_tco2_per_yr) as carbon_cap_tco2_per_yr, AVG(carbon_cap_tco2_per_yr_CA) as carbon_cap_tco2_per_yr_CA,
             '.' as  carbon_cost_dollar_per_tco2
-        from 
-        (select carbon_cap_tco2_per_yr, carbon_cap_tco2_per_yr_CA, year, 
-                (case when 
-                year >= period.start_year 
+        from
+        (select carbon_cap_tco2_per_yr, carbon_cap_tco2_per_yr_CA, year,
+                (case when
+                year >= period.start_year
                 and year <= period.start_year + length_yrs -1 then label else 0 end) as period
                 from switch.carbon_cap
                 join switch.period on(year>=start_year)
@@ -754,8 +756,8 @@ def query_db(full_config, skip_cf):
             select load_zone, w.period as period, avg(rps_target) as rps_target
                     from
                     (select load_zone, rps_target,
-                    (case when 
-                    year >= period.start_year 
+                    (case when
+                    year >= period.start_year
                     and year <= period.start_year + length_yrs -1 then label else 0 end) as period
                     from switch.rps_target
                     join switch.period on(year>=start_year)
@@ -782,19 +784,19 @@ def query_db(full_config, skip_cf):
                 "max_avail_at_cost",
             ],
             f"""
-                select regional_fuel_market, label as period, tier, unit_cost, 
-                        (case when max_avail_at_cost is null then 'inf' 
+                select regional_fuel_market, label as period, tier, unit_cost,
+                        (case when max_avail_at_cost is null then 'inf'
                             else max_avail_at_cost::varchar end) as max_avail_at_cost
                 from switch.fuel_supply_curves
                 join switch.period on(year>=start_year)
-                where year=FLOOR(period.start_year + length_yrs/2-1) 
+                where year=FLOOR(period.start_year + length_yrs/2-1)
                 -- we filter out extremly large unit_costs that are only used to indicate that we should never
                 -- buy at this price point. This is to simplify the model and improve its numerical properties.
                 and not (
                     unit_cost > 1e9
                     and max_avail_at_cost is null
                 )
-                and study_timeframe_id = {study_timeframe_id} 
+                and study_timeframe_id = {study_timeframe_id}
                 and supply_curves_scenario_id = {supply_curves_scenario_id};
                             """,
         )
@@ -805,7 +807,7 @@ def query_db(full_config, skip_cf):
         "regional_fuel_markets",
         ["regional_fuel_market", "fuel"],
         f"""
-        select regional_fuel_market, fuel 
+        select regional_fuel_market, fuel
         from switch.regional_fuel_market
         where regional_fuel_market_scenario_id={regional_fuel_market_scenario_id};
                     """,
@@ -817,7 +819,7 @@ def query_db(full_config, skip_cf):
         "zone_to_regional_fuel_market",
         ["load_zone", "regional_fuel_market"],
         f"""
-        select load_zone, regional_fuel_market 
+        select load_zone, regional_fuel_market
         from switch.zone_to_regional_fuel_market
         where regional_fuel_market_scenario_id={regional_fuel_market_scenario_id};
                     """,
@@ -831,8 +833,8 @@ def query_db(full_config, skip_cf):
             "dr_data",
             ["LOAD_ZONE", "timepoint", "dr_shift_down_limit", "dr_shift_up_limit"],
             f"""
-                select load_zone_name as load_zone, sampled_timepoint.raw_timepoint_id AS timepoint, 
-                case 
+                select load_zone_name as load_zone, sampled_timepoint.raw_timepoint_id AS timepoint,
+                case
                     when load_zone_id>=10 and load_zone_id<=21 and extract(year from sampled_timepoint.timestamp_utc)=2020 then 0.003*demand_mw
                     when load_zone_id>=10 and load_zone_id<=21 and extract(year from sampled_timepoint.timestamp_utc)=2030 then 0.02*demand_mw
                     when load_zone_id>=10 and load_zone_id<=21 and extract(year from sampled_timepoint.timestamp_utc)=2040 then 0.07*demand_mw
@@ -845,7 +847,7 @@ def query_db(full_config, skip_cf):
                 NULL as dr_shift_up_limit
                 from sampled_timepoint
                 left join demand_timeseries on sampled_timepoint.raw_timepoint_id=demand_timeseries.raw_timepoint_id
-                where demand_scenario_id = {demand_scenario_id} 
+                where demand_scenario_id = {demand_scenario_id}
                 and study_timeframe_id = {study_timeframe_id}
                 order by demand_scenario_id, load_zone_id, sampled_timepoint.raw_timepoint_id;
                             """,
@@ -867,7 +869,7 @@ def query_db(full_config, skip_cf):
             ],
             f"""
                 SELECT load_zone_name as load_zone, raw_timepoint_id as timepoint,
-                (CASE 
+                (CASE
                     WHEN raw_timepoint_id=max_raw_timepoint_id THEN ev_cumulative_charge_upper_mwh
                     ELSE ev_cumulative_charge_lower_mwh
                 END) AS ev_cumulative_charge_lower_mwh,
@@ -875,26 +877,26 @@ def query_db(full_config, skip_cf):
                 ev_charge_limit as ev_charge_limit_mw
                 FROM(
                 --Table sample_points: with the sample points
-                    SELECT 
-                        load_zone_id, 
-                        ev_profiles_per_timepoint_v3.raw_timepoint_id, 
-                        sampled_timeseries_id, 
-                        sampled_timepoint.timestamp_utc, 
-                        load_zone_name, 
-                        ev_cumulative_charge_lower_mwh, 
-                        ev_cumulative_charge_upper_mwh, 
+                    SELECT
+                        load_zone_id,
+                        ev_profiles_per_timepoint_v3.raw_timepoint_id,
+                        sampled_timeseries_id,
+                        sampled_timepoint.timestamp_utc,
+                        load_zone_name,
+                        ev_cumulative_charge_lower_mwh,
+                        ev_cumulative_charge_upper_mwh,
                         ev_charge_limit  FROM ev_profiles_per_timepoint_v3
                     LEFT JOIN sampled_timepoint
-                    ON ev_profiles_per_timepoint_v3.raw_timepoint_id = sampled_timepoint.raw_timepoint_id 
+                    ON ev_profiles_per_timepoint_v3.raw_timepoint_id = sampled_timepoint.raw_timepoint_id
                     WHERE study_timeframe_id = {study_timeframe_id}
                     --END sample_points
                 )AS sample_points
                 LEFT JOIN(
                 --Table max_raw: with max raw_timepoint_id per _sample_timesseries_id
-                SELECT 
+                SELECT
                     sampled_timeseries_id,
                     MAX(raw_timepoint_id) AS max_raw_timepoint_id
-                FROM sampled_timepoint 
+                FROM sampled_timepoint
                 WHERE study_timeframe_id = {study_timeframe_id}
                 GROUP BY sampled_timeseries_id
                 --END max_raw
@@ -970,17 +972,17 @@ def planning_reserves(db_cursor, time_sample_id, hydro_simple_scenario_id):
         "reserve_capacity_value",
         ["GENERATION_PROJECT","timepoint","gen_capacity_value"],
         f"""
-        select 
-            generation_plant_id, 
+        select
+            generation_plant_id,
             raw_timepoint_id,
             -- zero out capacity_factors that are less than 1e-5 in magnitude to simplify the model
             case when abs(capacity_factor) < 1e-5 then 0 else capacity_factor end
         from switch.sampled_timepoint as t
         left join (
-            select generation_plant_id, year, month, hydro_avg_flow_mw / capacity_limit_mw as capacity_factor 
+            select generation_plant_id, year, month, hydro_avg_flow_mw / capacity_limit_mw as capacity_factor
             from switch.hydro_historical_monthly_capacity_factors
             left join switch.generation_plant
-                using(generation_plant_id) 
+                using(generation_plant_id)
             where hydro_simple_scenario_id = {hydro_simple_scenario_id}
         ) as h
             on (
