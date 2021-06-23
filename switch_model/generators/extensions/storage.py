@@ -613,5 +613,5 @@ def graph_buildout(tools):
 
         tools.save_figure("storage_duration_density", plot.draw())
 
-        plot = plot + pn.facet_wrap("region") + pn.ylim(0, 1)
+        plot = plot + pn.facet_wrap("region") + pn.ylim(0, 2)
         tools.save_figure("storage_duration_density_by_region", plot.draw())
