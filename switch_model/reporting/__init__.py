@@ -21,6 +21,7 @@ dependency on load_zones.
 from __future__ import print_function
 from pyomo.core.base.misc import sorted_robust
 from switch_model.utilities import string_types
+from switch_model.utilities.results_info import add_info
 from switch_model.utilities.scaling import get_unscaled_var
 dependencies = 'switch_model.financials'
 
@@ -209,8 +210,10 @@ def get_value(obj):
 
 
 def save_total_cost_value(instance, outdir):
+    total_cost = round(value(instance.SystemCost), ndigits=2)
+    add_info("Total Cost", f"$ {total_cost}")
     with open(os.path.join(outdir, 'total_cost.txt'), 'w') as fh:
-        fh.write('{}\n'.format(round(value(instance.SystemCost), ndigits=2)))
+        fh.write(f'{total_cost}\n')
 
 
 def save_cost_components(m, outdir):
