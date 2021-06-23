@@ -155,6 +155,16 @@ class TransformTools:
 
         return df
 
+    def load_zone(self, df, load_zone_col="load_zone"):
+        """
+        Adds a 'region' column that is usually load_zone's state.
+        'region' is what comes before the first underscore. If no underscores are present
+        defaults to just using the load_zone.
+        """
+        df = df.copy()  # Don't modify the source
+        df["region"] = df[load_zone_col].apply(lambda z: z.partition("_")[0])
+        return df
+
 
 class GraphTools:
     """

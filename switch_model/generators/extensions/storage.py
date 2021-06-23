@@ -573,6 +573,7 @@ def graph_buildout(tools):
     Create graphs relating to the storage that has been built
     """
     df = tools.get_dataframe("storage_builds.csv")
+    df = tools.transform.load_zone(df)
     df["power"] = df["IncrementalPowerCapacityMW"] / 1000
     # Filter out rows where there's no power built
     df = df[df["power"] != 0]
@@ -594,6 +595,9 @@ def graph_buildout(tools):
 
     tools.save_figure("storage_duration", plot.draw())
 
+    plot = plot + pn.facet_wrap("region")
+    tools.save_figure("storage_duration_by_region", plot.draw())
+
     # It doesn't make much sense to plot build density if we don't even have 5 data points
     if len(df) > 5:
         plot = (
@@ -608,3 +612,6 @@ def graph_buildout(tools):
         )
 
         tools.save_figure("storage_duration_density", plot.draw())
+
+        plot = plot + pn.facet_wrap("region") + pn.ylim(0, 1)
+        tools.save_figure("storage_duration_density_by_region", plot.draw())
