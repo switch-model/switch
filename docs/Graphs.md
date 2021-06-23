@@ -30,12 +30,16 @@ In `graph()` you can use the `tools` object to create graphs. Here are some impo
 
 - `tools.get_dataframe(filename)` will return a pandas dataframe for the file called `filename`. You can also
   specify `from_inputs=True` to load a csv from the inputs directory.
-
+  
 - `tools.get_axes(out, title, note)` or `tools.get_figure(out, title, note)` will return a matplotlib axes or figure
   that should be used while graphing. When possible, always use `get_axes` over `get_figure` since
   this allows plots from different scenarios to be displayed side-by-side.
   `out` is the name of the `.png` file that will be created with this graph. `title` and `note` are optional
   and will be the title and footnote for the graph.
+  
+- `tools.save_figure(filename, fig)`. Some libraries (e.g. plotnine) 
+  always generate their own figures. In this case we can add the figure
+  to our outputs with this function. When possible, use `tools.get_axes()` instead.
 
 - `tools.pd`, `tools.sns`, `tools.np`, `tools.mplt`, `tools.pn` are references to the pandas, seaborn, numpy, matplotlib
   and plotnine graphing libraries. This is useful if your graphing code needs to access these libraries since it doesn't require adding an
