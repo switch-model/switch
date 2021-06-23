@@ -81,7 +81,7 @@ def graph(tools):
   gen_cap = tools.get_dataframe(csv="gen_cap")
 
   # Add a 'gen_type' column to your dataframe
-  gen_cap = tools.add_gen_type_column(gen_cap)
+  gen_cap = tools.gen_type(gen_cap)
 
   # Aggregate the generation capacity by gen_type and PERIOD
   capacity_df = gen_cap.pivot_table(
@@ -98,7 +98,7 @@ def graph(tools):
   # Plot
   capacity_df.plot(
     kind='bar',
-    ax=ax, # Notice we pass in the axis
+    ax=ax,  # Notice we pass in the axis
     stacked=True,
     ylabel="Capacity Online (MW)",
     xlabel="Period",

@@ -636,9 +636,9 @@ def graph(tools):
     # Get a new set of axis to create a breakdown of the generation capacity
     ax = tools.get_new_axes(out="generation_capacity_per_period", title="Online generating capacity by period")
     # Load gen_cap.csv
-    gen_cap = tools.get_dataframe(csv="gen_cap")
+    gen_cap = tools.get_dataframe("gen_cap.csv")
     # Map energy sources to technology type
-    gen_cap = tools.add_gen_type_column(gen_cap)
+    gen_cap = tools.transform.gen_type(gen_cap)
     # Aggregate by gen_tech_type and PERIOD by summing the generation capacity
     capacity_df = gen_cap.pivot_table(index='PERIOD', columns='gen_type', values='GenCapacity', aggfunc=tools.np.sum,
                                       fill_value=0)
@@ -668,7 +668,7 @@ def graph_buildout_per_tech(tools, gen_cap):
     # gen_buildout_per_tech.png          #
     # ---------------------------------- #
     # Load generation_projects_info.csv
-    gen_info = tools.get_dataframe(csv='generation_projects_info', folder=tools.folders.INPUTS)
+    gen_info = tools.get_dataframe('generation_projects_info.csv', from_inputs=True)
     # Filter out projects with unlimited capacity since we can't consider those (coerce converts '.' to NaN)
     gen_info['gen_capacity_limit_mw'] = tools.pd.to_numeric(gen_info["gen_capacity_limit_mw"], errors='coerce')
     # Set the type to be the same to ensure merge works
@@ -681,7 +681,7 @@ def graph_buildout_per_tech(tools, gen_cap):
         validate='many_to_one'
     )
     # Get the predetermined generation
-    predetermined = tools.get_dataframe(csv="gen_build_predetermined", folder=tools.folders.INPUTS)
+    predetermined = tools.get_dataframe("gen_build_predetermined.csv", from_inputs=True)
     # Filter out projects that are predetermined
     df = df[~df["GENERATION_PROJECT"].isin(predetermined["GENERATION_PROJECT"])]
     # Make PERIOD a category to ensure x-axis labels don't fill in years between period

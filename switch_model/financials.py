@@ -380,7 +380,7 @@ def post_solve(instance, outdir):
 
 
 def graph(tools):
-    costs_itemized = tools.get_dataframe(csv="costs_itemized")
+    costs_itemized = tools.get_dataframe("costs_itemized.csv")
     # Remove elements with zero cost
     costs_itemized = costs_itemized[costs_itemized['AnnualCost_Real'] != 0]
     costs_itemized = costs_itemized.pivot(columns="Component", index='PERIOD', values="AnnualCost_Real")

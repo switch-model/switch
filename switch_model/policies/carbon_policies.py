@@ -184,7 +184,7 @@ def post_solve(model, outdir):
 
 
 def graph(tools):
-    df_emissions = tools.get_dataframe(csv="emissions")
+    df_emissions = tools.get_dataframe("emissions.csv")
     # Plot emissions over time
     df_emissions['AnnualEmissions_tCO2_per_yr'] *= 1e-6
     ax = tools.get_new_axes(out="emissions", title="Emissions per period")

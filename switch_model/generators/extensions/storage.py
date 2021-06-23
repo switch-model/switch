@@ -450,7 +450,7 @@ def graph_dispatch(tools):
     # Aggregate by timepoint
     df = df.groupby("timepoint", as_index=False).sum()
     # Add datetime column
-    df = tools.add_timestamp_info(df, timestamp_col="timepoint")
+    df = tools.transform.from_timestamp(df, timestamp_col="timepoint")
     # Find charge in GWh
     df["charge"] = df["StateOfCharge"] / 1000
     # Plot with plotnine
@@ -500,10 +500,10 @@ def graph_buildout(tools):
     """
     Create graphs relating to the storage that has been built
     """
-    df = tools.get_dataframe(csv="storage_builds.csv")
+    df = tools.get_dataframe("storage_builds.csv")
     df["duration"] = df["IncrementalEnergyCapacityMWh"] / df["IncrementalPowerCapacityMW"]
     df["power"] = df["IncrementalPowerCapacityMW"] / 1000
-    df = tools.map_build_year(df)
+    df = tools.transform.build_year(df)
     pn = tools.pn
     plot = pn.ggplot(
         df,
