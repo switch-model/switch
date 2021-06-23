@@ -76,7 +76,9 @@ setup(
         "gurobipy",  # used to provided python bindings for Gurobi for faster solving
         "pyyaml",  # used to read configurations for switch
         "matplotlib",
-        "seaborn"
+        "seaborn",
+        "plotnine",
+        "scipy",
     ],
     extras_require={
         # packages used for advanced demand response, progressive hedging

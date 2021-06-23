@@ -15,6 +15,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 import seaborn as sns
 import matplotlib
+import plotnine
 
 # Local imports
 from switch_model.utilities import StepTimer, get_module_list
@@ -99,6 +100,7 @@ class GraphTools:
         self.pd = pd
         self.np = np
         self.mplt = matplotlib
+        self.pn = plotnine
 
         self.folders = _GraphDataFolder
 
@@ -113,9 +115,11 @@ class GraphTools:
         Reads a csv file for every scenario and returns a single dataframe containing
         the rows from every scenario with a column for the scenario name and index.
         """
+        if len(csv) < 5 or csv[-4:] != ".csv":
+            csv += ".csv"
         df_all_scenarios: List[pd.DataFrame] = []
         for i, scenario in enumerate(self._scenarios):
-            df = pd.read_csv(os.path.join(scenario.path, folder, csv + ".csv"), index_col=False)
+            df = pd.read_csv(os.path.join(scenario.path, folder, csv), index_col=False)
             df['scenario_name'] = scenario.name
             df['scenario_index'] = i
             df_all_scenarios.append(df)
@@ -145,12 +149,12 @@ class GraphTools:
         return fig, ax
 
     @staticmethod
-    def _create_figure(out, title=None, note=None, size=None, xlabel=None, ylabel=None, **kwargs):
+    def _create_figure(name, title=None, note=None, size=None, xlabel=None, ylabel=None, **kwargs):
         fig = plt.figure(**kwargs)
 
         # Set a title for the figure
         if title is None:
-            warnings.warn(f"No title set for graph {out}.csv. Specify 'title=' in get_new_axes() or get_new_figure().")
+            warnings.warn(f"No title set for graph {name}.csv. Specify 'title=' in get_new_axes() or get_new_figure().")
         else:
             fig.suptitle(title)
 
@@ -178,15 +182,18 @@ class GraphTools:
         return self._module_figures[out][1][0 if self._is_compare_mode else self._active_scenario]
 
     def get_new_figure(self, out, *args, **kwargs):
-        # Append the scenario name to the file name if we have multiple scenarios
-        if self._num_scenarios > 1:
-            out += "_" + self._scenarios[self._active_scenario].name
         # Create the figure
         fig = self._create_figure(out, *args, **kwargs)
         # Save it to the outputs
-        self._module_figures[out] = (fig, None)
+        self.save_figure(out, fig)
         # Return the figure
         return fig
+
+    def save_figure(self, out, fig):
+        # Append the scenario name to the file name if we have multiple scenarios
+        if self._num_scenarios > 1:
+            out += "_" + self._scenarios[self._active_scenario].name
+        self._module_figures[out] = (fig, None)
 
     def get_dataframe(self, csv, folder=_GraphDataFolder.OUTPUTS):
         """Returns the dataframe for the active scenario. """
@@ -257,6 +264,14 @@ class GraphTools:
             validate="many_to_one"
         )
 
+    def map_build_year(self, df):
+        periods = self.get_dataframe("periods", folder=self.folders.INPUTS)
+        periods = periods["INVESTMENT_PERIOD"].astype("str")
+        df["build_year"] = df["build_year"].apply(
+            lambda b: str(b) if str(b) in periods.values else "Pre-existing"
+        ).astype("category")
+        return df
+
     def get_colors(self, n=None, map_name='default'):
         """
         Returns an object that can be passed to color= when doing a bar plot.
@@ -303,13 +318,8 @@ class GraphTools:
         )
 
         # Add hour column
-        df["hour"] = pd.to_datetime(df[timestamp_col], format="%Y%m%d%H") \
-            .dt \
-            .tz_localize("utc") \
-            .dt \
-            .tz_convert("US/Pacific") \
-            .dt \
-            .hour
+        df["datetime"] = pd.to_datetime(df[timestamp_col], format="%Y%m%d%H").dt.tz_localize("utc").dt.tz_convert("US/Pacific")
+        df["hour"] = df["datetime"].dt.hour
 
         return df
 

@@ -7,6 +7,7 @@ generators, adding components for deciding how much energy to build into
 storage, when to charge, energy accounting, etc.
 """
 import math
+import scipy
 
 from pyomo.environ import *
 import os, collections
@@ -429,10 +430,98 @@ def post_solve(instance, outdir):
     reporting.write_table(
         instance, instance.STORAGE_GEN_TPS,
         output_file=os.path.join(outdir, "storage_dispatch.csv"),
+        # TODO renaming heading to timestamp (and update graphing accordingly)
         headings=("generation_project", "timepoint", "load_zone",
                   "ChargeMW", "DischargeMW", "StateOfCharge"),
         values=lambda m, g, t: (
             g, m.tp_timestamp[t], m.gen_load_zone[g],
             m.ChargeStorage[g, t], m.DispatchGen[g, t],
             m.StateOfCharge[g, t]
-            ))
+        ))
+
+
+def graph(tools):
+    graph_dispatch(tools)
+    graph_buildout(tools)
+
+
+def graph_dispatch(tools):
+    df = tools.get_dataframe("storage_dispatch")
+    # Aggregate by timepoint
+    df = df.groupby("timepoint", as_index=False).sum()
+    # Add datetime column
+    df = tools.add_timestamp_info(df, timestamp_col="timepoint")
+    # Find charge in GWh
+    df["charge"] = df["StateOfCharge"] / 1000
+    # Plot with plotnine
+    pn = tools.pn
+    plot = pn.ggplot(
+        df,
+        pn.aes(
+            x="datetime",
+            y="charge"
+        )
+    ) \
+           + pn.scale_color_gray() \
+           + pn.geom_line() \
+           + pn.labs(y="State of Charge (GWh)", x="Time of Year", title="State of Charge Throughout the Year")
+
+    tools.save_figure("state_of_charge", plot.draw())
+
+    # Storage Frequency graph
+    df = df.set_index("datetime")
+    df = df.sort_index()
+    charge = df["charge"].values
+    # TODO don't hardcode
+    timestep = (df.index[1] - df.index[0]).seconds / 3600
+    N = len(charge)
+    yfreq = tools.np.abs(scipy.fft.fft(charge, norm="forward"))
+    xfreq = scipy.fft.fftfreq(N, timestep)
+
+    # Drop negative frequencies and first value (0)
+    yfreq = yfreq[1:N // 2] * 2
+    xfreq = xfreq[1:N // 2]
+
+    # Plot
+    ax = tools.get_new_axes("storage_dispatch_frequency", title="Fourier transform of State of Charge")
+    ax.plot(xfreq, yfreq)
+    ax.set_xlabel("Cycles per hour")
+
+    # Plot
+    ax = tools.get_new_axes("storage_dispatch_cycle_duration",
+                            title="Storage cycle duration based on fourier transform"
+                                                                     " of state of charge")
+    ax.semilogx(1 / xfreq, yfreq)
+    ax.set_xlabel("Hours per cycle")
+    ax.grid(True, which="both", axis="x")
+
+
+def graph_buildout(tools):
+    """
+    Create graphs relating to the storage that has been built
+    """
+    df = tools.get_dataframe(csv="storage_builds.csv")
+    df["duration"] = df["IncrementalEnergyCapacityMWh"] / df["IncrementalPowerCapacityMW"]
+    df["power"] = df["IncrementalPowerCapacityMW"] / 1000
+    df = tools.map_build_year(df)
+    pn = tools.pn
+    plot = pn.ggplot(
+        df,
+        pn.aes(x='duration', y="power",
+               color="build_year")) \
+           + pn.geom_point() \
+           + pn.labs(title="Storage Buildout", color="Period", x="Duration (h)", y="Power Capacity (GW)")
+
+    tools.save_figure("storage_duration", plot.draw())
+
+    plot = pn.ggplot(
+        df,
+        pn.aes(
+            x="duration",
+            weight="power",
+            color="build_year"
+        )) \
+           + pn.geom_density(pn.aes(weight="power")) \
+           + pn.labs(title="Storage Duration Density", color="Period", x="Duration (h)", y="Density")
+
+    tools.save_figure("storage_duration_density", plot.draw())
