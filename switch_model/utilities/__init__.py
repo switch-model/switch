@@ -7,12 +7,15 @@ Utility functions for Switch.
 from __future__ import print_function
 
 import os, types, sys, argparse, time, datetime, traceback, subprocess, platform
+import warnings
 
 import switch_model.__main__ as main
 from pyomo.environ import *
 from pyomo.core.base.set import UnknownSetDimen
 from pyomo.dataportal import DataManagerFactory
 from pyomo.dataportal.plugins.csv_table import CSVTable
+
+from switch_model.utilities.results_info import add_info, ResultsInfoSection
 from switch_model.utilities.scaling import _ScaledVariable, _get_unscaled_expression
 import pyomo.opt
 
@@ -957,28 +960,14 @@ def run_command(command):
     )
 
 
-def get_git_hash():
-    return run_command("git rev-parse HEAD")
-
-
-def get_git_branch():
-    return run_command("git rev-parse --abbrev-ref HEAD")
-
-
-def create_info_file(output_path, run_time=None):
-    content = ""
-    content += f"End date: {datetime.datetime.now().strftime('%Y-%m-%d')}\n"
-    content += f"End time: {datetime.datetime.now().strftime('%H:%M:%S')}\n"
+def add_git_info():
     try:
-        content += f"SWITCH Git Commit Hash: {get_git_hash()}\n"
-        content += f"SWITCH Git Branch: {get_git_branch()}\n"
+        commit_num = run_command("git rev-parse HEAD")
+        branch = run_command("git rev-parse --abbrev-ref HEAD")
+        add_info("Git Commit", commit_num, section=ResultsInfoSection.GENERAL)
+        add_info("Git Branch", branch, section=ResultsInfoSection.GENERAL)
     except:
-        print("Warning: failed to get commit hash or branch for info.txt.")
-    if run_time is not None:
-        content += f"Run time: {run_time}\n"
-    content += f"Host name: {platform.node()}\n"
-    with open(os.path.join(output_path, "info.txt"), "w") as f:
-        f.write(content)
+        warnings.warn("Failed to get Git Branch or Commit Hash for info.txt.")
 
 
 def get_module_list(args=None, include_solve_module=True):
