@@ -21,15 +21,6 @@ import plotnine
 from switch_model.utilities import StepTimer, get_module_list
 
 
-class _GraphDataFolder:
-    """
-    Accessible via tools.folders.OUTPUTS or tools.folders.INPUTS.
-    """
-
-    OUTPUTS = "outputs"
-    INPUTS = "inputs"
-
-
 class Scenario:
     """
     Stores the information related to a scenario such as the scenario name (used while graphing)
@@ -57,6 +48,111 @@ class Scenario:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         os.chdir(Scenario.root_path)
+
+
+class TransformTools:
+    """
+    Provides helper functions that transform dataframes
+    to add value. Can be accessed via tools.transform in graph() functions.
+    """
+
+    def __init__(self, graph_tools):
+        self.tools = graph_tools
+
+    def gen_type(
+        self,
+        df: pd.DataFrame,
+        map_name="default",
+        gen_tech_col="gen_tech",
+        energy_source_col="gen_energy_source",
+    ):
+        """
+        Returns a dataframe that contains a column 'gen_type'.
+
+        By default 'gen_type' is the aggregation of 'gen_tech' + 'gen_energy_source'
+        however this can be overidden in graph_tech_types.csv
+        """
+        # If there's no mapping, we simply make the mapping the sum of both columns
+        # Read the tech_colors and tech_types csv files.
+        try:
+            tech_types = self.tools.get_dataframe(
+                "graph_tech_types.csv", from_inputs=True
+            )
+        except FileNotFoundError:
+            df = df.copy()
+            df["gen_type"] = df[gen_tech_col] + "_" + df[energy_source_col]
+            return df
+        filtered_tech_types = tech_types[tech_types["map_name"] == map_name][
+            ["gen_tech", "energy_source", "gen_type"]
+        ]
+        return df.merge(
+            filtered_tech_types,
+            left_on=[gen_tech_col, energy_source_col],
+            right_on=["gen_tech", "energy_source"],
+            validate="many_to_one",
+        )
+
+    def build_year(self, df):
+        """
+        Replaces all the build years that aren't a period with the value "Pre-existing".
+        """
+        # Get list of valid periods
+        periods = self.tools.get_dataframe("periods", from_inputs=True)[
+            "INVESTMENT_PERIOD"
+        ].astype("str")
+        df = df.copy()  # Make copy to not modify source
+        df["build_year"] = (
+            df["build_year"]
+            .apply(lambda b: str(b) if str(b) in periods.values else "Pre-existing")
+            .astype("category")
+        )
+        return df
+
+    def from_timestamp(self, df, timestamp_col="timestamp"):
+        """
+        Adds the following columns to the dataframe:
+        - time_row: by default the period but can be overridden by graph_timestamp_map.csv
+        - time_column: by default the timeseries but can be overridden by graph_timestamp_map.csv
+        - datetime: timestamp formatted as a US/Pacific Datetime object
+        - hour: The hour of the timestamp (US/Pacific timezone)
+        """
+        try:
+            timestamp_mapping = self.tools.get_dataframe(
+                "graph_timestamp_map.csv", from_inputs=True
+            )
+        except FileNotFoundError:
+            timepoints = self.tools.get_dataframe("timepoints.csv", from_inputs=True)
+            timeseries = self.tools.get_dataframe(
+                csv="timeseries.csv", from_inputs=True
+            )
+
+            timepoints = timepoints.merge(
+                timeseries,
+                how="left",
+                left_on="timeseries",
+                right_on="TIMESERIES",
+                validate="many_to_one",
+            )
+
+            timestamp_mapping = timepoints[["timestamp", "ts_period", "timeseries"]]
+            timestamp_mapping.columns = ["timestamp", "time_row", "time_column"]
+
+        df = df.merge(
+            timestamp_mapping,
+            how="left",
+            left_on=timestamp_col,
+            right_on="timestamp",
+        )
+
+        # Add datetime and hour column
+        df["datetime"] = (
+            pd.to_datetime(df[timestamp_col], format="%Y%m%d%H")
+            .dt.tz_localize("utc")
+            .dt.tz_convert("US/Pacific")
+        )
+        df["hour"] = df["datetime"].dt.hour
+
+        return df
 
 
 class GraphTools:
@@ -107,24 +203,22 @@ class GraphTools:
         self.mplt = matplotlib
         self.pn = plotnine
 
-        self.folders = _GraphDataFolder
-
         # Set the style to Seaborn default style
         sns.set()
 
         # Disables pandas warnings that will occur since we are constantly returning only a slice of our master dataframe
         pd.options.mode.chained_assignment = None
 
-    def _load_dataframe(self, csv, folder):
+        self.transform = TransformTools(self)
+
+    def _load_dataframe(self, path):
         """
         Reads a csv file for every scenario and returns a single dataframe containing
         the rows from every scenario with a column for the scenario name and index.
         """
-        if len(csv) < 5 or csv[-4:] != ".csv":
-            csv += ".csv"
         df_all_scenarios: List[pd.DataFrame] = []
         for i, scenario in enumerate(self._scenarios):
-            df = pd.read_csv(os.path.join(scenario.path, folder, csv), index_col=False)
+            df = pd.read_csv(os.path.join(scenario.path, path), index_col=False)
             df["scenario_name"] = scenario.name
             df["scenario_index"] = i
             df_all_scenarios.append(df)
@@ -208,18 +302,28 @@ class GraphTools:
             out += "_" + self._scenarios[self._active_scenario].name
         self._module_figures[out] = (fig, None)
 
-    def get_dataframe(self, csv, folder=_GraphDataFolder.OUTPUTS):
+    def get_dataframe(self, csv, folder=None, from_inputs=False):
         """Returns the dataframe for the active scenario."""
-        if csv not in self._dfs:
-            self._dfs[csv] = self._load_dataframe(csv, folder)
+        # Add file extension of missing
+        if len(csv) < 5 or csv[-4:] != ".csv":
+            csv += ".csv"
+        # Select folder if not specified
+        if folder is None:
+            folder = "inputs" if from_inputs else "outputs"
+        # Get dataframe path
+        path = os.path.join(folder, csv)
 
-        df_copy = self._dfs[csv].copy()  # We return a copy so the source isn't modified
+        # If doesn't exist, create it
+        if path not in self._dfs:
+            self._dfs[path] = self._load_dataframe(path)
+
+        df = self._dfs[path].copy()  # We return a copy so the source isn't modified
 
         # If we're not comparing, we only return the rows corresponding to the active scenario
         if not self._is_compare_mode:
-            df_copy = df_copy[df_copy["scenario_index"] == self._active_scenario]
+            df = df[df["scenario_index"] == self._active_scenario]
 
-        return df_copy
+        return df
 
     def graph_module(self, func_graph):
         """Runs the graphing function for each comparison run"""
@@ -252,51 +356,6 @@ class GraphTools:
         # Reset our module_figures dict
         self._module_figures = {}
 
-    def get_active_scenario_path(self):
-        """Returns the path of the current scenario folder."""
-        return self._scenarios[self._active_scenario].path
-
-    def add_gen_type_column(
-        self,
-        df: pd.DataFrame,
-        map_name="default",
-        gen_tech_col="gen_tech",
-        energy_source_col="gen_energy_source",
-    ):
-        """
-        Returns a dataframe that contains a column called gen_type which
-        is essentially a group of the gen_tech and gen_energy_source columns.
-        """
-        # If there's no mapping, we simply make the mapping the sum of both columns
-        # Read the tech_colors and tech_types csv files.
-        try:
-            tech_types = self.get_dataframe(
-                csv="graph_tech_types", folder=self.folders.INPUTS
-            )
-        except FileNotFoundError:
-            df = df.copy()
-            df["gen_type"] = df[gen_tech_col] + "_" + df[energy_source_col]
-            return df
-        filtered_tech_types = tech_types[tech_types["map_name"] == map_name][
-            ["gen_tech", "energy_source", "gen_type"]
-        ]
-        return df.merge(
-            filtered_tech_types,
-            left_on=[gen_tech_col, energy_source_col],
-            right_on=["gen_tech", "energy_source"],
-            validate="many_to_one",
-        )
-
-    def map_build_year(self, df):
-        periods = self.get_dataframe("periods", folder=self.folders.INPUTS)
-        periods = periods["INVESTMENT_PERIOD"].astype("str")
-        df["build_year"] = (
-            df["build_year"]
-            .apply(lambda b: str(b) if str(b) in periods.values else "Pre-existing")
-            .astype("category")
-        )
-        return df
-
     def get_colors(self, n=None, map_name="default"):
         """
         Returns an object that can be passed to color= when doing a bar plot.
@@ -305,7 +364,7 @@ class GraphTools:
         """
         try:
             tech_colors = self.get_dataframe(
-                csv="graph_tech_colors", folder=self.folders.INPUTS
+                csv="graph_tech_colors.csv", from_inputs=True
             )
         except:
             return None
@@ -320,60 +379,15 @@ class GraphTools:
                 r["gen_type"]: r["color"] for _, r in filtered_tech_colors.iterrows()
             }
 
-    def add_timestamp_info(self, df, timestamp_col="timestamp"):
-        """
-        Adds two time dimensions to the table as well as the timestamp weight.
-        Can read the dimensions from graph_timestamps.csv.
-        graph_timestamps.csv should have columns timestamp,time_1,time_2,weight
-        """
-        try:
-            timestamp_mapping = self.get_dataframe(
-                csv="graph_timestamp_map", folder=self.folders.INPUTS
-            )
-        except FileNotFoundError:
-            timepoints = self.get_dataframe(
-                csv="timepoints", folder=self.folders.INPUTS
-            )
-            timeseries = self.get_dataframe(
-                csv="timeseries", folder=self.folders.INPUTS
-            )
-
-            timepoints = timepoints.merge(
-                timeseries,
-                how="left",
-                left_on="timeseries",
-                right_on="TIMESERIES",
-                validate="many_to_one",
-            )
-
-            timestamp_mapping = timepoints[["timestamp", "ts_period", "timeseries"]]
-            timestamp_mapping.columns = ["timestamp", "time_row", "time_column"]
-        df = df.merge(
-            timestamp_mapping,
-            how="left",
-            left_on=timestamp_col,
-            right_on="timestamp",
-        )
-
-        # Add hour column
-        df["datetime"] = (
-            pd.to_datetime(df[timestamp_col], format="%Y%m%d%H")
-            .dt.tz_localize("utc")
-            .dt.tz_convert("US/Pacific")
-        )
-        df["hour"] = df["datetime"].dt.hour
-
-        return df
-
     def graph_time_matrix(self, df, value_column, out, title, ylabel):
         # Add the technology type column and filter out unneeded columns
-        df = self.add_gen_type_column(df)
+        df = self.transform.gen_type(df)
         # Keep only important columns
         df = df[["gen_type", "timestamp", value_column]]
         # Sum the values for all technology types and timepoints
         df = df.groupby(["gen_type", "timestamp"], as_index=False).sum()
         # Add the columns time_row and time_column
-        df = self.add_timestamp_info(df)
+        df = self.transform.from_timestamp(df)
         # Sum across all technologies that are in the same hour and quarter
         df = df.groupby(
             ["hour", "gen_type", "time_column", "time_row"], as_index=False

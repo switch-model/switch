@@ -283,8 +283,8 @@ def post_solve(instance, outdir):
 
 
 def graph(tools):
-    load_balance = tools.get_dataframe(csv="load_balance")
-    load_balance = tools.add_timestamp_info(load_balance)
+    load_balance = tools.get_dataframe("load_balance.csv")
+    load_balance = tools.transform.from_timestamp(load_balance)
     load_balance["energy_balance_duals"] = (
         tools.pd.to_numeric(
             load_balance["normalized_energy_balance_duals_dollar_per_mwh"],

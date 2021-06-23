@@ -132,7 +132,7 @@ def post_solve(instance, outdir):
 
 def graph(tools):
     dispatch = tools.get_dataframe("transmission_dispatch")
-    dispatch = tools.add_timestamp_info(dispatch)
+    dispatch = tools.transform.from_timestamp(dispatch)
     dispatch["transmission_limit_dual"] = tools.pd.to_numeric(
         dispatch["transmission_limit_dual"], errors="coerce"
     )
