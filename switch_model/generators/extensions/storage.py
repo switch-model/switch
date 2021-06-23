@@ -462,7 +462,6 @@ def graph_dispatch(tools):
             y="charge"
         )
     ) \
-           + pn.scale_color_gray() \
            + pn.geom_line() \
            + pn.labs(y="State of Charge (GWh)", x="Time of Year", title="State of Charge Throughout the Year")
 
@@ -501,8 +500,10 @@ def graph_buildout(tools):
     Create graphs relating to the storage that has been built
     """
     df = tools.get_dataframe("storage_builds.csv")
-    df["duration"] = df["IncrementalEnergyCapacityMWh"] / df["IncrementalPowerCapacityMW"]
     df["power"] = df["IncrementalPowerCapacityMW"] / 1000
+    # Filter out rows where there's no power built
+    df = df[df["power"] != 0]
+    df["duration"] = df["IncrementalEnergyCapacityMWh"] / df["IncrementalPowerCapacityMW"]
     df = tools.transform.build_year(df)
     pn = tools.pn
     plot = pn.ggplot(
