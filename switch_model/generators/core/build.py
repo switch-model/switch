@@ -634,7 +634,7 @@ def graph(tools):
     # generation_capacity_per_period.png #
     # ---------------------------------- #
     # Get a new set of axis to create a breakdown of the generation capacity
-    ax = tools.get_new_axes(out="generation_capacity_per_period", title="Online generating capacity by period")
+    ax = tools.get_axes(out="generation_capacity_per_period", title="Online generating capacity by period")
     # Load gen_cap.csv
     gen_cap = tools.get_dataframe("gen_cap.csv")
     # Map energy sources to technology type
@@ -705,7 +705,7 @@ def graph_buildout_per_tech(tools, gen_cap):
     # Add a * to tech
     df = df.rename(lambda c: f"{c}*" if c in unlimited_gen_types.values else c, axis='columns')
     # Get axes to graph on
-    ax = tools.get_new_axes(
+    ax = tools.get_axes(
         out="gen_buildout_per_tech_no_pred", title="Buildout relative to max allowed for period",
         note="\nNote 1: This graph excludes predetermined buildout and projects that have no capacity limit."
              "\nTechnologies that contain projects with no capacity limit are marked by a * and their graphs may"

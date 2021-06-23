@@ -360,7 +360,7 @@ def graph(tools):
     transmission = transmission.groupby("PERIOD").sum()["TxCapacityNameplate"]
     transmission *= 1e-3
 
-    ax = tools.get_new_axes(
+    ax = tools.get_axes(
         out="transmission_capacity",
         title="Transmission capacity per period"
     )
