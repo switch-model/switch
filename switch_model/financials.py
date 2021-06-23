@@ -410,7 +410,7 @@ def graph(tools):
     )
     costs_itemized *= 1e-9
     costs_itemized = costs_itemized.sort_values(axis=1, by=costs_itemized.index[-1])
-    ax = tools.get_new_axes(out="costs", title="Itemized costs per period")
+    ax = tools.get_axes(out="costs", title="Itemized costs per period")
     costs_itemized.plot(
         ax=ax,
         kind="bar",

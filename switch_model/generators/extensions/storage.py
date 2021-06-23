@@ -520,7 +520,7 @@ def graph_dispatch(tools):
     # Aggregate by timepoint
     df = df.groupby("timepoint", as_index=False).sum()
     # Add datetime column
-    df = tools.transform.from_timestamp(df, timestamp_col="timepoint")
+    df = tools.transform.timestamp(df, timestamp_col="timepoint")
     # Find charge in GWh
     df["charge"] = df["StateOfCharge"] / 1000
     # Plot with plotnine
@@ -552,14 +552,14 @@ def graph_dispatch(tools):
     xfreq = xfreq[1 : N // 2]
 
     # Plot
-    ax = tools.get_new_axes(
+    ax = tools.get_axes(
         "storage_dispatch_frequency", title="Fourier transform of State of Charge"
     )
     ax.plot(xfreq, yfreq)
     ax.set_xlabel("Cycles per hour")
 
     # Plot
-    ax = tools.get_new_axes(
+    ax = tools.get_axes(
         "storage_dispatch_cycle_duration",
         title="Storage cycle duration based on fourier transform" " of state of charge",
     )

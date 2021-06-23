@@ -132,7 +132,7 @@ def post_solve(instance, outdir):
 
 def graph(tools):
     dispatch = tools.get_dataframe("transmission_dispatch")
-    dispatch = tools.transform.from_timestamp(dispatch)
+    dispatch = tools.transform.timestamp(dispatch)
     dispatch["transmission_limit_dual"] = tools.pd.to_numeric(
         dispatch["transmission_limit_dual"], errors="coerce"
     )
@@ -141,7 +141,7 @@ def graph(tools):
     # Multiply the duals by -1 since the formulation gives negative duals
     dispatch *= -1
     if dispatch.count().sum() != 0:
-        ax = tools.get_new_axes(
+        ax = tools.get_axes(
             "transmission_limit_duals", title="Transmission limit duals per period"
         )
         dispatch.plot.box(

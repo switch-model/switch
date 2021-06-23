@@ -654,7 +654,7 @@ def graph_total_dispatch(tools):
     # Give proper name for legend
     total_dispatch = total_dispatch.rename_axis("Type", axis=1)
     # Get axis
-    ax = tools.get_new_axes(out="total_dispatch", title="Total dispatched electricity")
+    ax = tools.get_axes(out="total_dispatch", title="Total dispatched electricity")
     # Plot
     total_dispatch.plot(
         kind="bar",
@@ -690,7 +690,7 @@ def graph_curtailment_per_tech(tools):
     # Set the name of the legend.
     df = df.rename_axis("Type", axis="columns")
     # Get axes to graph on
-    ax = tools.get_new_axes(
+    ax = tools.get_axes(
         out="curtailment_per_period",
         title="Percent of total dispatchable capacity curtailed",
     )

@@ -267,7 +267,7 @@ def graph(tools):
     df_emissions = tools.get_dataframe("emissions.csv")
     # Plot emissions over time
     df_emissions["AnnualEmissions_tCO2_per_yr"] *= 1e-6
-    ax = tools.get_new_axes(out="emissions", title="Emissions per period")
+    ax = tools.get_axes(out="emissions", title="Emissions per period")
     tools.sns.barplot(
         x="PERIOD",
         y="AnnualEmissions_tCO2_per_yr",
@@ -278,7 +278,7 @@ def graph(tools):
     ax.set_ylabel("CO2 Emissions (MMtCO2/yr)")
 
     # Plot emissions dual values
-    ax = tools.get_new_axes(
+    ax = tools.get_axes(
         out="emissions_duals", title="Carbon cap dual values per period"
     )
     df_emissions[

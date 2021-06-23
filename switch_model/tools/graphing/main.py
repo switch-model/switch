@@ -56,7 +56,8 @@ class TransformTools:
     to add value. Can be accessed via tools.transform in graph() functions.
     """
 
-    def __init__(self, graph_tools):
+    def __init__(self, graph_tools, time_zone="US/Pacific"):
+        self.time_zone = time_zone
         self.tools = graph_tools
 
     def gen_type(
@@ -92,7 +93,7 @@ class TransformTools:
             validate="many_to_one",
         )
 
-    def build_year(self, df):
+    def build_year(self, df, build_year_col="build_year"):
         """
         Replaces all the build years that aren't a period with the value "Pre-existing".
         """
@@ -101,14 +102,14 @@ class TransformTools:
             "INVESTMENT_PERIOD"
         ].astype("str")
         df = df.copy()  # Make copy to not modify source
-        df["build_year"] = (
-            df["build_year"]
+        df[build_year_col] = (
+            df[build_year_col]
             .apply(lambda b: str(b) if str(b) in periods.values else "Pre-existing")
             .astype("category")
         )
         return df
 
-    def from_timestamp(self, df, timestamp_col="timestamp"):
+    def timestamp(self, df, timestamp_col="timestamp"):
         """
         Adds the following columns to the dataframe:
         - time_row: by default the period but can be overridden by graph_timestamp_map.csv
@@ -148,7 +149,7 @@ class TransformTools:
         df["datetime"] = (
             pd.to_datetime(df[timestamp_col], format="%Y%m%d%H")
             .dt.tz_localize("utc")
-            .dt.tz_convert("US/Pacific")
+            .dt.tz_convert(self.time_zone)
         )
         df["hour"] = df["datetime"].dt.hour
 
@@ -277,7 +278,7 @@ class GraphTools:
 
         return fig
 
-    def get_new_axes(self, out, *args, **kwargs):
+    def get_axes(self, out, *args, **kwargs):
         """Returns a set of matplotlib axes that can be used to graph."""
         # If we're on the first scenario, we want to create the set of axes
         if self._is_compare_mode or self._active_scenario == 0:
@@ -288,9 +289,9 @@ class GraphTools:
             0 if self._is_compare_mode else self._active_scenario
         ]
 
-    def get_new_figure(self, out, *args, **kwargs):
+    def get_figure(self, out, *args, **kwargs):
         # Create the figure
-        fig = self._create_figure(out, *args, **kwargs)
+        fig = GraphTools._create_figure(out, *args, **kwargs)
         # Save it to the outputs
         self.save_figure(out, fig)
         # Return the figure
@@ -387,7 +388,7 @@ class GraphTools:
         # Sum the values for all technology types and timepoints
         df = df.groupby(["gen_type", "timestamp"], as_index=False).sum()
         # Add the columns time_row and time_column
-        df = self.transform.from_timestamp(df)
+        df = self.transform.timestamp(df)
         # Sum across all technologies that are in the same hour and quarter
         df = df.groupby(
             ["hour", "gen_type", "time_column", "time_row"], as_index=False
@@ -400,7 +401,7 @@ class GraphTools:
             columns = df[df["time_row"] == row]["time_column"].drop_duplicates()
             ncols = max(ncols, len(columns))
         ncols = min(ncols, 8)
-        fig = self.get_new_figure(
+        fig = self.get_figure(
             out=out,
             title=title,
             size=(10 * ncols / nrows, 8),
