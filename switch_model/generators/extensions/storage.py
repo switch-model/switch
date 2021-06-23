@@ -515,14 +515,16 @@ def graph_buildout(tools):
 
     tools.save_figure("storage_duration", plot.draw())
 
-    plot = pn.ggplot(
-        df,
-        pn.aes(
-            x="duration",
-            weight="power",
-            color="build_year"
-        )) \
-           + pn.geom_density(pn.aes(weight="power")) \
-           + pn.labs(title="Storage Duration Density", color="Period", x="Duration (h)", y="Density")
+    # It doesn't make much sense to plot build density if we don't even have 5 data points
+    if len(df) > 5:
+        plot = pn.ggplot(
+            df,
+            pn.aes(
+                x="duration",
+                weight="power",
+                color="build_year"
+            )) \
+               + pn.geom_density(pn.aes(weight="power")) \
+               + pn.labs(title="Storage Duration Density", color="Period", x="Duration (h)", y="Density")
 
-    tools.save_figure("storage_duration_density", plot.draw())
+        tools.save_figure("storage_duration_density", plot.draw())
