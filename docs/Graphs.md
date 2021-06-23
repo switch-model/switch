@@ -59,6 +59,9 @@ In `graph()` you can use the `tools` object to create graphs. Here are some impo
   - `tools.transform.timestamp(df)`: which adds columns such as the hour, the timestamp in datetime format
   in the correct timezone, etc.
     
+  - `tools.transform.load_zone(df)`: Adds a column called 'region' to the dataframe which
+  normally corresponds to the load zone state.
+    
 - `tools.get_colors()` returns a mapping of `gen_type` to its color. This is useful for graphing and can normally be
   passed straight to `color=` in standard plotting libraries. The color mapping is based on `inputs/graph_tech_colors.csv`.
 
