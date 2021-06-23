@@ -35,5 +35,8 @@ get_inputs:
   #  rps_scenario_id:
   #  enable_dr:
   #  enable_ev:
+  #  transmission_base_capital_cost_scenario_id:
   #  ca_policies_scenario_id:
   #  enable_planning_reserves:
+  #  generation_plant_technologies_scenario_id:
+  #  variable_o_m_cost_scenario_id:
