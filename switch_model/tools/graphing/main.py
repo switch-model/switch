@@ -308,6 +308,8 @@ class GraphTools:
         # If we're not comparing, we only return the rows corresponding to the active scenario
         if not self._is_compare_mode:
             df = df[df['scenario_index'] == self._active_scenario]
+            df = df.drop("scenario_index", axis=1).drop("scenario_name", axis=1)
+
 
         return df
 
@@ -440,6 +442,15 @@ class GraphTools:
         # Add the legend
         legend_pairs = legend.items()
         fig.legend([h for _, h in legend_pairs], [l for l, _ in legend_pairs])
+
+    @staticmethod
+    def sort_build_years(x):
+        def val(v):
+            r = v if v != "Pre-existing" else "000"
+            return r
+
+        xm = x.map(val)
+        return xm
 
 def graph_scenarios(scenarios: List[Scenario], graph_dir):
     # Start a timer
