@@ -201,7 +201,7 @@ def define_components(mod):
         and m.trans_capital_cost_per_mw_km != float("inf"),
     )
     mod.BuildTx = Var(mod.TRANS_BLD_YRS, within=NonNegativeReals)
-    mod.NewTxCapacityNameplate = Expression(
+    mod.NewTxCapacity = Expression(
         mod.TRANSMISSION_LINES,
         mod.PERIODS,
         rule=lambda m, tx, period: sum(
@@ -213,8 +213,7 @@ def define_components(mod):
     mod.TxCapacityNameplate = Expression(
         mod.TRANSMISSION_LINES,
         mod.PERIODS,
-        rule=lambda m, tx, p: m.NewTxCapacityNameplate[tx, p]
-        + m.existing_trans_cap[tx],
+        rule=lambda m, tx, p: m.NewTxCapacity[tx, p] + m.existing_trans_cap[tx],
     )
     mod.trans_derating_factor = Param(
         mod.TRANSMISSION_LINES, within=PercentFraction, default=1
@@ -249,11 +248,16 @@ def define_components(mod):
     # function. Units should be total annual future costs in $base_year
     # real dollars. The objective function will convert these to
     # base_year Net Present Value in $base_year real dollars.
+    mod.TxLineCosts = Expression(
+        mod.TRANS_BLD_YRS,
+        rule=lambda m, tx, p: m.NewTxCapacity[tx, p] * m.trans_cost_annual[tx],
+    )
     mod.TxFixedCosts = Expression(
         mod.PERIODS,
         rule=lambda m, p: sum(
-            m.NewTxCapacityNameplate[tx, p] * m.trans_cost_annual[tx]
+            m.TxLineCosts[tx, p]
             for tx in m.TRANSMISSION_LINES
+            if (tx, p) in m.TRANS_BLD_YRS
         ),
     )
     mod.Cost_Components_Per_Period.append("TxFixedCosts")
@@ -375,9 +379,7 @@ def post_solve(instance, outdir):
             "TxCapacityNameplateAvailable": value(
                 mod.TxCapacityNameplateAvailable[tx, p]
             ),
-            "TotalAnnualCost": value(
-                mod.TxCapacityNameplate[tx, p] * mod.trans_cost_annual[tx]
-            ),
+            "TotalAnnualCost": value(mod.TxLineCosts[tx, p]),
         }
         for tx, p in mod.TRANSMISSION_LINES * mod.PERIODS
     ]
