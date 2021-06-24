@@ -136,6 +136,15 @@ def main(run_post_solve=True, scenario_config=None, change_dir=True):
         "add_storage_info.csv", header=False
     )
 
+    # Add the storage types to the graphs
+    gen_type = gen_plants[["gen_tech", "gen_energy_source"]].drop_duplicates()
+    gen_type.columns = ["gen_tech", "energy_source"]
+    gen_type["map_name"] = "default"
+    gen_type["gen_type"] = "Storage"
+    pd.concat([pd.read_csv("graph_tech_types.csv", index_col=False), gen_type]).to_csv(
+        "graph_tech_types.csv", index=False
+    )
+
 
 if __name__ == "__main__":
     main()
