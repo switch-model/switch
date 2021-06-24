@@ -86,12 +86,17 @@ class TransformTools:
         filtered_tech_types = tech_types[tech_types["map_name"] == map_name][
             ["gen_tech", "energy_source", "gen_type"]
         ]
-        return df.merge(
+        df = df.merge(
             filtered_tech_types,
             left_on=[gen_tech_col, energy_source_col],
             right_on=["gen_tech", "energy_source"],
             validate="many_to_one",
+            how="left",
         )
+        df["gen_type"] = df["gen_type"].fillna(
+            "Other"
+        )  # Fill with Other so the colors still work
+        return df
 
     def build_year(self, df, build_year_col="build_year"):
         """
