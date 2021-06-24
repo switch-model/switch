@@ -911,6 +911,14 @@ def query_db(full_config, skip_cf):
         planning_reserves(db_cursor, time_sample_id, hydro_simple_scenario_id)
     create_modules_txt()
 
+    # Make graphing files
+    graph_config = os.path.join(os.path.dirname(__file__), "graph_config")
+    print("graph_tech_colors.csv...")
+    shutil.copy(os.path.join(graph_config, "graph_tech_colors.csv"), "graph_tech_colors.csv")
+    print("graph_tech_types.csv...")
+    shutil.copy(os.path.join(graph_config, "graph_tech_types.csv"), "graph_tech_types.csv")
+
+
 
 def ca_policies(db_cursor, ca_policies_scenario_id, study_timeframe_id):
     if ca_policies_scenario_id is None:
@@ -1027,12 +1035,6 @@ def create_modules_txt():
 
 def post_process():
     fix_prebuild_conflict_bug()
-    # Graphing post process
-    graph_config = os.path.join(os.path.dirname(__file__), "graph_config")
-    print("graph_tech_colors.csv...")
-    shutil.copy(os.path.join(graph_config, "graph_tech_colors.csv"), "graph_tech_colors.csv")
-    print("graph_tech_types.csv...")
-    shutil.copy(os.path.join(graph_config, "graph_tech_types.csv"), "graph_tech_types.csv")
     create_graph_timestamp_map()
     replace_plants_in_zone_all()
 
