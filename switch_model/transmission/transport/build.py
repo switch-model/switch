@@ -246,13 +246,13 @@ def define_components(mod):
     # real dollars. The objective function will convert these to
     # base_year Net Present Value in $base_year real dollars.
     mod.TxLineCosts = Expression(
-        mod.TRANS_BLD_YRS,
-        rule=lambda m, tx, p: m.NewTxCapacity[tx, p] * m.trans_cost_annual[tx]
+        mod.TRANSMISSION_LINES, mod.PERIODS,
+        rule=lambda m, tx, p: m.NewTxCapacity[tx, p] * m.trans_cost_annual[tx] if (tx, p) in m.TRANS_BLD_YRS else 0
     )
     mod.TxFixedCosts = Expression(
         mod.PERIODS,
         rule=lambda m, p: sum(
-            m.TxLineCosts[tx, p] for tx in m.TRANSMISSION_LINES if (tx, p) in m.TRANS_BLD_YRS
+            m.TxLineCosts[tx, p] for tx in m.TRANSMISSION_LINES
         )
     )
     mod.Cost_Components_Per_Period.append('TxFixedCosts')
