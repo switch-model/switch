@@ -253,7 +253,8 @@ def query_db(full_config, skip_cf):
             where
               sampled_timeseries.time_sample_id = {time_sample_id}
             order by
-              label;""",
+                label desc,
+                timeseries desc;""",
     )
 
     # timepoints.csv
