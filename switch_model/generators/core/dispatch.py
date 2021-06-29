@@ -496,10 +496,12 @@ def post_solve(instance, outdir):
 
 
 def graph(tools):
-    graph_hourly_dispatch(tools)
-    graph_curtailment_per_tech(tools)
-    graph_hourly_curtailment(tools)
-    graph_total_dispatch(tools)
+    # Dispatch plots take a long time to make, we skip them if the skip_long flag is True
+    if not tools.skip_long:
+        graph_curtailment_per_tech(tools)
+        graph_total_dispatch(tools)
+        graph_hourly_dispatch(tools)
+        graph_hourly_curtailment(tools)
 
 
 def graph_hourly_dispatch(tools):

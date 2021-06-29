@@ -12,6 +12,7 @@ from typing import List, Dict, Tuple
 # Third-party packages
 import numpy as np
 import pandas as pd
+from PIL import Image
 from matplotlib import pyplot as plt
 import seaborn as sns
 import matplotlib
@@ -155,7 +156,7 @@ class GraphTools:
     Provides utilities to make graphing easier and standardized.
     """
 
-    def __init__(self, scenarios: List[Scenario], graph_dir: str):
+    def __init__(self, scenarios: List[Scenario], graph_dir: str, skip_long: bool):
         """
         Create the GraphTools.
 
@@ -170,6 +171,7 @@ class GraphTools:
 
         self._scenarios: List[Scenario] = scenarios
         self.graph_dir = graph_dir
+        self.skip_long = skip_long
 
         # Here we store a mapping of csv file names to their dataframes.
         # Each dataframe has a column called 'scenario' that specifies which scenario
@@ -186,7 +188,7 @@ class GraphTools:
         # When in graph mode, we move between scenarios. This index specifies the current scenario
         self._active_scenario = None
         # Maps a file name to a tuple where the tuple holds (fig, axs), the matplotlib figure and axes
-        self._module_figures: Dict[str, Tuple] = {}
+        self._module_figures: Dict[str, List[Tuple]] = {}
 
         # Provide link to useful libraries
         self.sns = sns
@@ -251,8 +253,7 @@ class GraphTools:
         else:
             fig.suptitle(title)
 
-        if note is not None:
-            fig.text(0.5, -0.1, note, wrap=True, horizontalalignment='center', fontsize=10)
+        GraphTools._add_note(fig, note)
 
         # Set figure size based on numbers of subplots
         if size is not None:
@@ -265,28 +266,41 @@ class GraphTools:
 
         return fig
 
+    @staticmethod
+    def _add_note(fig, note):
+        if note is not None:
+            fig.text(0.5, -0.1, note, wrap=True, horizontalalignment='center', fontsize=10)
+
     def get_axes(self, out, *args, **kwargs):
         """Returns a set of matplotlib axes that can be used to graph."""
         # If we're on the first scenario, we want to create the set of axes
         if self._is_compare_mode or self._active_scenario == 0:
-            self._module_figures[out] = self._create_axes(out, *args, **kwargs)
+            self._module_figures[out] = [self._create_axes(out, *args, **kwargs)]
 
         # Fetch the axes in the (fig, axs) tuple then select the axis for the active scenario
-        return self._module_figures[out][1][0 if self._is_compare_mode else self._active_scenario]
+        return self._module_figures[out][0][1][0 if self._is_compare_mode else self._active_scenario]
 
     def get_figure(self, out, *args, **kwargs):
+        if "note" in kwargs:
+            raise NotImplementedError("Can't specify note= and get_figure since we"
+                                      " use the note field to specify the scenario.")
+        # Add the scenario name as the note
+        note = self._scenarios[self._active_scenario].name if self._num_scenarios > 1 else None
         # Create the figure
-        fig = GraphTools._create_figure(out, *args, **kwargs)
+        fig = GraphTools._create_figure(out, *args, note=note, **kwargs)
         # Save it to the outputs
         self.save_figure(out, fig)
         # Return the figure
         return fig
 
     def save_figure(self, out, fig):
-        # Append the scenario name to the file name if we have multiple scenarios
+        # If we have multiple scenarios, leave a note under each indicating the scenario
         if self._num_scenarios > 1:
-            out += "_" + self._scenarios[self._active_scenario].name
-        self._module_figures[out] = (fig, None)
+            self._add_note(fig, "Scenario: " + self._scenarios[self._active_scenario].name)
+        if out not in self._module_figures:
+            self._module_figures[out] = []
+        # Add the figure to the list of figures for that scenario
+        self._module_figures[out].append((fig, None))
 
     def get_dataframe(self, csv, folder=None, from_inputs=False):
         """Returns the dataframe for the active scenario. """
@@ -337,10 +351,50 @@ class GraphTools:
         self._save_plots()
 
     def _save_plots(self):
-        for name, (fig, _) in self._module_figures.items():
-            fig.savefig(os.path.join(self.graph_dir, name), bbox_inches="tight")
+        for name, figures in self._module_figures.items():
+            for i, (fig, _) in enumerate(figures):
+                out = name
+                # If we have multiple figures append an index to allow concat to work
+                if len(figures) > 1:
+                    out += "_" + str(i)
+                fig.savefig(os.path.join(self.graph_dir, out), bbox_inches="tight")
+            # If we have multiple figures, concat them into a single one
+            if len(figures) > 1:
+                GraphTools._concat_figures(os.path.join(self.graph_dir, name), len(figures))
         # Reset our module_figures dict
         self._module_figures = {}
+
+    @staticmethod
+    def _concat_figures(basepath, n):
+        """
+        This function merges n figures together side by side.
+        The figures must have the same base path and only differ in their suffix
+        (_0.png, _1.png, _2.png etc).
+        """
+        # Get the paths of each image
+        image_paths = tuple(basepath + "_" + str(i) + ".png" for i in range(n))
+        # Open each image
+        images = tuple(Image.open(path) for path in image_paths)
+
+        # Get the dimension of our final figure
+        height = max(map(lambda x: x.size[1], images))
+        width = sum(map(lambda x: x.size[0], images))
+
+        # Create our final figure
+        concated = Image.new("RGB", (width, height), "white")
+
+        # For each image, paste it into
+        x = 0
+        for image in images:
+            concated.paste(image, (x, 0))
+            x += image.size[0]
+
+        # Save the concated image
+        concated.save(basepath + ".png", "PNG")
+
+        # Delete the individual images
+        for image_path in image_paths:
+            os.remove(image_path)
 
     def get_colors(self, n=None, map_name='default'):
         """
@@ -452,7 +506,7 @@ class GraphTools:
         xm = x.map(val)
         return xm
 
-def graph_scenarios(scenarios: List[Scenario], graph_dir):
+def graph_scenarios(scenarios: List[Scenario], graph_dir, skip_long=False):
     # Start a timer
     timer = StepTimer()
 
@@ -464,7 +518,7 @@ def graph_scenarios(scenarios: List[Scenario], graph_dir):
         return
 
     # Initialize the graphing tool
-    graph_tools = GraphTools(scenarios=scenarios, graph_dir=graph_dir)
+    graph_tools = GraphTools(scenarios=scenarios, graph_dir=graph_dir, skip_long=skip_long)
 
     # Loop through every graphing module
     print(f"Graphing modules:")
