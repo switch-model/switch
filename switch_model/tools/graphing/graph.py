@@ -27,6 +27,14 @@ def main(args=None):
         action="store_true",
         help="Don't prompt before overwriting the existing folder",
     )
+    parser.add_argument(
+        "--skip-long",
+        default=False,
+        action="store_true",
+        help="Skips plots that take a long time to generate. Useful when debugging"
+        " and wanting to test a new plot without needing to wait for existing"
+        " plots to generate.",
+    )
     args = parser.parse_args(args)
 
     # If directory already exists, verify we should overwrite its contents
@@ -41,5 +49,7 @@ def main(args=None):
 
     # Create the graphs (with a single scenario)
     graph_scenarios(
-        scenarios=[Scenario(rel_path=".", name=None)], graph_dir=args.graph_dir
+        scenarios=[Scenario(rel_path=".", name=None)],
+        graph_dir=args.graph_dir,
+        skip_long=args.skip_long,
     )
