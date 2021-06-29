@@ -24,3 +24,4 @@ Changes are listed from oldest (first line) to newest (last line of table).
 | #57 | June 2021 | fix: specify predetermined storage energy capacity (previously left unspecified). |
 | #42 | June 2021| feat: Add parameters to the storage module for self-discharge rate, land use and discharge efficiency. |
 | #68 | June 2021 | fix: change financial params to 2018 dollars & 5% interest rate. Start using terrain multipliers (which now include the economic multiplier). |
+| #72 | June-July 2021 | fix: drop build and O&M costs of existing transmission lines |
