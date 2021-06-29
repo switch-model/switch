@@ -15,6 +15,7 @@ Changes are listed from oldest (first line) to newest (last line of table).
 | ---- | -------------------|
 | #8 | feat: Add support for other types of GHGs (NOx, SO2, CH4) |
 | #12 | fix: use the middle of the period instead of the start as the cutoff for retirement and predetermined buildout. |
+| #15 | fix: Fix bug where storage costs where being over-counted. |
 | #36 | fix: Remove duplicate transmission lines |
 | #10 | feat: Add support for California policies module |
 | #40  | feat: Add support for planning reserves module |
