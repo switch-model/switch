@@ -281,13 +281,8 @@ class GraphTools:
         return self._module_figures[out][0][1][0 if self._is_compare_mode else self._active_scenario]
 
     def get_figure(self, out, *args, **kwargs):
-        if "note" in kwargs:
-            raise NotImplementedError("Can't specify note= and get_figure since we"
-                                      " use the note field to specify the scenario.")
-        # Add the scenario name as the note
-        note = self._scenarios[self._active_scenario].name if self._num_scenarios > 1 else None
         # Create the figure
-        fig = GraphTools._create_figure(out, *args, note=note, **kwargs)
+        fig = GraphTools._create_figure(out, *args, **kwargs)
         # Save it to the outputs
         self.save_figure(out, fig)
         # Return the figure
