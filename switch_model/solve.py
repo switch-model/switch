@@ -23,7 +23,7 @@ from switch_model.utilities import (
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 from switch_model.tools.graphing import graph
 from switch_model.utilities.results_info import save_info, add_info, ResultsInfoSection
-
+import switch_model.utilities.gurobi_aug  # We keep this line here to ensure that 'gurobi_aug' gets registered as a solver
 
 def main(args=None, return_model=False, return_instance=False, attach_data_portal=False):
     start_to_end_timer = StepTimer()
@@ -157,10 +157,10 @@ def main(args=None, return_model=False, return_instance=False, attach_data_porta
         # We no longer need model (only using instance) so we can garbage collect it to optimize our memory usage
         del model
 
-        if instance.options.warm_start:
+        if instance.options.warm_start_mip:
             if instance.options.verbose:
                 timer.step_time()
-            warm_start(instance)
+            warm_start_mip(instance)
             if instance.options.verbose:
                 print(f"Loaded warm start inputs in {timer.step_time_as_str()}.")
 
@@ -234,13 +234,14 @@ def main(args=None, return_model=False, return_instance=False, attach_data_porta
         code.interact(banner=banner, local=dict(list(globals().items()) + list(locals().items())))
 
 
-def warm_start(instance):
+def warm_start_mip(instance):
     """
-    This function loads in the variables from a previous run
-    and starts out our model at these variables to make it reach
-    a solution faster.
+    This function loads the results from a previous run into the Pyomo variables.
+    This allows Gurobi's Mixed Integer Programming algorithm to "warm start" (start closer to the solution).
+    Warm starting only works in Gurobi if the initial values don't violate any constraints
+    (i.e. valid but not optimal solution).
     """
-    warm_start_dir = os.path.join(instance.options.warm_start, "outputs")
+    warm_start_dir = os.path.join(instance.options.warm_start_mip, "outputs")
     if not os.path.isdir(warm_start_dir):
         warnings.warn(
             f"Path {warm_start_dir} does not exist and cannot be used to warm start solver. Warm start skipped.")
@@ -596,8 +597,16 @@ def define_arguments(argparser):
     )
 
     argparser.add_argument(
+        "--warm-start-mip", default=None,
+        help="Enables warm start for a Mixed Integer problem by specifying the "
+             "path to a previous scenario. Warm starting only works if the solution to the previous solution"
+             "is also a feasible (but not necessarily optimal) solution to the current scenario."
+    )
+
+    argparser.add_argument(
         "--warm-start", default=None,
-        help="Path to folder of directory to use for warm start"
+        help="Enables warm start for a LP Problem by specifying the path to the previous scenario. Note"
+             " that all variables must be the same between the previous and current scenario."
     )
 
 
@@ -609,12 +618,12 @@ def add_recommended_args(argparser):
     """
     argparser.add_argument(
         "--recommended", default=False, action='store_true',
-        help='Equivalent to running with all of the following options: --solver gurobi -v --sorted-output --stream-output --log-run --solver-io python --solver-options-string "method=2 BarHomogeneous=1 FeasibilityTol=1e-5"'
+        help='Passes a bunch of flags that are the recommended default settings. See solve.py:parse_recommended_args() for default flags.'
     )
 
     argparser.add_argument(
         "--recommended-debug", default=False, action='store_true',
-        help='Equivalent to running with all of the following options: --solver gurobi -v --sorted-output --keepfiles --tempdir temp --stream-output --symbolic-solver-labels --log-run --debug --solver-options-string "method=2 BarHomogeneous=1 FeasibilityTol=1e-5"'
+        help='Same as --recommended but adds the flags --keepfiles --tempdir temp --symbolic-solver-labels which are useful when debugging Gurobi.'
     )
 
 
@@ -633,19 +642,18 @@ def parse_recommended_args(args):
     # Note we don't append but rather prepend so that flags can override the --recommend or
     # --recommend-debug flags.
     args = [
-               '--solver', 'gurobi',
+               '--solver', 'gurobi_aug',  # We use the improved Gurobi solver which will supports warm starting
                '-v',
                '--sorted-output',
                '--stream-output',
                '--log-run',
                '--debug',
-               '--graph',
-               '--solver-options-string',
-               'method=2 BarHomogeneous=1 FeasibilityTol=1e-5'
+               '--graph'
            ] + args
-    # We use to use solver-io=python however the seperation of processes is useful in helping the OS
-    # if options.recommended:
-    #     args = ['--solver-io', 'python'] + args
+    if "--warm-start" in args:
+        args = ["--solver-options-string", "method=1 FeasibilityTol=1e-5"] + args
+    else:
+        args = ['--solver-options-string', 'method=2 BarHomogeneous=1 FeasibilityTol=1e-5'] + args
     if options.recommended_debug:
         args = ['--keepfiles', '--tempdir', 'temp', '--symbolic-solver-labels'] + args
 
@@ -769,8 +777,17 @@ def solve(model):
         save_results=model.options.save_solution if isinstance(solver, DirectOrPersistentSolver) else None,
     )
 
-    if model.options.warm_start is not None:
+    if model.options.warm_start_mip is not None:
         solver_args["warmstart"] = True
+
+    if model.options.warm_start is not None:
+        if model.options.solver != "gurobi_aug":
+            raise NotImplementedError("Warm start functionality requires --solver gurobi_aug")
+        solver_args["warmstart"] = True
+        solver_args["warm_start_in"] = os.path.join(model.options.warm_start, "outputs", "warm_start.pickle")
+
+    if model.options.solver == "gurobi_aug":
+        solver_args["warm_start_out"] = os.path.join("outputs", "warm_start.pickle")
 
     # drop all the unspecified options
     solver_args = {k: v for (k, v) in solver_args.items() if v is not None}
@@ -843,8 +860,9 @@ def solve(model):
        results.solver.termination_condition != TerminationCondition.optimal):
         warn(
             f"Solver terminated with status '{results.solver.status}' and termination condition"
-            f" {results.solver.termination_condition}"
+            f" {results.solver.termination_condition}. Press 'c' to continue running post-solve anyways."
         )
+        breakpoint()
 
     if model.options.verbose:
         print("")
