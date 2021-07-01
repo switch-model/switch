@@ -99,6 +99,13 @@ class VBasis(PicklableData):
     def load_component(self, component):
         return int(super(VBasis, self).load_component(component)) * -1
 
+class WarmStartData:
+    """Data that gets pickled"""
+
+    def __init__(self, var_data, const_data, use_c_v_basis):
+        self.var_data = var_data
+        self.const_data = const_data
+        self.use_c_v_basis = use_c_v_basis
 
 @SolverFactory.register("gurobi_aug", doc="Python interface to Gurobi that supports LP warm starting")
 class GurobiAugmented(GurobiDirect):
@@ -106,9 +113,15 @@ class GurobiAugmented(GurobiDirect):
     VBASIS_DEFAULT = 0  # Corresponds to a basic variable
 
     def _presolve(self, *args, **kwds):
-        """Simply allows a warm_start_in and warm_start_out file to be specified."""
-        self._warm_start_in = kwds.pop("warm_start_in", None)
-        self._warm_start_out = kwds.pop("warm_start_out", None)
+        """Allows three additional parameters to be specified when calling solve()
+
+        @param write_warm_start: file path of where the output warm start pickle file should be written
+        @param read_warm_start: file path of where to read the input warm start pickle file
+        @param save_c_v_basis: If true, we save the c_v_basis. if False we save the dual start end
+        """
+        self._write_warm_start = kwds.pop("write_warm_start", None)
+        self._read_warm_start = kwds.pop("read_warm_start", None)
+        self._save_c_v_basis = kwds.pop("save_c_v_basis", False)
         return super(GurobiAugmented, self)._presolve(*args, **kwds)
 
     def _warm_start(self):
@@ -117,7 +130,7 @@ class GurobiAugmented(GurobiDirect):
             return super(GurobiAugmented, self)._warm_start()
 
         time = StepTimer()
-        if self._warm_start_in is None:
+        if self._read_warm_start is None:
             raise Exception("Must specify warm_start_in= when running solve()")
 
         # For some reason this is required. Without it warnings get thrown.
@@ -126,30 +139,41 @@ class GurobiAugmented(GurobiDirect):
         self._update()
 
         # Read the previous basis information
-        with open(self._warm_start_in, "rb") as f:
-            cbasis, vbasis = pickle.load(f)
+        with open(self._read_warm_start, "rb") as f:
+            warm_start_data = pickle.load(f)
 
         error = None
+        if warm_start_data.use_c_v_basis:
+            var_attr = self._gurobipy.GRB.Attr.VBasis
+            const_attr = self._gurobipy.GRB.Attr.CBasis
+            var_default = GurobiAugmented.VBASIS_DEFAULT
+            const_default = GurobiAugmented.CBASIS_DEFAULT
+        else:
+            var_attr = self._gurobipy.GRB.Attr.PStart
+            const_attr = self._gurobipy.GRB.Attr.DStart
+            var_default = 0
+            const_default = 0
         # Load the VBasis for each variable
         for pyomo_var, gurobi_var in self._pyomo_var_to_solver_var_map.items():
             try:
-                gurobi_var.VBasis = vbasis.load_component(pyomo_var)
+                val = warm_start_data.var_data.load_component(pyomo_var)
             except KeyError as e:
-                error = e
-                gurobi_var.VBasis = GurobiAugmented.VBASIS_DEFAULT
+                val, error = var_default, e
+            gurobi_var.setAttr(var_attr, val)
 
         # Load the CBasis for each constraint
         for pyomo_const, gurobi_const in self._pyomo_con_to_solver_con_map.items():
             try:
-                gurobi_const.CBasis = cbasis.load_component(pyomo_const)
+                val = warm_start_data.const_data.load_component(pyomo_const)
             except KeyError as e:
-                error = e
-                gurobi_const.CBasis = GurobiAugmented.CBASIS_DEFAULT
+                val, error = const_default, e
+            gurobi_const.setAttr(const_attr, val)
 
         if error is not None:
             warnings.warn(
-                f"{error} (and maybe others) were not found in warm_start.pickle. If you expect multiple variables and constraints"
-                f" to not be found in warm_start.pickle, it may be more efficient to not use --warm-start.")
+                f"{error} (and maybe others) were not found in warm start pickle file. "
+                f"If you expect multiple variables and constraints"
+                f" to not be found in the pickle file, it may be more efficient to not use --warm-start.")
 
         print(f"Time spent warm starting: {time.step_time_as_str()}")
 
@@ -158,25 +182,40 @@ class GurobiAugmented(GurobiDirect):
         Called after solving. Add option to output the VBasis/CBasis information to a pickle file.
         """
         results = super(GurobiAugmented, self)._postsolve()
-        if self._warm_start_out is not None:
+        if self._write_warm_start is not None:
             self._save_warm_start()
         return results
 
     def _save_warm_start(self):
         """Create a pickle file containing the CBasis/VBasis information."""
+        # Start a timer
         timer = StepTimer()
-        # Create the VBasis data class
-        vbasis = VBasis(n=len(self._pyomo_var_to_solver_var_map))
+
+        # Setup our data objects
+        n_var = len(self._pyomo_var_to_solver_var_map)
+        n_const = len(self._pyomo_con_to_solver_con_map)
+        if self._save_c_v_basis:
+            var_data = VBasis(n=n_var)
+            const_data = CBasis(n=n_const)
+            var_attr = self._gurobipy.GRB.Attr.VBasis
+            const_attr = self._gurobipy.GRB.Attr.CBasis
+        else:
+            var_data = PicklableData(n=n_var, val_dtype=float)
+            const_data = PicklableData(n=n_const, val_dtype=float)
+            var_attr = self._gurobipy.GRB.Attr.X
+            const_attr = self._gurobipy.GRB.Attr.Pi
+
+        # Save the variable data
         for pyomo_var, gurobipy_var in self._pyomo_var_to_solver_var_map.items():
-            vbasis.save_component(pyomo_var, gurobipy_var.VBasis)
+            var_data.save_component(pyomo_var, gurobipy_var.getAttr(var_attr))
 
-        # Create the CBasis data class
-        cbasis = CBasis(n=len(self._pyomo_con_to_solver_con_map))
+        # Save the constraint data
         for pyomo_const, gurobipy_const in self._pyomo_con_to_solver_con_map.items():
-            cbasis.save_component(pyomo_const, gurobipy_const.CBasis)
+            const_data.save_component(pyomo_const, gurobipy_const.getAttr(const_attr))
 
-        # Save both to a pickle file
-        with open(self._warm_start_out, "wb") as f:
-            pickle.dump((cbasis, vbasis), f)
+        # Dump the data to a pickle file
+        with open(self._write_warm_start, "wb") as f:
+            data = WarmStartData(var_data, const_data, self._save_c_v_basis)
+            pickle.dump(data, f)
 
-        print(f"Created 'warm_start.pickle' in {timer.step_time_as_str()}")
+        print(f"Created warm start pickle file in {timer.step_time_as_str()}")

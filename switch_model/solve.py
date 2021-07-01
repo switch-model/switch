@@ -652,12 +652,10 @@ def parse_recommended_args(args):
                '--stream-output',
                '--log-run',
                '--debug',
-               '--graph'
+               '--graph',
+               '--solver-options-string',
+               'method=2 BarHomogeneous=1 FeasibilityTol=1e-5 crossover=0'
            ] + args
-    if "--warm-start" in args:
-        args = ["--solver-options-string", "method=1 FeasibilityTol=1e-5"] + args
-    else:
-        args = ['--solver-options-string', 'method=2 BarHomogeneous=1 FeasibilityTol=1e-5'] + args
     if options.recommended_debug:
         args = ['--keepfiles', '--tempdir', 'temp', '--symbolic-solver-labels'] + args
 
@@ -788,12 +786,12 @@ def solve(model):
         if model.options.solver != "gurobi_aug":
             raise NotImplementedError("Warm start functionality requires --solver gurobi_aug")
         solver_args["warmstart"] = True
-        solver_args["warm_start_in"] = os.path.join(model.options.warm_start, "outputs", "warm_start.pickle")
+        solver_args["read_warm_start"] = os.path.join(model.options.warm_start, "outputs", "warm_start.pickle")
 
     if model.options.save_warm_start:
-        if model.options.solver == "gurobi_aug":
+        if model.options.solver != "gurobi_aug":
             raise NotImplementedError("Warm start functionality requires --solver gurobi_aug")
-        solver_args["warm_start_out"] = os.path.join("outputs", "warm_start.pickle")
+        solver_args["write_warm_start"] = os.path.join("outputs", "warm_start.pickle")
 
     # drop all the unspecified options
     solver_args = {k: v for (k, v) in solver_args.items() if v is not None}
