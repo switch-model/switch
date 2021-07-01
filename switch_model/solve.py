@@ -645,10 +645,10 @@ def parse_recommended_args(args):
                '--debug',
                '--graph',
            ] + args
+    solver_options_string = "method=2 BarHomogeneous=1 FeasibilityTol=1e-5"
     if options.recommended_fast:
-        args = ['--solver-options-string', 'method=2 BarHomogeneous=1 FeasibilityTol=1e-5 crossover=0'] + args
-    else:
-        args = ['--solver-options-string', 'method=2 BarHomogeneous=1 FeasibilityTol=1e-5'] + args
+        solver_options_string += " crossover=0"
+    args = ['--solver-options-string', solver_options_string] + args
     if options.recommended_debug:
         args = ['--keepfiles', '--tempdir', 'temp', '--symbolic-solver-labels'] + args
 
