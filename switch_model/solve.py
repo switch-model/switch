@@ -571,6 +571,10 @@ def define_arguments(argparser):
         '--save-solution', default=False, action='store_true',
         help="Save the solution to a pickle file after model is solved to allow for later inspection via --reload-prior-solution.")
     argparser.add_argument(
+        '--save-warm-start', default=False, action='store_true',
+        help="Save warm_start.pickle to the outputs which allows future runs to warm start from this one."
+    )
+    argparser.add_argument(
         '--interact', default=False, action='store_true',
         help='Enter interactive shell after solving the instance to enable inspection of the solved model.')
     argparser.add_argument(
@@ -786,7 +790,9 @@ def solve(model):
         solver_args["warmstart"] = True
         solver_args["warm_start_in"] = os.path.join(model.options.warm_start, "outputs", "warm_start.pickle")
 
-    if model.options.solver == "gurobi_aug":
+    if model.options.save_warm_start:
+        if model.options.solver == "gurobi_aug":
+            raise NotImplementedError("Warm start functionality requires --solver gurobi_aug")
         solver_args["warm_start_out"] = os.path.join("outputs", "warm_start.pickle")
 
     # drop all the unspecified options
