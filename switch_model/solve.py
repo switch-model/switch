@@ -769,7 +769,15 @@ def add_recommended_args(argparser):
         "--recommended",
         default=False,
         action="store_true",
-        help='Equivalent to running with all of the following options: --solver gurobi -v --sorted-output --stream-output --log-run --solver-io python --solver-options-string "method=2 BarHomogeneous=1 FeasibilityTol=1e-5"',
+        help="Includes several flags that are recommended including --solver gurobi --verbose --stream-output and more. "
+        "See parse_recommended_args() in solve.py for the full list of recommended flags.",
+    )
+
+    argparser.add_argument(
+        "--recommended-fast",
+        default=False,
+        action="store_true",
+        help="Equivalent to --recommended however disables crossover which decreases solve time but may fail to produce a valid solution.",
     )
 
     argparser.add_argument(
@@ -785,15 +793,17 @@ def parse_recommended_args(args):
     add_recommended_args(argparser)
     options = argparser.parse_known_args(args)[0]
 
-    if options.recommended and options.recommended_debug:
-        raise Exception("Can't use both --recommended and --recommended-debug")
-    if not options.recommended and not options.recommended_debug:
+    flags_used = (
+        options.recommended + options.recommended_fast + options.recommended_debug
+    )
+    if flags_used > 1:
+        raise Exception(
+            "Must pick between --recommended-debug, --recommended-fast or --recommended."
+        )
+    if flags_used == 0:
         return args
 
-    # If you change the flags, make sure to update the help text in
-    # the function above.
-    # Note we don't append but rather prepend so that flags can override the --recommend or
-    # --recommend-debug flags.
+    # Note we don't append but rather prepend so that flags can override the --recommend flags.
     args = [
         "--solver",
         "gurobi",
@@ -803,12 +813,17 @@ def parse_recommended_args(args):
         "--log-run",
         "--debug",
         "--graph",
-        "--solver-options-string",
-        "method=2 BarHomogeneous=1 FeasibilityTol=1e-5",
     ] + args
-    # We use to use solver-io=python however the seperation of processes is useful in helping the OS
-    # if options.recommended:
-    #     args = ['--solver-io', 'python'] + args
+    if options.recommended_fast:
+        args = [
+            "--solver-options-string",
+            "method=2 BarHomogeneous=1 FeasibilityTol=1e-5 crossover=0",
+        ] + args
+    else:
+        args = [
+            "--solver-options-string",
+            "method=2 BarHomogeneous=1 FeasibilityTol=1e-5",
+        ] + args
     if options.recommended_debug:
         args = ["--keepfiles", "--tempdir", "temp", "--symbolic-solver-labels"] + args
 
