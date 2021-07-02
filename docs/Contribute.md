@@ -14,7 +14,9 @@ procedure.
 3. Once your changes are final and ready to be added to the switch main
 branch, create a pull request on Github.
    
-4. Get someone to review and then merge your changes on Github.
+4. If your change is a breaking change add it to `REAM Model Changelog.md`.
+   
+5. Get someone to review and then merge your changes on Github.
 
 For more information read [this excellent guide](https://guides.github.com/introduction/flow/) (5 min read).
 
