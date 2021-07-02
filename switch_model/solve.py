@@ -1020,9 +1020,7 @@ def solve(model):
     solver_status = results.solver.status
     solver_message = results.solver.message
     termination_condition = results.solver.termination_condition
-    solution_status = (
-        results.solutions[-1].status if len(results.solutions) != 0 else None
-    )
+    solution_status = model.solutions[-1].status if len(model.solutions) != 0 else None
 
     if (
         solver_status != SolverStatus.ok
