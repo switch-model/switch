@@ -4,7 +4,7 @@
 from __future__ import print_function
 
 from pyomo.environ import *
-from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
+from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition, SolutionStatus
 import pyomo.version
 import pandas as pd
 
@@ -825,42 +825,30 @@ def solve(model):
               "https://docs.python.org/3/library/pdb.html for instructions on using pdb.")
         breakpoint()
 
-    # Treat infeasibility as an error, rather than trying to load and save the results
-    # (note: in this case, results.solver.status may be SolverStatus.warning instead of
-    # SolverStatus.error)
-    if (results.solver.termination_condition == TerminationCondition.infeasible):
-        if hasattr(model, "iis"):
-            print("Model was infeasible; irreducibly inconsistent set (IIS) returned by solver:")
-            print("\n".join(sorted(c.name for c in model.iis)))
-        else:
-            print("Model was infeasible; if the solver can generate an irreducibly inconsistent set (IIS),")
-            print("more information may be available by setting the appropriate flags in the ")
-            print('solver_options_string and calling this script with "--suffixes iis" or "--gurobi-find-iis".')
-        raise RuntimeError("Infeasible model")
+    solver_status = results.solver.status
+    solver_message = results.solver.message
+    termination_condition = results.solver.termination_condition
+    solution_status = results.solutions[-1].status if len(results.solutions) != 0 else None
 
-    # Report any warnings; these are written to stderr so users can find them in
-    # error logs (e.g. on HPC systems). These can occur, e.g., if solver reaches
-    # time limit or iteration limit but still returns a valid solution
-    if results.solver.status == SolverStatus.warning:
+    if solver_status != SolverStatus.ok or termination_condition != TerminationCondition.optimal:
         warn(
-            "Solver terminated with warning.\n"
-            + "  Solution Status: {}\n".format(model.solutions[-1].status)
-            + "  Termination Condition: {}".format(results.solver.termination_condition)
+            f"Solver termination status is not 'ok' or not 'optimal':\n"
+            f"\t- Termination condition: {termination_condition}\n"
+            f"\t- Solver status: {solver_status}\n"
+            f"\t- Solver message: {solver_message}\n"
+            f"\t- Solution status: {solution_status}"
         )
 
-    if(results.solver.status != SolverStatus.ok or
-       results.solver.termination_condition != TerminationCondition.optimal):
-        warn(
-            f"Solver terminated with status '{results.solver.status}' and termination condition"
-            f" {results.solver.termination_condition}"
-        )
+        if solution_status == SolutionStatus.feasible and solver_status == SolverStatus.warning:
+            print("If you used --recommended, you might want to try --recommended-robust.")
+
+        if query_yes_no("Do you want to abort and exit?", default=None):
+            raise SystemExit()
 
     if model.options.verbose:
-        print("")
-        print("Optimization termination condition was {}.".format(
-            results.solver.termination_condition))
-        if str(results.solver.message) != '<undefined>':
-            print('Solver message: {}'.format(results.solver.message))
+        print(f"\nOptimization termination condition was {termination_condition}.")
+        if str(solver_message) != '<undefined>':
+            print(f'Solver message: {solver_message}')
         print("")
 
     if model.options.save_solution:
