@@ -294,13 +294,17 @@ def graph(tools):
     )
     load_balance = load_balance[["energy_balance_duals", "time_row"]]
     load_balance = load_balance.pivot(columns="time_row", values="energy_balance_duals")
+    # Don't include the zero-valued duals
+    load_balance = load_balance.replace(0, tools.np.nan)
     if load_balance.count().sum() != 0:
         ax = tools.get_axes(
-            "energy_balance_duals", title="Energy balance duals per period"
+            "energy_balance_duals",
+            title="Energy balance duals per period",
+            note="Note: Outliers and zero-valued duals are ignored.",
         )
         load_balance.plot.box(
             ax=ax,
             xlabel="Period",
             ylabel="Energy balance duals (cents/kWh)",
-            logy=True,
+            showfliers=False,
         )

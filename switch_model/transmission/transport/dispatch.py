@@ -140,12 +140,17 @@ def graph(tools):
     dispatch = dispatch.pivot(columns="time_row", values="transmission_limit_dual")
     # Multiply the duals by -1 since the formulation gives negative duals
     dispatch *= -1
+    # Don't include the zero-valued duals.
+    dispatch = dispatch.replace(0, tools.np.nan)
     if dispatch.count().sum() != 0:
         ax = tools.get_axes(
-            "transmission_limit_duals", title="Transmission limit duals per period"
+            "transmission_limit_duals",
+            title="Transmission limit duals per period",
+            note="Note: Outliers and zero-valued duals are ignored.",
         )
         dispatch.plot.box(
             ax=ax,
             xlabel="Period",
             ylabel="Transmission limit duals ($/MW)",
+            showfliers=False,
         )
