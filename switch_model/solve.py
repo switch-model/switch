@@ -730,6 +730,12 @@ def define_arguments(argparser):
         type=int,
         help="The number of significant digits to include in the output by default",
     )
+    argparser.add_argument(
+        "--zero-cutoff-output",
+        default=1e-5,
+        type=float,
+        help="If the magnitude of an output value is less than this value, it is rounded to 0.",
+    )
 
     argparser.add_argument(
         "--sorted-output",
