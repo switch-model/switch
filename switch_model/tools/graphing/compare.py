@@ -44,6 +44,12 @@ def main():
         " and wanting to test a new plot without needing to wait for existing"
         " plots to generate.",
     )
+    parser.add_argument(
+        "--modules",
+        default=None,
+        nargs="+",
+        help="Modules to graph. If not specified reads the modules from modules.txt.",
+    )
 
     # Parse the parameters
     args = parser.parse_args()
@@ -85,4 +91,6 @@ def main():
         os.mkdir(args.graph_dir)
 
     # Create the graphs!
-    graph_scenarios(scenarios, args.graph_dir, skip_long=args.skip_long)
+    graph_scenarios(
+        scenarios, args.graph_dir, skip_long=args.skip_long, module_names=args.modules
+    )
