@@ -6,6 +6,7 @@ Utility functions for Switch.
 """
 from __future__ import print_function
 
+import functools
 import os, types, sys, argparse, time, datetime, traceback, subprocess, platform
 import warnings
 
@@ -952,16 +953,24 @@ def query_yes_no(question, default="yes"):
             sys.stdout.write("Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n")
 
 
-def catch_exceptions(func, *args, should_catch=True, warning_msg=None, **kwargs):
-    """Catches exceptions thrown by function."""
-    if not should_catch:
-        return func(*args, **kwargs)
+def catch_exceptions(warning_msg=None, should_catch=True):
+    """Decorator that catches exceptions."""
 
-    try:
-        return func(*args, **kwargs)
-    except:
-        if warning_msg is not None:
-            warnings.warn(warning_msg)
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            if not should_catch:
+                return func(*args, **kwargs)
+
+            try:
+                return func(*args, **kwargs)
+            except:
+                if warning_msg is not None:
+                    warnings.warn(warning_msg)
+
+        return wrapper
+
+    return decorator
 
 
 def run_command(command):
@@ -972,14 +981,14 @@ def run_command(command):
     )
 
 
-def get_git_branch(warning_msg="Failed to get Git Branch."):
-    return catch_exceptions(
-        run_command, "git rev-parse --abbrev-ref HEAD", warning_msg=warning_msg
-    )
+@catch_exceptions("Failed to get Git Branch.")
+def get_git_branch():
+    return run_command("git rev-parse --abbrev-ref HEAD")
 
 
-def get_git_commit(warning_msg="Failed to get Git Commit Hash."):
-    return catch_exceptions(run_command, "git rev-parse HEAD", warning_msg=warning_msg)
+@catch_exceptions("Failed to get Git Commit Hash.")
+def get_git_commit():
+    return run_command("git rev-parse HEAD")
 
 
 def add_git_info():
