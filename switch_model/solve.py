@@ -774,10 +774,12 @@ def add_recommended_args(argparser):
     )
 
     argparser.add_argument(
-        "--recommended-fast",
+        "--recommended-robust",
         default=False,
         action="store_true",
-        help="Equivalent to --recommended however disables crossover which decreases solve time but may fail to produce a valid solution.",
+        help="Equivalent to --recommended however enables crossover during solving. Crossover is useful"
+        " if the solution found by the barrier method is suboptimal. If you find that the solver returns"
+        " a suboptimal solution use this flag.",
     )
 
     argparser.add_argument(
@@ -794,7 +796,7 @@ def parse_recommended_args(args):
     options = argparser.parse_known_args(args)[0]
 
     flags_used = (
-        options.recommended + options.recommended_fast + options.recommended_debug
+        options.recommended + options.recommended_robust + options.recommended_debug
     )
     if flags_used > 1:
         raise Exception(
@@ -815,7 +817,7 @@ def parse_recommended_args(args):
         "--graph",
     ] + args
     solver_options_string = "method=2 BarHomogeneous=1 FeasibilityTol=1e-5"
-    if options.recommended_fast:
+    if not options.recommended_robust:
         solver_options_string += " crossover=0"
     args = ["--solver-options-string", solver_options_string] + args
     if options.recommended_debug:
