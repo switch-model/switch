@@ -21,6 +21,8 @@ def main(args=None):
                         help="Skips plots that take a long time to generate. Useful when debugging"
                              " and wanting to test a new plot without needing to wait for existing"
                              " plots to generate.")
+    parser.add_argument("--modules", default=None, nargs='+',
+                        help="Modules to graph. If not specified reads the modules from modules.txt.")
     args = parser.parse_args(args)
 
     # If directory already exists, verify we should overwrite its contents
@@ -33,4 +35,5 @@ def main(args=None):
         os.mkdir(args.graph_dir)
 
     # Create the graphs (with a single scenario)
-    graph_scenarios(scenarios=[Scenario(rel_path=".", name=None)], graph_dir=args.graph_dir, skip_long=args.skip_long)
+    graph_scenarios(scenarios=[Scenario(rel_path=".", name=None)], graph_dir=args.graph_dir, skip_long=args.skip_long,
+                    module_names=args.modules)
