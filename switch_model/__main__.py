@@ -39,11 +39,10 @@ def main():
         del sys.argv[1]
         if cmd == "--version":
             print("Switch model version " + switch_model.__version__)
-            try:
-                from switch_model.utilities import get_git_branch
-                print(f"Switch git branch {get_git_branch()}")
-            except:
-                pass
+            from switch_model.utilities import get_git_branch
+            branch = get_git_branch()
+            if branch is not None:
+                print(f"Switch Git branch: {branch}")
             return 0
         if cmd == "solve":
             from switch_model.solve import main
