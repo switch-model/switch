@@ -952,6 +952,18 @@ def query_yes_no(question, default="yes"):
             sys.stdout.write("Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n")
 
 
+def catch_exceptions(func, *args, should_catch=True, warning_msg=None, **kwargs):
+    """Catches exceptions thrown by function."""
+    if not should_catch:
+        return func(*args, **kwargs)
+
+    try:
+        return func(*args, **kwargs)
+    except:
+        if warning_msg is not None:
+            warnings.warn(warning_msg)
+
+
 def run_command(command):
     return (
         subprocess.check_output(command.split(" "), cwd=os.path.dirname(__file__))
@@ -960,14 +972,23 @@ def run_command(command):
     )
 
 
+def get_git_branch(warning_msg="Failed to get Git Branch."):
+    return catch_exceptions(
+        run_command, "git rev-parse --abbrev-ref HEAD", warning_msg=warning_msg
+    )
+
+
+def get_git_commit(warning_msg="Failed to get Git Commit Hash."):
+    return catch_exceptions(run_command, "git rev-parse HEAD", warning_msg=warning_msg)
+
+
 def add_git_info():
-    try:
-        commit_num = run_command("git rev-parse HEAD")
-        branch = run_command("git rev-parse --abbrev-ref HEAD")
+    commit_num = get_git_commit()
+    branch = get_git_branch()
+    if commit_num is not None:
         add_info("Git Commit", commit_num, section=ResultsInfoSection.GENERAL)
+    if branch is not None:
         add_info("Git Branch", branch, section=ResultsInfoSection.GENERAL)
-    except:
-        warnings.warn("Failed to get Git Branch or Commit Hash for info.txt.")
 
 
 def get_module_list(args=None, include_solve_module=True):
