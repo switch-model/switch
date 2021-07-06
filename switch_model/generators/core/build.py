@@ -884,7 +884,7 @@ def graph_buildout_per_tech(tools):
     if colors is not None:
         # Add the same colors but with a * to support our legend.
         colors.update({f"{k}*": v for k, v in colors.items()})
-    df.plot(ax=ax, kind="line", color=colors, xlabel="Period")
+    df.plot(ax=ax, kind="line", color=colors, xlabel="Period", marker="x")
     # Set the y-axis to use percent
     ax.yaxis.set_major_formatter(tools.mplt.ticker.PercentFormatter(1.0))
     # Horizontal line at 100%
