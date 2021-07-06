@@ -746,7 +746,8 @@ def graph_capacity(tools):
     # For generation types that make less than 2% in every period, group them under "Other"
     # ---------
     # sum the generation across the energy_sources for each period, 2% of that is the cutoff for that period
-    cutoff_per_period = capacity_df.sum(axis=1) * 0.02
+    cutoff_value = 0.01
+    cutoff_per_period = capacity_df.sum(axis=1) * cutoff_value
     # Check for each technology if it's below the cutoff for every period
     is_below_cutoff = capacity_df.lt(cutoff_per_period, axis=0).all()
     # groupby if the technology is below the cutoff
@@ -792,7 +793,8 @@ def graph_buildout(tools):
     # For generation types that make less than 2% in every period, group them under "Other"
     # ---------
     # sum the generation across the energy_sources for each period, 2% of that is the cutoff for that period
-    cutoff_per_period = build_gen.sum(axis=1) * 0.02
+    cutoff_value = 0.01
+    cutoff_per_period = build_gen.sum(axis=1) * cutoff_value
     # Check for each technology if it's below the cutoff for every period
     is_below_cutoff = build_gen.lt(cutoff_per_period, axis=0).all()
     # groupby if the technology is below the cutoff
