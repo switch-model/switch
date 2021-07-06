@@ -593,7 +593,7 @@ def graph_curtailment_per_tech(tools):
     # Plot
     color = tools.get_colors()
     kwargs = dict() if color is None else dict(color=color)
-    df.plot(ax=ax, kind='line',  xlabel='Period', **kwargs)
+    df.plot(ax=ax, kind='line',  xlabel='Period', marker="x", **kwargs)
 
     # Set the y-axis to use percent
     ax.yaxis.set_major_formatter(tools.mplt.ticker.PercentFormatter(1.0))
