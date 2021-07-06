@@ -1,6 +1,6 @@
 import pandas as pd
 
-from switch_model.wecc.get_inputs.post_process import register_post_process
+from switch_model.wecc.get_inputs.register_post_process import register_post_process
 
 
 @register_post_process("Replacing _ALL_ZONES plants with a plant in each zone")

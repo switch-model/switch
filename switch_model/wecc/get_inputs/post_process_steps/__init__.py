@@ -1,3 +1,7 @@
+"""
+This file ensures that all python files in this folder are imported so that
+their @register_post_process function handlers are noticed.
+"""
 from os.path import dirname, basename, isfile, join
 import glob
 
