@@ -1,6 +1,6 @@
 import pandas as pd
 
-from switch_model.wecc.get_inputs.post_process import register_post_process
+from switch_model.wecc.get_inputs.register_post_process import register_post_process
 
 
 @register_post_process("Shifting 2020 pre-build years to 2019")

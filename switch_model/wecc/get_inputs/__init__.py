@@ -6,26 +6,9 @@ import os
 
 from switch_model.utilities import query_yes_no, StepTimer
 from switch_model.wecc.get_inputs.get_inputs import query_db
-from switch_model.wecc.get_inputs.post_process import post_process
+from switch_model.wecc.get_inputs.register_post_process import run_post_process
 from switch_model.wecc.utilities import load_config
 from switch_model.wecc.get_inputs.post_process_steps import *
-
-
-def switch_to_input_dir(config, overwrite):
-    inputs_dir = config["inputs_dir"]
-
-    # Create inputs_dir if it doesn't exist
-    if not os.path.exists(inputs_dir):
-        os.makedirs(inputs_dir)
-        print("Inputs directory created.")
-    else:
-        if not overwrite and not query_yes_no(
-                "Inputs directory already exists. Allow contents to be overwritten?"
-        ):
-            raise SystemExit("User cancelled run.")
-
-    os.chdir(inputs_dir)
-    return inputs_dir
 
 
 def main():
@@ -54,8 +37,25 @@ def main():
 
     if not args.post_only:
         query_db(full_config, skip_cf=args.skip_cf)
-    post_process()
+    run_post_process()
     print(f"\nScript took {timer.step_time_as_str()} seconds to build input tables.")
+
+
+def switch_to_input_dir(config, overwrite):
+    inputs_dir = config["inputs_dir"]
+
+    # Create inputs_dir if it doesn't exist
+    if not os.path.exists(inputs_dir):
+        os.makedirs(inputs_dir)
+        print("Inputs directory created.")
+    else:
+        if not overwrite and not query_yes_no(
+                "Inputs directory already exists. Allow contents to be overwritten?"
+        ):
+            raise SystemExit("User cancelled run.")
+
+    os.chdir(inputs_dir)
+    return inputs_dir
 
 
 if __name__ == "__main__":
