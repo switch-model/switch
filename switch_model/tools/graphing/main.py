@@ -178,6 +178,8 @@ class GraphTools:
     Provides utilities to make graphing easier and standardized.
     """
 
+    ENABLE_DF_CACHING = True
+
     def __init__(self, scenarios: List[Scenario], graph_dir: str, skip_long: bool):
         """
         Create the GraphTools.
@@ -236,7 +238,12 @@ class GraphTools:
         """
         df_all_scenarios: List[pd.DataFrame] = []
         for i, scenario in enumerate(self._scenarios):
-            df = pd.read_csv(os.path.join(scenario.path, path), index_col=False)
+            df = pd.read_csv(
+                os.path.join(scenario.path, path),
+                index_col=False,
+                # We force the datatype to object for some columns to avoid warnings of mismatched types
+                dtype={"generation_project": str, "gen_dbid": str},
+            )
             df["scenario_name"] = scenario.name
             df["scenario_index"] = i
             df_all_scenarios.append(df)
@@ -342,9 +349,11 @@ class GraphTools:
 
         # If doesn't exist, create it
         if path not in self._dfs:
-            self._dfs[path] = self._load_dataframe(path)
-
-        df = self._dfs[path].copy()  # We return a copy so the source isn't modified
+            df = self._load_dataframe(path)
+            if GraphTools.ENABLE_DF_CACHING:
+                self._dfs[path] = df
+        else:
+            df = self._dfs[path].copy()  # We return a copy so the source isn't modified
 
         # If we're not comparing, we only return the rows corresponding to the active scenario
         if not self._is_compare_mode:
