@@ -55,7 +55,7 @@ def main(args=None):
 
     # Create the graphs (with a single scenario)
     graph_scenarios(
-        scenarios=[Scenario(rel_path=".", name=None)],
+        scenarios=[Scenario(rel_path=".", name="")],
         graph_dir=args.graph_dir,
         skip_long=args.skip_long,
         module_names=args.modules,
