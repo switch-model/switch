@@ -26,6 +26,7 @@ from __future__ import division
 import os
 from pyomo.environ import Set, Param, Expression, Constraint, Suffix
 import switch_model.reporting as reporting
+from switch_model.utilities import results_info
 
 
 def define_components(model):
@@ -264,31 +265,36 @@ def post_solve(model, outdir):
 
 
 def graph(tools):
-    df_emissions = tools.get_dataframe("emissions.csv")
+    graph_emissions(tools)
+    graph_emissions_duals(tools)
+
+
+def graph_emissions(tools):
+    df = tools.get_dataframe("emissions.csv", convert_dot_to_na=True)
     # Plot emissions over time
-    df_emissions["AnnualEmissions_tCO2_per_yr"] *= 1e-6
+    df["AnnualEmissions_tCO2_per_yr"] *= 1e-6
+    if df["AnnualEmissions_tCO2_per_yr"].sum() == 0:
+        results_info.add_info("CO2 Emissions", "No Emissions")
+        return
     ax = tools.get_axes(out="emissions", title="Emissions per period")
     tools.sns.barplot(
-        x="PERIOD",
-        y="AnnualEmissions_tCO2_per_yr",
-        data=df_emissions,
-        ax=ax,
-        color="gray",
+        x="PERIOD", y="AnnualEmissions_tCO2_per_yr", data=df, ax=ax, color="gray"
     )
     ax.set_ylabel("CO2 Emissions (MMtCO2/yr)")
 
+
+def graph_emissions_duals(tools):
+    df = tools.get_dataframe("emissions.csv", convert_dot_to_na=True)
     # Plot emissions dual values
+    df = df.set_index("PERIOD")
+    # Plot emissions over time
+    df = df["carbon_cap_dual_future_dollar_per_tco2"]
+    df = df.dropna()
+    if df.empty:
+        return
+    df *= -1  # Flip to positive values
     ax = tools.get_axes(
         out="emissions_duals", title="Carbon cap dual values per period"
     )
-    df_emissions[
-        "carbon_cap_dual_future_dollar_per_tco2"
-    ] *= -1  # Flip to positive values
-    tools.sns.barplot(
-        x="PERIOD",
-        y="carbon_cap_dual_future_dollar_per_tco2",
-        data=df_emissions,
-        ax=ax,
-        color="gray",
-    )
+    df.plot(kind="bar", ax=ax, color="gray")
     ax.set_ylabel("Dual values ($/tCO2)")
