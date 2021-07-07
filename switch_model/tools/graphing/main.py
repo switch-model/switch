@@ -106,22 +106,19 @@ class TransformTools:
         - datetime: timestamp formatted as a US/Pacific Datetime object
         - hour: The hour of the timestamp (US/Pacific timezone)
         """
-        try:
-            timestamp_mapping = self.tools.get_dataframe("graph_timestamp_map.csv", from_inputs=True)
-        except FileNotFoundError:
-            timepoints = self.tools.get_dataframe("timepoints.csv", from_inputs=True)
-            timeseries = self.tools.get_dataframe(csv="timeseries.csv", from_inputs=True)
+        timepoints = self.tools.get_dataframe("timepoints.csv", from_inputs=True)
+        timeseries = self.tools.get_dataframe(csv="timeseries.csv", from_inputs=True)
 
-            timepoints = timepoints.merge(
-                timeseries,
-                how='left',
-                left_on='timeseries',
-                right_on='TIMESERIES',
-                validate="many_to_one"
-            )
-
-            timestamp_mapping = timepoints[["timestamp", "ts_period", "timeseries"]]
-            timestamp_mapping.columns = ["timestamp", "time_row", "time_column"]
+        timepoints = timepoints.merge(
+            timeseries,
+            how='left',
+            left_on='timeseries',
+            right_on='TIMESERIES',
+            validate="many_to_one"
+        )
+        timestamp_mapping = timepoints[["timestamp", "ts_period", "timeseries"]]
+        timestamp_mapping = timestamp_mapping.rename({"ts_period": "period"}, axis=1)
+        timestamp_mapping = timestamp_mapping.astype({"period": "category"})
 
         df = df.merge(
             timestamp_mapping,
@@ -129,6 +126,17 @@ class TransformTools:
             left_on=timestamp_col,
             right_on="timestamp",
         )
+
+        try:
+            df = df.merge(
+                self.tools.get_dataframe("graph_timestamp_map.csv", from_inputs=True),
+                how='left',
+                left_on=timestamp_col,
+                right_on="timestamp",
+            )
+        except FileNotFoundError:
+            timestamp_mapping["time_row"] = timestamp_mapping["period"]
+            timestamp_mapping["time_column"] = timestamp_mapping["timeseries"]
 
         # Add datetime and hour column
         df["datetime"] = pd.to_datetime(df[timestamp_col], format="%Y%m%d%H").dt.tz_localize("utc").dt.tz_convert(

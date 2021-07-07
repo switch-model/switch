@@ -450,25 +450,38 @@ def compare(tools):
 
 
 def graph_state_of_charge(tools):
+    # Get the total state of charge per timepoint and scenario
     df = tools.get_dataframe("storage_dispatch", all_scenarios=True)
-    # Aggregate by timepoint
-    df = df.groupby(["timepoint", "scenario_name"], as_index=False).sum()
-    # Add datetime column
+    df = df.groupby(["timepoint", "scenario_name"], as_index=False)["StateOfCharge"].sum()
+    # Add datetime information
     df = tools.transform.timestamp(df, timestamp_col="timepoint")
     # Count num rows
-    num_rows = len(df["time_row"].unique())
-    # Find charge in GWh
-    df["charge"] = df["StateOfCharge"] / 1000
+    num_periods = len(df["period"].unique())
+
+    # Get the total capacity per period and scenario
+    capacity = tools.get_dataframe("storage_capacity.csv", all_scenarios=True)
+    capacity = capacity.groupby(["period", "scenario_name"], as_index=False)["OnlineEnergyCapacityMWh"].sum()
+
+    # Add the capacity to our dataframe
+    df = df.merge(
+        capacity,
+        on=["period", "scenario_name"],
+        validate="many_to_one",
+        how="left"
+    )
+
+    # Convert values to GWh
+    df["StateOfCharge"] = df["StateOfCharge"] / 1000
+    df["OnlineEnergyCapacityMWh"] /= 1000
+
     # Plot with plotnine
     pn = tools.pn
-    plot = pn.ggplot(
-        df,
-        pn.aes(x="datetime", y="charge")
-    ) \
+    plot = pn.ggplot(df, pn.aes(x="datetime", y="StateOfCharge")) \
            + pn.geom_line() \
-           + pn.labs(y="State of Charge (GWh)", x="Time of Year", title="State of Charge Throughout the Year")
+           + pn.labs(y="State of Charge (GWh)", x="Time of Year", title="State of Charge Throughout the Year") \
+           + pn.geom_hline(pn.aes(yintercept="OnlineEnergyCapacityMWh"), linetype="dashed", color='blue')
 
-    tools.save_figure("state_of_charge", by_scenario_and_time_row(tools, plot, num_rows).draw())
+    tools.save_figure("state_of_charge", by_scenario_and_period(tools, plot, num_periods).draw())
 
 
 def graph_dispatch_cycles(tools):
@@ -554,11 +567,11 @@ def by_scenario(tools, plot):
         figure_size=(pn.options.figure_size[0] * tools.num_scenarios, pn.options.figure_size[1]))
 
 
-def by_scenario_and_time_row(tools, plot, num_rows):
+def by_scenario_and_period(tools, plot, num_periods):
     pn = tools.pn
-    num_rows = min(num_rows, 3)
-    return plot + pn.facet_grid("time_row ~ scenario_name") + pn.theme(
-        figure_size=(pn.options.figure_size[0] * tools.num_scenarios, pn.options.figure_size[1] * num_rows)
+    num_periods = min(num_periods, 3)
+    return plot + pn.facet_grid("period ~ scenario_name") + pn.theme(
+        figure_size=(pn.options.figure_size[0] * tools.num_scenarios, pn.options.figure_size[1] * num_periods)
     )
 
 
