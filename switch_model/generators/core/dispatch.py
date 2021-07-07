@@ -506,6 +506,7 @@ def graph(tools):
 def compare(tools):
     if not tools.skip_long:
         if tools.num_scenarios > 1:
+            compare_hourly_dispatch(tools)
             compare_hourly_curtailment(tools)
 
 def graph_hourly_dispatch(tools):
@@ -538,32 +539,38 @@ def graph_hourly_curtailment(tools):
         ylabel="Average daily curtailment (GW)"
     )
 
+def compare_hourly_dispatch(tools):
+    """
+    Generates a matrix of hourly dispatch plots for each time region
+    """
+    # Read dispatch.csv
+    df = tools.get_dataframe('dispatch.csv', all_scenarios=True)
+    # Convert to GW
+    df["DispatchGen_GW"] = df["DispatchGen_MW"] / 1000
+    # Plot Dispatch
+    tools.graph_scenario_matrix(
+        df,
+        "DispatchGen_GW",
+        out="dispatch_per_scenario",
+        title="Average daily dispatch",
+        ylabel="Average daily dispatch (GW)"
+    )
+
+
 def compare_hourly_curtailment(tools):
     # Read dispatch.csv
     df = tools.get_dataframe('dispatch.csv', all_scenarios=True)
     # Keep only renewable
     df = df[df["is_renewable"]]
     df["Curtailment_GW"] = df["Curtailment_MW"] / 1000
-    # Add the technology type column and filter out unneeded columns
-    df = tools.transform.gen_type(df)
-    # Keep only important columns
-    df = df[["gen_type", "timestamp", "Curtailment_GW", "scenario_name"]]
-    # Sum the values for all technology types and timepoints
-    df = df.groupby(["gen_type", "timestamp", "scenario_name"], as_index=False).sum()
-    # Add the columns time_row and time_column
-    df = tools.transform.timestamp(df)
-    # Sum across all technologies that are in the same hour and scenario
-    df = df.groupby(["hour", "gen_type", "scenario_name"], as_index=False).mean()
-    # Plot curtailment
-    tools.graph_matrix(
+    tools.graph_scenario_matrix(
         df,
         "Curtailment_GW",
         out="curtailment_compare_scenarios",
-        title="Average daily curtailment",
-        ylabel="Average daily curtailment (GW)",
-        col_specifier="scenario_name",
-        row_specifier=None
+        title="Average daily curtailment by scenario",
+        ylabel="Average daily curtailment (GW)"
     )
+
 
 def graph_total_dispatch(tools):
     # ---------------------------------- #

@@ -431,6 +431,28 @@ class GraphTools:
         df = df.groupby(["hour", "gen_type", "time_column", "time_row"], as_index=False).mean()
         self.graph_matrix(df, value_column, out, title, ylabel, "time_row", "time_column")
 
+    def graph_scenario_matrix(self, df, value_column, out, title, ylabel):
+        # Add the technology type column and filter out unneeded columns
+        df = self.transform.gen_type(df)
+        # Keep only important columns
+        df = df[["gen_type", "timestamp", value_column, "scenario_name"]]
+        # Sum the values for all technology types and timepoints
+        df = df.groupby(["gen_type", "timestamp", "scenario_name"], as_index=False).sum()
+        # Add the columns time_row and time_column
+        df = self.transform.timestamp(df)
+        # Sum across all technologies that are in the same hour and scenario
+        df = df.groupby(["hour", "gen_type", "scenario_name"], as_index=False).mean()
+        # Plot curtailment
+        self.graph_matrix(
+            df,
+            value_column,
+            out=out,
+            title=title,
+            ylabel=ylabel,
+            col_specifier="scenario_name",
+            row_specifier=None
+        )
+
     def graph_matrix(self, df, value_column, out, title, ylabel, row_specifier, col_specifier):
         # Change None values to a column which is all the same
         df["empty_col"] = "-"

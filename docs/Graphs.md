@@ -78,7 +78,7 @@ def compare(tools):
   ...
 ```
 
-If you call `tools.get_dataframe(...)` from within `compare`, then
+If you call `tools.get_dataframe(..., all_scenarios=True)` from within `compare()`, then
 `tools.get_dataframe` will return a dataframe containing the data from *all*
 the scenarios. The dataframe will contain a column called `scenario` to indicate which rows correspond to which
 scenarios. You can then use this column to create a graph comparing the different scenarios (still
