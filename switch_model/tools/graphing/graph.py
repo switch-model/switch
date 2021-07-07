@@ -35,5 +35,5 @@ def main(args=None):
         os.mkdir(args.graph_dir)
 
     # Create the graphs (with a single scenario)
-    graph_scenarios(scenarios=[Scenario(rel_path=".", name=None)], graph_dir=args.graph_dir, skip_long=args.skip_long,
+    graph_scenarios(scenarios=[Scenario(rel_path=".", name="")], graph_dir=args.graph_dir, skip_long=args.skip_long,
                     module_names=args.modules)
