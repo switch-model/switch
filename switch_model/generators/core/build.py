@@ -720,9 +720,12 @@ def post_solve(m, outdir):
 
 
 def graph(tools):
-    graph_buildout(tools)
     graph_capacity(tools)
     graph_buildout_per_tech(tools)
+
+
+def compare(tools):
+    graph_buildout(tools)
 
 
 def graph_capacity(tools):
@@ -775,17 +778,32 @@ def graph_capacity(tools):
 
 
 def graph_buildout(tools):
-    build_gen = tools.get_dataframe("BuildGen.csv")
-    build_gen.columns = ["GENERATION_PROJECT", "build_year", "Amount"]
+    build_gen = tools.get_dataframe("BuildGen.csv", all_scenarios=True)
+    build_gen = build_gen.rename(
+        {
+            "GEN_BLD_YRS_1": "GENERATION_PROJECT",
+            "GEN_BLD_YRS_2": "build_year",
+            "BuildGen": "Amount",
+        },
+        axis=1,
+    )
     build_gen = tools.transform.build_year(build_gen)
-    gen = tools.get_dataframe("generation_projects_info", from_inputs=True)
+    gen = tools.get_dataframe(
+        "generation_projects_info", from_inputs=True, all_scenarios=True
+    )
     gen = tools.transform.gen_type(gen)
-    gen = gen[["GENERATION_PROJECT", "gen_type"]]
+    gen = gen[["GENERATION_PROJECT", "gen_type", "scenario_name"]]
     build_gen = build_gen.merge(
-        gen, on="GENERATION_PROJECT", how="left", validate="many_to_one"
+        gen,
+        on=["GENERATION_PROJECT", "scenario_name"],
+        how="left",
+        validate="many_to_one",
+    )
+    groupby = (
+        "build_year" if tools.num_scenarios == 1 else ["build_year", "scenario_name"]
     )
     build_gen = build_gen.pivot_table(
-        index="build_year", columns="gen_type", values="Amount", aggfunc=tools.np.sum
+        index=groupby, columns="gen_type", values="Amount", aggfunc=tools.np.sum
     )
     build_gen = build_gen * 1e-3  # Convert values to GW
     build_gen = build_gen.sort_index(ascending=False, key=tools.sort_build_years)
@@ -889,7 +907,3 @@ def graph_buildout_per_tech(tools):
     ax.yaxis.set_major_formatter(tools.mplt.ticker.PercentFormatter(1.0))
     # Horizontal line at 100%
     ax.axhline(y=1, linestyle="--", color="b")
-
-
-def compare(tools):
-    pass

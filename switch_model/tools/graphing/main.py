@@ -204,7 +204,7 @@ class GraphTools:
         # a given row belongs to.
         self._dfs: Dict[str, pd.DataFrame] = {}
 
-        self._num_scenarios = len(scenarios)
+        self.num_scenarios = len(scenarios)
 
         # When True we are running compare(), when False we are running graph()
         # compare() is to create graphs for multiple scenarios
@@ -254,7 +254,7 @@ class GraphTools:
         """
         Create a set of matplotlib axes
         """
-        num_subplot_columns = 1 if self._is_compare_mode else self._num_scenarios
+        num_subplot_columns = 1 if self._is_compare_mode else self.num_scenarios
         fig = GraphTools._create_figure(
             out, size=(size[0] * num_subplot_columns, size[1]), **kwargs
         )
@@ -327,7 +327,7 @@ class GraphTools:
 
     def save_figure(self, out, fig):
         # If we have multiple scenarios, leave a note under each indicating the scenario
-        if self._num_scenarios > 1:
+        if self.num_scenarios > 1:
             self._add_note(
                 fig, "Scenario: " + self._scenarios[self._active_scenario].name
             )
@@ -336,7 +336,7 @@ class GraphTools:
         # Add the figure to the list of figures for that scenario
         self._module_figures[out].append((fig, None))
 
-    def get_dataframe(self, csv, folder=None, from_inputs=False):
+    def get_dataframe(self, csv, folder=None, from_inputs=False, all_scenarios=False):
         """Returns the dataframe for the active scenario."""
         # Add file extension of missing
         if len(csv) < 5 or csv[-4:] != ".csv":
@@ -355,11 +355,15 @@ class GraphTools:
         else:
             df = self._dfs[path].copy()  # We return a copy so the source isn't modified
 
-        # If we're not comparing, we only return the rows corresponding to the active scenario
-        if not self._is_compare_mode:
-            df = df[df["scenario_index"] == self._active_scenario]
-            df = df.drop("scenario_index", axis=1).drop("scenario_name", axis=1)
-
+        # If they want all the scenarios verify that that is possible
+        if all_scenarios:
+            if not self._is_compare_mode:
+                raise Exception("all_scenarios=True is only possible under compare().")
+        # If they want only some scenarios return the rows corresponding to the active scenario (or scenario 0 if we're in compare mode)
+        else:
+            scenario = 0 if self._is_compare_mode else self._active_scenario
+            df = df[df["scenario_index"] == scenario]
+            df = df.drop(["scenario_index", "scenario_name"], axis=1)
         return df
 
     def graph_module(self, func_graph):
@@ -596,10 +600,9 @@ def graph_scenarios(
         print(f"{name}.graph()...")
         graph_tools.graph_module(func_graph)
 
-    if len(scenarios) > 1:
-        for name, func_compare in iterate_modules(module_names, "compare"):
-            print(f"{name}.compare()...")
-            graph_tools.compare_module(func_compare)
+    for name, func_compare in iterate_modules(module_names, "compare"):
+        print(f"{name}.compare()...")
+        graph_tools.compare_module(func_compare)
 
     print(f"Took {timer.step_time_as_str()} to generate all graphs.")
 
