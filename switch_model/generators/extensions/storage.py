@@ -455,6 +455,8 @@ def graph_state_of_charge(tools):
     df = df.groupby(["timepoint", "scenario_name"], as_index=False).sum()
     # Add datetime column
     df = tools.transform.timestamp(df, timestamp_col="timepoint")
+    # Count num rows
+    num_rows = len(df["time_row"].unique())
     # Find charge in GWh
     df["charge"] = df["StateOfCharge"] / 1000
     # Plot with plotnine
@@ -464,11 +466,9 @@ def graph_state_of_charge(tools):
         pn.aes(x="datetime", y="charge")
     ) \
            + pn.geom_line() \
-           + pn.labs(y="State of Charge (GWh)", x="Time of Year", title="State of Charge Throughout the Year") \
-           + pn.facet_grid(". ~ scenario_name") \
-           + pn.theme(figure_size=(pn.options.figure_size[0] * tools.num_scenarios, pn.options.figure_size[1]))
+           + pn.labs(y="State of Charge (GWh)", x="Time of Year", title="State of Charge Throughout the Year")
 
-    tools.save_figure("state_of_charge", plot.draw())
+    tools.save_figure("state_of_charge", by_scenario_and_time_row(tools, plot, num_rows).draw())
 
 
 def graph_dispatch_cycles(tools):
@@ -520,7 +520,7 @@ def graph_buildout(tools):
     df["duration"] = df["IncrementalEnergyCapacityMWh"] / df["IncrementalPowerCapacityMW"]
     df = tools.transform.build_year(df)
     pn = tools.pn
-    num_regions = df["region"].count()
+    num_regions = len(df["region"].unique())
     plot = pn.ggplot(
         df,
         pn.aes(x='duration', y="power",
@@ -552,6 +552,15 @@ def by_scenario(tools, plot):
     pn = tools.pn
     return plot + pn.facet_grid(". ~ scenario_name") + pn.theme(
         figure_size=(pn.options.figure_size[0] * tools.num_scenarios, pn.options.figure_size[1]))
+
+
+def by_scenario_and_time_row(tools, plot, num_rows):
+    pn = tools.pn
+    num_rows = min(num_rows, 3)
+    return plot + pn.facet_grid("time_row ~ scenario_name") + pn.theme(
+        figure_size=(pn.options.figure_size[0] * tools.num_scenarios, pn.options.figure_size[1] * num_rows)
+    )
+
 
 def by_scenario_and_region(tools, plot, num_regions):
     pn = tools.pn
