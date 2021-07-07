@@ -247,14 +247,13 @@ class GraphTools:
                 index_col=False,
                 # We force the datatype to object for some columns to avoid warnings of mismatched types
                 dtype={"generation_project": str, "gen_dbid": str},
+                na_values="." if convert_dot_to_na else None,
             )
             df["scenario_name"] = scenario.name
             df["scenario_index"] = i
             df_all_scenarios.append(df)
 
         df_all_scenarios: pd.DataFrame = pd.concat(df_all_scenarios)
-        if convert_dot_to_na:
-            df_all_scenarios = df_all_scenarios.replace(".", np.nan)
         return df_all_scenarios
 
     def _create_axes(self, out, size=(8, 5), **kwargs):

@@ -353,29 +353,30 @@ def load_inputs(mod, switch_data, inputs_dir):
 
 def post_solve(instance, outdir):
     mod = instance
-    normalized_dat = [
-        {
-            "TRANSMISSION_LINE": tx,
-            "PERIOD": p,
-            "trans_lz1": mod.trans_lz1[tx],
-            "trans_lz2": mod.trans_lz2[tx],
-            "trans_dbid": mod.trans_dbid[tx],
-            "trans_length_km": mod.trans_length_km[tx],
-            "trans_efficiency": mod.trans_efficiency[tx],
-            "trans_derating_factor": mod.trans_derating_factor[tx],
-            "existing_trans_cap": mod.existing_trans_cap[tx],
-            "BuildTx": value(mod.BuildTx[tx, p]) if (tx, p) in mod.BuildTx else ".",
-            "TxCapacityNameplate": value(mod.TxCapacityNameplate[tx, p]),
-            "TxCapacityNameplateAvailable": value(
-                mod.TxCapacityNameplateAvailable[tx, p]
-            ),
-            "TotalAnnualCost": value(
-                mod.TxCapacityNameplate[tx, p] * mod.trans_cost_annual[tx]
-            ),
-        }
-        for tx, p in mod.TRANSMISSION_LINES * mod.PERIODS
-    ]
-    tx_build_df = pd.DataFrame(normalized_dat)
+    tx_build_df = pd.DataFrame(
+        [
+            {
+                "TRANSMISSION_LINE": tx,
+                "PERIOD": p,
+                "trans_lz1": mod.trans_lz1[tx],
+                "trans_lz2": mod.trans_lz2[tx],
+                "trans_dbid": mod.trans_dbid[tx],
+                "trans_length_km": mod.trans_length_km[tx],
+                "trans_efficiency": mod.trans_efficiency[tx],
+                "trans_derating_factor": mod.trans_derating_factor[tx],
+                "existing_trans_cap": mod.existing_trans_cap[tx],
+                "BuildTx": value(mod.BuildTx[tx, p]) if (tx, p) in mod.BuildTx else ".",
+                "TxCapacityNameplate": value(mod.TxCapacityNameplate[tx, p]),
+                "TxCapacityNameplateAvailable": value(
+                    mod.TxCapacityNameplateAvailable[tx, p]
+                ),
+                "TotalAnnualCost": value(
+                    mod.TxCapacityNameplate[tx, p] * mod.trans_cost_annual[tx]
+                ),
+            }
+            for tx, p in mod.TRANSMISSION_LINES * mod.PERIODS
+        ]
+    )
     tx_build_df.set_index(["TRANSMISSION_LINE", "PERIOD"], inplace=True)
     write_table(
         instance, df=tx_build_df, output_file=os.path.join(outdir, "transmission.csv")
@@ -383,13 +384,23 @@ def post_solve(instance, outdir):
 
 
 def graph(tools):
-    transmission = tools.get_dataframe("transmission")
-    transmission = transmission.groupby("PERIOD").sum()["TxCapacityNameplate"]
+    transmission = tools.get_dataframe("transmission", convert_dot_to_na=True).fillna(0)
+    transmission = transmission.groupby("PERIOD", as_index=False).sum()
+    transmission["Existing Capacity"] = (
+        transmission["TxCapacityNameplate"] - transmission["BuildTx"]
+    )
+    transmission = transmission[["PERIOD", "Existing Capacity", "BuildTx"]]
+    transmission = transmission.set_index("PERIOD")
+    transmission = transmission.rename({"BuildTx": "New Capacity"}, axis=1)
     transmission *= 1e-3
 
     ax = tools.get_axes(
         out="transmission_capacity", title="Transmission capacity per period"
     )
     transmission.plot(
-        kind="bar", ax=ax, xlabel="Period", ylabel="Transmission capacity (GW)"
+        kind="bar",
+        stacked=True,
+        ax=ax,
+        xlabel="Period",
+        ylabel="Transmission capacity (GW)",
     )
