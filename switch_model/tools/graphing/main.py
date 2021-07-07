@@ -207,7 +207,7 @@ class GraphTools:
 
         self.transform = TransformTools(self)
 
-    def _load_dataframe(self, path):
+    def _load_dataframe(self, path, convert_dot_to_na):
         """
         Reads a csv file for every scenario and returns a single dataframe containing
         the rows from every scenario with a column for the scenario name and index.
@@ -223,7 +223,10 @@ class GraphTools:
             df['scenario_index'] = i
             df_all_scenarios.append(df)
 
-        return pd.concat(df_all_scenarios)
+        df_all_scenarios: pd.DataFrame = pd.concat(df_all_scenarios)
+        if convert_dot_to_na:
+            df_all_scenarios = df_all_scenarios.replace(".", np.nan)
+        return df_all_scenarios
 
     def _create_axes(self, out, size=(8, 5), **kwargs):
         """
@@ -303,7 +306,7 @@ class GraphTools:
         # Add the figure to the list of figures for that scenario
         self._module_figures[out].append((fig, None))
 
-    def get_dataframe(self, csv, folder=None, from_inputs=False, all_scenarios=False):
+    def get_dataframe(self, csv, folder=None, from_inputs=False, all_scenarios=False, convert_dot_to_na=False):
         """Returns the dataframe for the active scenario. """
         # Add file extension of missing
         if len(csv) < 5 or csv[-4:] != ".csv":
@@ -316,7 +319,7 @@ class GraphTools:
 
         # If doesn't exist, create it
         if path not in self._dfs:
-            df = self._load_dataframe(path)
+            df = self._load_dataframe(path, convert_dot_to_na=convert_dot_to_na)
             if GraphTools.ENABLE_DF_CACHING:
                 self._dfs[path] = df
         else:
