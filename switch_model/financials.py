@@ -328,7 +328,6 @@ def load_inputs(mod, switch_data, inputs_dir):
 def post_solve(instance, outdir):
     m = instance
     # Overall electricity costs
-    # TODO use write_table
     normalized_dat = [
         {
         	"PERIOD": p,
@@ -379,12 +378,20 @@ def post_solve(instance, outdir):
     write_table(instance, output_file=os.path.join(outdir, "costs_itemized.csv"), df=df)
 
 
-def graph(tools):
-    costs_itemized = tools.get_dataframe("costs_itemized.csv")
+def compare(tools):
+    costs_itemized = tools.get_dataframe("costs_itemized.csv", all_scenarios=True)
     # Remove elements with zero cost
     costs_itemized = costs_itemized[costs_itemized['AnnualCost_Real'] != 0]
-    costs_itemized = costs_itemized.pivot(columns="Component", index='PERIOD', values="AnnualCost_Real")
+    groupby = "PERIOD" if tools.num_scenarios == 1 else ["PERIOD", "scenario_name"]
+    costs_itemized = costs_itemized.pivot(columns="Component", index=groupby, values="AnnualCost_Real")
     costs_itemized *= 1E-9
+    costs_itemized = costs_itemized.rename({
+        "GenVariableOMCostsInTP": "Variable O & M Generation Costs",
+        "FuelCostsPerPeriod": "Fuel Costs",
+        "StorageEnergyFixedCost": "Storage Energy Capacity Costs",
+        "TotalGenFixedCosts": "Generation Fixed Costs",
+        "TxFixedCosts": "Transmission Costs"
+    }, axis=1)
     costs_itemized = costs_itemized.sort_values(axis=1, by=costs_itemized.index[-1])
     ax = tools.get_axes(out="costs", title="Itemized costs per period")
     costs_itemized.plot(ax=ax, kind='bar', stacked=True, xlabel="Period", ylabel='Billions of dollars (Real)')
