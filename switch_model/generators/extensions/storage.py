@@ -511,14 +511,18 @@ def post_solve(instance, outdir):
 
 
 def graph(tools):
-    graph_dispatch(tools)
+    graph_dispatch_cycles(tools)
+
+
+def compare(tools):
+    graph_state_of_charge(tools)
     graph_buildout(tools)
 
 
-def graph_dispatch(tools):
-    df = tools.get_dataframe("storage_dispatch")
+def graph_state_of_charge(tools):
+    df = tools.get_dataframe("storage_dispatch", all_scenarios=True)
     # Aggregate by timepoint
-    df = df.groupby("timepoint", as_index=False).sum()
+    df = df.groupby(["timepoint", "scenario_name"], as_index=False).sum()
     # Add datetime column
     df = tools.transform.timestamp(df, timestamp_col="timepoint")
     # Find charge in GWh
@@ -533,9 +537,26 @@ def graph_dispatch(tools):
             x="Time of Year",
             title="State of Charge Throughout the Year",
         )
+        + pn.facet_grid(". ~ scenario_name")
+        + pn.theme(
+            figure_size=(
+                pn.options.figure_size[0] * tools.num_scenarios,
+                pn.options.figure_size[1],
+            )
+        )
     )
 
     tools.save_figure("state_of_charge", plot.draw())
+
+
+def graph_dispatch_cycles(tools):
+    df = tools.get_dataframe("storage_dispatch")
+    # Aggregate by timepoint
+    df = df.groupby("timepoint", as_index=False).sum()
+    # Add datetime column
+    df = tools.transform.timestamp(df, timestamp_col="timepoint")
+    # Find charge in GWh
+    df["charge"] = df["StateOfCharge"] / 1000
 
     # Storage Frequency graph
     df = df.set_index("datetime")
@@ -572,7 +593,7 @@ def graph_buildout(tools):
     """
     Create graphs relating to the storage that has been built
     """
-    df = tools.get_dataframe("storage_builds.csv")
+    df = tools.get_dataframe("storage_builds.csv", all_scenarios=True)
     df = tools.transform.load_zone(df)
     df["power"] = df["IncrementalPowerCapacityMW"] / 1000
     # Filter out rows where there's no power built
@@ -582,6 +603,7 @@ def graph_buildout(tools):
     )
     df = tools.transform.build_year(df)
     pn = tools.pn
+    num_regions = df["region"].count()
     plot = (
         pn.ggplot(df, pn.aes(x="duration", y="power", color="build_year"))
         + pn.geom_point()
@@ -593,10 +615,11 @@ def graph_buildout(tools):
         )
     )
 
-    tools.save_figure("storage_duration", plot.draw())
-
-    plot = plot + pn.facet_wrap("region")
-    tools.save_figure("storage_duration_by_region", plot.draw())
+    tools.save_figure("storage_duration", by_scenario(tools, plot).draw())
+    tools.save_figure(
+        "storage_duration_by_region",
+        by_scenario_and_region(tools, plot, num_regions).draw(),
+    )
 
     # It doesn't make much sense to plot build density if we don't even have 5 data points
     if len(df) > 5:
@@ -611,7 +634,38 @@ def graph_buildout(tools):
             )
         )
 
-        tools.save_figure("storage_duration_density", plot.draw())
+        tools.save_figure("storage_duration_density", by_scenario(tools, plot).draw())
+        plot += pn.ylim(0, 2)
+        tools.save_figure(
+            "storage_duration_density_by_region",
+            by_scenario_and_region(tools, plot, num_regions).draw(),
+        )
 
-        plot = plot + pn.facet_wrap("region") + pn.ylim(0, 2)
-        tools.save_figure("storage_duration_density_by_region", plot.draw())
+
+def by_scenario(tools, plot):
+    pn = tools.pn
+    return (
+        plot
+        + pn.facet_grid(". ~ scenario_name")
+        + pn.theme(
+            figure_size=(
+                pn.options.figure_size[0] * tools.num_scenarios,
+                pn.options.figure_size[1],
+            )
+        )
+    )
+
+
+def by_scenario_and_region(tools, plot, num_regions):
+    pn = tools.pn
+    num_regions = min(num_regions, 5)
+    return (
+        plot
+        + pn.facet_grid("scenario_name ~ region")
+        + pn.theme(
+            figure_size=(
+                pn.options.figure_size[0] * num_regions,
+                pn.options.figure_size[1] * tools.num_scenarios,
+            )
+        )
+    )
