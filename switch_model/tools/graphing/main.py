@@ -327,7 +327,7 @@ class GraphTools:
 
     def save_figure(self, out, fig):
         # If we have multiple scenarios, leave a note under each indicating the scenario
-        if self.num_scenarios > 1:
+        if not self._is_compare_mode and self.num_scenarios > 1:
             self._add_note(
                 fig, "Scenario: " + self._scenarios[self._active_scenario].name
             )
@@ -475,12 +475,26 @@ class GraphTools:
         df = df.groupby(
             ["hour", "gen_type", "time_column", "time_row"], as_index=False
         ).mean()
+        self.graph_matrix(
+            df, value_column, out, title, ylabel, "time_row", "time_column"
+        )
 
-        rows = df["time_row"].drop_duplicates().sort_values()
+    def graph_matrix(
+        self, df, value_column, out, title, ylabel, row_specifier, col_specifier
+    ):
+        # Change None values to a column which is all the same
+        df["empty_col"] = "-"
+        if row_specifier is None:
+            row_specifier = "empty_col"
+        if col_specifier is None:
+            col_specifier = "empty_col"
+        # Get rows
+        rows = df[row_specifier].drop_duplicates().sort_values()
+        # Count number of rows and number of columns
         nrows = min(len(rows), 6)
         ncols = 0
         for row in rows:
-            columns = df[df["time_row"] == row]["time_column"].drop_duplicates()
+            columns = df[df[row_specifier] == row][col_specifier].drop_duplicates()
             ncols = max(ncols, len(columns))
         ncols = min(ncols, 8)
         fig = self.get_figure(
@@ -501,16 +515,16 @@ class GraphTools:
 
         legend = {}
 
-        # for each quarter...
+        # for each row...
         for ri in range(nrows):
             row = rows.iloc[ri]
-            df_row = df[df["time_row"] == row]
-            columns = df_row["time_column"].drop_duplicates().sort_values()
+            df_row = df[df[row_specifier] == row]
+            columns = df_row[col_specifier].drop_duplicates().sort_values()
             for ci in range(min(ncols, len(columns))):
                 column = columns.iloc[ci]
                 current_ax = ax[ri][ci]
                 # get the dispatch for that quarter
-                sub_df = df_row.loc[df["time_column"] == column]
+                sub_df = df_row.loc[df[col_specifier] == column]
                 # Skip if no timepoints in quarter
                 if len(sub_df) == 0:
                     continue
@@ -570,7 +584,11 @@ class GraphTools:
 
 
 def graph_scenarios(
-    scenarios: List[Scenario], graph_dir, skip_long=False, module_names=None
+    scenarios: List[Scenario],
+    graph_dir,
+    skip_long=False,
+    module_names=None,
+    compare_only=False,
 ):
     # Start a timer
     timer = StepTimer()
@@ -595,10 +613,11 @@ def graph_scenarios(
 
     # Loop through every graphing module
     print(f"Graphing modules:")
-    for name, func_graph in iterate_modules(module_names, "graph"):
-        # Graph
-        print(f"{name}.graph()...")
-        graph_tools.graph_module(func_graph)
+    if not compare_only:
+        for name, func_graph in iterate_modules(module_names, "graph"):
+            # Graph
+            print(f"{name}.graph()...")
+            graph_tools.graph_module(func_graph)
 
     for name, func_compare in iterate_modules(module_names, "compare"):
         print(f"{name}.compare()...")
