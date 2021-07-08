@@ -147,7 +147,8 @@ def query_db(full_config, skip_cf):
         "ca_policies_scenario_id",
         "enable_planning_reserves",
         "generation_plant_technologies_scenario_id",
-        "variable_o_m_cost_scenario_id"
+        "variable_o_m_cost_scenario_id",
+        "wind_to_solar_ratio"
     ]
 
     db_cursor.execute(
@@ -184,6 +185,7 @@ def query_db(full_config, skip_cf):
     enable_planning_reserves = s_details[18]
     generation_plant_technologies_scenario_id =s_details[19]
     variable_o_m_cost_scenario_id = s_details[20]
+    wind_to_solar_ratio = s_details[21]
 
     print(f"Scenario: {scenario_id}: {name}.\n")
 
@@ -878,10 +880,20 @@ def query_db(full_config, skip_cf):
         )
 
     ca_policies(db_cursor, ca_policies_scenario_id, study_timeframe_id)
+    write_wind_to_solar_ratio(wind_to_solar_ratio)
     if enable_planning_reserves:
         planning_reserves(db_cursor, time_sample_id, hydro_simple_scenario_id)
     create_modules_txt()
 
+def write_wind_to_solar_ratio(wind_to_solar_ratio):
+    if wind_to_solar_ratio is None:
+        return
+
+    print("wind_to_solar_ratio.csv")
+    df = pd.read_csv("periods.csv")[["INVESTMENT_PERIOD"]]
+    df["wind_to_solar_ratio"] = wind_to_solar_ratio
+    df.to_csv("wind_to_solar_ratio.csv", index=False)
+    modules.append("switch_model.policies.wind_to_solar_ratio")
 
 def ca_policies(db_cursor, ca_policies_scenario_id, study_timeframe_id):
     if ca_policies_scenario_id is None:
