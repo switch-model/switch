@@ -51,11 +51,19 @@ def define_components(mod):
         within=NonNegativeReals,
     )
 
+    # We use a scaling factor to improve the numerical properties
+    # of the model.
+    # Learn more by reading the documentation on Numerical Issues.
+    # 1e-3 was picked since this value is normally on the order of GW instead of MW
+    scaling_factor = 1e-3
     mod.wind_to_solar_ratio_const = Constraint(
         mod.PERIODS,
         rule=lambda m, p: Constraint.skip
         if m.wind_to_solar_ratio == 0
-        else (m.WindCapacity[p] == m.SolarCapacity[p] * m.wind_to_solar_ratio[p]),
+        else (
+            m.WindCapacity[p] * scaling_factor
+            == m.SolarCapacity[p] * m.wind_to_solar_ratio[p] * scaling_factor
+        ),
     )
 
 
