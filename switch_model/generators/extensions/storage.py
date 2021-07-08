@@ -515,6 +515,7 @@ def graph(tools):
 
 
 def compare(tools):
+    graph_state_of_charge_per_duration(tools)
     graph_state_of_charge(tools)
     graph_buildout(tools)
 
@@ -564,6 +565,56 @@ def graph_state_of_charge(tools):
 
     tools.save_figure(
         "state_of_charge", by_scenario_and_period(tools, plot, num_periods).draw()
+    )
+
+
+def graph_state_of_charge_per_duration(tools):
+    # Read the capacity of each project and label they by duration
+    capacity = tools.get_dataframe("storage_capacity.csv", all_scenarios=True)
+    capacity["duration"] = (
+        capacity["OnlineEnergyCapacityMWh"] / capacity["OnlinePowerCapacityMW"]
+    )
+    capacity["duration"] = tools.pd.cut(
+        capacity["duration"],
+        bins=(0, 10, 25, 300, 365),
+        precision=0,
+    )
+
+    # Get the total state of charge at each timepoint for each project
+    df = tools.get_dataframe("storage_dispatch", all_scenarios=True)[
+        ["generation_project", "timepoint", "StateOfCharge", "scenario_name"]
+    ]
+    df = tools.transform.timestamp(df, timestamp_col="timepoint")
+
+    # Add the capacity information to the state of charge information
+    df = df.merge(
+        capacity,
+        on=["generation_project", "period", "scenario_name"],
+        validate="many_to_one",
+    )
+    # Aggregate projects in the same duration group
+    df = df.groupby(
+        ["duration", "scenario_name", "datetime", "period"], as_index=False
+    )[["StateOfCharge", "OnlineEnergyCapacityMWh"]].sum()
+    # Convert to GWh
+    df["StateOfCharge"] /= 1000
+
+    # Plot with plotnine
+    pn = tools.pn
+    plot = (
+        pn.ggplot(df, pn.aes(x="datetime", y="StateOfCharge", color="duration"))
+        + pn.geom_line(alpha=0.5)
+        + pn.labs(
+            y="State of Charge (GWh)",
+            x="Time of Year",
+            title="State of Charge Throughout the Year by Duration",
+            color="Storage Duration (h)",
+        )
+    )
+
+    tools.save_figure(
+        "state_of_charge_per_duration",
+        by_scenario_and_period(tools, plot, len(df["period"].unique())).draw(),
     )
 
 
@@ -627,7 +678,7 @@ def graph_buildout(tools):
         + pn.geom_point()
         + pn.labs(
             title="Storage Buildout",
-            color="Period",
+            color="Build Year",
             x="Duration (h)",
             y="Power Capacity (GW)",
         )
@@ -639,25 +690,21 @@ def graph_buildout(tools):
         by_scenario_and_region(tools, plot, num_regions).draw(),
     )
 
-    # It doesn't make much sense to plot build density if we don't even have 5 data points
-    if len(df) > 5:
-        plot = (
-            pn.ggplot(df, pn.aes(x="duration", weight="power", color="build_year"))
-            + pn.geom_density(pn.aes(weight="power"))
-            + pn.labs(
-                title="Storage Duration Density",
-                color="Period",
-                x="Duration (h)",
-                y="Density",
-            )
+    plot = (
+        pn.ggplot(df, pn.aes(x="duration"))
+        + pn.geom_histogram(pn.aes(weight="power"), binwidth=5)
+        + pn.labs(
+            title="Storage Duration Histogram",
+            x="Duration (h)",
+            y="Power Capacity (GW)",
         )
+    )
 
-        tools.save_figure("storage_duration_density", by_scenario(tools, plot).draw())
-        plot += pn.ylim(0, 2)
-        tools.save_figure(
-            "storage_duration_density_by_region",
-            by_scenario_and_region(tools, plot, num_regions).draw(),
-        )
+    tools.save_figure("storage_duration_histogram", by_scenario(tools, plot).draw())
+    tools.save_figure(
+        "storage_duration_histogram_by_region",
+        by_scenario_and_region(tools, plot, num_regions).draw(),
+    )
 
 
 def by_scenario(tools, plot):

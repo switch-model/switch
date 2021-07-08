@@ -137,19 +137,18 @@ class TransformTools:
         timestamp_mapping = timestamp_mapping.rename({"ts_period": "period"}, axis=1)
         timestamp_mapping = timestamp_mapping.astype({"period": "category"})
 
+        df = df.rename({timestamp_col: "timestamp"}, axis=1)
         df = df.merge(
             timestamp_mapping,
             how="left",
-            left_on=timestamp_col,
-            right_on="timestamp",
+            on="timestamp",
         )
 
         try:
             df = df.merge(
                 self.tools.get_dataframe("graph_timestamp_map.csv", from_inputs=True),
                 how="left",
-                left_on=timestamp_col,
-                right_on="timestamp",
+                on="timestamp",
             )
         except FileNotFoundError:
             timestamp_mapping["time_row"] = timestamp_mapping["period"]
@@ -157,7 +156,7 @@ class TransformTools:
 
         # Add datetime and hour column
         df["datetime"] = (
-            pd.to_datetime(df[timestamp_col], format="%Y%m%d%H")
+            pd.to_datetime(df["timestamp"], format="%Y%m%d%H")
             .dt.tz_localize("utc")
             .dt.tz_convert(self.time_zone)
         )

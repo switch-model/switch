@@ -41,6 +41,12 @@ def main(args=None):
         nargs="+",
         help="Modules to graph. If not specified reads the modules from modules.txt.",
     )
+    parser.add_argument(
+        "--compare-only",
+        default=False,
+        action="store_true",
+        help="Runs only compare() (i.e. not graph()). Useful for debugging, not recommended otherwise.",
+    )
     args = parser.parse_args(args)
 
     # If directory already exists, verify we should overwrite its contents
@@ -59,4 +65,5 @@ def main(args=None):
         graph_dir=args.graph_dir,
         skip_long=args.skip_long,
         module_names=args.modules,
+        compare_only=args.compare_only,
     )
