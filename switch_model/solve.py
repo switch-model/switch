@@ -651,9 +651,9 @@ def parse_recommended_args(args):
                '--debug',
                '--graph',
            ] + args
-    solver_options_string = "method=2 BarHomogeneous=1 FeasibilityTol=1e-5"
+    solver_options_string = "BarHomogeneous=1 FeasibilityTol=1e-5"
     if not options.recommended_robust:
-        solver_options_string += " crossover=0"
+        solver_options_string += " crossover=0 method=2"
     args = ['--solver-options-string', solver_options_string] + args
     if options.recommended_debug:
         args = ['--keepfiles', '--tempdir', 'temp', '--symbolic-solver-labels'] + args
