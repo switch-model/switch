@@ -589,7 +589,7 @@ def graph_hourly_dispatch(tools):
     # Read dispatch.csv
     df = tools.get_dataframe("dispatch.csv")
     # Convert to GW
-    df["DispatchGen_MW"] /= 1000
+    df["DispatchGen_MW"] /= 1e3
     # Plot Dispatch
     tools.graph_time_matrix(
         df,
@@ -640,7 +640,7 @@ def graph_hourly_curtailment(tools):
     df = tools.get_dataframe("dispatch.csv")
     # Keep only renewable
     df = df[df["is_renewable"]]
-    df["Curtailment_MW"] /= 1e3
+    df["Curtailment_MW"] /= 1e3  # Convert to GW
     tools.graph_scenario_matrix(
         df, value_column="Curtailment_MW", ylabel="Average daily curtailment (GW)"
     )

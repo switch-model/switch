@@ -539,8 +539,8 @@ def graph_state_of_charge(tools):
     )
 
     # Convert values to GWh
-    df["StateOfCharge"] = df["StateOfCharge"] / 1000
-    df["OnlineEnergyCapacityMWh"] /= 1000
+    df["StateOfCharge"] /= 1e3
+    df["OnlineEnergyCapacityMWh"] /= 1e3
 
     # Plot with plotnine
     pn = tools.pn
@@ -592,7 +592,7 @@ def graph_state_of_charge_per_duration(tools):
         ["duration", "scenario_name", "datetime", "period"], as_index=False
     )[["StateOfCharge", "OnlineEnergyCapacityMWh"]].sum()
     # Convert to GWh
-    df["StateOfCharge"] /= 1000
+    df["StateOfCharge"] /= 1e3
 
     # Plot with plotnine
     pn = tools.pn
@@ -619,12 +619,12 @@ def graph_dispatch_cycles(tools):
     # Add datetime column
     df = tools.transform.timestamp(df, timestamp_col="timepoint")
     # Find charge in GWh
-    df["charge"] = df["StateOfCharge"] / 1000
+    df["StateOfCharge"] /= 1e3
 
     # Storage Frequency graph
     df = df.set_index("datetime")
     df = df.sort_index()
-    charge = df["charge"].values
+    charge = df["StateOfCharge"].values
     # TODO don't hardcode
     timestep = (df.index[1] - df.index[0]).seconds / 3600
     N = len(charge)
@@ -659,12 +659,12 @@ def graph_buildout(tools):
     """
     df = tools.get_dataframe("storage_builds.csv")
     df = tools.transform.load_zone(df)
-    df["power"] = df["IncrementalPowerCapacityMW"] / 1000
     # Filter out rows where there's no power built
-    df = df[df["power"] != 0]
+    df = df[df["IncrementalPowerCapacityMW"] != 0]
     df["duration"] = (
         df["IncrementalEnergyCapacityMWh"] / df["IncrementalPowerCapacityMW"]
     )
+    df["power"] = df["IncrementalPowerCapacityMW"] / 1e3
     df = tools.transform.build_year(df)
     pn = tools.pn
     num_regions = len(df["region"].unique())
