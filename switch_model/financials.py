@@ -410,7 +410,7 @@ def graph(tools):
     costs_itemized = costs_itemized.pivot(
         columns="Component", index=groupby, values="AnnualCost_Real"
     )
-    costs_itemized *= 1e-9
+    costs_itemized *= 1e-9  # Converting to billions
     costs_itemized = costs_itemized.rename(
         {
             "GenVariableOMCostsInTP": "Variable O & M Generation Costs",

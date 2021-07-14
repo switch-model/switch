@@ -394,7 +394,7 @@ def graph(tools):
     transmission = transmission[["PERIOD", "Existing Capacity", "BuildTx"]]
     transmission = transmission.set_index("PERIOD")
     transmission = transmission.rename({"BuildTx": "New Capacity"}, axis=1)
-    transmission *= 1e-3
+    transmission *= 1e-3  # Convert to GW
 
     transmission.plot(
         kind="bar",

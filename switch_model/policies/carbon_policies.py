@@ -269,7 +269,7 @@ def post_solve(model, outdir):
 def graph_emissions(tools):
     df = tools.get_dataframe("emissions.csv", convert_dot_to_na=True)
     # Plot emissions over time
-    df["AnnualEmissions_tCO2_per_yr"] *= 1e-6
+    df["AnnualEmissions_tCO2_per_yr"] *= 1e-6  # Convert to MMtCO2
     if df["AnnualEmissions_tCO2_per_yr"].sum() == 0:
         results_info.add_info("CO2 Emissions", "No Emissions")
         return
