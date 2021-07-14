@@ -389,7 +389,7 @@ def graph(tools):
     costs_itemized = costs_itemized[costs_itemized['AnnualCost_Real'] != 0]
     groupby = "PERIOD" if tools.num_scenarios == 1 else ["PERIOD", "scenario_name"]
     costs_itemized = costs_itemized.pivot(columns="Component", index=groupby, values="AnnualCost_Real")
-    costs_itemized *= 1E-9
+    costs_itemized *= 1E-9 # Converting to billions
     costs_itemized = costs_itemized.rename({
         "GenVariableOMCostsInTP": "Variable O & M Generation Costs",
         "FuelCostsPerPeriod": "Fuel Costs",
