@@ -4,8 +4,8 @@ Run 'switch compare -h' for details.
 """
 
 import argparse, os
-from switch_model.tools.graphing.main import Scenario, graph_scenarios
-from switch_model.utilities import query_yes_no
+from switch_model.tools.graph.main import Scenario
+from switch_model.tools.graph.cli import add_arguments, graph_scenarios_from_cli
 
 
 def main():
@@ -22,41 +22,9 @@ def main():
         "scenarios", nargs="+", help="Specify a list of runs to compare"
     )
     parser.add_argument(
-        "--graph-dir",
-        type=str,
-        default=None,
-        help="Name of the folder where the graphs should be saved",
-    )
-    parser.add_argument(
-        "--overwrite",
-        default=False,
-        action="store_true",
-        help="Don't prompt before overwriting the existing folder",
-    )
-    parser.add_argument(
         "--names", nargs="+", default=None, help="Names of the scenarios"
     )
-    parser.add_argument(
-        "--skip-long",
-        default=False,
-        action="store_true",
-        help="Skips plots that take a long time to generate. Useful when debugging"
-        " and wanting to test a new plot without needing to wait for existing"
-        " plots to generate.",
-    )
-    parser.add_argument(
-        "--modules",
-        default=None,
-        nargs="+",
-        help="Modules to graph. If not specified reads the modules from modules.txt.",
-    )
-    parser.add_argument(
-        "--compare-only",
-        default=False,
-        action="store_true",
-        help="Runs only compare() (i.e. not graph()). Useful for debugging, not recommended otherwise.",
-    )
-
+    add_arguments(parser)
     # Parse the parameters
     args = parser.parse_args()
 
@@ -71,7 +39,7 @@ def main():
             "NOTE: For better graphs, use the flag '--names' to specify descriptive scenario names (e.g. baseline)"
         )
     else:
-        # If names was provided, verify the length matches the number of scenariosscenarios
+        # If names was provided, verify the length matches the number of scenarios
         if len(args.names) != len(args.scenarios):
             raise Exception(
                 f"Gave {len(args.names)} scenario names but there were {len(args.scenarios)} scenarios."
@@ -86,21 +54,5 @@ def main():
         Scenario(rel_path, args.names[i]) for i, rel_path in enumerate(args.scenarios)
     ]
 
-    # If directory already exists, verify we should overwrite its contents
-    if os.path.exists(args.graph_dir):
-        if not args.overwrite and not query_yes_no(
-            f"Folder '{args.graph_dir}' already exists. Some graphs may be overwritten. Continue?"
-        ):
-            return
-    # Otherwise create the directory
-    else:
-        os.mkdir(args.graph_dir)
-
     # Create the graphs!
-    graph_scenarios(
-        scenarios,
-        args.graph_dir,
-        skip_long=args.skip_long,
-        module_names=args.modules,
-        compare_only=args.compare_only,
-    )
+    graph_scenarios_from_cli(scenarios, args)

@@ -32,7 +32,7 @@ from switch_model.utilities import (
     add_git_info,
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
-from switch_model.tools.graphing import graph
+from switch_model.tools.graph.cli_graph import main as graph_main
 from switch_model.utilities.results_info import save_info, add_info, ResultsInfoSection
 
 
@@ -233,8 +233,8 @@ def main(
             if instance.options.verbose:
                 print(f"Post solve processing completed in {timer.step_time_as_str()}.")
 
-        if instance.options.graph:
-            graph.main(args=["--overwrite"])
+        if instance.options.run_graph_func:
+            graph_main(args=["--overwrite"])
 
         total_time = start_to_end_timer.step_time_as_str()
         add_info("Total run time", total_time, section=ResultsInfoSection.GENERAL)

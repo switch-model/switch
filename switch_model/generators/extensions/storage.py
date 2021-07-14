@@ -7,11 +7,12 @@ generators, adding components for deciding how much energy to build into
 storage, when to charge, energy accounting, etc.
 """
 import math
-import scipy
+from scipy import fft
 
 from pyomo.environ import *
 import os, collections
 from switch_model.financials import capital_recovery_factor as crf
+from switch_model.tools.graph import graph
 
 dependencies = (
     "switch_model.timescales",
@@ -510,19 +511,14 @@ def post_solve(instance, outdir):
     )
 
 
-def graph(tools):
-    graph_dispatch_cycles(tools)
-
-
-def compare(tools):
-    graph_state_of_charge_per_duration(tools)
-    graph_state_of_charge(tools)
-    graph_buildout(tools)
-
-
+@graph(
+    "state_of_charge",
+    title="State of Charge Throughout the Year",
+    supports_multi_scenario=True,
+)
 def graph_state_of_charge(tools):
     # Get the total state of charge per timepoint and scenario
-    df = tools.get_dataframe("storage_dispatch", all_scenarios=True)
+    df = tools.get_dataframe("storage_dispatch")
     df = df.groupby(["timepoint", "scenario_name"], as_index=False)[
         "StateOfCharge"
     ].sum()
@@ -532,7 +528,7 @@ def graph_state_of_charge(tools):
     num_periods = len(df["period"].unique())
 
     # Get the total capacity per period and scenario
-    capacity = tools.get_dataframe("storage_capacity.csv", all_scenarios=True)
+    capacity = tools.get_dataframe("storage_capacity.csv")
     capacity = capacity.groupby(["period", "scenario_name"], as_index=False)[
         "OnlineEnergyCapacityMWh"
     ].sum()
@@ -551,11 +547,7 @@ def graph_state_of_charge(tools):
     plot = (
         pn.ggplot(df, pn.aes(x="datetime", y="StateOfCharge"))
         + pn.geom_line()
-        + pn.labs(
-            y="State of Charge (GWh)",
-            x="Time of Year",
-            title="State of Charge Throughout the Year",
-        )
+        + pn.labs(y="State of Charge (GWh)", x="Time of Year")
         + pn.geom_hline(
             pn.aes(yintercept="OnlineEnergyCapacityMWh"),
             linetype="dashed",
@@ -563,14 +555,17 @@ def graph_state_of_charge(tools):
         )
     )
 
-    tools.save_figure(
-        "state_of_charge", by_scenario_and_period(tools, plot, num_periods).draw()
-    )
+    tools.save_figure(by_scenario_and_period(tools, plot, num_periods).draw())
 
 
+@graph(
+    "state_of_charge_per_duration",
+    title="State of Charge Throughout the Year by Duration",
+    supports_multi_scenario=True,
+)
 def graph_state_of_charge_per_duration(tools):
     # Read the capacity of each project and label they by duration
-    capacity = tools.get_dataframe("storage_capacity.csv", all_scenarios=True)
+    capacity = tools.get_dataframe("storage_capacity.csv")
     capacity["duration"] = (
         capacity["OnlineEnergyCapacityMWh"] / capacity["OnlinePowerCapacityMW"]
     )
@@ -581,7 +576,7 @@ def graph_state_of_charge_per_duration(tools):
     )
 
     # Get the total state of charge at each timepoint for each project
-    df = tools.get_dataframe("storage_dispatch", all_scenarios=True)[
+    df = tools.get_dataframe("storage_dispatch")[
         ["generation_project", "timepoint", "StateOfCharge", "scenario_name"]
     ]
     df = tools.transform.timestamp(df, timestamp_col="timepoint")
@@ -605,19 +600,18 @@ def graph_state_of_charge_per_duration(tools):
         pn.ggplot(df, pn.aes(x="datetime", y="StateOfCharge", color="duration"))
         + pn.geom_line(alpha=0.5)
         + pn.labs(
-            y="State of Charge (GWh)",
-            x="Time of Year",
-            title="State of Charge Throughout the Year by Duration",
-            color="Storage Duration (h)",
+            y="State of Charge (GWh)", x="Time of Year", color="Storage Duration (h)"
         )
     )
 
     tools.save_figure(
-        "state_of_charge_per_duration",
-        by_scenario_and_period(tools, plot, len(df["period"].unique())).draw(),
+        by_scenario_and_period(tools, plot, len(df["period"].unique())).draw()
     )
 
 
+@graph(
+    "storage_dispatch_frequency",
+)
 def graph_dispatch_cycles(tools):
     df = tools.get_dataframe("storage_dispatch")
     # Aggregate by timepoint
@@ -634,8 +628,8 @@ def graph_dispatch_cycles(tools):
     # TODO don't hardcode
     timestep = (df.index[1] - df.index[0]).seconds / 3600
     N = len(charge)
-    yfreq = tools.np.abs(scipy.fft.fft(charge, norm="forward"))
-    xfreq = scipy.fft.fftfreq(N, timestep)
+    yfreq = tools.np.abs(fft.fft(charge, norm="forward"))
+    xfreq = fft.fftfreq(N, timestep)
 
     # Drop negative frequencies and first value (0)
     yfreq = yfreq[1 : N // 2] * 2
@@ -658,11 +652,12 @@ def graph_dispatch_cycles(tools):
     ax.grid(True, which="both", axis="x")
 
 
+@graph("graph_buildout", supports_multi_scenario=True)
 def graph_buildout(tools):
     """
     Create graphs relating to the storage that has been built
     """
-    df = tools.get_dataframe("storage_builds.csv", all_scenarios=True)
+    df = tools.get_dataframe("storage_builds.csv")
     df = tools.transform.load_zone(df)
     df["power"] = df["IncrementalPowerCapacityMW"] / 1000
     # Filter out rows where there's no power built
@@ -684,10 +679,10 @@ def graph_buildout(tools):
         )
     )
 
-    tools.save_figure("storage_duration", by_scenario(tools, plot).draw())
+    tools.save_figure(by_scenario(tools, plot).draw(), "storage_duration")
     tools.save_figure(
-        "storage_duration_by_region",
         by_scenario_and_region(tools, plot, num_regions).draw(),
+        "storage_duration_by_region",
     )
 
     plot = (
@@ -700,10 +695,10 @@ def graph_buildout(tools):
         )
     )
 
-    tools.save_figure("storage_duration_histogram", by_scenario(tools, plot).draw())
+    tools.save_figure(by_scenario(tools, plot).draw(), "storage_duration_histogram")
     tools.save_figure(
-        "storage_duration_histogram_by_region",
         by_scenario_and_region(tools, plot, num_regions).draw(),
+        "storage_duration_histogram_by_region",
     )
 
 
