@@ -3,17 +3,20 @@ This module gives us the possibility to enforce a wind to solar capacity ratio.
 
 It takes in wind_to_solar_ratio.csv that has the following format
 
-PERIOD,wind_to_solar_ratio
-2020,.
-2030,0.5
-2040,1
-2050,1.5
+PERIOD,wind_to_solar_ratio,wind_to_solar_ratio_const_gt
+2020,.,.
+2030,0.5,0
+2040,1,0
+2050,1.5,1
 
 Here when wind_to_solar_ratio is specified (i.e. not '.') a constraint is activated that enforces that
 
-Online wind capacity = Online solar capacity * wind_to_solar_ratio
+Online wind capacity >=/<= Online solar capacity * wind_to_solar_ratio
 
 for the entire period.
+
+When wind_to_solar_ratio_const_gt is true (1) the constraint is a >= constraint.
+When wind_to_solar_ratio_const_gt is False (0) the constraint is a <= constraint.
 """
 import os
 
@@ -51,29 +54,36 @@ def define_components(mod):
         within=NonNegativeReals,
     )
 
+    mod.wind_to_solar_ratio_const_gt = Param(mod.PERIODS, default=True, within=Boolean)
+
     # We use a scaling factor to improve the numerical properties
     # of the model.
     # Learn more by reading the documentation on Numerical Issues.
     # 1e-3 was picked since this value is normally on the order of GW instead of MW
     scaling_factor = 1e-3
+
+    def wind_to_solar_ratio_const_rule(m, p):
+        if m.wind_to_solar_ratio[p] == 0:  # 0 means Constraint is inactive
+            return Constraint.Skip
+
+        lhs = m.WindCapacity[p] * scaling_factor
+        rhs = m.SolarCapacity[p] * m.wind_to_solar_ratio[p] * scaling_factor
+        if m.wind_to_solar_ratio_const_gt[p]:
+            return lhs >= rhs
+        else:
+            return lhs <= rhs
+
     mod.wind_to_solar_ratio_const = Constraint(
-        mod.PERIODS,
-        rule=lambda m, p: Constraint.skip
-        if m.wind_to_solar_ratio == 0
-        else (
-            m.WindCapacity[p] * scaling_factor
-            == m.SolarCapacity[p] * m.wind_to_solar_ratio[p] * scaling_factor
-        ),
+        mod.PERIODS, rule=wind_to_solar_ratio_const_rule
     )
 
 
 def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
-        index=mod.PERIODS,
         filename=os.path.join(inputs_dir, "wind_to_solar_ratio.csv"),
         auto_select=True,
-        param=(mod.wind_to_solar_ratio,),
-        optional=True,
+        param=(mod.wind_to_solar_ratio, mod.wind_to_solar_ratio_const_gt),
+        optional=True,  # We want to allow including this module even if the file isn't there
     )
 
 
@@ -82,11 +92,14 @@ def post_solve(m, outdir):
         {
             "WindCapacity (GW)": value(m.WindCapacity[p]) / 1000,
             "SolarCapacity (GW)": value(m.SolarCapacity[p]) / 1000,
-            "ComputedRatio": value(m.WindCapacity[p] / m.SolarCapacity[p]),
-            "ExpectedRatio": value(m.wind_to_solar_ratio[p]),
+            "ComputedRatio": value(m.WindCapacity[p] / m.SolarCapacity[p])
+            if value(m.SolarCapacity[p]) != 0
+            else ".",
+            "ExpectedRatio": value(m.wind_to_solar_ratio[p])
+            if m.wind_to_solar_ratio[p] != 0
+            else ".",
         }
         for p in m.PERIODS
-        if m.wind_to_solar_ratio[p] != 0
     )
     write_table(
         m,
