@@ -10,6 +10,7 @@ from pyomo.environ import *
 
 import os
 from switch_model.reporting import write_table
+from switch_model.tools.graph import graph
 
 dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
     'switch_model.financials', 'switch_model.transmission.transport.build'
@@ -107,6 +108,11 @@ def post_solve(instance, outdir):
         output_file=os.path.join(outdir, "transmission_dispatch.csv")
     )
 
+@graph(
+    "transmission_limit_duals",
+    title="Transmission limit duals per period",
+    note="Note: Outliers and zero-valued duals are ignored."
+)
 def graph(tools):
     dispatch = tools.get_dataframe("transmission_dispatch")
     dispatch = tools.transform.timestamp(dispatch)
@@ -118,7 +124,7 @@ def graph(tools):
     # Don't include the zero-valued duals.
     dispatch = dispatch.replace(0, tools.np.nan)
     if dispatch.count().sum() != 0:
-        ax = tools.get_axes("transmission_limit_duals", title="Transmission limit duals per period", note="Note: Outliers and zero-valued duals are ignored.")
+        ax = tools.get_axes()
         dispatch.plot.box(
             ax=ax,
             xlabel='Period',

@@ -11,6 +11,7 @@ from pyomo.environ import *
 import os
 import pandas as pd
 from switch_model.reporting import write_table
+from switch_model.tools.graph import graph
 
 dependencies = 'switch_model.timescales'
 
@@ -377,9 +378,13 @@ def post_solve(instance, outdir):
     df.set_index(["PERIOD", "Component"], inplace=True)
     write_table(instance, output_file=os.path.join(outdir, "costs_itemized.csv"), df=df)
 
-
-def compare(tools):
-    costs_itemized = tools.get_dataframe("costs_itemized.csv", all_scenarios=True)
+@graph(
+    "costs",
+    title="Itemized costs per period",
+    supports_multi_scenario=True
+)
+def graph(tools):
+    costs_itemized = tools.get_dataframe("costs_itemized.csv")
     # Remove elements with zero cost
     costs_itemized = costs_itemized[costs_itemized['AnnualCost_Real'] != 0]
     groupby = "PERIOD" if tools.num_scenarios == 1 else ["PERIOD", "scenario_name"]
@@ -393,5 +398,5 @@ def compare(tools):
         "TxFixedCosts": "Transmission Costs"
     }, axis=1)
     costs_itemized = costs_itemized.sort_values(axis=1, by=costs_itemized.index[-1])
-    ax = tools.get_axes(out="costs", title="Itemized costs per period")
+    ax = tools.get_axes()
     costs_itemized.plot(ax=ax, kind='bar', stacked=True, xlabel="Period", ylabel='Billions of dollars (Real)')

@@ -7,6 +7,7 @@ Defines load zone parameters for the Switch model.
 import os
 from pyomo.environ import *
 from switch_model.reporting import write_table
+from switch_model.tools.graph import graph
 
 dependencies = 'switch_model.timescales'
 optional_dependencies = 'switch_model.transmission.local_td'
@@ -253,6 +254,11 @@ def post_solve(instance, outdir):
     )
 
 
+@graph(
+    "energy_balance_duals",
+    title="Energy balance duals per period",
+    note="Note: Outliers and zero-valued duals are ignored."
+)
 def graph(tools):
     load_balance = tools.get_dataframe('load_balance.csv')
     load_balance = tools.transform.timestamp(load_balance)
@@ -262,9 +268,8 @@ def graph(tools):
     # Don't include the zero-valued duals
     load_balance = load_balance.replace(0, tools.np.nan)
     if load_balance.count().sum() != 0:
-        ax = tools.get_axes("energy_balance_duals", title="Energy balance duals per period", note="Note: Outliers and zero-valued duals are ignored.")
         load_balance.plot.box(
-            ax=ax,
+            ax=tools.get_axes(),
             xlabel='Period',
             ylabel='Energy balance duals (cents/kWh)',
             showfliers=False

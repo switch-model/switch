@@ -18,26 +18,31 @@ and `ca_policies` have already been solved).
 
 ## Adding new graphs
 
-Graphs can be defined in any module by adding the following function to the file.
-
+New graphs can be added with the `@graph(...)` annotation.
 ```python
-def graph(tools):
+from switch_model.tools.graph import graph
+
+@graph(
+  name="my_custom_graph",
+  title="An example plot",
+  note="Some optional note to add below the graph",
+  # Other options are possible see code documentation
+)
+def my_graphing_function(tools):
   # Your graphing code
   ...
 ```
 
-In `graph()` you can use the `tools` object to create graphs. Here are some important methods.
+In `my_graphing_function()` you can use the `tools` object to create graphs. Here are some important methods.
 
 - `tools.get_dataframe(filename)` will return a pandas dataframe for the file called `filename`. You can also
   specify `from_inputs=True` to load a csv from the inputs directory.
   
-- `tools.get_axes(out, title, note)` or `tools.get_figure(out, title, note)` will return a matplotlib axes or figure
-  that should be used while graphing. When possible, always use `get_axes` over `get_figure` since
-  this allows plots from different scenarios to be displayed side-by-side.
-  `out` is the name of the `.png` file that will be created with this graph. `title` and `note` are optional
-  and will be the title and footnote for the graph.
+- `tools.get_axes()` or `tools.get_figure()` will return a matplotlib axes or figure
+  that should be used while graphing. When possible, always use `get_axes` instead of `get_figure` since
+  this allows plots from different scenarios to share the same figure.
   
-- `tools.save_figure(filename, fig)`. Some libraries (e.g. plotnine) 
+- `tools.save_figure(fig)`. Some libraries (e.g. plotnine) 
   always generate their own figures. In this case we can add the figure
   to our outputs with this function. When possible, use `tools.get_axes()` instead.
 
@@ -67,24 +72,36 @@ In `graph()` you can use the `tools` object to create graphs. Here are some impo
 
 ## Adding a comparison graph
 
-By default, `tools.get_dataframe(filename)` will return the data for only one scenario (the one you are graphing).
-
-Sometimes, you may wish to create a graph that compares multiple scenarios. To do this create a function
-called `compare`.
+Sometimes you may want to create graphs that compare data from multiple scenarios.
+To do this, add `supports_multi_scenario=True` inside the `@graph()` decorator.
 
 ```python
-def compare(tools):
-  # Your graphing code
-  ...
+from switch_model.tools.graph import graph
+
+@graph(
+  name="my_custom_comparison_graph",
+  title="My Comparison plot",
+  supports_multi_scenario=True,
+  # Instead of supports_multi_scenario, you can use
+  # requires_multi_scenario if you want the graphing function
+  # to *only* be run when we have multiple scenarios.
+  # requires_multi_scenario=True,
+)
+def my_graphing_comparison_function(tools):
+    # Read data from all the scenarios
+    df = tools.get_dataframe("some_file.csv")
+    # Plot data
+    ...
 ```
 
-If you call `tools.get_dataframe(..., all_scenarios=True)` from within `compare()`, then
-`tools.get_dataframe` will return a dataframe containing the data from *all*
-the scenarios. The dataframe will contain a column called `scenario` to indicate which rows correspond to which
-scenarios. You can then use this column to create a graph comparing the different scenarios (still
+Now everytime you call `tools.get_dataframe(filename)`, data for *all* the scenarios
+gets returned. The way this works is that the 
+returned dataframe will contain a column called `scenario_name` 
+to indicate which rows correspond to which scenarios. 
+You can then use this column to create a graph comparing the different scenarios (still
 using `tools.get_axes`).
 
-At this point, when you run `switch compare`, your `compare(tools)` function will be called and your comparison graph
+At this point, when you run `switch compare`, your `my_graphing_comparison_function` function will be called and your comparison graph
 will be generated.
 
 ## Example
@@ -92,34 +109,37 @@ will be generated.
 In this example we create a graph that shows the power capacity during each period broken down by technology.
 
 ```python
+from switch_model.tools.graph import graph
+
+@graph(
+  "capacity_per_period",
+  title="Capacity per period"
+)
 def graph(tools):
-  # Get a dataframe of gen_cap.csv
-  df = tools.get_dataframe(csv="gen_cap")
+    # Get a dataframe of gen_cap.csv
+    df = tools.get_dataframe("gen_cap.csv")
 
-  # Add a 'gen_type' column to your dataframe
-  df = tools.transform.gen_type(df)
+    # Add a 'gen_type' column to your dataframe
+    df = tools.transform.gen_type(df)
 
-  # Aggregate the generation capacity by gen_type and PERIOD
-  df = df.pivot_table(
-    index='PERIOD',
-    columns='gen_type',
-    values='GenCapacity',
-    aggfunc=tools.np.sum,
-    fill_value=0  # Missing values become 0
-  )
+    # Aggregate the generation capacity by gen_type and PERIOD
+    df = df.pivot_table(
+        index='PERIOD',
+        columns='gen_type',
+        values='GenCapacity',
+        aggfunc=tools.np.sum,
+        fill_value=0  # Missing values become 0
+    )
 
-  # Get a new pair of axis to plot onto
-  ax = tools.get_axes(out="capacity_per_period")
-
-  # Plot
-  df.plot(
-    kind='bar',
-    ax=ax,  # Notice we pass in the axis
-    stacked=True,
-    ylabel="Capacity Online (MW)",
-    xlabel="Period",
-    color=tools.get_colors(len(df.index))
-  )
+    # Plot
+    df.plot(
+        kind='bar',
+        ax=tools.get_axes(),
+        stacked=True,
+        ylabel="Capacity Online (MW)",
+        xlabel="Period",
+        color=tools.get_colors(len(df.index))
+    )
 ```
 
 Running `switch graph` would run the `graph()` function above and create 
@@ -127,4 +147,38 @@ Running `switch graph` would run the `graph()` function above and create
 
 Running `switch compare` would create `capacity_per_period.png` containing
 your plot side-by-side with the same plot but for the scenario you're comparing to.
+
+### Testing your graphs
+
+To test your graphs, you can run `switch graph` or `switch compare`. However,
+this takes quite some time. If you want to test just one graphing function
+you can run `switch graph/compare -f FIGURE`. This will run only the graphing function
+you've defined. Here `FIGURE` should be the name of the graph (the first
+argument in `@graph()`, so `capacity_per_period` in the example above).
+
+### Creating graphs outside of SWITCH
+
+Sometimes you may want to create graphs but don't want to permently add
+them to the switch code. To do this create the following Python file anywhere
+on your computer.
+
+```python
+from switch_model.tools.graph import graph
+from switch_model.tools.graph.cli_graph import main as graph
+
+@graph(
+  ...
+)
+def my_first_graph(tools):
+    ...
+
+@graph(
+  ...
+)
+def my_second_graph(tools):
+  ...
+
+if __name__=="__main__":
+    graph(["--ignore-modules-txt"])
+```
 

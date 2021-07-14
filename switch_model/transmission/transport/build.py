@@ -10,6 +10,7 @@ from pyomo.environ import *
 from switch_model.financials import capital_recovery_factor as crf
 import pandas as pd
 from switch_model.reporting import write_table
+from switch_model.tools.graph import graph
 
 dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
     'switch_model.financials'
@@ -354,6 +355,10 @@ def post_solve(instance, outdir):
     tx_build_df.set_index(["TRANSMISSION_LINE", "PERIOD"], inplace=True)
     write_table(instance, df=tx_build_df, output_file=os.path.join(outdir, "transmission.csv"))
 
+@graph(
+    "transmission_capacity",
+    title="Transmission capacity per period"
+)
 def graph(tools):
     transmission = tools.get_dataframe("transmission", convert_dot_to_na=True).fillna(0)
     transmission = transmission.groupby("PERIOD", as_index=False).sum()
@@ -363,14 +368,10 @@ def graph(tools):
     transmission = transmission.rename({"BuildTx": "New Capacity"}, axis=1)
     transmission *= 1e-3
 
-    ax = tools.get_axes(
-        out="transmission_capacity",
-        title="Transmission capacity per period"
-    )
     transmission.plot(
         kind='bar',
         stacked=True,
-        ax=ax,
+        ax=tools.get_axes(),
         xlabel="Period",
         ylabel="Transmission capacity (GW)"
     )

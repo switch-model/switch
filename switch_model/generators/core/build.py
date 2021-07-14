@@ -9,6 +9,7 @@ import os
 from pyomo.environ import *
 from switch_model.financials import capital_recovery_factor as crf
 from switch_model.reporting import write_table
+from switch_model.tools.graph import graph
 from switch_model.utilities.scaling import get_assign_default_value_rule
 
 dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
@@ -629,18 +630,11 @@ def post_solve(m, outdir):
             m.GenCapacity[g, p], m.GenCapitalCosts[g, p], m.GenFixedOMCosts[g, p]))
 
 
-def graph(tools):
-    graph_capacity(tools)
-    graph_buildout_per_tech(tools)
-
-def compare(tools):
-    graph_buildout(tools)
-
-
+@graph(
+    "generation_capacity_per_period",
+    title="Online Generation Capacity Per Period"
+)
 def graph_capacity(tools):
-    # ---------------------------------- #
-    # generation_capacity_per_period.png #
-    # ---------------------------------- #
     # Load gen_cap.csv
     gen_cap = tools.get_dataframe("gen_cap.csv")
     # Map energy sources to technology type
@@ -665,19 +659,29 @@ def graph_capacity(tools):
 
     # Plot
     # Get a new set of axis to create a breakdown of the generation capacity
-    ax = tools.get_axes(out="generation_capacity_per_period", title="Online generating capacity by period")
-    capacity_df.plot(kind='bar', ax=ax, stacked=True, ylabel="Capacity Online (GW)", xlabel="Period",
-                     color=tools.get_colors(len(capacity_df.index)))
+    capacity_df.plot(
+        kind='bar',
+        ax=tools.get_axes(),
+        stacked=True,
+        ylabel="Capacity Online (GW)",
+        xlabel="Period",
+        color=tools.get_colors(len(capacity_df.index)),
+    )
 
 
+@graph(
+    "buildout_gen_per_period",
+    title="Built Capacity per Period",
+    supports_multi_scenario=True
+)
 def graph_buildout(tools):
-    build_gen = tools.get_dataframe("BuildGen.csv", all_scenarios=True)
+    build_gen = tools.get_dataframe("BuildGen.csv")
     build_gen = build_gen.rename(
         {"GEN_BLD_YRS_1": "GENERATION_PROJECT", "GEN_BLD_YRS_2": "build_year", "BuildGen": "Amount"},
         axis=1
     )
     build_gen = tools.transform.build_year(build_gen)
-    gen = tools.get_dataframe("generation_projects_info", from_inputs=True, all_scenarios=True)
+    gen = tools.get_dataframe("generation_projects_info", from_inputs=True)
     gen = tools.transform.gen_type(gen)
     gen = gen[["GENERATION_PROJECT", "gen_type", "scenario_name"]]
     build_gen = build_gen.merge(
@@ -706,14 +710,24 @@ def graph_buildout(tools):
 
     # Plot
     # Get a new set of axis to create a breakdown of the generation capacity
-    ax = tools.get_axes(out="buildout_per_period", title="Built capacity per period")
-    build_gen.plot(kind='bar', ax=ax, stacked=True, ylabel="Capacity Online (GW)", xlabel="Period",
-                     color=tools.get_colors(len(build_gen.index)))
+    build_gen.plot(
+        kind='bar',
+        ax=tools.get_axes(),
+        stacked=True,
+        ylabel="Capacity Online (GW)",
+        xlabel="Period",
+        color=tools.get_colors(len(build_gen.index)),
+    )
 
+
+@graph(
+    "gen_buildout_per_tech_period",
+    title="Buildout relative to max allowed for period",
+    note="\nNote 1: This graph excludes predetermined buildout and projects that have no capacity limit."
+         "\nTechnologies that contain projects with no capacity limit are marked by a * and their graphs may"
+         "be misleading."
+)
 def graph_buildout_per_tech(tools):
-    # ---------------------------------- #
-    # gen_buildout_per_tech.png          #
-    # ---------------------------------- #
     # Load gen_cap.csv
     gen_cap = tools.get_dataframe("gen_cap.csv")
     # Map energy sources to technology type
@@ -755,17 +769,12 @@ def graph_buildout_per_tech(tools):
     df = df.rename_axis("Type", axis='columns')
     # Add a * to tech
     df = df.rename(lambda c: f"{c}*" if c in unlimited_gen_types.values else c, axis='columns')
-    # Get axes to graph on
-    ax = tools.get_axes(
-        out="gen_buildout_per_tech_no_pred", title="Buildout relative to max allowed for period",
-        note="\nNote 1: This graph excludes predetermined buildout and projects that have no capacity limit."
-             "\nTechnologies that contain projects with no capacity limit are marked by a * and their graphs may"
-             "be misleading.")
     # Plot
     colors = tools.get_colors()
     if colors is not None:
         # Add the same colors but with a * to support our legend.
         colors.update({f"{k}*": v for k, v in colors.items()})
+    ax = tools.get_axes()
     df.plot(ax=ax, kind='line', color=colors, xlabel='Period', marker="x")
     # Set the y-axis to use percent
     ax.yaxis.set_major_formatter(tools.mplt.ticker.PercentFormatter(1.0))

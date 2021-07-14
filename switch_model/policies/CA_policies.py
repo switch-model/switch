@@ -11,6 +11,7 @@ Three possible policy constraints can be specified in ca_policies.csv. See docum
 import os
 from pyomo.environ import Set, Param, Expression, Constraint, PercentFraction, Any
 import switch_model.reporting as reporting
+from switch_model.tools.graph import graph
 
 
 def define_components(mod):
@@ -179,13 +180,15 @@ def post_solve(model, outdir):
                              ])
 
 
+@graph(
+    "emissions_CA",
+    "California's Total Emissions"
+)
 def graph(tools):
     # Plot emissions over time
-    ax = tools.get_axes(out="emissions_CA", title="California's Total Emissions")
-    df = tools.get_dataframe("ca_policies.csv")
-    df = df.set_index("PERIOD")
-    df["AnnualEmissions_tCO2_per_yr_CA"].plot(
-        ax=ax,
+    df = tools.get_dataframe("ca_policies.csv").set_index("PERIOD")["AnnualEmissions_tCO2_per_yr_CA"]
+    df.plot(
+        ax=tools.get_axes(),
         kind='bar',
         ylabel="Annual Emissions (tCO2)",
         xlabel="Year"
