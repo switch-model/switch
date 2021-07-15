@@ -19,3 +19,5 @@ will include descriptions of each module, their intentions, model
 components they define, and what input files they expect.
 
 To learn about **numerical solvers** read [`docs/Numerical Solvers.md`](/docs/Numerical%20Solvers.md)
+
+To learn about **numerical issues** read [`docs/Numerical Issues.md`](/docs/Numerical%20Issues.md)

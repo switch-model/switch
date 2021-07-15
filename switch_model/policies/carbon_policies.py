@@ -26,6 +26,9 @@ from __future__ import division
 import os
 from pyomo.environ import Set, Param, Expression, Constraint, Suffix
 import switch_model.reporting as reporting
+from switch_model.tools.graph import graph
+from switch_model.utilities import results_info
+
 
 def define_components(model):
     model.carbon_cap_tco2_per_yr = Param(model.PERIODS, default=float('inf'), doc=(
@@ -183,28 +186,39 @@ def post_solve(model, outdir):
         values=get_row)
 
 
-def graph(tools):
-    df_emissions = tools.get_dataframe(csv="emissions")
+@graph(
+    "emissions",
+    "Emissions per period"
+)
+def graph_emissions(tools):
+    df = tools.get_dataframe("emissions.csv", convert_dot_to_na=True)
     # Plot emissions over time
-    df_emissions['AnnualEmissions_tCO2_per_yr'] *= 1e-6
-    ax = tools.get_new_axes(out="emissions", title="Emissions per period")
+    df['AnnualEmissions_tCO2_per_yr'] *= 1e-6  # Convert to MMtCO2
+    if df["AnnualEmissions_tCO2_per_yr"].sum() == 0:
+        results_info.add_info("CO2 Emissions", "No Emissions")
+        return
     tools.sns.barplot(
         x='PERIOD',
         y='AnnualEmissions_tCO2_per_yr',
-        data=df_emissions,
-        ax=ax,
+        data=df,
+        ax=tools.get_axes(ylabel='CO2 Emissions (MMtCO2/yr)'),
         color='gray'
     )
-    ax.set_ylabel('CO2 Emissions (MMtCO2/yr)')
 
-    # Plot emissions dual values
-    ax = tools.get_new_axes(out="emissions_duals", title="Carbon cap dual values per period")
-    df_emissions['carbon_cap_dual_future_dollar_per_tco2'] *= -1  # Flip to positive values
-    tools.sns.barplot(
-        x='PERIOD',
-        y='carbon_cap_dual_future_dollar_per_tco2',
-        data=df_emissions,
-        ax=ax,
+@graph(
+    "emissions_duals",
+    "Carbon cap dual values per period"
+)
+def graph_emissions_duals(tools):
+    df = tools.get_dataframe("emissions.csv", convert_dot_to_na=True)
+    # Keep only the duals for every period
+    df = df.set_index("PERIOD")["carbon_cap_dual_future_dollar_per_tco2"]
+    df = df.dropna()
+    if df.empty:
+        return
+    df *= -1  # Flip to positive values since duals are negative by default
+    df.plot(
+        kind="bar",
+        ax=tools.get_axes(ylabel='Dual values ($/tCO2)'),
         color='gray'
     )
-    ax.set_ylabel('Dual values ($/tCO2)')

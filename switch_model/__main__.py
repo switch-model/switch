@@ -61,9 +61,9 @@ def main():
         elif cmd == "new":
             from switch_model.tools.new import main
         elif cmd == "graph":
-            from switch_model.tools.graphing.graph import main
+            from switch_model.tools.graph.cli_graph import main
         elif cmd == "compare":
-            from switch_model.tools.graphing.compare import main
+            from switch_model.tools.graph.cli_compare import main
         main()
     else:
         print(
