@@ -252,9 +252,10 @@ def query_db(full_config, skip_cf):
               join switch.period as t using(period_id, study_timeframe_id)
             where
               sampled_timeseries.time_sample_id = {time_sample_id}
+              and sampled_timeseries.study_timeframe_id = {study_timeframe_id}
             order by
                 label desc,
-                timeseries desc;""",
+                timeseries asc;""",
     )
 
     # timepoints.csv
