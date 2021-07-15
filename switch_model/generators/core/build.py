@@ -9,6 +9,7 @@ import os
 from pyomo.environ import *
 from switch_model.financials import capital_recovery_factor as crf
 from switch_model.reporting import write_table
+from switch_model.tools.graph import graph
 from switch_model.utilities.scaling import get_assign_default_value_rule
 
 dependencies = (
@@ -719,19 +720,12 @@ def post_solve(m, outdir):
     )
 
 
-def graph(tools):
-    # ---------------------------------- #
-    # generation_capacity_per_period.png #
-    # ---------------------------------- #
-    # Get a new set of axis to create a breakdown of the generation capacity
-    ax = tools.get_new_axes(
-        out="generation_capacity_per_period",
-        title="Online generating capacity by period",
-    )
+@graph("generation_capacity_per_period", title="Online Generation Capacity Per Period")
+def graph_capacity(tools):
     # Load gen_cap.csv
-    gen_cap = tools.get_dataframe(csv="gen_cap")
+    gen_cap = tools.get_dataframe("gen_cap.csv")
     # Map energy sources to technology type
-    gen_cap = tools.add_gen_type_column(gen_cap)
+    gen_cap = tools.transform.gen_type(gen_cap)
     # Aggregate by gen_tech_type and PERIOD by summing the generation capacity
     capacity_df = gen_cap.pivot_table(
         index="PERIOD",
@@ -745,7 +739,8 @@ def graph(tools):
     # For generation types that make less than 2% in every period, group them under "Other"
     # ---------
     # sum the generation across the energy_sources for each period, 2% of that is the cutoff for that period
-    cutoff_per_period = capacity_df.sum(axis=1) * 0.02
+    cutoff_value = 0.01
+    cutoff_per_period = capacity_df.sum(axis=1) * cutoff_value
     # Check for each technology if it's below the cutoff for every period
     is_below_cutoff = capacity_df.lt(cutoff_per_period, axis=0).all()
     # groupby if the technology is below the cutoff
@@ -757,26 +752,92 @@ def graph(tools):
     capacity_df = capacity_df.sort_values(by=capacity_df.index[-1], axis=1)
 
     # Plot
+    # Get a new set of axis to create a breakdown of the generation capacity
     capacity_df.plot(
         kind="bar",
-        ax=ax,
+        ax=tools.get_axes(),
         stacked=True,
         ylabel="Capacity Online (GW)",
         xlabel="Period",
         color=tools.get_colors(len(capacity_df.index)),
     )
 
-    graph_buildout_per_tech(tools, gen_cap)
 
-
-def graph_buildout_per_tech(tools, gen_cap):
-    # ---------------------------------- #
-    # gen_buildout_per_tech.png          #
-    # ---------------------------------- #
-    # Load generation_projects_info.csv
-    gen_info = tools.get_dataframe(
-        csv="generation_projects_info", folder=tools.folders.INPUTS
+@graph(
+    "buildout_gen_per_period",
+    title="Built Capacity per Period",
+    supports_multi_scenario=True,
+)
+def graph_buildout(tools):
+    build_gen = tools.get_dataframe("BuildGen.csv")
+    build_gen = build_gen.rename(
+        {
+            "GEN_BLD_YRS_1": "GENERATION_PROJECT",
+            "GEN_BLD_YRS_2": "build_year",
+            "BuildGen": "Amount",
+        },
+        axis=1,
     )
+    build_gen = tools.transform.build_year(build_gen)
+    gen = tools.get_dataframe("generation_projects_info", from_inputs=True)
+    gen = tools.transform.gen_type(gen)
+    gen = gen[["GENERATION_PROJECT", "gen_type", "scenario_name"]]
+    build_gen = build_gen.merge(
+        gen,
+        on=["GENERATION_PROJECT", "scenario_name"],
+        how="left",
+        validate="many_to_one",
+    )
+    groupby = (
+        "build_year" if tools.num_scenarios == 1 else ["build_year", "scenario_name"]
+    )
+    build_gen = build_gen.pivot_table(
+        index=groupby, columns="gen_type", values="Amount", aggfunc=tools.np.sum
+    )
+    build_gen = build_gen * 1e-3  # Convert values to GW
+    build_gen = build_gen.sort_index(ascending=False, key=tools.sort_build_years)
+
+    # For generation types that make less than 2% in every period, group them under "Other"
+    # ---------
+    # sum the generation across the energy_sources for each period, 2% of that is the cutoff for that period
+    cutoff_value = 0.01
+    cutoff_per_period = build_gen.sum(axis=1) * cutoff_value
+    # Check for each technology if it's below the cutoff for every period
+    is_below_cutoff = build_gen.lt(cutoff_per_period, axis=0).all()
+    # groupby if the technology is below the cutoff
+    build_gen = build_gen.groupby(
+        axis=1, by=lambda c: "Other" if is_below_cutoff[c] else c
+    ).sum()
+
+    # Sort columns by the last period
+    build_gen = build_gen.sort_values(by=build_gen.index[-1], axis=1)
+
+    # Plot
+    # Get a new set of axis to create a breakdown of the generation capacity
+    build_gen.plot(
+        kind="bar",
+        ax=tools.get_axes(),
+        stacked=True,
+        ylabel="Capacity Online (GW)",
+        xlabel="Period",
+        color=tools.get_colors(len(build_gen.index)),
+    )
+
+
+@graph(
+    "gen_buildout_per_tech_period",
+    title="Buildout relative to max allowed for period",
+    note="\nNote 1: This graph excludes predetermined buildout and projects that have no capacity limit."
+    "\nTechnologies that contain projects with no capacity limit are marked by a * and their graphs may"
+    "be misleading.",
+)
+def graph_buildout_per_tech(tools):
+    # Load gen_cap.csv
+    gen_cap = tools.get_dataframe("gen_cap.csv")
+    # Map energy sources to technology type
+    gen_cap = tools.transform.gen_type(gen_cap)
+    # Load generation_projects_info.csv
+    gen_info = tools.get_dataframe("generation_projects_info.csv", from_inputs=True)
     # Filter out projects with unlimited capacity since we can't consider those (coerce converts '.' to NaN)
     gen_info["gen_capacity_limit_mw"] = tools.pd.to_numeric(
         gen_info["gen_capacity_limit_mw"], errors="coerce"
@@ -791,9 +852,7 @@ def graph_buildout_per_tech(tools, gen_cap):
         validate="many_to_one",
     )
     # Get the predetermined generation
-    predetermined = tools.get_dataframe(
-        csv="gen_build_predetermined", folder=tools.folders.INPUTS
-    )
+    predetermined = tools.get_dataframe("gen_build_predetermined.csv", from_inputs=True)
     # Filter out projects that are predetermined
     df = df[~df["GENERATION_PROJECT"].isin(predetermined["GENERATION_PROJECT"])]
     # Make PERIOD a category to ensure x-axis labels don't fill in years between period
@@ -822,25 +881,14 @@ def graph_buildout_per_tech(tools, gen_cap):
     df = df.rename(
         lambda c: f"{c}*" if c in unlimited_gen_types.values else c, axis="columns"
     )
-    # Get axes to graph on
-    ax = tools.get_new_axes(
-        out="gen_buildout_per_tech_no_pred",
-        title="Buildout relative to max allowed for period",
-        note="\nNote 1: This graph excludes predetermined buildout and projects that have no capacity limit."
-        "\nTechnologies that contain projects with no capacity limit are marked by a * and their graphs may"
-        "be misleading.",
-    )
     # Plot
     colors = tools.get_colors()
     if colors is not None:
         # Add the same colors but with a * to support our legend.
         colors.update({f"{k}*": v for k, v in colors.items()})
-    df.plot(ax=ax, kind="line", color=colors, xlabel="Period")
+    ax = tools.get_axes()
+    df.plot(ax=ax, kind="line", color=colors, xlabel="Period", marker="x")
     # Set the y-axis to use percent
     ax.yaxis.set_major_formatter(tools.mplt.ticker.PercentFormatter(1.0))
     # Horizontal line at 100%
     ax.axhline(y=1, linestyle="--", color="b")
-
-
-def compare(tools):
-    pass
