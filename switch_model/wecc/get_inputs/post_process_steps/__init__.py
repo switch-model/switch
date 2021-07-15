@@ -2,14 +2,7 @@
 This file ensures that all python files in this folder are imported so that
 their @register_post_process function handlers are noticed.
 """
-from os.path import dirname, basename, isfile, join
-import glob
+from pathlib import Path
 
-# Get all the modules in this folder
-modules = glob.glob(join(dirname(__file__), "*.py"))
-# Only keep the files and exclude this file
-modules = filter(lambda f: isfile(f) and not f.endswith("__init__.py"), modules)
-# Change the file path to a basename
-modules = map(lambda f: basename(f)[:-3], modules)
-# Specify in __all__
-__all__ = list(modules)
+# Import all the files in this directory that end in .py and don't start with an underscore
+__all__ = [f.stem for f in Path(__file__).parent.glob("[!_]*.py")]

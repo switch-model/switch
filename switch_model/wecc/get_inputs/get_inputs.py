@@ -14,6 +14,7 @@ from typing import Iterable, List
 
 # Switch packages
 from switch_model.wecc.utilities import connect
+from switch_model.version import __version__
 
 def write_csv_from_query(cursor, fname: str, headers: List[str], query: str):
     """Create CSV file from cursor."""
@@ -73,7 +74,7 @@ def query_db(full_config, skip_cf):
     db_conn = connect()
     db_cursor = db_conn.cursor()
 
-    print(f"Copying data from the database to the input files...")
+    print("Copying data from the database to the input files...")
 
     scenario_params = [
         "name",
@@ -150,7 +151,7 @@ def query_db(full_config, skip_cf):
     # Which input specification are we writing against?
     print("\tswitch_inputs_version.txt...")
     with open("switch_inputs_version.txt", "w") as f:
-        f.write("2.0.5\n")
+        f.write(f"{__version__}\n")
 
     ########################################################
     # TIMESCALES
