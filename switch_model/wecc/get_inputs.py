@@ -68,6 +68,7 @@ modules = [
     "switch_model.transmission.transport.dispatch",
     "switch_model.policies.carbon_policies",
     "switch_model.policies.rps_unbundled",
+    "switch_model.policies.min_per_tech",  # Always include since it provides useful outputs even when unused
     # "switch_model.reporting.basic_exports_wecc",
 ]
 
