@@ -11,6 +11,7 @@ from pyomo.environ import *
 import os
 import pandas as pd
 from switch_model.reporting import write_table
+from switch_model.tools.graph import graph
 
 dependencies = 'switch_model.timescales'
 
@@ -328,7 +329,6 @@ def load_inputs(mod, switch_data, inputs_dir):
 def post_solve(instance, outdir):
     m = instance
     # Overall electricity costs
-    # TODO use write_table
     normalized_dat = [
         {
         	"PERIOD": p,
@@ -378,13 +378,25 @@ def post_solve(instance, outdir):
     df.set_index(["PERIOD", "Component"], inplace=True)
     write_table(instance, output_file=os.path.join(outdir, "costs_itemized.csv"), df=df)
 
-
+@graph(
+    "costs",
+    title="Itemized costs per period",
+    supports_multi_scenario=True
+)
 def graph(tools):
-    costs_itemized = tools.get_dataframe(csv="costs_itemized")
+    costs_itemized = tools.get_dataframe("costs_itemized.csv")
     # Remove elements with zero cost
     costs_itemized = costs_itemized[costs_itemized['AnnualCost_Real'] != 0]
-    costs_itemized = costs_itemized.pivot(columns="Component", index='PERIOD', values="AnnualCost_Real")
-    costs_itemized *= 1E-9
+    groupby = "PERIOD" if tools.num_scenarios == 1 else ["PERIOD", "scenario_name"]
+    costs_itemized = costs_itemized.pivot(columns="Component", index=groupby, values="AnnualCost_Real")
+    costs_itemized *= 1E-9 # Converting to billions
+    costs_itemized = costs_itemized.rename({
+        "GenVariableOMCostsInTP": "Variable O & M Generation Costs",
+        "FuelCostsPerPeriod": "Fuel Costs",
+        "StorageEnergyFixedCost": "Storage Energy Capacity Costs",
+        "TotalGenFixedCosts": "Generation Fixed Costs",
+        "TxFixedCosts": "Transmission Costs"
+    }, axis=1)
     costs_itemized = costs_itemized.sort_values(axis=1, by=costs_itemized.index[-1])
-    ax = tools.get_new_axes(out="costs", title="Itemized costs per period")
+    ax = tools.get_axes()
     costs_itemized.plot(ax=ax, kind='bar', stacked=True, xlabel="Period", ylabel='Billions of dollars (Real)')
