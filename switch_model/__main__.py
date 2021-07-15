@@ -8,15 +8,13 @@ import argparse
 import importlib
 import sys
 import switch_model
-
+from switch_model.utilities import get_git_branch
 
 def version():
     print("Switch model version " + switch_model.__version__)
-    try:
-        from switch_model.utilities import get_git_branch
-        print(f"Switch git branch {get_git_branch()}")
-    except:
-        pass
+    branch = get_git_branch()
+    if branch is not None:
+        print(f"Switch Git branch: {branch}")
     return 0
 
 def get_module_runner(module):
@@ -34,8 +32,8 @@ cmds = {
     "version": version,
     "drop": get_module_runner("switch_model.tools.drop"),
     "new": get_module_runner("switch_model.tools.new"),
-    "graph": get_module_runner("switch_model.tools.graphing.graph"),
-    "compare": get_module_runner("switch_model.tools.graphing.compare"),
+    "graph": get_module_runner("switch_model.tools.graph.cli_graph"),
+    "compare": get_module_runner("switch_model.tools.graph.cli_compare"),
     "db": get_module_runner("switch_model.wecc.__main__"),
 }
 

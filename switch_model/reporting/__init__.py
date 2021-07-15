@@ -54,13 +54,13 @@ def define_arguments(argparser):
         help="List of expressions to save in addition to variables; can also be 'all' or 'none'."
     )
 
-def get_cell_formatter(sig_digits):
+def get_cell_formatter(sig_digits, zero_cutoff):
     sig_digits_formatter = "{0:." + str(sig_digits) + "g}"
 
     def format_cell(c):
         if not isinstance(c, float):
             return c
-        if abs(c) < 1e-8:
+        if abs(c) < zero_cutoff:
             return 0
         else:
             return sig_digits_formatter.format(c)
@@ -77,7 +77,7 @@ def write_table(instance, *indexes, output_file=None, **kwargs):
     # don't know what that is.
     if output_file is None:
         raise Exception("Must specify output_file in write_table()")
-    cell_formatter = get_cell_formatter(instance.options.sig_figs_output)
+    cell_formatter = get_cell_formatter(instance.options.sig_figs_output, instance.options.zero_cutoff_output)
 
     if 'df' in kwargs:
         df = kwargs.pop('df')
@@ -135,7 +135,7 @@ def post_solve(instance, outdir):
 
 
 def save_generic_results(instance, outdir, sorted_output):
-    cell_formatter = get_cell_formatter(instance.options.sig_figs_output)
+    cell_formatter = get_cell_formatter(instance.options.sig_figs_output, instance.options.zero_cutoff_output)
 
     components = list(instance.component_objects(Var))
     # add Expression objects that should be saved, if any
