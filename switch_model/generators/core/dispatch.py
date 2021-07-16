@@ -579,7 +579,6 @@ def graph_hourly_curtailment(tools):
 @graph(
     "total_dispatch",
     title="Total dispatched electricity",
-    is_long=True,
 )
 def graph_total_dispatch(tools):
     # ---------------------------------- #

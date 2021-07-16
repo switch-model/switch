@@ -511,7 +511,9 @@ def graph_state_of_charge_per_duration(tools):
     df = df.groupby(["duration", "scenario_name", "datetime", "period"], as_index=False)[
         ["StateOfCharge", "OnlineEnergyCapacityMWh"]].sum()
     # Convert to GWh
-    df["StateOfCharge"] /= 1e3
+    # df["StateOfCharge"] /= 1e3
+    # Convert to percent
+    df["StateOfCharge"] /= df["OnlineEnergyCapacityMWh"]
 
     # Plot with plotnine
     pn = tools.pn
@@ -560,7 +562,12 @@ def graph_dispatch_cycles(tools):
                         title="Storage cycle duration based on fourier transform"
                               " of state of charge")
     ax.semilogx(1 / xfreq, yfreq)
+    # Plot some key cycle lengths
+    ax.axvline(24, linestyle="dotted", label="24 hours", color="red")  # A day
+    ax.axvline(24 * 21, linestyle="dotted", label="3 weeks", color="green")  # 3 weeks
+    ax.axvline(24 * 182.5, linestyle="dotted", label="1/2 Year", color="purple")
     ax.set_xlabel("Hours per cycle")
+    ax.legend()
     ax.grid(True, which="both", axis="x")
 
 
@@ -578,6 +585,7 @@ def graph_buildout(tools):
     df = df[df["IncrementalPowerCapacityMW"] != 0]
     df["duration"] = df["IncrementalEnergyCapacityMWh"] / df["IncrementalPowerCapacityMW"]
     df["power"] = df["IncrementalPowerCapacityMW"] / 1e3
+    df["energy"] = df["IncrementalEnergyCapacityMWh"] / 1e3
     df = tools.transform.build_year(df)
     pn = tools.pn
     num_regions = len(df["region"].unique())
@@ -597,6 +605,14 @@ def graph_buildout(tools):
 
     tools.save_figure(by_scenario(tools, plot).draw(), "storage_duration_histogram")
     tools.save_figure(by_scenario_and_region(tools, plot, num_regions).draw(), "storage_duration_histogram_by_region")
+
+    plot = pn.ggplot(df, pn.aes(x="duration")) \
+           + pn.geom_histogram(pn.aes(weight="energy"), binwidth=5) \
+           + pn.labs(title="Storage Duration Histogram", x="Duration (h)", y="Energy Capacity (GWh)")
+
+    tools.save_figure(by_scenario(tools, plot).draw(), "storage_duration_histogram_by_energy")
+    tools.save_figure(by_scenario_and_region(tools, plot, num_regions).draw(), "storage_duration_histogram_by_region_and_energy")
+
 
 
 def by_scenario(tools, plot):
