@@ -233,7 +233,7 @@ def main(
             if instance.options.verbose:
                 print(f"Post solve processing completed in {timer.step_time_as_str()}.")
 
-        if instance.options.run_graph_func:
+        if instance.options.graph:
             graph_main(args=["--overwrite"])
 
         total_time = start_to_end_timer.step_time_as_str()
