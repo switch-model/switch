@@ -25,7 +25,7 @@ from switch_model.utilities import StepTimer, get_module_list, query_yes_no
 
 # When True exceptions that are thrown while graphing will be caught
 # and outputted to console as a warning instead of an error
-CATCH_EXCEPTIONS = False
+CATCH_EXCEPTIONS = True
 
 
 def catch_exceptions(func):
