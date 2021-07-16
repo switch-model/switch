@@ -628,7 +628,7 @@ class GraphTools(DataHandler):
 
     def run_graph_func(self, func):
         """Runs the graphing function"""
-        print(f"{func.name}", end=", ")
+        print(f"{func.name}", end=", ", flush=True)
         self._run_per_scenario = len(self._scenarios) > 1 and not func.multi_scenario
         self._figure_handler.set_properties(
             func.name,

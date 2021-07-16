@@ -581,7 +581,7 @@ def post_solve(instance, outdir):
     )
 
 
-@graph("dispatch", title="Average daily dispatch")
+@graph("dispatch", title="Average daily dispatch", is_long=True)
 def graph_hourly_dispatch(tools):
     """
     Generates a matrix of hourly dispatch plots for each time region
@@ -598,7 +598,7 @@ def graph_hourly_dispatch(tools):
     )
 
 
-@graph("curtailment", title="Average daily curtailment")
+@graph("curtailment", title="Average daily curtailment", is_long=True)
 def graph_hourly_curtailment(tools):
     # Read dispatch.csv
     df = tools.get_dataframe("dispatch.csv")
@@ -615,6 +615,7 @@ def graph_hourly_curtailment(tools):
     "dispatch_per_scenario",
     title="Average daily dispatch",
     requires_multi_scenario=True,
+    is_long=True,
 )
 def graph_hourly_dispatch(tools):
     """
@@ -634,6 +635,7 @@ def graph_hourly_dispatch(tools):
     "curtailment_compare_scenarios",
     title="Average daily curtailment by scenario",
     requires_multi_scenario=True,
+    is_long=True,
 )
 def graph_hourly_curtailment(tools):
     # Read dispatch.csv
@@ -646,7 +648,11 @@ def graph_hourly_curtailment(tools):
     )
 
 
-@graph("total_dispatch", title="Total dispatched electricity")
+@graph(
+    "total_dispatch",
+    title="Total dispatched electricity",
+    is_long=True,
+)
 def graph_total_dispatch(tools):
     # ---------------------------------- #
     # total_dispatch.png                 #
