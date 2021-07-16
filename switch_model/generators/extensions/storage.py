@@ -538,20 +538,32 @@ def graph_state_of_charge(tools):
         capacity, on=["period", "scenario_name"], validate="many_to_one", how="left"
     )
 
-    # Convert values to GWh
-    df["StateOfCharge"] /= 1e3
-    df["OnlineEnergyCapacityMWh"] /= 1e3
+    # Convert values to TWh
+    df["StateOfCharge"] /= 1e6
+    df["OnlineEnergyCapacityMWh"] /= 1e6
+
+    # Determine information for the label
+    y_axis_lim = df["OnlineEnergyCapacityMWh"].max()
+    offset = y_axis_lim * 0.05
+    df["label_position"] = df["OnlineEnergyCapacityMWh"] + offset
+    df["label"] = df["OnlineEnergyCapacityMWh"].round(decimals=2)
+    label_x_pos = df["datetime"].median()
 
     # Plot with plotnine
     pn = tools.pn
     plot = (
         pn.ggplot(df, pn.aes(x="datetime", y="StateOfCharge"))
         + pn.geom_line()
-        + pn.labs(y="State of Charge (GWh)", x="Time of Year")
+        + pn.labs(y="State of Charge (TWh)", x="Time of Year")
         + pn.geom_hline(
             pn.aes(yintercept="OnlineEnergyCapacityMWh"),
             linetype="dashed",
             color="blue",
+        )
+        + pn.geom_text(
+            pn.aes(label="label", x=label_x_pos, y="label_position"),
+            fontweight="light",
+            size="10",
         )
     )
 
