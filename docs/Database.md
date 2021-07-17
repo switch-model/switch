@@ -21,7 +21,7 @@ their strong points. DBVisualizer can also create a graph of all the relationshi
 tables.
 
 Further, it is often useful to read the comments on tables (PGAdmin: right-click table -> Properties)
-as they sometimes give details on the tables role. Finally, if the table is used in [`get_inputs.py`](/switch_model/wecc/get_inputs.py)
+as they sometimes give details on the tables role. Finally, if the table is used in [`get_inputs.py`](/switch_model/wecc/get_inputs/get_inputs.py)
 one can discover what it does by looking at how get_inputs.py uses the table to generate the SWITCH inputs.
 
 ## Connecting to the database
