@@ -687,14 +687,46 @@ def graph_total_dispatch(tools):
     total_dispatch = total_dispatch.rename_axis("Type", axis=1)
     # Get axis
     # Plot
+    ax = tools.get_axes()
     total_dispatch.plot(
         kind="bar",
         stacked=True,
-        ax=tools.get_axes(),
+        ax=ax,
         color=tools.get_colors(len(total_dispatch)),
         xlabel="Period",
         ylabel="Total dispatched electricity (TWh)",
     )
+
+    for container in ax.containers:
+        ax.bar_label(container, fmt="%d")
+
+
+@graph("energy_balance", title="Annual Contributions to the energy balance")
+def energy_balance(tools):
+    load = tools.get_dataframe("load_balance_annual.csv").set_index("period")
+    load.loc["total", :] = load.sum()
+    load = load.rename(
+        {
+            "zone_demand_mw": "Demand",
+            "ZoneTotalCentralDispatch": "Generation (incl. storage discharge)",
+            "TXPowerNet": "Transmission Losses",
+            "StorageNetCharge": "Storage Charging",
+        },
+        axis=1,
+    ).sort_values(axis=1, by="total")
+    load = load.drop("total", axis=0)
+
+    load /= 1e6  # Convert to TWh
+    ax = tools.get_axes()
+    load.plot(
+        kind="bar",
+        ax=ax,
+        ylabel="Annual Contribution to Energy Balance (TWh)",
+        xlabel="Period",
+    )
+
+    for container in ax.containers:
+        ax.bar_label(container, fmt="%d")
 
 
 @graph(
