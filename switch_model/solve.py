@@ -966,10 +966,16 @@ def solve(model):
             and solver_status == SolverStatus.warning
         ):
             print(
-                "If you used --recommended-fast, you might want to try using just --recommended."
+                "\nThis often happens when using --recommended-fast. If that's the case it's likely that you have a feasible"
+                " but sub-optimal solution.\nYou should compare the difference between the primal and dual objective to determine"
+                " whether the solution is close enough to the optimal solution for your purposes. The smaller the difference"
+                " the more accurate the solution.\nIf the solution is not accurate enough"
+                " you should try running switch solve again with --recommended instead of --recommended-fast.\n"
             )
 
-        if query_yes_no("Do you want to abort and exit?", default=None):
+        if query_yes_no(
+            "Do you want to abort and exit (without running post-solve)?", default=None
+        ):
             raise SystemExit()
 
     if model.options.verbose:
