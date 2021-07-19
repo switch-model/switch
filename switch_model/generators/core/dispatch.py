@@ -12,10 +12,11 @@ from __future__ import division
 
 import os, collections
 
-import numpy as np
 from pyomo.environ import *
-from switch_model.reporting import write_table
 import pandas as pd
+
+from switch_model.reporting import write_table
+from switch_model.tools.graph import graph
 
 dependencies = (
     "switch_model.timescales",
@@ -580,55 +581,86 @@ def post_solve(instance, outdir):
     )
 
 
-def graph(tools):
-    graph_hourly_dispatch(tools)
-    graph_curtailment_per_tech(tools)
-    graph_hourly_curtailment(tools)
-    graph_total_dispatch(tools)
-
-
+@graph("dispatch", title="Average daily dispatch", is_long=True)
 def graph_hourly_dispatch(tools):
     """
     Generates a matrix of hourly dispatch plots for each time region
     """
     # Read dispatch.csv
-    df = tools.get_dataframe(csv="dispatch")
+    df = tools.get_dataframe("dispatch.csv")
     # Convert to GW
-    df["DispatchGen_GW"] = df["DispatchGen_MW"] / 1000
+    df["DispatchGen_MW"] /= 1e3
     # Plot Dispatch
     tools.graph_time_matrix(
         df,
-        "DispatchGen_GW",
-        out="dispatch",
-        title="Average daily dispatch",
+        value_column="DispatchGen_MW",
         ylabel="Average daily dispatch (GW)",
     )
 
 
+@graph("curtailment", title="Average daily curtailment", is_long=True)
 def graph_hourly_curtailment(tools):
     # Read dispatch.csv
-    df = tools.get_dataframe(csv="dispatch")
+    df = tools.get_dataframe("dispatch.csv")
     # Keep only renewable
     df = df[df["is_renewable"]]
-    df["Curtailment_GW"] = df["Curtailment_MW"] / 1000
+    df["Curtailment_MW"] /= 1e3  # Convert to GW
     # Plot curtailment
     tools.graph_time_matrix(
-        df,
-        "Curtailment_GW",
-        out="curtailment",
-        title="Average daily curtailment",
-        ylabel="Average daily curtailment (GW)",
+        df, value_column="Curtailment_MW", ylabel="Average daily curtailment (GW)"
     )
 
 
+@graph(
+    "dispatch_per_scenario",
+    title="Average daily dispatch",
+    requires_multi_scenario=True,
+    is_long=True,
+)
+def graph_hourly_dispatch(tools):
+    """
+    Generates a matrix of hourly dispatch plots for each time region
+    """
+    # Read dispatch.csv
+    df = tools.get_dataframe("dispatch.csv")
+    # Convert to GW
+    df["DispatchGen_MW"] /= 1e3
+    # Plot Dispatch
+    tools.graph_scenario_matrix(
+        df, value_column="DispatchGen_MW", ylabel="Average daily dispatch (GW)"
+    )
+
+
+@graph(
+    "curtailment_compare_scenarios",
+    title="Average daily curtailment by scenario",
+    requires_multi_scenario=True,
+    is_long=True,
+)
+def graph_hourly_curtailment(tools):
+    # Read dispatch.csv
+    df = tools.get_dataframe("dispatch.csv")
+    # Keep only renewable
+    df = df[df["is_renewable"]]
+    df["Curtailment_MW"] /= 1e3  # Convert to GW
+    tools.graph_scenario_matrix(
+        df, value_column="Curtailment_MW", ylabel="Average daily curtailment (GW)"
+    )
+
+
+@graph(
+    "total_dispatch",
+    title="Total dispatched electricity",
+    is_long=True,
+)
 def graph_total_dispatch(tools):
     # ---------------------------------- #
     # total_dispatch.png                 #
     # ---------------------------------- #
     # read dispatch_annual_summary.csv
-    total_dispatch = tools.get_dataframe(csv="dispatch_annual_summary")
+    total_dispatch = tools.get_dataframe("dispatch_annual_summary.csv")
     # add type column
-    total_dispatch = tools.add_gen_type_column(total_dispatch)
+    total_dispatch = tools.transform.gen_type(total_dispatch)
     # aggregate and pivot
     total_dispatch = total_dispatch.pivot_table(
         columns="gen_type",
@@ -655,25 +687,26 @@ def graph_total_dispatch(tools):
     # Give proper name for legend
     total_dispatch = total_dispatch.rename_axis("Type", axis=1)
     # Get axis
-    ax = tools.get_new_axes(out="total_dispatch", title="Total dispatched electricity")
     # Plot
     total_dispatch.plot(
         kind="bar",
         stacked=True,
-        ax=ax,
+        ax=tools.get_axes(),
         color=tools.get_colors(len(total_dispatch)),
         xlabel="Period",
         ylabel="Total dispatched electricity (TWh)",
     )
 
 
+@graph(
+    "curtailment_per_period",
+    title="Percent of total dispatchable capacity curtailed",
+    is_long=True,
+)
 def graph_curtailment_per_tech(tools):
-    # ---------------------------------- #
-    # curtailment_per_tech.png          #
-    # ---------------------------------- #
     # Load dispatch.csv
-    df = tools.get_dataframe(csv="dispatch")
-    df = tools.add_gen_type_column(df)
+    df = tools.get_dataframe("dispatch.csv")
+    df = tools.transform.gen_type(df)
     df["Total"] = df["DispatchGen_MW"] + df["Curtailment_MW"]
     df = df[df["is_renewable"]]
     # Make PERIOD a category to ensure x-axis labels don't fill in years between period
@@ -691,14 +724,11 @@ def graph_curtailment_per_tech(tools):
     # Set the name of the legend.
     df = df.rename_axis("Type", axis="columns")
     # Get axes to graph on
-    ax = tools.get_new_axes(
-        out="curtailment_per_period",
-        title="Percent of total dispatchable capacity curtailed",
-    )
+    ax = tools.get_axes()
     # Plot
     color = tools.get_colors()
     kwargs = dict() if color is None else dict(color=color)
-    df.plot(ax=ax, kind="line", xlabel="Period", **kwargs)
+    df.plot(ax=ax, kind="line", xlabel="Period", marker="x", **kwargs)
 
     # Set the y-axis to use percent
     ax.yaxis.set_major_formatter(tools.mplt.ticker.PercentFormatter(1.0))

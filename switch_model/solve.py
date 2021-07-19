@@ -4,7 +4,7 @@
 from __future__ import print_function
 
 from pyomo.environ import *
-from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
+from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition, SolutionStatus
 import pyomo.version
 import pandas as pd
 
@@ -32,7 +32,7 @@ from switch_model.utilities import (
     add_git_info,
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
-from switch_model.tools.graphing import graph
+from switch_model.tools.graph.cli_graph import main as graph_main
 from switch_model.utilities.results_info import save_info, add_info, ResultsInfoSection
 
 
@@ -234,7 +234,7 @@ def main(
                 print(f"Post solve processing completed in {timer.step_time_as_str()}.")
 
         if instance.options.graph:
-            graph.main(args=["--overwrite"])
+            graph_main(args=["--overwrite"])
 
         total_time = start_to_end_timer.step_time_as_str()
         add_info("Total run time", total_time, section=ResultsInfoSection.GENERAL)
@@ -730,6 +730,12 @@ def define_arguments(argparser):
         type=int,
         help="The number of significant digits to include in the output by default",
     )
+    argparser.add_argument(
+        "--zero-cutoff-output",
+        default=1e-5,
+        type=float,
+        help="If the magnitude of an output value is less than this value, it is rounded to 0.",
+    )
 
     argparser.add_argument(
         "--sorted-output",
@@ -769,7 +775,17 @@ def add_recommended_args(argparser):
         "--recommended",
         default=False,
         action="store_true",
-        help='Equivalent to running with all of the following options: --solver gurobi -v --sorted-output --stream-output --log-run --solver-io python --solver-options-string "method=2 BarHomogeneous=1 FeasibilityTol=1e-5"',
+        help="Includes several flags that are recommended including --solver gurobi --verbose --stream-output and more. "
+        "See parse_recommended_args() in solve.py for the full list of recommended flags.",
+    )
+
+    argparser.add_argument(
+        "--recommended-fast",
+        default=False,
+        action="store_true",
+        help="Equivalent to --recommended however disables crossover during solving. This reduces"
+        " the solve time greatly however may result in less accurate values and may fail to find an optimal"
+        " solution. If you find that the solver returns a suboptimal solution use --recommended.",
     )
 
     argparser.add_argument(
@@ -785,15 +801,17 @@ def parse_recommended_args(args):
     add_recommended_args(argparser)
     options = argparser.parse_known_args(args)[0]
 
-    if options.recommended and options.recommended_debug:
-        raise Exception("Can't use both --recommended and --recommended-debug")
-    if not options.recommended and not options.recommended_debug:
+    flags_used = (
+        options.recommended + options.recommended_fast + options.recommended_debug
+    )
+    if flags_used > 1:
+        raise Exception(
+            "Must pick between --recommended-debug, --recommended-fast or --recommended."
+        )
+    if flags_used == 0:
         return args
 
-    # If you change the flags, make sure to update the help text in
-    # the function above.
-    # Note we don't append but rather prepend so that flags can override the --recommend or
-    # --recommend-debug flags.
+    # Note we don't append but rather prepend so that flags can override the --recommend flags.
     args = [
         "--solver",
         "gurobi",
@@ -803,12 +821,11 @@ def parse_recommended_args(args):
         "--log-run",
         "--debug",
         "--graph",
-        "--solver-options-string",
-        "method=2 BarHomogeneous=1 FeasibilityTol=1e-5",
     ] + args
-    # We use to use solver-io=python however the seperation of processes is useful in helping the OS
-    # if options.recommended:
-    #     args = ['--solver-io', 'python'] + args
+    solver_options_string = "BarHomogeneous=1 FeasibilityTol=1e-5 method=2"
+    if options.recommended_fast:
+        solver_options_string += " crossover=0"
+    args = ["--solver-options-string", solver_options_string] + args
     if options.recommended_debug:
         args = ["--keepfiles", "--tempdir", "temp", "--symbolic-solver-labels"] + args
 
@@ -1000,55 +1017,38 @@ def solve(model):
         )
         breakpoint()
 
-    # Treat infeasibility as an error, rather than trying to load and save the results
-    # (note: in this case, results.solver.status may be SolverStatus.warning instead of
-    # SolverStatus.error)
-    if results.solver.termination_condition == TerminationCondition.infeasible:
-        if hasattr(model, "iis"):
-            print(
-                "Model was infeasible; irreducibly inconsistent set (IIS) returned by solver:"
-            )
-            print("\n".join(sorted(c.name for c in model.iis)))
-        else:
-            print(
-                "Model was infeasible; if the solver can generate an irreducibly inconsistent set (IIS),"
-            )
-            print(
-                "more information may be available by setting the appropriate flags in the "
-            )
-            print(
-                'solver_options_string and calling this script with "--suffixes iis" or "--gurobi-find-iis".'
-            )
-        raise RuntimeError("Infeasible model")
-
-    # Report any warnings; these are written to stderr so users can find them in
-    # error logs (e.g. on HPC systems). These can occur, e.g., if solver reaches
-    # time limit or iteration limit but still returns a valid solution
-    if results.solver.status == SolverStatus.warning:
-        warn(
-            "Solver terminated with warning.\n"
-            + "  Solution Status: {}\n".format(model.solutions[-1].status)
-            + "  Termination Condition: {}".format(results.solver.termination_condition)
-        )
+    solver_status = results.solver.status
+    solver_message = results.solver.message
+    termination_condition = results.solver.termination_condition
+    solution_status = model.solutions[-1].status if len(model.solutions) != 0 else None
 
     if (
-        results.solver.status != SolverStatus.ok
-        or results.solver.termination_condition != TerminationCondition.optimal
+        solver_status != SolverStatus.ok
+        or termination_condition != TerminationCondition.optimal
     ):
         warn(
-            f"Solver terminated with status '{results.solver.status}' and termination condition"
-            f" {results.solver.termination_condition}"
+            f"Solver termination status is not 'ok' or not 'optimal':\n"
+            f"\t- Termination condition: {termination_condition}\n"
+            f"\t- Solver status: {solver_status}\n"
+            f"\t- Solver message: {solver_message}\n"
+            f"\t- Solution status: {solution_status}"
         )
 
-    if model.options.verbose:
-        print("")
-        print(
-            "Optimization termination condition was {}.".format(
-                results.solver.termination_condition
+        if (
+            solution_status == SolutionStatus.feasible
+            and solver_status == SolverStatus.warning
+        ):
+            print(
+                "If you used --recommended-fast, you might want to try using just --recommended."
             )
-        )
-        if str(results.solver.message) != "<undefined>":
-            print("Solver message: {}".format(results.solver.message))
+
+        if query_yes_no("Do you want to abort and exit?", default=None):
+            raise SystemExit()
+
+    if model.options.verbose:
+        print(f"\nOptimization termination condition was {termination_condition}.")
+        if str(solver_message) != "<undefined>":
+            print(f"Solver message: {solver_message}")
         print("")
 
     if model.options.save_solution:
