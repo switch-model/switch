@@ -763,8 +763,7 @@ def graph_capacity(tools):
         color=tools.get_colors(len(capacity_df.index)),
     )
 
-    for container in ax.containers:
-        ax.bar_label(container, fmt="%d")
+    tools.bar_label()
 
 
 @graph(

@@ -687,18 +687,16 @@ def graph_total_dispatch(tools):
     total_dispatch = total_dispatch.rename_axis("Type", axis=1)
     # Get axis
     # Plot
-    ax = tools.get_axes()
     total_dispatch.plot(
         kind="bar",
         stacked=True,
-        ax=ax,
+        ax=tools.get_axes(),
         color=tools.get_colors(len(total_dispatch)),
         xlabel="Period",
         ylabel="Total dispatched electricity (TWh)",
     )
 
-    for container in ax.containers:
-        ax.bar_label(container, fmt="%d")
+    tools.bar_label()
 
 
 @graph("energy_balance", title="Annual Contributions to the energy balance")
@@ -725,8 +723,7 @@ def energy_balance(tools):
         xlabel="Period",
     )
 
-    for container in ax.containers:
-        ax.bar_label(container, fmt="%d")
+    tools.bar_label()
 
 
 @graph(

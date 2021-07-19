@@ -279,6 +279,12 @@ class Figure:
         self.fig.savefig(path, bbox_inches="tight")
         plt.close(self.fig)  # Close figure to save on memory
 
+    def add_note(self, note):
+        if note is not None:
+            self.fig.text(
+                0.5, -0.1, note, wrap=True, horizontalalignment="center", fontsize=12
+            )
+
 
 class FigureHandler:
     """
@@ -312,7 +318,7 @@ class FigureHandler:
         self._note = note
         self._allow_multiple_figures = allow_multiple_figures
 
-    def add_figure(self, fig, ax=None, filename=None, title=None):
+    def add_figure(self, fig, axes=None, filename=None, title=None):
         # Use default name if unspecified
         if filename is None:
             filename = self._default_filename
@@ -323,26 +329,8 @@ class FigureHandler:
         if title is not None:
             fig.suptitle(title)
 
-        # Get note from self._note or else use empty string
-        note = "" if self._note is None else self._note
-
-        # If we have multiple figures add the scenario to the note
-        if self._allow_multiple_figures:
-            note += f"\nScenario: {self._scenarios[len(self._figures)].name}"
-
-        # If the note is non-empty add it to the figure
-        if self._note != "":
-            fig.text(
-                0.5,
-                -0.1,
-                self._note,
-                wrap=True,
-                horizontalalignment="center",
-                fontsize=10,
-            )
-
         # Create our figure
-        figure = Figure(fig, ax)
+        figure = Figure(fig, axes)
 
         # Add the Figure to our list of figures
         if filename not in self._figures:
@@ -358,6 +346,8 @@ class FigureHandler:
     def get_axes(self, name=None):
         if name is None:
             name = self._default_filename
+        if name not in self._figures:
+            return None
         figures = self._figures[name]
         if len(figures) > 1:
             raise Exception("Can't call get_axes() when multiple figures exist.")
@@ -369,14 +359,18 @@ class FigureHandler:
         for filename, figures in self._figures.items():
             # If we have a single figure just save it
             if len(figures) == 1:
+                figures[0].add_note(self._note)
                 figures[0].save_figure(os.path.join(self._output_dir, filename))
                 continue
 
             # If we have multiple figures, save each one to a separate file and then concat the files
-            for i, figure in enumerate(figures):
-                figure.save_figure(
-                    os.path.join(self._output_dir, filename + "_" + str(i))
+            for i, fig in enumerate(figures):
+                # Get note from self._note and the scenario name and add it to the figure
+                fig.add_note(
+                    ("" if self._note is None else self._note)
+                    + f"\nScenario: {self._scenarios[i].name}"
                 )
+                fig.save_figure(os.path.join(self._output_dir, filename + "_" + str(i)))
 
             # If we have multiple figures, concat them into a single one
             FigureHandler._concat_figures(
@@ -609,13 +603,20 @@ class GraphTools(DataHandler):
         Internally this will handle returning a different set of axes depending on the scenario
         that is active.
         """
-        # If we're on the first scenario, we want to create the set of axes
-        if self._active_scenario == 0:
-            fig, ax = self._create_axes(*args, **kwargs)
-            self._figure_handler.add_figure(fig, ax, filename, title)
+        axes = self._figure_handler.get_axes(filename)
+        if axes is None:
+            fig, axes = self._create_axes(*args, **kwargs)
+            self._figure_handler.add_figure(fig, axes, filename, title)
 
-        # Fetch the axes in the (fig, axs) tuple then select the axis for the active scenario
-        return self._figure_handler.get_axes(filename)[self._active_scenario]
+        return axes[self._active_scenario]
+
+    def bar_label(self, filename=None):
+        """
+        Adds labels to a barchart
+        """
+        ax = self.get_axes(filename=filename)
+        for container in ax.containers:
+            ax.bar_label(container, fmt="%d")
 
     def get_figure(self, *args, **kwargs):
         # Create the figure
@@ -853,7 +854,12 @@ def graph_scenarios(
 
     # Import the modules
     for module_name in module_names:
-        importlib.import_module(module_name)
+        try:
+            importlib.import_module(module_name)
+        except:
+            warnings.warn(
+                f"Module {module_name} not found. Graphs in this module will not be created."
+            )
 
     # Initialize the graphing tool
     graph_tools = GraphTools(
@@ -891,9 +897,11 @@ def read_modules(scenarios):
 
     # Check that all the compare_dirs have equivalent modules.txt
     for scenario in other_scenarios:
-        if not np.array_equal(module_names, read_modules_txt(scenario)):
+        scenario_module_names = read_modules_txt(scenario)
+        if not np.array_equal(module_names, scenario_module_names):
             warnings.warn(
-                f"modules.txt is not equivalent between {scenario_base.name} and {scenario.name}. "
+                f"modules.txt is not equivalent between {scenario_base.name} (len={len(module_names)}) and "
+                f"{scenario.name} (len={len(scenario_module_names)}). "
                 f"We will use the modules.txt in {scenario_base.name} however this may result "
                 f"in missing graphs and/or errors."
             )
