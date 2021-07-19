@@ -43,7 +43,7 @@ get_inputs:
 # add_storage was used by Martin when studying LDES
 # you likely don't need to use these parameters
 # they won't impact your runs
-add_storage:
-  costs_scenario: 0
-  constant_scenario: 0
-  plants_scenario: 0
+# add_storage:
+  # costs_scenario: 0
+  # constant_scenario: 0
+  # plants_scenario: 0

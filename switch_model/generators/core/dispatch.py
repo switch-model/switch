@@ -501,7 +501,8 @@ def post_solve(instance, outdir):
 
 @graph(
     "dispatch",
-    title="Average daily dispatch"
+    title="Average daily dispatch",
+    is_long=True
 )
 def graph_hourly_dispatch(tools):
     """
@@ -520,7 +521,8 @@ def graph_hourly_dispatch(tools):
 
 @graph(
     "curtailment",
-    title="Average daily curtailment"
+    title="Average daily curtailment",
+    is_long=True
 )
 def graph_hourly_curtailment(tools):
     # Read dispatch.csv
@@ -539,7 +541,8 @@ def graph_hourly_curtailment(tools):
 @graph(
     "dispatch_per_scenario",
     title="Average daily dispatch",
-    requires_multi_scenario=True
+    requires_multi_scenario=True,
+    is_long=True,
 )
 def graph_hourly_dispatch(tools):
     """
@@ -560,7 +563,8 @@ def graph_hourly_dispatch(tools):
 @graph(
     "curtailment_compare_scenarios",
     title="Average daily curtailment by scenario",
-    requires_multi_scenario=True
+    requires_multi_scenario=True,
+    is_long=True,
 )
 def graph_hourly_curtailment(tools):
     # Read dispatch.csv
@@ -577,7 +581,8 @@ def graph_hourly_curtailment(tools):
 
 @graph(
     "total_dispatch",
-    title="Total dispatched electricity"
+    title="Total dispatched electricity",
+    is_long=True,
 )
 def graph_total_dispatch(tools):
     # ---------------------------------- #
