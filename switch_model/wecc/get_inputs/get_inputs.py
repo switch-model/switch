@@ -9,33 +9,27 @@ That code was removed however it can still be found at this commit
 """
 
 # Standard packages
-import argparse
-import os
-import shutil
+import warnings
 from typing import Iterable, List
 
 # Switch packages
-from switch_model.utilities import query_yes_no, StepTimer
-from switch_model.wecc.utilities import load_config, connect
-
-# Third-party packages
-import pandas as pd
-
+from switch_model.wecc.utilities import connect
+from switch_model.version import __version__
 
 def write_csv_from_query(cursor, fname: str, headers: List[str], query: str):
     """Create CSV file from cursor."""
-    print(f"{fname}.csv... ", flush=True)
+    print(f"\t{fname}.csv... ", flush=True)
     cursor.execute(query)
     data = cursor.fetchall()
     write_csv(data, fname, headers, log=False)
     if not data:
-        print("Warning: File is empty.")
+        warnings.warn(f"File {fname} is empty.")
 
 
 def write_csv(data: Iterable[List], fname, headers: List[str], log=True):
     """Create CSV file from Iterable."""
     if log:
-        print(f"{fname}.csv... ", flush=True)
+        print(f"\t{fname}.csv... ", flush=True)
     with open(fname + ".csv", "w") as f:
         f.write(",".join(headers) + "\n")
         for row in data:
@@ -73,50 +67,6 @@ modules = [
 ]
 
 
-def switch_to_input_dir(config):
-    inputs_dir = config["inputs_dir"]
-
-    # Create inputs_dir if it doesn't exist
-    if not os.path.exists(inputs_dir):
-        os.makedirs(inputs_dir)
-        print("Inputs directory created.")
-    else:
-        if not query_yes_no(
-            "Inputs directory already exists. Allow contents to be overwritten?"
-        ):
-            raise Exception("User cancelled run.")
-
-    os.chdir(inputs_dir)
-    return inputs_dir
-
-def main():
-    timer = StepTimer()
-
-    # Create command line tool, just provides help information
-    parser = argparse.ArgumentParser(
-        description="Write SWITCH input files from database tables.",
-        epilog="""
-        This tool will populate the inputs folder with the data from the PostgreSQL database.
-        config.yaml specifies the scenario parameters.
-        The environment variable DB_URL specifies the url to connect to the database. """,
-    )
-    parser.add_argument("--skip-cf", default=False, action='store_true',
-                        help="Skip creation variable_capacity_factors.csv. Useful when debugging and one doesn't"
-                             "want to wait for the command.")
-    parser.add_argument("--post-only", default=False, action='store_true',
-                        help="Only run the post solve functions (don't query db)")
-    args = parser.parse_args()  # Makes switch get_inputs --help works
-
-    # Load values from config.yaml
-    full_config = load_config()
-    switch_to_input_dir(full_config)
-
-    if not args.post_only:
-        query_db(full_config, skip_cf=args.skip_cf)
-    post_process()
-    print(f"\nScript took {timer.step_time_as_str()} seconds to build input tables.")
-
-
 def query_db(full_config, skip_cf):
     config = full_config["get_inputs"]
     scenario_id = config["scenario_id"]
@@ -125,7 +75,7 @@ def query_db(full_config, skip_cf):
     db_conn = connect()
     db_cursor = db_conn.cursor()
 
-    print(f"\nStarting to copy data from the database to the input files.")
+    print("Copying data from the database to the input files...")
 
     scenario_params = [
         "name",
@@ -186,9 +136,10 @@ def query_db(full_config, skip_cf):
     generation_plant_technologies_scenario_id =s_details[19]
     variable_o_m_cost_scenario_id = s_details[20]
 
-    print(f"Scenario: {scenario_id}: {name}.\n")
+    print(f"Scenario: {scenario_id}: {name}.")
 
     # Write general scenario parameters into a documentation file
+    print("\tscenario_params.txt...")
     colnames = [desc[0] for desc in db_cursor.description]
     with open("scenario_params.txt", "w") as f:
         f.write(f"Scenario id: {scenario_id}\n")
@@ -196,13 +147,12 @@ def query_db(full_config, skip_cf):
         f.write(f"Scenario notes: {description}\n")
         for i, col in enumerate(colnames):
             f.write(f"{col}: {s_details[i]}\n")
-    print("scenario_params.txt...")
 
     ########################################################
     # Which input specification are we writing against?
+    print("\tswitch_inputs_version.txt...")
     with open("switch_inputs_version.txt", "w") as f:
-        f.write("2.0.5\n")
-    print("switch_inputs_version.txt...")
+        f.write(f"{__version__}\n")
 
     ########################################################
     # TIMESCALES
@@ -253,9 +203,10 @@ def query_db(full_config, skip_cf):
               join switch.period as t using(period_id, study_timeframe_id)
             where
               sampled_timeseries.time_sample_id = {time_sample_id}
+              and sampled_timeseries.study_timeframe_id = {study_timeframe_id}
             order by
                 label desc,
-                timeseries desc;""",
+                timeseries asc;""",
     )
 
     # timepoints.csv
@@ -991,160 +942,7 @@ def planning_reserves(db_cursor, time_sample_id, hydro_simple_scenario_id):
 
 
 def create_modules_txt():
-    print("modules.txt...")
+    print("\tmodules.txt...")
     with open("modules.txt", "w") as f:
         for module in modules:
             f.write(module + "\n")
-
-
-def post_process():
-    fix_prebuild_conflict_bug()
-    # Graphing post process
-    graph_config = os.path.join(os.path.dirname(__file__), "graph_config")
-    print("graph_tech_colors.csv...")
-    shutil.copy(os.path.join(graph_config, "graph_tech_colors.csv"), "graph_tech_colors.csv")
-    print("graph_tech_types.csv...")
-    shutil.copy(os.path.join(graph_config, "graph_tech_types.csv"), "graph_tech_types.csv")
-    create_graph_timestamp_map()
-    replace_plants_in_zone_all()
-
-
-def fix_prebuild_conflict_bug():
-    """
-    This post-processing step is necessary to pass the no_predetermined_bld_yr_vs_period_conflict BuildCheck.
-    Basically we are moving all the 2020 predetermined build years to 2019 to avoid a conflict with the 2020 period.
-    See generators.core.build.py for details.
-    """
-    print("Shifting 2020 prebuilds to 2019...")
-    periods = pd.read_csv("periods.csv", index_col=False)
-    if 2020 not in periods["INVESTMENT_PERIOD"].values:
-        return
-
-    # Read two files that need modification
-    gen_build_costs = pd.read_csv("gen_build_costs.csv", index_col=False)
-    gen_build_predetermined = pd.read_csv("gen_build_predetermined.csv", index_col=False)
-    # Save their size
-    rows_prior = gen_build_costs.size, gen_build_predetermined.size
-    # Save columns of gen_build_costs
-    gen_build_costs_col = gen_build_costs.columns
-    # Merge to know which rows are prebuild
-    gen_build_costs = gen_build_costs.merge(
-        gen_build_predetermined,
-        on=["GENERATION_PROJECT", "build_year"],
-        how='left'
-    )
-
-    # If row is prebuild and in 2020, replace it with 2019
-    gen_build_costs.loc[
-        (~gen_build_costs["gen_predetermined_cap"].isna()) & (gen_build_costs["build_year"] == 2020),
-        "build_year"] = 2019
-    # If row is in 2020 replace it with 2019
-    gen_build_predetermined.loc[gen_build_predetermined["build_year"] == 2020, "build_year"] = 2019
-    # Go back to original column set
-    gen_build_costs = gen_build_costs[gen_build_costs_col]
-
-    # Ensure the size is still the same
-    rows_post = gen_build_costs.size, gen_build_predetermined.size
-    assert rows_post == rows_prior
-
-    # Write the files back out
-    gen_build_costs.to_csv("gen_build_costs.csv", index=False)
-    gen_build_predetermined.to_csv("gen_build_predetermined.csv", index=False)
-
-
-def create_graph_timestamp_map():
-    print("graph_timestamp_map.csv...")
-    timepoints = pd.read_csv("timepoints.csv", index_col=False)
-    timeseries = pd.read_csv("timeseries.csv", index_col=False)
-
-    timepoints = timepoints.merge(
-        timeseries,
-        how='left',
-        left_on='timeseries',
-        right_on='TIMESERIES',
-        validate="many_to_one"
-    )
-
-    timepoints["time_column"] = timepoints["timeseries"].apply(lambda c: c.partition("-")[2])
-
-    timestamp_map = timepoints[["timestamp", "ts_period", "time_column"]]
-    timestamp_map.columns = ["timestamp", "time_row", "time_column"]
-    timestamp_map.to_csv("graph_timestamp_map.csv", index=False)
-
-
-def replace_plants_in_zone_all():
-    """
-    This post-process step replaces all the generation projects that have a load called
-    _ALL_ZONES with a generation project for each load zone.
-    """
-    print("Replacing _ALL_ZONES plants with a plant in each zone...")
-
-    # Read load_zones.csv
-    load_zones = pd.read_csv("load_zones.csv", index_col=False)
-    load_zones["dbid_suffix"] = "_" + load_zones["zone_dbid"].astype(str)
-    num_zones = len(load_zones)
-
-    def replace_rows(plants_to_copy, filename, df=None, plants_col="GENERATION_PROJECT", load_column=None):
-        # If the df does not already exist, read the file
-        if df is None:
-            df = pd.read_csv(filename, index_col=False)
-
-        # Save the columns for later use
-        df_col = df.columns
-        df_rows = len(df)
-
-        # Force the plants_col to string type to allow concating
-        df = df.astype({plants_col: str})
-
-        # Extract the rows that need copying
-        should_copy = df[plants_col].isin(plants_to_copy)
-        rows_to_copy = df[should_copy]
-        # Filter out the plants that need replacing from our data frame
-        df = df[~should_copy]
-        # replacement is the cross join of the plants that need replacement
-        # with the load zones. The cross join is done by joining over a column called
-        # key that is always 1.
-        replacement = rows_to_copy.assign(key=1).merge(
-            load_zones.assign(key=1),
-            on='key',
-        )
-
-        replacement[plants_col] = replacement[plants_col] + replacement["dbid_suffix"]
-
-        if load_column is not None:
-            # Set gen_load_zone to be the LOAD_ZONE column
-            replacement[load_column] = replacement["LOAD_ZONE"]
-
-        # Keep the same columns as originally
-        replacement = replacement[df_col]
-
-        # Add the replacement plants to our dataframe
-        df = df.append(replacement)
-
-        assert len(df) == df_rows + len(rows_to_copy) * (num_zones - 1)
-
-        df.to_csv(filename, index=False)
-
-    plants = pd.read_csv("generation_projects_info.csv", index_col=False)
-    # Find the plants that need replacing
-    to_replace = plants[plants["gen_load_zone"] == "_ALL_ZONES"]
-    # If no plant needs replacing end there
-    if to_replace.empty:
-        return
-    # If to_replace has variable capacity factors we raise exceptions
-    # since the variabale capacity factors won't be the same across zones
-    if not all(to_replace["gen_is_variable"] == 0):
-        raise Exception("generation_projects_info.csv contains variable plants "
-                        "with load zone _ALL_ZONES. This is not allowed since "
-                        "copying variable capacity factors to all "
-                        "zones is not implemented (and likely unwanted).")
-
-    plants_to_replace = to_replace["GENERATION_PROJECT"]
-    replace_rows(plants_to_replace, "generation_projects_info.csv", load_column="gen_load_zone")
-    replace_rows(plants_to_replace, "gen_build_costs.csv")
-    replace_rows(plants_to_replace, "gen_build_predetermined.csv")
-
-
-
-if __name__ == "__main__":
-    main()
