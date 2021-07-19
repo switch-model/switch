@@ -858,9 +858,9 @@ def query_db(full_config, skip_cf):
 
     # Make graphing files
     graph_config = os.path.join(os.path.dirname(__file__), "graph_config")
-    print("graph_tech_colors.csv...")
+    print("\tgraph_tech_colors.csv...")
     shutil.copy(os.path.join(graph_config, "graph_tech_colors.csv"), "graph_tech_colors.csv")
-    print("graph_tech_types.csv...")
+    print("\tgraph_tech_types.csv...")
     shutil.copy(os.path.join(graph_config, "graph_tech_types.csv"), "graph_tech_types.csv")
 
 
