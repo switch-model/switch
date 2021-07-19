@@ -452,6 +452,7 @@ class DataHandler:
         convert_dot_to_na=False,
         force_one_scenario=False,
         drop_scenario_info=True,
+        **kwargs,
     ):
         """
         Returns the dataframe for the active scenario.
@@ -475,7 +476,7 @@ class DataHandler:
         # If doesn't exist, create it
         if path not in self._dfs:
             df = self._load_dataframe(
-                path, na_values="." if convert_dot_to_na else None
+                path, na_values="." if convert_dot_to_na else None, **kwargs
             )
             if DataHandler.ENABLE_DF_CACHING:
                 self._dfs[
@@ -492,26 +493,32 @@ class DataHandler:
                 df = df.drop(["scenario_index", "scenario_name"], axis=1)
         return df
 
-    def _load_dataframe(self, path, **kwargs):
+    def _load_dataframe(self, path, dtype=None, **kwargs) -> pd.DataFrame:
         """
         Reads a csv file for every scenario and returns a single dataframe containing
         the rows from every scenario with a column for the scenario name and index.
         """
+        if dtype is None:
+            dtype = {
+                "generation_project": str,
+                "gen_dbid": str,
+                "GENERATION_PROJECT": str,
+            }
+
         df_all_scenarios: List[pd.DataFrame] = []
         for i, scenario in enumerate(self._scenarios):
             df = pd.read_csv(
                 os.path.join(scenario.path, path),
                 index_col=False,
                 # Fix: force the datatype to str for some columns to avoid warnings of mismatched types
-                dtype={"generation_project": str, "gen_dbid": str},
+                dtype=dtype,
                 **kwargs,
             )
             df["scenario_name"] = scenario.name
             df["scenario_index"] = i
             df_all_scenarios.append(df)
 
-        df_all_scenarios: pd.DataFrame = pd.concat(df_all_scenarios)
-        return df_all_scenarios
+        return pd.concat(df_all_scenarios)
 
 
 class GraphTools(DataHandler):

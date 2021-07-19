@@ -773,7 +773,7 @@ def graph_capacity(tools):
     supports_multi_scenario=True,
 )
 def graph_buildout(tools):
-    build_gen = tools.get_dataframe("BuildGen.csv")
+    build_gen = tools.get_dataframe("BuildGen.csv", dtype={"GEN_BLD_YRS_1": str})
     build_gen = build_gen.rename(
         {
             "GEN_BLD_YRS_1": "GENERATION_PROJECT",
