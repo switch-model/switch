@@ -184,7 +184,7 @@ class TransformTools:
         - datetime: timestamp formatted as a US/Pacific Datetime object
         - hour: The hour of the timestamp (US/Pacific timezone)
         """
-        timepoints = self.tools.get_dataframe("timepoints.csv", from_inputs=True, drop_scenario_info=False)
+        timepoints = self.tools.get_dataframe(filename="timepoints.csv", from_inputs=True, drop_scenario_info=False)
         timeseries = self.tools.get_dataframe(filename="timeseries.csv", from_inputs=True, drop_scenario_info=False)
 
         timepoints = timepoints.merge(
@@ -213,8 +213,8 @@ class TransformTools:
                 on="timestamp",
             )
         except FileNotFoundError:
-            timestamp_mapping["time_row"] = timestamp_mapping["period"]
-            timestamp_mapping["time_column"] = timestamp_mapping["timeseries"]
+            df["time_row"] = df["period"]
+            df["time_column"] = df["timeseries"]
 
         # Add datetime and hour column
         df["datetime"] = pd.to_datetime(df["timestamp"], format="%Y%m%d%H").dt.tz_localize("utc").dt.tz_convert(
