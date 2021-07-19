@@ -16,7 +16,8 @@ def fetch_df(tab_name, key, config):
     TAB_NAME_GID = {
         "constants": 0,
         "plants": 889129113,
-        "costs": 1401952285
+        "costs": 1401952285,
+        "minimums": 1049456965
     }
     SHEET_ID = "1SJrj039T1T95NLTs964VQnsfZgo2QWCo29x2ireVYcU"
 
@@ -52,22 +53,22 @@ def cross_join(df1, df2):
     ).drop("key", axis=1)
 
 
-def append_to_csv(filename, to_add, primary_key=None):
+def add_to_csv(filename, to_add, primary_key=None, append=True):
     """
     Used to append a dataframe to an input .csv file
     """
-    df = pd.read_csv(filename, index_col=False)
-    df = pd.concat([df, to_add], ignore_index=True)[df.columns]
+    if append:
+        try:
+            df = pd.read_csv(filename, index_col=False)
+            df = pd.concat([df, to_add], ignore_index=True)[df.columns]
+        except FileNotFoundError:
+            df = to_add
+    else:
+        df = to_add
     # Confirm that primary_key is unique
     if primary_key is not None:
         assert len(df[primary_key]) == len(df[primary_key].drop_duplicates())
     df.to_csv(filename, index=False)
-
-
-def get_gen_constants(config):
-    df = fetch_df("constants", "constant_scenario", config)
-    df = df.set_index("param_name")
-    return df.transpose()
 
 
 def drop_previous_candidate_storage():
@@ -107,22 +108,25 @@ def main(config):
     drop_previous_candidate_storage()
 
     # Get the generation storage plants from Google Sheet
-    gen_constants = get_gen_constants(config)
-    gen_plants = fetch_df("plants", "plants_scenario", config)
-    gen_plants = cross_join(gen_plants, gen_constants)
+    gen_projects = fetch_df("constants", "constant_scenario", config).set_index("param_name").transpose()
+    gen_projects = cross_join(gen_projects, fetch_df("plants", "plants_scenario", config))
 
     # Append the storage plants to the inputs
-    append_to_csv("generation_projects_info.csv", gen_plants, primary_key="GENERATION_PROJECT")
+    add_to_csv("generation_projects_info.csv", gen_projects, primary_key="GENERATION_PROJECT")
+
+    # Create min_per_tech.csv
+    min_projects = fetch_df("minimums", "minimums_scenario", config)
+    add_to_csv("min_per_tech.csv", min_projects, primary_key=["gen_tech", "period"], append=False)
 
     # Get the plant costs from GSheets and append to costs
     storage_costs = fetch_df("costs", "costs_scenario", config)
-    append_to_csv("gen_build_costs.csv", storage_costs, primary_key=["GENERATION_PROJECT", "build_year"])
+    add_to_csv("gen_build_costs.csv", storage_costs, primary_key=["GENERATION_PROJECT", "build_year"])
 
     # Create add_storage_info.csv
     pd.DataFrame([config]).transpose().to_csv("add_storage_info.csv", header=False)
 
     # Add the storage types to the graphs
-    gen_type = gen_plants[["gen_tech", "gen_energy_source"]].drop_duplicates()
+    gen_type = gen_projects[["gen_tech", "gen_energy_source"]].drop_duplicates()
     gen_type.columns = ["gen_tech", "energy_source"]
     gen_type["map_name"] = "default"
     gen_type["gen_type"] = "Storage"
