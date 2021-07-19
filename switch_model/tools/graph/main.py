@@ -386,7 +386,9 @@ class DataHandler:
             raise Exception("Scenario names are not unique.")
 
         self._scenarios: List[Scenario] = scenarios
-        self._run_per_scenario = None
+        # If true the current function being run should only be run
+        # once with all the scenarios rather than re-run for each scenario
+        self._is_multi_scenario_func = None
         self._active_scenario = None
 
         # Here we store a mapping of csv file names to their dataframes.
@@ -423,7 +425,7 @@ class DataHandler:
         else:
             df = self._dfs[path].copy()  # We return a copy so the source isn't modified
 
-        if self._run_per_scenario or force_one_scenario:
+        if not self._is_multi_scenario_func or force_one_scenario:
             # Filter dataframe to only the current scenario
             df = df[df['scenario_index'] == self._active_scenario]
             # Drop the columns related to the scenario
@@ -496,7 +498,7 @@ class GraphTools(DataHandler):
         """
         Create a set of matplotlib axes
         """
-        num_columns = self.num_scenarios if self._run_per_scenario else 1
+        num_columns = 1 if self._is_multi_scenario_func else self.num_scenarios
         fig = GraphTools._create_figure(
             size=(size[0] * num_columns, size[1]),
             **kwargs
@@ -577,23 +579,23 @@ class GraphTools(DataHandler):
     def run_graph_func(self, func):
         """Runs the graphing function"""
         print(f"{func.name}", end=", ", flush=True)
-        self._run_per_scenario = len(self._scenarios) > 1 and not func.multi_scenario
+        self._is_multi_scenario_func = func.multi_scenario
         self._figure_handler.set_properties(
             func.name,
             func.title,
             func.note,
-            allow_multiple_figures=self._run_per_scenario)
+            allow_multiple_figures=not self._is_multi_scenario_func)
 
-        if self._run_per_scenario:
+        if self._is_multi_scenario_func:
+            self._active_scenario = 0
+            func(self)
+        else:
             # For each scenario
             for i, scenario in enumerate(self._scenarios):
                 # Set the active scenario index so that other functions behave properly
                 self._active_scenario = i
                 # Call the graphing function
                 func(self)
-        else:
-            self._active_scenario = 0
-            func(self)
 
         # Reset to none like it was before just to be safe
         self._active_scenario = None
