@@ -24,9 +24,12 @@ def fetch_df(tab_name, key, config):
     gid = TAB_NAME_GID[tab_name]
     url = f"https://docs.google.com/spreadsheet/ccc?key={SHEET_ID}&output=csv&gid={gid}"
 
-    df = pd.read_csv(url, index_col=False) \
+    df: pd.DataFrame = pd.read_csv(url, index_col=False) \
         .replace("FALSE", 0) \
         .replace("TRUE", 1)
+
+    if "description" in df.columns:
+        df = df.drop("description", axis=1)
 
     if key is not None:
         df = filer_by_scenario(df, key, config)
