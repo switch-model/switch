@@ -15,6 +15,7 @@ def replace_plants_in_zone_all(_):
     num_zones = len(load_zones)
 
     def replace_rows(plants_to_copy, filename, df=None, plants_col="GENERATION_PROJECT", load_column=None):
+        breakpoint()
         # If the df does not already exist, read the file
         if df is None:
             df = pd.read_csv(filename, index_col=False)
@@ -25,6 +26,7 @@ def replace_plants_in_zone_all(_):
 
         # Force the plants_col to string type to allow concating
         df = df.astype({plants_col: str})
+        plants_to_copy = plants_to_copy.astype(str)
 
         # Extract the rows that need copying
         should_copy = df[plants_col].isin(plants_to_copy)
