@@ -20,10 +20,11 @@ from switch_model.version import __version__
 
 def write_csv_from_query(cursor, fname: str, headers: List[str], query: str):
     """Create CSV file from cursor."""
-    print(f"\t{fname}.csv... ", flush=True)
+    print(f"\t{fname}.csv... ", flush=True, end="")
     cursor.execute(query)
     data = cursor.fetchall()
     write_csv(data, fname, headers, log=False)
+    print(len(data))
     if not data:
         warnings.warn(f"File {fname} is empty.")
 
@@ -31,7 +32,7 @@ def write_csv_from_query(cursor, fname: str, headers: List[str], query: str):
 def write_csv(data: Iterable[List], fname, headers: List[str], log=True):
     """Create CSV file from Iterable."""
     if log:
-        print(f"\t{fname}.csv... ", flush=True)
+        print(f"\t{fname}.csv... ", flush=True, end="")
     with open(fname + ".csv", "w") as f:
         f.write(",".join(headers) + "\n")
         for row in data:
@@ -42,6 +43,8 @@ def write_csv(data: Iterable[List], fname, headers: List[str], log=True):
             f.write(
                 ",".join(row_as_clean_strings) + "\n"
             )  # concatenates "line" separated by commas, and appends \n
+    if log:
+        print(len(data))
 
 
 # List of modules that is used to generate modules.txt
