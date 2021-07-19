@@ -7,7 +7,7 @@ the csvs in the inputs folder.
 import os
 
 import pandas as pd
-from switch_model.wecc.get_inputs import replace_plants_in_zone_all
+from switch_model.wecc.get_inputs.post_process_steps.replace_plants_in_zone_all import replace_plants_in_zone_all
 
 # Parameters picked for Google Sheet
 scenario_params = {}
@@ -94,7 +94,6 @@ def drop_previous_candidate_storage():
     costs.to_csv("gen_build_costs.csv", index=False)
 
 def main(run_post_solve=True, scenario_config=None, change_dir=True):
-    print("Adding candidate storage from GSheets...")
     global scenario_params
     # If a config is passed use it when filtering by scenario
     if scenario_config is not None:

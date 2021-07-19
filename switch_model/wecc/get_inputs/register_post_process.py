@@ -17,7 +17,8 @@ def register_post_process(
         name=None,
         msg=None,
         enabled=True,
-        only_with_config=False
+        only_with_config=False,
+        priority=2
 ):
     """
     Decorator that should be used to register a post-processing step.
@@ -42,6 +43,7 @@ def register_post_process(
             func(config)
 
         wrapper.name = name
+        wrapper.priority = priority
 
         if enabled:
             _registered_steps.append(wrapper)
@@ -52,7 +54,8 @@ def register_post_process(
 
 def run_post_process(config):
     print("Post-processing...")
-    for func in _registered_steps:
+
+    for func in sorted(_registered_steps, key=lambda s: s.priority):
         if func.name is not None:
             func(config.get(func.name, None))
         else:

@@ -9,7 +9,8 @@ from switch_model.wecc.get_inputs.register_post_process import register_post_pro
 @register_post_process(
     name="add_storage",
     msg="Adding storage from Google Sheets",
-    only_with_config=True
+    only_with_config=True,
+    priority=1
 )
 def add_storage(config):
     from switch_model.tools.add_storage import main
