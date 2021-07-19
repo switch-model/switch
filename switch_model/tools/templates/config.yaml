@@ -40,10 +40,3 @@ get_inputs:
   #  enable_planning_reserves:
   #  generation_plant_technologies_scenario_id:
   #  variable_o_m_cost_scenario_id:
-# add_storage was used by Martin when studying LDES
-# you likely don't need to use these parameters
-# they won't impact your runs
-# add_storage:
-  # costs_scenario: 0
-  # constant_scenario: 0
-  # plants_scenario: 0
