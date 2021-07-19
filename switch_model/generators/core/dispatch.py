@@ -635,10 +635,9 @@ def energy_balance(tools):
     load = load.drop("total", axis=0)
 
     load /= 1e6  # Convert to TWh
-    ax = tools.get_axes()
     load.plot(
         kind="bar",
-        ax=ax,
+        ax=tools.get_axes(),
         ylabel="Annual Contribution to Energy Balance (TWh)",
         xlabel="Period"
     )
