@@ -230,7 +230,7 @@ def main(
             if instance.options.verbose:
                 print(f"Post solve processing completed in {timer.step_time_as_str()}.")
 
-        if instance.options.run_graph_func:
+        if instance.options.graph:
             graph_main(args=["--overwrite"])
 
         total_time = start_to_end_timer.step_time_as_str()
@@ -707,12 +707,12 @@ def add_recommended_args(argparser):
     )
 
     argparser.add_argument(
-        "--recommended-robust",
+        "--recommended-fast",
         default=False,
         action="store_true",
-        help="Equivalent to --recommended however enables crossover during solving. Crossover is useful"
-        " if the solution found by the barrier method is suboptimal. If you find that the solver returns"
-        " a suboptimal solution use this flag.",
+        help="Equivalent to --recommended however disables crossover during solving. This reduces"
+        " the solve time greatly however may result in less accurate values and may fail to find an optimal"
+        " solution. If you find that the solver returns a suboptimal solution use --recommended.",
     )
 
     argparser.add_argument(
@@ -729,7 +729,7 @@ def parse_recommended_args(args):
     options = argparser.parse_known_args(args)[0]
 
     flags_used = (
-        options.recommended + options.recommended_robust + options.recommended_debug
+        options.recommended + options.recommended_fast + options.recommended_debug
     )
     if flags_used > 1:
         raise Exception(
@@ -749,9 +749,9 @@ def parse_recommended_args(args):
         "--debug",
         "--graph",
     ] + args
-    solver_options_string = "BarHomogeneous=1 FeasibilityTol=1e-5"
-    if not options.recommended_robust:
-        solver_options_string += " crossover=0 method=2"
+    solver_options_string = "BarHomogeneous=1 FeasibilityTol=1e-5 method=2"
+    if options.recommended_fast:
+        solver_options_string += " crossover=0"
     args = ["--solver-options-string", solver_options_string] + args
     if options.recommended_debug:
         args = ["--keepfiles", "--tempdir", "temp", "--symbolic-solver-labels"] + args
@@ -966,7 +966,7 @@ def solve(model):
             and solver_status == SolverStatus.warning
         ):
             print(
-                "If you used --recommended, you might want to try --recommended-robust."
+                "If you used --recommended-fast, you might want to try using just --recommended."
             )
 
         if query_yes_no("Do you want to abort and exit?", default=None):

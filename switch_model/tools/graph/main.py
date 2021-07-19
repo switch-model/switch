@@ -25,7 +25,7 @@ from switch_model.utilities import StepTimer, get_module_list, query_yes_no
 
 # When True exceptions that are thrown while graphing will be caught
 # and outputted to console as a warning instead of an error
-CATCH_EXCEPTIONS = False
+CATCH_EXCEPTIONS = True
 
 
 def catch_exceptions(func):
@@ -628,7 +628,7 @@ class GraphTools(DataHandler):
 
     def run_graph_func(self, func):
         """Runs the graphing function"""
-        print(f"{func.name}", end=", ")
+        print(f"{func.name}", end=", ", flush=True)
         self._run_per_scenario = len(self._scenarios) > 1 and not func.multi_scenario
         self._figure_handler.set_properties(
             func.name,
