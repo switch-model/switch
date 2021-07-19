@@ -47,3 +47,4 @@ get_inputs:
   # costs_scenario: 0
   # constant_scenario: 0
   # plants_scenario: 0
+  # minimums_scenario: 0
