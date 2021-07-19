@@ -616,7 +616,7 @@ class GraphTools(DataHandler):
         """
         ax = self.get_axes(filename=filename)
         for container in ax.containers:
-            ax.bar_label(container, fmt="%d")
+            ax.bar_label(container, fmt="%d", fontsize="x-small")
 
     def get_figure(self, *args, **kwargs):
         # Create the figure

@@ -753,10 +753,9 @@ def graph_capacity(tools):
 
     # Plot
     # Get a new set of axis to create a breakdown of the generation capacity
-    ax = tools.get_axes()
     capacity_df.plot(
         kind="bar",
-        ax=ax,
+        ax=tools.get_axes(),
         stacked=True,
         ylabel="Capacity Online (GW)",
         xlabel="Period",
