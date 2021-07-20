@@ -147,21 +147,27 @@ class TransformTools:
         """
         # If there's no mapping, we simply make the mapping the sum of both columns
         # Read the tech_colors and tech_types csv files.
+        df = df.copy()  # Don't edit the original
         try:
-            tech_types = self.tools.get_dataframe("graph_tech_types.csv", from_inputs=True, force_one_scenario=True)
+            tech_types = self.tools.get_dataframe("graph_tech_types.csv", from_inputs=True)
         except FileNotFoundError:
-            df = df.copy()
             df['gen_type'] = df[gen_tech_col] + "_" + df[energy_source_col]
             return df
-        filtered_tech_types = tech_types[tech_types['map_name'] == map_name][
-            ['gen_tech', 'energy_source', 'gen_type']]
+        tech_types = tech_types[tech_types['map_name'] == map_name].drop('map_name', axis=1)
+        # If we got many scenarios "scenario_name" will exist in tech_types and in that case
+        # we want to merge by scenario
+        left_on = [gen_tech_col, energy_source_col]
+        right_on = ["gen_tech", "energy_source"]
+        if "scenario_name" in tech_types:
+            left_on.append("scenario_name")
+            right_on.append("scenario_name")
         df = df.merge(
-            filtered_tech_types,
-            left_on=[gen_tech_col, energy_source_col],
-            right_on=['gen_tech', 'energy_source'],
+            tech_types,
+            left_on=left_on,
+            right_on=right_on,
             validate="many_to_one",
             how="left")
-        df["gen_type"] = df["gen_type"].fillna("Other") # Fill with Other so the colors still work
+        df["gen_type"] = df["gen_type"].fillna("Other")  # Fill with Other so the colors still work
         return df
 
     def build_year(self, df, build_year_col="build_year"):
