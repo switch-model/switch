@@ -138,7 +138,7 @@ class TransformTools:
         self.tools = graph_tools
 
     def gen_type(self, df: pd.DataFrame, map_name='default', gen_tech_col='gen_tech',
-                 energy_source_col='gen_energy_source'):
+                 energy_source_col='gen_energy_source', drop_previous_col=True):
         """
         Returns a dataframe that contains a column 'gen_type'.
 
@@ -147,9 +147,9 @@ class TransformTools:
         """
         # If there's no mapping, we simply make the mapping the sum of both columns
         # Read the tech_colors and tech_types csv files.
-        df = df.copy()  # Don't edit the original
         try:
-            tech_types = self.tools.get_dataframe("graph_tech_types.csv", from_inputs=True)
+            cols = ["map_name", "gen_type", "gen_tech", "energy_source", "scenario_index"]
+            tech_types = self.tools.get_dataframe("graph_tech_types.csv", from_inputs=True, drop_scenario_info=False)[cols]
         except FileNotFoundError:
             df['gen_type'] = df[gen_tech_col] + "_" + df[energy_source_col]
             return df
@@ -158,9 +158,9 @@ class TransformTools:
         # we want to merge by scenario
         left_on = [gen_tech_col, energy_source_col]
         right_on = ["gen_tech", "energy_source"]
-        if "scenario_name" in tech_types:
-            left_on.append("scenario_name")
-            right_on.append("scenario_name")
+        if "scenario_index" in df:
+            left_on.append("scenario_index")
+            right_on.append("scenario_index")
         df = df.merge(
             tech_types,
             left_on=left_on,
@@ -168,6 +168,8 @@ class TransformTools:
             validate="many_to_one",
             how="left")
         df["gen_type"] = df["gen_type"].fillna("Other")  # Fill with Other so the colors still work
+        if drop_previous_col:
+            df = df.drop([gen_tech_col, energy_source_col], axis=1)
         return df
 
     def build_year(self, df, build_year_col="build_year"):
@@ -182,7 +184,7 @@ class TransformTools:
         ).astype("category")
         return df
 
-    def timestamp(self, df, timestamp_col="timestamp"):
+    def timestamp(self, df, key_col="timestamp", use_timepoint=False):
         """
         Adds the following columns to the dataframe:
         - time_row: by default the period but can be overridden by graph_timestamp_map.csv
@@ -200,16 +202,28 @@ class TransformTools:
             right_on=['TIMESERIES', 'scenario_index'],
             validate="many_to_one"
         )
-        timestamp_mapping = timepoints[["timestamp", "ts_period", "timeseries"]].drop_duplicates()
-        timestamp_mapping = timestamp_mapping.rename({"ts_period": "period"}, axis=1)
+        timestamp_mapping = timepoints[
+            ["timepoint_id", "timestamp", "ts_period", "timeseries", "ts_duration_of_tp"]].drop_duplicates()
+        timestamp_mapping = timestamp_mapping.rename({
+            "ts_period": "period",
+            "timepoint_id": "timepoint",
+            "ts_duration_of_tp": "tp_duration"}, axis=1)
         timestamp_mapping = timestamp_mapping.astype({"period": "category"})
 
-        df = df.rename({timestamp_col: "timestamp"}, axis=1)
-        df = df.merge(
-            timestamp_mapping,
-            how='left',
-            on="timestamp",
-        )
+        if use_timepoint:
+            df = df.rename({key_col: "timepoint"}, axis=1)
+            df = df.merge(
+                timestamp_mapping,
+                how='left',
+                on="timepoint"
+            )
+        else:
+            df = df.rename({key_col: "timestamp"}, axis=1)
+            df = df.merge(
+                timestamp_mapping,
+                how='left',
+                on="timestamp",
+            )
 
         try:
             # TODO support using graph_timestamp_map on multiple scenarios
@@ -226,6 +240,8 @@ class TransformTools:
         df["datetime"] = pd.to_datetime(df["timestamp"], format="%Y%m%d%H").dt.tz_localize("utc").dt.tz_convert(
             self.time_zone)
         df["hour"] = df["datetime"].dt.hour
+        season_map = {1: "Winter", 2: "Spring", 3: "Summer", 4: "Fall"}
+        df["season"] = df["datetime"].dt.quarter.apply(lambda x: season_map[x])
 
         return df
 
@@ -453,6 +469,8 @@ class DataHandler:
                 os.path.join(scenario.path, path), index_col=False,
                 # Fix: force the datatype to str for some columns to avoid warnings of mismatched types
                 dtype=dtype,
+                sep=",",
+                engine="c",
                 **kwargs
             )
             df['scenario_name'] = scenario.name

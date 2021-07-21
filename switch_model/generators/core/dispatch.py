@@ -620,29 +620,114 @@ def graph_total_dispatch(tools):
 
     tools.bar_label()
 
-@graph("energy_balance", title="Annual Contributions to the energy balance")
+@graph(
+    "energy_balance",
+    title="Energy Balance For Every Month",
+    supports_multi_scenario=True,
+    is_long=True
+)
 def energy_balance(tools):
-    load = tools.get_dataframe("load_balance_annual.csv").set_index("period")
-    load.loc["total", :] = load.sum()
-    load = load.rename(
-        {
-            "zone_demand_mw": "Demand",
-            "ZoneTotalCentralDispatch": "Generation (incl. storage discharge)",
-            "TXPowerNet": "Transmission Losses",
-            "StorageNetCharge": "Storage Charging"
-        }, axis=1
-    ).sort_values(axis=1, by="total")
-    load = load.drop("total", axis=0)
+    # Get dispatch dataframe
+    cols = ["timestamp", "gen_tech", "gen_energy_source", "DispatchGen_MW", "scenario_name", "scenario_index"]
+    df = tools.get_dataframe("dispatch.csv", drop_scenario_info=False)[cols]
+    df = tools.transform.gen_type(df)
+    # Sum dispatch across all the projects of the same type and timepoint
+    df = df.groupby(["timestamp", "gen_type", "scenario_name", "scenario_index"], as_index=False).sum()
+    df = df.rename({"gen_type": "Type", "DispatchGen_MW": "value"}, axis=1)
 
-    load /= 1e6  # Convert to TWh
-    load.plot(
-        kind="bar",
-        ax=tools.get_axes(),
-        ylabel="Annual Contribution to Energy Balance (TWh)",
-        xlabel="Period"
+    discharge = df[df["Type"] == "Storage"].drop("Type", axis=1).rename({"value": "discharge"}, axis=1)
+
+    # Get load dataframe
+    load = tools.get_dataframe("load_balance.csv", drop_scenario_info=False)
+    load = load.drop("normalized_energy_balance_duals_dollar_per_mwh", axis=1)
+
+    # Sum load across all the load zones
+    key_columns = ["timestamp", "scenario_name", "scenario_index"]
+    load = load.groupby(key_columns, as_index=False).sum()
+
+    # Subtract storage dispatch from generation and add it to the storage charge to get net flow
+    load = load.merge(
+        discharge,
+        how="left",
+        on=key_columns,
+        validate="one_to_one"
     )
+    load["ZoneTotalCentralDispatch"] -= load["discharge"]
+    load["StorageNetCharge"] += load["discharge"]
+    load = load.drop("discharge", axis=1)
 
-    tools.bar_label()
+    # Rename and convert from wide to long format
+    load = load.rename({
+        "ZoneTotalCentralDispatch": "Total Generation (excl. storage discharge)",
+        "TXPowerNet": "Transmission Losses",
+        "StorageNetCharge": "Storage Net Flow",
+        "zone_demand_mw": "Demand",
+    }, axis=1).sort_index(axis=1)
+    load = load.melt(id_vars=key_columns, var_name="Type")
+
+    # Merge dispatch contributions with load contributions
+    df = pd.concat([load, df])
+
+    # Add the timestamp information and make period string to ensure it doesn't mess up the graphing
+    df = tools.transform.timestamp(df).astype({"period": str})
+
+    # Convert to TWh (incl. multiply by timepoint duration)
+    df["value"] *= df["tp_duration"] / 1e6
+
+    FREQUENCY = "1W"
+
+    def groupby_time(df):
+        return df.groupby(
+            ["scenario_name", "period", "Type", tools.pd.Grouper(key="datetime", freq=FREQUENCY, origin="start")])[
+            "value"]
+
+    df = groupby_time(df).sum().reset_index()
+
+    # Get the state of charge data
+    soc = tools.get_dataframe("StateOfCharge.csv", dtype={"STORAGE_GEN_TPS_1": str}, drop_scenario_info=False)
+    soc = soc.rename({"STORAGE_GEN_TPS_2": "timepoint", "StateOfCharge": "value"}, axis=1)
+    # Sum over all the projects that are in the same scenario with the same timepoint
+    soc = soc.groupby(["timepoint", "scenario_name"], as_index=False).sum()
+    soc["Type"] = "State Of Charge"
+    soc["value"] /= 1e6  # Convert to TWh
+
+    # Group by time
+    soc = tools.transform.timestamp(soc, use_timepoint=True, key_col="timepoint").astype({"period": str})
+    soc = groupby_time(soc).mean().reset_index()
+
+    # Add state of charge to dataframe
+    df = pd.concat([df, soc])
+    # Add column for day since that's what we really care about
+    df["day"] = df["datetime"].dt.dayofyear
+
+    # Plot
+    # Get the colors for the lines
+    colors = tools.get_colors()
+    colors.update({
+        "Transmission Losses": "brown",
+        "Storage Net Flow": "cadetblue",
+        "Demand": "black",
+        "Total Generation (excl. storage discharge)": "black",
+        "State Of Charge": "green"
+    })
+
+    # plot
+    num_periods = df["period"].nunique()
+    pn = tools.pn
+    plot = pn.ggplot(df) + \
+           pn.geom_line(pn.aes(x="day", y="value", color="Type")) + \
+           pn.facet_grid("period ~ scenario_name") + \
+           pn.labs(y="Contribution to Energy Balance (TWh)") + \
+           pn.scales.scale_color_manual(values=colors, aesthetics="color", na_value=colors["Other"]) + \
+           pn.scales.scale_x_continuous(
+               name="Month",
+               labels=["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"],
+               breaks=(15, 46, 76, 106, 137, 167, 198, 228, 259, 289, 319, 350),
+               limits=(0, 366)) + \
+           pn.theme(
+               figure_size=(pn.options.figure_size[0] * tools.num_scenarios, pn.options.figure_size[1] * num_periods))
+
+    tools.save_figure(plot.draw())
 
 @graph(
     "curtailment_per_period",

@@ -451,7 +451,7 @@ def graph_state_of_charge(tools):
     df = tools.get_dataframe("storage_dispatch")
     df = df.groupby(["timepoint", "scenario_name"], as_index=False)["StateOfCharge"].sum()
     # Add datetime information
-    df = tools.transform.timestamp(df, timestamp_col="timepoint")
+    df = tools.transform.timestamp(df, key_col="timepoint")
     # Count num rows
     num_periods = len(df["period"].unique())
 
@@ -507,7 +507,7 @@ def graph_state_of_charge_per_duration(tools):
     # Get the total state of charge at each timepoint for each project
     df = tools.get_dataframe("storage_dispatch")[
         ["generation_project", "timepoint", "StateOfCharge", "scenario_name"]]
-    df = tools.transform.timestamp(df, timestamp_col="timepoint")
+    df = tools.transform.timestamp(df, key_col="timepoint")
 
     # Add the capacity information to the state of charge information
     df = df.merge(
@@ -542,7 +542,7 @@ def graph_dispatch_cycles(tools):
     # Aggregate by timepoint
     df = df.groupby("timepoint", as_index=False).sum()
     # Add datetime column
-    df = tools.transform.timestamp(df, timestamp_col="timepoint")
+    df = tools.transform.timestamp(df, key_col="timepoint")
     # Find charge in GWh
     df["StateOfCharge"] /= 1e3
 
