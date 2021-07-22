@@ -628,14 +628,23 @@ def graph_total_dispatch(tools):
 )
 def energy_balance(tools):
     # Get dispatch dataframe
-    cols = ["timestamp", "gen_tech", "gen_energy_source", "DispatchGen_MW", "scenario_name", "scenario_index"]
+    cols = ["timestamp", "gen_tech", "gen_energy_source", "DispatchGen_MW", "scenario_name", "scenario_index",
+            "Curtailment_MW"]
     df = tools.get_dataframe("dispatch.csv", drop_scenario_info=False)[cols]
     df = tools.transform.gen_type(df)
-    # Sum dispatch across all the projects of the same type and timepoint
-    df = df.groupby(["timestamp", "gen_type", "scenario_name", "scenario_index"], as_index=False).sum()
-    df = df.rename({"gen_type": "Type", "DispatchGen_MW": "value"}, axis=1)
 
-    discharge = df[df["Type"] == "Storage"].drop("Type", axis=1).rename({"value": "discharge"}, axis=1)
+    # Rename and add needed columns
+    df["Dispatch Limit"] = df["DispatchGen_MW"] + df["Curtailment_MW"]
+    df = df.drop("Curtailment_MW", axis=1)
+    df = df.rename({"DispatchGen_MW": "Dispatch"}, axis=1)
+    # Sum dispatch across all the projects of the same type and timepoint
+    key_columns = ["timestamp", "gen_type", "scenario_name", "scenario_index"]
+    df = df.groupby(key_columns, as_index=False).sum()
+    df = df.melt(id_vars=key_columns, value_vars=["Dispatch", "Dispatch Limit"], var_name="Type")
+    df = df.rename({"gen_type": "Source"}, axis=1)
+
+    discharge = df[(df["Source"] == "Storage") & (df["Type"] == "Dispatch")].drop(["Source", "Type"], axis=1).rename(
+        {"value": "discharge"}, axis=1)
 
     # Get load dataframe
     load = tools.get_dataframe("load_balance.csv", drop_scenario_info=False)
@@ -663,7 +672,8 @@ def energy_balance(tools):
         "StorageNetCharge": "Storage Net Flow",
         "zone_demand_mw": "Demand",
     }, axis=1).sort_index(axis=1)
-    load = load.melt(id_vars=key_columns, var_name="Type")
+    load = load.melt(id_vars=key_columns, var_name="Source")
+    load["Type"] = "Dispatch"
 
     # Merge dispatch contributions with load contributions
     df = pd.concat([load, df])
@@ -677,9 +687,13 @@ def energy_balance(tools):
     FREQUENCY = "1W"
 
     def groupby_time(df):
-        return df.groupby(
-            ["scenario_name", "period", "Type", tools.pd.Grouper(key="datetime", freq=FREQUENCY, origin="start")])[
-            "value"]
+        return df.groupby([
+            "scenario_name",
+            "period",
+            "Source",
+            "Type",
+            tools.pd.Grouper(key="datetime", freq=FREQUENCY, origin="start")
+        ])["value"]
 
     df = groupby_time(df).sum().reset_index()
 
@@ -688,11 +702,12 @@ def energy_balance(tools):
     soc = soc.rename({"STORAGE_GEN_TPS_2": "timepoint", "StateOfCharge": "value"}, axis=1)
     # Sum over all the projects that are in the same scenario with the same timepoint
     soc = soc.groupby(["timepoint", "scenario_name"], as_index=False).sum()
-    soc["Type"] = "State Of Charge"
+    soc["Source"] = "State Of Charge"
     soc["value"] /= 1e6  # Convert to TWh
 
     # Group by time
     soc = tools.transform.timestamp(soc, use_timepoint=True, key_col="timepoint").astype({"period": str})
+    soc["Type"] = "Dispatch"
     soc = groupby_time(soc).mean().reset_index()
 
     # Add state of charge to dataframe
@@ -715,7 +730,7 @@ def energy_balance(tools):
     num_periods = df["period"].nunique()
     pn = tools.pn
     plot = pn.ggplot(df) + \
-           pn.geom_line(pn.aes(x="day", y="value", color="Type")) + \
+           pn.geom_line(pn.aes(x="day", y="value", color="Source", linetype="Type")) + \
            pn.facet_grid("period ~ scenario_name") + \
            pn.labs(y="Contribution to Energy Balance (TWh)") + \
            pn.scales.scale_color_manual(values=colors, aesthetics="color", na_value=colors["Other"]) + \
@@ -724,6 +739,9 @@ def energy_balance(tools):
                labels=["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"],
                breaks=(15, 46, 76, 106, 137, 167, 198, 228, 259, 289, 319, 350),
                limits=(0, 366)) + \
+           pn.scales.scale_linetype_manual(
+               values={"Dispatch Limit": "dotted", "Dispatch": "solid"}
+           ) + \
            pn.theme(
                figure_size=(pn.options.figure_size[0] * tools.num_scenarios, pn.options.figure_size[1] * num_periods))
 
