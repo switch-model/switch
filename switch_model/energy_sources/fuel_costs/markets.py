@@ -328,7 +328,6 @@ def define_components(mod):
         mod.ZONE_FUELS,
         mod.PERIODS,
         input_file="zone_fuel_cost_diff.csv",
-        input_optional=True,
         input_column="fuel_cost_adder",
         within=Reals,
         default=0,

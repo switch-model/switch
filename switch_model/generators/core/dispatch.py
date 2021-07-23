@@ -7,6 +7,14 @@ the Switch model. This module requires either generators.core.unitcommit or
 generators.core.no_commit to constrain project dispatch to either committed or
 installed capacity.
 
+INPUT FILE FORMAT
+    Import project-specific data from an input directory.
+
+    variable_capacity_factors can be skipped if no variable
+    renewable projects are considered in the optimization.
+
+    variable_capacity_factors.csv
+        GENERATION_PROJECT, timepoint, gen_max_capacity_factor
 """
 from __future__ import division
 
@@ -315,10 +323,13 @@ def define_components(mod):
     mod.VARIABLE_GEN_TPS_RAW = Set(
         dimen=2,
         within=mod.VARIABLE_GENS * mod.TIMEPOINTS,
+        input_file="variable_capacity_factors.csv",
+        input_optional=True,
     )
     mod.gen_max_capacity_factor = Param(
         mod.VARIABLE_GEN_TPS_RAW,
         within=Reals,
+        input_file="variable_capacity_factors.csv",
         validate=lambda m, val, g, t: -1 < val < 2,
     )
     # Validate that a gen_max_capacity_factor has been defined for every
@@ -416,28 +427,6 @@ def define_components(mod):
         doc="Summarize costs for the objective function",
     )
     mod.Cost_Components_Per_TP.append("GenVariableOMCostsInTP")
-
-
-def load_inputs(mod, switch_data, inputs_dir):
-    """
-
-    Import project-specific data from an input directory.
-
-    variable_capacity_factors can be skipped if no variable
-    renewable projects are considered in the optimization.
-
-    variable_capacity_factors.csv
-        GENERATION_PROJECT, timepoint, gen_max_capacity_factor
-
-    """
-
-    switch_data.load_aug(
-        optional=True,
-        filename=os.path.join(inputs_dir, "variable_capacity_factors.csv"),
-        autoselect=True,
-        index=mod.VARIABLE_GEN_TPS_RAW,
-        param=(mod.gen_max_capacity_factor,),
-    )
 
 
 def post_solve(instance, outdir):

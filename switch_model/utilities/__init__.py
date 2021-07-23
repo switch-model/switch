@@ -19,7 +19,7 @@ from pyomo.dataportal.plugins.csv_table import CSVTable
 from switch_model.utilities.results_info import add_info, ResultsInfoSection
 from switch_model.utilities.scaling import _ScaledVariable, _get_unscaled_expression
 import pyomo.opt
-import switch_model.utilities.pyo as pyo
+import switch_model.utilities.custom_loading as pyo
 
 # Define string_types (same as six.string_types). This is useful for
 # distinguishing between strings and other iterables.

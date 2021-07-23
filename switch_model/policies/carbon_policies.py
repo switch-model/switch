@@ -21,6 +21,17 @@ Specifying any of   carbon_cap_tnox_per_yr, carbon_cost_dollar_per_tnox,
                     carbon_cap_tch4_per_yr, carbon_cost_dollar_per_tch4
     will have the same effect as descibed above, just for different greenhouse gases.
 
+INPUT FILE FORMAT
+    Typically, people will specify either carbon caps or carbon costs, but not
+    both. If you provide data for both columns, the results may be difficult
+    to interpret meaningfully.
+
+    Expected input files:
+    carbon_policies.csv
+        PERIOD, carbon_cap_tco2_per_yr, carbon_cost_dollar_per_tco2,
+        carbon_cap_tnox_per_yr, carbon_cost_dollar_per_tnox,
+        carbon_cap_tso2_per_yr, carbon_cost_dollar_per_tso2,
+        carbon_cap_tch4_per_yr, carbon_cost_dollar_per_tch4,
 """
 from __future__ import division
 import os
@@ -34,6 +45,7 @@ def define_components(model):
     model.carbon_cap_tco2_per_yr = Param(
         model.PERIODS,
         default=float("inf"),
+        input_file="carbon_policies.csv",
         doc=(
             "CO2 emissions from this model must be less than this cap. This is specified in metric tonnes of CO2 per year."
         ),
@@ -41,6 +53,7 @@ def define_components(model):
     model.carbon_cap_tnox_per_yr = Param(
         model.PERIODS,
         default=float("inf"),
+        input_file="carbon_policies.csv",
         doc=(
             "NOx emissions from this model must be less than this cap. This is specified in metric tonnes of NOx per year."
         ),
@@ -48,6 +61,7 @@ def define_components(model):
     model.carbon_cap_tso2_per_yr = Param(
         model.PERIODS,
         default=float("inf"),
+        input_file="carbon_policies.csv",
         doc=(
             "SO2 emissions from this model must be less than this cap. This is specified in metric tonnes of SO2 per year."
         ),
@@ -55,6 +69,7 @@ def define_components(model):
     model.carbon_cap_tch4_per_yr = Param(
         model.PERIODS,
         default=float("inf"),
+        input_file="carbon_policies.csv",
         doc=(
             "CH4 emissions from this model must be less than this cap. This is specified in metric tonnes of CH4 per year."
         ),
@@ -104,21 +119,25 @@ def define_components(model):
     model.carbon_cost_dollar_per_tco2 = Param(
         model.PERIODS,
         default=0.0,
+        input_file="carbon_policies.csv",
         doc="The cost adder applied to CO2 emissions, in future dollars per metric tonne of CO2.",
     )
     model.carbon_cost_dollar_per_tnox = Param(
         model.PERIODS,
         default=0.0,
+        input_file="carbon_policies.csv",
         doc="The cost adder applied to NOx emissions, in future dollars per metric tonne of NOx.",
     )
     model.carbon_cost_dollar_per_tso2 = Param(
         model.PERIODS,
         default=0.0,
+        input_file="carbon_policies.csv",
         doc="The cost adder applied to SO2 emissions, in future dollars per metric tonne of SO2.",
     )
     model.carbon_cost_dollar_per_tch4 = Param(
         model.PERIODS,
         default=0.0,
+        input_file="carbon_policies.csv",
         doc="The cost adder applied to CH4 emissions, in future dollars per metric tonne of CH4.",
     )
 
@@ -134,47 +153,6 @@ def define_components(model):
     )
 
     model.Cost_Components_Per_Period.append("EmissionsCosts")
-
-
-def load_inputs(model, switch_data, inputs_dir):
-    """
-    Typically, people will specify either carbon caps or carbon costs, but not
-    both. If you provide data for both columns, the results may be difficult
-    to interpret meaningfully.
-
-    Expected input files:
-    carbon_policies.csv
-        PERIOD, carbon_cap_tco2_per_yr, carbon_cost_dollar_per_tco2,
-        carbon_cap_tnox_per_yr, carbon_cost_dollar_per_tnox,
-        carbon_cap_tso2_per_yr, carbon_cost_dollar_per_tso2,
-        carbon_cap_tch4_per_yr, carbon_cost_dollar_per_tch4,
-
-    """
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "carbon_policies.csv"),
-        optional=True,
-        optional_params=(
-            model.carbon_cap_tco2_per_yr,
-            model.carbon_cost_dollar_per_tco2,
-            model.carbon_cap_tnox_per_yr,
-            model.carbon_cost_dollar_per_tnox,
-            model.carbon_cap_tso2_per_yr,
-            model.carbon_cost_dollar_per_tso2,
-            model.carbon_cap_tch4_per_yr,
-            model.carbon_cost_dollar_per_tch4,
-        ),
-        auto_select=True,
-        param=(
-            model.carbon_cap_tco2_per_yr,
-            model.carbon_cost_dollar_per_tco2,
-            model.carbon_cap_tnox_per_yr,
-            model.carbon_cost_dollar_per_tnox,
-            model.carbon_cap_tso2_per_yr,
-            model.carbon_cost_dollar_per_tso2,
-            model.carbon_cap_tch4_per_yr,
-            model.carbon_cost_dollar_per_tch4,
-        ),
-    )
 
 
 def post_solve(model, outdir):

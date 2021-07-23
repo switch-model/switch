@@ -20,6 +20,21 @@ and ground infiltration. It should be possible to describe a simple system
 using the advanced framework, but the advanced framework would take longer to
 read and understand. To really take advantage of it, you'll also need more
 data than we usually have available.
+
+INPUT FILE INFORMATION
+
+The single file hydro_timeseries.csv needs to contain
+entries for each dispatchable hydro project. The set of hydro projects
+is derived from this file, and this file should cover all time periods
+in which the hydro plant can operate.
+
+Run-of-River hydro projects should not be included in this file; RoR
+hydro is treated like any other variable renewable resource, and
+expects data in variable_capacity_factors.csv.
+
+hydro_timeseries.csv
+    hydro_generation_project, timeseries, hydro_min_flow_mw,
+    hydro_avg_flow_mw
 """
 from __future__ import division
 
@@ -30,7 +45,6 @@ from __future__ import division
 # for other people who want to do other custom handling of hydro.
 
 from pyomo.environ import *
-import os
 
 dependencies = (
     "switch_model.timescales",
@@ -73,6 +87,8 @@ def define_components(mod):
 
     mod.HYDRO_GEN_TS_RAW = Set(
         dimen=2,
+        input_file="hydro_timeseries.csv",
+        input_optional=True,
         validate=lambda m, g, ts: (g in m.GENERATION_PROJECTS) & (ts in m.TIMESERIES),
     )
 
@@ -104,7 +120,10 @@ def define_components(mod):
     # valid timepoint.
 
     mod.hydro_min_flow_mw = Param(
-        mod.HYDRO_GEN_TS_RAW, within=NonNegativeReals, default=0.0
+        mod.HYDRO_GEN_TS_RAW,
+        within=NonNegativeReals,
+        input_file="hydro_timeseries.csv",
+        default=0.0,
     )
     mod.Enforce_Hydro_Min_Flow = Constraint(
         mod.HYDRO_GEN_TPS,
@@ -114,7 +133,10 @@ def define_components(mod):
     )
 
     mod.hydro_avg_flow_mw = Param(
-        mod.HYDRO_GEN_TS_RAW, within=NonNegativeReals, default=0.0
+        mod.HYDRO_GEN_TS_RAW,
+        within=NonNegativeReals,
+        input_file="hydro_timeseries.csv",
+        default=0.0,
     )
 
     # We use a scaling factor to improve the numerical properties
@@ -133,29 +155,3 @@ def define_components(mod):
     )
 
     mod.min_data_check("hydro_min_flow_mw", "hydro_avg_flow_mw")
-
-
-def load_inputs(mod, switch_data, inputs_dir):
-    """
-
-    Import hydro data. The single file hydro_timeseries.csv needs to contain
-    entries for each dispatchable hydro project. The set of hydro projects
-    is derived from this file, and this file should cover all time periods
-    in which the hydro plant can operate.
-
-    Run-of-River hydro projects should not be included in this file; RoR
-    hydro is treated like any other variable renewable resource, and
-    expects data in variable_capacity_factors.csv.
-
-    hydro_timeseries.csv
-        hydro_generation_project, timeseries, hydro_min_flow_mw,
-        hydro_avg_flow_mw
-
-    """
-    switch_data.load_aug(
-        optional=True,
-        filename=os.path.join(inputs_dir, "hydro_timeseries.csv"),
-        autoselect=True,
-        index=mod.HYDRO_GEN_TS_RAW,
-        param=(mod.hydro_min_flow_mw, mod.hydro_avg_flow_mw),
-    )

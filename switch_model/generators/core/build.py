@@ -3,10 +3,39 @@
 """
 Defines generation projects build-outs.
 
+INPUT FILE FORMAT
+    Import data describing project builds. The following files are
+    expected in the input directory.
+
+    generation_projects_info.csv has mandatory and optional columns. The
+    operations.gen_dispatch module will also look for additional columns in
+    this file. You may drop optional columns entirely or mark blank
+    values with a dot '.' for select rows for which the column does not
+    apply. Mandatory columns are:
+        GENERATION_PROJECT, gen_tech, gen_energy_source, gen_load_zone,
+        gen_max_age, gen_is_variable, gen_is_baseload,
+        gen_full_load_heat_rate, gen_variable_om, gen_connect_cost_per_mw
+    Optional columns are:
+        gen_dbid, gen_scheduled_outage_rate, gen_forced_outage_rate,
+        gen_capacity_limit_mw, gen_unit_size, gen_ccs_energy_load,
+        gen_ccs_capture_efficiency, gen_min_build_capacity, gen_is_cogen,
+        gen_is_distributed
+
+    The following file lists existing builds of projects, and is
+    optional for simulations where there is no existing capacity:
+
+    gen_build_predetermined.csv
+        GENERATION_PROJECT, build_year, gen_predetermined_cap
+
+    The following file is mandatory, because it sets cost parameters for
+    both existing and new project buildouts:
+
+    gen_build_costs.csv
+        GENERATION_PROJECT, build_year, gen_overnight_cost, gen_fixed_om
 """
 
 import os
-from switch_model.utilities.pyo import *
+from pyomo.environ import *
 from switch_model.financials import capital_recovery_factor as crf
 from switch_model.reporting import write_table
 from switch_model.tools.graph import graph
@@ -192,9 +221,16 @@ def define_components(mod):
 
     """
     # This set is defined by generation_projects_info.csv
-    mod.GENERATION_PROJECTS = Set(dimen=1)
-    mod.gen_dbid = Param(mod.GENERATION_PROJECTS, default=lambda m, g: g, within=Any)
-    mod.gen_tech = Param(mod.GENERATION_PROJECTS, within=Any)
+    mod.GENERATION_PROJECTS = Set(dimen=1, input_file="generation_projects_info.csv")
+    mod.gen_dbid = Param(
+        mod.GENERATION_PROJECTS,
+        input_file="generation_projects_info.csv",
+        default=lambda m, g: g,
+        within=Any,
+    )
+    mod.gen_tech = Param(
+        mod.GENERATION_PROJECTS, input_file="generation_projects_info.csv", within=Any
+    )
     mod.GENERATION_TECHNOLOGIES = Set(
         ordered=False,
         initialize=lambda m: {m.gen_tech[g] for g in m.GENERATION_PROJECTS},
@@ -202,21 +238,53 @@ def define_components(mod):
     mod.gen_energy_source = Param(
         mod.GENERATION_PROJECTS,
         within=Any,
+        input_file="generation_projects_info.csv",
         validate=lambda m, val, g: val in m.ENERGY_SOURCES or val == "multiple",
     )
-    mod.gen_load_zone = Param(mod.GENERATION_PROJECTS, within=mod.LOAD_ZONES)
-    mod.gen_max_age = Param(mod.GENERATION_PROJECTS, within=PositiveIntegers)
-    mod.gen_is_variable = Param(mod.GENERATION_PROJECTS, within=Boolean)
-    mod.gen_is_baseload = Param(mod.GENERATION_PROJECTS, within=Boolean, default=False)
-    mod.gen_is_cogen = Param(mod.GENERATION_PROJECTS, within=Boolean, default=False)
+    mod.gen_load_zone = Param(
+        mod.GENERATION_PROJECTS,
+        input_file="generation_projects_info.csv",
+        within=mod.LOAD_ZONES,
+    )
+    mod.gen_max_age = Param(
+        mod.GENERATION_PROJECTS,
+        input_file="generation_projects_info.csv",
+        within=PositiveIntegers,
+    )
+    mod.gen_is_variable = Param(
+        mod.GENERATION_PROJECTS,
+        input_file="generation_projects_info.csv",
+        within=Boolean,
+    )
+    mod.gen_is_baseload = Param(
+        mod.GENERATION_PROJECTS,
+        input_file="generation_projects_info.csv",
+        within=Boolean,
+        default=False,
+    )
+    mod.gen_is_cogen = Param(
+        mod.GENERATION_PROJECTS,
+        within=Boolean,
+        default=False,
+        input_file="generation_projects_info.csv",
+    )
     mod.gen_is_distributed = Param(
-        mod.GENERATION_PROJECTS, within=Boolean, default=False
+        mod.GENERATION_PROJECTS,
+        within=Boolean,
+        default=False,
+        input_file="generation_projects_info.csv",
     )
     mod.gen_scheduled_outage_rate = Param(
-        mod.GENERATION_PROJECTS, within=PercentFraction, default=0
+        mod.GENERATION_PROJECTS,
+        input_file="generation_projects_info.csv",
+        within=PercentFraction,
+        default=0,
     )
     mod.gen_forced_outage_rate = Param(
-        mod.GENERATION_PROJECTS, within=PercentFraction, default=0
+        mod.GENERATION_PROJECTS,
+        input_file="generation_projects_info.csv",
+        within=PercentFraction,
+        default=0,
     )
     mod.min_data_check(
         "GENERATION_PROJECTS",
@@ -270,15 +338,31 @@ def define_components(mod):
 
     mod.CAPACITY_LIMITED_GENS = Set(within=mod.GENERATION_PROJECTS)
     mod.gen_capacity_limit_mw = Param(
-        mod.CAPACITY_LIMITED_GENS, within=NonNegativeReals
+        mod.CAPACITY_LIMITED_GENS,
+        input_file="generation_projects_info.csv",
+        input_optional=True,
+        within=NonNegativeReals,
     )
     mod.DISCRETELY_SIZED_GENS = Set(within=mod.GENERATION_PROJECTS)
-    mod.gen_unit_size = Param(mod.DISCRETELY_SIZED_GENS, within=PositiveReals)
+    mod.gen_unit_size = Param(
+        mod.DISCRETELY_SIZED_GENS,
+        input_file="generation_projects_info.csv",
+        input_optional=True,
+        within=PositiveReals,
+    )
     mod.CCS_EQUIPPED_GENS = Set(within=mod.GENERATION_PROJECTS)
     mod.gen_ccs_capture_efficiency = Param(
-        mod.CCS_EQUIPPED_GENS, within=PercentFraction
+        mod.CCS_EQUIPPED_GENS,
+        input_file="generation_projects_info.csv",
+        input_optional=True,
+        within=PercentFraction,
     )
-    mod.gen_ccs_energy_load = Param(mod.CCS_EQUIPPED_GENS, within=PercentFraction)
+    mod.gen_ccs_energy_load = Param(
+        mod.CCS_EQUIPPED_GENS,
+        input_file="generation_projects_info.csv",
+        input_optional=True,
+        within=PercentFraction,
+    )
 
     mod.gen_uses_fuel = Param(
         mod.GENERATION_PROJECTS,
@@ -293,7 +377,11 @@ def define_components(mod):
         initialize=mod.GENERATION_PROJECTS, filter=lambda m, g: m.gen_uses_fuel[g]
     )
 
-    mod.gen_full_load_heat_rate = Param(mod.FUEL_BASED_GENS, within=NonNegativeReals)
+    mod.gen_full_load_heat_rate = Param(
+        mod.FUEL_BASED_GENS,
+        input_file="generation_projects_info.csv",
+        within=NonNegativeReals,
+    )
     mod.MULTIFUEL_GENS = Set(
         initialize=mod.GENERATION_PROJECTS,
         filter=lambda m, g: m.gen_energy_source[g] == "multiple",
@@ -333,7 +421,9 @@ def define_components(mod):
     )
 
     # This set is defined by gen_build_predetermined.csv
-    mod.PREDETERMINED_GEN_BLD_YRS = Set(dimen=2)
+    mod.PREDETERMINED_GEN_BLD_YRS = Set(
+        input_file="gen_build_predetermined.csv", input_optional=True, dimen=2
+    )
     mod.PREDETERMINED_BLD_YRS = Set(
         dimen=1,
         ordered=False,
@@ -354,7 +444,9 @@ def define_components(mod):
         dimen=2, initialize=lambda m: m.GEN_BLD_YRS - m.PREDETERMINED_GEN_BLD_YRS
     )
     mod.gen_predetermined_cap = Param(
-        mod.PREDETERMINED_GEN_BLD_YRS, within=NonNegativeReals
+        mod.PREDETERMINED_GEN_BLD_YRS,
+        input_file="gen_build_predetermined.csv",
+        within=NonNegativeReals,
     )
     mod.min_data_check("gen_predetermined_cap")
 
@@ -495,7 +587,10 @@ def define_components(mod):
     # The following components enforce minimum capacity build-outs.
     # Note that this adds binary variables to the model.
     mod.gen_min_build_capacity = Param(
-        mod.GENERATION_PROJECTS, within=NonNegativeReals, default=0
+        mod.GENERATION_PROJECTS,
+        input_file="generation_projects_info.csv",
+        within=NonNegativeReals,
+        default=0,
     )
     mod.NEW_GEN_WITH_MIN_BUILD_YEARS = Set(
         dimen=2,
@@ -526,9 +621,15 @@ def define_components(mod):
     )
 
     # Costs
-    mod.gen_variable_om = Param(mod.GENERATION_PROJECTS, within=NonNegativeReals)
+    mod.gen_variable_om = Param(
+        mod.GENERATION_PROJECTS,
+        input_file="generation_projects_info.csv",
+        within=NonNegativeReals,
+    )
     mod.gen_connect_cost_per_mw = Param(
-        mod.GENERATION_PROJECTS, within=NonNegativeReals
+        mod.GENERATION_PROJECTS,
+        within=NonNegativeReals,
+        input_file="generation_projects_info.csv",
     )
     mod.min_data_check("gen_variable_om", "gen_connect_cost_per_mw")
 
@@ -580,77 +681,6 @@ def define_components(mod):
 
 
 def load_inputs(mod, switch_data, inputs_dir):
-    """
-
-    Import data describing project builds. The following files are
-    expected in the input directory.
-
-    generation_projects_info.csv has mandatory and optional columns. The
-    operations.gen_dispatch module will also look for additional columns in
-    this file. You may drop optional columns entirely or mark blank
-    values with a dot '.' for select rows for which the column does not
-    apply. Mandatory columns are:
-        GENERATION_PROJECT, gen_tech, gen_energy_source, gen_load_zone,
-        gen_max_age, gen_is_variable, gen_is_baseload,
-        gen_full_load_heat_rate, gen_variable_om, gen_connect_cost_per_mw
-    Optional columns are:
-        gen_dbid, gen_scheduled_outage_rate, gen_forced_outage_rate,
-        gen_capacity_limit_mw, gen_unit_size, gen_ccs_energy_load,
-        gen_ccs_capture_efficiency, gen_min_build_capacity, gen_is_cogen,
-        gen_is_distributed
-
-    The following file lists existing builds of projects, and is
-    optional for simulations where there is no existing capacity:
-
-    gen_build_predetermined.csv
-        GENERATION_PROJECT, build_year, gen_predetermined_cap
-
-    The following file is mandatory, because it sets cost parameters for
-    both existing and new project buildouts:
-
-    gen_build_costs.csv
-        GENERATION_PROJECT, build_year, gen_overnight_cost, gen_fixed_om
-
-    """
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "generation_projects_info.csv"),
-        auto_select=True,
-        optional_params=[
-            "gen_dbid",
-            "gen_is_baseload",
-            "gen_scheduled_outage_rate",
-            "gen_forced_outage_rate",
-            "gen_capacity_limit_mw",
-            "gen_unit_size",
-            "gen_ccs_energy_load",
-            "gen_ccs_capture_efficiency",
-            "gen_min_build_capacity",
-            "gen_is_cogen",
-            "gen_is_distributed",
-        ],
-        index=mod.GENERATION_PROJECTS,
-        param=(
-            mod.gen_dbid,
-            mod.gen_tech,
-            mod.gen_energy_source,
-            mod.gen_load_zone,
-            mod.gen_max_age,
-            mod.gen_is_variable,
-            mod.gen_is_baseload,
-            mod.gen_scheduled_outage_rate,
-            mod.gen_forced_outage_rate,
-            mod.gen_capacity_limit_mw,
-            mod.gen_unit_size,
-            mod.gen_ccs_energy_load,
-            mod.gen_ccs_capture_efficiency,
-            mod.gen_full_load_heat_rate,
-            mod.gen_variable_om,
-            mod.gen_min_build_capacity,
-            mod.gen_connect_cost_per_mw,
-            mod.gen_is_cogen,
-            mod.gen_is_distributed,
-        ),
-    )
     # Construct sets of capacity-limited, ccs-capable and unit-size-specified
     # projects. These sets include projects for which these parameters have
     # a value
@@ -666,16 +696,8 @@ def load_inputs(mod, switch_data, inputs_dir):
         switch_data.data()["CCS_EQUIPPED_GENS"] = {
             None: list(switch_data.data(name="gen_ccs_capture_efficiency").keys())
         }
-    switch_data.load_aug(
-        optional=True,
-        filename=os.path.join(inputs_dir, "gen_build_predetermined.csv"),
-        auto_select=True,
-        index=mod.PREDETERMINED_GEN_BLD_YRS,
-        param=(mod.gen_predetermined_cap),
-    )
     # read FUELS_FOR_MULTIFUEL_GEN from gen_multiple_fuels.dat if available
-    multi_fuels_path = os.path.join(inputs_dir, "gen_multiple_fuels.dat")
-    if os.path.isfile(multi_fuels_path):
+    if os.path.isfile(os.path.join(inputs_dir, "gen_multiple_fuels.dat")):
         if "switch_model.generators.core.commit.fuel_use" in mod.module_list:
             raise NotImplementedError(
                 "Multi-fuel generation is being used with generators.core.commit.fuel_use despite not being fully "
@@ -686,7 +708,10 @@ def load_inputs(mod, switch_data, inputs_dir):
                 "non-CO2 emissions, the model may return an incorrect solution."
             )
 
-        switch_data.load(filename=multi_fuels_path)
+        # TODO handle multi fuel input file
+        raise NotImplementedError(
+            "This code has not been updated to the latest version. We no longer handle .dat files."
+        )
 
 
 def post_solve(m, outdir):

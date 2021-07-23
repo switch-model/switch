@@ -3,6 +3,27 @@
 
 """
 Defines transmission build-outs.
+
+INPUT FILE FORMAT
+    Import data related to transmission builds. The following files are
+    expected in the input directory:
+
+    transmission_lines.csv
+        TRANSMISSION_LINE, trans_lz1, trans_lz2, trans_length_km,
+        trans_efficiency, existing_trans_cap, trans_dbid,
+        trans_derating_factor, trans_terrain_multiplier,
+        trans_new_build_allowed
+    The last 4 columns of transmission_lines.csv are optional. If the
+    columns are missing or if cells contain a dot (.), those parameters
+    will be set to default values as described in documentation.
+
+    Note that in the next file, parameter names are written on the first
+    row (as usual), and the single value for each parameter is written in
+    the second row.
+
+    trans_params.csv
+        trans_capital_cost_per_mw_km, trans_lifetime_yrs,
+        trans_fixed_om_fraction
 """
 
 import os
@@ -178,21 +199,49 @@ def define_components(mod):
 
     """
 
-    mod.TRANSMISSION_LINES = Set(dimen=1)
-    mod.trans_lz1 = Param(mod.TRANSMISSION_LINES, within=mod.LOAD_ZONES)
-    mod.trans_lz2 = Param(mod.TRANSMISSION_LINES, within=mod.LOAD_ZONES)
+    mod.TRANSMISSION_LINES = Set(dimen=1, input_file="transmission_lines.csv")
+    mod.trans_lz1 = Param(
+        mod.TRANSMISSION_LINES,
+        within=mod.LOAD_ZONES,
+        input_file="transmission_lines.csv",
+    )
+    mod.trans_lz2 = Param(
+        mod.TRANSMISSION_LINES,
+        within=mod.LOAD_ZONES,
+        input_file="transmission_lines.csv",
+    )
     # we don't do a min_data_check for TRANSMISSION_LINES, because it may be empty for model
     # configurations that are sometimes run with interzonal transmission and sometimes not
     # (e.g., island interconnect scenarios). However, presence of this column will still be
     # checked by load_data_aug.
     mod.min_data_check("trans_lz1", "trans_lz2")
-    mod.trans_dbid = Param(mod.TRANSMISSION_LINES, default=lambda m, tx: tx, within=Any)
-    mod.trans_length_km = Param(mod.TRANSMISSION_LINES, within=NonNegativeReals)
-    mod.trans_efficiency = Param(mod.TRANSMISSION_LINES, within=PercentFraction)
-    mod.existing_trans_cap = Param(mod.TRANSMISSION_LINES, within=NonNegativeReals)
+    mod.trans_dbid = Param(
+        mod.TRANSMISSION_LINES,
+        default=lambda m, tx: tx,
+        within=Any,
+        input_file="transmission_lines.csv",
+    )
+    mod.trans_length_km = Param(
+        mod.TRANSMISSION_LINES,
+        within=NonNegativeReals,
+        input_file="transmission_lines.csv",
+    )
+    mod.trans_efficiency = Param(
+        mod.TRANSMISSION_LINES,
+        within=PercentFraction,
+        input_file="transmission_lines.csv",
+    )
+    mod.existing_trans_cap = Param(
+        mod.TRANSMISSION_LINES,
+        within=NonNegativeReals,
+        input_file="transmission_lines.csv",
+    )
     mod.min_data_check("trans_length_km", "trans_efficiency", "existing_trans_cap")
     mod.trans_new_build_allowed = Param(
-        mod.TRANSMISSION_LINES, within=Boolean, default=True
+        mod.TRANSMISSION_LINES,
+        within=Boolean,
+        default=True,
+        input_file="transmission_lines.csv",
     )
     mod.TRANS_BLD_YRS = Set(
         dimen=2,
@@ -211,7 +260,10 @@ def define_components(mod):
         + m.existing_trans_cap[tx],
     )
     mod.trans_derating_factor = Param(
-        mod.TRANSMISSION_LINES, within=PercentFraction, default=1
+        mod.TRANSMISSION_LINES,
+        within=PercentFraction,
+        default=1,
+        input_file="transmission_lines.csv",
     )
     mod.TxCapacityNameplateAvailable = Expression(
         mod.TRANSMISSION_LINES,
@@ -221,11 +273,20 @@ def define_components(mod):
         ),
     )
     mod.trans_terrain_multiplier = Param(
-        mod.TRANSMISSION_LINES, within=NonNegativeReals, default=1
+        mod.TRANSMISSION_LINES,
+        within=NonNegativeReals,
+        default=1,
+        input_file="transmission_lines.csv",
     )
-    mod.trans_capital_cost_per_mw_km = Param(within=NonNegativeReals, default=1000)
-    mod.trans_lifetime_yrs = Param(within=NonNegativeReals, default=20)
-    mod.trans_fixed_om_fraction = Param(within=NonNegativeReals, default=0.03)
+    mod.trans_capital_cost_per_mw_km = Param(
+        within=NonNegativeReals, default=1000, input_file="trans_params.csv"
+    )
+    mod.trans_lifetime_yrs = Param(
+        within=NonNegativeReals, default=20, input_file="trans_params.csv"
+    )
+    mod.trans_fixed_om_fraction = Param(
+        within=NonNegativeReals, default=0.03, input_file="trans_params.csv"
+    )
     # Total annual fixed costs for building new transmission lines...
     # Multiply capital costs by capital recover factor to get annual
     # payments. Add annual fixed O&M that are expressed as a fraction of
@@ -278,77 +339,6 @@ def define_components(mod):
 
     mod.trans_d_line = Param(
         mod.DIRECTIONAL_TX, within=mod.TRANSMISSION_LINES, initialize=init_trans_d_line
-    )
-
-
-def load_inputs(mod, switch_data, inputs_dir):
-    """
-
-    Import data related to transmission builds. The following files are
-    expected in the input directory:
-
-    transmission_lines.csv
-        TRANSMISSION_LINE, trans_lz1, trans_lz2, trans_length_km,
-        trans_efficiency, existing_trans_cap, trans_dbid,
-        trans_derating_factor, trans_terrain_multiplier,
-        trans_new_build_allowed
-    The last 4 columns of transmission_lines.csv are optional. If the
-    columns are missing or if cells contain a dot (.), those parameters
-    will be set to default values as described in documentation.
-
-    Note that in the next file, parameter names are written on the first
-    row (as usual), and the single value for each parameter is written in
-    the second row.
-
-    trans_params.csv
-        trans_capital_cost_per_mw_km, trans_lifetime_yrs,
-        trans_fixed_om_fraction
-    """
-
-    # TODO: send issue / pull request to Pyomo to allow .csv files with
-    # no rows after header (fix bugs in pyomo.core.plugins.data.text)
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "transmission_lines.csv"),
-        select=(
-            "TRANSMISSION_LINE",
-            "trans_lz1",
-            "trans_lz2",
-            "trans_length_km",
-            "trans_efficiency",
-            "existing_trans_cap",
-            "trans_dbid",
-            "trans_derating_factor",
-            "trans_terrain_multiplier",
-            "trans_new_build_allowed",
-        ),
-        index=mod.TRANSMISSION_LINES,
-        optional_params=(
-            "trans_dbid",
-            "trans_derating_factor",
-            "trans_terrain_multiplier",
-            "trans_new_build_allowed",
-        ),
-        param=(
-            mod.trans_lz1,
-            mod.trans_lz2,
-            mod.trans_length_km,
-            mod.trans_efficiency,
-            mod.existing_trans_cap,
-            mod.trans_dbid,
-            mod.trans_derating_factor,
-            mod.trans_terrain_multiplier,
-            mod.trans_new_build_allowed,
-        ),
-    )
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "trans_params.csv"),
-        optional=True,
-        auto_select=True,
-        param=(
-            mod.trans_capital_cost_per_mw_km,
-            mod.trans_lifetime_yrs,
-            mod.trans_fixed_om_fraction,
-        ),
     )
 
 
