@@ -35,27 +35,27 @@ Some modules need to define objects to be shared across multiple modules.
 for adding constraints, expressions, variables, sets or parameters to the model.
 
 Sometimes Sets or Parameters should be initialized from an input csv file.
-If this is the case, add the following arguments to the component definition: 
-`input_file`, `input_optional` (optional), `input_column` (optional).
+If this is the case, add `input_file=` (and optionally `input_column`) to the
+set or parameter definition.
 
-For example the following code snippet defines a set and a parameter
+For example the following code snippet defines a Set and a parameter
 indexed over that set. Both the set and parameter are initialized from
-the input.csv file.
+the `input.csv` file.
 
 ```python
-from switch_model.utilities.pyo import *
+from switch_model.utilities.custom_loading import *
+
 
 def define_components(mod):
     mod.SetA = Set(
         dimen=2,
         input_file="input.csv",
-        input_optional=True, # the default is False
     )
 
     mod.some_indexed_param = Param(
         mod.SetA,
         input_file="input.csv",
-        input_column="param1" # default is the name of the component, in this case 'some_indexed_param'
+        input_column="param1"  # only specify when the name of the column in the csv is not the same as the component name
     )
 ```
 

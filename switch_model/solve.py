@@ -22,6 +22,7 @@ from switch_model.utilities import (
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 from switch_model.tools.graph.cli_graph import main as graph_main
+from switch_model.utilities.custom_loading import patch_to_allow_loading
 from switch_model.utilities.results_info import save_info, add_info, ResultsInfoSection
 
 
@@ -278,6 +279,10 @@ def patch_pyomo():
     if not patched_pyomo:
         patched_pyomo = True
         # patch Pyomo if needed
+
+        # This allows us to use input_file= when defining a Set or Param
+        patch_to_allow_loading(Set)
+        patch_to_allow_loading(Param)
 
         # Pyomo 5.1.1 (and maybe others) is very slow to load prior solutions because
         # it does a full-component search for each component name as it assigns the
