@@ -205,11 +205,16 @@ def define_components(mod):
 
     """
 
-    mod.REGIONAL_FUEL_MARKETS = Set(dimen=1)
-    mod.rfm_fuel = Param(mod.REGIONAL_FUEL_MARKETS, within=mod.FUELS)
+    mod.REGIONAL_FUEL_MARKETS = Set(dimen=1, input_file='regional_fuel_markets.csv')
+    mod.rfm_fuel = Param(
+        mod.REGIONAL_FUEL_MARKETS,
+        within=mod.FUELS,
+        input_file="regional_fuel_markets.csv",
+        input_column="fuel")
     mod.ZONE_RFMS = Set(
+        input_file="zone_to_regional_fuel_market.csv",
         dimen=2, validate=lambda m, z, rfm: (
-            rfm in m.REGIONAL_FUEL_MARKETS and z in m.LOAD_ZONES))
+                rfm in m.REGIONAL_FUEL_MARKETS and z in m.LOAD_ZONES))
     mod.ZONE_FUELS = Set(
         ordered=False,
         dimen=2, initialize=lambda m: set(
@@ -231,12 +236,19 @@ def define_components(mod):
 
     # RFM_SUPPLY_TIERS = [(regional_fuel_market, period, supply_tier_index)...]
     mod.RFM_SUPPLY_TIERS = Set(
+        input_file='fuel_supply_curves.csv',
         dimen=3, validate=lambda m, r, p, st: (
-            r in m.REGIONAL_FUEL_MARKETS and p in m.PERIODS))
+                r in m.REGIONAL_FUEL_MARKETS and p in m.PERIODS))
     mod.rfm_supply_tier_cost = Param(
-        mod.RFM_SUPPLY_TIERS, within=Reals)
+        mod.RFM_SUPPLY_TIERS,
+        input_file='fuel_supply_curves.csv',
+        input_column="unit_cost",
+        within=Reals)
     mod.rfm_supply_tier_limit = Param(
-        mod.RFM_SUPPLY_TIERS, within=NonNegativeReals, default=float('inf'))
+        mod.RFM_SUPPLY_TIERS,
+        input_file='fuel_supply_curves.csv',
+        input_column="max_avail_at_cost",
+        within=NonNegativeReals, default=float('inf'))
     mod.min_data_check(
         'RFM_SUPPLY_TIERS', 'rfm_supply_tier_cost', 'rfm_supply_tier_limit')
     mod.SUPPLY_TIERS_FOR_RFM_PERIOD = Set(
@@ -285,6 +297,9 @@ def define_components(mod):
         return True
     mod.zone_fuel_cost_adder = Param(
         mod.ZONE_FUELS, mod.PERIODS,
+        input_file='zone_fuel_cost_diff.csv',
+        input_optional=True,
+        input_column="fuel_cost_adder",
         within=Reals, default=0, validate=zone_fuel_cost_adder_validate)
 
     # Summarize annual fuel costs for the objective function
@@ -395,30 +410,6 @@ def load_inputs(mod, switch_data, inputs_dir):
         load_zone, fuel, period, fuel_cost
 
     """
-    # Include select in each load() function so that it will check out
-    # column names, be indifferent to column order, and throw an error
-    # message if some columns are not found.
-
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'regional_fuel_markets.csv'),
-        select=('regional_fuel_market', 'fuel'),
-        index=mod.REGIONAL_FUEL_MARKETS,
-        param=(mod.rfm_fuel))
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'fuel_supply_curves.csv'),
-        select=('regional_fuel_market', 'period', 'tier', 'unit_cost',
-                'max_avail_at_cost'),
-        index=mod.RFM_SUPPLY_TIERS,
-        param=(mod.rfm_supply_tier_cost, mod.rfm_supply_tier_limit))
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'zone_to_regional_fuel_market.csv'),
-        set=mod.ZONE_RFMS)
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'zone_fuel_cost_diff.csv'),
-        optional=True,
-        select=('load_zone', 'fuel', 'period', 'fuel_cost_adder'),
-        param=(mod.zone_fuel_cost_adder))
-
     # Load a simple specifications of costs if the file exists. The
     # actual loading, error checking, and casting into a supply curve is
     # slightly complicated, so I moved that logic to a separate function.

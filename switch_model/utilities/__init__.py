@@ -19,6 +19,7 @@ from pyomo.dataportal.plugins.csv_table import CSVTable
 from switch_model.utilities.results_info import add_info, ResultsInfoSection
 from switch_model.utilities.scaling import _ScaledVariable, _get_unscaled_expression
 import pyomo.opt
+import switch_model.utilities.pyo as pyo
 
 # Define string_types (same as six.string_types). This is useful for
 # distinguishing between strings and other iterables.
@@ -273,6 +274,7 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=False):
     timer = StepTimer()
     data = DataPortal(model=model)
     data.load_aug = types.MethodType(load_aug, data)
+    pyo.load_registered_inputs(data, inputs_dir)
     for module in model.get_modules():
         if hasattr(module, 'load_inputs'):
             module.load_inputs(model, data, inputs_dir)
@@ -662,8 +664,14 @@ def load_aug(switch_data, optional=False, auto_select=False,
         if 'select' in kwds:
             raise InputError('You may not specify a select parameter if ' +
                              'auto_select is set to True.')
-        kwds['select'] = headers[0:num_indexes]
-        kwds['select'].extend([p.name for p in params])
+
+        def get_column_name(p):
+            if hasattr(p, "input_column") and p.input_column is not None:
+                return p.input_column
+            else:
+                return p.name
+
+        kwds['select'] = headers[0:num_indexes] + [get_column_name(p) for p in params]
     # Check to see if expected column names are in the file. If a column
     # name is missing and its parameter is optional, then drop it from
     # the select & param lists.

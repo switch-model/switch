@@ -6,7 +6,7 @@ Defines generation projects build-outs.
 """
 
 import os
-from pyomo.environ import *
+from switch_model.utilities.pyo import *
 from switch_model.financials import capital_recovery_factor as crf
 from switch_model.reporting import write_table
 from switch_model.tools.graph import graph
@@ -325,6 +325,7 @@ def define_components(mod):
     # This set is defined by gen_build_costs.csv
     mod.GEN_BLD_YRS = Set(
         dimen=2,
+        input_file="gen_build_costs.csv",
         validate=lambda m, g, bld_yr: (
             (g, bld_yr) in m.PREDETERMINED_GEN_BLD_YRS or
             (g, bld_yr) in m.GENERATION_PROJECTS * m.PERIODS))
@@ -489,9 +490,11 @@ def define_components(mod):
 
     mod.gen_overnight_cost = Param(
         mod.GEN_BLD_YRS,
+        input_file="gen_build_costs.csv",
         within=NonNegativeReals)
     mod.gen_fixed_om = Param(
         mod.GEN_BLD_YRS,
+        input_file="gen_build_costs.csv",
         within=NonNegativeReals)
     mod.min_data_check('gen_overnight_cost', 'gen_fixed_om')
 
@@ -593,11 +596,6 @@ def load_inputs(mod, switch_data, inputs_dir):
         auto_select=True,
         index=mod.PREDETERMINED_GEN_BLD_YRS,
         param=(mod.gen_predetermined_cap))
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'gen_build_costs.csv'),
-        auto_select=True,
-        index=mod.GEN_BLD_YRS,
-        param=(mod.gen_overnight_cost, mod.gen_fixed_om))
     # read FUELS_FOR_MULTIFUEL_GEN from gen_multiple_fuels.dat if available
     multi_fuels_path = os.path.join(inputs_dir, 'gen_multiple_fuels.dat')
     if os.path.isfile(multi_fuels_path):
