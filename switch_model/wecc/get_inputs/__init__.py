@@ -1,5 +1,4 @@
-"""
-Script to retrieve the input data from the switch-wecc database and apply post-processing steps.
+""" Script to retrieve the input data from the switch-wecc database and apply post-processing steps.
 """
 import argparse
 import os
