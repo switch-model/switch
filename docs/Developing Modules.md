@@ -43,7 +43,7 @@ indexed over that set. Both the set and parameter are initialized from
 the `input.csv` file.
 
 ```python
-from switch_model.utilities.custom_loading import *
+from pyomo.environ import *
 
 
 def define_components(mod):
