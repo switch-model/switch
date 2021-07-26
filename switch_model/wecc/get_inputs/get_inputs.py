@@ -367,7 +367,7 @@ def query_db(full_config, skip_cf):
         ],
         f"""
         SELECT trans_capital_cost_per_mw_km,
-            20 as trans_lifetime_yrs,
+            85 as trans_lifetime_yrs,
             0.03 as trans_fixed_om_fraction
         FROM switch.transmission_base_capital_cost
         WHERE transmission_base_capital_cost_scenario_id = {transmission_base_capital_cost_scenario_id}
