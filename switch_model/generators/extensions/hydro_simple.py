@@ -33,7 +33,7 @@ INPUT FILE INFORMATION
     expects data in variable_capacity_factors.csv.
 
     hydro_timeseries.csv
-        hydro_generation_project, timeseries, hydro_min_flow_mw,
+        hydro_generation_project, hydro_timeseries, hydro_min_flow_mw,
         hydro_avg_flow_mw
 
     The file hydro_timepoints.csv is an optional mapping of timepoints
@@ -42,7 +42,7 @@ INPUT FILE INFORMATION
     specified over a different time period.
 
     hydro_timepoints.csv (optional)
-        timepoint,tp_to_hts
+        timepoint_id,tp_to_hts
 """
 from __future__ import division
 # ToDo: Refactor this code to move the core components into a
