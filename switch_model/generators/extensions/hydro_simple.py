@@ -117,12 +117,6 @@ def define_components(mod):
         doc="Set of timepoints in each hydro timeseries"
     )
 
-    mod.hydro_ts_duration = Param(
-        mod.HYDRO_TS,
-        initialize=lambda m, hts: sum(m.tp_duration_hrs[tp] for tp in m.TPS_IN_HTS[hts]),
-        doc="Total duration in hours of each hydro timeseries."
-    )
-
     mod.HYDRO_GEN_TS_RAW = Set(
         dimen=2,
         input_file='hydro_timeseries.csv',
@@ -180,7 +174,9 @@ def define_components(mod):
         rule=lambda m, g, hts:
         Constraint.Skip if m.hydro_avg_flow_mw[g, hts] == 0 else
         enforce_hydro_avg_flow_scaling_factor *
-        sum(m.DispatchGen[g, t] * m.tp_duration_hrs[t] for t in m.TPS_IN_HTS[hts]) / m.hydro_ts_duration[hts]
+        # Compute the weighted average of the dispatch
+        sum(m.DispatchGen[g, t] * m.tp_weight[t] for t in m.TPS_IN_HTS[hts])
+        / sum(m.tp_weight[tp] for tp in m.TPS_IN_HTS[hts])
         == m.hydro_avg_flow_mw[g, hts] * enforce_hydro_avg_flow_scaling_factor
     )
 
