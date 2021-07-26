@@ -20,6 +20,7 @@ from __future__ import division
 
 import os, collections
 
+from pyomo.core.base.misc import sorted_robust
 from pyomo.environ import *
 import pandas as pd
 
@@ -403,16 +404,18 @@ def post_solve(instance, outdir):
     dispatch_annual_summary.pdf - A figure of annual summary data. Only written
     if the ggplot python library is installed.
     """
+    sorted_gen = sorted_robust(instance.GENERATION_PROJECTS)
     write_table(
         instance, instance.TIMEPOINTS,
         output_file=os.path.join(outdir, "dispatch-wide.csv"),
-        headings=("timestamp",) + tuple(sorted(instance.GENERATION_PROJECTS)),
+        headings=("timestamp",) + tuple(sorted_gen),
         values=lambda m, t: (m.tp_timestamp[t],) + tuple(
             m.DispatchGen[p, t] if (p, t) in m.GEN_TPS
             else 0.0
-            for p in sorted(m.GENERATION_PROJECTS)
+            for p in sorted_gen
         )
     )
+    del sorted_gen
 
     def c(func):
         return (value(func(g, t)) for g, t in instance.GEN_TPS)

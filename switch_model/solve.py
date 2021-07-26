@@ -23,6 +23,7 @@ from switch_model.utilities import (
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 from switch_model.tools.graph.cli_graph import main as graph_main
 from switch_model.utilities.load_data import patch_to_allow_loading
+from switch_model.utilities.patches import patch_pyomo
 from switch_model.utilities.results_info import save_info, add_info, ResultsInfoSection
 
 
@@ -90,6 +91,8 @@ def main(args=None, return_model=False, return_instance=False, attach_data_porta
         # Patch pyomo if needed, to allow reconstruction of expressions.
         # This must be done before the model is constructed.
         patch_pyomo()
+        patch_to_allow_loading(Set)
+        patch_to_allow_loading(Param)
 
         # Define the model
         model = create_model(modules, args=args)
@@ -128,6 +131,9 @@ def main(args=None, return_model=False, return_instance=False, attach_data_porta
         # create an instance (also reports time spent reading data and loading into model)
         instance = model.load_inputs(attach_data_portal=attach_data_portal)
 
+        if instance.options.warm_start:
+            warm_start(instance)
+
         #### Below here, we refer to instance instead of model ####
 
         instance.pre_solve()
@@ -157,13 +163,6 @@ def main(args=None, return_model=False, return_instance=False, attach_data_porta
 
         # We no longer need model (only using instance) so we can garbage collect it to optimize our memory usage
         del model
-
-        if instance.options.warm_start:
-            if instance.options.verbose:
-                timer.step_time()
-            warm_start(instance)
-            if instance.options.verbose:
-                print(f"Loaded warm start inputs in {timer.step_time_as_str()}.")
 
         if instance.options.reload_prior_solution:
             print('Loading prior solution...')
@@ -241,6 +240,7 @@ def warm_start(instance):
     and starts out our model at these variables to make it reach
     a solution faster.
     """
+    warm_start_timer = StepTimer()
     warm_start_dir = os.path.join(instance.options.warm_start, "outputs")
     if not os.path.isdir(warm_start_dir):
         warnings.warn(
@@ -265,6 +265,8 @@ def warm_start(instance):
                 # If the index isn't valid that's ok, just don't warm start that variable
                 pass
 
+    print(f"Loaded warm start inputs in {warm_start_timer.step_time_as_str()}.")
+
 
 def reload_prior_solution_from_pickle(instance, outdir):
     with open(os.path.join(outdir, 'results.pickle'), 'rb') as fh:
@@ -273,76 +275,6 @@ def reload_prior_solution_from_pickle(instance, outdir):
     return instance
 
 
-patched_pyomo = False
-def patch_pyomo():
-    global patched_pyomo
-    if not patched_pyomo:
-        patched_pyomo = True
-        # patch Pyomo if needed
-
-        # This allows us to use input_file= when defining a Set or Param
-        patch_to_allow_loading(Set)
-        patch_to_allow_loading(Param)
-
-        # Pyomo 5.1.1 (and maybe others) is very slow to load prior solutions because
-        # it does a full-component search for each component name as it assigns the
-        # data. This ends up taking longer than solving the model. So we micro-
-        # patch pyomo.core.base.PyomoModel.ModelSolutions.add_solution to use
-        # Pyomo's built-in caching system for component names.
-        # TODO: create a pull request for Pyomo to do this
-        # NOTE: space inside the long quotes is significant; must match the Pyomo code
-        old_code = """
-                    for obj in instance.component_data_objects(Var):
-                        cache[obj.name] = obj
-                    for obj in instance.component_data_objects(Objective, active=True):
-                        cache[obj.name] = obj
-                    for obj in instance.component_data_objects(Constraint, active=True):
-                        cache[obj.name] = obj"""
-        new_code = """
-                    # use buffer to avoid full search of component for data object
-                    # which introduces a delay that is quadratic in model size
-                    buf=dict()
-                    for obj in instance.component_data_objects(Var):
-                        cache[obj.getname(fully_qualified=True, name_buffer=buf)] = obj
-                    for obj in instance.component_data_objects(Objective, active=True):
-                        cache[obj.getname(fully_qualified=True, name_buffer=buf)] = obj
-                    for obj in instance.component_data_objects(Constraint, active=True):
-                        cache[obj.getname(fully_qualified=True, name_buffer=buf)] = obj"""
-
-        from pyomo.core.base.PyomoModel import ModelSolutions
-        add_solution_code = inspect.getsource(ModelSolutions.add_solution)
-        if old_code in add_solution_code:
-            # create and inject a new version of the method
-            add_solution_code = add_solution_code.replace(old_code, new_code)
-            replace_method(ModelSolutions, 'add_solution', add_solution_code)
-        elif pyomo.version.version_info[:2] >= (5, 0):
-            print(
-                "NOTE: The patch to pyomo.core.base.PyomoModel.ModelSolutions.add_solution "
-                "has been deactivated because the Pyomo source code has changed. "
-                "Check whether this patch is still needed and edit {} accordingly."
-                .format(__file__)
-            )
-
-def replace_method(class_ref, method_name, new_source_code):
-    """
-    Replace specified class method with a compiled version of new_source_code.
-    """
-    orig_method = getattr(class_ref, method_name)
-    # compile code into a function
-    workspace = dict()
-    exec(textwrap.dedent(new_source_code), workspace)
-    new_method = workspace[method_name]
-    # create a new function with the same body, but using the old method's namespace
-    new_func = types.FunctionType(
-        new_method.__code__,
-        orig_method.__globals__,
-        orig_method.__name__,
-        orig_method.__defaults__,
-        orig_method.__closure__
-    )
-    # note: this normal function will be automatically converted to an unbound
-    # method when it is assigned as an attribute of a class
-    setattr(class_ref, method_name, new_func)
 
 
 def reload_prior_solution_from_csvs(instance):
@@ -845,9 +777,13 @@ def solve(model):
         )
 
         if solution_status == SolutionStatus.feasible and solver_status == SolverStatus.warning:
-            print("If you used --recommended-fast, you might want to try using just --recommended.")
+            print("\nThis often happens when using --recommended-fast. If that's the case it's likely that you have a feasible"
+                  " but sub-optimal solution.\nYou should compare the difference between the primal and dual objective to determine"
+                  " whether the solution is close enough to the optimal solution for your purposes. The smaller the difference"
+                  " the more accurate the solution.\nIf the solution is not accurate enough"
+                  " you should try running switch solve again with --recommended instead of --recommended-fast.\n")
 
-        if query_yes_no("Do you want to abort and exit?", default=None):
+        if query_yes_no("Do you want to abort and exit (without running post-solve)?", default=None):
             raise SystemExit()
 
     if model.options.verbose:
