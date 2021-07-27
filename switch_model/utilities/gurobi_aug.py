@@ -203,7 +203,12 @@ class GurobiAugmented(GurobiDirect):
         """
         results = super(GurobiAugmented, self)._postsolve()
         if self._write_warm_start is not None:
-            self._save_warm_start()
+            if self._solver_model.IsMIP:
+                warnings.warn(
+                    "--save-warm-start doesn't work for MIP models. Not creating a .pickle file."
+                )
+            else:
+                self._save_warm_start()
         return results
 
     def _save_warm_start(self):

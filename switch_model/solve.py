@@ -838,6 +838,7 @@ def parse_recommended_args(args):
         "--log-run",
         "--debug",
         "--graph",
+        "--save-warm-start",
     ] + args
     solver_options_string = "BarHomogeneous=1 FeasibilityTol=1e-5 method=2"
     if options.recommended_fast:
