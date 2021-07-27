@@ -5,6 +5,10 @@ a pickle file containing the data needed to warm start a future run and b) load 
 file previously outputed to warm_start the current run.
 
 Note that warm starting only works if all variables are the same between both runs.
+
+Finally, there are two modes for warm starting. 1) Warm starting from a simplex basis or 2) warm starting
+from the primal and dual values. Warm starting from the simplex basis is faster but only works with the Simplex
+algorithm. The default is to use the primal and dual values.
 """
 import warnings
 from typing import List, Optional, Dict
@@ -35,20 +39,22 @@ class PicklableData:
         self._names: List[str] = [""] * n  # Initialize as empty string array
         self._vals = np.empty(n, dtype=val_dtype)
         self._dict: Optional[Dict[str, val_dtype]] = None
-        self.i: int = 0
+        self.next_index: int = 0
         self.n: int = n
 
     def save_component(self, component, val):
-        self._names[self.i] = component.name
-        self._vals[self.i] = val
-        self.i += 1
+        """Add a Pyomo Component (e.g. Variable Data) to our object for later pickling"""
+        self._names[self.next_index] = component.name
+        self._vals[self.next_index] = val
+        self.next_index += 1
 
     def _get_dict(self):
         """Creates a dictionary based on the _names and _vals arrays."""
         return {n: v for n, v in zip(self._names, self._vals)}
 
-    def load_component(self, component):
+    def get_component(self, component):
         """Retrieves a component from the data."""
+        # Initialize the dictionary on the first call to this function
         if self._dict is None:
             self._dict = self._get_dict()
 
@@ -56,8 +62,10 @@ class PicklableData:
 
     def __getstate__(self):
         """Return value is what gets pickled."""
-        if self.i != self.n:
-            warnings.warn("Pickling more data than necessary, n is greater ")
+        if self.next_index != self.n:
+            warnings.warn(
+                "Pickling more data than necessary, n is greater than the number of components stored"
+            )
         return (
             np.array(self._names),
             self._vals,
@@ -82,8 +90,8 @@ class CBasis(PicklableData):
     def __init__(self, n):
         super(CBasis, self).__init__(n, val_dtype="bool")
 
-    def load_component(self, component):
-        return -1 if super(CBasis, self).load_component(component) else 0
+    def get_component(self, component):
+        return -1 if super(CBasis, self).get_component(component) else 0
 
 
 class VBasis(PicklableData):
@@ -99,8 +107,8 @@ class VBasis(PicklableData):
     def save_component(self, component, val):
         return super(VBasis, self).save_component(component, val * -1)
 
-    def load_component(self, component):
-        return int(super(VBasis, self).load_component(component)) * -1
+    def get_component(self, component):
+        return int(super(VBasis, self).get_component(component)) * -1
 
 
 class WarmStartData:
@@ -145,11 +153,14 @@ class GurobiAugmented(GurobiDirect):
         # the Gurobi model (hence why we need to call update()).
         self._update()
 
-        # Read the previous basis information
+        # Load the basis information from a previous pickle file
         with open(self._read_warm_start, "rb") as f:
             warm_start_data = pickle.load(f)
 
+        # Keep track of any variables or constraints that weren't in the pickle file
         error = None
+        error_count = 0
+        # Specify which Gurobi Attributes we should set depending on whether we are using C/V Basis or P/D Start.
         if warm_start_data.use_c_v_basis:
             var_attr = self._gurobipy.GRB.Attr.VBasis
             const_attr = self._gurobipy.GRB.Attr.CBasis
@@ -160,27 +171,28 @@ class GurobiAugmented(GurobiDirect):
             const_attr = self._gurobipy.GRB.Attr.DStart
             var_default = 0
             const_default = 0
-        # Load the VBasis for each variable
+        # Set the VBasis or PStart for each variable
         for pyomo_var, gurobi_var in self._pyomo_var_to_solver_var_map.items():
             try:
-                val = warm_start_data.var_data.load_component(pyomo_var)
+                val = warm_start_data.var_data.get_component(pyomo_var)
             except KeyError as e:
                 val, error = var_default, e
+                error_count += 1
             gurobi_var.setAttr(var_attr, val)
 
-        # Load the CBasis for each constraint
+        # Set the CBasis or DStart for each constraint
         for pyomo_const, gurobi_const in self._pyomo_con_to_solver_con_map.items():
             try:
-                val = warm_start_data.const_data.load_component(pyomo_const)
+                val = warm_start_data.const_data.get_component(pyomo_const)
             except KeyError as e:
                 val, error = const_default, e
+                error_count += 1
             gurobi_const.setAttr(const_attr, val)
 
         if error is not None:
             warnings.warn(
-                f"{error} (and maybe others) were not found in warm start pickle file. "
-                f"If you expect multiple variables and constraints"
-                f" to not be found in the pickle file, it may be more efficient to not use --warm-start."
+                f"{error} and {error_count - 1} others were not found in warm start pickle file. "
+                f"If many variables or constraints are not found it may be more efficient to not use --warm-start."
             )
 
         print(f"Time spent warm starting: {time.step_time_as_str()}")
