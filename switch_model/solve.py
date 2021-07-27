@@ -505,7 +505,7 @@ def define_arguments(argparser):
     argparser.add_argument("--solver-io", default=None, help="Method for Pyomo to use to communicate with solver")
     # note: pyomo has a --solver-options option but it is not clear
     # whether that does the same thing as --solver-options-string so we don't reuse the same name.
-    argparser.add_argument("--solver-options-string", default=None,
+    argparser.add_argument("--solver-options-string", default="",
         help='A quoted string of options to pass to the model solver. Each option must be of the form option=value. '
             '(e.g., --solver-options-string "mipgap=0.001 primalopt=\'\' advance=2 threads=1")')
     argparser.add_argument("--keepfiles", action='store_true', default=None,
@@ -602,6 +602,12 @@ def define_arguments(argparser):
     argparser.add_argument(
         "--warm-start", default=None,
         help="Path to folder of directory to use for warm start"
+    )
+
+    argparser.add_argument(
+        "--gurobi-make-mps", default=False, action="store_true",
+        help="Instead of solving just output a Gurobi .mps file that can be used for debugging numerical properties."
+             " See https://github.com/staadecker/lp-analyzer/ for details."
     )
 
 
@@ -746,25 +752,23 @@ def solve(model):
         # Note previously solver was saved in model however this is very memory inefficient.
         solver = SolverFactory(model.options.solver, solver_io=model.options.solver_io)
 
-        # If this option is enabled, gurobi will output an IIS to outputs\iis.ilp.
-        if model.options.gurobi_find_iis:
-            # Enable symbolic labels since otherwise we can't debug the .ilp file.
+        if model.options.gurobi_find_iis and model.options.gurobi_make_mps:
+            raise Exception("Can't use --gurobi-find-iis with --gurobi-make-mps.")
+
+        if model.options.gurobi_find_iis or model.options.gurobi_make_mps:
+            # If we are outputting a file we want to enable symbolic labels to help debugging
             model.options.symbolic_solver_labels = True
 
-            # If no string is passed make the string empty so we can add to it
-            if model.options.solver_options_string is None:
-                model.options.solver_options_string = ""
-
+        # If this option is enabled, gurobi will output an IIS to outputs\iis.ilp.
+        if model.options.gurobi_find_iis:
             # Add to the solver options 'ResultFile=iis.ilp'
             # https://stackoverflow.com/a/51994135/5864903
-            iis_file_path = os.path.join(model.options.outputs_dir, "iis.ilp")
-            model.options.solver_options_string += " ResultFile={}".format(iis_file_path)
+            model.options.solver_options_string += " ResultFile=iis.ilp"
+        if model.options.gurobi_make_mps:
+            # Output the input file and set time limit to zero to ensure it doesn't actually solve
+            model.options.solver_options_string += f" ResultFile=problem.mps TimeLimit=0"
 
         if model.options.threads:
-            # If no string is passed make the string empty so we can add to it
-            if model.options.solver_options_string is None:
-                model.options.solver_options_string = ""
-
             model.options.solver_options_string += f" Threads={model.options.threads}"
 
         solver_manager = SolverManagerFactory(model.options.solver_manager)
