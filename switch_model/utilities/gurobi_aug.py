@@ -39,30 +39,29 @@ class PicklableData:
         self._names: List[str] = [""] * n  # Initialize as empty string array
         self._vals = np.empty(n, dtype=val_dtype)
         self._dict: Optional[Dict[str, val_dtype]] = None
-        self.next_index: int = 0
+        self._next_index: int = 0
         self.n: int = n
 
     def save_component(self, component, val):
         """Add a Pyomo Component (e.g. Variable Data) to our object for later pickling"""
-        self._names[self.next_index] = component.name
-        self._vals[self.next_index] = val
-        self.next_index += 1
+        self._names[self._next_index] = component.name
+        self._vals[self._next_index] = val
+        self._next_index += 1
 
     def _get_dict(self):
         """Creates a dictionary based on the _names and _vals arrays."""
-        return {n: v for n, v in zip(self._names, self._vals)}
+        if self._dict is None:
+            self._dict = {n: v for n, v in zip(self._names, self._vals)}
+        return self._dict
 
     def get_component(self, component):
         """Retrieves a component from the data."""
         # Initialize the dictionary on the first call to this function
-        if self._dict is None:
-            self._dict = self._get_dict()
-
-        return self._dict[component.name]
+        return self._get_dict()[component.name]
 
     def __getstate__(self):
         """Return value is what gets pickled."""
-        if self.next_index != self.n:
+        if self._next_index != self.n:
             warnings.warn("Pickling more data than necessary, n is greater than the number of components stored")
         return np.array(self._names), self._vals  # Note, we cast self._names to a numpy array to save space.
 
@@ -128,6 +127,7 @@ class GurobiAugmented(GurobiDirect):
         self._write_warm_start = kwds.pop("write_warm_start", None)
         self._read_warm_start = kwds.pop("read_warm_start", None)
         self._save_c_v_basis = kwds.pop("save_c_v_basis", False)
+        # Note we don't need to modify solver_symbolic_labels since we are working with Pyomo Var names, not Gurobi
         return super(GurobiAugmented, self)._presolve(*args, **kwds)
 
     def _warm_start(self):
