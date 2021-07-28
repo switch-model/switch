@@ -10,6 +10,7 @@ from pyomo.environ import *
 from switch_model.financials import capital_recovery_factor as crf
 import pandas as pd
 from switch_model.reporting import write_table
+from switch_model.tools.graph import graph
 
 dependencies = (
     "switch_model.timescales",
@@ -193,21 +194,27 @@ def define_components(mod):
     mod.trans_new_build_allowed = Param(
         mod.TRANSMISSION_LINES, within=Boolean, default=True
     )
+    mod.trans_capital_cost_per_mw_km = Param(within=NonNegativeReals, default=1000)
     mod.TRANS_BLD_YRS = Set(
         dimen=2,
         initialize=mod.TRANSMISSION_LINES * mod.PERIODS,
-        filter=lambda m, tx, p: m.trans_new_build_allowed[tx],
+        filter=lambda m, tx, p: m.trans_new_build_allowed[tx]
+        and m.trans_capital_cost_per_mw_km != float("inf"),
     )
     mod.BuildTx = Var(mod.TRANS_BLD_YRS, within=NonNegativeReals)
-    mod.TxCapacityNameplate = Expression(
+    mod.NewTxCapacity = Expression(
         mod.TRANSMISSION_LINES,
         mod.PERIODS,
         rule=lambda m, tx, period: sum(
             m.BuildTx[tx, bld_yr]
             for bld_yr in m.PERIODS
             if bld_yr <= period and (tx, bld_yr) in m.TRANS_BLD_YRS
-        )
-        + m.existing_trans_cap[tx],
+        ),
+    )
+    mod.TxCapacityNameplate = Expression(
+        mod.TRANSMISSION_LINES,
+        mod.PERIODS,
+        rule=lambda m, tx, p: m.NewTxCapacity[tx, p] + m.existing_trans_cap[tx],
     )
     mod.trans_derating_factor = Param(
         mod.TRANSMISSION_LINES, within=PercentFraction, default=1
@@ -222,7 +229,6 @@ def define_components(mod):
     mod.trans_terrain_multiplier = Param(
         mod.TRANSMISSION_LINES, within=NonNegativeReals, default=1
     )
-    mod.trans_capital_cost_per_mw_km = Param(within=NonNegativeReals, default=1000)
     mod.trans_lifetime_yrs = Param(within=NonNegativeReals, default=20)
     mod.trans_fixed_om_fraction = Param(within=NonNegativeReals, default=0.03)
     # Total annual fixed costs for building new transmission lines...
@@ -243,12 +249,16 @@ def define_components(mod):
     # function. Units should be total annual future costs in $base_year
     # real dollars. The objective function will convert these to
     # base_year Net Present Value in $base_year real dollars.
+    mod.TxLineCosts = Expression(
+        mod.TRANSMISSION_LINES,
+        mod.PERIODS,
+        rule=lambda m, tx, p: m.NewTxCapacity[tx, p] * m.trans_cost_annual[tx]
+        if (tx, p) in m.TRANS_BLD_YRS
+        else 0,
+    )
     mod.TxFixedCosts = Expression(
         mod.PERIODS,
-        rule=lambda m, p: sum(
-            m.TxCapacityNameplate[tx, p] * m.trans_cost_annual[tx]
-            for tx in m.TRANSMISSION_LINES
-        ),
+        rule=lambda m, p: sum(m.TxLineCosts[tx, p] for tx in m.TRANSMISSION_LINES),
     )
     mod.Cost_Components_Per_Period.append("TxFixedCosts")
 
@@ -353,43 +363,50 @@ def load_inputs(mod, switch_data, inputs_dir):
 
 def post_solve(instance, outdir):
     mod = instance
-    normalized_dat = [
-        {
-            "TRANSMISSION_LINE": tx,
-            "PERIOD": p,
-            "trans_lz1": mod.trans_lz1[tx],
-            "trans_lz2": mod.trans_lz2[tx],
-            "trans_dbid": mod.trans_dbid[tx],
-            "trans_length_km": mod.trans_length_km[tx],
-            "trans_efficiency": mod.trans_efficiency[tx],
-            "trans_derating_factor": mod.trans_derating_factor[tx],
-            "existing_trans_cap": mod.existing_trans_cap[tx],
-            "BuildTx": value(mod.BuildTx[tx, p]) if (tx, p) in mod.BuildTx else ".",
-            "TxCapacityNameplate": value(mod.TxCapacityNameplate[tx, p]),
-            "TxCapacityNameplateAvailable": value(
-                mod.TxCapacityNameplateAvailable[tx, p]
-            ),
-            "TotalAnnualCost": value(
-                mod.TxCapacityNameplate[tx, p] * mod.trans_cost_annual[tx]
-            ),
-        }
-        for tx, p in mod.TRANSMISSION_LINES * mod.PERIODS
-    ]
-    tx_build_df = pd.DataFrame(normalized_dat)
+    tx_build_df = pd.DataFrame(
+        [
+            {
+                "TRANSMISSION_LINE": tx,
+                "PERIOD": p,
+                "trans_lz1": mod.trans_lz1[tx],
+                "trans_lz2": mod.trans_lz2[tx],
+                "trans_dbid": mod.trans_dbid[tx],
+                "trans_length_km": mod.trans_length_km[tx],
+                "trans_efficiency": mod.trans_efficiency[tx],
+                "trans_derating_factor": mod.trans_derating_factor[tx],
+                "existing_trans_cap": mod.existing_trans_cap[tx],
+                "BuildTx": value(mod.BuildTx[tx, p]) if (tx, p) in mod.BuildTx else ".",
+                "TxCapacityNameplate": value(mod.TxCapacityNameplate[tx, p]),
+                "TxCapacityNameplateAvailable": value(
+                    mod.TxCapacityNameplateAvailable[tx, p]
+                ),
+                "TotalAnnualCost": value(mod.TxLineCosts[tx, p]),
+            }
+            for tx, p in mod.TRANSMISSION_LINES * mod.PERIODS
+        ]
+    )
     tx_build_df.set_index(["TRANSMISSION_LINE", "PERIOD"], inplace=True)
     write_table(
         instance, df=tx_build_df, output_file=os.path.join(outdir, "transmission.csv")
     )
 
 
+@graph("transmission_capacity", title="Transmission capacity per period")
 def graph(tools):
-    transmission = tools.get_dataframe("transmission")
-    transmission = transmission.groupby("PERIOD").sum()["TxCapacityNameplate"]
-    transmission *= 1e-3
-
-    ax = tools.get_new_axes(
-        out="transmission_capacity", title="Transmission capacity per period"
+    transmission = tools.get_dataframe("transmission", convert_dot_to_na=True).fillna(0)
+    transmission = transmission.groupby("PERIOD", as_index=False).sum()
+    transmission["Existing Capacity"] = (
+        transmission["TxCapacityNameplate"] - transmission["BuildTx"]
     )
+    transmission = transmission[["PERIOD", "Existing Capacity", "BuildTx"]]
+    transmission = transmission.set_index("PERIOD")
+    transmission = transmission.rename({"BuildTx": "New Capacity"}, axis=1)
+    transmission *= 1e-3  # Convert to GW
+
     transmission.plot(
-        kind="bar", ax=ax, xlabel="Period", ylabel="Transmission capacity (GW)"
+        kind="bar",
+        stacked=True,
+        ax=tools.get_axes(),
+        xlabel="Period",
+        ylabel="Transmission capacity (GW)",
     )

@@ -19,7 +19,9 @@ dependency on load_zones.
 
 """
 from __future__ import print_function
-from switch_model.utilities import string_types, add_info
+from pyomo.core.base.misc import sorted_robust
+from switch_model.utilities import string_types
+from switch_model.utilities.results_info import add_info
 from switch_model.utilities.scaling import get_unscaled_var
 
 dependencies = "switch_model.financials"
@@ -62,13 +64,13 @@ def define_arguments(argparser):
     )
 
 
-def get_cell_formatter(sig_digits):
+def get_cell_formatter(sig_digits, zero_cutoff):
     sig_digits_formatter = "{0:." + str(sig_digits) + "g}"
 
     def format_cell(c):
         if not isinstance(c, float):
             return c
-        if abs(c) < 1e-8:
+        if abs(c) < zero_cutoff:
             return 0
         else:
             return sig_digits_formatter.format(c)
@@ -86,7 +88,9 @@ def write_table(instance, *indexes, output_file=None, **kwargs):
     # don't know what that is.
     if output_file is None:
         raise Exception("Must specify output_file in write_table()")
-    cell_formatter = get_cell_formatter(instance.options.sig_figs_output)
+    cell_formatter = get_cell_formatter(
+        instance.options.sig_figs_output, instance.options.zero_cutoff_output
+    )
 
     if "df" in kwargs:
         df = kwargs.pop("df")
@@ -106,7 +110,7 @@ def write_table(instance, *indexes, output_file=None, **kwargs):
                 format_row(values(instance, *unpack_elements(x)), cell_formatter)
                 for x in itertools.product(*indexes)
             )
-            w.writerows(sorted(rows) if instance.options.sorted_output else rows)
+            w.writerows(sorted_robust(rows) if instance.options.sorted_output else rows)
         except TypeError:  # lambda got wrong number of arguments
             # use old code, which doesn't unpack the indices
             w.writerows(
@@ -153,7 +157,9 @@ def post_solve(instance, outdir):
 
 
 def save_generic_results(instance, outdir, sorted_output):
-    cell_formatter = get_cell_formatter(instance.options.sig_figs_output)
+    cell_formatter = get_cell_formatter(
+        instance.options.sig_figs_output, instance.options.zero_cutoff_output
+    )
 
     components = list(instance.component_objects(Var))
     # add Expression objects that should be saved, if any
@@ -190,7 +196,9 @@ def save_generic_results(instance, outdir, sorted_output):
                 )
                 # Results are saved in a random order by default for
                 # increased speed. Sorting is available if wanted.
-                items = sorted(var.items()) if sorted_output else list(var.items())
+                items = (
+                    sorted_robust(var.items()) if sorted_output else list(var.items())
+                )
                 for key, obj in items:
                     writer.writerow(
                         format_row(tuple(make_iterable(key)) + (obj,), cell_formatter)

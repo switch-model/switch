@@ -6,10 +6,10 @@ Utility functions for Switch.
 """
 from __future__ import print_function
 
+import functools
 import os, types, sys, argparse, time, datetime, traceback, subprocess, platform
 import warnings
 
-import switch_model.__main__ as main
 from pyomo.environ import *
 from pyomo.core.base.set import UnknownSetDimen
 from pyomo.dataportal import DataManagerFactory
@@ -22,11 +22,6 @@ import pyomo.opt
 # Define string_types (same as six.string_types). This is useful for
 # distinguishing between strings and other iterables.
 string_types = (str,)
-
-# Check whether this is an interactive session (determined by whether
-# __main__ has a __file__ attribute). Scripts can check this value to
-# determine what level of output to display.
-interactive_session = not hasattr(main, "__file__")
 
 
 class CustomModel(AbstractModel):
@@ -954,6 +949,26 @@ def query_yes_no(question, default="yes"):
             sys.stdout.write("Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n")
 
 
+def catch_exceptions(warning_msg=None, should_catch=True):
+    """Decorator that catches exceptions."""
+
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            if not should_catch:
+                return func(*args, **kwargs)
+
+            try:
+                return func(*args, **kwargs)
+            except:
+                if warning_msg is not None:
+                    warnings.warn(warning_msg)
+
+        return wrapper
+
+    return decorator
+
+
 def run_command(command):
     return (
         subprocess.check_output(command.split(" "), cwd=os.path.dirname(__file__))
@@ -962,14 +977,23 @@ def run_command(command):
     )
 
 
+@catch_exceptions("Failed to get Git Branch.")
+def get_git_branch():
+    return run_command("git rev-parse --abbrev-ref HEAD")
+
+
+@catch_exceptions("Failed to get Git Commit Hash.")
+def get_git_commit():
+    return run_command("git rev-parse HEAD")
+
+
 def add_git_info():
-    try:
-        commit_num = run_command("git rev-parse HEAD")
-        branch = run_command("git rev-parse --abbrev-ref HEAD")
+    commit_num = get_git_commit()
+    branch = get_git_branch()
+    if commit_num is not None:
         add_info("Git Commit", commit_num, section=ResultsInfoSection.GENERAL)
+    if branch is not None:
         add_info("Git Branch", branch, section=ResultsInfoSection.GENERAL)
-    except:
-        warnings.warn("Failed to get Git Branch or Commit Hash for info.txt.")
 
 
 def get_module_list(args=None, include_solve_module=True):
