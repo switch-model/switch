@@ -3,8 +3,8 @@ import pandas as pd
 from switch_model.wecc.get_inputs.register_post_process import register_post_process
 
 
-@register_post_process("Shifting 2020 pre-build years to 2019")
-def fix_prebuild_conflict_bug():
+@register_post_process(msg="Shifting 2020 pre-build years to 2019")
+def fix_prebuild_conflict_bug(_):
     """
     This post-processing step is necessary to pass the no_predetermined_bld_yr_vs_period_conflict BuildCheck.
     Basically we are moving all the 2020 predetermined build years to 2019 to avoid a conflict with the 2020 period.
