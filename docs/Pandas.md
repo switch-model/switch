@@ -5,10 +5,10 @@
 In SWITCH, Pandas is mainly used to create graphs and also output files after solving.
 
 This document gives a brief overview of key concepts and commands
-to get one started with Pandas. There are a lot better resources available
-online teaching that Pandas including entire online courses.
+to get started with Pandas. There are a lot better resources available
+online teaching Pandas, including entire online courses.
 
-Finally, the Pandas [documentation](https://pandas.pydata.org/docs/) 
+Most importantly, the Pandas [documentation](https://pandas.pydata.org/docs/) 
 and [API reference](https://pandas.pydata.org/docs/reference/index.html#api) should be your go-to
 when trying to learn something new about Pandas.
 
@@ -16,9 +16,10 @@ when trying to learn something new about Pandas.
 
 ### DataFrame
 
-Dataframes are Pandas way of storing tabular data.
-They have rows, columns and labelled axes (e.g. row or column names).
-Dataframes are the primary pandas data structure. When manipulating data,
+Dataframes is the main Pandas data structure and is responsible for
+storing tabular data.
+Dataframes have rows, columns and labelled axes (e.g. row or column names).
+When manipulating data,
 the common practice is to store your main dataframe in a variable called `df`.
 
 ### Series
@@ -42,8 +43,8 @@ dataframe has 4 columns (A, B, C, D) and a custom index (the date).
 ```
 
 The same dataframe can be expressed without the custom index as follows.
-Here the date is a column just like the others and the index is the default
-numbered index.
+Here the date is a column just like the others and the index is the 
+default index (just the row number).
 
 ```
         date         A         B         C         D
@@ -83,10 +84,10 @@ reads a csv file from filepath and returns a dataframe that gets stored
   created.
   
 - `df.to_csv(filepath, index=False)`.
-This command will write a dataframe to `filepath`. `index=False` makes
-  sure you don't write the index to the file. This should
-  be used if your index is just `0, 1, 2, ...` in which case you probably
-  don't want to write your index to the file.
+This command will write a dataframe to `filepath`. `index=False` means
+  that the index is not written to the file. This should
+  be used if you're not using custom indexes since you probably don't
+  want the default index (just the row numbers) to be outputted to your csv.
   
 - `df["column_name"]`: Returns a *Series* containing the values for that column.
 
@@ -97,15 +98,15 @@ where the condition in the square brackets is met. In this case we filter out
   all the rows where the value under `column_name` is not `"some_value"`.
   
 - `df.merge(other_df, on=["key_1", "key_2"])`: Merges `df` with `other_df`
-where the columns over which we are merging are columns `key_1` and `key_2`.
+where the columns over which we are merging are `key_1` and `key_2`.
   
 - `df.info()`: Prints the columns in the dataframe and some info about each column.
 
-- `df.head()`: Prints the start of the dataframe.
+- `df.head()`: Prints the first few rows in the dataframe.
 
-- `df.drop_duplicates()`: Drops duplicates from the dataframe
+- `df.drop_duplicates()`: Drops duplicate rows from the dataframe
 
-- `Series.unique()`: Returns a series where duplicates are dropped.
+- `Series.unique()`: Returns a series where duplicate values are dropped.
 
 ## Example
 
@@ -116,7 +117,6 @@ of our generation plants from the SWITCH input files.
 import pandas as pd
 
 # READ
-
 gen_projects = pd.read_csv("generation_projects_info.csv", index_col=False)
 costs = pd.read_csv("gen_build_costs.csv", index_col=False)
 predetermined = pd.read_csv("gen_build_predetermined.csv", index_col=False)
@@ -141,5 +141,5 @@ gen_projects = gen_projects.merge(
 gen_projects.to_csv("projects.csv", index=False)
 ```
 
-If you run the following code snippet it will create a `projects.csv` file
+If you run the following code snippet in the `inputs folder` it will create a `projects.csv` file
 containing the project data, cost data and prebuild data all in one file.
