@@ -61,7 +61,6 @@ modules = [
     "switch_model.transmission.transport.build",
     "switch_model.transmission.transport.dispatch",
     "switch_model.policies.carbon_policies",
-    "switch_model.policies.rps_unbundled",
     # "switch_model.reporting.basic_exports_wecc",
 ]
 
@@ -689,6 +688,7 @@ def query_db(full_config, skip_cf):
             order by 1, 2;
             """
         )
+        modules.append("switch_model.policies.rps_unbundled")
 
     ########################################################
     # BIO_SOLID SUPPLY CURVE
