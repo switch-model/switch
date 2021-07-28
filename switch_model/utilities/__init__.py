@@ -218,8 +218,10 @@ class StepTimer(object):
     reset the timer at each step by calling timer.step_time()
     """
 
-    def __init__(self):
+    def __init__(self, msg=None):
         self.start_time = time.time()
+        if msg is not None:
+            print(msg)
 
     def step_time(self):
         """
