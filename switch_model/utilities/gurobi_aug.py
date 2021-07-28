@@ -39,12 +39,15 @@ class PicklableData:
         self._names: List[str] = [""] * n  # Initialize as empty string array
         self._vals = np.empty(n, dtype=val_dtype)
         self._dict: Optional[Dict[str, val_dtype]] = None
+        self._names_buffer: Dict = {}  # Used to help save_component run faster
         self._next_index: int = 0
         self.n: int = n
 
     def save_component(self, component, val):
         """Add a Pyomo Component (e.g. Variable Data) to our object for later pickling"""
-        self._names[self._next_index] = component.name
+        self._names[self._next_index] = component.getname(
+            fully_qualified=True, name_buffer=self._names_buffer
+        )
         self._vals[self._next_index] = val
         self._next_index += 1
 
@@ -57,7 +60,9 @@ class PicklableData:
     def get_component(self, component):
         """Retrieves a component from the data."""
         # Initialize the dictionary on the first call to this function
-        return self._get_dict()[component.name]
+        return self._get_dict()[
+            component.getname(fully_qualified=True, name_buffer=self._names_buffer)
+        ]
 
     def __getstate__(self):
         """Return value is what gets pickled."""
