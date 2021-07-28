@@ -5,6 +5,9 @@ import types
 import pyomo.version
 from pyomo.core.base.misc import _robust_sort_keyfcn
 
+from switch_model.utilities.load_data import patch_to_allow_loading
+from pyomo.environ import Set, Param
+
 
 def fixed_robust_sort_keyfcn(self, val, use_key=True):
     """Generate a tuple ( str(type_name), val ) for sorting the value.
@@ -54,6 +57,10 @@ def patch_pyomo():
     # fix Pyomo issue #2019. Once PR #2020 gets released this will no longer be needed
     from pyomo.core.base.misc import _robust_sort_keyfcn
     setattr(_robust_sort_keyfcn, "__call__", fixed_robust_sort_keyfcn)
+
+    # Patch Set and Param to allow specifying input file location (via input_file="...")
+    patch_to_allow_loading(Set)
+    patch_to_allow_loading(Param)
 
 def replace_method(class_ref, method_name, new_source_code):
     """
