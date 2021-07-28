@@ -12,10 +12,12 @@ from __future__ import division
 
 import os, collections
 
-import numpy as np
+from pyomo.core.base.misc import sorted_robust
 from pyomo.environ import *
-from switch_model.reporting import write_table
 import pandas as pd
+
+from switch_model.reporting import write_table
+from switch_model.tools.graph import graph
 
 dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones', \
                'switch_model.financials', 'switch_model.energy_sources.properties', \
@@ -233,10 +235,47 @@ def define_components(mod):
     mod.DispatchGen = Var(
         mod.GEN_TPS,
         within=NonNegativeReals)
-    mod.DispatchGenByFuel = Var(mod.GEN_TP_FUELS, within=NonNegativeReals)
+
+    ##########################################
+    # Define DispatchGenByFuel
+    #
+    # Previously DispatchGenByFuel was simply a Variable for all the projects and a constraint ensured
+    # that the sum of DispatchGenByFuel across all fuels was equal the total dispatch for that project.
+    # However this approach creates extra variables in our model for projects that have only one fuel.
+    # Although these extra variables likely get removed during Gurobi pre-solve, we've nonetheless
+    # simplified the model here to reduce time in presolve and ensure the model is always
+    # simplified regardless of the solving method.
+    #
+    # To do this we redefine DispatchGenByFuel to be an
+    # expression that is equal to DispatchGenByFuelVar when we have multiple fuels but
+    # equal to DispatchGen when we have only one fuel.
+
+    # Define a set that is used to define DispatchGenByFuelVar
+    mod.GEN_TP_FUELS_FOR_MULTIFUELS = Set(
+        dimen=3,
+        initialize=mod.GEN_TP_FUELS,
+        filter=lambda m, g, t, f: g in m.MULTIFUEL_GENS,
+        doc="Same as GEN_TP_FUELS but only includes multi-fuel projects"
+    )
+    # DispatchGenByFuelVar is a variable that exists only for multi-fuel projects.
+    mod.DispatchGenByFuelVar = Var(mod.GEN_TP_FUELS_FOR_MULTIFUELS, within=NonNegativeReals)
+    # DispatchGenByFuel_Constraint ensures that the sum of all the fuels is DispatchGen
     mod.DispatchGenByFuel_Constraint = Constraint(
         mod.FUEL_BASED_GEN_TPS,
-        rule=lambda m, g, t: sum(m.DispatchGenByFuel[g, t, f] for f in m.FUELS_FOR_GEN[g]) == m.DispatchGen[g, t])
+        rule=lambda m, g, t:
+        (Constraint.Skip if g not in m.MULTIFUEL_GENS
+         else sum(m.DispatchGenByFuelVar[g, t, f] for f in m.FUELS_FOR_MULTIFUEL_GEN[g]) == m.DispatchGen[g, t])
+    )
+
+    # Define DispatchGenByFuel to equal the matching variable if we have many fuels but to equal
+    # the total dispatch if we have only one fuel.
+    mod.DispatchGenByFuel = Expression(
+        mod.GEN_TP_FUELS,
+        rule=lambda m, g, t, f: m.DispatchGenByFuelVar[g, t, f] if g in m.MULTIFUEL_GENS else m.DispatchGen[g, t]
+    )
+
+    # End Defining DispatchGenByFuel
+    ##########################################
 
     # Only used to improve the performance of calculating ZoneTotalCentralDispatch and ZoneTotalDistributedDispatch
     mod.GENS_FOR_ZONE_TPS = Set(
@@ -412,16 +451,18 @@ def post_solve(instance, outdir):
     dispatch_annual_summary.pdf - A figure of annual summary data. Only written
     if the ggplot python library is installed.
     """
+    sorted_gen = sorted_robust(instance.GENERATION_PROJECTS)
     write_table(
         instance, instance.TIMEPOINTS,
         output_file=os.path.join(outdir, "dispatch-wide.csv"),
-        headings=("timestamp",) + tuple(sorted(instance.GENERATION_PROJECTS)),
+        headings=("timestamp",) + tuple(sorted_gen),
         values=lambda m, t: (m.tp_timestamp[t],) + tuple(
             m.DispatchGen[p, t] if (p, t) in m.GEN_TPS
             else 0.0
-            for p in sorted(m.GENERATION_PROJECTS)
+            for p in sorted_gen
         )
     )
+    del sorted_gen
 
     def c(func):
         return (value(func(g, t)) for g, t in instance.GEN_TPS)
@@ -495,52 +536,99 @@ def post_solve(instance, outdir):
     )
 
 
-def graph(tools):
-    graph_hourly_dispatch(tools)
-    graph_curtailment_per_tech(tools)
-    graph_hourly_curtailment(tools)
-    graph_total_dispatch(tools)
-
-
+@graph(
+    "dispatch",
+    title="Average daily dispatch",
+    is_long=True
+)
 def graph_hourly_dispatch(tools):
     """
     Generates a matrix of hourly dispatch plots for each time region
     """
     # Read dispatch.csv
-    df = tools.get_dataframe(csv='dispatch')
+    df = tools.get_dataframe('dispatch.csv')
     # Convert to GW
-    df["DispatchGen_GW"] = df["DispatchGen_MW"] / 1000
+    df["DispatchGen_MW"] /= 1e3
     # Plot Dispatch
-    tools.graph_time_matrix(df, "DispatchGen_GW",
-                      out="dispatch",
-                      title="Average daily dispatch",
-                      ylabel="Average daily dispatch (GW)")
+    tools.graph_time_matrix(
+        df,
+        value_column="DispatchGen_MW",
+        ylabel="Average daily dispatch (GW)",
+    )
 
-
+@graph(
+    "curtailment",
+    title="Average daily curtailment",
+    is_long=True
+)
 def graph_hourly_curtailment(tools):
     # Read dispatch.csv
-    df = tools.get_dataframe(csv='dispatch')
+    df = tools.get_dataframe('dispatch.csv')
     # Keep only renewable
     df = df[df["is_renewable"]]
-    df["Curtailment_GW"] = df["Curtailment_MW"] / 1000
+    df["Curtailment_MW"] /= 1e3 # Convert to GW
     # Plot curtailment
     tools.graph_time_matrix(
         df,
-        "Curtailment_GW",
-        out="curtailment",
-        title="Average daily curtailment",
+        value_column="Curtailment_MW",
         ylabel="Average daily curtailment (GW)"
     )
 
 
+@graph(
+    "dispatch_per_scenario",
+    title="Average daily dispatch",
+    requires_multi_scenario=True,
+    is_long=True,
+)
+def graph_hourly_dispatch(tools):
+    """
+    Generates a matrix of hourly dispatch plots for each time region
+    """
+    # Read dispatch.csv
+    df = tools.get_dataframe('dispatch.csv')
+    # Convert to GW
+    df["DispatchGen_MW"] /= 1e3
+    # Plot Dispatch
+    tools.graph_scenario_matrix(
+        df,
+        value_column="DispatchGen_MW",
+        ylabel="Average daily dispatch (GW)"
+    )
+
+
+@graph(
+    "curtailment_compare_scenarios",
+    title="Average daily curtailment by scenario",
+    requires_multi_scenario=True,
+    is_long=True,
+)
+def graph_hourly_curtailment(tools):
+    # Read dispatch.csv
+    df = tools.get_dataframe('dispatch.csv')
+    # Keep only renewable
+    df = df[df["is_renewable"]]
+    df["Curtailment_MW"] /= 1e3  # Convert to GW
+    tools.graph_scenario_matrix(
+        df,
+        value_column="Curtailment_MW",
+        ylabel="Average daily curtailment (GW)"
+    )
+
+
+@graph(
+    "total_dispatch",
+    title="Total dispatched electricity",
+    is_long=True,
+)
 def graph_total_dispatch(tools):
     # ---------------------------------- #
     # total_dispatch.png                 #
     # ---------------------------------- #
     # read dispatch_annual_summary.csv
-    total_dispatch = tools.get_dataframe(csv="dispatch_annual_summary")
+    total_dispatch = tools.get_dataframe("dispatch_annual_summary.csv")
     # add type column
-    total_dispatch = tools.add_gen_type_column(total_dispatch)
+    total_dispatch = tools.transform.gen_type(total_dispatch)
     # aggregate and pivot
     total_dispatch = total_dispatch.pivot_table(columns="gen_type", index="period", values="Energy_GWh_typical_yr",
                                                 aggfunc=tools.np.sum)
@@ -561,19 +649,26 @@ def graph_total_dispatch(tools):
     # Give proper name for legend
     total_dispatch = total_dispatch.rename_axis("Type", axis=1)
     # Get axis
-    ax = tools.get_new_axes(out="total_dispatch", title="Total dispatched electricity")
     # Plot
-    total_dispatch.plot(kind='bar', stacked=True, ax=ax, color=tools.get_colors(len(total_dispatch)),
-                        xlabel="Period", ylabel="Total dispatched electricity (TWh)")
+    total_dispatch.plot(
+        kind='bar',
+        stacked=True,
+        ax=tools.get_axes(),
+        color=tools.get_colors(len(total_dispatch)),
+        xlabel="Period",
+        ylabel="Total dispatched electricity (TWh)"
+    )
 
 
+@graph(
+    "curtailment_per_period",
+    title="Percent of total dispatchable capacity curtailed",
+    is_long=True
+)
 def graph_curtailment_per_tech(tools):
-    # ---------------------------------- #
-    # curtailment_per_tech.png          #
-    # ---------------------------------- #
     # Load dispatch.csv
-    df = tools.get_dataframe(csv='dispatch')
-    df = tools.add_gen_type_column(df)
+    df = tools.get_dataframe('dispatch.csv')
+    df = tools.transform.gen_type(df)
     df["Total"] = df['DispatchGen_MW'] + df["Curtailment_MW"]
     df = df[df["is_renewable"]]
     # Make PERIOD a category to ensure x-axis labels don't fill in years between period
@@ -587,11 +682,11 @@ def graph_curtailment_per_tech(tools):
     # Set the name of the legend.
     df = df.rename_axis("Type", axis='columns')
     # Get axes to graph on
-    ax = tools.get_new_axes(out="curtailment_per_period", title="Percent of total dispatchable capacity curtailed")
+    ax = tools.get_axes()
     # Plot
     color = tools.get_colors()
     kwargs = dict() if color is None else dict(color=color)
-    df.plot(ax=ax, kind='line',  xlabel='Period', **kwargs)
+    df.plot(ax=ax, kind='line',  xlabel='Period', marker="x", **kwargs)
 
     # Set the y-axis to use percent
     ax.yaxis.set_major_formatter(tools.mplt.ticker.PercentFormatter(1.0))
