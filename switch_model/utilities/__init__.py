@@ -10,7 +10,6 @@ import functools
 import os, types, sys, argparse, time, datetime, traceback, subprocess
 import warnings
 
-import switch_model.__main__ as main
 from pyomo.environ import *
 from pyomo.dataportal import DataManagerFactory
 from pyomo.dataportal.plugins.csv_table import CSVTable
@@ -23,11 +22,6 @@ from switch_model.utilities.load_data import load_registered_inputs, load_data
 # Define string_types (same as six.string_types). This is useful for
 # distinguishing between strings and other iterables.
 string_types = (str,)
-
-# Check whether this is an interactive session (determined by whether
-# __main__ has a __file__ attribute). Scripts can check this value to
-# determine what level of output to display.
-interactive_session = not hasattr(main, "__file__")
 
 
 class CustomModel(AbstractModel):

@@ -20,6 +20,7 @@ from __future__ import division
 
 import os, collections
 
+from pyomo.core.base.misc import sorted_robust
 from pyomo.environ import *
 import pandas as pd
 
@@ -253,14 +254,56 @@ def define_components(mod):
         mod.GEN_TPS, rule=lambda m, g, t: m.GenCapacity[g, m.tp_period[t]]
     )
     mod.DispatchGen = Var(mod.GEN_TPS, within=NonNegativeReals)
-    mod.DispatchGenByFuel = Var(mod.GEN_TP_FUELS, within=NonNegativeReals)
+
+    ##########################################
+    # Define DispatchGenByFuel
+    #
+    # Previously DispatchGenByFuel was simply a Variable for all the projects and a constraint ensured
+    # that the sum of DispatchGenByFuel across all fuels was equal the total dispatch for that project.
+    # However this approach creates extra variables in our model for projects that have only one fuel.
+    # Although these extra variables likely get removed during Gurobi pre-solve, we've nonetheless
+    # simplified the model here to reduce time in presolve and ensure the model is always
+    # simplified regardless of the solving method.
+    #
+    # To do this we redefine DispatchGenByFuel to be an
+    # expression that is equal to DispatchGenByFuelVar when we have multiple fuels but
+    # equal to DispatchGen when we have only one fuel.
+
+    # Define a set that is used to define DispatchGenByFuelVar
+    mod.GEN_TP_FUELS_FOR_MULTIFUELS = Set(
+        dimen=3,
+        initialize=mod.GEN_TP_FUELS,
+        filter=lambda m, g, t, f: g in m.MULTIFUEL_GENS,
+        doc="Same as GEN_TP_FUELS but only includes multi-fuel projects",
+    )
+    # DispatchGenByFuelVar is a variable that exists only for multi-fuel projects.
+    mod.DispatchGenByFuelVar = Var(
+        mod.GEN_TP_FUELS_FOR_MULTIFUELS, within=NonNegativeReals
+    )
+    # DispatchGenByFuel_Constraint ensures that the sum of all the fuels is DispatchGen
     mod.DispatchGenByFuel_Constraint = Constraint(
         mod.FUEL_BASED_GEN_TPS,
-        rule=lambda m, g, t: sum(
-            m.DispatchGenByFuel[g, t, f] for f in m.FUELS_FOR_GEN[g]
-        )
-        == m.DispatchGen[g, t],
+        rule=lambda m, g, t: (
+            Constraint.Skip
+            if g not in m.MULTIFUEL_GENS
+            else sum(
+                m.DispatchGenByFuelVar[g, t, f] for f in m.FUELS_FOR_MULTIFUEL_GEN[g]
+            )
+            == m.DispatchGen[g, t]
+        ),
     )
+
+    # Define DispatchGenByFuel to equal the matching variable if we have many fuels but to equal
+    # the total dispatch if we have only one fuel.
+    mod.DispatchGenByFuel = Expression(
+        mod.GEN_TP_FUELS,
+        rule=lambda m, g, t, f: m.DispatchGenByFuelVar[g, t, f]
+        if g in m.MULTIFUEL_GENS
+        else m.DispatchGen[g, t],
+    )
+
+    # End Defining DispatchGenByFuel
+    ##########################################
 
     # Only used to improve the performance of calculating ZoneTotalCentralDispatch and ZoneTotalDistributedDispatch
     mod.GENS_FOR_ZONE_TPS = Set(
@@ -449,17 +492,18 @@ def post_solve(instance, outdir):
     dispatch_annual_summary.pdf - A figure of annual summary data. Only written
     if the ggplot python library is installed.
     """
+    sorted_gen = sorted_robust(instance.GENERATION_PROJECTS)
     write_table(
         instance,
         instance.TIMEPOINTS,
         output_file=os.path.join(outdir, "dispatch-wide.csv"),
-        headings=("timestamp",) + tuple(sorted(instance.GENERATION_PROJECTS)),
+        headings=("timestamp",) + tuple(sorted_gen),
         values=lambda m, t: (m.tp_timestamp[t],)
         + tuple(
-            m.DispatchGen[p, t] if (p, t) in m.GEN_TPS else 0.0
-            for p in sorted(m.GENERATION_PROJECTS)
+            m.DispatchGen[p, t] if (p, t) in m.GEN_TPS else 0.0 for p in sorted_gen
         ),
     )
+    del sorted_gen
 
     def c(func):
         return (value(func(g, t)) for g, t in instance.GEN_TPS)
