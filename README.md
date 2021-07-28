@@ -23,6 +23,8 @@ In `docs/`:
 
 - [`Numerical Issues.md`](/docs/Numerical%20Issues.md): Information about detecting and resolving numerical issues.
 
+- [`Pandas.md`](/docs/Pandas.md): Crash course on the Pandas data manipulation library.
+
 Finally, you can generate documentation for the SWITCH modules by running `pydoc -w switch_model` after having installed
 SWITCH. This will build HTML documentation files from python doc strings which
 will include descriptions of each module, their intentions, model
