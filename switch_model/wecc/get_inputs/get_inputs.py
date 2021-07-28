@@ -69,6 +69,8 @@ modules = [
     "switch_model.policies.rps_unbundled",
     "switch_model.policies.min_per_tech",  # Always include since it provides useful outputs even when unused
     # "switch_model.reporting.basic_exports_wecc",
+    # Always include since by default it does nothing except output useful data
+    "switch_model.policies.wind_to_solar_ratio",
 ]
 
 
@@ -103,7 +105,8 @@ def query_db(full_config, skip_cf):
         "ca_policies_scenario_id",
         "enable_planning_reserves",
         "generation_plant_technologies_scenario_id",
-        "variable_o_m_cost_scenario_id"
+        "variable_o_m_cost_scenario_id",
+        "wind_to_solar_ratio"
     ]
 
     db_cursor.execute(
@@ -140,6 +143,7 @@ def query_db(full_config, skip_cf):
     enable_planning_reserves = s_details[18]
     generation_plant_technologies_scenario_id =s_details[19]
     variable_o_m_cost_scenario_id = s_details[20]
+    wind_to_solar_ratio = s_details[21]
 
     print(f"Scenario: {scenario_id}: {name}.")
 
@@ -856,6 +860,7 @@ def query_db(full_config, skip_cf):
         )
 
     ca_policies(db_cursor, ca_policies_scenario_id, study_timeframe_id)
+    write_wind_to_solar_ratio(wind_to_solar_ratio)
     if enable_planning_reserves:
         planning_reserves(db_cursor, time_sample_id, hydro_simple_scenario_id)
     create_modules_txt()
@@ -868,6 +873,32 @@ def query_db(full_config, skip_cf):
     shutil.copy(os.path.join(graph_config, "graph_tech_types.csv"), "graph_tech_types.csv")
 
 
+def write_wind_to_solar_ratio(wind_to_solar_ratio):
+    # TODO ideally we'd have a table where we can specify the wind_to_solar_ratios per period.
+    #   At the moment only the wind_to_solar_ratio is specified and which doesn't allow different values per period
+    if wind_to_solar_ratio is None:
+        return
+
+    print("wind_to_solar_ratio.csv...")
+    df = pd.read_csv("periods.csv")[["INVESTMENT_PERIOD"]]
+    df["wind_to_solar_ratio"] = wind_to_solar_ratio
+
+    # wind_to_solar_ratio.csv requires a column called wind_to_solar_ratio_const_gt that is True (1) or False (0)
+    # This column specifies whether the constraint is a greater than constraint or a less than constraint.
+    # In our case we want it to be a greater than constraint if we're trying to force wind-to-solar ratio above its default
+    # and we want it to be a less than constraint if we're trying to force the ratio below its default.
+    # Here the default is the ratio if we didn't have the constraint.
+    cutoff_ratio = 0.28
+    warnings.warn(
+        "To determine the sign of the wind-to-solar ratio constraint we have "
+        f"assumed that without the constraint, the wind-to-solar ratio is {cutoff_ratio}. "
+        f"This value was accurate for Martin's LDES runs however it may not be accurate for you. "
+        f"You should update this value in get_inputs or manually specify whether you want a greater than "
+        f"or a less than constraint."
+    )
+    df["wind_to_solar_ratio_const_gt"] = 1 if wind_to_solar_ratio > cutoff_ratio else 0
+
+    df.to_csv("wind_to_solar_ratio.csv", index=False)
 
 def ca_policies(db_cursor, ca_policies_scenario_id, study_timeframe_id):
     if ca_policies_scenario_id is None:
