@@ -1,12 +1,31 @@
 import inspect
 import textwrap
 import types
+from typing import Type
 
-import pyomo.version
-from pyomo.core.base.misc import _robust_sort_keyfcn
-
-from switch_model.utilities.load_data import patch_to_allow_loading
 from pyomo.environ import Set, Param
+
+from switch_model.utilities.load_data import register_component_for_loading
+
+_patched_pyomo = False
+
+
+def patch_pyomo():
+    global _patched_pyomo
+
+    if _patched_pyomo:
+        return
+
+    # fix Pyomo issue #2019. Once PR #2020 gets released this will no longer be needed
+    from pyomo.core.base.misc import _robust_sort_keyfcn
+
+    setattr(_robust_sort_keyfcn, "__call__", fixed_robust_sort_keyfcn)
+
+    # Patch Set and Param to allow specifying input file location (via input_file="...")
+    extend_to_allow_loading(Set)
+    extend_to_allow_loading(Param)
+
+    _patched_pyomo = True
 
 
 def fixed_robust_sort_keyfcn(self, val, use_key=True):
@@ -54,15 +73,18 @@ def fixed_robust_sort_keyfcn(self, val, use_key=True):
         return _typename, id(val)
 
 
-def patch_pyomo():
-    # fix Pyomo issue #2019. Once PR #2020 gets released this will no longer be needed
-    from pyomo.core.base.misc import _robust_sort_keyfcn
+def extend_to_allow_loading(cls: Type):
+    def new_init(
+        self, *args, input_file=None, input_column=None, input_optional=None, **kwargs
+    ):
+        self.__old_init__(*args, **kwargs)
+        if input_file is not None:
+            register_component_for_loading(
+                self, input_file, input_column, input_optional, **kwargs
+            )
 
-    setattr(_robust_sort_keyfcn, "__call__", fixed_robust_sort_keyfcn)
-
-    # Patch Set and Param to allow specifying input file location (via input_file="...")
-    patch_to_allow_loading(Set)
-    patch_to_allow_loading(Param)
+    cls.__old_init__ = cls.__init__
+    cls.__init__ = new_init
 
 
 def replace_method(class_ref, method_name, new_source_code):
