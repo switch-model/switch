@@ -604,6 +604,12 @@ def define_arguments(argparser):
         "(e.g., --solver-options-string \"mipgap=0.001 primalopt='' advance=2 threads=1\")",
     )
     argparser.add_argument(
+        "--solver-method",
+        default=None,
+        type=int,
+        help="Specify the solver method to use.",
+    )
+    argparser.add_argument(
         "--keepfiles",
         action="store_true",
         default=None,
@@ -839,8 +845,10 @@ def parse_recommended_args(args):
         "--debug",
         "--graph",
         "--save-warm-start",
+        "--solver-method",
+        "2",  # Method 2 is barrier solve which is much faster than default
     ] + args
-    solver_options_string = "BarHomogeneous=1 FeasibilityTol=1e-5 method=2"
+    solver_options_string = "BarHomogeneous=1 FeasibilityTol=1e-5"
     if options.recommended_fast:
         solver_options_string += " crossover=0"
     args = ["--solver-options-string", solver_options_string] + args
@@ -942,6 +950,10 @@ def solve(model):
         solver = model.solver
         solver_manager = model.solver_manager
     else:
+        if model.options.warm_start is not None:
+            # Method 1 (dual simplex) is required since it supports warm starting.
+            model.options.solver_method = 1
+
         # Create a solver object the first time in. We don't do this until a solve is
         # requested, because sometimes a different solve function may be used,
         # with its own solver object (e.g., with runph or a parallel solver server).
@@ -973,6 +985,15 @@ def solve(model):
                 model.options.solver_options_string = ""
 
             model.options.solver_options_string += f" Threads={model.options.threads}"
+
+        if model.options.solver_method is not None:
+            # If no string is passed make the string empty so we can add to it
+            if model.options.solver_options_string is None:
+                model.options.solver_options_string = ""
+
+            model.options.solver_options_string += (
+                f" method={model.options.solver_method}"
+            )
 
         solver_manager = SolverManagerFactory(model.options.solver_manager)
 
