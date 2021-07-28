@@ -209,6 +209,10 @@ def define_components(mod):
     become non-linear.
 
     """
+    # When this variable is True we only allow positive fuel costs
+    # This simplifies the model since we can set some of our constraints
+    # as greater than instead of equals.
+    ONLY_POSITIVE_RFM_COSTS = False
 
     mod.REGIONAL_FUEL_MARKETS = Set(dimen=1)
     mod.rfm_fuel = Param(mod.REGIONAL_FUEL_MARKETS, within=mod.FUELS)
@@ -244,7 +248,9 @@ def define_components(mod):
         dimen=3,
         validate=lambda m, r, p, st: (r in m.REGIONAL_FUEL_MARKETS and p in m.PERIODS),
     )
-    mod.rfm_supply_tier_cost = Param(mod.RFM_SUPPLY_TIERS, within=Reals)
+    mod.rfm_supply_tier_cost = Param(
+        mod.RFM_SUPPLY_TIERS, within=PositiveReals if ONLY_POSITIVE_RFM_COSTS else Reals
+    )
     mod.rfm_supply_tier_limit = Param(
         mod.RFM_SUPPLY_TIERS, within=NonNegativeReals, default=float("inf")
     )
@@ -365,13 +371,20 @@ def define_components(mod):
     enforce_fuel_consumption_scaling_factor = 1e-2
 
     def Enforce_Fuel_Consumption_rule(m, rfm, p):
-        return m.FuelConsumptionInMarket[
-            rfm, p
-        ] * enforce_fuel_consumption_scaling_factor == enforce_fuel_consumption_scaling_factor * sum(
+        lhs = (
+            m.FuelConsumptionInMarket[rfm, p] * enforce_fuel_consumption_scaling_factor
+        )
+        rhs = enforce_fuel_consumption_scaling_factor * sum(
             m.GenFuelUseRate[g, t, m.rfm_fuel[rfm]] * m.tp_weight_in_year[t]
             for g in m.GENS_FOR_RFM_PERIOD[rfm, p]
             for t in m.TPS_IN_PERIOD[p]
         )
+        # If we have only positive costs, FuelConsumptionInMarket will automatically
+        # try to be minimized in which case we can use a one-sided constraint
+        if ONLY_POSITIVE_RFM_COSTS:
+            return lhs >= rhs
+        else:
+            return lhs == rhs
 
     mod.Enforce_Fuel_Consumption = Constraint(
         mod.REGIONAL_FUEL_MARKETS, mod.PERIODS, rule=Enforce_Fuel_Consumption_rule
