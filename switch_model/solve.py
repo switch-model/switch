@@ -33,7 +33,6 @@ from switch_model.utilities import (
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 from switch_model.tools.graph.cli_graph import main as graph_main
-from switch_model.utilities.load_data import patch_to_allow_loading
 from switch_model.utilities.patches import patch_pyomo
 from switch_model.utilities.results_info import save_info, add_info, ResultsInfoSection
 
@@ -108,9 +107,6 @@ def main(
         # Patch pyomo if needed, to allow reconstruction of expressions.
         # This must be done before the model is constructed.
         patch_pyomo()
-        # This allows us to use input_file= when defining a Set or Param
-        patch_to_allow_loading(Set)
-        patch_to_allow_loading(Param)
 
         # Define the model
         model = create_model(modules, args=args)
