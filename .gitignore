@@ -15,6 +15,7 @@
 *.vcf
 *.xml
 *.pickle
+examples/**/temp/**
 examples/**/outputs/*.csv
 examples/**/outputs/*.txt
 examples/**/graphs/*.png

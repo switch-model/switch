@@ -10,7 +10,6 @@ import functools
 import os, types, sys, argparse, time, datetime, traceback, subprocess, platform
 import warnings
 
-import switch_model.__main__ as main
 from pyomo.environ import *
 from pyomo.core.base.set import UnknownSetDimen
 from pyomo.dataportal import DataManagerFactory
@@ -23,12 +22,6 @@ import pyomo.opt
 # Define string_types (same as six.string_types). This is useful for
 # distinguishing between strings and other iterables.
 string_types = (str,)
-
-# Check whether this is an interactive session (determined by whether
-# __main__ has a __file__ attribute). Scripts can check this value to
-# determine what level of output to display.
-interactive_session = not hasattr(main, '__file__')
-
 
 class CustomModel(AbstractModel):
     """
@@ -589,14 +582,21 @@ def load_aug(switch_data, optional=False, auto_select=False,
         switch_data.load(**kwds)
         return
 
+    # Use our custom DataManager to allow 'inf' in csvs.
+    if extension == ".csv":
+        kwds['using'] = "switch_csv"
+
     # copy the optional_params to avoid side-effects when the list is altered below
     optional_params=list(optional_params)
     # Parse header and first row
     with open(path) as infile:
         headers_line = infile.readline()
         second_line = infile.readline()
-    file_is_empty = (headers_line == '')
-    file_has_no_data_rows = (second_line == '')
+
+    # Skip if the file is empty.
+    if optional and headers_line == '':
+        return
+
     suffix = path.split('.')[-1]
     if suffix in {'tab', 'tsv'}:
         separator = '\t'
@@ -606,9 +606,7 @@ def load_aug(switch_data, optional=False, auto_select=False,
         raise InputError(f'Unrecognized file type for input file {path}')
     # TODO: parse this more formally, e.g. using csv module
     headers = headers_line.strip().split(separator)
-    # Skip if the file is empty.
-    if optional and file_is_empty:
-        return
+
     # Try to get a list of parameters. If param was given as a
     # singleton or a tuple, make it into a list that can be edited.
     params = []
@@ -688,14 +686,11 @@ def load_aug(switch_data, optional=False, auto_select=False,
             del kwds['select'][i]
             del kwds['param'][p_i]
 
-    if optional and file_has_no_data_rows:
-        # Skip the file.  Note that we are only doing this after having
+    if optional and second_line == '':
+        # Skip the file if it has no data.  Note that we are only doing this after having
         # validated the file's column headings.
         return
 
-    # Use our custom DataManager to allow 'inf' in csvs.
-    if kwds["filename"][-4:] == ".csv":
-        kwds['using'] = "switch_csv"
     # All done with cleaning optional bits. Pass the updated arguments
     # into the DataPortal.load() function.
     switch_data.load(**kwds)
