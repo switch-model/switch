@@ -605,8 +605,6 @@ def parse_recommended_args(args):
     solver_options_string = "BarHomogeneous=1 FeasibilityTol=1e-5"
     if options.recommended_fast:
         solver_options_string += " crossover=0"
-    else:
-        args = ["--save-warm-start"] + args
     args = ['--solver-options-string', solver_options_string] + args
     if options.recommended_debug:
         args = ['--keepfiles', '--tempdir', 'temp', '--symbolic-solver-labels'] + args
@@ -692,7 +690,7 @@ def solve(model):
     else:
         # If we need warm start switch the solver to our augmented version that supports warm starting
         if model.options.warm_start is not None or model.options.save_warm_start:
-            if model.options.solver != "gurobi":
+            if model.options.solver not in ("gurobi", "gurobi_direct"):
                 raise NotImplementedError("Warm start functionality requires --solver gurobi")
             model.options.solver = "gurobi_aug"
 

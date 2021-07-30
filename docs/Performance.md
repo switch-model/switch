@@ -29,7 +29,7 @@ There are two solver interfaces that you should know about: `gurobi` and `gurobi
 
 In theory `gurobi_direct` should be faster and more efficient however in practice we find that that's not the case. As
 such we recommend using `gurobi` and all our defaults do so. If someone has the time they could profile `gurobi_direct`
-to improve performance at which point we could make `gurobi_direct` the default.
+to improve performance at which point we could make `gurobi_direct` the default (and enable `--save-warm-start` by default, see below).
 
 The `gurobi` interface has the added advantage of separating Gurobi and Pyomo into separate threads. This means that
 while Gurobi is solving and Pyomo is idle, the operating system can automatically move Pyomo's memory usage
@@ -56,9 +56,7 @@ Current solution* refers to the solution you are trying to find while using the 
   slower since the solver will need to first run crossover before warm starting.
 
 - Our implementation of warm starting only works if your previous solution has an `outputs/warm_start.pickle`
-  file. This file is generated when you use `--save-warm-start`. The `--recommended` flag includes
-  `--save-warm-start` but the `--recommended-fast` does not (since warm starting from a solution that did not crossover
-  is generally inefficient).
+  file. This file is only generated when you use `--save-warm-start`.
 
 - `--save-warm-start` and `--warm-start` both use an extension of the `gurobi_direct` solver interface which is
   generally slower than the `gurobi` solver interface (see section above).
