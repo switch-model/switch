@@ -593,19 +593,20 @@ def parse_recommended_args(args):
 
     # Note we don't append but rather prepend so that flags can override the --recommend flags.
     args = [
-               '--solver', 'gurobi_aug',  # We use the improved Gurobi solver which will supports warm starting
+               '--solver', 'gurobi',
                '-v',
                '--sorted-output',
                '--stream-output',
                '--log-run',
                '--debug',
                '--graph',
-               '--save-warm-start',
                '--solver-method', '2',  # Method 2 is barrier solve which is much faster than default
            ] + args
     solver_options_string = "BarHomogeneous=1 FeasibilityTol=1e-5"
     if options.recommended_fast:
         solver_options_string += " crossover=0"
+    else:
+        args = ["--save-warm-start"] + args
     args = ['--solver-options-string', solver_options_string] + args
     if options.recommended_debug:
         args = ['--keepfiles', '--tempdir', 'temp', '--symbolic-solver-labels'] + args
@@ -741,18 +742,19 @@ def solve(model):
         save_results=model.options.save_solution if isinstance(solver, DirectOrPersistentSolver) else None,
     )
 
-    if model.options.warm_start_mip is not None:
+    if model.options.warm_start_mip is not None or model.options.warm_start is not None:
         solver_args["warmstart"] = True
 
+    # If we need warm start switch the solver to our augmented version that supports warm starting
+    if model.options.warm_start is not None or model.options.save_warm_start:
+        if model.options.solver != "gurobi":
+            raise NotImplementedError("Warm start functionality requires --solver gurobi")
+        model.options.solver = "gurobi_aug"
+
     if model.options.warm_start is not None:
-        if model.options.solver != "gurobi_aug":
-            raise NotImplementedError("Warm start functionality requires --solver gurobi_aug")
-        solver_args["warmstart"] = True
         solver_args["read_warm_start"] = os.path.join(model.options.warm_start, "outputs", "warm_start.pickle")
 
     if model.options.save_warm_start:
-        if model.options.solver != "gurobi_aug":
-            raise NotImplementedError("Warm start functionality requires --solver gurobi_aug")
         solver_args["write_warm_start"] = os.path.join("outputs", "warm_start.pickle")
 
     # drop all the unspecified options
