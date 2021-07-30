@@ -690,6 +690,12 @@ def solve(model):
         solver = model.solver
         solver_manager = model.solver_manager
     else:
+        # If we need warm start switch the solver to our augmented version that supports warm starting
+        if model.options.warm_start is not None or model.options.save_warm_start:
+            if model.options.solver != "gurobi":
+                raise NotImplementedError("Warm start functionality requires --solver gurobi")
+            model.options.solver = "gurobi_aug"
+
         if model.options.warm_start is not None:
             # Method 1 (dual simplex) is required since it supports warm starting.
             model.options.solver_method = 1
@@ -744,12 +750,6 @@ def solve(model):
 
     if model.options.warm_start_mip is not None or model.options.warm_start is not None:
         solver_args["warmstart"] = True
-
-    # If we need warm start switch the solver to our augmented version that supports warm starting
-    if model.options.warm_start is not None or model.options.save_warm_start:
-        if model.options.solver != "gurobi":
-            raise NotImplementedError("Warm start functionality requires --solver gurobi")
-        model.options.solver = "gurobi_aug"
 
     if model.options.warm_start is not None:
         solver_args["read_warm_start"] = os.path.join(model.options.warm_start, "outputs", "warm_start.pickle")
