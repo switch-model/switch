@@ -15,6 +15,8 @@ import warnings
 from typing import Iterable, List
 
 # Switch packages
+import pandas as pd
+
 from switch_model.wecc.utilities import connect
 from switch_model.version import __version__
 
