@@ -134,7 +134,7 @@ def post_solve(instance, outdir):
 @graph(
     "transmission_limit_duals",
     title="Transmission limit duals per period",
-    note="Note: Outliers and zero-valued duals are ignored.",
+    note="Note: Outliers and zero-valued duals are ignored from box plot.",
 )
 def graph(tools):
     dispatch = tools.get_dataframe("transmission_dispatch")
@@ -146,12 +146,12 @@ def graph(tools):
     dispatch = dispatch.pivot(columns="time_row", values="transmission_limit_dual")
     # Multiply the duals by -1 since the formulation gives negative duals
     dispatch *= -1
+    percent_of_zeroes = sum(dispatch == 0) / len(dispatch) * 100
     # Don't include the zero-valued duals.
     dispatch = dispatch.replace(0, tools.np.nan)
     if dispatch.count().sum() != 0:
-        ax = tools.get_axes()
         dispatch.plot.box(
-            ax=ax,
+            ax=tools.get_axes(note=f"{percent_of_zeroes:.1f}% of duals are zero"),
             xlabel="Period",
             ylabel="Transmission limit duals ($/MW)",
             showfliers=False,

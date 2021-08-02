@@ -350,7 +350,7 @@ class FigureHandler:
         """
         self._default_filename = default_filename
         self._title = title
-        self._note = note
+        self._note = note if note is not None else ""
         self._allow_multiple_figures = allow_multiple_figures
 
     def add_figure(self, fig, axes=None, filename=None, title=None):
@@ -635,7 +635,7 @@ class GraphTools(DataHandler):
 
         return fig
 
-    def get_axes(self, filename=None, title=None, *args, **kwargs):
+    def get_axes(self, filename=None, title=None, note=None, *args, **kwargs):
         """
         Returns a set of matplotlib axes that can be used to graph.
 
@@ -647,7 +647,12 @@ class GraphTools(DataHandler):
             fig, axes = self._create_axes(*args, **kwargs)
             self._figure_handler.add_figure(fig, axes, filename, title)
 
-        return axes[self._active_scenario]
+        ax = axes[self._active_scenario]
+
+        if note is not None:
+            ax.text(0.5, -0.2, note, size=12, ha="center", transform=ax.transAxes)
+
+        return ax
 
     def bar_label(self, filename=None):
         """
