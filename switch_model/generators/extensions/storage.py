@@ -542,12 +542,35 @@ def graph_state_of_charge(tools):
     df["StateOfCharge"] /= 1e6
     df["OnlineEnergyCapacityMWh"] /= 1e6
 
-    # Determine information for the label
-    y_axis_lim = df["OnlineEnergyCapacityMWh"].max()
-    offset = y_axis_lim * 0.05
-    df["label_position"] = df["OnlineEnergyCapacityMWh"] + offset
-    df["label"] = df["OnlineEnergyCapacityMWh"].round(decimals=2)
+    # Add information regarding the diurnal cycle to the dataframe
+    # Find the difference between the min and max for every day of the year
+    group = df.groupby(
+        ["period", "scenario_name", tools.pd.Grouper(freq="D", key="datetime")]
+    )["StateOfCharge"]
+    daily_size = (group.max() - group.min()).reset_index()
+    # Find the mean between the difference of the min and max
+    daily_size = (
+        daily_size.groupby(["period", "scenario_name"], as_index=False)
+        .mean()
+        .reset_index()
+    )
+    # Add the mean to the dataframe under the name DiurnalCycle
+    df = df.merge(
+        daily_size.rename({"StateOfCharge": "DiurnalCycle"}, axis=1),
+        on=["period", "scenario_name"],
+        how="left",
+    )
+
+    # Determine information for the labels
+    y_axis_max = df["OnlineEnergyCapacityMWh"].max()
+    label_offset = y_axis_max * 0.05
     label_x_pos = df["datetime"].median()
+    # For the max label
+    df["label_position"] = df["OnlineEnergyCapacityMWh"] + label_offset
+    df["label"] = df["OnlineEnergyCapacityMWh"].round(decimals=2)
+    # For the diurnal cycle label
+    df["diurnal_label"] = df["DiurnalCycle"].round(decimals=2)
+    df["diurnal_label_pos"] = df["DiurnalCycle"] + label_offset
 
     # Plot with plotnine
     pn = tools.pn
@@ -564,6 +587,15 @@ def graph_state_of_charge(tools):
             pn.aes(label="label", x=label_x_pos, y="label_position"),
             fontweight="light",
             size="10",
+        )
+        + pn.geom_hline(
+            pn.aes(yintercept="DiurnalCycle"), linetype="dashed", color="red"
+        )
+        + pn.geom_text(
+            pn.aes(label="diurnal_label", x=label_x_pos, y="diurnal_label_pos"),
+            fontweight="light",
+            size="10",
+            color="red",
         )
     )
 
