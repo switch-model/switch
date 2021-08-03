@@ -161,8 +161,7 @@ def define_components(mod):
     mod.hydro_avg_flow_mw = Param(
         mod.HYDRO_GEN_TS_RAW,
         within=NonNegativeReals,
-        input_file='hydro_timeseries.csv',
-        default=0.0)
+        input_file='hydro_timeseries.csv')
 
     # We use a scaling factor to improve the numerical properties
     # of the model. The scaling factor was determined using trial
@@ -172,7 +171,6 @@ def define_components(mod):
     mod.Enforce_Hydro_Avg_Flow = Constraint(
         mod.HYDRO_GEN_TS,
         rule=lambda m, g, hts:
-        Constraint.Skip if m.hydro_avg_flow_mw[g, hts] == 0 else
         enforce_hydro_avg_flow_scaling_factor *
         # Compute the weighted average of the dispatch
         sum(m.DispatchGen[g, t] * m.tp_weight[t] for t in m.TPS_IN_HTS[hts])
