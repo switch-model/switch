@@ -190,7 +190,7 @@ def define_components(mod):
         # Compute the weighted average of the dispatch
         sum(m.DispatchGen[g, t] * m.tp_weight[t] for t in m.TPS_IN_HTS[hts])
         / sum(m.tp_weight[tp] for tp in m.TPS_IN_HTS[hts])
-        == m.hydro_avg_flow_mw[g, hts] * enforce_hydro_avg_flow_scaling_factor,
+        <= m.hydro_avg_flow_mw[g, hts] * enforce_hydro_avg_flow_scaling_factor,
     )
 
     mod.min_data_check("hydro_min_flow_mw", "hydro_avg_flow_mw")
