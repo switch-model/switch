@@ -1,38 +1,41 @@
+"""
+This file handles how data is loaded into SWITCH from the .csv files
+"""
 import os
-from typing import Type
 
 from pyomo.core.base.set import UnknownSetDimen
 from pyomo.environ import *
 
-# Mapping of file names to components to load from that file.
-# Ordered dict to ensure we are creating our components in the right order
+# Maps file names to Pyomo components.
+# The mapping indicates which components should be loaded with data from which files.
 _registered_components = {}
 
 
-def patch_to_allow_loading(cls: Type):
-    def new_init(
-        self, *args, input_file=None, input_column=None, input_optional=None, **kwargs
-    ):
-        self.__old_init__(*args, **kwargs)
-        if input_file is None:
-            return
+def register_component_for_loading(
+    component, input_file, input_column, input_optional, **kwargs
+):
+    """
+    Adds a component to the mapping
+    """
+    # By default an input is optional if there is a default for that input already specified
+    if input_optional is None:
+        input_optional = "default" in kwargs
 
-        if input_optional is None:
-            input_optional = "default" in kwargs
+    # Add the column and optional parameters to the component
+    component.input_column = input_column
+    component.input_optional = input_optional
 
-        self.input_column = input_column
-        self.input_optional = input_optional
-
-        if input_file not in _registered_components:
-            _registered_components[input_file] = [self]
-        else:
-            _registered_components[input_file].append(self)
-
-    cls.__old_init__ = cls.__init__
-    cls.__init__ = new_init
+    # Add the component to the mapping
+    if input_file not in _registered_components:
+        _registered_components[input_file] = [component]
+    else:
+        _registered_components[input_file].append(component)
 
 
 def load_registered_inputs(switch_data, inputs_dir):
+    """
+    Gets called to load all the inputs that are registered.
+    """
     for file, components in _registered_components.items():
         # We use lists since load_aug is going to convert to a list in any case
         params = [c for c in components if isinstance(c, Param)]
@@ -44,7 +47,7 @@ def load_registered_inputs(switch_data, inputs_dir):
                 "This should not happen. Did you specify an input file for an element that is not a Set or Param?"
             )
 
-        kwargs = dict(filename=os.path.join(inputs_dir, file))
+        kwargs = {"filename": os.path.join(inputs_dir, file)}
 
         if len(index) > 1:
             raise Exception(
@@ -52,18 +55,23 @@ def load_registered_inputs(switch_data, inputs_dir):
             )
         elif len(index) == 1:
             index = index[0]
-            optional = index.input_optional
+            optional = (
+                index.input_optional
+            )  # entire file is optional if the index is optional
         else:
             index = None
-            optional = all(c.input_optional for c in components)
+            optional = all(
+                c.input_optional for c in components
+            )  # file is optional if each param is optional and no index
 
         if len(params) == 0:
-            kwargs["set"] = index
+            kwargs["set"] = index  # when only defining the index, we must use 'set'
         else:
             kwargs["param"] = params
             if index is not None:
                 kwargs["index"] = index
 
+        # Load the data
         load_data(
             switch_data,
             optional=optional,
