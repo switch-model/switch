@@ -21,31 +21,16 @@ import matplotlib
 import plotnine
 
 # Local imports
-from switch_model.utilities import StepTimer, get_module_list, query_yes_no
+from switch_model.utilities import (
+    StepTimer,
+    get_module_list,
+    query_yes_no,
+    catch_exceptions,
+)
 
 # When True exceptions that are thrown while graphing will be caught
 # and outputted to console as a warning instead of an error
 CATCH_EXCEPTIONS = True
-
-
-def catch_exceptions(func):
-    """
-    Decorator that wraps a function such that exceptions are caught and outputted as warnings instead.
-    """
-
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        if not CATCH_EXCEPTIONS:
-            return func(*args, **kwargs)
-        try:
-            return func(*args, **kwargs)
-        except:
-            warnings.warn(
-                f"The following error was caught and we are moving on."
-                f"{traceback.format_exc()}"
-            )
-
-    return wrapper
 
 
 # List of graphing functions. Every time a function uses the @graph() decorator,
@@ -77,7 +62,9 @@ def graph(
 
     def decorator(func):
         @functools.wraps(func)
-        @catch_exceptions
+        @catch_exceptions(
+            "Failed to run a graphing function.", should_catch=CATCH_EXCEPTIONS
+        )
         def wrapper(tools: GraphTools):
             if tools.skip_long and is_long:
                 return
