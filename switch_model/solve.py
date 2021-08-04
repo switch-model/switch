@@ -113,6 +113,12 @@ def main(args=None, return_model=False, return_instance=False, attach_data_porta
         # get a list of modules to iterate through
         iterate_modules = get_iteration_list(model)
 
+        # Very that the proper modules are installed
+        if model.options.solver == "cplex_direct":
+            import cplex
+        elif model.options.solver in ("gurobi_direct", "gurobi_aug"):
+            import gurobipy
+
         if model.options.verbose:
             print("\n=======================================================================")
             print("Switch {}, http://switch-model.org".format(switch_model.__version__))
@@ -694,6 +700,8 @@ def solve(model):
     # If we need warm start switch the solver to our augmented version that supports warm starting
     solver_type = model.options.solver
     gurobi_types = ("gurobi", "gurobi_direct", "gurobi_aug")
+    cplex_types = ("cplex", "cplex_direct")
+
     if model.options.warm_start is not None or model.options.save_warm_start:
         if solver_type not in gurobi_types:
             raise NotImplementedError("Warm start functionality requires --solver gurobi")
@@ -730,7 +738,7 @@ def solve(model):
     if model.options.no_crossover:
         if solver_type in gurobi_types:
             options_string += " crossover=0"
-        elif solver_type == "cplex":
+        elif solver_type in cplex_types:
             options_string = " solutiontype=2"
         else:
             raise NotImplementedError(f"--no-crossover not implemented for solver {solver}")
@@ -743,7 +751,7 @@ def solve(model):
             if method == "barrier":
                 method = 2
             options_string += f" method={method}"
-        elif solver_type == "cplex":
+        elif solver_type in cplex_types:
             if method == "barrier":
                 method = 4
             options_string += f" LPMethod={method}"
