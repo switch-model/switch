@@ -117,20 +117,24 @@ of our generation plants from the SWITCH input files.
 import pandas as pd
 
 # READ
-gen_projects = pd.read_csv("generation_projects_info.csv", index_col=False)
-costs = pd.read_csv("gen_build_costs.csv", index_col=False)
-predetermined = pd.read_csv("gen_build_predetermined.csv", index_col=False)
+kwargs = dict(
+  index_col=False,
+  dtype={"GENERATION_PROJECT": str},  # This ensures that the project id column is read as a string not an int
+)
+gen_projects = pd.read_csv("generation_projects_info.csv", *kwargs)
+costs = pd.read_csv("gen_build_costs.csv", *kwargs)
+predetermined = pd.read_csv("gen_build_predetermined.csv", *kwargs)
 
 # JOIN TABLES
 gen_projects = gen_projects.merge(
-    costs,
-    on="GENERATION_PROJECT",
+  costs,
+  on="GENERATION_PROJECT",
 )
 
 gen_projects = gen_projects.merge(
-    predetermined,
-    on=["GENERATION_PROJECT", "build_year"],
-    how="left" # Makes a left join
+  predetermined,
+  on=["GENERATION_PROJECT", "build_year"],
+  how="left"  # Makes a left join
 )
 
 # FILTER
