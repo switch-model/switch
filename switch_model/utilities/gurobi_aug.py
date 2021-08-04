@@ -22,7 +22,7 @@ import pickle
 from pyomo.solvers.plugins.solvers.gurobi_direct import GurobiDirect
 from pyomo.environ import *
 
-from switch_model.utilities import StepTimer
+from switch_model.utilities import StepTimer, catch_exceptions
 
 
 class PicklableData:
@@ -222,6 +222,7 @@ class GurobiAugmented(GurobiDirect):
                 print(f"Created warm start pickle file in {timer.step_time_as_str()}")
         return results
 
+    @catch_exceptions(warning_msg="Failed to save warm start information.")
     def _save_warm_start(self, save_c_v_basis):
         """Create a pickle file containing the CBasis/VBasis information."""
         # Setup our data objects
