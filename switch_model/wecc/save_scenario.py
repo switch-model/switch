@@ -10,10 +10,14 @@ from switch_model.wecc.utilities import connect, load_config
 
 def main():
     # Start CLI
-    parser = argparse.ArgumentParser(description="Saves the existing scenario defined in config.yaml to the database.")
+    parser = argparse.ArgumentParser(
+        description="Creates a new scenario in the database by using the values in"
+                    " config.yaml. Therefore the new scenario will have the same values"
+                    " as the base scenario but you can override specific columns by "
+                    " specifying them in config.yaml.")
     parser.add_argument("scenario_id", type=int, help="The id of the new scenario to add to db.")
-    parser.add_argument("--name", required=True, help="The name of the scenario to use in db.")
-    parser.add_argument("--description", required=True, help="The scenario description to use in db.")
+    parser.add_argument("--name", required=True, help="The name of the new scenario to add in db.")
+    parser.add_argument("--description", required=True, help="The new scenario description to add in db.")
     parser.add_argument("--db-env-var", default="DB_URL", help="The connection environment variable.")
 
     # Optional arguments
