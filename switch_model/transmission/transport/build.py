@@ -347,3 +347,4 @@ def graph(tools):
         xlabel="Period",
         ylabel="Transmission capacity (GW)"
     )
+    tools.bar_label()
