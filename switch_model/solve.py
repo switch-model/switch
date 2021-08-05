@@ -35,6 +35,7 @@ from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 from switch_model.tools.graph.cli_graph import main as graph_main
 from switch_model.utilities.patches import patch_pyomo
 from switch_model.utilities.results_info import save_info, add_info, ResultsInfoSection
+import switch_model.utilities.gurobi_aug  # We keep this line here to ensure that 'gurobi_aug' gets registered as a solver
 
 
 def main(
@@ -155,9 +156,6 @@ def main(
         # create an instance (also reports time spent reading data and loading into model)
         instance = model.load_inputs(attach_data_portal=attach_data_portal)
 
-        if instance.options.warm_start:
-            warm_start(instance)
-
         #### Below here, we refer to instance instead of model ####
 
         instance.pre_solve()
@@ -189,6 +187,13 @@ def main(
 
         # We no longer need model (only using instance) so we can garbage collect it to optimize our memory usage
         del model
+
+        if instance.options.warm_start_mip:
+            if instance.options.verbose:
+                timer.step_time()
+            warm_start_mip(instance)
+            if instance.options.verbose:
+                print(f"Loaded warm start inputs in {timer.step_time_as_str()}.")
 
         if instance.options.reload_prior_solution:
             print("Loading prior solution...")
@@ -276,14 +281,14 @@ def main(
         )
 
 
-def warm_start(instance):
+def warm_start_mip(instance):
     """
-    This function loads in the variables from a previous run
-    and starts out our model at these variables to make it reach
-    a solution faster.
+    This function loads the results from a previous run into the Pyomo variables.
+    This allows Gurobi's Mixed Integer Programming algorithm to "warm start" (start closer to the solution).
+    Warm starting only works in Gurobi if the initial values don't violate any constraints
+    (i.e. valid but not optimal solution).
     """
-    warm_start_timer = StepTimer()
-    warm_start_dir = os.path.join(instance.options.warm_start, "outputs")
+    warm_start_dir = os.path.join(instance.options.warm_start_mip, "outputs")
     if not os.path.isdir(warm_start_dir):
         warnings.warn(
             f"Path {warm_start_dir} does not exist and cannot be used to warm start solver. Warm start skipped."
@@ -309,8 +314,6 @@ def warm_start(instance):
             except (KeyError, ValueError):
                 # If the index isn't valid that's ok, just don't warm start that variable
                 pass
-
-    print(f"Loaded warm start inputs in {warm_start_timer.step_time_as_str()}.")
 
 
 def reload_prior_solution_from_pickle(instance, outdir):
@@ -524,9 +527,15 @@ def define_arguments(argparser):
     # whether that does the same thing as --solver-options-string so we don't reuse the same name.
     argparser.add_argument(
         "--solver-options-string",
-        default=None,
+        default="",
         help="A quoted string of options to pass to the model solver. Each option must be of the form option=value. "
         "(e.g., --solver-options-string \"mipgap=0.001 primalopt='' advance=2 threads=1\")",
+    )
+    argparser.add_argument(
+        "--solver-method",
+        default=None,
+        type=int,
+        help="Specify the solver method to use.",
     )
     argparser.add_argument(
         "--keepfiles",
@@ -640,6 +649,12 @@ def define_arguments(argparser):
         help="Save the solution to a pickle file after model is solved to allow for later inspection via --reload-prior-solution.",
     )
     argparser.add_argument(
+        "--save-warm-start",
+        default=False,
+        action="store_true",
+        help="Save warm_start.pickle to the outputs which allows future runs to warm start from this one.",
+    )
+    argparser.add_argument(
         "--interact",
         default=False,
         action="store_true",
@@ -686,9 +701,26 @@ def define_arguments(argparser):
     )
 
     argparser.add_argument(
+        "--warm-start-mip",
+        default=None,
+        help="Enables warm start for a Mixed Integer problem by specifying the "
+        "path to a previous scenario. Warm starting only works if the solution to the previous solution"
+        "is also a feasible (but not necessarily optimal) solution to the current scenario.",
+    )
+
+    argparser.add_argument(
         "--warm-start",
         default=None,
-        help="Path to folder of directory to use for warm start",
+        help="Enables warm start for a LP Problem by specifying the path to the previous scenario. Note"
+        " that all variables must be the same between the previous and current scenario.",
+    )
+
+    argparser.add_argument(
+        "--gurobi-make-mps",
+        default=False,
+        action="store_true",
+        help="Instead of solving just output a Gurobi .mps file that can be used for debugging numerical properties."
+        " See https://github.com/staadecker/lp-analyzer/ for details.",
     )
 
 
@@ -719,7 +751,7 @@ def add_recommended_args(argparser):
         "--recommended-debug",
         default=False,
         action="store_true",
-        help='Equivalent to running with all of the following options: --solver gurobi -v --sorted-output --keepfiles --tempdir temp --stream-output --symbolic-solver-labels --log-run --debug --solver-options-string "method=2 BarHomogeneous=1 FeasibilityTol=1e-5"',
+        help="Same as --recommended but adds the flags --keepfiles --tempdir temp --symbolic-solver-labels which are useful when debugging Gurobi.",
     )
 
 
@@ -748,8 +780,10 @@ def parse_recommended_args(args):
         "--log-run",
         "--debug",
         "--graph",
+        "--solver-method",
+        "2",  # Method 2 is barrier solve which is much faster than default
     ] + args
-    solver_options_string = "BarHomogeneous=1 FeasibilityTol=1e-5 method=2"
+    solver_options_string = "BarHomogeneous=1 FeasibilityTol=1e-5"
     if options.recommended_fast:
         solver_options_string += " crossover=0"
     args = ["--solver-options-string", solver_options_string] + args
@@ -851,6 +885,18 @@ def solve(model):
         solver = model.solver
         solver_manager = model.solver_manager
     else:
+        # If we need warm start switch the solver to our augmented version that supports warm starting
+        if model.options.warm_start is not None or model.options.save_warm_start:
+            if model.options.solver not in ("gurobi", "gurobi_direct"):
+                raise NotImplementedError(
+                    "Warm start functionality requires --solver gurobi"
+                )
+            model.options.solver = "gurobi_aug"
+
+        if model.options.warm_start is not None:
+            # Method 1 (dual simplex) is required since it supports warm starting.
+            model.options.solver_method = 1
+
         # Create a solver object the first time in. We don't do this until a solve is
         # requested, because sometimes a different solve function may be used,
         # with its own solver object (e.g., with runph or a parallel solver server).
@@ -860,28 +906,35 @@ def solve(model):
         # Note previously solver was saved in model however this is very memory inefficient.
         solver = SolverFactory(model.options.solver, solver_io=model.options.solver_io)
 
-        # If this option is enabled, gurobi will output an IIS to outputs\iis.ilp.
-        if model.options.gurobi_find_iis:
-            # Enable symbolic labels since otherwise we can't debug the .ilp file.
+        if model.options.gurobi_find_iis and model.options.gurobi_make_mps:
+            raise Exception("Can't use --gurobi-find-iis with --gurobi-make-mps.")
+
+        if model.options.gurobi_find_iis or model.options.gurobi_make_mps:
+            # If we are outputting a file we want to enable symbolic labels to help debugging
             model.options.symbolic_solver_labels = True
 
-            # If no string is passed make the string empty so we can add to it
-            if model.options.solver_options_string is None:
-                model.options.solver_options_string = ""
-
+        # If this option is enabled, gurobi will output an IIS to outputs\iis.ilp.
+        if model.options.gurobi_find_iis:
             # Add to the solver options 'ResultFile=iis.ilp'
             # https://stackoverflow.com/a/51994135/5864903
-            iis_file_path = os.path.join(model.options.outputs_dir, "iis.ilp")
-            model.options.solver_options_string += " ResultFile={}".format(
-                iis_file_path
+            model.options.solver_options_string += " ResultFile=iis.ilp"
+        if model.options.gurobi_make_mps:
+            # Output the input file and set time limit to zero to ensure it doesn't actually solve
+            model.options.solver_options_string += (
+                f" ResultFile=problem.mps TimeLimit=0"
             )
 
         if model.options.threads:
+            model.options.solver_options_string += f" Threads={model.options.threads}"
+
+        if model.options.solver_method is not None:
             # If no string is passed make the string empty so we can add to it
             if model.options.solver_options_string is None:
                 model.options.solver_options_string = ""
 
-            model.options.solver_options_string += f" Threads={model.options.threads}"
+            model.options.solver_options_string += (
+                f" method={model.options.solver_method}"
+            )
 
         solver_manager = SolverManagerFactory(model.options.solver_manager)
 
@@ -896,8 +949,16 @@ def solve(model):
         else None,
     )
 
-    if model.options.warm_start is not None:
+    if model.options.warm_start_mip is not None or model.options.warm_start is not None:
         solver_args["warmstart"] = True
+
+    if model.options.warm_start is not None:
+        solver_args["read_warm_start"] = os.path.join(
+            model.options.warm_start, "outputs", "warm_start.pickle"
+        )
+
+    if model.options.save_warm_start:
+        solver_args["write_warm_start"] = os.path.join("outputs", "warm_start.pickle")
 
     # drop all the unspecified options
     solver_args = {k: v for (k, v) in solver_args.items() if v is not None}
