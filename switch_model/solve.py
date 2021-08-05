@@ -724,6 +724,14 @@ def define_arguments(argparser):
         " that all variables must be the same between the previous and current scenario.",
     )
 
+    argparser.add_argument(
+        "--gurobi-make-mps",
+        default=False,
+        action="store_true",
+        help="Instead of solving just output a Gurobi .mps file that can be used for debugging numerical properties."
+        " See https://github.com/staadecker/lp-analyzer/ for details.",
+    )
+
 
 def add_recommended_args(argparser):
     """
@@ -920,15 +928,23 @@ def solve(model):
         solver = SolverFactory(solver_type, solver_io=model.options.solver_io)
         solver_manager = SolverManagerFactory(model.options.solver_manager)
 
-    # If this option is enabled, gurobi will output an IIS to outputs\iis.ilp.
-    if model.options.gurobi_find_iis:
-        # Enable symbolic labels since otherwise we can't debug the .ilp file.
+    if model.options.gurobi_find_iis and model.options.gurobi_make_mps:
+        raise Exception("Can't use --gurobi-find-iis with --gurobi-make-mps.")
+
+    if model.options.gurobi_find_iis or model.options.gurobi_make_mps:
+        # If we are outputting a file we want to enable symbolic labels to help debugging
         model.options.symbolic_solver_labels = True
 
-        # Add to the solver options 'ResultFile=iis.ilp'
-        # https://stackoverflow.com/a/51994135/5864903
-        iis_file_path = os.path.join(model.options.outputs_dir, "iis.ilp")
-        options_string += f" ResultFile={iis_file_path}"
+        # If this option is enabled, gurobi will output an IIS to outputs\iis.ilp.
+        if model.options.gurobi_find_iis:
+            # Add to the solver options 'ResultFile=iis.ilp'
+            # https://stackoverflow.com/a/51994135/5864903
+            model.options.solver_options_string += " ResultFile=iis.ilp"
+        if model.options.gurobi_make_mps:
+            # Output the input file and set time limit to zero to ensure it doesn't actually solve
+            model.options.solver_options_string += (
+                f" ResultFile=problem.mps TimeLimit=0"
+            )
 
     if model.options.no_crossover:
         if solver_type in gurobi_types:
