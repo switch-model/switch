@@ -194,21 +194,27 @@ def define_components(mod):
     mod.trans_new_build_allowed = Param(
         mod.TRANSMISSION_LINES, within=Boolean, default=True
     )
+    mod.trans_capital_cost_per_mw_km = Param(within=NonNegativeReals, default=1000)
     mod.TRANS_BLD_YRS = Set(
         dimen=2,
         initialize=mod.TRANSMISSION_LINES * mod.PERIODS,
-        filter=lambda m, tx, p: m.trans_new_build_allowed[tx],
+        filter=lambda m, tx, p: m.trans_new_build_allowed[tx]
+        and m.trans_capital_cost_per_mw_km != float("inf"),
     )
     mod.BuildTx = Var(mod.TRANS_BLD_YRS, within=NonNegativeReals)
-    mod.TxCapacityNameplate = Expression(
+    mod.NewTxCapacity = Expression(
         mod.TRANSMISSION_LINES,
         mod.PERIODS,
         rule=lambda m, tx, period: sum(
             m.BuildTx[tx, bld_yr]
             for bld_yr in m.PERIODS
             if bld_yr <= period and (tx, bld_yr) in m.TRANS_BLD_YRS
-        )
-        + m.existing_trans_cap[tx],
+        ),
+    )
+    mod.TxCapacityNameplate = Expression(
+        mod.TRANSMISSION_LINES,
+        mod.PERIODS,
+        rule=lambda m, tx, p: m.NewTxCapacity[tx, p] + m.existing_trans_cap[tx],
     )
     mod.trans_derating_factor = Param(
         mod.TRANSMISSION_LINES, within=PercentFraction, default=1
@@ -223,7 +229,6 @@ def define_components(mod):
     mod.trans_terrain_multiplier = Param(
         mod.TRANSMISSION_LINES, within=NonNegativeReals, default=1
     )
-    mod.trans_capital_cost_per_mw_km = Param(within=NonNegativeReals, default=1000)
     mod.trans_lifetime_yrs = Param(within=NonNegativeReals, default=20)
     mod.trans_fixed_om_fraction = Param(within=NonNegativeReals, default=0.03)
     # Total annual fixed costs for building new transmission lines...
@@ -244,12 +249,16 @@ def define_components(mod):
     # function. Units should be total annual future costs in $base_year
     # real dollars. The objective function will convert these to
     # base_year Net Present Value in $base_year real dollars.
+    mod.TxLineCosts = Expression(
+        mod.TRANSMISSION_LINES,
+        mod.PERIODS,
+        rule=lambda m, tx, p: m.NewTxCapacity[tx, p] * m.trans_cost_annual[tx]
+        if (tx, p) in m.TRANS_BLD_YRS
+        else 0,
+    )
     mod.TxFixedCosts = Expression(
         mod.PERIODS,
-        rule=lambda m, p: sum(
-            m.TxCapacityNameplate[tx, p] * m.trans_cost_annual[tx]
-            for tx in m.TRANSMISSION_LINES
-        ),
+        rule=lambda m, p: sum(m.TxLineCosts[tx, p] for tx in m.TRANSMISSION_LINES),
     )
     mod.Cost_Components_Per_Period.append("TxFixedCosts")
 
@@ -371,9 +380,7 @@ def post_solve(instance, outdir):
                 "TxCapacityNameplateAvailable": value(
                     mod.TxCapacityNameplateAvailable[tx, p]
                 ),
-                "TotalAnnualCost": value(
-                    mod.TxCapacityNameplate[tx, p] * mod.trans_cost_annual[tx]
-                ),
+                "TotalAnnualCost": value(mod.TxLineCosts[tx, p]),
             }
             for tx, p in mod.TRANSMISSION_LINES * mod.PERIODS
         ]
@@ -403,3 +410,4 @@ def graph(tools):
         xlabel="Period",
         ylabel="Transmission capacity (GW)",
     )
+    tools.bar_label()
