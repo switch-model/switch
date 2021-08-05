@@ -10,7 +10,6 @@ import functools
 import os, types, sys, argparse, time, datetime, traceback, subprocess, platform
 import warnings
 
-import switch_model.__main__ as main
 from pyomo.environ import *
 from pyomo.core.base.set import UnknownSetDimen
 from pyomo.dataportal import DataManagerFactory
@@ -23,12 +22,6 @@ import pyomo.opt
 # Define string_types (same as six.string_types). This is useful for
 # distinguishing between strings and other iterables.
 string_types = (str,)
-
-# Check whether this is an interactive session (determined by whether
-# __main__ has a __file__ attribute). Scripts can check this value to
-# determine what level of output to display.
-interactive_session = not hasattr(main, '__file__')
-
 
 class CustomModel(AbstractModel):
     """
@@ -218,8 +211,10 @@ class StepTimer(object):
     reset the timer at each step by calling timer.step_time()
     """
 
-    def __init__(self):
+    def __init__(self, msg=None):
         self.start_time = time.time()
+        if msg is not None:
+            print(msg)
 
     def step_time(self):
         """
@@ -589,14 +584,21 @@ def load_aug(switch_data, optional=False, auto_select=False,
         switch_data.load(**kwds)
         return
 
+    # Use our custom DataManager to allow 'inf' in csvs.
+    if extension == ".csv":
+        kwds['using'] = "switch_csv"
+
     # copy the optional_params to avoid side-effects when the list is altered below
     optional_params=list(optional_params)
     # Parse header and first row
     with open(path) as infile:
         headers_line = infile.readline()
         second_line = infile.readline()
-    file_is_empty = (headers_line == '')
-    file_has_no_data_rows = (second_line == '')
+
+    # Skip if the file is empty.
+    if optional and headers_line == '':
+        return
+
     suffix = path.split('.')[-1]
     if suffix in {'tab', 'tsv'}:
         separator = '\t'
@@ -606,9 +608,7 @@ def load_aug(switch_data, optional=False, auto_select=False,
         raise InputError(f'Unrecognized file type for input file {path}')
     # TODO: parse this more formally, e.g. using csv module
     headers = headers_line.strip().split(separator)
-    # Skip if the file is empty.
-    if optional and file_is_empty:
-        return
+
     # Try to get a list of parameters. If param was given as a
     # singleton or a tuple, make it into a list that can be edited.
     params = []
@@ -688,14 +688,11 @@ def load_aug(switch_data, optional=False, auto_select=False,
             del kwds['select'][i]
             del kwds['param'][p_i]
 
-    if optional and file_has_no_data_rows:
-        # Skip the file.  Note that we are only doing this after having
+    if optional and second_line == '':
+        # Skip the file if it has no data.  Note that we are only doing this after having
         # validated the file's column headings.
         return
 
-    # Use our custom DataManager to allow 'inf' in csvs.
-    if kwds["filename"][-4:] == ".csv":
-        kwds['using'] = "switch_csv"
     # All done with cleaning optional bits. Pass the updated arguments
     # into the DataPortal.load() function.
     switch_data.load(**kwds)
@@ -884,7 +881,7 @@ def query_yes_no(question, default="yes"):
                              "(or 'y' or 'n').\n")
 
 
-def catch_exceptions(warning_msg=None, should_catch=True):
+def catch_exceptions(warning_msg="An exception was caught and ignored.", should_catch=True):
     """Decorator that catches exceptions."""
 
     def decorator(func):
@@ -896,8 +893,7 @@ def catch_exceptions(warning_msg=None, should_catch=True):
             try:
                 return func(*args, **kwargs)
             except:
-                if warning_msg is not None:
-                    warnings.warn(warning_msg)
+                warnings.warn(warning_msg + "\nDetailed error log: " + traceback.format_exc())
 
         return wrapper
 
