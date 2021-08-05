@@ -123,6 +123,7 @@ def main(config):
 
     # Get the plant costs from GSheets and append to costs
     storage_costs = fetch_df("costs", "costs_scenario", config)
+    storage_costs = storage_costs[storage_costs["GENERATION_PROJECT"].isin(gen_projects["GENERATION_PROJECT"])]
     add_to_csv("gen_build_costs.csv", storage_costs, primary_key=["GENERATION_PROJECT", "build_year"])
 
     # Create add_storage_info.csv
