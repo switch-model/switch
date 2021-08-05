@@ -15,6 +15,8 @@ import warnings
 from typing import Iterable, List
 
 # Switch packages
+import pandas as pd
+
 from switch_model.wecc.utilities import connect
 from switch_model.version import __version__
 
@@ -66,7 +68,6 @@ modules = [
     "switch_model.transmission.transport.build",
     "switch_model.transmission.transport.dispatch",
     "switch_model.policies.carbon_policies",
-    "switch_model.policies.rps_unbundled",
     "switch_model.policies.min_per_tech",  # Always include since it provides useful outputs even when unused
     # "switch_model.reporting.basic_exports_wecc",
     # Always include since by default it does nothing except output useful data
@@ -720,6 +721,7 @@ def query_db(full_config, skip_cf):
             order by 1, 2;
             """
         )
+        modules.append("switch_model.policies.rps_unbundled")
 
     ########################################################
     # BIO_SOLID SUPPLY CURVE
