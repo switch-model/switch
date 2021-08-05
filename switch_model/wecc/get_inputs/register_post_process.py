@@ -27,6 +27,7 @@ def register_post_process(
     @param enabled Whether we should be using this step.
     @param name Name of the post processing step and of the config section
     @param only_with_config if True the step will only run if 'name' exists in the config file
+    @param priority 0 is highest priority (runs first) and larger numbers are lower priority.
     """
 
     def decorator(func):
