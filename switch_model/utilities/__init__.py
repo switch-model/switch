@@ -214,8 +214,10 @@ class StepTimer(object):
     reset the timer at each step by calling timer.step_time()
     """
 
-    def __init__(self):
+    def __init__(self, msg=None):
         self.start_time = time.time()
+        if msg is not None:
+            print(msg)
 
     def step_time(self):
         """
@@ -949,7 +951,9 @@ def query_yes_no(question, default="yes"):
             sys.stdout.write("Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n")
 
 
-def catch_exceptions(warning_msg=None, should_catch=True):
+def catch_exceptions(
+    warning_msg="An exception was caught and ignored.", should_catch=True
+):
     """Decorator that catches exceptions."""
 
     def decorator(func):
@@ -961,8 +965,9 @@ def catch_exceptions(warning_msg=None, should_catch=True):
             try:
                 return func(*args, **kwargs)
             except:
-                if warning_msg is not None:
-                    warnings.warn(warning_msg)
+                warnings.warn(
+                    warning_msg + "\nDetailed error log: " + traceback.format_exc()
+                )
 
         return wrapper
 
