@@ -200,7 +200,7 @@ def get_valid_ids(primary_file, args):
         print("\n Warning: {} was not found.".format(filename))
         return None
 
-    valid_ids = pandas.read_csv(path)[primary_key]
+    valid_ids = pandas.read_csv(path, dtype=str)[primary_key]
     return valid_ids
 
 
@@ -210,7 +210,7 @@ def drop_from_file(filename, foreign_key, valid_ids, args):
     if not os.path.exists(path):
         return 0
 
-    df = pandas.read_csv(path)
+    df = pandas.read_csv(path, dtype=str)
     count = len(df)
     if foreign_key not in df.columns:
         raise Exception(f"Column {foreign_key} not in file {filename}")
