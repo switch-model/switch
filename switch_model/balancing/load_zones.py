@@ -275,7 +275,7 @@ def post_solve(instance, outdir):
     title="Energy balance duals per period",
     note="Note: Outliers and zero-valued duals are ignored.",
 )
-def graph(tools):
+def graph_energy_balance(tools):
     load_balance = tools.get_dataframe("load_balance.csv")
     load_balance = tools.transform.timestamp(load_balance)
     load_balance["energy_balance_duals"] = (
@@ -296,3 +296,44 @@ def graph(tools):
             ylabel="Energy balance duals (cents/kWh)",
             showfliers=False,
         )
+
+
+@graph("daily_demand", title="Total daily demand", supports_multi_scenario=True)
+def demand(tools):
+    df = tools.get_dataframe("loads.csv", from_inputs=True, drop_scenario_info=False)
+    df = df.groupby(["TIMEPOINT", "scenario_name"], as_index=False).sum()
+    df = tools.transform.timestamp(df, key_col="TIMEPOINT", use_timepoint=True)
+    df = df.groupby(
+        ["season", "hour", "scenario_name", "time_row"], as_index=False
+    ).mean()
+    df["zone_demand_mw"] /= 1e3
+    pn = tools.pn
+
+    plot = (
+        pn.ggplot(df)
+        + pn.geom_line(pn.aes(x="hour", y="zone_demand_mw", color="scenario_name"))
+        + pn.facet_grid("time_row ~ season")
+        + pn.labs(x="Hour (PST)", y="Demand (GW)", color="Scenario")
+    )
+    tools.save_figure(plot.draw())
+
+
+@graph("demand", title="Total demand", supports_multi_scenario=True)
+def yearly_demand(tools):
+    df = tools.get_dataframe("loads.csv", from_inputs=True, drop_scenario_info=False)
+    df = df.groupby(["TIMEPOINT", "scenario_name"], as_index=False).sum()
+    df = tools.transform.timestamp(df, key_col="TIMEPOINT", use_timepoint=True)
+    df["zone_demand_mw"] *= df["tp_duration"] / 1e3
+    df["day"] = df["datetime"].dt.day_of_year
+    df = df.groupby(["day", "scenario_name", "time_row"], as_index=False)[
+        "zone_demand_mw"
+    ].sum()
+    pn = tools.pn
+
+    plot = (
+        pn.ggplot(df)
+        + pn.geom_line(pn.aes(x="day", y="zone_demand_mw", color="scenario_name"))
+        + pn.facet_grid("time_row ~ .")
+        + pn.labs(x="Day of Year", y="Demand (GW)", color="Scenario")
+    )
+    tools.save_figure(plot.draw())
