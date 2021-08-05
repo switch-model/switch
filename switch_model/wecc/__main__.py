@@ -20,7 +20,7 @@ cmds = {
 }
 
 def main(args=None):
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("subcommand", choices=cmds.keys(), help="The possible switch subcommands")
 
     args, remaining_args = parser.parse_known_args(args)
