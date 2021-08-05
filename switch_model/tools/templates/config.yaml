@@ -49,3 +49,5 @@ get_inputs:
   # plants_scenario: 0
   # constant_scenario: 0
   # minimums_scenario: 0
+# When the following line is uncommented (regardless of its value) then only California load zones are kept
+# only_california: 0
