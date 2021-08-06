@@ -36,7 +36,7 @@ def post_process(config):
     assert "Hydro_Pumped" not in agg_techs
 
     print(
-        f"\t\tAggregating on projects where gen_tech in {agg_techs} with capacity factors from the {cf_quantile * 100}th percentile")
+        f"\t\tAggregating on projects where gen_tech in {agg_techs} with capacity factor method {cf_method}")
     key = "GENERATION_PROJECT"
 
     #################
@@ -49,8 +49,18 @@ def post_process(config):
     columns = df.columns.values
     predetermined = pd.read_csv("gen_build_predetermined.csv", usecols=[key], dtype={key: str})[key]
     should_agg = df["gen_tech"].isin(agg_techs) & (~df[key].isin(predetermined))
-    projects_no_agg = df[~should_agg]
-    df = df[should_agg]
+    if cf_method == "file":
+        # Filter out projects where we don't have a capacity factor
+        zonal_cf = pd.read_csv("zonal_capacity_factors.csv", index_col=False)
+        valid_proj = df.merge(
+            zonal_cf[["gen_load_zone", "gen_tech"]].drop_duplicates(),
+            on=["gen_load_zone", "gen_tech"],
+            how='right',
+            validate="many_to_one"
+        )[key]
+        should_agg &= df[key].isin(valid_proj)
+    projects_no_agg = df[~should_agg].copy()
+    df = df[should_agg].copy()
 
     # Reset the dbid since we're creating a new project
     df["gen_dbid"] = "."
@@ -153,10 +163,18 @@ def post_process(config):
         df = dfgroup \
             .quantile(lambda x: np.average(x["gen_max_capacity_factor"], weights=x["weight"])) \
             .rename({None: "gen_max_capacity_factor"}, axis=1)
-    else:
-        zonal_cf = pd.read_csv("zonal_capacity_factors.csv", index_col=False)
+    elif cf_method == "file":
+        df = df.drop(["gen_max_capacity_factor", "weight"], axis=1).drop_duplicates()
+        df = df.merge(
+            zonal_cf,
+            on=["gen_load_zone", "timepoint", "gen_tech"],
+            how='left'
+        )
+        breakpoint()
         # TODO
-    df = pd.concat([df, df_keep])
+    else:
+        raise NotImplementedError(f"Method '{cf_method}' is not implemented.")
+    df = pd.concat([df[columns], df_keep])
     df[columns].to_csv(filename, index=False)
 
 
