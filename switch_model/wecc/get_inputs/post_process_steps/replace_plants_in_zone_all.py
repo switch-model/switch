@@ -3,7 +3,7 @@ import pandas as pd
 from switch_model.wecc.get_inputs.register_post_process import register_post_process
 
 
-@register_post_process(msg="Replacing _ALL_ZONES plants with a plant in each zone")
+@register_post_process(name="replace_all_zones_plants", msg="Replacing _ALL_ZONES plants with a plant in each zone")
 def replace_plants_in_zone_all(_):
     """
     This post-process step replaces all the generation projects that have a load called
