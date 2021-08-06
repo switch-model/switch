@@ -28,7 +28,7 @@ from switch_model.wecc.get_inputs.register_post_process import register_post_pro
 )
 def post_process(config):
     agg_techs = config["agg_techs"]
-    cf_quantile = config["cf_quantile"]
+    cf_method = config["cf_method"]
     assert type(agg_techs) == list
     # Don't allow hydro to be aggregated since we haven't implemented how to handle
     # hydro_timeseries.csv
@@ -57,7 +57,7 @@ def post_process(config):
 
     # Specify the new project id (e.g. agg_Wind_CA_SGE) and save a mapping of keys to aggregate keys for later
     df["agg_key"] = "agg_" + df["gen_tech"] + "_" + df["gen_load_zone"]
-    keys_to_agg = df[[key, "agg_key"]]
+    keys_to_agg = df[[key, "agg_key", "gen_tech", "gen_load_zone"]]
     df = df.astype({"gen_capacity_limit_mw": float})
     keys_to_agg["weight"] = df["gen_capacity_limit_mw"]
     df[key] = df.pop("agg_key")
@@ -99,11 +99,11 @@ def post_process(config):
     df = df[should_agg]
     # Replace the plant id with the aggregated plant id
     df = df \
-        .merge(keys_to_agg,
+        .merge(keys_to_agg[[key, "agg_key"]],
                on=key,
                how='left',
                validate="many_to_one") \
-        .drop([key, "weight"], axis=1) \
+        .drop(key, axis=1) \
         .rename({"agg_key": key}, axis=1)
 
     # Aggregate
@@ -141,16 +141,21 @@ def post_process(config):
                on=key,
                how='left',
                validate="many_to_one") \
-        .drop([key, "weight"], axis=1) \
+        .drop(key, axis=1) \
         .rename({"agg_key": key}, axis=1)
 
-    # Aggregate by group and key
+    # Aggregate by group and timepoint
     dfgroup = df.groupby([key, "timepoint"], as_index=False, dropna=False, sort=False)
-    df = dfgroup.quantile(cf_quantile)
-    # Code to take the weighted average
-    # df = dfgroup \
-    #     .quantile(lambda x: np.average(x["gen_max_capacity_factor"], weights=x["weight"])) \
-    #     .rename({None: "gen_max_capacity_factor"}, axis=1)
+    if cf_method == "95_quantile":
+        df = dfgroup.quantile(0.95)
+    elif cf_method == "weighted_mean":
+        # Code to take the weighted average
+        df = dfgroup \
+            .quantile(lambda x: np.average(x["gen_max_capacity_factor"], weights=x["weight"])) \
+            .rename({None: "gen_max_capacity_factor"}, axis=1)
+    else:
+        zonal_cf = pd.read_csv("zonal_capacity_factors.csv", index_col=False)
+        # TODO
     df = pd.concat([df, df_keep])
     df[columns].to_csv(filename, index=False)
 
@@ -235,7 +240,7 @@ def create_capacity_factors():
 
     # Add the period to each row by merging with outputs/timestamp.csv
     timestamps = pd.read_csv("outputs/timestamps.csv",
-                             usecols=["timestamp", "period"],
+                             usecols=["timestamp", "timepoint", "period"],
                              index_col=False)
     dispatch = dispatch.merge(
         timestamps,
@@ -286,7 +291,7 @@ def create_capacity_factors():
 
     dispatch["gen_max_capacity_factor"] = dispatch["DispatchUpperLimit"] / (
                 dispatch["GenCapacity"] * (1 - dispatch["gen_forced_outage_rate"]))
-    dispatch = dispatch[["gen_tech", "gen_load_zone", "timestamp", "gen_max_capacity_factor"]]
+    dispatch = dispatch[["gen_tech", "gen_load_zone", "timestamp", "timepoint", "gen_max_capacity_factor"]]
     dispatch.to_csv("zonal_capacity_factors.csv", index=False)
 
 
