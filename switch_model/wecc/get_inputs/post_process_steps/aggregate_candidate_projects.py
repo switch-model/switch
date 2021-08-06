@@ -170,8 +170,6 @@ def post_process(config):
             on=["gen_load_zone", "timepoint", "gen_tech"],
             how='left'
         )
-        breakpoint()
-        # TODO
     else:
         raise NotImplementedError(f"Method '{cf_method}' is not implemented.")
     df = pd.concat([df[columns], df_keep])
