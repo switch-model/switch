@@ -24,8 +24,7 @@ def main():
     parser.add_argument("--skip-cf", default=False, action='store_true',
                         help="Skip creation variable_capacity_factors.csv. Useful when debugging and one doesn't"
                              "want to wait for the command.")
-    parser.add_argument("--post-only", default=False, action='store_true',
-                        help="Only run the post solve functions (don't query db)")
+    parser.add_argument("--post-process", default=None, help="Run only this post process step.")
     parser.add_argument("--overwrite", default=False, action='store_true',
                         help="Overwrite previous input files without prompting to confirm.")
     args = parser.parse_args()  # Makes switch get_inputs --help works
@@ -34,9 +33,10 @@ def main():
     full_config = load_config()
     switch_to_input_dir(full_config, overwrite=args.overwrite)
 
-    if not args.post_only:
+    if args.post_process is None:
         query_db(full_config, skip_cf=args.skip_cf)
-    run_post_process(full_config)
+    print("Post-processing...")
+    run_post_process(full_config, step_name=args.post_process)
     print(f"\nScript took {timer.step_time_as_str()} seconds to build input tables.")
 
 
