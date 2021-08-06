@@ -12,6 +12,8 @@ Implementation details:
 
 3. We aggregate the variable_capacity_factors.csv by averaging the values for each timepoint
 """
+import warnings
+
 import numpy as np
 import pandas as pd
 
@@ -24,7 +26,7 @@ from switch_model.wecc.get_inputs.register_post_process import register_post_pro
     only_with_config=True,
     priority=4
 )
-def main(config):
+def post_process(config):
     agg_techs = config["agg_techs"]
     cf_quantile = config["cf_quantile"]
     assert type(agg_techs) == list
@@ -33,7 +35,8 @@ def main(config):
     assert "Hydro_NonPumped" not in agg_techs
     assert "Hydro_Pumped" not in agg_techs
 
-    print(f"\t\tAggregating on projects where gen_tech in {agg_techs} with capacity factors from the {cf_quantile*100}th percentile")
+    print(
+        f"\t\tAggregating on projects where gen_tech in {agg_techs} with capacity factors from the {cf_quantile * 100}th percentile")
     key = "GENERATION_PROJECT"
 
     #################
@@ -150,3 +153,142 @@ def main(config):
     #     .rename({None: "gen_max_capacity_factor"}, axis=1)
     df = pd.concat([df, df_keep])
     df[columns].to_csv(filename, index=False)
+
+
+def create_capacity_factors():
+    """
+    This function creates a zonal_capacity_factors.csv file
+    that contains capacity factors aggregated by load_zone, timepoint and technology based on the dispatch
+    instructions for *candidate* renewable plants from the results of a previous run. Capacity
+    factors are calculated by aggregating all the candidate plants of the same gen_tech within a load
+    zone and using the following equation
+
+    capacity factor = (DispatchGen + Curtailment) / (GenCapacity  * (1 - gen_forced_outage_rate))
+
+    This equation is essentially backtracking how DispatchUpperLimit is calculated in the SWITCH model.
+    See switch_model.generators.core.no_commit.py
+
+    Note that capacity factors are only calculated for technologies where all the candidate
+    plants are variable and not baseload (baseload plants have a different way of calculating the outage rate).
+
+    This function requires the following files
+        inputs/generation_projects_info.csv (to get gen_forced_outage_rate)
+        inputs/gen_build_predetermined.csv (to know which projects are candidate projects)
+        outputs/timestamps.csv (to find which timepoint matches which period)
+        outputs/gen_cap.csv (to find the GenCapacity during any period)
+        outputs/dispatch.csv (to know the DispatchGen and Curtailment)
+    """
+    # Read the projects
+    projects = pd.read_csv("inputs/generation_projects_info.csv",
+                           usecols=["GENERATION_PROJECT", "gen_tech", "gen_is_variable", "gen_is_baseload",
+                                    "gen_forced_outage_rate"],
+                           dtype={"GENERATION_PROJECT": str},
+                           index_col=False)
+    # Filter out predetermined plants
+    predetermined = pd.read_csv("inputs/gen_build_predetermined.csv", usecols=["GENERATION_PROJECT"],
+                                dtype={"GENERATION_PROJECT": str},
+                                index_col=False)["GENERATION_PROJECT"]
+    n = len(projects)
+    projects = projects[~projects["GENERATION_PROJECT"].isin(predetermined)]
+    print(f"Removed {n - len(projects)} projects that were predetermined plants.")
+    del predetermined
+    # Determine the gen_techs where gen_is_variable is always True and gen_is_baseload is always False.
+    # Grouping and summing works since summing Falses gives 0 but summing Trues gives >0.
+    projects["gen_is_not_variable"] = ~projects["gen_is_variable"]
+    grouped_projects = projects.groupby("gen_tech", as_index=False)[["gen_is_not_variable", "gen_is_baseload"]].sum()
+    grouped_projects = grouped_projects[
+        (grouped_projects["gen_is_not_variable"] == 0) & (grouped_projects["gen_is_baseload"] == 0)]
+    gen_tech = grouped_projects["gen_tech"]
+    del grouped_projects
+    print(f"Aggregating for gen_tech: {gen_tech.values}")
+
+    # Filter out projects that aren't variable or are baseload
+    n = len(projects)
+    projects = projects[projects["gen_tech"].isin(gen_tech)]
+    valid_gens = projects["GENERATION_PROJECT"]
+    print(f"Removed {n - len(projects)} projects that aren't of allowed gen_tech.")
+
+    # Calculate the gen_forced_outage_rate and verify it is identical for all the projects within the same group
+    outage_rates = projects.groupby("gen_tech", as_index=False)["gen_forced_outage_rate"]
+    if (outage_rates.nunique()["gen_forced_outage_rate"] - 1).sum() != 0:
+        outage_rates = outage_rates.nunique().set_index("gen_tech")["gen_forced_outage_rate"] - 1
+        outage_rates = outage_rates[outage_rates != 0]
+        raise Exception(
+            f"These generation technologies have different forced outage rates: {outage_rates.index.values}")
+    outage_rates = outage_rates.mean()  # They're all the same so mean returns the proper value
+    del projects
+    print("Check passed: gen_forced_outage_rate is identical.")
+
+    # Read the dispatch instructions
+    dispatch = pd.read_csv("outputs/dispatch.csv",
+                           usecols=["generation_project", "timestamp", "gen_tech", "gen_load_zone", "DispatchGen_MW",
+                                    "Curtailment_MW"],
+                           index_col=False,
+                           dtype={"generation_project": str})
+    # Keep only valid projects
+    dispatch = dispatch[dispatch["generation_project"].isin(valid_gens)]
+    # Group by timestamp, gen_tech and load_zone
+    dispatch = dispatch.groupby(["timestamp", "gen_tech", "gen_load_zone"], as_index=False).sum()
+    # Get the DispatchUpperLimit from DispatchGen + Curtailment
+    dispatch["DispatchUpperLimit"] = dispatch["DispatchGen_MW"] + dispatch["Curtailment_MW"]
+    dispatch = dispatch.drop(["DispatchGen_MW", "Curtailment_MW"], axis=1)
+
+    # Add the period to each row by merging with outputs/timestamp.csv
+    timestamps = pd.read_csv("outputs/timestamps.csv",
+                             usecols=["timestamp", "period"],
+                             index_col=False)
+    dispatch = dispatch.merge(
+        timestamps,
+        on="timestamp",
+        how='left',
+        validate="many_to_one"
+    )
+    del timestamps
+
+    # Read the gen_cap.csv
+    cap = pd.read_csv("outputs/gen_cap.csv",
+                      usecols=["GENERATION_PROJECT", "PERIOD", "gen_tech", "gen_load_zone", "GenCapacity"],
+                      index_col=False,
+                      dtype={"GENERATION_PROJECT": str}).rename({"PERIOD": "period"}, axis=1)
+    # Keep only valid projects
+    cap = cap[cap["GENERATION_PROJECT"].isin(valid_gens)].drop("GENERATION_PROJECT", axis=1)
+    # Sum for the tech, period and load zone
+    cap = cap.groupby(["period", "gen_tech", "gen_load_zone"], as_index=False).sum()
+    # Merge onto dispatch
+    dispatch = dispatch.merge(
+        cap,
+        on=["period", "gen_tech", "gen_load_zone"],
+        how="left",
+        validate="many_to_one"
+    )
+    del cap
+
+    # Filter out zones with no buildout
+    is_no_buildout = dispatch["GenCapacity"] == 0
+    missing_data = dispatch\
+        [is_no_buildout]\
+        [["period", "gen_tech", "gen_load_zone"]]\
+        .drop_duplicates()\
+        .groupby(["period", "gen_tech"], as_index=False)["gen_load_zone"]\
+        .nunique()\
+        .rename({"gen_load_zone": "Number of Load Zones"}, axis=1)
+    if missing_data["Number of Load Zones"].sum() > 0:
+        warnings.warn(
+            f"Unable to make capacity factors for the following categories since total capacity in those zones is 0.\n{missing_data}")
+    dispatch = dispatch[~is_no_buildout]
+
+    # Merge outage rates onto dispatch
+    dispatch = dispatch.merge(
+        outage_rates,
+        on="gen_tech"
+    )
+    del outage_rates
+
+    dispatch["gen_max_capacity_factor"] = dispatch["DispatchUpperLimit"] / (
+                dispatch["GenCapacity"] * (1 - dispatch["gen_forced_outage_rate"]))
+    dispatch = dispatch[["gen_tech", "gen_load_zone", "timestamp", "gen_max_capacity_factor"]]
+    dispatch.to_csv("zonal_capacity_factors.csv", index=False)
+
+
+if __name__=="__main__":
+    create_capacity_factors()
