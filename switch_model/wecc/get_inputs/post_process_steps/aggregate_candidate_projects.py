@@ -33,7 +33,7 @@ def main(config):
     assert "Hydro_NonPumped" not in agg_techs
     assert "Hydro_Pumped" not in agg_techs
 
-    print(f"\t\tAggregating on projects where gen_tech in {agg_techs}")
+    print(f"\t\tAggregating on projects where gen_tech in {agg_techs} with capacity factors from the {cf_quantile*100}th percentile")
     key = "GENERATION_PROJECT"
 
     #################
@@ -49,8 +49,8 @@ def main(config):
     projects_no_agg = df[~should_agg]
     df = df[should_agg]
 
-    # Drop the db_id column since we're creating a new project
-    df = df.drop("gen_dbid", axis=1)
+    # Reset the dbid since we're creating a new project
+    df["gen_dbid"] = "."
 
     # Specify the new project id (e.g. agg_Wind_CA_SGE) and save a mapping of keys to aggregate keys for later
     df["agg_key"] = "agg_" + df["gen_tech"] + "_" + df["gen_load_zone"]
