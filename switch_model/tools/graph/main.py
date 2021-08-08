@@ -743,6 +743,93 @@ class GraphTools(DataHandler):
         legend_pairs = legend.items()
         fig.legend([h for _, h in legend_pairs], [l for l, _ in legend_pairs])
 
+    def graph_map_pychart(self, df, max_size=2500):
+        """
+        Graphs the data from the dataframe to a map pychart.
+        The dataframe should have 3 columns, gen_load_zone, gen_type and value.
+        """
+        # Scale the dataframe so the pie charts have the right size
+        current_max_size = df.groupby("gen_load_zone")["value"].sum().max()
+        df["value"] *= max_size / current_max_size
+
+        try:
+            import geopandas
+        except ModuleNotFoundError:
+            raise Exception("Could not find package 'geopandas'. Make sure you install it through conda.")
+
+        # Read shape files
+        try:
+            wecc_lz = geopandas.read_file("inputs/maps/wecc_102009.shp", crs="ESRI:102009")
+            wecc_states = geopandas.read_file("inputs/maps/wecc_states_4326.shp")
+        except FileNotFoundError:
+            raise Exception("Can't create maps, shape files are missing. Try running switch get_inputs.")
+
+        # Find the center point
+        wecc_lz["Center_point"] = wecc_lz["geometry"].centroid
+
+        # Extract lat and lon from the centerpoint
+        wecc_lz["lat"] = wecc_lz.Center_point.map(lambda p: p.x)
+        wecc_lz["lng"] = wecc_lz.Center_point.map(lambda p: p.y)
+
+        # New dataframe with the centerpoint geometry
+        gdf = geopandas.GeoDataFrame(
+            wecc_lz[["LOAD_AREA", "lat", "lng"]],
+            geometry=geopandas.points_from_xy(x=wecc_lz.lat, y=wecc_lz.lng),
+            crs="ESRI:102009",
+        )
+
+        # REFERENC: https://tinyurl.com/app/myurls
+        def pie_plot(x, y, ratios, colors, size, ax=None):
+            # determine arches
+            start = 0.0
+            xy = []
+            s = []
+            for ratio in ratios:
+                x0 = [0] + np.cos(
+                    np.linspace(2 * np.pi * start, 2 * np.pi * (start + ratio), 30)
+                ).tolist()  # 30
+                y0 = [0] + np.sin(
+                    np.linspace(2 * np.pi * start, 2 * np.pi * (start + ratio), 30)
+                ).tolist()  # 30
+
+                xy1 = np.column_stack([x0, y0])
+                s1 = np.abs(xy1).max()
+
+                xy.append(xy1)
+                s.append(s1)
+                start += ratio
+
+            for xyi, si, c in zip(xy, s, colors):
+                ax.scatter(
+                    [x], [y], marker=xyi, s=size * si ** 2, c=c, edgecolor="k", zorder=10
+                )
+
+
+        projection = "EPSG:4326"
+
+        cap_by_lz = gdf.merge(df, right_on="gen_load_zone", left_on="LOAD_AREA").to_crs(
+            projection
+        )
+
+        ax = self.get_axes(size=(15, 10))
+        ax.set_aspect("equal")
+        wecc_states.plot(ax=ax, lw=0.5, edgecolor="white", color="#E5E5E5", zorder=-999)
+
+        assert not cap_by_lz["gen_type"].isnull().values.any()
+        colors = self.get_colors()
+        for index, group in cap_by_lz.groupby(["gen_load_zone"]):
+            x, y = group["geometry"].iloc[0].x, group["geometry"].iloc[0].y
+            group_sum = group.groupby("gen_type")["value"].sum().sort_values()
+            group_sum = group_sum[(group_sum != 0)].copy()
+
+            tech_color = [colors[tech] for tech in group_sum.index.values]
+            total_size = group_sum.sum()
+            ratios = (group_sum / total_size).values
+            pie_plot(x, y, ratios, tech_color, ax=ax, size=total_size)
+        ax.axis("off")
+
+
+
     @staticmethod
     def sort_build_years(x):
         def val(v):
