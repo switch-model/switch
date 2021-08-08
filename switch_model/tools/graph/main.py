@@ -486,10 +486,9 @@ class DataHandler:
         if not filename.endswith(".csv"):
             filename += ".csv"
 
-        if folder is None:
-            folder = "inputs" if from_inputs else "outputs"
-
-        path = os.path.join(folder, filename)
+        path = self.get_file_path(
+            filename, folder, from_inputs, scenario_specific=False
+        )
 
         # If doesn't exist, create it
         if path not in self._dfs:
@@ -510,6 +509,19 @@ class DataHandler:
             if drop_scenario_info:
                 df = df.drop(["scenario_index", "scenario_name"], axis=1)
         return df
+
+    def get_file_path(
+        self, filename, folder=None, from_inputs=False, scenario_specific=True
+    ):
+        if folder is None:
+            folder = "inputs" if from_inputs else "outputs"
+
+        path = os.path.join(folder, filename)
+
+        if scenario_specific:
+            path = os.path.join(self._scenarios[self._active_scenario].path, path)
+
+        return path
 
     def _load_dataframe(self, path, dtype=None, **kwargs) -> pd.DataFrame:
         """
@@ -856,15 +868,18 @@ class GraphTools(DataHandler):
             import geopandas
         except ModuleNotFoundError:
             raise Exception(
-                "Could not find package 'geopandas'. Make sure you install it through conda."
+                "Could not find package 'geopandas'. If on Windows make sure you install it through conda."
             )
 
         # Read shape files
         try:
             wecc_lz = geopandas.read_file(
-                "inputs/maps/wecc_102009.shp", crs="ESRI:102009"
+                self.get_file_path("maps/wecc_102009.shp", from_inputs=True),
+                crs="ESRI:102009",
             )
-            wecc_states = geopandas.read_file("inputs/maps/wecc_states_4326.shp")
+            wecc_states = geopandas.read_file(
+                self.get_file_path("maps/wecc_states_4326.shp", from_inputs=True)
+            )
         except FileNotFoundError:
             raise Exception(
                 "Can't create maps, shape files are missing. Try running switch get_inputs."
@@ -922,8 +937,7 @@ class GraphTools(DataHandler):
             projection
         )
 
-        ax = self.get_axes(size=(15, 10))
-        ax.set_aspect("equal")
+        ax = self.get_axes(size=(7, 12))
         wecc_states.plot(ax=ax, lw=0.5, edgecolor="white", color="#E5E5E5", zorder=-999)
 
         assert not cap_by_lz["gen_type"].isnull().values.any()
