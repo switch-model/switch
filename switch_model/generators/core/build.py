@@ -894,3 +894,15 @@ def graph_buildout_per_tech(tools):
     ax.yaxis.set_major_formatter(tools.mplt.ticker.PercentFormatter(1.0))
     # Horizontal line at 100%
     ax.axhline(y=1, linestyle="--", color="b")
+
+
+@graph("buildout_map", title="Map of online capacity per load zone.")
+def buildout_map(tools):
+    buildout = tools.get_dataframe("gen_cap.csv").rename(
+        {"GenCapacity": "value"}, axis=1
+    )
+    buildout = tools.transform.gen_type(buildout)
+    buildout = buildout.groupby(["gen_type", "gen_load_zone"], as_index=False)[
+        "value"
+    ].sum()
+    tools.graph_map_pychart(buildout)
