@@ -790,4 +790,4 @@ def buildout_map(tools):
     buildout = tools.get_dataframe("gen_cap.csv").rename({"GenCapacity": "value"}, axis=1)
     buildout = tools.transform.gen_type(buildout)
     buildout = buildout.groupby(["gen_type", "gen_load_zone"], as_index=False)["value"].sum()
-    tools.graph_map_pychart(buildout)
+    tools.maps.graph_pie_chart(buildout)

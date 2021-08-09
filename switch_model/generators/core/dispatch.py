@@ -829,4 +829,4 @@ def dispatch_map(tools):
     dispatch = tools.get_dataframe("dispatch_zonal_annual_summary.csv").rename({"Energy_GWh_typical_yr": "value"}, axis=1)
     dispatch = tools.transform.gen_type(dispatch)
     dispatch = dispatch.groupby(["gen_type", "gen_load_zone"], as_index=False)["value"].sum()
-    tools.graph_map_pychart(dispatch)
+    tools.maps.graph_pie_chart(dispatch)
