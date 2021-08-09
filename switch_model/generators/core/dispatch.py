@@ -936,3 +936,15 @@ def graph_curtailment_per_tech(tools):
     ax.yaxis.set_major_formatter(tools.mplt.ticker.PercentFormatter(1.0))
     # Horizontal line at 100%
     # ax.axhline(y=1, linestyle="--", color='b')
+
+
+@graph("dispatch_map", title="Dispatched electricity per load zone")
+def dispatch_map(tools):
+    dispatch = tools.get_dataframe("dispatch_zonal_annual_summary.csv").rename(
+        {"Energy_GWh_typical_yr": "value"}, axis=1
+    )
+    dispatch = tools.transform.gen_type(dispatch)
+    dispatch = dispatch.groupby(["gen_type", "gen_load_zone"], as_index=False)[
+        "value"
+    ].sum()
+    tools.graph_map_pychart(dispatch)
