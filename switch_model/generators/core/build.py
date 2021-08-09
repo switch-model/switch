@@ -905,4 +905,4 @@ def buildout_map(tools):
     buildout = buildout.groupby(["gen_type", "gen_load_zone"], as_index=False)[
         "value"
     ].sum()
-    tools.graph_map_pychart(buildout)
+    tools.maps.graph_pie_chart(buildout)

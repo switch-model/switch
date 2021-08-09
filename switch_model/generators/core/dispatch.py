@@ -947,4 +947,4 @@ def dispatch_map(tools):
     dispatch = dispatch.groupby(["gen_type", "gen_load_zone"], as_index=False)[
         "value"
     ].sum()
-    tools.graph_map_pychart(dispatch)
+    tools.maps.graph_pie_chart(dispatch)

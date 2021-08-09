@@ -119,6 +119,160 @@ class Scenario:
         os.chdir(Scenario.root_path)
 
 
+class GraphMapTools:
+    def __init__(self, graph_tools):
+        self._tools = graph_tools
+        self._wecc_states = None
+        self._center_points = None
+        self._figure_size = (11, 12)
+        self._shapely = None
+        self._geopandas = None
+
+    def _load_maps(self):
+        """
+        Plots the WECC states as a background on the provided axes
+        and returns a dataframe with a mapping of load zones to center points.
+        """
+        if self._wecc_states is None or self._center_points is None:
+            try:
+                import geopandas
+            except ModuleNotFoundError:
+                raise Exception(
+                    "Could not find package 'geopandas'. If on Windows make sure you install it through conda."
+                )
+
+            import shapely
+
+            self._shapely = shapely
+            self._geopandas = geopandas
+
+            # Read shape files
+            try:
+                wecc_lz = geopandas.read_file(
+                    self._tools.get_file_path("maps/wecc_102009.shp", from_inputs=True),
+                    crs="ESRI:102009",
+                )
+                self._wecc_states = geopandas.read_file(
+                    self._tools.get_file_path(
+                        "maps/wecc_states_4326.shp", from_inputs=True
+                    )
+                )
+            except FileNotFoundError:
+                raise Exception(
+                    "Can't create maps, shape files are missing. Try running switch get_inputs."
+                )
+
+            wecc_lz = wecc_lz.rename({"LOAD_AREA": "gen_load_zone"}, axis=1)
+
+            # New dataframe with the centerpoint geometry
+            self._center_points = geopandas.GeoDataFrame(
+                wecc_lz[["gen_load_zone"]],
+                geometry=wecc_lz["geometry"].centroid,
+                crs="ESRI:102009",
+            ).to_crs("EPSG:4326")
+
+        return self._wecc_states, self._center_points
+
+    def _plot_states(self, ax):
+        states, _ = self._load_maps()
+        states.plot(ax=ax, lw=0.5, edgecolor="white", color="#E5E5E5", zorder=-999)
+        ax.axis("off")
+
+    @staticmethod
+    def _pie_plot(x, y, ratios, colors, size, ax=None):
+        # REFERENC: https://tinyurl.com/app/myurls
+        # determine arches
+        start = 0.0
+        xy = []
+        s = []
+        for ratio in ratios:
+            x0 = [0] + np.cos(
+                np.linspace(2 * np.pi * start, 2 * np.pi * (start + ratio), 30)
+            ).tolist()  # 30
+            y0 = [0] + np.sin(
+                np.linspace(2 * np.pi * start, 2 * np.pi * (start + ratio), 30)
+            ).tolist()  # 30
+
+            xy1 = np.column_stack([x0, y0])
+            s1 = np.abs(xy1).max()
+
+            xy.append(xy1)
+            s.append(s1)
+            start += ratio
+
+        for xyi, si, c in zip(xy, s, colors):
+            ax.scatter(
+                [x], [y], marker=xyi, s=size * si**2, c=c, edgecolor="k", zorder=10
+            )
+
+    def graph_pie_chart(self, df, max_size=2500):
+        """
+        Graphs the data from the dataframe to a map pie chart.
+        The dataframe should have 3 columns, gen_load_zone, gen_type and value.
+        """
+        _, center_points = self._load_maps()
+
+        # Scale the dataframe so the pie charts have the right size
+        current_max_size = df.groupby("gen_load_zone")["value"].sum().max()
+        df["value"] *= max_size / current_max_size
+
+        ax = self._tools.get_axes(size=self._figure_size)
+        self._plot_states(ax)
+        df = df.merge(center_points, on="gen_load_zone")
+
+        assert not df["gen_type"].isnull().values.any()
+        colors = self._tools.get_colors()
+        for index, group in df.groupby(["gen_load_zone"]):
+            x, y = group["geometry"].iloc[0].x, group["geometry"].iloc[0].y
+            group_sum = group.groupby("gen_type")["value"].sum().sort_values()
+            group_sum = group_sum[group_sum != 0].copy()
+
+            tech_color = [colors[tech] for tech in group_sum.index.values]
+            total_size = group_sum.sum()
+            ratios = (group_sum / total_size).values
+            GraphMapTools._pie_plot(x, y, ratios, tech_color, ax=ax, size=total_size)
+
+    def graph_transmission(self, df):
+        """
+        Graphs the data frame a dataframe onto a map.
+        The dataframe should have 4 columns:
+        - from: the load zone where we're starting from
+        - to: the load zone where we're going to
+        - value: the value to plot
+        """
+        ax = self._tools.get_axes(size=self._figure_size)
+        _, center_points = self._load_maps()
+
+        # Merge duplicate rows if table was unidirectional
+        df[["from", "to"]] = df[["from", "to"]].apply(
+            sorted, axis=1, result_type="expand"
+        )
+        df = df.groupby(["from", "to"], as_index=False)["value"].sum()
+
+        df = df.merge(
+            center_points.add_prefix("from_"),
+            left_on="from",
+            right_on="from_gen_load_zone",
+        ).merge(
+            center_points.add_prefix("to_"), left_on="to", right_on="to_gen_load_zone"
+        )[
+            ["from_geometry", "to_geometry", "value"]
+        ]
+
+        from shapely.geometry import LineString
+
+        def make_line(r):
+            return LineString([r["from_geometry"], r["to_geometry"]])
+
+        df["geometry"] = df.apply(make_line, axis=1)
+        df = self._geopandas.GeoDataFrame(
+            df[["geometry", "value"]], geometry="geometry"
+        )
+
+        self._plot_states(ax)
+        df.plot(ax=ax, column="value", legend=True, cmap="Reds")
+
+
 class TransformTools:
     """
     Provides helper functions that transform dataframes
@@ -590,6 +744,7 @@ class GraphTools(DataHandler):
         pd.options.mode.chained_assignment = None
 
         self.transform = TransformTools(self)
+        self.maps = GraphMapTools(self)
 
     def _create_axes(self, num_rows=1, size=(8, 5), ylabel=None, **kwargs):
         """
@@ -855,104 +1010,6 @@ class GraphTools(DataHandler):
         legend_pairs = legend.items()
         fig.legend([h for _, h in legend_pairs], [l for l, _ in legend_pairs])
 
-    def graph_map_pychart(self, df, max_size=2500):
-        """
-        Graphs the data from the dataframe to a map pychart.
-        The dataframe should have 3 columns, gen_load_zone, gen_type and value.
-        """
-        # Scale the dataframe so the pie charts have the right size
-        current_max_size = df.groupby("gen_load_zone")["value"].sum().max()
-        df["value"] *= max_size / current_max_size
-
-        try:
-            import geopandas
-        except ModuleNotFoundError:
-            raise Exception(
-                "Could not find package 'geopandas'. If on Windows make sure you install it through conda."
-            )
-
-        # Read shape files
-        try:
-            wecc_lz = geopandas.read_file(
-                self.get_file_path("maps/wecc_102009.shp", from_inputs=True),
-                crs="ESRI:102009",
-            )
-            wecc_states = geopandas.read_file(
-                self.get_file_path("maps/wecc_states_4326.shp", from_inputs=True)
-            )
-        except FileNotFoundError:
-            raise Exception(
-                "Can't create maps, shape files are missing. Try running switch get_inputs."
-            )
-
-        # Find the center point
-        wecc_lz["Center_point"] = wecc_lz["geometry"].centroid
-
-        # Extract lat and lon from the centerpoint
-        wecc_lz["lat"] = wecc_lz.Center_point.map(lambda p: p.x)
-        wecc_lz["lng"] = wecc_lz.Center_point.map(lambda p: p.y)
-
-        # New dataframe with the centerpoint geometry
-        gdf = geopandas.GeoDataFrame(
-            wecc_lz[["LOAD_AREA", "lat", "lng"]],
-            geometry=geopandas.points_from_xy(x=wecc_lz.lat, y=wecc_lz.lng),
-            crs="ESRI:102009",
-        )
-
-        # REFERENC: https://tinyurl.com/app/myurls
-        def pie_plot(x, y, ratios, colors, size, ax=None):
-            # determine arches
-            start = 0.0
-            xy = []
-            s = []
-            for ratio in ratios:
-                x0 = [0] + np.cos(
-                    np.linspace(2 * np.pi * start, 2 * np.pi * (start + ratio), 30)
-                ).tolist()  # 30
-                y0 = [0] + np.sin(
-                    np.linspace(2 * np.pi * start, 2 * np.pi * (start + ratio), 30)
-                ).tolist()  # 30
-
-                xy1 = np.column_stack([x0, y0])
-                s1 = np.abs(xy1).max()
-
-                xy.append(xy1)
-                s.append(s1)
-                start += ratio
-
-            for xyi, si, c in zip(xy, s, colors):
-                ax.scatter(
-                    [x],
-                    [y],
-                    marker=xyi,
-                    s=size * si**2,
-                    c=c,
-                    edgecolor="k",
-                    zorder=10,
-                )
-
-        projection = "EPSG:4326"
-
-        cap_by_lz = gdf.merge(df, right_on="gen_load_zone", left_on="LOAD_AREA").to_crs(
-            projection
-        )
-
-        ax = self.get_axes(size=(7, 12))
-        wecc_states.plot(ax=ax, lw=0.5, edgecolor="white", color="#E5E5E5", zorder=-999)
-
-        assert not cap_by_lz["gen_type"].isnull().values.any()
-        colors = self.get_colors()
-        for index, group in cap_by_lz.groupby(["gen_load_zone"]):
-            x, y = group["geometry"].iloc[0].x, group["geometry"].iloc[0].y
-            group_sum = group.groupby("gen_type")["value"].sum().sort_values()
-            group_sum = group_sum[(group_sum != 0)].copy()
-
-            tech_color = [colors[tech] for tech in group_sum.index.values]
-            total_size = group_sum.sum()
-            ratios = (group_sum / total_size).values
-            pie_plot(x, y, ratios, tech_color, ax=ax, size=total_size)
-        ax.axis("off")
-
     @staticmethod
     def sort_build_years(x):
         def val(v):
@@ -997,7 +1054,7 @@ def graph_scenarios(
     for module_name in module_names:
         try:
             importlib.import_module(module_name)
-        except:
+        except ModuleNotFoundError:
             warnings.warn(
                 f"Module {module_name} not found. Graphs in this module will not be created."
             )
