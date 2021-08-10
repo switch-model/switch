@@ -416,7 +416,9 @@ def transmission_capacity(tools):
 
 
 @graph(
-    "transmission_map", title="Total transmission capacity for the last period (in GW)"
+    "transmission_map",
+    title="Total transmission capacity for the last period (in GW)",
+    note="Lines <1 GW not shown",
 )
 def transmission_map(tools):
     transmission = tools.get_dataframe(
@@ -433,12 +435,13 @@ def transmission_map(tools):
     )
     transmission = transmission[["from", "to", "value"]]
     transmission.value *= 1e-3
-    tools.maps.graph_transmission(transmission)
+    tools.maps.graph_transmission(transmission, cutoff=1)
 
 
 @graph(
     "transmission_buildout",
     title="New transmission capacity built across all periods (in GW)",
+    note="Lines with <0.1 GW built not shown.",
 )
 def transmission_map(tools):
     transmission = tools.get_dataframe(
@@ -455,4 +458,4 @@ def transmission_map(tools):
     )
     # Rename the columns appropriately
     transmission.value *= 1e-3
-    tools.maps.graph_transmission(transmission)
+    tools.maps.graph_transmission(transmission, cutoff=0.1)
