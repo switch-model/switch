@@ -773,6 +773,8 @@ class GraphTools(DataHandler):
 
         # Set the style to Seaborn default style
         sns.set()
+        # Don't show white outline around shapes to avoid confusion
+        plt.rcParams["patch.edgecolor"] = "none"
 
         # Disables pandas warnings that will occur since we are constantly returning only a slice of our master dataframe
         pd.options.mode.chained_assignment = None
