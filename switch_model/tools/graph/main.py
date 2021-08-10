@@ -15,7 +15,7 @@ from typing import List, Dict
 import numpy as np
 import pandas as pd
 from PIL import Image
-from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt, colors
 import seaborn as sns
 import matplotlib
 import plotnine
@@ -114,7 +114,6 @@ class GraphMapTools:
         self._tools = graph_tools
         self._wecc_states = None
         self._center_points = None
-        self._figure_size = (11, 12)
         self._shapely = None
         self._geopandas = None
 
@@ -197,7 +196,7 @@ class GraphMapTools:
         current_max_size = df.groupby("gen_load_zone")["value"].sum().max()
         df["value"] *= max_size / current_max_size
 
-        ax = self._tools.get_axes(size=self._figure_size)
+        ax = self._tools.get_axes()
         self._plot_states(ax)
         df = df.merge(center_points, on="gen_load_zone")
 
@@ -213,7 +212,24 @@ class GraphMapTools:
             ratios = (group_sum / total_size).values
             GraphMapTools._pie_plot(x, y, ratios, tech_color, ax=ax, size=total_size)
 
-    def graph_transmission(self, df):
+    def graph_points(self, df, ax=None):
+        """
+        Graphs a point in each load zone based on a dataframe with two columns
+        - gen_load_zone
+        - value
+        """
+        _, center_points = self._load_maps()
+
+        df = df.merge(center_points, on="gen_load_zone")
+        # Cast to GeoDataFrame
+        df = self._geopandas.GeoDataFrame(df[["geometry", "value"]], geometry="geometry")
+
+        if ax is None:
+            ax = self._tools.get_axes()
+        self._plot_states(ax)
+        df.plot(ax=ax, column="value", legend=True, cmap="coolwarm", markersize=30, norm=colors.CenteredNorm())
+
+    def graph_transmission(self, df, cutoff):
         """
         Graphs the data frame a dataframe onto a map.
         The dataframe should have 4 columns:
@@ -221,7 +237,7 @@ class GraphMapTools:
         - to: the load zone where we're going to
         - value: the value to plot
         """
-        ax = self._tools.get_axes(size=self._figure_size)
+        ax = self._tools.get_axes()
         _, center_points = self._load_maps()
 
         # Merge duplicate rows if table was unidirectional
@@ -244,10 +260,12 @@ class GraphMapTools:
             return LineString([r["from_geometry"], r["to_geometry"]])
 
         df["geometry"] = df.apply(make_line, axis=1)
+        # Cast to GeoDataFrame
         df = self._geopandas.GeoDataFrame(df[["geometry", "value"]], geometry="geometry")
 
         self._plot_states(ax)
-        df.plot(ax=ax, column="value", legend=True, cmap="Reds")
+        df.plot(ax=ax, column="value", legend=True, cmap="Greens", zorder=-50, norm=colors.LogNorm(vmin=cutoff, vmax=df.value.max()))
+        return ax
 
 
 class TransformTools:
