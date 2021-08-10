@@ -155,9 +155,3 @@ def transmission_dispatch(tools):
     exports = pd.concat([imports, exports])
     exports = exports.groupby("gen_load_zone", as_index=False).sum()
     tools.maps.graph_points(exports, ax)
-
-
-@graph("test")
-def test(tools):
-    ax = tools.get_axes()
-    tools.maps._plot_states(ax)
