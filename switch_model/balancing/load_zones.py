@@ -3,8 +3,28 @@
 
 """
 Defines load zone parameters for the Switch model.
+
+INPUT FILE INFORMATION
+    Import load zone data. The following tab-separated files are
+    expected in the input directory. Their index columns need to be on
+    the left, but the data columns can be in any order. Extra columns
+    will be ignored during import, and optional columns can be dropped.
+    Other modules (such as local_td) may look for additional columns in
+    some of these files. If you don't want to specify data for any
+    optional parameter, use a dot . for its value. Optional columns and
+    files are noted with a *.
+
+    load_zones.csv
+        LOAD_ZONE, zone_ccs_distance_km*, zone_dbid*
+
+    loads.csv
+        LOAD_ZONE, TIMEPOINT, zone_demand_mw
+
+    zone_coincident_peak_demand.csv*
+        LOAD_ZONE, PERIOD, zone_expected_coincident_peak_demand
 """
 import os
+
 from pyomo.environ import *
 from switch_model.reporting import write_table
 from switch_model.tools.graph import graph
@@ -79,17 +99,24 @@ def define_components(mod):
 
     """
 
-    mod.LOAD_ZONES = Set(dimen=1)
+    mod.LOAD_ZONES = Set(dimen=1, input_file="load_zones.csv")
     mod.ZONE_TIMEPOINTS = Set(
         dimen=2,
         initialize=lambda m: m.LOAD_ZONES * m.TIMEPOINTS,
         doc="The cross product of load zones and timepoints, used for indexing.",
     )
-    mod.zone_demand_mw = Param(mod.ZONE_TIMEPOINTS, within=NonNegativeReals)
-    mod.zone_ccs_distance_km = Param(
-        mod.LOAD_ZONES, within=NonNegativeReals, default=0.0
+    mod.zone_demand_mw = Param(
+        mod.ZONE_TIMEPOINTS, input_file="loads.csv", within=NonNegativeReals
     )
-    mod.zone_dbid = Param(mod.LOAD_ZONES, default=lambda m, z: z)
+    mod.zone_ccs_distance_km = Param(
+        mod.LOAD_ZONES,
+        within=NonNegativeReals,
+        input_file="load_zones.csv",
+        default=0.0,
+    )
+    mod.zone_dbid = Param(
+        mod.LOAD_ZONES, input_file="load_zones.csv", default=lambda m, z: z
+    )
     mod.min_data_check("LOAD_ZONES", "zone_demand_mw")
     try:
         mod.Distributed_Power_Withdrawals.append("zone_demand_mw")
@@ -99,10 +126,14 @@ def define_components(mod):
     mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS = Set(
         dimen=2,
         within=mod.LOAD_ZONES * mod.PERIODS,
+        input_file="zone_coincident_peak_demand.csv",
+        input_optional=True,
         doc="Zone-Period combinations with zone_expected_coincident_peak_demand data.",
     )
     mod.zone_expected_coincident_peak_demand = Param(
-        mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS, within=NonNegativeReals
+        mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS,
+        input_file="zone_coincident_peak_demand.csv",
+        within=NonNegativeReals,
     )
     mod.zone_total_demand_in_period_mwh = Param(
         mod.LOAD_ZONES,
@@ -140,50 +171,6 @@ def define_dynamic_components(mod):
                 getattr(m, component)[z, t] for component in m.Zone_Power_Withdrawals
             )
         ),
-    )
-
-
-def load_inputs(mod, switch_data, inputs_dir):
-    """
-    Import load zone data. The following tab-separated files are
-    expected in the input directory. Their index columns need to be on
-    the left, but the data columns can be in any order. Extra columns
-    will be ignored during import, and optional columns can be dropped.
-    Other modules (such as local_td) may look for additional columns in
-    some of these files. If you don't want to specify data for any
-    optional parameter, use a dot . for its value. Optional columns and
-    files are noted with a *.
-
-    load_zones.csv
-        LOAD_ZONE, zone_ccs_distance_km*, zone_dbid*
-
-    loads.csv
-        LOAD_ZONE, TIMEPOINT, zone_demand_mw
-
-    zone_coincident_peak_demand.csv*
-        LOAD_ZONE, PERIOD, zone_expected_coincident_peak_demand
-
-    """
-    # Include select in each load() function so that it will check out
-    # column names, be indifferent to column order, and throw an error
-    # message if some columns are not found.
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "load_zones.csv"),
-        auto_select=True,
-        index=mod.LOAD_ZONES,
-        param=(mod.zone_ccs_distance_km, mod.zone_dbid),
-    )
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "loads.csv"),
-        auto_select=True,
-        param=(mod.zone_demand_mw),
-    )
-    switch_data.load_aug(
-        optional=True,
-        filename=os.path.join(inputs_dir, "zone_coincident_peak_demand.csv"),
-        index=mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS,
-        select=("LOAD_ZONE", "PERIOD", "zone_expected_coincident_peak_demand"),
-        param=(mod.zone_expected_coincident_peak_demand),
     )
 
 

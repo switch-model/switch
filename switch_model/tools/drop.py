@@ -1,4 +1,6 @@
 import os
+import warnings
+
 import pandas
 from switch_model.utilities import query_yes_no
 from argparse import ArgumentParser, RawTextHelpFormatter
@@ -64,7 +66,11 @@ data_types = {
     ),
     "timepoints": (
         ("timepoints.csv", "timepoint_id"),
-        [("loads.csv", "TIMEPOINT"), ("variable_capacity_factors.csv", "timepoint")],
+        [
+            ("loads.csv", "TIMEPOINT"),
+            ("variable_capacity_factors.csv", "timepoint"),
+            ("hydro_timepoints.csv", "timepoint_id"),
+        ],
     ),
     "projects": (
         ("generation_projects_info.csv", "GENERATION_PROJECT"),
@@ -99,6 +105,15 @@ def main(args=None):
         default="inputs",
         help='Directory of the input files. Defaults to "inputs".',
     )
+    parser.add_argument(
+        "--silent", default=False, action="store_true", help="Suppress output"
+    )
+    parser.add_argument(
+        "--no-confirm",
+        default=False,
+        action="store_true",
+        help="Skip confirmation prompts",
+    )
     args = parser.parse_args(args)
 
     if not args.run:
@@ -108,7 +123,7 @@ def main(args=None):
     if not os.path.isdir(args.inputs_dir):
         raise NotADirectoryError("{} is not a directory".format(args.inputs_dir))
 
-    should_continue = query_yes_no(
+    should_continue = args.no_confirm or query_yes_no(
         "WARNING: This will permanently delete data from directory '{}' "
         "WITHOUT backing it up. Are you sure you want to continue?".format(
             args.inputs_dir
@@ -126,34 +141,40 @@ def main(args=None):
     warn_about_periods = False
     pass_count = 0
     while pass_count == 0 or rows_removed_in_pass != 0:
-        print("Pass {}...".format(pass_count), flush=True)
+        if not args.silent:
+            print("Pass {}...".format(pass_count), flush=True)
         rows_removed_in_pass = 0
         for name, data_type in data_types.items():
-            print("Checking '{}'...".format(name), flush=True)
+            if not args.silent:
+                print("Checking '{}'...".format(name), flush=True)
             rows_removed = drop_data(data_type, args)
             rows_removed_in_pass += rows_removed
 
             if name == "periods" and rows_removed != 0:
                 warn_about_periods = True
-        print("Removed {} rows during pass.".format(rows_removed_in_pass))
+        if not args.silent:
+            print("Removed {} rows during pass.".format(rows_removed_in_pass))
 
         total_rows_removed += rows_removed_in_pass
         pass_count += 1
 
-    print(
-        "\n\nRemove {} rows in total from the input files.".format(total_rows_removed)
-    )
-    print(
-        "\n\nNote: If SWITCH fails to load the model when solving it is possible that some input files were missed."
-        " If this is the case, please add the missing input files to 'data_types' in 'switch_model/tools/drop.py'."
-    )
+    if not args.silent:
+        print(
+            "\n\nRemove {} rows in total from the input files.".format(
+                total_rows_removed
+            )
+        )
+        print(
+            "\n\nNote: If SWITCH fails to load the model when solving it is possible that some input files were missed."
+            " If this is the case, please add the missing input files to 'data_types' in 'switch_model/tools/drop.py'."
+        )
 
     # It is impossible to know if a row in gen_build_costs.csv is for predetermined generation or for
     # a period that was removed. So instead we don't touch it and let the user manually edit
     # the input file.
     if warn_about_periods:
-        print(
-            "\n\nWARNING: Could not update gen_build_costs.csv. Please manually edit gen_build_costs.csv to remove "
+        warnings.warn(
+            "\n\nCould not update gen_build_costs.csv. Please manually edit gen_build_costs.csv to remove "
             "references to the removed periods."
         )
 
@@ -179,7 +200,7 @@ def get_valid_ids(primary_file, args):
         print("\n Warning: {} was not found.".format(filename))
         return None
 
-    valid_ids = pandas.read_csv(path)[primary_key]
+    valid_ids = pandas.read_csv(path, dtype=str)[primary_key]
     return valid_ids
 
 
@@ -189,17 +210,21 @@ def drop_from_file(filename, foreign_key, valid_ids, args):
     if not os.path.exists(path):
         return 0
 
-    df = pandas.read_csv(path)
+    df = pandas.read_csv(path, dtype=str)
     count = len(df)
+    if foreign_key not in df.columns:
+        raise Exception(f"Column {foreign_key} not in file {filename}")
     df = df[df[foreign_key].isin(valid_ids)]
     rows_removed = count - len(df)
 
     if rows_removed != 0:
         df.to_csv(path, index=False)
 
-        print("Removed {} rows {}.".format(rows_removed, filename))
+        if not args.silent:
+            print("Removed {} rows {}.".format(rows_removed, filename))
         if rows_removed == count:
-            print("WARNING: {} is now empty.".format(filename))
+            if not args.silent:
+                print("WARNING: {} is now empty.".format(filename))
 
     return rows_removed
 
