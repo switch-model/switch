@@ -90,8 +90,6 @@ def main(args=None, return_model=False, return_instance=False, attach_data_porta
         # Patch pyomo if needed, to allow reconstruction of expressions.
         # This must be done before the model is constructed.
         patch_pyomo()
-        patch_to_allow_loading(Set)
-        patch_to_allow_loading(Param)
 
         # Define the model
         model = create_model(modules, args=args)
