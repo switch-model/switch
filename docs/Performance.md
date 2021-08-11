@@ -61,6 +61,14 @@ Current solution* refers to the solution you are trying to find while using the 
 - `--save-warm-start` and `--warm-start` both use an extension of the `gurobi_direct` solver interface which is
   generally slower than the `gurobi` solver interface (see section above).
   
+## Model formulation
+
+The way the model is formulated often has an impact on performance. Here are some rules of thumb.
+
+- For constraints, it is faster to use `<=` and `>=` rather than `==` when possible. If your constraint
+should be an equality, try to think about whether it is already being pushed against one of the bounds
+  by the objective function.
+
 ## Tools for improving performance
 
 - [Memory profiler](https://pypi.org/project/memory-profiler/) for generating plots of the memory
