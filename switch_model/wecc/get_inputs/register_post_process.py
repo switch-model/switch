@@ -16,7 +16,7 @@ _registered_steps = {}
 
 
 def register_post_process(
-        msg=None,
+    msg=None,
 ):
     """
     Decorator that should be used to register a post-processing step.
@@ -36,6 +36,7 @@ def register_post_process(
                 message = f"Running {func.__name__}"
             print(f"\t{message}...")
             func(*args, **kwargs)
+
         return wrapper
 
     return decorator
@@ -49,7 +50,9 @@ def run_post_process(config, step_name=None):
     @param step_name if step_name is None we run all the steps. If it's specified we only run that step.
     """
     if step_name is None:
-        for name, func in sorted(_registered_steps.items(), key=lambda s: s[1].priority):
+        for name, func in sorted(
+            _registered_steps.items(), key=lambda s: s[1].priority
+        ):
             func(config.get(name, None))
     else:
         _registered_steps[step_name](config.get(step_name, None))

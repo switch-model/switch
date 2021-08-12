@@ -13,7 +13,7 @@ from switch_model.wecc.get_inputs.register_post_process import register_post_pro
     msg="Removing fossil fuels from reserves.",
 )
 def post_process(config, func_config):
-    """ This function sets to zero the column that allows each candidate technology to
+    """This function sets to zero the column that allows each candidate technology to
     proividee"""
 
     fname = "generation_projects_info.csv"
