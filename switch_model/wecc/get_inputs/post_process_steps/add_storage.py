@@ -101,7 +101,6 @@ def drop_previous_candidate_storage():
 @register_post_process(
     name="add_storage",
     msg="Adding storage from Google Sheets",
-    only_with_config=True,
     priority=1  # Increased priority (default is 2) so that it always runs before replace_plants_in_zone_all.py
 )
 def main(config):

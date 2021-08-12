@@ -3,8 +3,8 @@ import pandas as pd
 from switch_model.wecc.get_inputs.register_post_process import register_post_process
 
 
-@register_post_process(name="create_graph_files", msg="Creating graph files")
-def create_graph_files(_):
+@register_post_process(msg="Creating graph files")
+def post_process(config, *args, **kwargs):
     timepoints = pd.read_csv("timepoints.csv", index_col=False)
     timeseries = pd.read_csv("timeseries.csv", index_col=False)
     timepoints = timepoints.merge(
