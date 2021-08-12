@@ -51,7 +51,7 @@ def main():
     full_config = load_config()
     switch_to_input_dir(full_config, overwrite=args.overwrite)
 
-    if not args.post_process_only is None:
+    if not args.post_process_only and args.post_process_step is None:
         query_db(full_config, skip_cf=args.skip_cf)
 
     print("\nRunning post processing...")
