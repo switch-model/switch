@@ -8,17 +8,15 @@ as a post-process step.
 
 These 2 functions are kept in a separate file to avoid cyclical dependencies.
 """
+
+from functools import wraps
 import functools
 
 _registered_steps = {}
 
 
 def register_post_process(
-        name,
         msg=None,
-        enabled=True,
-        only_with_config=False,
-        priority=2
 ):
     """
     Decorator that should be used to register a post-processing step.
@@ -31,25 +29,13 @@ def register_post_process(
     """
 
     def decorator(func):
-        @functools.wraps(func)
-        def wrapper(config=None):
-            if only_with_config and config is None:
-                return
-
+        @wraps(func)
+        def wrapper(*args, **kwargs):
             message = msg
             if message is None:
                 message = f"Running {func.__name__}"
-
             print(f"\t{message}...")
-            func(config)
-
-        wrapper.priority = priority
-
-        if name in _registered_steps:
-            raise Exception(f"Post-process step {name} already exists.")
-
-        if enabled:
-            _registered_steps[name] = wrapper
+            func(*args, **kwargs)
         return wrapper
 
     return decorator

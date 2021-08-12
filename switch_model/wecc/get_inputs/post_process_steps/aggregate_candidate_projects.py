@@ -21,14 +21,11 @@ from switch_model.wecc.get_inputs.register_post_process import register_post_pro
 
 
 @register_post_process(
-    name="aggregate_projects_by_zone",
     msg="Aggregating candidate projects by load zone for specified technologies",
-    only_with_config=True,
-    priority=4
 )
-def post_process(config):
-    agg_techs = config["agg_techs"]
-    cf_method = config["cf_method"]
+def post_process(config, func_config):
+    agg_techs = func_config["agg_techs"]
+    cf_method = func_config["cf_method"]
     assert type(agg_techs) == list
     # Don't allow hydro to be aggregated since we haven't implemented how to handle
     # hydro_timeseries.csv
