@@ -915,7 +915,7 @@ def graph_buildout_per_tech(tools):
     ax = tools.get_axes()
     df.plot(ax=ax, kind="line", color=colors, xlabel="Period", marker="x")
     # Set the y-axis to use percent
-    ax.yaxis.set_major_formatter(tools.mplt.ticker.PercentFormatter(1.0))
+    ax.yaxis.set_major_formatter(tools.plt.ticker.PercentFormatter(1.0))
     # Horizontal line at 100%
     ax.axhline(y=1, linestyle="--", color="b")
 
@@ -929,4 +929,19 @@ def buildout_map(tools):
     buildout = buildout.groupby(["gen_type", "gen_load_zone"], as_index=False)[
         "value"
     ].sum()
-    tools.maps.graph_pie_chart(buildout)
+    ax = tools.maps.graph_pie_chart(buildout)
+    transmission = tools.get_dataframe(
+        "transmission.csv", convert_dot_to_na=True
+    ).fillna(0)
+    transmission = transmission.rename(
+        {"trans_lz1": "from", "trans_lz2": "to", "BuildTx": "value"}, axis=1
+    )
+    transmission = transmission[["from", "to", "value", "PERIOD"]]
+    transmission = (
+        transmission.groupby(["from", "to", "PERIOD"], as_index=False)
+        .sum()
+        .drop("PERIOD", axis=1)
+    )
+    # Rename the columns appropriately
+    transmission.value *= 1e-3
+    tools.maps.graph_transmission(transmission, cutoff=0.1, ax=ax, legend=True)

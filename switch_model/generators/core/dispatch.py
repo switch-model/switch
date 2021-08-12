@@ -922,9 +922,130 @@ def graph_curtailment_per_tech(tools):
     df.plot(ax=ax, kind="line", xlabel="Period", marker="x", **kwargs)
 
     # Set the y-axis to use percent
-    ax.yaxis.set_major_formatter(tools.mplt.ticker.PercentFormatter(1.0))
+    ax.yaxis.set_major_formatter(tools.plt.ticker.PercentFormatter(1.0))
     # Horizontal line at 100%
     # ax.axhline(y=1, linestyle="--", color='b')
+
+
+@graph(
+    "energy_balance_2",
+    title="Balance between demand, generation and storage for last period",
+    note="Dashed green and red lines are total generation and total demand (incl. transmission losses),"
+    " respectively.\nDotted line is the total state of charge (scaled for readability)."
+    "\nWe used a 14-day rolling mean to smoothen out values.",
+)
+def graph_energy_balance_2(tools):
+    # Get dispatch dataframe
+    dispatch = tools.get_dataframe(
+        "dispatch.csv",
+        usecols=["timestamp", "gen_tech", "gen_energy_source", "DispatchGen_MW"],
+    ).rename({"DispatchGen_MW": "value"}, axis=1)
+    dispatch = tools.transform.gen_type(dispatch)
+
+    # Sum dispatch across all the projects of the same type and timepoint
+    dispatch = dispatch.groupby(["timestamp", "gen_type"], as_index=False).sum()
+    dispatch = dispatch[dispatch["gen_type"] != "Storage"]
+
+    # Get load dataframe
+    load = tools.get_dataframe(
+        "load_balance.csv", usecols=["timestamp", "zone_demand_mw", "TXPowerNet"]
+    )
+
+    def process_time(df):
+        df = df.astype({"period": int})
+        df = df[df["period"] == df["period"].max()].drop(columns="period")
+        return df.set_index("datetime")
+
+    # Sum load across all the load zones
+    load = load.groupby(["timestamp"], as_index=False).sum()
+
+    # Include Tx Losses in demand and flip sign
+    load["value"] = (load["zone_demand_mw"] + load["TXPowerNet"]) * -1
+
+    # Rename and convert from wide to long format
+    load = load[["timestamp", "value"]]
+
+    # Add the timestamp information and make period string to ensure it doesn't mess up the graphing
+    dispatch = process_time(tools.transform.timestamp(dispatch))
+    load = process_time(tools.transform.timestamp(load))
+
+    # Convert to TWh (incl. multiply by timepoint duration)
+    dispatch["value"] *= dispatch["tp_duration"] / 1e6
+    load["value"] *= load["tp_duration"] / 1e6
+
+    days = 14
+    freq = str(days) + "D"
+    offset = tools.pd.Timedelta(freq) / 2
+
+    def rolling_sum(df):
+        df = df.rolling(freq, center=True).value.sum().reset_index()
+        df["value"] /= days
+        df = df[
+            (df.datetime.min() + offset < df.datetime)
+            & (df.datetime < df.datetime.max() - offset)
+        ]
+        return df
+
+    dispatch = rolling_sum(dispatch.groupby("gen_type", as_index=False))
+    load = rolling_sum(load).set_index("datetime")["value"]
+
+    # Get the state of charge data
+    soc = tools.get_dataframe(
+        "StateOfCharge.csv", dtype={"STORAGE_GEN_TPS_1": str}
+    ).rename(columns={"STORAGE_GEN_TPS_2": "timepoint", "StateOfCharge": "value"})
+    # Sum over all the projects that are in the same scenario with the same timepoint
+    soc = soc.groupby(["timepoint"], as_index=False).sum()
+    soc["value"] /= 1e6  # Convert to TWh
+    max_soc = soc["value"].max()
+
+    # Group by time
+    soc = process_time(
+        tools.transform.timestamp(soc, use_timepoint=True, key_col="timepoint")
+    )
+    soc = soc.rolling(freq, center=True)["value"].mean().reset_index()
+    soc = soc[
+        (soc.datetime.min() + offset < soc.datetime)
+        & (soc.datetime < soc.datetime.max() - offset)
+    ]
+    soc = soc.set_index("datetime")["value"]
+
+    dispatch = dispatch[dispatch["value"] != 0]
+    dispatch = dispatch.pivot(columns="gen_type", index="datetime", values="value")
+    dispatch = dispatch[dispatch.std().sort_values().index].rename_axis(
+        "Technology", axis=1
+    )
+    total_dispatch = dispatch.sum(axis=1)
+
+    max_val = max(total_dispatch.max(), load.max())
+
+    # Scale soc to the graph
+    soc *= max_val / max_soc
+
+    # Plot
+    # Get the colors for the lines
+    # plot
+    ax = tools.get_axes(ylabel="Average Daily Generation (TWh)")
+    ax.set_ylim(0, max_val * 1.05)
+    dispatch.plot(ax=ax, color=tools.get_colors())
+    soc.plot(ax=ax, color="black", linestyle="dotted")
+    load.plot(ax=ax, color="red", linestyle="dashed")
+    total_dispatch.plot(ax=ax, color="green", linestyle="dashed")
+    ax.fill_between(
+        total_dispatch.index,
+        total_dispatch.values,
+        load.values,
+        alpha=0.2,
+        where=load < total_dispatch,
+        facecolor="green",
+    )
+    ax.fill_between(
+        total_dispatch.index,
+        total_dispatch.values,
+        load.values,
+        alpha=0.2,
+        where=load > total_dispatch,
+        facecolor="red",
+    )
 
 
 @graph("dispatch_map", title="Dispatched electricity per load zone")
