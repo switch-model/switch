@@ -20,6 +20,7 @@ import pandas as pd
 from switch_model.wecc.utilities import connect
 from switch_model.version import __version__
 
+
 def write_csv_from_query(cursor, fname: str, headers: List[str], query: str):
     """Create CSV file from cursor."""
     print(f"\t{fname}.csv... ", flush=True, end="")
@@ -107,7 +108,7 @@ def query_db(full_config, skip_cf):
         "enable_planning_reserves",
         "generation_plant_technologies_scenario_id",
         "variable_o_m_cost_scenario_id",
-        "wind_to_solar_ratio"
+        "wind_to_solar_ratio",
     ]
 
     db_cursor.execute(
@@ -142,7 +143,7 @@ def query_db(full_config, skip_cf):
     transmission_base_capital_cost_scenario_id = s_details[16]
     ca_policies_scenario_id = s_details[17]
     enable_planning_reserves = s_details[18]
-    generation_plant_technologies_scenario_id =s_details[19]
+    generation_plant_technologies_scenario_id = s_details[19]
     variable_o_m_cost_scenario_id = s_details[20]
     wind_to_solar_ratio = s_details[21]
 
@@ -399,7 +400,7 @@ def query_db(full_config, skip_cf):
         [
             "trans_capital_cost_per_mw_km",
             "trans_lifetime_yrs",
-            "trans_fixed_om_fraction"
+            "trans_fixed_om_fraction",
         ],
         f"""
         SELECT trans_capital_cost_per_mw_km,
@@ -498,7 +499,7 @@ def query_db(full_config, skip_cf):
             "gen_self_discharge_rate",
             "gen_discharge_efficiency",
             "gen_land_use_rate",
-            "gen_storage_energy_to_power_ratio"
+            "gen_storage_energy_to_power_ratio",
         ],
         f"""
             select
@@ -545,7 +546,12 @@ def query_db(full_config, skip_cf):
     write_csv_from_query(
         db_cursor,
         "gen_build_predetermined",
-        ["GENERATION_PROJECT", "build_year", "gen_predetermined_cap", "gen_predetermined_storage_energy_mwh"],
+        [
+            "GENERATION_PROJECT",
+            "build_year",
+            "gen_predetermined_cap",
+            "gen_predetermined_storage_energy_mwh",
+        ],
         f"""select generation_plant_id, build_year, capacity as gen_predetermined_cap, gen_predetermined_storage_energy_mwh
                 from generation_plant_existing_and_planned
                 join generation_plant as t using(generation_plant_id)
@@ -594,7 +600,7 @@ def query_db(full_config, skip_cf):
     ########################################################
     # FINANCIALS
 
-    #updated from $2016 and 7%
+    # updated from $2016 and 7%
     write_csv(
         [[2018, 0.05, 0.05]],
         "financials",
@@ -656,7 +662,7 @@ def query_db(full_config, skip_cf):
         WHERE time_sample_id = {time_sample_id}
             AND study_timeframe_id = {study_timeframe_id}
         ORDER BY 1;
-        """
+        """,
     )
 
     write_csv_from_query(
@@ -720,7 +726,7 @@ def query_db(full_config, skip_cf):
         where period!=0
         group by period
         order by 1;
-        """
+        """,
     )
 
     ########################################################
@@ -744,7 +750,7 @@ def query_db(full_config, skip_cf):
             where period!=0
             group by load_zone, period
             order by 1, 2;
-            """
+            """,
         )
         modules.append("switch_model.policies.rps_unbundled")
 
@@ -895,9 +901,13 @@ def query_db(full_config, skip_cf):
     # Make graphing files
     graph_config = os.path.join(os.path.dirname(__file__), "graph_config")
     print("\tgraph_tech_colors.csv...")
-    shutil.copy(os.path.join(graph_config, "graph_tech_colors.csv"), "graph_tech_colors.csv")
+    shutil.copy(
+        os.path.join(graph_config, "graph_tech_colors.csv"), "graph_tech_colors.csv"
+    )
     print("\tgraph_tech_types.csv...")
-    shutil.copy(os.path.join(graph_config, "graph_tech_types.csv"), "graph_tech_types.csv")
+    shutil.copy(
+        os.path.join(graph_config, "graph_tech_types.csv"), "graph_tech_types.csv"
+    )
 
 
 def write_wind_to_solar_ratio(wind_to_solar_ratio):
@@ -926,6 +936,7 @@ def write_wind_to_solar_ratio(wind_to_solar_ratio):
     df["wind_to_solar_ratio_const_gt"] = 1 if wind_to_solar_ratio > cutoff_ratio else 0
 
     df.to_csv("wind_to_solar_ratio.csv", index=False)
+
 
 def ca_policies(db_cursor, ca_policies_scenario_id, study_timeframe_id):
     if ca_policies_scenario_id is None:
@@ -969,11 +980,17 @@ def ca_policies(db_cursor, ca_policies_scenario_id, study_timeframe_id):
     write_csv_from_query(
         db_cursor,
         "ca_policies",
-        ['PERIOD', 'ca_min_gen_timepoint_ratio', 'ca_min_gen_period_ratio', 'carbon_cap_tco2_per_yr_CA'],
-        query
+        [
+            "PERIOD",
+            "ca_min_gen_timepoint_ratio",
+            "ca_min_gen_period_ratio",
+            "carbon_cap_tco2_per_yr_CA",
+        ],
+        query,
     )
 
-    modules.append('switch_model.policies.CA_policies')
+    modules.append("switch_model.policies.CA_policies")
+
 
 def planning_reserves(db_cursor, time_sample_id, hydro_simple_scenario_id):
     # reserve_capacity_value.csv specifies the capacity factors that should be used when calculating
@@ -985,7 +1002,7 @@ def planning_reserves(db_cursor, time_sample_id, hydro_simple_scenario_id):
     write_csv_from_query(
         db_cursor,
         "reserve_capacity_value",
-        ["GENERATION_PROJECT","timepoint","gen_capacity_value"],
+        ["GENERATION_PROJECT", "timepoint", "gen_capacity_value"],
         f"""
         select
             generation_plant_id,
@@ -1005,7 +1022,7 @@ def planning_reserves(db_cursor, time_sample_id, hydro_simple_scenario_id):
                 year = date_part('year', timestamp_utc)
             )
         where time_sample_id = {time_sample_id};
-        """
+        """,
     )
 
     write_csv_from_query(
@@ -1016,18 +1033,22 @@ def planning_reserves(db_cursor, time_sample_id, hydro_simple_scenario_id):
         SELECT
             planning_reserve_requirement, load_zone
         FROM switch.planning_reserve_zones
-        """
+        """,
     )
 
     write_csv_from_query(
         db_cursor,
         "planning_reserve_requirements",
-        ["PLANNING_RESERVE_REQUIREMENT", "prr_cap_reserve_margin", "prr_enforcement_timescale"],
+        [
+            "PLANNING_RESERVE_REQUIREMENT",
+            "prr_cap_reserve_margin",
+            "prr_enforcement_timescale",
+        ],
         """
         SELECT
             planning_reserve_requirement, prr_cap_reserve_margin, prr_enforcement_timescale
         FROM switch.planning_reserve_requirements
-        """
+        """,
     )
 
     modules.append("switch_model.balancing.planning_reserves")

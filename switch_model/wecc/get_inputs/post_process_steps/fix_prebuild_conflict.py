@@ -16,24 +16,28 @@ def post_process(config, *args, **kwargs):
 
     # Read two files that need modification
     gen_build_costs = pd.read_csv("gen_build_costs.csv", index_col=False)
-    gen_build_predetermined = pd.read_csv("gen_build_predetermined.csv", index_col=False)
+    gen_build_predetermined = pd.read_csv(
+        "gen_build_predetermined.csv", index_col=False
+    )
     # Save their size
     rows_prior = gen_build_costs.size, gen_build_predetermined.size
     # Save columns of gen_build_costs
     gen_build_costs_col = gen_build_costs.columns
     # Merge to know which rows are prebuild
     gen_build_costs = gen_build_costs.merge(
-        gen_build_predetermined,
-        on=["GENERATION_PROJECT", "build_year"],
-        how='left'
+        gen_build_predetermined, on=["GENERATION_PROJECT", "build_year"], how="left"
     )
 
     # If row is prebuild and in 2020, replace it with 2019
     gen_build_costs.loc[
-        (~gen_build_costs["gen_predetermined_cap"].isna()) & (gen_build_costs["build_year"] == 2020),
-        "build_year"] = 2019
+        (~gen_build_costs["gen_predetermined_cap"].isna())
+        & (gen_build_costs["build_year"] == 2020),
+        "build_year",
+    ] = 2019
     # If row is in 2020 replace it with 2019
-    gen_build_predetermined.loc[gen_build_predetermined["build_year"] == 2020, "build_year"] = 2019
+    gen_build_predetermined.loc[
+        gen_build_predetermined["build_year"] == 2020, "build_year"
+    ] = 2019
     # Go back to original column set
     gen_build_costs = gen_build_costs[gen_build_costs_col]
 

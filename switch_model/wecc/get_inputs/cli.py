@@ -7,6 +7,7 @@ import os
 from switch_model.utilities import query_yes_no, StepTimer
 from switch_model.wecc.get_inputs.get_inputs import query_db
 from switch_model.wecc.utilities import load_config
+
 # from switch_model.wecc.get_inputs.post_process_steps import *
 # from switch_model.wecc.get_inputs.register_post_process import run_post_process, _registered_steps
 
@@ -22,13 +23,28 @@ def main():
         config.yaml specifies the scenario parameters.
         The environment variable DB_URL specifies the url to connect to the database. """,
     )
-    parser.add_argument("--skip-cf", default=False, action='store_true',
-                        help="Skip creation variable_capacity_factors.csv. Useful when debugging and one doesn't"
-                             "want to wait for the command.")
-    parser.add_argument("--post-process-only", default=False, action='store_true', help="Run only post process steps.")
-    parser.add_argument("--post-process-step", default=None, help="Run only this post process step.")
-    parser.add_argument("--overwrite", default=False, action='store_true',
-                        help="Overwrite previous input files without prompting to confirm.")
+    parser.add_argument(
+        "--skip-cf",
+        default=False,
+        action="store_true",
+        help="Skip creation variable_capacity_factors.csv. Useful when debugging and one doesn't"
+        "want to wait for the command.",
+    )
+    parser.add_argument(
+        "--post-process-only",
+        default=False,
+        action="store_true",
+        help="Run only post process steps.",
+    )
+    parser.add_argument(
+        "--post-process-step", default=None, help="Run only this post process step."
+    )
+    parser.add_argument(
+        "--overwrite",
+        default=False,
+        action="store_true",
+        help="Overwrite previous input files without prompting to confirm.",
+    )
     args = parser.parse_args()  # Makes switch get_inputs --help works
 
     # Load values from config.yaml
@@ -41,7 +57,7 @@ def main():
     print("\nRunning post processing...")
 
     # Get location of post process scripts
-    post_process_path = '.'.join(__name__.split('.')[:-1]) + ".post_process_steps"
+    post_process_path = ".".join(__name__.split(".")[:-1]) + ".post_process_steps"
 
     def run_post_process(module):
         """ Run a function from a given module """
@@ -76,7 +92,7 @@ def switch_to_input_dir(config, overwrite):
         print("Inputs directory created.")
     else:
         if not overwrite and not query_yes_no(
-                "Inputs directory already exists. Allow contents to be overwritten?"
+            "Inputs directory already exists. Allow contents to be overwritten?"
         ):
             raise SystemExit("User cancelled run.")
 
