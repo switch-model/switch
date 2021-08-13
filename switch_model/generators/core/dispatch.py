@@ -938,7 +938,13 @@ def graph_energy_balance_2(tools):
     # Get dispatch dataframe
     dispatch = tools.get_dataframe(
         "dispatch.csv",
-        usecols=["timestamp", "gen_tech", "gen_energy_source", "DispatchGen_MW"],
+        usecols=[
+            "timestamp",
+            "gen_tech",
+            "gen_energy_source",
+            "DispatchGen_MW",
+            "scenario_name",
+        ],
     ).rename({"DispatchGen_MW": "value"}, axis=1)
     dispatch = tools.transform.gen_type(dispatch)
 
@@ -948,7 +954,8 @@ def graph_energy_balance_2(tools):
 
     # Get load dataframe
     load = tools.get_dataframe(
-        "load_balance.csv", usecols=["timestamp", "zone_demand_mw", "TXPowerNet"]
+        "load_balance.csv",
+        usecols=["timestamp", "zone_demand_mw", "TXPowerNet", "scenario_name"],
     )
 
     def process_time(df):
