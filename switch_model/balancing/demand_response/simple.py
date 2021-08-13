@@ -8,6 +8,11 @@ same timeseries at no cost, which allows assessing the potential value of
 demand shifting. This does not include a Shed Service (curtailment of load),
 nor a Shimmy Service (fast dispatch for load following or regulation).
 
+INPUT FILE FORMAT
+    Import demand response-specific data from an input directory.
+
+    dr_data.csv
+        LOAD_ZONE, TIMEPOINT, dr_shift_down_limit, dr_shift_up_limit
 """
 
 import os
@@ -53,10 +58,15 @@ def define_components(mod):
         mod.TIMEPOINTS,
         default=0.0,
         within=NonNegativeReals,
+        input_file="dr_data.csv",
         validate=lambda m, value, z, t: value <= m.zone_demand_mw[z, t],
     )
     mod.dr_shift_up_limit = Param(
-        mod.LOAD_ZONES, mod.TIMEPOINTS, default=float("inf"), within=NonNegativeReals
+        mod.LOAD_ZONES,
+        mod.TIMEPOINTS,
+        default=float("inf"),
+        input_file="dr_data.csv",
+        within=NonNegativeReals,
     )
     mod.ShiftDemand = Var(
         mod.LOAD_ZONES,
@@ -78,21 +88,3 @@ def define_components(mod):
         mod.Distributed_Power_Withdrawals.append("ShiftDemand")
     except AttributeError:
         mod.Zone_Power_Withdrawals.append("ShiftDemand")
-
-
-def load_inputs(mod, switch_data, inputs_dir):
-    """
-
-    Import demand response-specific data from an input directory.
-
-    dr_data.csv
-        LOAD_ZONE, TIMEPOINT, dr_shift_down_limit, dr_shift_up_limit
-
-    """
-
-    switch_data.load_aug(
-        optional=True,
-        filename=os.path.join(inputs_dir, "dr_data.csv"),
-        autoselect=True,
-        param=(mod.dr_shift_down_limit, mod.dr_shift_up_limit),
-    )
