@@ -568,7 +568,7 @@ class DataHandler:
         self._dfs: Dict[str, pd.DataFrame] = {}
 
     def get_dataframe(self, filename, folder=None, from_inputs=False, convert_dot_to_na=False, force_one_scenario=False,
-                      drop_scenario_info=True, **kwargs):
+                      drop_scenario_info=True, usecols=None, **kwargs):
         """
         Returns the dataframe for the active scenario.
 
@@ -579,6 +579,7 @@ class DataHandler:
         @param force_one_scenario if True this will only return one scenario of data even if we are running
         @param drop_scenario_info if True, we will drop the columns relating to the scenario when we are dealing with just one scenario
         a multi-scenario function.
+        @param only return the following functions
         """
         if not filename.endswith(".csv"):
             filename += ".csv"
@@ -599,6 +600,8 @@ class DataHandler:
             # Drop the columns related to the scenario
             if drop_scenario_info:
                 df = df.drop(["scenario_index", "scenario_name"], axis=1)
+        if usecols is not None:
+            df = df[usecols]
         return df
 
     def get_file_path(self, filename, folder=None, from_inputs=False, scenario_specific=True):
