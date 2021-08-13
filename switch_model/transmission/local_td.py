@@ -8,6 +8,21 @@ to each load zone that is connected to the zone's central node via a
 distribution pathway that incurs distribution losses. Distributed Energy
 Resources (DER) impact the energy balance at the distribution node, avoiding
 losses from the distribution network.
+
+INPUT FILE FORMAT
+    Import local transmission & distribution data. The following files
+    are expected in the input directory. Both files will
+    contain additional columns that are used by the load_zones module
+    and transmission.transport.build module.
+
+    load_zones.csv
+        load_zone, existing_local_td, local_td_annual_cost_per_mw
+
+    trans_params.csv
+        distribution_loss_rate
+
+    If distribution_loss_rate is not specified, or if trans_params.csv doesn't
+    exist, mod.distribution_loss_rate will default to 0.053.
 """
 from __future__ import division
 
@@ -119,7 +134,7 @@ def define_components(mod):
     """
 
     # Local T&D
-    mod.existing_local_td = Param(mod.LOAD_ZONES, within=NonNegativeReals)
+    mod.existing_local_td = Param(mod.LOAD_ZONES, within=NonNegativeReals, input_file="load_zones.csv")
     mod.min_data_check('existing_local_td')
 
     mod.BuildLocalTD = Var(
@@ -134,7 +149,7 @@ def define_components(mod):
                 for bld_yr in m.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD[period]
         )
     )
-    mod.distribution_loss_rate = Param(default=0.053)
+    mod.distribution_loss_rate = Param(default=0.053, input_file="trans_params.csv")
 
     mod.Meet_Local_TD = Constraint(
         mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS,
@@ -145,7 +160,7 @@ def define_components(mod):
     )
     mod.local_td_annual_cost_per_mw = Param(
         mod.LOAD_ZONES,
-        within=NonNegativeReals)
+        within=NonNegativeReals, input_file="load_zones.csv")
     mod.min_data_check('local_td_annual_cost_per_mw')
     mod.LocalTDFixedCosts = Expression(
         mod.PERIODS,
@@ -199,36 +214,3 @@ def define_dynamic_components(mod):
             ) == sum(
                 getattr(m, component)[z, t]
                 for component in m.Distributed_Power_Withdrawals)))
-
-
-def load_inputs(mod, switch_data, inputs_dir):
-    """
-
-    Import local transmission & distribution data. The following files
-    are expected in the input directory. Both files will
-    contain additional columns that are used by the load_zones module
-    and transmission.transport.build module.
-
-    load_zones.csv
-        load_zone, existing_local_td, local_td_annual_cost_per_mw
-
-    trans_params.csv
-        distribution_loss_rate
-
-    If distribution_loss_rate is not specified, or if trans_params.csv doesn't
-    exist, mod.distribution_loss_rate will default to 0.053.
-    """
-
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'load_zones.csv'),
-        auto_select=True,
-        param=(mod.existing_local_td, mod.local_td_annual_cost_per_mw))
-
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'trans_params.csv'),
-        optional=True, auto_select=True,
-        optional_params=('distribution_loss_rate',),
-        param=(
-            mod.distribution_loss_rate
-        )
-    )

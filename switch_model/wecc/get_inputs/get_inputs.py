@@ -580,25 +580,50 @@ def query_db(config, skip_cf):
     # Negative flows are replaced by 0.
     write_csv_from_query(
         db_cursor,
+        "hydro_timepoints",
+        ["timepoint_id", "tp_to_hts"],
+        f"""
+        SELECT 
+            tp.raw_timepoint_id AS timepoint_id, 
+            p.label || '_M' || date_part('month', timestamp_utc) AS tp_to_hts
+        FROM switch.sampled_timepoint AS tp
+            JOIN switch.period AS p USING(period_id, study_timeframe_id)
+        WHERE time_sample_id = {time_sample_id}
+            AND study_timeframe_id = {study_timeframe_id}
+        ORDER BY 1;
+        """
+    )
+
+    write_csv_from_query(
+        db_cursor,
         "hydro_timeseries",
         ["hydro_project", "timeseries", "hydro_min_flow_mw", "hydro_avg_flow_mw"],
         f"""
-        select generation_plant_id as hydro_project,
-            {timeseries_id_select},
+        SELECT 
+            generation_plant_id AS hydro_project,
+            hts.hydro_timeseries,
             CASE
                 WHEN hydro_min_flow_mw <= 0 THEN 0
                 ELSE least(hydro_min_flow_mw, capacity_limit_mw * (1-forced_outage_rate)) END,
             CASE
                 WHEN hydro_avg_flow_mw <= 0 THEN 0
                 ELSE least(hydro_avg_flow_mw, capacity_limit_mw * (1-forced_outage_rate)) END
-            as hydro_avg_flow_mw
-        from hydro_historical_monthly_capacity_factors
-            join sampled_timeseries on(month = date_part('month', first_timepoint_utc) and year = date_part('year', first_timepoint_utc))
-            join generation_plant using (generation_plant_id)
+            AS hydro_avg_flow_mw
+        FROM (
+            SELECT DISTINCT
+                date_part('month', tp.timestamp_utc) as month,
+                date_part('year', tp.timestamp_utc) as year, 
+                p.label || '_M' || date_part('month', timestamp_utc) AS hydro_timeseries
+            FROM switch.sampled_timepoint AS tp
+                JOIN switch.period AS p USING(period_id, study_timeframe_id)
+            WHERE time_sample_id = {params.time_sample_id}
+                AND study_timeframe_id = {params.study_timeframe_id}
+        ) AS hts
+            JOIN switch.hydro_historical_monthly_capacity_factors USING(month, year)
+            JOIN switch.generation_plant USING(generation_plant_id)
             JOIN temp_generation_plant_ids USING(generation_plant_id)
-        where hydro_simple_scenario_id={params.hydro_simple_scenario_id}
-            and time_sample_id = {params.time_sample_id}
-        order by 1;
+        WHERE hydro_simple_scenario_id={params.hydro_simple_scenario_id}
+        ORDER BY 1;
         """,
     )
 

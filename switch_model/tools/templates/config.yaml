@@ -51,3 +51,12 @@ get_inputs:
   # plants_scenario: 0
   # constant_scenario: 0
   # minimums_scenario: 0
+# When the following line is uncommented (regardless of its value) then only California load zones are kept
+# only_california: 0
+# When the following lines are uncommented all the Central_PV and Wind projects within the same load zone gets
+# aggregated into a single project. This helps reduce the model complexity.
+# cf_quantile is the percentile for the capacity factor to use. 1 will use the largest capacity factor
+# of all the available candidate plants, 0.5 will use the median plant and 0 will use the worst plant.
+# aggregate_projects_by_zone:
+#  agg_techs: ["Central_PV"]
+#  cf_method: "file" # Other options are "weighted_mean" and "95_quantile"

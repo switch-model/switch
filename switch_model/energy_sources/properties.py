@@ -5,6 +5,29 @@
 Defines model components to describe both fuels and non-fuel energy sources
 for the Switch model.
 
+INPUT FILE FORMAT
+    Import fuel data. To skip optional parameters such as
+    upstream_co2_intensity, put a dot . in the relevant cell rather than
+    leaving them blank. Leaving a cell blank will generate an error
+    message like "IndexError: list index out of range". The following
+    files are expected in the input directory. Each is optional because
+    you could have either an all-renewable or all-fuel-based system, but
+    the model will generate an error if no energy sources are available.
+
+    Note: non_fuel_energy_sources serves to check for data entry errors.
+    This could be theoretically derived from any energy sources in the
+    generator_energy_sources file that are not listed in the fuels
+    table, but that would mean any mispelled fuel or fuel that was
+    unlisted in fuels.csv would be automatically classified as a free
+    renewable source.
+
+    non_fuel_energy_sources.csv
+        energy_source
+
+    fuels.csv
+        fuel, co2_intensity, upstream_co2_intensity, nox_intensity, so2_intensity, ch4_intensity
+
+
 """
 
 import os
@@ -99,14 +122,19 @@ def define_components(mod):
 
     """
 
-    mod.NON_FUEL_ENERGY_SOURCES = Set()
-    mod.FUELS = Set(dimen=1)
+    mod.NON_FUEL_ENERGY_SOURCES = Set(input_file='non_fuel_energy_sources.csv', input_optional=True)
+    mod.FUELS = Set(dimen=1, input_file="fuels.csv")
 
-    mod.f_co2_intensity = Param(mod.FUELS, within=NonNegativeReals)
-    mod.f_upstream_co2_intensity = Param(mod.FUELS, within=Reals, default=0)
-    mod.f_nox_intensity = Param(mod.FUELS, within=NonNegativeReals, default=0)
-    mod.f_so2_intensity = Param(mod.FUELS, within=NonNegativeReals, default=0)
-    mod.f_ch4_intensity = Param(mod.FUELS, within=NonNegativeReals, default=0)
+    mod.f_co2_intensity = Param(mod.FUELS, within=NonNegativeReals, input_file="fuels.csv",
+                                input_column="co2_intensity", )
+    mod.f_upstream_co2_intensity = Param(mod.FUELS, within=Reals, input_file="fuels.csv",
+                                         input_column="upstream_co2_intensity", default=0)
+    mod.f_nox_intensity = Param(mod.FUELS, within=NonNegativeReals, default=0, input_file="fuels.csv",
+                                input_column="nox_intensity", )
+    mod.f_so2_intensity = Param(mod.FUELS, within=NonNegativeReals, default=0, input_file="fuels.csv",
+                                input_column="so2_intensity", )
+    mod.f_ch4_intensity = Param(mod.FUELS, within=NonNegativeReals, default=0, input_file="fuels.csv",
+                                input_column="ch4_intensity", )
 
     mod.min_data_check('f_co2_intensity')
     # Ensure that fuel and non-fuel sets have no overlap.
@@ -118,49 +146,3 @@ def define_components(mod):
     mod.ENERGY_SOURCES = Set(
         initialize=mod.NON_FUEL_ENERGY_SOURCES | mod.FUELS)
     mod.min_data_check('ENERGY_SOURCES')
-
-
-def load_inputs(mod, switch_data, inputs_dir):
-    """
-
-    Import fuel data. To skip optional parameters such as
-    upstream_co2_intensity, put a dot . in the relevant cell rather than
-    leaving them blank. Leaving a cell blank will generate an error
-    message like "IndexError: list index out of range". The following
-    files are expected in the input directory. Each is optional because
-    you could have either an all-renewable or all-fuel-based system, but
-    the model will generate an error if no energy sources are available.
-
-    Note: non_fuel_energy_sources serves to check for data entry errors.
-    This could be theoretically derived from any energy sources in the
-    generator_energy_sources file that are not listed in the fuels
-    table, but that would mean any mispelled fuel or fuel that was
-    unlisted in fuels.csv would be automatically classified as a free
-    renewable source.
-
-    non_fuel_energy_sources.csv
-        energy_source
-
-    fuels.csv
-        fuel, co2_intensity, upstream_co2_intensity, nox_intensity, so2_intensity, ch4_intensity
-
-    """
-    # Include select in each load() function so that it will check out
-    # column names, be indifferent to column order, and throw an error
-    # message if some columns are not found.
-
-    switch_data.load_aug(
-        optional=True,
-        filename=os.path.join(inputs_dir, 'non_fuel_energy_sources.csv'),
-        set=('NON_FUEL_ENERGY_SOURCES'))
-    switch_data.load_aug(
-        optional=True,
-        filename=os.path.join(inputs_dir, 'fuels.csv'),
-        select=(
-            'fuel', 'co2_intensity', 'upstream_co2_intensity', 'nox_intensity', 'so2_intensity', 'ch4_intensity',
-        ),
-        index=mod.FUELS,
-        param=(
-            mod.f_co2_intensity, mod.f_upstream_co2_intensity, mod.f_nox_intensity,
-            mod.f_so2_intensity, mod.f_ch4_intensity
-        ))

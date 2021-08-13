@@ -7,8 +7,12 @@ A simple description of flat fuel costs for the Switch model that
 serves as an alternative to the more complex fuel_markets with tiered
 supply curves. This is mutually exclusive with the fuel_markets module.
 
+INPUT FILE INFORMATION
+    The following files are expected in the input directory:
+
+    fuel_cost.csv
+        load_zone, fuel, period, fuel_cost
 """
-import os
 from pyomo.environ import *
 
 dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
@@ -45,12 +49,14 @@ def define_components(mod):
 
     mod.ZONE_FUEL_PERIODS = Set(
         dimen=3,
+        input_file="fuel_cost.csv",
         validate=lambda m, z, f, p: (
             z in m.LOAD_ZONES and
             f in m.FUELS and
             p in m.PERIODS))
     mod.fuel_cost = Param(
         mod.ZONE_FUEL_PERIODS,
+        input_file="fuel_cost.csv",
         within=NonNegativeReals)
     mod.min_data_check('ZONE_FUEL_PERIODS', 'fuel_cost')
 
@@ -78,21 +84,3 @@ def define_components(mod):
         return m.FuelCostsPerTP_dict.pop(t)
     mod.FuelCostsPerTP = Expression(mod.TIMEPOINTS, rule=FuelCostsPerTP_rule)
     mod.Cost_Components_Per_TP.append('FuelCostsPerTP')
-
-
-def load_inputs(mod, switch_data, inputs_dir):
-    """
-
-    Import simple fuel cost data. The following files are expected in
-    the input directory:
-
-    fuel_cost.csv
-        load_zone, fuel, period, fuel_cost
-
-    """
-
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'fuel_cost.csv'),
-        select=('load_zone', 'fuel', 'period', 'fuel_cost'),
-        index=mod.ZONE_FUEL_PERIODS,
-        param=[mod.fuel_cost])
