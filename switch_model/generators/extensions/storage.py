@@ -5,6 +5,31 @@
 This module defines storage technologies. It builds on top of generic
 generators, adding components for deciding how much energy to build into
 storage, when to charge, energy accounting, etc.
+
+INPUT FILE FORMAT
+    Import storage parameters. Optional columns are noted with a *.
+
+    generation_projects_info.csv
+        GENERATION_PROJECT, ...
+        gen_storage_efficiency, gen_discharge_efficiency*, gen_store_to_release_ratio*,
+        gen_storage_energy_to_power_ratio*, gen_storage_max_cycles_per_year*
+        gen_self_discharge_rate*, gen_land_use_rate*
+
+    # TODO: maybe move the columns above to a storage_gen_info file to avoid the weird index
+    # reading and avoid having to create these extra columns for all projects;
+    # Alternatively, say that these values are specified for _all_ projects (maybe with None
+    # as default) and then define STORAGE_GENS as the subset of projects for which
+    # gen_storage_efficiency has been specified, then require valid settings for all
+    # STORAGE_GENS.
+
+    gen_build_costs.csv
+        GENERATION_PROJECT, build_year, ...
+        gen_storage_energy_overnight_cost
+
+    gen_build_predetermined.csv
+        GENERATION_PROJECT, build_year, ...,
+        gen_predetermined_storage_energy_mwh*
+
 """
 import math
 from scipy import fft
@@ -135,33 +160,49 @@ def define_components(mod):
             (g, p) for g in m.STORAGE_GENS for p in m.PERIODS_FOR_GEN[g]
         ],
     )
-    mod.gen_storage_efficiency = Param(mod.STORAGE_GENS, within=PercentFraction)
+    mod.gen_storage_efficiency = Param(
+        mod.STORAGE_GENS,
+        input_file="generation_projects_info.csv",
+        within=PercentFraction,
+    )
     mod.gen_discharge_efficiency = Param(
         mod.STORAGE_GENS,
         within=PercentFraction,
         default=1,
+        input_file="generation_projects_info.csv",
         doc="The percent of stored energy that reaches the grid during discharging",
     )
     # TODO: rename to gen_charge_to_discharge_ratio?
     mod.gen_store_to_release_ratio = Param(
-        mod.STORAGE_GENS, within=NonNegativeReals, default=1.0
+        mod.STORAGE_GENS,
+        within=NonNegativeReals,
+        input_file="generation_projects_info.csv",
+        default=1.0,
     )
     mod.gen_storage_energy_to_power_ratio = Param(
-        mod.STORAGE_GENS, within=NonNegativeReals, default=float("inf")
+        mod.STORAGE_GENS,
+        input_file="generation_projects_info.csv",
+        within=NonNegativeReals,
+        default=float("inf"),
     )  # inf is a flag that no value is specified (nan and None don't work)
     mod.gen_storage_max_cycles_per_year = Param(
-        mod.STORAGE_GENS, within=NonNegativeReals, default=float("inf")
+        mod.STORAGE_GENS,
+        within=NonNegativeReals,
+        input_file="generation_projects_info.csv",
+        default=float("inf"),
     )
     mod.gen_self_discharge_rate = Param(
         mod.STORAGE_GENS,
         within=PercentFraction,
         default=0,
+        input_file="generation_projects_info.csv",
         doc="Percent of stored energy lost per day.",
     )
     mod.gen_land_use_rate = Param(
         mod.STORAGE_GENS,
         within=NonNegativeReals,
         default=0,
+        input_file="generation_projects_info.csv",
         doc="Meters squared of land used per MWh of storage",
     )
 
@@ -172,11 +213,15 @@ def define_components(mod):
         ],
     )
     mod.gen_storage_energy_overnight_cost = Param(
-        mod.STORAGE_GEN_BLD_YRS, within=NonNegativeReals
+        mod.STORAGE_GEN_BLD_YRS,
+        input_file="gen_build_costs.csv",
+        within=NonNegativeReals,
     )
     mod.min_data_check("gen_storage_energy_overnight_cost")
     mod.gen_predetermined_storage_energy_mwh = Param(
-        mod.PREDETERMINED_GEN_BLD_YRS, within=NonNegativeReals
+        mod.PREDETERMINED_GEN_BLD_YRS,
+        input_file="gen_build_predetermined.csv",
+        within=NonNegativeReals,
     )
     mod.PREDETERMINED_STORAGE_GEN_BLD_YRS = Set(
         initialize=mod.PREDETERMINED_GEN_BLD_YRS,
@@ -373,69 +418,11 @@ def define_components(mod):
 
 
 def load_inputs(mod, switch_data, inputs_dir):
-    """
-
-    Import storage parameters. Optional columns are noted with a *.
-
-    generation_projects_info.csv
-        GENERATION_PROJECT, ...
-        gen_storage_efficiency, gen_discharge_ratio*, gen_store_to_release_ratio*,
-        gen_storage_energy_to_power_ratio*, gen_storage_max_cycles_per_year*
-        gen_self_discharge_rate*, gen_land_use_rate*
-
-    gen_build_costs.csv
-        GENERATION_PROJECT, build_year, ...
-        gen_storage_energy_overnight_cost
-
-    gen_build_predetermined.csv
-        GENERATION_PROJECT, build_year, ...,
-        gen_predetermined_storage_energy_mwh*
-
-    """
-
-    # TODO: maybe move these columns to a storage_gen_info file to avoid the weird index
-    # reading and avoid having to create these extra columns for all projects;
-    # Alternatively, say that these values are specified for _all_ projects (maybe with None
-    # as default) and then define STORAGE_GENS as the subset of projects for which
-    # gen_storage_efficiency has been specified, then require valid settings for all
-    # STORAGE_GENS.
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "generation_projects_info.csv"),
-        auto_select=True,
-        optional_params=[
-            "gen_store_to_release_ratio",
-            "gen_discharge_ratio",
-            "gen_storage_energy_to_power_ratio",
-            "gen_storage_max_cycles_per_year",
-            "gen_self_discharge_rate",
-            "gen_land_use_rate",
-        ],
-        param=(
-            mod.gen_storage_efficiency,
-            mod.gen_discharge_efficiency,
-            mod.gen_store_to_release_ratio,
-            mod.gen_storage_energy_to_power_ratio,
-            mod.gen_storage_max_cycles_per_year,
-            mod.gen_self_discharge_rate,
-            mod.gen_land_use_rate,
-        ),
-    )
     # Base the set of storage projects on storage efficiency being specified.
     # TODO: define this in a more normal way
     switch_data.data()["STORAGE_GENS"] = {
         None: list(switch_data.data(name="gen_storage_efficiency").keys())
     }
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "gen_build_costs.csv"),
-        auto_select=True,
-        param=(mod.gen_storage_energy_overnight_cost),
-    )
-    switch_data.load_aug(
-        optional=True,
-        auto_select=True,
-        filename=os.path.join(inputs_dir, "gen_build_predetermined.csv"),
-        param=(mod.gen_predetermined_storage_energy_mwh,),
-    )
 
 
 def post_solve(instance, outdir):
