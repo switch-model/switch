@@ -3,6 +3,27 @@
 
 """
 Defines timescales for investment and dispatch for the Switch model.
+
+INPUT DATA FORMAT
+    Import data for timescales from .csv files.  The inputs_dir
+    should contain the following files with these columns. The
+    columns may be in any order and extra columns will be ignored.
+
+    periods.csv
+        INVESTMENT_PERIOD, period_start, period_end
+
+    timeseries.csv
+        TIMESERIES, period, ts_duration_of_tp, ts_num_tps,
+        ts_scale_to_period
+
+    The order of rows in timepoints.csv indicates the order of the
+    timepoints per Pyomo and AMPL convention. To maintain your sanity,
+    we highly recommend that you sort your input file chronologically by
+    timestamp. Note: timestamp is solely used as a label and be in any
+    format.
+
+    timepoints.csv
+        timepoint_id, timestamp, timeseries
 """
 from __future__ import print_function
 from __future__ import absolute_import
@@ -228,24 +249,24 @@ def define_components(mod):
 
     """
 
-    mod.PERIODS = Set(ordered=True, dimen=1)
-    mod.period_start = Param(mod.PERIODS, within=NonNegativeReals)
-    mod.period_end = Param(mod.PERIODS, within=NonNegativeReals)
+    mod.PERIODS = Set(ordered=True, dimen=1, input_file="periods.csv")
+    mod.period_start = Param(mod.PERIODS, within=NonNegativeReals, input_file="periods.csv")
+    mod.period_end = Param(mod.PERIODS, within=NonNegativeReals, input_file="periods.csv")
     mod.min_data_check('PERIODS', 'period_start', 'period_end')
 
-    mod.TIMESERIES = Set(ordered=True, dimen=1)
-    mod.ts_period = Param(mod.TIMESERIES, within=mod.PERIODS)
-    mod.ts_duration_of_tp = Param(mod.TIMESERIES, within=PositiveReals)
-    mod.ts_num_tps = Param(mod.TIMESERIES, within=PositiveIntegers)
-    mod.ts_scale_to_period = Param(mod.TIMESERIES, within=PositiveReals)
+    mod.TIMESERIES = Set(ordered=True, dimen=1, input_file="timeseries.csv")
+    mod.ts_period = Param(mod.TIMESERIES, within=mod.PERIODS, input_file="timeseries.csv")
+    mod.ts_duration_of_tp = Param(mod.TIMESERIES, within=PositiveReals, input_file="timeseries.csv")
+    mod.ts_num_tps = Param(mod.TIMESERIES, within=PositiveIntegers, input_file="timeseries.csv")
+    mod.ts_scale_to_period = Param(mod.TIMESERIES, within=PositiveReals, input_file="timeseries.csv")
     mod.min_data_check(
         'TIMESERIES', 'ts_period', 'ts_duration_of_tp', 'ts_num_tps',
         'ts_scale_to_period')
 
-    mod.TIMEPOINTS = Set(ordered=True, dimen=1)
-    mod.tp_ts = Param(mod.TIMEPOINTS, within=mod.TIMESERIES)
+    mod.TIMEPOINTS = Set(ordered=True, dimen=1, input_file="timepoints.csv")
+    mod.tp_ts = Param(mod.TIMEPOINTS, within=mod.TIMESERIES, input_file="timepoints.csv", input_column="timeseries")
     mod.min_data_check('TIMEPOINTS', 'tp_ts')
-    mod.tp_timestamp = Param(mod.TIMEPOINTS, default=lambda m, t: t)
+    mod.tp_timestamp = Param(mod.TIMEPOINTS, default=lambda m, t: t, input_file="timepoints.csv", input_column="timestamp")
 
     # Derived sets and parameters
     # note: the first five are calculated early so they
@@ -372,50 +393,6 @@ def define_components(mod):
         mod.PERIODS,
         rule=validate_period_lengths_rule)
 
-
-def load_inputs(mod, switch_data, inputs_dir):
-    """
-    Import data for timescales from .csv files.  The inputs_dir
-    should contain the following files with these columns. The
-    columns may be in any order and extra columns will be ignored.
-
-    periods.csv
-        INVESTMENT_PERIOD, period_start, period_end
-
-    timeseries.csv
-        TIMESERIES, period, ts_duration_of_tp, ts_num_tps,
-        ts_scale_to_period
-
-    The order of rows in timepoints.csv indicates the order of the
-    timepoints per Pyomo and AMPL convention. To maintain your sanity,
-    we highly recommend that you sort your input file chronologically by
-    timestamp. Note: timestamp is solely used as a label and be in any
-    format.
-
-    timepoints.csv
-        timepoint_id, timestamp, timeseries
-
-    """
-    # Include select in each load() function so that it will check out column
-    # names, be indifferent to column order, and throw an error message if
-    # some columns are not found.
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'periods.csv'),
-        select=('INVESTMENT_PERIOD', 'period_start', 'period_end'),
-        index=mod.PERIODS,
-        param=(mod.period_start, mod.period_end))
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'timeseries.csv'),
-        select=('TIMESERIES', 'ts_period', 'ts_duration_of_tp',
-                'ts_num_tps', 'ts_scale_to_period'),
-        index=mod.TIMESERIES,
-        param=(mod.ts_period, mod.ts_duration_of_tp,
-               mod.ts_num_tps, mod.ts_scale_to_period))
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'timepoints.csv'),
-        select=('timepoint_id', 'timestamp', 'timeseries'),
-        index=mod.TIMEPOINTS,
-        param=(mod.tp_timestamp, mod.tp_ts))
 
 def post_solve(mod, outdir):
     """

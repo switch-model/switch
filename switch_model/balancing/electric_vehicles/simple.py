@@ -11,6 +11,13 @@ Virtual Batteries are not allowed to inject energy to the grid and at the end
 of each timeseries they must be charged at some specific level according
 to users necessity.
 
+INPUT FILE FORMAT
+    Import virtual batteries specific location and power limits
+    from an input directory.
+
+    ev_limits.tab
+        LOAD_ZONES, TIMEPOINT, ev_cumulative_charge_upper_mwh,
+        ev_cumulative_charge_upper_mwh, ev_charge_limit_mw
 """
 
 import os
@@ -68,16 +75,19 @@ def define_components(mod):
     mod.ev_charge_limit_mw = Param(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         default = float('inf'),
+        input_file="ev_limits.csv",
         within=NonNegativeReals)
 
     mod.ev_cumulative_charge_upper_mwh = Param(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         default = 0.0,
+        input_file="ev_limits.csv",
         within=NonNegativeReals)
 
     mod.ev_cumulative_charge_lower_mwh = Param(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         default = 0.0,
+        input_file="ev_limits.csv",
         within=NonNegativeReals)
 
     mod.EVCharge = Var(
@@ -112,23 +122,3 @@ def define_components(mod):
         mod.Distributed_Power_Withdrawals.append('EVCharge')
     else:
         mod.Zone_Power_Withdrawals.append('EVCharge')
-
-
-
-def load_inputs(mod, switch_data, inputs_dir):
-    """
-
-    Import virtual batteries specific location and power limits
-    from an input directory.
-
-    ev_limits.tab
-        LOAD_ZONES, TIMEPOINT, ev_cumulative_charge_upper_mwh,
-        ev_cumulative_charge_upper_mwh, ev_charge_limit_mw
-
-    """
-
-    switch_data.load_aug(
-        optional=True,
-        filename=os.path.join(inputs_dir, 'ev_limits.tab'),
-        autoselect=True,
-        param=(mod.ev_cumulative_charge_lower_mwh, mod.ev_cumulative_charge_upper_mwh, mod.ev_charge_limit_mw))

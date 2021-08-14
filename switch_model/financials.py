@@ -4,6 +4,12 @@
 """
 Defines financial parameters for the Switch model.
 
+INPUT FILE FORMAT
+    Import base financial data from a .csv file. The inputs_dir should
+    contain the file financials.csv that gives parameter values for
+    base_financial_year, interest_rate and optionally discount_rate.
+    The names of parameters go on the first row and the values go on
+    the second.
 """
 from __future__ import print_function
 from __future__ import division
@@ -220,18 +226,18 @@ def define_components(mod):
 
     """
 
-    mod.base_financial_year = Param(within=NonNegativeReals)
-    mod.interest_rate = Param(within=NonNegativeReals)
+    mod.base_financial_year = Param(within=NonNegativeReals, input_file='financials.csv')
+    mod.interest_rate = Param(within=NonNegativeReals, input_file='financials.csv')
     mod.discount_rate = Param(
-        within=NonNegativeReals, default=lambda m: value(m.interest_rate))
+        within=NonNegativeReals, default=lambda m: value(m.interest_rate), input_file='financials.csv')
     mod.min_data_check('base_financial_year', 'interest_rate')
     mod.bring_annual_costs_to_base_year = Param(
         mod.PERIODS,
         within=NonNegativeReals,
         initialize=lambda m, p: (
-            uniform_series_to_present_value(
-                m.discount_rate, m.period_length_years[p]) *
-            future_to_present_value(
+                uniform_series_to_present_value(
+                    m.discount_rate, m.period_length_years[p]) *
+                future_to_present_value(
                 m.discount_rate,
                 m.period_start[p] - m.base_financial_year)))
     mod.bring_timepoint_costs_to_base_year = Param(
@@ -311,20 +317,6 @@ def define_dynamic_components(mod):
         rule=lambda m: m.SystemCost * m.objective_scaling_factor,
         sense=minimize)
 
-
-def load_inputs(mod, switch_data, inputs_dir):
-    """
-    Import base financial data from a .csv file. The inputs_dir should
-    contain the file financials.csv that gives parameter values for
-    base_financial_year, interest_rate and optionally discount_rate.
-    The names of parameters go on the first row and the values go on
-    the second.
-    """
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'financials.csv'),
-        optional=False, auto_select=True,
-        param=(mod.base_financial_year, mod.interest_rate, mod.discount_rate)
-    )
 
 def post_solve(instance, outdir):
     m = instance
