@@ -6,6 +6,15 @@ Defines components to allow leaving some load unserved. This module is
 specially useful when running production costing simulations, though not
 strictly required in all cases.
 
+INPUT FILE FORMAT
+    The cost penalty of unserved load in units of $/MWh is the only parameter
+    that can be inputted. The following file is not mandatory, because the
+    parameter defaults to a value of 500 $/MWh. This file contains one header
+    row and one data row.
+
+    optional input files:
+        lost_load_cost.csv
+            unserved_load_penalty
 """
 
 import os
@@ -35,7 +44,9 @@ def define_components(mod):
 
     """
 
-    mod.unserved_load_penalty = Param(within=NonNegativeReals, default=500)
+    mod.unserved_load_penalty = Param(
+        within=NonNegativeReals, input_file="lost_load_cost.csv", default=500
+    )
     mod.UnservedLoad = Var(mod.LOAD_ZONES, mod.TIMEPOINTS, within=NonNegativeReals)
     mod.Zone_Power_Injections.append("UnservedLoad")
 
@@ -46,23 +57,3 @@ def define_components(mod):
         ),
     )
     mod.Cost_Components_Per_TP.append("UnservedLoadPenalty")
-
-
-def load_inputs(mod, switch_data, inputs_dir):
-    """
-    The cost penalty of unserved load in units of $/MWh is the only parameter
-    that can be inputted. The following file is not mandatory, because the
-    parameter defaults to a value of 500 $/MWh. This file contains one header
-    row and one data row.
-
-    optional input files:
-        lost_load_cost.csv
-            unserved_load_penalty
-
-    """
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "lost_load_cost.csv"),
-        optional=True,
-        auto_select=True,
-        param=(mod.unserved_load_penalty,),
-    )

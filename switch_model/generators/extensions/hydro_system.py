@@ -459,6 +459,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     hydro is treated like any other variable renewable resource, and
     expects data in variable_capacity_factors.csv.
 
+    TODO use new input loading format with input_file=
     """
 
     switch_data.load_aug(

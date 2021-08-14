@@ -37,7 +37,7 @@ cmds = {
     "solve-scenarios": get_module_runner("switch_model.solve_scenarios"),
     "test": get_module_runner("switch_model.test"),
     "upgrade": get_module_runner("switch_model.upgrade"),
-    "get_inputs": get_module_runner("switch_model.wecc.get_inputs"),
+    "get_inputs": get_module_runner("switch_model.wecc.get_inputs.cli"),
     "drop": get_module_runner("switch_model.tools.drop"),
     "new": get_module_runner("switch_model.tools.new"),
     "graph": get_module_runner("switch_model.tools.graph.cli_graph"),

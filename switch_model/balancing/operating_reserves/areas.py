@@ -3,8 +3,15 @@
 
 """
 Defines balancing areas for operational reserves.
+
+INPUT FILE INFORMATION
+
+    Import balancing_area data. The following files are expected in the input
+    directory:
+
+    load_zones.csv
+        LOAD_ZONE, ..., zone_balancing_area
 """
-import os
 from pyomo.environ import *
 
 dependencies = "switch_model.timescales", "switch_model.balancing.load_zones"
@@ -32,7 +39,10 @@ def define_components(mod):
     """
 
     mod.zone_balancing_area = Param(
-        mod.LOAD_ZONES, default="system_wide_balancing_area", within=Any
+        mod.LOAD_ZONES,
+        input_file="load_zones.csv",
+        default="system_wide_balancing_area",
+        within=Any,
     )
     mod.BALANCING_AREAS = Set(
         ordered=False,
@@ -45,22 +55,3 @@ def define_components(mod):
         ),
     )
     mod.BALANCING_AREA_TIMEPOINTS = Set(initialize=mod.BALANCING_AREAS * mod.TIMEPOINTS)
-
-
-def load_inputs(mod, switch_data, inputs_dir):
-    """
-    Import balancing_area data. The following files are expected in the input
-    directory:
-
-    load_zones.csv
-        LOAD_ZONE, ..., zone_balancing_area
-
-    """
-    # Include select in each load() function so that it will check out
-    # column names, be indifferent to column order, and throw an error
-    # message if some columns are not found.
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "load_zones.csv"),
-        auto_select=True,
-        param=(mod.zone_balancing_area),
-    )

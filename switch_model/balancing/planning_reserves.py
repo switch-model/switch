@@ -44,6 +44,20 @@ CA ISO comments filed with the Public Utilities Commission on resource adequacy
 rules (and the need to improve them)
 https://www.caiso.com/Documents/Jan29_2016_Comments_2017Track1Proposals_ResourceAdequacyProgram_R14-10-010.pdf
 
+
+INPUT FILE FORMAT
+    reserve_capacity_value.csv
+        GEN, TIMEPOINT, gen_capacity_value
+
+    planning_reserve_requirement_zones.csv
+        PLANNING_RESERVE_REQUIREMENTS, prr_cap_reserve_margin, prr_enforcement_timescale
+
+    generation_projects_info.csv
+        ..., gen_can_provide_cap_reserves
+
+    planning_reserve_requirement_zones.csv
+        PRR, ZONE
+
 """
 
 import os
@@ -128,22 +142,29 @@ def define_components(model):
     will not reflect any DER activities.
     """
     model.PLANNING_RESERVE_REQUIREMENTS = Set(
-        doc="Areas and times where planning reserve margins are specified.", dimen=1
+        doc="Areas and times where planning reserve margins are specified.",
+        input_file="planning_reserve_requirements.csv",
+        dimen=1,
     )
     model.PRR_ZONES = Set(
         dimen=2,
+        input_file="planning_reserve_requirement_zones.csv",
         doc=(
             "A set of (prr, z) that describes which zones contribute to each "
             "Planning Reserve Requirement."
         ),
     )
     model.prr_cap_reserve_margin = Param(
-        model.PLANNING_RESERVE_REQUIREMENTS, within=PercentFraction, default=0.15
+        model.PLANNING_RESERVE_REQUIREMENTS,
+        within=PercentFraction,
+        input_file="planning_reserve_requirements.csv",
+        default=0.15,
     )
     model.prr_enforcement_timescale = Param(
         model.PLANNING_RESERVE_REQUIREMENTS,
         default="period_peak_load",
         validate=lambda m, value, prr: value in ("all_timepoints", "peak_load"),
+        input_file="planning_reserve_requirements.csv",
         doc=(
             "Determines whether planning reserve requirements are enforced in "
             "each timepoint, or just timepoints with peak load (zone_demand_mw)."
@@ -199,6 +220,7 @@ def define_components(model):
         model.GENERATION_PROJECTS,
         within=Boolean,
         default=True,
+        input_file="generation_projects_info.csv",
         doc="Indicates whether a generator can provide capacity reserves.",
     )
 
@@ -220,6 +242,7 @@ def define_components(model):
         # Previously domain was PercentFraction however we want to allow renewable factors greater than 1
         # or less than 0.
         within=Reals,
+        input_file="reserve_capacity_value.csv",
         default=gen_capacity_value_default,
         validate=lambda m, value, g, t: (
             value == 0.0 if not m.gen_can_provide_cap_reserves[g] else True
@@ -298,43 +321,4 @@ def define_dynamic_components(model):
             "Ensures that the sum of CAPACITY_FOR_RESERVES satisfies the sum "
             "of REQUIREMENTS_FOR_CAPACITY_RESERVES for each of PRR_TIMEPOINTS."
         ),
-    )
-
-
-def load_inputs(model, switch_data, inputs_dir):
-    """
-    reserve_capacity_value.csv
-        GEN, TIMEPOINT, gen_capacity_value
-
-    planning_reserve_requirement_zones.csv
-        PLANNING_RESERVE_REQUIREMENTS, prr_cap_reserve_margin, prr_enforcement_timescale
-
-    generation_projects_info.csv
-        ..., gen_can_provide_cap_reserves
-
-    planning_reserve_requirement_zones.csv
-        PRR, ZONE
-
-    """
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "reserve_capacity_value.csv"),
-        optional=True,
-        auto_select=True,
-        param=(model.gen_capacity_value),
-    )
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "planning_reserve_requirements.csv"),
-        auto_select=True,
-        index=model.PLANNING_RESERVE_REQUIREMENTS,
-        param=(model.prr_cap_reserve_margin, model.prr_enforcement_timescale),
-    )
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "generation_projects_info.csv"),
-        auto_select=True,
-        optional_params=["gen_can_provide_cap_reserves"],
-        param=(model.gen_can_provide_cap_reserves),
-    )
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "planning_reserve_requirement_zones.csv"),
-        set=model.PRR_ZONES,
     )
