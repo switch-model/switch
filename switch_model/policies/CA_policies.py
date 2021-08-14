@@ -7,6 +7,14 @@ The state of the load zone is determined based on the letters prior to the first
 For example, "CA_PGE_BAY" gives a state code of "CA" and will be considered as part of California.
 
 Three possible policy constraints can be specified in ca_policies.csv. See documentation below.
+
+INPUT FILE FORMAT
+    Expected input files:
+    load_zones.csv
+        LOAD_ZONE, load_zone_state
+
+    ca_policies.csv
+        PERIOD,ca_min_gen_timepoint_ratio,ca_min_gen_period_ratio,carbon_cap_tco2_per_yr_CA
 """
 import os
 from pyomo.environ import Set, Param, Expression, Constraint, PercentFraction, Any
@@ -66,7 +74,8 @@ def define_components(mod):
     mod.load_zone_state = Param(
         mod.LOAD_ZONES,
         # Returns the letters before the first underscore, if there's no underscore, simply return the entire id
-        rule=lambda m, z: z.partition("_")[0],
+        input_file="load_zones.csv",
+        default=lambda m, z: z.partition("_")[0],
         within=Any,
         doc="Two-letter state code for each load zone inferred from the load zone id.")
 
@@ -75,15 +84,20 @@ def define_components(mod):
                        doc="Set of load zones within California.")
 
     mod.ca_min_gen_timepoint_ratio = Param(mod.PERIODS, within=PercentFraction, default=0,
+                                           input_file="ca_policies.csv",
                                            doc="Fraction of demand that must be satisfied through in-state"
                                                "generation during each timepoint.")
 
     mod.ca_min_gen_period_ratio = Param(mod.PERIODS, within=PercentFraction, default=0,
+                                        input_file="ca_policies.csv",
                                         doc="Fraction of demand that must be satisfied through in-state"
                                             "generation across an entire period.")
 
-    mod.carbon_cap_tco2_per_yr_CA = Param(mod.PERIODS, default=float('inf'), doc=(
-        "Emissions from California must be less than this cap. Specified in metric tonnes of CO2 per year."))
+    mod.carbon_cap_tco2_per_yr_CA = Param(mod.PERIODS, default=float('inf'),
+                                          input_file="ca_policies.csv",
+                                          input_optional=True,
+                                          doc=(
+                                              "Emissions from California must be less than this cap. Specified in metric tonnes of CO2 per year."))
 
     mod.AnnualEmissions_CA = Expression(mod.PERIODS,
                                         rule=lambda m, period: sum(
@@ -139,23 +153,6 @@ def define_components(mod):
         mod.PERIODS,
         rule=lambda m, p: (m.CA_AnnualDispatch[p] >= m.ca_min_gen_period_ratio[p] * m.CA_AnnualDemand[p])
         if m.ca_min_gen_period_ratio[p] != 0 else Constraint.Skip
-    )
-
-
-def load_inputs(mod, switch_data, inputs_dir):
-    """
-    Expected input files:
-    load_zones.csv
-        LOAD_ZONE, load_zone_state
-
-    ca_policies.csv
-        PERIOD,ca_min_gen_timepoint_ratio,ca_min_gen_period_ratio,carbon_cap_tco2_per_yr_CA
-    """
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'ca_policies.csv'),
-        optional_params=(mod.ca_min_gen_timepoint_ratio, mod.ca_min_gen_period_ratio, mod.carbon_cap_tco2_per_yr_CA),
-        auto_select=True,
-        param=(mod.ca_min_gen_timepoint_ratio, mod.ca_min_gen_period_ratio, mod.carbon_cap_tco2_per_yr_CA)
     )
 
 

@@ -17,4 +17,5 @@ Changes are listed from oldest (first line) to newest (last line of table).
 | #57 | June 2021 | Specify predetermined storage energy capacity in inputs (previously left unspecified). |
 | #68 | June 2021 | Change financial params to 2018 dollars & 5% interest rate. Start using terrain multipliers (which now include the economic multiplier). |
 | #72 | July 2021 | Drop build and O&M costs of existing transmission lines. |
+| #89 | August 2021 | Change hydro module average flow constraint to a monthly constraint rather than per timeseries and change it to a <= rather than ==. |
 | #90 | August 2021 | Change the lifetime of transmission lines from 20yr to 85yr |

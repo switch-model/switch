@@ -1,12 +1,7 @@
 # Copyright 2017 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2, which is in the LICENSE file.
 
-import os
-from pyomo.environ import *
-from switch_model.reporting import write_table
-
 """
-
 This module defines a simple Renewable Portfolio Standard (RPS) policy scheme
 for the Switch-Pyomo model. In this scheme, each fuel is categorized as RPS-
 elegible or not. All non-fuel energy sources are assumed to be RPS-elegible.
@@ -18,10 +13,27 @@ This module assumes that the generators.core.no_commit module is being used.
 An error will be raised if this module is loaded along the
 generators.core.commit package.
 
-TODO:
-Allow the usage of the commit module.
+TODO: Allow the usage of the commit module.
 
+INPUT FILE FORMAT
+    The RPS target goals input file is mandatory, to discourage people from
+    loading the module if it is not going to be used. It is not necessary to
+    specify targets for all periods.
+
+    Mandatory input files:
+        rps_targets.csv
+            LOAD_ZONES PERIOD rps_target
+
+    The optional parameter to define fuels as RPS eligible can be inputted
+    in the following file:
+        fuels.csv
+            fuel  f_rps_eligible
 """
+
+import os
+from pyomo.environ import *
+from switch_model.reporting import write_table
+
 
 def define_components(mod):
     """
@@ -68,11 +80,13 @@ def define_components(mod):
     """
 
     mod.ZONE_PERIODS = Set(
+        input_file='rps_targets.csv',
         dimen=2, within=mod.LOAD_ZONES * mod.PERIODS)
             
     mod.f_rps_eligible = Param(
         mod.FUELS,
         within=Boolean,
+        input_file='fuels.csv',
         default=False)
     mod.RPS_ENERGY_SOURCES = Set(
         ordered=False,
@@ -85,6 +99,7 @@ def define_components(mod):
     mod.rps_target = Param(
         mod.ZONE_PERIODS,
         within=NonNegativeReals,
+        input_file="rps_targets.csv",
         validate=lambda m, val, z, p: val <= 1.0)
 
     mod.RPSFuelEnergy = Expression(
@@ -124,35 +139,6 @@ def total_generation_in_period(model, period):
 def total_demand_in_period(model, period):
     return sum(model.zone_total_demand_in_period_mwh[zone, period]
                for zone in model.LOAD_ZONES)
-
-
-def load_inputs(mod, switch_data, inputs_dir):
-    """
-    The RPS target goals input file is mandatory, to discourage people from
-    loading the module if it is not going to be used. It is not necessary to
-    specify targets for all periods.
-    
-    Mandatory input files:
-        rps_targets.csv
-            LOAD_ZONES PERIOD rps_target
-    
-    The optional parameter to define fuels as RPS eligible can be inputted
-    in the following file:
-        fuels.csv
-            fuel  f_rps_eligible
-    
-    """
-
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'fuels.csv'),
-        select=('fuel','f_rps_eligible'),
-        optional_params=['f_rps_eligible'],
-        param=(mod.f_rps_eligible,))
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'rps_targets.csv'),
-        select=('load_zone','period', 'rps_target'),
-        index=mod.ZONE_PERIODS,
-        param=[mod.rps_target])
 
 
 def post_solve(instance, outdir):

@@ -25,8 +25,8 @@ def fetch_df(tab_name, key, config):
     url = f"https://docs.google.com/spreadsheet/ccc?key={SHEET_ID}&output=csv&gid={gid}"
 
     df: pd.DataFrame = pd.read_csv(url, index_col=False) \
-        .replace("FALSE", 0) \
-        .replace("TRUE", 1)
+        .replace("FALSE", False) \
+        .replace("TRUE", True)
 
     if "description" in df.columns:
         df = df.drop("description", axis=1)
@@ -87,8 +87,6 @@ def drop_previous_candidate_storage():
     should_drop = (gen["gen_tech"] == STORAGE_TECH) & ~gen["GENERATION_PROJECT"].isin(predetermined_gen)
     # Find projects that we should drop (candidate storage)
     gen_to_drop = gen[should_drop]["GENERATION_PROJECT"]
-    # Verify we're dropping the right amount
-    assert len(gen_to_drop) == 50  # 50 is the number of load zones. we expect one candidate per load zone
 
     # Drop and write output
     gen = gen[~should_drop]
