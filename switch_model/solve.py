@@ -113,6 +113,12 @@ def main(args=None, return_model=False, return_instance=False, attach_data_porta
         # get a list of modules to iterate through
         iterate_modules = get_iteration_list(model)
 
+        # Very that the proper modules are installed
+        if model.options.solver == "cplex_direct":
+            import cplex
+        elif model.options.solver in ("gurobi_direct", "gurobi_aug"):
+            import gurobipy
+
         if model.options.verbose:
             print("\n=======================================================================")
             print("Switch {}, http://switch-model.org".format(switch_model.__version__))
@@ -434,8 +440,6 @@ def define_arguments(argparser):
 
     # Define solver-related arguments
     # These are a subset of the arguments offered by "pyomo solve --solver=cplex --help"
-    argparser.add_argument("--solver", default="glpk",
-        help='Name of Pyomo solver to use for the model (default is "glpk")')
     argparser.add_argument("--solver-manager", default="serial",
         help='Name of Pyomo solver manager to use for the model ("neos" to use remote NEOS server)')
     argparser.add_argument("--solver-io", default=None, help="Method for Pyomo to use to communicate with solver")
@@ -444,7 +448,7 @@ def define_arguments(argparser):
     argparser.add_argument("--solver-options-string", default="",
         help='A quoted string of options to pass to the model solver. Each option must be of the form option=value. '
             '(e.g., --solver-options-string "mipgap=0.001 primalopt=\'\' advance=2 threads=1")')
-    argparser.add_argument("--solver-method", default=None, type=int,
+    argparser.add_argument("--solver-method", default=None, type=str,
                            help="Specify the solver method to use.")
     argparser.add_argument("--keepfiles", action='store_true', default=None,
         help="Keep temporary files produced by the solver (may be useful with --symbolic-solver-labels)")
@@ -535,6 +539,12 @@ def define_arguments(argparser):
         "--graph", default=False, action='store_true',
         help="Automatically run switch graph after post solve"
     )
+    argparser.add_argument(
+        "--no-crossover", default=False, action='store_true',
+        help="Disables crosssover when using the barrier algorithm. This reduces"
+             ' the solve time greatly however may result in less accurate values and may fail to find an optimal'
+             " solution. If you find that the solver returns a suboptimal solution remove this flag."
+    )
 
     argparser.add_argument(
         "--threads", type=int, default=None,
@@ -575,15 +585,16 @@ def add_recommended_args(argparser):
 
     argparser.add_argument(
         "--recommended-fast", default=False, action='store_true',
-        help='Equivalent to --recommended however disables crossover during solving. This reduces'
-             ' the solve time greatly however may result in less accurate values and may fail to find an optimal'
-             ' solution. If you find that the solver returns a suboptimal solution use --recommended.'
+        help='Equivalent to --recommended with --no-crossover.'
     )
 
     argparser.add_argument(
         "--recommended-debug", default=False, action='store_true',
         help='Same as --recommended but adds the flags --keepfiles --tempdir temp --symbolic-solver-labels which are useful when debugging Gurobi.'
     )
+
+    argparser.add_argument("--solver", default="gurobi",
+                           help='Name of Pyomo solver to use for the model (default is "gurobi")')
 
 
 def parse_recommended_args(args):
@@ -597,21 +608,20 @@ def parse_recommended_args(args):
     if flags_used == 0:
         return args
 
-    # Note we don't append but rather prepend so that flags can override the --recommend flags.
+    # Note we don't append but rather prepend so that flags can override the --recommend flags to allow for overriding.
     args = [
-               '--solver', 'gurobi',
                '-v',
                '--sorted-output',
                '--stream-output',
                '--log-run',
                '--debug',
                '--graph',
-               '--solver-method', '2',  # Method 2 is barrier solve which is much faster than default
+               '--solver-method', 'barrier',
            ] + args
-    solver_options_string = "BarHomogeneous=1 FeasibilityTol=1e-5"
+    if options.solver in ("gurobi", "gurobi_direct", "gurobi_aug"):
+        args = ['--solver-options-string', "BarHomogeneous=1 FeasibilityTol=1e-5"] + args
     if options.recommended_fast:
-        solver_options_string += " crossover=0"
-    args = ['--solver-options-string', solver_options_string] + args
+        args = ["--no-crossover"] + args
     if options.recommended_debug:
         args = ['--keepfiles', '--tempdir', 'temp', '--symbolic-solver-labels'] + args
 
@@ -690,20 +700,27 @@ def add_extra_suffixes(model):
 
 
 def solve(model):
+    options_string = model.options.solver_options_string
+    method = model.options.solver_method
+
+    # If we need warm start switch the solver to our augmented version that supports warm starting
+    solver_type = model.options.solver
+    gurobi_types = ("gurobi", "gurobi_direct", "gurobi_aug")
+    cplex_types = ("cplex", "cplex_direct")
+
+    if model.options.warm_start is not None or model.options.save_warm_start:
+        if solver_type not in gurobi_types:
+            raise NotImplementedError("Warm start functionality requires --solver gurobi")
+        model.options.solver = "gurobi_aug"
+
+        # Method 1 (dual simplex) is required since it supports warm starting.
+        if model.options.warm_start is not None:
+            method = 1
+
     if hasattr(model, "solver"):
         solver = model.solver
         solver_manager = model.solver_manager
     else:
-        # If we need warm start switch the solver to our augmented version that supports warm starting
-        if model.options.warm_start is not None or model.options.save_warm_start:
-            if model.options.solver not in ("gurobi", "gurobi_direct"):
-                raise NotImplementedError("Warm start functionality requires --solver gurobi")
-            model.options.solver = "gurobi_aug"
-
-        if model.options.warm_start is not None:
-            # Method 1 (dual simplex) is required since it supports warm starting.
-            model.options.solver_method = 1
-
         # Create a solver object the first time in. We don't do this until a solve is
         # requested, because sometimes a different solve function may be used,
         # with its own solver object (e.g., with runph or a parallel solver server).
@@ -711,14 +728,15 @@ def solve(model):
         # unused solver object, or get errors if the solver options are invalid.
         #
         # Note previously solver was saved in model however this is very memory inefficient.
-        solver = SolverFactory(model.options.solver, solver_io=model.options.solver_io)
+        solver = SolverFactory(solver_type, solver_io=model.options.solver_io)
+        solver_manager = SolverManagerFactory(model.options.solver_manager)
 
-        if model.options.gurobi_find_iis and model.options.gurobi_make_mps:
-            raise Exception("Can't use --gurobi-find-iis with --gurobi-make-mps.")
+    if model.options.gurobi_find_iis and model.options.gurobi_make_mps:
+        raise Exception("Can't use --gurobi-find-iis with --gurobi-make-mps.")
 
-        if model.options.gurobi_find_iis or model.options.gurobi_make_mps:
-            # If we are outputting a file we want to enable symbolic labels to help debugging
-            model.options.symbolic_solver_labels = True
+    if model.options.gurobi_find_iis or model.options.gurobi_make_mps:
+        # If we are outputting a file we want to enable symbolic labels to help debugging
+        model.options.symbolic_solver_labels = True
 
         # If this option is enabled, gurobi will output an IIS to outputs\iis.ilp.
         if model.options.gurobi_find_iis:
@@ -729,21 +747,32 @@ def solve(model):
             # Output the input file and set time limit to zero to ensure it doesn't actually solve
             model.options.solver_options_string += f" ResultFile=problem.mps TimeLimit=0"
 
-        if model.options.threads:
-            model.options.solver_options_string += f" Threads={model.options.threads}"
+    if model.options.no_crossover:
+        if solver_type in gurobi_types:
+            options_string += " crossover=0"
+        elif solver_type in cplex_types:
+            options_string = " solutiontype=2"
+        else:
+            raise NotImplementedError(f"--no-crossover not implemented for solver {solver}")
 
-        if model.options.solver_method is not None:
-            # If no string is passed make the string empty so we can add to it
-            if model.options.solver_options_string is None:
-                model.options.solver_options_string = ""
+    if model.options.threads is not None:
+        options_string += f" threads={model.options.threads}"
 
-            model.options.solver_options_string += f" method={model.options.solver_method}"
-
-        solver_manager = SolverManagerFactory(model.options.solver_manager)
+    if method is not None:
+        if solver_type in gurobi_types:
+            if method == "barrier":
+                method = 2
+            options_string += f" method={method}"
+        elif solver_type in cplex_types:
+            if method == "barrier":
+                method = 4
+            options_string += f" LPMethod={method}"
+        else:
+            raise NotImplementedError(f"Can't specify method {method} for solver {solver_type}")
 
     # get solver arguments
     solver_args = dict(
-        options_string=model.options.solver_options_string,
+        options_string=options_string,
         keepfiles=model.options.keepfiles,
         tee=model.options.tee,
         symbolic_solver_labels=model.options.symbolic_solver_labels,
