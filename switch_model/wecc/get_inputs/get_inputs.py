@@ -894,11 +894,8 @@ def query_db(full_config, skip_cf):
 
     # Make graphing files
     graph_config = os.path.join(os.path.dirname(__file__), "graph_config")
-    print("\tgraph_tech_colors.csv...")
-    shutil.copy(os.path.join(graph_config, "graph_tech_colors.csv"), "graph_tech_colors.csv")
-    print("\tgraph_tech_types.csv...")
-    shutil.copy(os.path.join(graph_config, "graph_tech_types.csv"), "graph_tech_types.csv")
-
+    print("\tgraph_config files...")
+    shutil.copytree(graph_config, ".", dirs_exist_ok=True)
 
 def write_wind_to_solar_ratio(wind_to_solar_ratio):
     # TODO ideally we'd have a table where we can specify the wind_to_solar_ratios per period.
