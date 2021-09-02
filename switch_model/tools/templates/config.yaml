@@ -21,6 +21,8 @@ get_inputs:
   #  the following parameters are optional and will override the defaults for that scenario
   #  this should only be used for preliminary exploration of scenarios or for testing
   #  if a scenario is part of research, it should be included in the database as a row in the scenarios table.
+  #
+  # -1 is equivalent to null
   #  study_timeframe_id:
   #  time_sample_id:
   #  demand_scenario_id:
