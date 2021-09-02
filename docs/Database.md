@@ -41,8 +41,18 @@ The command to enter PostgreSQL while SSH'd into the server is `psql wecc`.
 
 ## Making changes to the database
 
-Whether it's adding data to the database or changing its schema, it's important
-to proceed carefully when making changes to the database. Always make sure to
+### Common operations
+
+Some database changes are common operations that are used repeatedly.
+For these operations, it's helpful to make a command line tool to make the process easy.
+
+For example, adding a scenario to the database is a common operation. Therefore, we have built
+the `switch db save_scenario` command to easily do this. (Run `switch db save_scenario --help` for details).
+
+### Custom operations
+
+When running custom operations on the database it's very important
+to proceed carefully. Always make sure to
 **test and keep track of your changes**.
 
 Here are the steps to make a change.
@@ -61,9 +71,7 @@ to the convention `YYYY-MM-DD_<script_name>`.
 5. Open a pull request to add your script to the repository (see [`docs/Contribute.md`](Contribute.md))
 so we can keep track of the changes that have been made.
 
-### Bigger changes
-
-Sometimes, it isn't feasible to have your entire change as a single SQL script.
+Note that sometimes, it isn't feasible to have your entire change as a single SQL script.
 One way to make bigger changes is to use a Python script. Use the same process
 as for the SQL scripts. That is save your Python scripts in the `/database` folder.
 
