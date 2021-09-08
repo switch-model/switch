@@ -1,4 +1,3 @@
-import inspect
 import textwrap
 import types
 from typing import Type
@@ -16,61 +15,11 @@ def patch_pyomo():
     if _patched_pyomo:
         return
 
-    # fix Pyomo issue #2019. Once PR #2020 gets released this will no longer be needed
-    from pyomo.core.base.misc import _robust_sort_keyfcn
-
-    setattr(_robust_sort_keyfcn, "__call__", fixed_robust_sort_keyfcn)
-
     # Patch Set and Param to allow specifying input file location (via input_file="...")
     extend_to_allow_loading(Set)
     extend_to_allow_loading(Param)
 
     _patched_pyomo = True
-
-
-def fixed_robust_sort_keyfcn(self, val, use_key=True):
-    """Generate a tuple ( str(type_name), val ) for sorting the value.
-
-    `key=` expects a function.  We are generating a functor so we
-    have a convenient place to store the _typemap, which converts
-    the type-specific functions for converting a value to the second
-    argument of the sort key.
-
-    """
-    if use_key and self._key is not None:
-        val = self._key(val)
-
-    try:
-        i, _typename = self._typemap[val.__class__]
-    except KeyError:
-        # If this is not a type we have seen before, determine what
-        # to use for the second value in the tuple.
-        _type = val.__class__
-        _typename = _type.__name__
-        try:
-            # 1: Check if the type is comparable.  In Python 3, sorted()
-            #    uses "<" to compare objects.
-            val < val
-            i = 1
-        except:
-            try:
-                # 2: try converting the value to string
-                str(val)
-                i = 2
-            except:
-                # 3: fallback on id().  Not deterministic
-                #    (run-to-run), but at least is consistent within
-                #    this run.
-                i = 3
-        self._typemap[_type] = i, _typename
-    if i == 1:
-        return _typename, val
-    elif i == 3:
-        return _typename, tuple(self(v, use_key=False) for v in val)
-    elif i == 2:
-        return _typename, str(val)
-    else:
-        return _typename, id(val)
 
 
 def extend_to_allow_loading(cls: Type):
