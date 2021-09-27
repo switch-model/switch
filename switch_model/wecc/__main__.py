@@ -5,17 +5,22 @@
 from __future__ import print_function
 
 import argparse
+import importlib
 import sys
-import switch_model.wecc.sampling.cli as sample
+
+def get_module_runner(module):
+    def runner():
+        importlib.import_module(module).main()
+    return runner
 
 
 cmds = {
-    "sample": sample.main,
+    "sample": get_module_runner("switch_model.wecc.sampling.cli"),
+    "save_scenario": get_module_runner("switch_model.wecc.save_scenario"),
 }
 
-
 def main(args=None):
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("subcommand", choices=cmds.keys(), help="The possible switch subcommands")
 
     args, remaining_args = parser.parse_known_args(args)

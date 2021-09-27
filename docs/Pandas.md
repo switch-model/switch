@@ -121,9 +121,9 @@ kwargs = dict(
   index_col=False,
   dtype={"GENERATION_PROJECT": str},  # This ensures that the project id column is read as a string not an int
 )
-gen_projects = pd.read_csv("generation_projects_info.csv", *kwargs)
-costs = pd.read_csv("gen_build_costs.csv", *kwargs)
-predetermined = pd.read_csv("gen_build_predetermined.csv", *kwargs)
+gen_projects = pd.read_csv("generation_projects_info.csv", **kwargs)
+costs = pd.read_csv("gen_build_costs.csv", **kwargs)
+predetermined = pd.read_csv("gen_build_predetermined.csv", **kwargs)
 
 # JOIN TABLES
 gen_projects = gen_projects.merge(

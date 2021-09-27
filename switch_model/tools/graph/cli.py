@@ -29,9 +29,10 @@ def add_arguments(parser):
     )
     parser.add_argument(
         "-f",
-        "--figure",
+        "--figures",
         default=None,
-        help="Name of the figure to graph. Figure names are the first argument in the @graph() decorator."
+        nargs="+",
+        help="Name of the figures to graph. Figure names are the first argument in the @graph() decorator."
         " If unspecified graphs all the figures.",
     )
     parser.add_argument(
@@ -53,5 +54,5 @@ def graph_scenarios_from_cli(scenarios, args):
         args.overwrite,
         args.skip_long,
         args.modules,
-        args.figure,
+        args.figures,
     )

@@ -15,7 +15,7 @@ from typing import List, Dict
 import numpy as np
 import pandas as pd
 from PIL import Image
-from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt, colors
 import seaborn as sns
 import matplotlib
 import plotnine
@@ -119,6 +119,197 @@ class Scenario:
         os.chdir(Scenario.root_path)
 
 
+class GraphMapTools:
+    def __init__(self, graph_tools):
+        self._tools = graph_tools
+        self._wecc_states = None
+        self._center_points = None
+        self._shapely = None
+        self._geopandas = None
+
+    def _load_maps(self):
+        """
+        Plots the WECC states as a background on the provided axes
+        and returns a dataframe with a mapping of load zones to center points.
+        """
+        if self._wecc_states is None or self._center_points is None:
+            try:
+                import geopandas
+            except ModuleNotFoundError:
+                raise Exception(
+                    "Could not find package 'geopandas'. If on Windows make sure you install it through conda."
+                )
+
+            import shapely
+
+            self._shapely = shapely
+            self._geopandas = geopandas
+
+            # Read shape files
+            try:
+                wecc_lz = geopandas.read_file(
+                    self._tools.get_file_path("maps/wecc_102009.shp", from_inputs=True),
+                    crs="ESRI:102009",
+                )
+                self._wecc_states = geopandas.read_file(
+                    self._tools.get_file_path(
+                        "maps/wecc_states_4326.shp", from_inputs=True
+                    )
+                )
+            except FileNotFoundError:
+                raise Exception(
+                    "Can't create maps, shape files are missing. Try running switch get_inputs."
+                )
+
+            wecc_lz = wecc_lz.rename({"LOAD_AREA": "gen_load_zone"}, axis=1)
+
+            # New dataframe with the centerpoint geometry
+            self._center_points = geopandas.GeoDataFrame(
+                wecc_lz[["gen_load_zone"]],
+                geometry=wecc_lz["geometry"].centroid,
+                crs="ESRI:102009",
+            ).to_crs("EPSG:4326")
+
+        return self._wecc_states, self._center_points
+
+    def _plot_states(self, ax):
+        states, _ = self._load_maps()
+        states.plot(ax=ax, lw=0.5, edgecolor="white", color="#E5E5E5", zorder=-999)
+        ax.axis("off")
+
+    @staticmethod
+    def _pie_plot(x, y, ratios, colors, size, ax=None):
+        # REFERENC: https://tinyurl.com/app/myurls
+        # determine arches
+        start = 0.0
+        xy = []
+        s = []
+        for ratio in ratios:
+            x0 = [0] + np.cos(
+                np.linspace(2 * np.pi * start, 2 * np.pi * (start + ratio), 30)
+            ).tolist()  # 30
+            y0 = [0] + np.sin(
+                np.linspace(2 * np.pi * start, 2 * np.pi * (start + ratio), 30)
+            ).tolist()  # 30
+
+            xy1 = np.column_stack([x0, y0])
+            s1 = np.abs(xy1).max()
+
+            xy.append(xy1)
+            s.append(s1)
+            start += ratio
+
+        for xyi, si, c in zip(xy, s, colors):
+            ax.scatter(
+                [x], [y], marker=xyi, s=size * si**2, c=c, edgecolor="k", zorder=10
+            )
+
+    def graph_pie_chart(self, df, max_size=2500, ax=None):
+        """
+        Graphs the data from the dataframe to a map pie chart.
+        The dataframe should have 3 columns, gen_load_zone, gen_type and value.
+        """
+        _, center_points = self._load_maps()
+
+        # Scale the dataframe so the pie charts have the right size
+        current_max_size = df.groupby("gen_load_zone")["value"].sum().max()
+        df["value"] *= max_size / current_max_size
+
+        if ax is None:
+            ax = self._tools.get_axes()
+        self._plot_states(ax)
+        df = df.merge(center_points, on="gen_load_zone")
+
+        assert not df["gen_type"].isnull().values.any()
+        colors = self._tools.get_colors()
+        for index, group in df.groupby(["gen_load_zone"]):
+            x, y = group["geometry"].iloc[0].x, group["geometry"].iloc[0].y
+            group_sum = group.groupby("gen_type")["value"].sum().sort_values()
+            group_sum = group_sum[group_sum != 0].copy()
+
+            tech_color = [colors[tech] for tech in group_sum.index.values]
+            total_size = group_sum.sum()
+            ratios = (group_sum / total_size).values
+            GraphMapTools._pie_plot(x, y, ratios, tech_color, ax=ax, size=total_size)
+        return ax
+
+    def graph_points(self, df, ax=None):
+        """
+        Graphs a point in each load zone based on a dataframe with two columns
+        - gen_load_zone
+        - value
+        """
+        _, center_points = self._load_maps()
+
+        df = df.merge(center_points, on="gen_load_zone")
+        # Cast to GeoDataFrame
+        df = self._geopandas.GeoDataFrame(
+            df[["geometry", "value"]], geometry="geometry"
+        )
+
+        if ax is None:
+            ax = self._tools.get_axes()
+        self._plot_states(ax)
+        df.plot(
+            ax=ax,
+            column="value",
+            legend=True,
+            cmap="coolwarm",
+            markersize=30,
+            norm=colors.CenteredNorm(),
+        )
+
+    def graph_transmission(self, df, cutoff, ax=None, legend=True, zorder=-50):
+        """
+        Graphs the data frame a dataframe onto a map.
+        The dataframe should have 4 columns:
+        - from: the load zone where we're starting from
+        - to: the load zone where we're going to
+        - value: the value to plot
+        """
+        if ax is None:
+            ax = self._tools.get_axes()
+        _, center_points = self._load_maps()
+
+        # Merge duplicate rows if table was unidirectional
+        df[["from", "to"]] = df[["from", "to"]].apply(
+            sorted, axis=1, result_type="expand"
+        )
+        df = df.groupby(["from", "to"], as_index=False)["value"].sum()
+
+        df = df.merge(
+            center_points.add_prefix("from_"),
+            left_on="from",
+            right_on="from_gen_load_zone",
+        ).merge(
+            center_points.add_prefix("to_"), left_on="to", right_on="to_gen_load_zone"
+        )[
+            ["from_geometry", "to_geometry", "value"]
+        ]
+
+        from shapely.geometry import LineString
+
+        def make_line(r):
+            return LineString([r["from_geometry"], r["to_geometry"]])
+
+        df["geometry"] = df.apply(make_line, axis=1)
+        # Cast to GeoDataFrame
+        df = self._geopandas.GeoDataFrame(
+            df[["geometry", "value"]], geometry="geometry"
+        )
+
+        self._plot_states(ax)
+        df.plot(
+            ax=ax,
+            column="value",
+            legend=legend,
+            cmap="Greens",
+            zorder=zorder,
+            norm=colors.LogNorm(vmin=cutoff, vmax=df.value.max()),
+        )
+        return ax
+
+
 class TransformTools:
     """
     Provides helper functions that transform dataframes
@@ -136,6 +327,7 @@ class TransformTools:
         gen_tech_col="gen_tech",
         energy_source_col="gen_energy_source",
         drop_previous_col=True,
+        others=None,
     ):
         """
         Returns a dataframe that contains a column 'gen_type'.
@@ -169,6 +361,8 @@ class TransformTools:
         if "scenario_index" in df:
             left_on.append("scenario_index")
             right_on.append("scenario_index")
+        else:
+            tech_types = tech_types.drop(columns=["scenario_index"]).drop_duplicates()
         df = df.merge(
             tech_types,
             left_on=left_on,
@@ -181,6 +375,8 @@ class TransformTools:
         )  # Fill with Other so the colors still work
         if drop_previous_col:
             df = df.drop([gen_tech_col, energy_source_col], axis=1)
+        if others is not None:
+            df["gen_type"] = df["gen_type"].replace(others, "Other")
         return df
 
     def build_year(self, df, build_year_col="build_year"):
@@ -337,7 +533,7 @@ class FigureHandler:
         """
         self._default_filename = default_filename
         self._title = title
-        self._note = note
+        self._note = note if note is not None else ""
         self._allow_multiple_figures = allow_multiple_figures
 
     def add_figure(self, fig, axes=None, filename=None, title=None):
@@ -470,6 +666,7 @@ class DataHandler:
         convert_dot_to_na=False,
         force_one_scenario=False,
         drop_scenario_info=True,
+        usecols=None,
         **kwargs,
     ):
         """
@@ -482,14 +679,14 @@ class DataHandler:
         @param force_one_scenario if True this will only return one scenario of data even if we are running
         @param drop_scenario_info if True, we will drop the columns relating to the scenario when we are dealing with just one scenario
         a multi-scenario function.
+        @param only return the following functions
         """
         if not filename.endswith(".csv"):
             filename += ".csv"
 
-        if folder is None:
-            folder = "inputs" if from_inputs else "outputs"
-
-        path = os.path.join(folder, filename)
+        path = self.get_file_path(
+            filename, folder, from_inputs, scenario_specific=False
+        )
 
         # If doesn't exist, create it
         if path not in self._dfs:
@@ -509,7 +706,22 @@ class DataHandler:
             # Drop the columns related to the scenario
             if drop_scenario_info:
                 df = df.drop(["scenario_index", "scenario_name"], axis=1)
+        if usecols is not None:
+            df = df[usecols]
         return df
+
+    def get_file_path(
+        self, filename, folder=None, from_inputs=False, scenario_specific=True
+    ):
+        if folder is None:
+            folder = "inputs" if from_inputs else "outputs"
+
+        path = os.path.join(folder, filename)
+
+        if scenario_specific:
+            path = os.path.join(self._scenarios[self._active_scenario].path, path)
+
+        return path
 
     def _load_dataframe(self, path, dtype=None, **kwargs) -> pd.DataFrame:
         """
@@ -568,16 +780,19 @@ class GraphTools(DataHandler):
         self.sns = sns
         self.pd = pd
         self.np = np
-        self.mplt = matplotlib
+        self.plt = matplotlib
         self.pn = plotnine
 
         # Set the style to Seaborn default style
         sns.set()
+        # Don't show white outline around shapes to avoid confusion
+        plt.rcParams["patch.edgecolor"] = "none"
 
         # Disables pandas warnings that will occur since we are constantly returning only a slice of our master dataframe
         pd.options.mode.chained_assignment = None
 
         self.transform = TransformTools(self)
+        self.maps = GraphMapTools(self)
 
     def _create_axes(self, num_rows=1, size=(8, 5), ylabel=None, **kwargs):
         """
@@ -622,7 +837,7 @@ class GraphTools(DataHandler):
 
         return fig
 
-    def get_axes(self, filename=None, title=None, *args, **kwargs):
+    def get_axes(self, filename=None, title=None, note=None, *args, **kwargs):
         """
         Returns a set of matplotlib axes that can be used to graph.
 
@@ -634,7 +849,12 @@ class GraphTools(DataHandler):
             fig, axes = self._create_axes(*args, **kwargs)
             self._figure_handler.add_figure(fig, axes, filename, title)
 
-        return axes[self._active_scenario]
+        ax = axes[self._active_scenario]
+
+        if note is not None:
+            ax.text(0.5, -0.2, note, size=12, ha="center", transform=ax.transAxes)
+
+        return ax
 
     def bar_label(self, filename=None):
         """
@@ -851,10 +1071,10 @@ class GraphTools(DataHandler):
 def graph_scenarios(
     scenarios: List[Scenario],
     graph_dir,
-    overwrite,
+    overwrite=False,
     skip_long=False,
     module_names=None,
-    figure=None,
+    figures=None,
 ):
     # If directory already exists, verify we should overwrite its contents
     if os.path.exists(graph_dir):
@@ -873,16 +1093,11 @@ def graph_scenarios(
     if module_names is None:
         module_names = read_modules(scenarios)
 
-    if len(module_names) == 0:
-        # We'd raise an exception however warnings are already generated by load_modules
-        print("No modules found.")
-        return
-
     # Import the modules
     for module_name in module_names:
         try:
             importlib.import_module(module_name)
-        except:
+        except ModuleNotFoundError:
             warnings.warn(
                 f"Module {module_name} not found. Graphs in this module will not be created."
             )
@@ -894,16 +1109,19 @@ def graph_scenarios(
 
     # Loop through every graphing module
     print(f"Graphing modules:")
-    if figure is None:
+    if figures is None:
         for graph_func in registered_graphs.values():
             graph_tools.run_graph_func(graph_func)
     else:
-        if figure not in registered_graphs:
-            raise Exception(
-                f"{figure} not found in list of registered graphs."
-                f"Make sure your graphing function is in a module."
-            )
-        graph_tools.run_graph_func(registered_graphs[figure])
+        for figure in figures:
+            try:
+                func = registered_graphs[figure]
+            except KeyError:
+                raise Exception(
+                    f"{figures} not found in list of registered graphs."
+                    f"Make sure your graphing function is in a module."
+                )
+            graph_tools.run_graph_func(func)
 
     print(f"\nTook {timer.step_time_as_str()} to generate all graphs.")
 
