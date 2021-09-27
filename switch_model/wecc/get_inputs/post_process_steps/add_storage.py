@@ -5,7 +5,6 @@ allows adding storage technologies from a Google Sheet to
 the csvs in the inputs folder.
 """
 import pandas as pd
-
 from switch_model.wecc.get_inputs.register_post_process import register_post_process
 
 
@@ -102,11 +101,9 @@ def drop_previous_candidate_storage():
 
 
 @register_post_process(
-    name="add_storage",
     msg="Adding storage from Google Sheets",
-    priority=1,  # Increased priority (default is 2) so that it always runs before replace_plants_in_zone_all.py
 )
-def main(config):
+def post_process(config):
     # Drop previous candidate storage from inputs
     drop_previous_candidate_storage()
 
