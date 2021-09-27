@@ -251,11 +251,12 @@ def graph_energy_balance(tools):
         load_balance["normalized_energy_balance_duals_dollar_per_mwh"], errors="coerce") / 10
     load_balance = load_balance[["energy_balance_duals", "time_row"]]
     load_balance = load_balance.pivot(columns="time_row", values="energy_balance_duals")
+    percent_of_zeroes = sum(load_balance == 0) / len(load_balance) * 100
     # Don't include the zero-valued duals
     load_balance = load_balance.replace(0, tools.np.nan)
     if load_balance.count().sum() != 0:
         load_balance.plot.box(
-            ax=tools.get_axes(),
+            ax=tools.get_axes(note=f"{percent_of_zeroes:.1f}% of duals are zero"),
             xlabel='Period',
             ylabel='Energy balance duals (cents/kWh)',
             showfliers=False
