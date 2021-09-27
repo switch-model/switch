@@ -7,8 +7,7 @@ from switch_model.tools.drop import main as drop
 @register_post_process(
     name="only_california",
     msg="Dropping all the zones outside of California",
-    only_with_config=True,
-    priority=3
+    priority=3,
 )
 def main(_):
     df = pd.read_csv("load_zones.csv", index_col=False)

@@ -3,8 +3,8 @@ import pandas as pd
 from switch_model.wecc.get_inputs.register_post_process import register_post_process
 
 
-@register_post_process(name="replace_all_zones_plants", msg="Replacing _ALL_ZONES plants with a plant in each zone")
-def replace_plants_in_zone_all(_):
+@register_post_process(msg="Replacing _ALL_ZONES plants with a plant in each zone")
+def post_process(config, *args, **kwargs):
     """
     This post-process step replaces all the generation projects that have a load called
     _ALL_ZONES with a generation project for each load zone.
@@ -14,7 +14,13 @@ def replace_plants_in_zone_all(_):
     load_zones["dbid_suffix"] = "_" + load_zones["zone_dbid"].astype(str)
     num_zones = len(load_zones)
 
-    def replace_rows(plants_to_copy, filename, df=None, plants_col="GENERATION_PROJECT", load_column=None):
+    def replace_rows(
+        plants_to_copy,
+        filename,
+        df=None,
+        plants_col="GENERATION_PROJECT",
+        load_column=None,
+    ):
         # If the df does not already exist, read the file
         if df is None:
             df = pd.read_csv(filename, index_col=False)
@@ -41,7 +47,7 @@ def replace_plants_in_zone_all(_):
         # key that is always 1.
         replacement = rows_to_copy.assign(key=1).merge(
             load_zones.assign(key=1),
-            on='key',
+            on="key",
         )
 
         replacement[plants_col] = replacement[plants_col] + replacement["dbid_suffix"]
@@ -69,12 +75,19 @@ def replace_plants_in_zone_all(_):
     # If to_replace has variable capacity factors we raise exceptions
     # since the variabale capacity factors won't be the same across zones
     if any(to_replace["gen_is_variable"] == 1):
-        raise Exception("generation_projects_info.csv contains variable plants "
-                        "with load zone _ALL_ZONES. This is not allowed since "
-                        "copying variable capacity factors to all "
-                        "zones is not implemented (and likely unwanted).")
+        raise Exception(
+            "generation_projects_info.csv contains variable plants "
+            "with load zone _ALL_ZONES. This is not allowed since "
+            "copying variable capacity factors to all "
+            "zones is not implemented (and likely unwanted)."
+        )
 
     plants_to_replace = to_replace["GENERATION_PROJECT"]
-    replace_rows(plants_to_replace, "generation_projects_info.csv", load_column="gen_load_zone", df=plants)
+    replace_rows(
+        plants_to_replace,
+        "generation_projects_info.csv",
+        load_column="gen_load_zone",
+        df=plants,
+    )
     replace_rows(plants_to_replace, "gen_build_costs.csv")
     replace_rows(plants_to_replace, "gen_build_predetermined.csv")

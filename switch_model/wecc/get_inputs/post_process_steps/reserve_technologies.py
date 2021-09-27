@@ -10,13 +10,10 @@ from switch_model.wecc.get_inputs.register_post_process import register_post_pro
 
 
 @register_post_process(
-    name="no_fosill_reserve",
-    msg="Aggregating candidate projects by load zone for specified technologies",
-    only_with_config=True,
-    priority=4
+    msg="Removing fossil fuels from reserves.",
 )
-def post_process(config):
-    """ This function sets to zero the column that allows each candidate technology to
+def post_process(config, func_config):
+    """This function sets to zero the column that allows each candidate technology to
     proividee"""
 
     fname = "generation_projects_info.csv"
