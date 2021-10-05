@@ -42,6 +42,7 @@ def figure_1_panel_1(tools, ax):
         "normalized_energy_balance_duals_dollar_per_mwh",
         "scenario_name"
     ]).rename(columns={"normalized_energy_balance_duals_dollar_per_mwh": "value"})
+    # df = df[df["scenario_name"] != "1.94"]
     df = tools.transform.timestamp(df)
     df = df.groupby(["scenario_name", "hour"], as_index=False)["value"].mean()
     df = df.pivot(index="hour", columns="scenario_name", values="value")
@@ -92,6 +93,7 @@ def figure_1_panel_2(tools, ax):
         "normalized_energy_balance_duals_dollar_per_mwh",
         "scenario_name"
     ]).rename(columns={"normalized_energy_balance_duals_dollar_per_mwh": "value"})
+    # df = df[df["scenario_name"] != "1.94"]
     df = df.groupby(["scenario_name", "timestamp"], as_index=False).mean()
     df = tools.transform.timestamp(df)
     # df["Month"] = df["datetime"].dt.month
@@ -111,7 +113,8 @@ def figure_1_panel_2(tools, ax):
 
 def figure_1_panel_3(tools, ax):
     # Calculate transmission
-    tx = tools.get_dataframe("transmission.csv", usecols=["BuildTx", "scenario_name"], convert_dot_to_na=True).fillna(0)
+    tx = tools.get_dataframe("transmission.csv", usecols=["BuildTx", "trans_length_km", "scenario_name"], convert_dot_to_na=True).fillna(0)
+    tx["BuildTx"] *= tx["trans_length_km"]
     tx = tx.groupby("scenario_name")["BuildTx"].sum().rename("Transmission")
 
     # Get new buildout
@@ -147,6 +150,7 @@ def figure_1_panel_3(tools, ax):
     ax.yaxis.set_major_formatter(PercentFormatter())
     ax.set_xlabel(X_LABEL)
     ax.set_title("C. Impact of Storage on Transmission & Generation Investments")
+    ax.set_ylim(-100, 0)
 
 
 def figure_1_panel_4(tools, ax):
@@ -461,18 +465,24 @@ def dispatch_map(tools, scenario_name, ax):
 
 if __name__ == "__main__":
     baseline = Scenario("1342", name=1.94)
+    min_2 = Scenario("M7", name=2)
     min_4 = Scenario("M6", name=4)
     min_8 = Scenario("M5", name=8)
     min_16 = Scenario("M4", name=16)
     min_32 = Scenario("M3", name=32)
     min_64 = Scenario("M2", name=64)
-    minimum_scenarios = [baseline, min_4, min_8, min_16, min_32, min_64]
+    minimum_scenarios = [baseline, min_2, min_4, min_8, min_16, min_32, min_64]
     kwargs = dict(graph_dir="LDES_paper_graphs", overwrite=True, module_names=[])
     graph_scenarios(
         scenarios=minimum_scenarios,
-        figures=["figure_2"],
+        figures=["figure_1"],
         **kwargs
     )
+    # graph_scenarios(
+    #     scenarios=minimum_scenarios,
+    #     figures=["figure_2"],
+    #     **kwargs
+    # )
     # graph_scenarios(
     #     scenarios=[baseline, min_64],
     #     figures=["figure_3"],
