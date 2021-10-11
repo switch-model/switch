@@ -651,12 +651,16 @@ class DataHandler:
         # If true the current function being run should only be run
         # once with all the scenarios rather than re-run for each scenario
         self._is_multi_scenario_func = None
-        self._active_scenario = None
+        self._active_scenario = 0
 
         # Here we store a mapping of csv file names to their dataframes.
         # Each dataframe has a column called 'scenario' that specifies which scenario
         # a given row belongs to.
         self._dfs: Dict[str, pd.DataFrame] = {}
+
+    @property
+    def scenarios(self):
+        return self._scenarios
 
     def get_dataframe(
         self,
@@ -760,7 +764,7 @@ class GraphTools(DataHandler):
     @graph() annotation.
     """
 
-    def __init__(self, scenarios: List[Scenario], graph_dir: str, skip_long: bool):
+    def __init__(self, scenarios: List[Scenario], graph_dir: str, skip_long=False):
         """
         @param scenarios list of scenarios that we should run graphing for
                 graph_dir directory where graphs should be saved
@@ -880,31 +884,13 @@ class GraphTools(DataHandler):
         # Add the figure to the list of figures for that scenario
         self._figure_handler.add_figure(fig, filename=filename)
 
-    def run_graph_func(self, func):
-        """Runs the graphing function"""
-        print(f"{func.name}", end=", ", flush=True)
-        self._is_multi_scenario_func = func.multi_scenario
+    def pre_graphing(self, multi_scenario, name, title=None, note=None):
+        self._is_multi_scenario_func = multi_scenario
         self._figure_handler.set_properties(
-            func.name,
-            func.title,
-            func.note,
-            allow_multiple_figures=not self._is_multi_scenario_func,
+            name, title, note, allow_multiple_figures=not self._is_multi_scenario_func
         )
 
-        if self._is_multi_scenario_func:
-            self._active_scenario = 0
-            func(self)
-        else:
-            # For each scenario
-            for i, scenario in enumerate(self._scenarios):
-                # Set the active scenario index so that other functions behave properly
-                self._active_scenario = i
-                # Call the graphing function
-                func(self)
-
-        # Reset to none like it was before just to be safe
-        self._active_scenario = None
-
+    def post_graphing(self):
         # Save the graphs
         self._figure_handler.save_figures()
 
@@ -1072,9 +1058,9 @@ def graph_scenarios(
     scenarios: List[Scenario],
     graph_dir,
     overwrite=False,
-    skip_long=False,
     module_names=None,
     figures=None,
+    **kwargs,
 ):
     # If directory already exists, verify we should overwrite its contents
     if os.path.exists(graph_dir):
@@ -1103,15 +1089,13 @@ def graph_scenarios(
             )
 
     # Initialize the graphing tool
-    graph_tools = GraphTools(
-        scenarios=scenarios, graph_dir=graph_dir, skip_long=skip_long
-    )
+    graph_tools = GraphTools(scenarios=scenarios, graph_dir=graph_dir, **kwargs)
 
     # Loop through every graphing module
     print(f"Graphing modules:")
     if figures is None:
         for graph_func in registered_graphs.values():
-            graph_tools.run_graph_func(graph_func)
+            run_graph_func(graph_tools, graph_func)
     else:
         for figure in figures:
             try:
@@ -1121,9 +1105,28 @@ def graph_scenarios(
                     f"{figures} not found in list of registered graphs."
                     f"Make sure your graphing function is in a module."
                 )
-            graph_tools.run_graph_func(func)
+            run_graph_func(graph_tools, func)
 
     print(f"\nTook {timer.step_time_as_str()} to generate all graphs.")
+
+
+def run_graph_func(tools, func):
+    """Runs the graphing function"""
+    print(f"{func.name}", end=", ", flush=True)
+    tools.pre_graphing(func.multi_scenario, func.name, func.title, func.note)
+    if func.multi_scenario:
+        func(tools)
+    else:
+        # For each scenario
+        for i, scenario in enumerate(tools.scenarios):
+            # Set the active scenario index so that other functions behave properly
+            tools._active_scenario = i
+            # Call the graphing function
+            func(tools)
+        # Reset to 0 like it was before
+        tools._active_scenario = 0
+
+    tools.post_graphing()
 
 
 def read_modules(scenarios):
