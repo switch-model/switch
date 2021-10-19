@@ -17,13 +17,11 @@ import warnings
 import numpy as np
 import pandas as pd
 
-from switch_model.wecc.get_inputs.register_post_process import register_post_process
+from switch_model.wecc.get_inputs.register_post_process import post_process_step
 
 
-@register_post_process(
-    msg="Aggregating candidate projects by load zone for specified technologies",
-)
-def post_process(config, func_config):
+@post_process_step(msg="Aggregating candidate projects by load zone for specified technologies")
+def post_process(func_config):
     agg_techs = func_config["agg_techs"]
     cf_method = func_config["cf_method"]
     assert type(agg_techs) == list
@@ -51,7 +49,12 @@ def post_process(config, func_config):
     should_agg = df["gen_tech"].isin(agg_techs) & (~df[key].isin(predetermined))
     if cf_method == "file":
         # Filter out projects where we don't have a capacity factor
-        zonal_cf = pd.read_csv("zonal_capacity_factors.csv", index_col=False)
+        try:
+            zonal_cf = pd.read_csv("zonal_capacity_factors.csv", index_col=False)
+        except FileNotFoundError:
+            raise Exception("Post process step 'aggregate_candidate_projects' with method 'file'"
+                            " requires an external zonal_capacity_factors.csv to exist. This file can be generated"
+                            " using the scripts in zonal_capacity_factors.csv.")
         valid_proj = df.merge(
             zonal_cf[["gen_load_zone", "gen_tech"]].drop_duplicates(),
             on=["gen_load_zone", "gen_tech"],

@@ -5,13 +5,13 @@ import shutil
 # Third-party packages
 import pandas as pd
 
-from switch_model.wecc.get_inputs.register_post_process import register_post_process
+from switch_model.wecc.get_inputs.register_post_process import post_process_step
 
 
-@register_post_process(
+@post_process_step(
     msg="Change energy cost for storage candidate",
 )
-def post_process(config, func_config):
+def post_process(func_config):
 
     percentage = int(func_config["percentage"])/100
     dtype = {"GENERATION_PROJECT": str}
