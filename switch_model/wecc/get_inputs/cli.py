@@ -64,7 +64,9 @@ def main():
         post_process = getattr(mod, "post_process")
 
         # Get specific configuration for the post process if specified
-        post_config = full_config["post_process_config"].get(module, None)
+        post_config = None
+        if "post_process_config" in full_config and full_config["post_process_config"] is not None:
+            post_config = full_config["post_process_config"].get(module, None)
 
         # Run post process
         post_process(post_config)
