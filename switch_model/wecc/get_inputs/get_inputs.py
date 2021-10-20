@@ -594,8 +594,8 @@ def query_db(config, skip_cf):
             p.label || '_M' || date_part('month', timestamp_utc) AS tp_to_hts
         FROM switch.sampled_timepoint AS tp
             JOIN switch.period AS p USING(period_id, study_timeframe_id)
-        WHERE time_sample_id = {time_sample_id}
-            AND study_timeframe_id = {study_timeframe_id}
+        WHERE time_sample_id = {params.time_sample_id}
+            AND study_timeframe_id = {params.study_timeframe_id}
         ORDER BY 1;
         """,
     )
