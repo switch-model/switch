@@ -5,7 +5,7 @@ allows adding storage technologies from a Google Sheet to
 the csvs in the inputs folder.
 """
 import pandas as pd
-from switch_model.wecc.get_inputs.register_post_process import register_post_process
+from switch_model.wecc.get_inputs.register_post_process import post_process_step
 
 
 def fetch_df(tab_name, key, config):
@@ -100,9 +100,7 @@ def drop_previous_candidate_storage():
     costs.to_csv("gen_build_costs.csv", index=False)
 
 
-@register_post_process(
-    msg="Adding storage from Google Sheets",
-)
+@post_process_step(msg="Adding storage from Google Sheets")
 def post_process(config):
     # Drop previous candidate storage from inputs
     drop_previous_candidate_storage()
