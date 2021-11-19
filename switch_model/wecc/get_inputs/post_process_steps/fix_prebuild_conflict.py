@@ -1,10 +1,10 @@
 import pandas as pd
 
-from switch_model.wecc.get_inputs.register_post_process import register_post_process
+from switch_model.wecc.get_inputs.register_post_process import post_process_step
 
 
-@register_post_process(msg="Shifting 2020 pre-build years to 2019")
-def post_process(config, *args, **kwargs):
+@post_process_step(msg="Shifting 2020 pre-build years to 2019")
+def post_process(_):
     """
     This post-processing step is necessary to pass the no_predetermined_bld_yr_vs_period_conflict BuildCheck.
     Basically we are moving all the 2020 predetermined build years to 2019 to avoid a conflict with the 2020 period.
@@ -15,9 +15,9 @@ def post_process(config, *args, **kwargs):
         return
 
     # Read two files that need modification
-    gen_build_costs = pd.read_csv("gen_build_costs.csv", index_col=False)
+    gen_build_costs = pd.read_csv("gen_build_costs.csv", index_col=False, dtype={"GENERATION_PROJECT": object})
     gen_build_predetermined = pd.read_csv(
-        "gen_build_predetermined.csv", index_col=False
+        "gen_build_predetermined.csv", index_col=False, dtype={"GENERATION_PROJECT": object}
     )
     # Save their size
     rows_prior = gen_build_costs.size, gen_build_predetermined.size

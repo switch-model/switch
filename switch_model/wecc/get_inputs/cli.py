@@ -8,10 +8,6 @@ from switch_model.utilities import query_yes_no, StepTimer
 from switch_model.wecc.get_inputs.get_inputs import query_db
 from switch_model.wecc.utilities import load_config
 
-# from switch_model.wecc.get_inputs.post_process_steps import *
-# from switch_model.wecc.get_inputs.register_post_process import run_post_process, _registered_steps
-
-
 def main():
     timer = StepTimer()
 
@@ -68,14 +64,16 @@ def main():
         post_process = getattr(mod, "post_process")
 
         # Get specific configuration for the post process if specified
-        post_config = full_config.get(module, None)
+        post_config = None
+        if "post_process_config" in full_config and full_config["post_process_config"] is not None:
+            post_config = full_config["post_process_config"].get(module, None)
 
         # Run post process
-        post_process(full_config, post_config)
+        post_process(post_config)
 
     # Run all post process specified, otherwise run single one
     if args.post_process_step is None:
-        for module in full_config["post_process"]:
+        for module in full_config["post_process_steps"]:
             run_post_process(module)
     else:
         run_post_process(getattr(args, "post_process_step"))

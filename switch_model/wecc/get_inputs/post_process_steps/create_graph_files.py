@@ -1,10 +1,10 @@
 import pandas as pd
 
-from switch_model.wecc.get_inputs.register_post_process import register_post_process
+from switch_model.wecc.get_inputs.register_post_process import post_process_step
 
 
-@register_post_process(msg="Creating graph files")
-def post_process(config, *args, **kwargs):
+@post_process_step(msg="Creating graph files")
+def post_process(_):
     timepoints = pd.read_csv("timepoints.csv", index_col=False)
     timeseries = pd.read_csv("timeseries.csv", index_col=False)
     timepoints = timepoints.merge(
