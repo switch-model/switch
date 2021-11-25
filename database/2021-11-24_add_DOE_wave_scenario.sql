@@ -132,7 +132,7 @@ select * from switch.generation_plant_scenario_member where generation_plant_sce
 -- order by timestamp_utc asc;
 
 -- continue here:
--- 8260,680 (almost = (359,400) * 23 )
+-- 8,260,680 rows  = (2051-2011+1) * 8760 * 23 
 insert into switch.variable_capacity_factors_exist_and_candidate_gen
 select t.generation_plant_id as generation_plant_id, raw_timepoint_id, t2.timestamp_utc,
 t.capacity_factor as capacity_factor, 1 as is_new_cap_factor
