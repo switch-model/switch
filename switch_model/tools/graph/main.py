@@ -9,7 +9,7 @@ import importlib
 import traceback
 import os
 import warnings
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 # Third-party packages
 import numpy as np
@@ -432,8 +432,8 @@ class FigureHandler:
     saving these figures to .png files.
     """
 
-    def __init__(self, output_dir, scenarios):
-        self._output_dir = output_dir
+    def __init__(self, output_dir: Optional[str], scenarios):
+        self._output_dir: Optional[str] = output_dir
         self._scenarios: List[Scenario] = scenarios
 
         # This dictionary stores the figures.
@@ -490,6 +490,8 @@ class FigureHandler:
         return figures[0].axes  # We access the 0 index since we expect there to only be 1 figure
 
     def save_figures(self):
+        if self._output_dir is None:
+            raise Exception("Cannot call save_figures() when the output directory is None.")
         for filename, figures in self._figures.items():
             # If we have a single figure just save it
             if len(figures) == 1:
@@ -651,7 +653,7 @@ class GraphTools(DataHandler):
     @graph() annotation.
     """
 
-    def __init__(self, scenarios: List[Scenario], graph_dir: str, skip_long=False):
+    def __init__(self, scenarios: List[Scenario], graph_dir: Optional[str] = None, skip_long=False):
         """
         @param scenarios list of scenarios that we should run graphing for
                 graph_dir directory where graphs should be saved
@@ -772,7 +774,7 @@ class GraphTools(DataHandler):
         # Add the figure to the list of figures for that scenario
         self._figure_handler.add_figure(fig, filename=filename)
 
-    def pre_graphing(self, multi_scenario, name, title=None, note=None):
+    def pre_graphing(self, multi_scenario, name=None, title=None, note=None):
         self._is_multi_scenario_func = multi_scenario
         self._figure_handler.set_properties(
             name,
