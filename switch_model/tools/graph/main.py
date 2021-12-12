@@ -200,9 +200,7 @@ class GraphMapTools:
             start += ratio
 
         for xyi, si, c in zip(xy, s, colors):
-            ax.scatter(
-                [x], [y], marker=xyi, s=size * si**2, c=c, edgecolor="k", zorder=10
-            )
+            ax.scatter([x], [y], marker=xyi, s=size * si**2, c=c, edgecolor="k")
 
     def graph_pie_chart(self, df, max_size=2500, ax=None):
         """
@@ -232,6 +230,78 @@ class GraphMapTools:
             ratios = (group_sum / total_size).values
             GraphMapTools._pie_plot(x, y, ratios, tech_color, ax=ax, size=total_size)
         return ax
+
+    def _bin_data(self, data, bins, mapping):
+        """
+        Puts the data into bins and returns the binned data as well as labels and data needed
+        to make a legend.
+        data : Series containing the data to transform
+        bins : list containing the cuts between the bins (not including the ends)
+        mapping : function that given the bin index returns the desired value
+        Returns a tuple with 3 elements. The first is an array with the binned data.
+        The second is a list of labels for the bins
+        The third is the value associated with each bin matching the label ordering.
+        """
+        binned_data = []
+        num_bins = len(bins) + 1
+        for point in data:
+            if point > bins[-1]:
+                binned_data.append(num_bins - 1)
+                continue
+            for i, bin in enumerate(bins):
+                if point <= bin:
+                    binned_data.append(i)
+                    break
+        binned_and_mapped = []
+        for point in binned_data:
+            binned_and_mapped.append(mapping(point))
+
+        labels = [f"<{bins[0]}"]
+        legend_vals = [mapping(0.0)]
+        for i in range(1, len(bins)):
+            legend_vals.append(mapping(i))
+            labels.append(f"{bins[i - 1]}-{bins[i]}")
+        labels.append(f">{bins[-1]}")
+        legend_vals.append(mapping(num_bins - 1))
+
+        return binned_and_mapped, labels, legend_vals
+
+    def graph_squares(
+        self, df, bins=(5, 8, 10, 15), cmap="viridis", ax=None, size=20, unit=" h"
+    ):
+        """
+        Graphs the data from the dataframe to a squares on each cell.
+        The dataframe should have 2 columns, gen_load_zone and value.
+        """
+        _, center_points = self._load_maps()
+
+        cmap_func = cmap
+        num_bins = len(bins) + 1
+        if type(cmap_func) == str:
+            cmap_func = plt.get_cmap(cmap_func)
+
+        if ax is None:
+            ax = self._tools.get_axes()
+        self._plot_states(ax)
+        df = df.merge(center_points, on="gen_load_zone", validate="one_to_one")
+        colors, legend_labels, legend_colors = self._bin_data(
+            df["value"], bins, lambda x: cmap_func(float(x / (num_bins - 1)))
+        )
+        for i, row in df.iterrows():
+            x, y = row["geometry"].x, row["geometry"].y
+            ax.scatter(
+                x, y, marker="s", s=size * 2, color="black"
+            )  # Add a black border
+            ax.scatter(x, y, marker="s", s=size, color=colors[i])
+        ax.legend(
+            title="Storage duration (h)",
+            handles=[
+                self._tools.plt.lines.Line2D(
+                    [], [], color=c, marker="s", markersize=5, label=l, linestyle="None"
+                )
+                for c, l in zip(legend_colors, legend_labels)
+            ],
+        )
 
     def graph_points(self, df, ax=None):
         """
@@ -303,7 +373,7 @@ class GraphMapTools:
             ax=ax,
             column="value",
             legend=legend,
-            cmap="Greens",
+            cmap="Reds",
             zorder=zorder,
             norm=colors.LogNorm(vmin=cutoff, vmax=df.value.max()),
         )
