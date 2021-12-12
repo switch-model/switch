@@ -189,8 +189,8 @@ duration = duration[["gen_load_zone", "value"]]
 
 #%%
 ax = ax2
-# tools.maps.graph_transmission(transmission, 0.1, ax=ax)
-# tools.maps.graph_pie_chart(capacity, ax=ax, max_size=1000)
+tools.maps.graph_transmission(transmission, 0.1, ax=ax, legend=False)
+tools.maps.graph_pie_chart(capacity, ax=ax, fixed_size=300)
 tools.maps.graph_squares(duration, ax=ax, size=20, cmap="Greens")
 ax.set_title("B. Geographical Distribution of Generation and Transmission")
 
