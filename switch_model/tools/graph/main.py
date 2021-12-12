@@ -202,7 +202,7 @@ class GraphMapTools:
         for xyi, si, c in zip(xy, s, colors):
             ax.scatter([x], [y], marker=xyi, s=size * si**2, c=c, edgecolor="k")
 
-    def graph_pie_chart(self, df, max_size=2500, ax=None):
+    def graph_pie_chart(self, df, max_size=2500, fixed_size=None, ax=None):
         """
         Graphs the data from the dataframe to a map pie chart.
         The dataframe should have 3 columns, gen_load_zone, gen_type and value.
@@ -228,6 +228,8 @@ class GraphMapTools:
             tech_color = [colors[tech] for tech in group_sum.index.values]
             total_size = group_sum.sum()
             ratios = (group_sum / total_size).values
+            if fixed_size is not None:
+                total_size = fixed_size
             GraphMapTools._pie_plot(x, y, ratios, tech_color, ax=ax, size=total_size)
         return ax
 
@@ -290,7 +292,7 @@ class GraphMapTools:
         for i, row in df.iterrows():
             x, y = row["geometry"].x, row["geometry"].y
             ax.scatter(
-                x, y, marker="s", s=size * 2, color="black"
+                x, y, marker="s", s=size * 2, color="dimgray"
             )  # Add a black border
             ax.scatter(x, y, marker="s", s=size, color=colors[i])
         ax.legend(
