@@ -1,5 +1,4 @@
 # %%
-import warnings
 from matplotlib import pyplot as plt
 from matplotlib import dates as mdates
 
@@ -153,7 +152,7 @@ for (columnName, columnData) in curtailment.iteritems():
     )
 ax_right.plot(duals, label="Dual Values", color="dimgray")
 lines += ax.plot(load, color="red", label="Load")
-ax.set_title("A. Seasonal storage breakdown")
+ax.set_title("A. Seasonal Profiles in the Baseline")
 ax.set_ylabel("Dispatch (TWh/day)")
 ax_right.set_ylabel(u"Normalized Duals (\xa2/kWh)")
 locator = mdates.MonthLocator()
@@ -168,7 +167,7 @@ ax_right.legend()
 capacity = tools.get_dataframe("gen_cap.csv").rename({"GenCapacity": "value"}, axis=1)
 capacity = tools.transform.gen_type(capacity)
 capacity = capacity.groupby(["gen_type", "gen_load_zone"], as_index=False)["value"].sum()
-capacity = capacity[capacity.value > 1e-3] # Must have at least 1 kW of capacity
+capacity = capacity[capacity.value > 1e-3]  # Must have at least 1 kW of capacity
 capacity.value *= 1e-3 # Convert to GW
 
 transmission = tools.get_dataframe("transmission.csv", convert_dot_to_na=True).fillna(0)
@@ -176,6 +175,7 @@ transmission = transmission[transmission["PERIOD"] == 2050]
 transmission = transmission.rename({"trans_lz1": "from", "trans_lz2": "to", "TxCapacityNameplate": "value"}, axis=1)
 transmission = transmission[["from", "to", "value"]]
 transmission = transmission[transmission.value != 0]
+transmission.value *= 1e-3  # Convert to GW
 
 duration = tools.get_dataframe("storage_capacity.csv", usecols=[
     "load_zone",
@@ -191,24 +191,22 @@ duration = duration[["gen_load_zone", "value"]]
 #%%
 ax = ax2
 tools.maps.draw_base_map(ax)
-tools.maps.graph_transmission(transmission, 0.1, ax=ax, legend=False)
+tools.maps.graph_transmission(transmission, ax=ax, legend=False)
 tools.maps.graph_pie_chart(capacity, ax=ax)
-tools.maps.graph_duration(duration, ax=ax, size=20)
-ax.set_title("B. Geographical Distribution of Generation and Transmission")
+tools.maps.graph_duration(duration, ax=ax)
+ax.set_title("B. Geographical Distributions in the Baseline")
 plt.tight_layout()
-
 
 #%%
 import pandas as pd
-df = capacity
-df = df.groupby("gen_load_zone")[["value"]].sum()
-bins = (0, 1, 10, 100, 1000)
-sizes = (300, 400, 500, 600)
-df["size"] = pd.cut(df.value, bins=bins, labels=sizes)
-if df["size"].isnull().values.any():
-    df["size"] = 300
-    warnings.warn("Not using variable piechart size since values were out of bounds during cutting")
+df = duration
+cmap = "RdPu"
+cmap_func = cmap
+bins=(0, 5, 8, 10, 15, float("inf"))
+num_bins = len(bins) - 1
+if type(cmap_func) == str:
+    cmap_func = plt.get_cmap(cmap_func)
+colors = [cmap_func(float(x/(num_bins - 1))) for x in range(0, num_bins)]
+colors
+df["colors"] = pd.cut(df.value, bins=bins, labels=colors)
 df
-
-
-
