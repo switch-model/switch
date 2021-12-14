@@ -3,7 +3,6 @@ Helper code to create maps of the WECC
 """
 
 import numpy as np
-from matplotlib import pyplot as plt, colors
 import warnings
 
 
@@ -82,17 +81,16 @@ class GraphMapTools:
         resolution = "50m"
         ax.set_global()  # Apply projection to features added
         # Area of interest for WECC
-        ax.set_extent([-125, -102, 30, 51])
+        ax.set_extent([-124, -102.5, 30.5, 51.5])
 
         # Add land and ocean to map
         ax.add_feature(
             self._cartopy.feature.LAND.with_scale(resolution),
             facecolor=map_colors["land"],
         )
-        ax.add_feature(
-            self._cartopy.feature.OCEAN.with_scale(resolution),
-            facecolor=map_colors["ocean"],
-        )
+        # ax.add_feature(
+        #     self._cartopy.feature.OCEAN.with_scale(resolution), facecolor=map_colors["ocean"]
+        # )
 
         # Add international borders
         ax.add_feature(
@@ -155,7 +153,7 @@ class GraphMapTools:
         df,
         bins=(0, 10, 30, 60, 1000),
         sizes=(200, 400, 600, 800),
-        labels=("<10 GW", "10 to 30 GW", "30 to 60 GW", "60+ GW"),
+        labels=("<10", "10 to 30", "30 to 60", "60+"),
         ax=None,
     ):
         """
@@ -188,20 +186,20 @@ class GraphMapTools:
             ratios = (group_sum / group_sum.sum()).values
             self._pie_plot(x, y, ratios, tech_color, total_size, ax)
 
-        legend_points = [
-            # self._tools.plt.patches.Rectangle((0, 0), 1, 1, fc="w", fill=False, edgecolor='none', linewidth=0, label="Capacity")
-        ]
+        legend_points = []
         for size, label in zip(sizes, labels):
             legend_points.append(
-                plt.scatter([], [], c="k", alpha=0.5, s=size, label=str(label))
+                ax.scatter([], [], c="k", alpha=0.5, s=size, label=str(label))
             )
         legend = ax.legend(
             handles=legend_points,
-            title="Capacity",
+            title="Power Capacity (GW)",
             labelspacing=1.5,
-            bbox_to_anchor=(1.0, 0.5),
-            framealpha=0
-            # loc="upper right",
+            bbox_to_anchor=(1, 0),
+            framealpha=0,
+            loc="lower left",
+            fontsize=8,
+            title_fontsize=8,
         )
         ax.add_artist(
             legend
@@ -209,78 +207,42 @@ class GraphMapTools:
 
         return ax
 
-    def _bin_data(self, data, bins, mapping):
-        """
-        Puts the data into bins and returns the binned data as well as labels and data needed
-        to make a legend.
-        data : Series containing the data to transform
-        bins : list containing the cuts between the bins (not including the ends)
-        mapping : function that given the bin index returns the desired value
-        Returns a tuple with 3 elements. The first is an array with the binned data.
-        The second is a list of labels for the bins
-        The third is the value associated with each bin matching the label ordering.
-        """
-        binned_data = []
-        num_bins = len(bins) + 1
-        for point in data:
-            if point > bins[-1]:
-                binned_data.append(num_bins - 1)
-                continue
-            for i, bin in enumerate(bins):
-                if point <= bin:
-                    binned_data.append(i)
-                    break
-        binned_and_mapped = []
-        for point in binned_data:
-            binned_and_mapped.append(mapping(point))
-
-        labels = [f"<{bins[0]}"]
-        legend_vals = [mapping(0.0)]
-        for i in range(1, len(bins)):
-            legend_vals.append(mapping(i))
-            labels.append(f"{bins[i - 1]}-{bins[i]}")
-        labels.append(f">{bins[-1]}")
-        legend_vals.append(mapping(num_bins - 1))
-
-        return binned_and_mapped, labels, legend_vals
-
-    def graph_duration(self, df, bins=(5, 8, 10, 15), cmap="RdPu", ax=None, size=20):
+    def graph_duration(
+        self,
+        df,
+        bins=(0, 5, 8, 10, 15, float("inf")),
+        labels=("<5", "5 to 8", "8 to 10", "10 to 15", "15+"),
+        cmap="RdPu",
+        ax=None,
+        size=60,
+    ):
         """
         Graphs the data from the dataframe to a points on each cell.
         The dataframe should have 2 columns, gen_load_zone and value.
         """
         _, center_points = self._load_maps()
 
-        cmap_func = cmap
-        num_bins = len(bins) + 1
-        if type(cmap_func) == str:
-            cmap_func = plt.get_cmap(cmap_func)
+        if type(cmap) == str:
+            cmap = self._tools.plt.pyplot.get_cmap(cmap)
 
         if ax is None:
             ax = self._tools.get_axes()
             self.draw_base_map(ax)
-        # self._plot_states(ax)
         df = df.merge(center_points, on="gen_load_zone", validate="one_to_one")
-        colors, legend_labels, legend_colors = self._bin_data(
-            df["value"], bins, lambda x: cmap_func(float(x / (num_bins - 1)))
-        )
+        n = len(bins)
+        colors = [cmap(x / (n - 2)) for x in range(n - 1)]
+        df["color"] = self._tools.pd.cut(df.value, bins=bins, labels=colors)
         for i, row in df.iterrows():
             x, y = row["geometry"].x, row["geometry"].y
             ax.scatter(
                 x,
                 y,
-                s=size * 2,
-                color="dimgray",
-                transform=self._projection,
-                zorder=10,
-            )  # Add a black border
-            ax.scatter(
-                x,
-                y,
                 s=size,
-                color=colors[i],
+                color=row["color"],
                 transform=self._projection,
                 zorder=10,
+                linewidth=1,
+                edgecolor="dimgray",
             )
         legend = ax.legend(
             title="Storage duration (h)",
@@ -290,16 +252,24 @@ class GraphMapTools:
                     [],
                     color=c,
                     marker=".",
-                    markersize=10,
+                    markersize=15,
                     label=l,
                     linestyle="None",
+                    markeredgewidth=1,
+                    markeredgecolor="dimgray",
                 )
-                for c, l in zip(legend_colors, legend_labels)
+                for c, l in zip(colors, labels)
             ],
-            bbox_to_anchor=(1.0, 1.0),
+            bbox_to_anchor=(1, 1),
+            loc="upper left",
             framealpha=0,
+            fontsize=8,
+            title_fontsize=8,
+            labelspacing=1.5,
         )
-        # ax.add_artist(legend) # Required, see : https://matplotlib.org/stable/tutorials/intermediate/legend_guide.html#multiple-legends-on-the-same-axes
+        ax.add_artist(
+            legend
+        )  # Required, see : https://matplotlib.org/stable/tutorials/intermediate/legend_guide.html#multiple-legends-on-the-same-axes
 
     def graph_points(self, df, ax=None):
         """
@@ -324,10 +294,18 @@ class GraphMapTools:
             legend=True,
             cmap="coolwarm",
             markersize=30,
-            norm=colors.CenteredNorm(),
+            norm=self._tools.plt.colors.CenteredNorm(),
         )
 
-    def graph_transmission(self, df, cutoff, ax=None, legend=True):
+    def graph_transmission(
+        self,
+        df,
+        ax=None,
+        legend=True,
+        bins=(0, 1, 5, 10, 30),
+        widths=(0.5, 1, 2, 3),
+        labels=("<1", "1 to 5", "5 to 10", "10 to 30"),
+    ):
         """
         Graphs the data frame a dataframe onto a map.
         The dataframe should have 4 columns:
@@ -366,11 +344,30 @@ class GraphMapTools:
         df = self._geopandas.GeoDataFrame(
             df[["geometry", "value"]], geometry="geometry"
         )
-        df.plot(
-            ax=ax,
-            column="value",
-            legend=legend,
-            cmap="Reds",
-            norm=colors.LogNorm(vmin=cutoff, vmax=df.value.max()),
+        df["width"] = self._tools.pd.cut(df.value, bins=bins, labels=widths)
+        if df["width"].isnull().values.any():
+            df["width"] = 1
+            warnings.warn(
+                "Not using variable widths for tx lines since values were out of bounds during binning"
+            )
+        df.plot(ax=ax, legend=legend, lw=df["width"], color="red")
+
+        legend_points = []
+        for width, label in zip(widths, labels):
+            legend_points.append(
+                ax.plot([], [], c="red", lw=width, label=str(label))[0]
+            )
+        legend = ax.legend(
+            handles=legend_points,
+            title="Tx Capacity (GW)",
+            bbox_to_anchor=(1, 0.5),
+            framealpha=0,
+            loc="center left",
+            fontsize=8,
+            title_fontsize=8,
         )
+        ax.add_artist(
+            legend
+        )  # Required, see : https://matplotlib.org/stable/tutorials/intermediate/legend_guide.html#multiple-legends-on-the-same-axes
+
         return ax
