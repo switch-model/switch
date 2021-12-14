@@ -4,6 +4,7 @@ Helper code to create maps of the WECC
 
 import numpy as np
 from matplotlib import pyplot as plt, colors
+import warnings
 
 
 class GraphMapTools:
@@ -149,16 +150,19 @@ class GraphMapTools:
                 zorder=10,
             )
 
-    def graph_pie_chart(self, df, max_size=2500, fixed_size=None, ax=None):
+    def graph_pie_chart(
+        self,
+        df,
+        bins=(0, 10, 30, 60, 1000),
+        sizes=(200, 400, 600, 800),
+        labels=("<10 GW", "10 to 30 GW", "30 to 60 GW", "60+ GW"),
+        ax=None,
+    ):
         """
         Graphs the data from the dataframe to a map pie chart.
         The dataframe should have 3 columns, gen_load_zone, gen_type and value.
         """
         _, center_points = self._load_maps()
-
-        # Scale the dataframe so the pie charts have the right size
-        current_max_size = df.groupby("gen_load_zone")["value"].sum().max()
-        df["value"] *= max_size / current_max_size
 
         if ax is None:
             ax = self._tools.get_axes()
@@ -167,17 +171,42 @@ class GraphMapTools:
 
         assert not df["gen_type"].isnull().values.any()
         colors = self._tools.get_colors()
-        for index, group in df.groupby(["gen_load_zone"]):
+        lz_values = df.groupby("gen_load_zone")[["value"]].sum()
+        lz_values["size"] = self._tools.pd.cut(lz_values.value, bins=bins, labels=sizes)
+        if lz_values["size"].isnull().values.any():
+            lz_values["size"] = 300
+            warnings.warn(
+                "Not using variable pie chart size since values were out of bounds during cutting"
+            )
+        for index, group in df.groupby("gen_load_zone"):
             x, y = group["geometry"].iloc[0].x, group["geometry"].iloc[0].y
             group_sum = group.groupby("gen_type")["value"].sum().sort_values()
             group_sum = group_sum[group_sum != 0].copy()
 
             tech_color = [colors[tech] for tech in group_sum.index.values]
-            total_size = group_sum.sum()
-            ratios = (group_sum / total_size).values
-            if fixed_size is not None:
-                total_size = fixed_size
+            total_size = lz_values.loc[index]["size"]
+            ratios = (group_sum / group_sum.sum()).values
             self._pie_plot(x, y, ratios, tech_color, total_size, ax)
+
+        legend_points = [
+            # self._tools.plt.patches.Rectangle((0, 0), 1, 1, fc="w", fill=False, edgecolor='none', linewidth=0, label="Capacity")
+        ]
+        for size, label in zip(sizes, labels):
+            legend_points.append(
+                plt.scatter([], [], c="k", alpha=0.5, s=size, label=str(label))
+            )
+        legend = ax.legend(
+            handles=legend_points,
+            title="Capacity",
+            labelspacing=1.5,
+            bbox_to_anchor=(1.0, 0.5),
+            framealpha=0
+            # loc="upper right",
+        )
+        ax.add_artist(
+            legend
+        )  # Required, see : https://matplotlib.org/stable/tutorials/intermediate/legend_guide.html#multiple-legends-on-the-same-axes
+
         return ax
 
     def _bin_data(self, data, bins, mapping):
@@ -215,9 +244,9 @@ class GraphMapTools:
 
         return binned_and_mapped, labels, legend_vals
 
-    def graph_squares(self, df, bins=(5, 8, 10, 15), cmap="RdPu", ax=None, size=20):
+    def graph_duration(self, df, bins=(5, 8, 10, 15), cmap="RdPu", ax=None, size=20):
         """
-        Graphs the data from the dataframe to a squares on each cell.
+        Graphs the data from the dataframe to a points on each cell.
         The dataframe should have 2 columns, gen_load_zone and value.
         """
         _, center_points = self._load_maps()
@@ -240,7 +269,6 @@ class GraphMapTools:
             ax.scatter(
                 x,
                 y,
-                marker="s",
                 s=size * 2,
                 color="dimgray",
                 transform=self._projection,
@@ -249,22 +277,29 @@ class GraphMapTools:
             ax.scatter(
                 x,
                 y,
-                marker="s",
                 s=size,
                 color=colors[i],
                 transform=self._projection,
                 zorder=10,
             )
-        ax.legend(
+        legend = ax.legend(
             title="Storage duration (h)",
             handles=[
                 self._tools.plt.lines.Line2D(
-                    [], [], color=c, marker="s", markersize=5, label=l, linestyle="None"
+                    [],
+                    [],
+                    color=c,
+                    marker=".",
+                    markersize=10,
+                    label=l,
+                    linestyle="None",
                 )
                 for c, l in zip(legend_colors, legend_labels)
             ],
             bbox_to_anchor=(1.0, 1.0),
+            framealpha=0,
         )
+        # ax.add_artist(legend) # Required, see : https://matplotlib.org/stable/tutorials/intermediate/legend_guide.html#multiple-legends-on-the-same-axes
 
     def graph_points(self, df, ax=None):
         """
