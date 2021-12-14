@@ -130,8 +130,7 @@ plt.close()
 fig = plt.figure()
 fig.set_size_inches(12, 6)
 ax1 = fig.add_subplot(1, 2, 1)
-ax2 = fig.add_subplot(1, 2, 2)
-plt.tight_layout()
+ax2 = fig.add_subplot(1, 2, 2, projection=tools.maps.get_projection())
 ax1_right = ax1.twinx()
 # %%
 ax = ax1
@@ -189,10 +188,12 @@ duration = duration[["gen_load_zone", "value"]]
 
 #%%
 ax = ax2
+tools.maps.draw_base_map(ax)
 tools.maps.graph_transmission(transmission, 0.1, ax=ax, legend=False)
-tools.maps.graph_pie_chart(capacity, ax=ax, fixed_size=300)
-tools.maps.graph_squares(duration, ax=ax, size=20, cmap="Greens")
+tools.maps.graph_pie_chart(capacity, ax=ax, max_size=500)
+tools.maps.graph_squares(duration, ax=ax, size=20)
 ax.set_title("B. Geographical Distribution of Generation and Transmission")
+plt.tight_layout()
 
 
 
