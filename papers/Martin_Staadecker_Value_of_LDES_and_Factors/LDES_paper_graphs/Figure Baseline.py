@@ -1,4 +1,5 @@
 # %%
+import warnings
 from matplotlib import pyplot as plt
 from matplotlib import dates as mdates
 
@@ -168,6 +169,7 @@ capacity = tools.get_dataframe("gen_cap.csv").rename({"GenCapacity": "value"}, a
 capacity = tools.transform.gen_type(capacity)
 capacity = capacity.groupby(["gen_type", "gen_load_zone"], as_index=False)["value"].sum()
 capacity = capacity[capacity.value > 1e-3] # Must have at least 1 kW of capacity
+capacity.value *= 1e-3 # Convert to GW
 
 transmission = tools.get_dataframe("transmission.csv", convert_dot_to_na=True).fillna(0)
 transmission = transmission[transmission["PERIOD"] == 2050]
@@ -190,10 +192,23 @@ duration = duration[["gen_load_zone", "value"]]
 ax = ax2
 tools.maps.draw_base_map(ax)
 tools.maps.graph_transmission(transmission, 0.1, ax=ax, legend=False)
-tools.maps.graph_pie_chart(capacity, ax=ax, max_size=500)
-tools.maps.graph_squares(duration, ax=ax, size=20)
+tools.maps.graph_pie_chart(capacity, ax=ax)
+tools.maps.graph_duration(duration, ax=ax, size=20)
 ax.set_title("B. Geographical Distribution of Generation and Transmission")
 plt.tight_layout()
+
+
+#%%
+import pandas as pd
+df = capacity
+df = df.groupby("gen_load_zone")[["value"]].sum()
+bins = (0, 1, 10, 100, 1000)
+sizes = (300, 400, 500, 600)
+df["size"] = pd.cut(df.value, bins=bins, labels=sizes)
+if df["size"].isnull().values.any():
+    df["size"] = 300
+    warnings.warn("Not using variable piechart size since values were out of bounds during cutting")
+df
 
 
 
