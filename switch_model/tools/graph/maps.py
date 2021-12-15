@@ -199,11 +199,28 @@ class GraphMapTools:
             framealpha=0,
             loc="lower left",
             fontsize=8,
-            title_fontsize=8,
+            title_fontsize=10,
         )
         ax.add_artist(
             legend
         )  # Required, see : https://matplotlib.org/stable/tutorials/intermediate/legend_guide.html#multiple-legends-on-the-same-axes
+
+        legend_points = []
+        for tech in df["gen_type"].unique():
+            legend_points.append(
+                ax.scatter([], [], c=colors[tech], marker="s", label=tech)
+            )
+
+        legend = ax.legend(
+            handles=legend_points,
+            ncol=4,
+            loc="upper left",
+            bbox_to_anchor=(0, 0),
+            # framealpha=0,
+            fontsize=8,
+            title_fontsize=10,
+        )
+        ax.add_artist(legend)
 
         return ax
 
@@ -264,8 +281,8 @@ class GraphMapTools:
             loc="upper left",
             framealpha=0,
             fontsize=8,
-            title_fontsize=8,
-            labelspacing=1.5,
+            title_fontsize=10,
+            labelspacing=1,
         )
         ax.add_artist(
             legend
@@ -364,7 +381,7 @@ class GraphMapTools:
             framealpha=0,
             loc="center left",
             fontsize=8,
-            title_fontsize=8,
+            title_fontsize=10,
         )
         ax.add_artist(
             legend
