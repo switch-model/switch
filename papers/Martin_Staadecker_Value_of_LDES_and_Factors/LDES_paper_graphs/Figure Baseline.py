@@ -12,7 +12,7 @@ from papers.Martin_Staadecker_Value_of_LDES_and_Factors.LDES_paper_graphs.util i
 tools = GraphTools([get_scenario("1342")])
 tools.pre_graphing(multi_scenario=False)
 
-ROLLING_AVERAGE_DAYS = 21
+ROLLING_AVERAGE_DAYS = 14
 
 # %%
 
@@ -28,6 +28,7 @@ dispatch = tools.get_dataframe(
     ],
 ).rename({"DispatchGen_MW": "dispatch", "Curtailment_MW": "with_curtailment"}, axis=1)
 dispatch = tools.transform.gen_type(dispatch)
+dispatch["with_curtailment"] += dispatch["dispatch"]
 
 # Sum dispatch across all the projects of the same type and timepoint
 dispatch = dispatch[dispatch["gen_type"] != "Storage"]
@@ -148,7 +149,7 @@ for (columnName, columnData) in curtailment.iteritems():
         columnData,
         linestyle="dashed",
         color=colors[columnName],
-        label=columnName + " (Curtailment)",
+        label=columnName + " (no curtail.)",
     )
 ax_right.plot(duals, label="Dual Values", color="dimgray")
 lines += ax.plot(load, color="red", label="Load")
@@ -197,16 +198,3 @@ tools.maps.graph_duration(duration, ax=ax)
 ax.set_title("B. Geographical Distributions in the Baseline")
 plt.tight_layout()
 
-#%%
-import pandas as pd
-df = duration
-cmap = "RdPu"
-cmap_func = cmap
-bins=(0, 5, 8, 10, 15, float("inf"))
-num_bins = len(bins) - 1
-if type(cmap_func) == str:
-    cmap_func = plt.get_cmap(cmap_func)
-colors = [cmap_func(float(x/(num_bins - 1))) for x in range(0, num_bins)]
-colors
-df["colors"] = pd.cut(df.value, bins=bins, labels=colors)
-df
