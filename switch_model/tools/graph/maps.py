@@ -92,27 +92,30 @@ class GraphMapTools:
         #     self._cartopy.feature.OCEAN.with_scale(resolution), facecolor=map_colors["ocean"]
         # )
 
-        # Add international borders
-        ax.add_feature(
-            self._cartopy.feature.BORDERS.with_scale(resolution),
-            linewidth=0.1,
-            edgecolor="k",
-        )
-
-        # Add state borders
-        # ax.add_feature(self._cartopy.feature.STATES, linewidth=0.1, edgecolor="k")
-
         # Remove outer border
         ax.spines["geo"].set_visible(False)
+
+        # Add load zone borders
         ax.add_geometries(
             wecc_lz.geometry,
             crs=self._projection,
             facecolor="whitesmoke",
-            edgecolor="k",
-            lw=0.5,
-            ls="--",
+            edgecolor="dimgray",
+            linewidth=0.5,
+            linestyle="--",
             # alpha=0.5,
         )
+
+        # Add state borders
+        ax.add_feature(self._cartopy.feature.STATES, linewidth=0.5, edgecolor="dimgray")
+
+        # Add international borders
+        ax.add_feature(
+            self._cartopy.feature.BORDERS.with_scale(resolution),
+            linewidth=0.5,
+            edgecolor="dimgray",
+        )
+
         return ax
 
     def _pie_plot(self, x, y, ratios, colors, size, ax):
@@ -143,9 +146,10 @@ class GraphMapTools:
                 marker=xyi,
                 s=size * si**2,
                 c=c,
-                edgecolor="k",
+                edgecolor="dimgray",
                 transform=self._projection,
                 zorder=10,
+                linewidth=0.5,
             )
 
     def graph_pie_chart(
