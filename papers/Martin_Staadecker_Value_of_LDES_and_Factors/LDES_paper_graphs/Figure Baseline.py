@@ -12,7 +12,7 @@ from papers.Martin_Staadecker_Value_of_LDES_and_Factors.LDES_paper_graphs.util i
 tools = GraphTools([get_scenario("1342")])
 tools.pre_graphing(multi_scenario=False)
 
-ROLLING_AVERAGE_DAYS = 14
+ROLLING_AVERAGE_DAYS = 7
 
 # %%
 
@@ -151,11 +151,11 @@ for (columnName, columnData) in curtailment.iteritems():
         color=colors[columnName],
         label=columnName + " (no curtail.)",
     )
-ax_right.plot(duals, label="Dual Values", color="dimgray")
-lines += ax.plot(load, color="red", label="Load")
+ax_right.plot(duals, label="EMP", color="red")
+lines += ax.plot(load, color="orange", label="Demand")
 ax.set_title("A. Seasonal Profiles in the Baseline")
 ax.set_ylabel("Dispatch (TWh/day)")
-ax_right.set_ylabel(u"Normalized Duals (\xa2/kWh)")
+ax_right.set_ylabel(u"Estimated Marginal Price (EMP) (\xa2/kWh)")
 locator = mdates.MonthLocator()
 ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(locator))
 ax.set_ylim(-0.1, 4.7)
@@ -173,10 +173,16 @@ capacity.value *= 1e-3 # Convert to GW
 
 transmission = tools.get_dataframe("transmission.csv", convert_dot_to_na=True).fillna(0)
 transmission = transmission[transmission["PERIOD"] == 2050]
+newtx = transmission.copy()
 transmission = transmission.rename({"trans_lz1": "from", "trans_lz2": "to", "TxCapacityNameplate": "value"}, axis=1)
 transmission = transmission[["from", "to", "value"]]
 transmission = transmission[transmission.value != 0]
 transmission.value *= 1e-3  # Convert to GW
+
+newtx = newtx.rename({"trans_lz1": "from", "trans_lz2": "to", "BuildTx": "value"}, axis=1)
+newtx = newtx[["from", "to", "value"]]
+newtx = newtx[newtx.value != 0]
+newtx.value *= 1e-3  # Convert to GW
 
 duration = tools.get_dataframe("storage_capacity.csv", usecols=[
     "load_zone",
@@ -192,7 +198,8 @@ duration = duration[["gen_load_zone", "value"]]
 #%%
 ax = ax2
 tools.maps.draw_base_map(ax)
-tools.maps.graph_transmission(transmission, ax=ax, legend=False)
+tools.maps.graph_transmission(transmission, ax=ax, legend=False, color="green", bbox_to_anchor=(1, 0.65), title="Existing Tx Capacity (GW)")
+tools.maps.graph_transmission(newtx, ax=ax, legend=False, color="red", bbox_to_anchor=(1,0.44), title="New Tx Capacity (GW)")
 tools.maps.graph_pie_chart(capacity, ax=ax)
 tools.maps.graph_duration(duration, ax=ax)
 ax.set_title("B. Geographical Distributions in the Baseline")

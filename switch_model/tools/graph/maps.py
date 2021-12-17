@@ -227,8 +227,8 @@ class GraphMapTools:
     def graph_duration(
         self,
         df,
-        bins=(0, 5, 8, 10, 15, float("inf")),
-        labels=("<5", "5 to 8", "8 to 10", "10 to 15", "15+"),
+        bins=(0, 4, 6, 8, 10, float("inf")),
+        labels=("<4", "4 to 6", "6 to 8", "8 to 10", "10+"),
         cmap="RdPu",
         ax=None,
         size=60,
@@ -282,7 +282,7 @@ class GraphMapTools:
             framealpha=0,
             fontsize=8,
             title_fontsize=10,
-            labelspacing=1,
+            # labelspacing=1
         )
         ax.add_artist(
             legend
@@ -322,6 +322,9 @@ class GraphMapTools:
         bins=(0, 1, 5, 10, 30),
         widths=(0.5, 1, 2, 3),
         labels=("<1", "1 to 5", "5 to 10", "10 to 30"),
+        color="red",
+        bbox_to_anchor=(1, 0.3),
+        title="Tx Capacity (GW)",
     ):
         """
         Graphs the data frame a dataframe onto a map.
@@ -367,17 +370,17 @@ class GraphMapTools:
             warnings.warn(
                 "Not using variable widths for tx lines since values were out of bounds during binning"
             )
-        df.plot(ax=ax, legend=legend, lw=df["width"], color="red")
+        df.plot(ax=ax, legend=legend, lw=df["width"], color=color)
 
         legend_points = []
         for width, label in zip(widths, labels):
             legend_points.append(
-                ax.plot([], [], c="red", lw=width, label=str(label))[0]
+                ax.plot([], [], c=color, lw=width, label=str(label))[0]
             )
         legend = ax.legend(
             handles=legend_points,
-            title="Tx Capacity (GW)",
-            bbox_to_anchor=(1, 0.5),
+            title=title,
+            bbox_to_anchor=bbox_to_anchor,
             framealpha=0,
             loc="center left",
             fontsize=8,
