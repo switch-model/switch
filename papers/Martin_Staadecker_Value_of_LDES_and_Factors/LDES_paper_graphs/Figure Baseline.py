@@ -129,9 +129,9 @@ duals *= 0.1
 set_style()
 plt.close()
 fig = plt.figure()
-fig.set_size_inches(12, 6)
-ax1 = fig.add_subplot(1, 2, 1)
-ax2 = fig.add_subplot(1, 2, 2, projection=tools.maps.get_projection())
+fig.set_size_inches(8, 12)
+ax1 = fig.add_subplot(2, 1, 1)
+ax2 = fig.add_subplot(2, 1, 2, projection=tools.maps.get_projection())
 ax1_right = ax1.twinx()
 # %%
 ax = ax1
@@ -195,13 +195,139 @@ duration = duration.groupby("gen_load_zone", as_index=False).sum()
 duration["value"] = duration["OnlineEnergyCapacityMWh"] / duration["OnlinePowerCapacityMW"]
 duration = duration[["gen_load_zone", "value"]]
 
-#%%
+# %%
 ax = ax2
 tools.maps.draw_base_map(ax)
-tools.maps.graph_transmission(transmission, ax=ax, legend=False, color="green", bbox_to_anchor=(1, 0.65), title="Existing Tx Capacity (GW)")
-tools.maps.graph_transmission(newtx, ax=ax, legend=False, color="red", bbox_to_anchor=(1,0.44), title="New Tx Capacity (GW)")
+tools.maps.graph_transmission(transmission, ax=ax, legend=False, color="green", bbox_to_anchor=(1, 0.65),
+                              title="Total Tx Capacity (GW)")
+tools.maps.graph_transmission(newtx, ax=ax, legend=False, color="red", bbox_to_anchor=(1, 0.44),
+                              title="New Tx Capacity (GW)")
 tools.maps.graph_pie_chart(capacity, ax=ax)
 tools.maps.graph_duration(duration, ax=ax)
 ax.set_title("B. Geographical Distributions in the Baseline")
 plt.tight_layout()
+plt.tight_layout() # Twice to ensure it works properly, it's a bit weird at times'
+
+# %%
+
+import pandas as pd
+
+# Panel A analysis
+df = curtailment.copy()
+df = df[["Solar"]]
+df.columns = ["Curtailed"]
+
+df2 = dispatch.copy()
+df2 = df2[["Solar"]]
+df2.columns = ["Total"]
+
+df = df.join(df2)
+
+df["Percent"] = (df.Curtailed - df.Total) / df.Total * 100
+ax1.plot(df["Percent"])
+print("Max percent curtailed (%)", df.Percent.max())
+
+# %%
+import numpy as np
+
+df = duals
+df = df.sort_values("value")
+df = df[df.index.month != 12]  # Toggle to get value for mid year
+# Inspect df to find maximum in each zone
+
+# %%
+
+df = dispatch.copy()
+df["Nuclear"].unique() * 7
+
+# %%
+
+df = dispatch.copy()
+df = df["Hydro"] * 7
+print(df.min())
+print(df.max())
+
+# %%
+
+df = curtailment.copy()
+df_winter = df[(df.index.month <= 3) | (df.index.month >= 11)]
+df_summer = df[~df.index.isin(df_winter.index)]
+df_winter = df_winter.mean()
+df_summer = df_summer.mean()
+((df_winter / df_summer) - 1) * 100
+
+# %%
+
+# Get California stats
+df = tools.get_dataframe("dispatch.csv")
+df = tools.transform.gen_type(df)
+df = df.groupby(["gen_load_zone", "gen_type"], as_index=False).sum()
+df2 = df
+# %%
+# Get solar percent in generation
+df = df2.copy()
+df = tools.transform.load_zone(df, load_zone_col="gen_load_zone")
+df_ca = df[df.region == "CA"]
+df_ca = df_ca.groupby("gen_type")["DispatchGen_MW"].sum()
+df_ca = df_ca[df_ca.index != "Storage"]
+
+df_ca = df_ca / df_ca.sum()
+df_ca
+
+# %%
+df = capacity.copy()
+df = tools.transform.load_zone(df, load_zone_col="gen_load_zone")
+df = df[df.region == "CA"]
+df = df.groupby("gen_type").sum()
+# df = (df / df.sum())
+df
+df = df[~df.index.isin(["Storage", "Solar"])]
+df.sum()
+
+# %%
+df = capacity.copy()
+southern_regions = ("CA", "NV", "UT", "CO", "AZ", "NM", "MEX")
+df = tools.transform.load_zone(df, load_zone_col="gen_load_zone")
+df = df.groupby(["region", "gen_type"], as_index=False).sum()
+df_north = df[~df["region"].isin(southern_regions)]
+df_north = df_north.groupby("gen_type").sum()
+df = df.groupby("gen_type").sum()
+df_north / df * 100
+
+# %%
+# Get load dataframe
+df = tools.get_dataframe("load_balance.csv").rename({"zone_demand_mw": "value"}, axis=1)
+df = tools.transform.load_zone(df)
+df = df.groupby("region").value.sum() * -1
+df_north = df[~df.index.isin(southern_regions)]
+df_north.sum() / df.sum() * 100
+
+#%%
+df = tools.get_dataframe("transmission.csv", convert_dot_to_na=True).fillna(0)
+df = df[df["PERIOD"] == 2050]
+df = tools.transform.load_zone(df, load_zone_col="trans_lz1").rename({"region": "region_1"}, axis=1)
+df = tools.transform.load_zone(df, load_zone_col="trans_lz2").rename({"region": "region_2"}, axis=1)
+df.BuildTx *= df.trans_length_km
+df.TxCapacityNameplate *= df.trans_length_km
+df = df[["region_1", "region_2", "BuildTx", "TxCapacityNameplate"]]
+df_north = df[(~df.region_1.isin(southern_regions)) & (~df.region_2.isin(southern_regions))]
+df = df[df.region_1.isin(southern_regions) == df.region_2.isin(southern_regions)]
+df = df[["BuildTx", "TxCapacityNameplate"]]
+df_north = df_north[["BuildTx", "TxCapacityNameplate"]]
+df_north = df_north.sum()
+df = df.sum()
+df_north / df
+
+#%%
+df = duration
+df = df.sort_values(by="value")
+df
+
+#%%
+df = tools.get_dataframe("storage_capacity.csv")
+df = df[df["period"] == 2050].drop(columns="period")
+# df = df.groupby("gen_load_zone", as_index=False).sum()
+df["duration"] = df["OnlineEnergyCapacityMWh"] / df["OnlinePowerCapacityMW"]
+df_long = df[df.duration > 10]
+1 - df_long.OnlineEnergyCapacityMWh.sum() / df.OnlineEnergyCapacityMWh.sum()
 
