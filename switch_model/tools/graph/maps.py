@@ -217,7 +217,7 @@ class GraphMapTools:
 
         legend = ax.legend(
             handles=legend_points,
-            ncol=4,
+            ncol=5,
             loc="upper left",
             bbox_to_anchor=(0, 0),
             # framealpha=0,
