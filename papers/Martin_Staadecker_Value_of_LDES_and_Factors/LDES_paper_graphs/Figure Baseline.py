@@ -326,6 +326,7 @@ df
 #%%
 df = tools.get_dataframe("storage_capacity.csv")
 df = df[df["period"] == 2050].drop(columns="period")
+# df = df[df["load_zone"] != "CAN_ALB"]
 # df = df.groupby("gen_load_zone", as_index=False).sum()
 df["duration"] = df["OnlineEnergyCapacityMWh"] / df["OnlinePowerCapacityMW"]
 df_long = df[df.duration > 10]
