@@ -10,7 +10,14 @@ Implementation details:
 
 2. We verify that the build costs are the same for all the aggregated projects and update build_costs.csv
 
-3. We aggregate the variable_capacity_factors.csv by averaging the values for each timepoint
+3. We aggregate the variable_capacity_factors.csv depending on the method specified in the parameter 'cf_method'.
+    If cf_method="file" we use the variable capacity factors found in an external file.
+
+-----
+This file also contains the function create_capacity_factors() which will generate a file
+called zonal_capacity_factors.csv that can be consumed by the post process step
+with cf_method=file (see point #3 above). Details on how this file is created are available
+in the documentation of that function.
 """
 import warnings
 
@@ -186,11 +193,17 @@ def create_capacity_factors():
 
     capacity factor = (DispatchGen + Curtailment) / (GenCapacity  * (1 - gen_forced_outage_rate))
 
-    This equation is essentially backtracking how DispatchUpperLimit is calculated in the SWITCH model.
+    This equation is essentially calculating the aggregated variable capacity factor for
+    the entire load zone by reversing how DispatchUpperLimit is calculated in the SWITCH model.
     See switch_model.generators.core.no_commit.py
 
     Note that capacity factors are only calculated for technologies where all the candidate
     plants are variable and not baseload (baseload plants have a different way of calculating the outage rate).
+
+    Further, if the results that are being used don't contain any built candidate plants in a load zone, no
+    zonal capacity factor can be created for that zone (since we can't divide by GenCapacity when it's 0).
+    This may cause certain load zones to remain un-aggregated when applying this file's post process step.
+    A warning will be displayed when this function is run if a capacity factor can't be created for the load zone.
 
     This function requires the following files
         inputs/generation_projects_info.csv (to get gen_forced_outage_rate)
@@ -311,5 +324,5 @@ def create_capacity_factors():
     dispatch.to_csv("zonal_capacity_factors.csv", index=False)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     create_capacity_factors()
