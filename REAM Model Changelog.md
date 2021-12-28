@@ -8,7 +8,7 @@ completed runs.
 
 Changes are listed from oldest (first line) to newest (last line of table).
 
-| PR | Month | Change description |
+| PR | Estimated Merge Time (check PR for exact date) | Change description |
 | ---- | --- | ---------------------|
 | #12 | March 2021 | Use the middle of the period instead of the start as the cutoff for retirement and predetermined buildout. |
 | #15 | March 2021 | Fix bug where storage costs where being over-counted. |
