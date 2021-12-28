@@ -16,3 +16,19 @@ def set_style():
     plt.rcParams["font.family"] = "sans-serif"
     plt.rcParams["ytick.minor.visible"] = False
     plt.rcParams["xtick.minor.visible"] = False
+
+def create_bin_labels(bins):
+    """Returns an array of labels representing te bins."""
+    i = 1
+    labels = []
+    while i < len(bins):
+        low = bins[i-1]
+        high = bins[i]
+        if low == float("-inf"):
+            labels.append(f"<{high}")
+        elif high == float("inf"):
+            labels.append(f"{low}+")
+        else:
+            labels.append(f"{low}-{high}")
+        i += 1
+    return labels
