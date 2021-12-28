@@ -83,10 +83,11 @@ def get_storage_data(tools):
     tx["BuildTx"] *= tx["trans_length_km"]
     tx["BuildTx"] *= 1e-6
     tx = (
-    tx.groupby("scenario_index", as_index=False)["BuildTx"]
-    .sum()
-    .set_index("scenario_index")
-)
+        tx.groupby("scenario_index", as_index=False)["BuildTx"]
+        .sum()
+        .set_index("scenario_index")
+    )
+
     tx = tx.rename({"BuildTx": "New Tx"}, axis=1)
 
     return storage, tx
@@ -132,9 +133,9 @@ plot_panel(ax, storage_ws, "Set A: Varying Wind-vs-Solar Share")
 ax.set_xticks([0.2, 0.5, 0.8])
 ax.set_xticks([0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8], minor=True)
 ax.set_xticklabels(["80%\nSolar", "50-50\nWind-Solar", "80%\nWind"])
-ax.axvline(baseline_ws_ratio, linestyle="dotted")
+ax.axvline(baseline_ws_ratio, linestyle="dotted", color="dimgrey")
 ax.set_xlim([0.08, 0.86])
-ax.text(baseline_ws_ratio - 0.03, 50, "Baseline", rotation=90, style="italic")
+ax.text(baseline_ws_ratio - 0.04, 50, "Baseline", rotation=90, color="dimgrey")
 
 # %% PLOT HYDRO
 storage_hy, tx_hy = get_storage_data(tools_hydro)
