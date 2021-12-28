@@ -151,11 +151,11 @@ for (columnName, columnData) in curtailment.iteritems():
         color=colors[columnName],
         label=columnName + " (no curtail.)",
     )
-ax_right.plot(duals, label="EMP", color="red")
+ax_right.plot(duals, label="Estimated LMP", color="red")
 lines += ax.plot(load, color="orange", label="Demand")
 ax.set_title("A. Seasonal Profiles in the Baseline")
 ax.set_ylabel("Dispatch (TWh/day)")
-ax_right.set_ylabel(u"Estimated Marginal Price (EMP) (\xa2/kWh)")
+ax_right.set_ylabel(u"Estimated Locational Marginal Price (\xa2/kWh)")
 locator = mdates.MonthLocator()
 ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(locator))
 ax.set_ylim(-0.1, 4.7)
