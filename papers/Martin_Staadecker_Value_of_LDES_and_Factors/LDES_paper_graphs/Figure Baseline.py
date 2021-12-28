@@ -1,4 +1,4 @@
-# %%
+# %% IMPORT + CREATE tools
 from matplotlib import pyplot as plt
 from matplotlib import dates as mdates
 
@@ -14,7 +14,7 @@ tools.pre_graphing(multi_scenario=False)
 
 ROLLING_AVERAGE_DAYS = 7
 
-# %%
+# %% CALC TOP PANEL DATA
 
 
 dispatch = tools.get_dataframe(
@@ -125,7 +125,7 @@ duals = rolling_avg(duals)
 # Convert from $/MWh to cents/kWh
 duals *= 0.1
 
-# %%
+# %% CREATE PLOT FRAME
 set_style()
 plt.close()
 fig = plt.figure()
@@ -133,7 +133,7 @@ fig.set_size_inches(8, 12)
 ax1 = fig.add_subplot(2, 1, 1)
 ax2 = fig.add_subplot(2, 1, 2, projection=tools.maps.get_projection())
 ax1_right = ax1.twinx()
-# %%
+# %% PLOT TOP PANEL
 ax = ax1
 ax_right = ax1_right
 # Plot
@@ -163,7 +163,7 @@ ax_right.set_ylim(-1, 47)
 ax.legend(lines, [l.get_label() for l in lines], framealpha=0.5, loc="upper left")
 ax_right.legend()
 
-# %%
+# %% CALC BOTTOM PANEL DATA
 # Get data for mapping code
 capacity = tools.get_dataframe("gen_cap.csv").rename({"GenCapacity": "value"}, axis=1)
 capacity = tools.transform.gen_type(capacity)
@@ -195,7 +195,7 @@ duration = duration.groupby("gen_load_zone", as_index=False).sum()
 duration["value"] = duration["OnlineEnergyCapacityMWh"] / duration["OnlinePowerCapacityMW"]
 duration = duration[["gen_load_zone", "value"]]
 
-# %%
+# %% PLOT BOTTOM PANEL
 ax = ax2
 tools.maps.draw_base_map(ax)
 tools.maps.graph_transmission(transmission, ax=ax, legend=False, color="green", bbox_to_anchor=(1, 0.65),
@@ -208,7 +208,7 @@ ax.set_title("B. Geographical Distributions in the Baseline")
 plt.tight_layout()
 plt.tight_layout() # Twice to ensure it works properly, it's a bit weird at times'
 
-# %%
+# %% CALCULATIONS
 
 import pandas as pd
 
@@ -228,7 +228,6 @@ ax1.plot(df["Percent"])
 print("Max percent curtailed (%)", df.Percent.max())
 
 # %%
-import numpy as np
 
 df = duals
 df = df.sort_values("value")
@@ -332,3 +331,10 @@ df["duration"] = df["OnlineEnergyCapacityMWh"] / df["OnlinePowerCapacityMW"]
 df_long = df[df.duration > 10]
 1 - df_long.OnlineEnergyCapacityMWh.sum() / df.OnlineEnergyCapacityMWh.sum()
 
+# %% BIOMASS PERCENT MAX USAGE
+df = dispatch
+df = df.join(load)
+df["biomass_contr"] = df["Biomass"] / df["value"]
+df = df["biomass_contr"]
+df = df.sort_values(ascending=False)
+df * 100
