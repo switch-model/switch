@@ -1,5 +1,5 @@
 # %% IMPORTS AND SCENARIO DEFINITION
-
+import matplotlib.gridspec
 import pandas as pd
 from matplotlib.ticker import ScalarFormatter
 from matplotlib import pyplot as plt
@@ -38,11 +38,24 @@ tools_hydro = GraphTools(
 )
 tools_hydro.pre_graphing(multi_scenario=True)
 
+# GET DATA FOR W/S RATIO
+STORAGE_BINS = (0, 6, 8, 10, 15, 20, 30, 100, float("inf"))
 
-# %% GET DATA FOR W/S RATIO
 
+def get_storage_data(tools):
+    storage = tools.get_dataframe("storage_capacity.csv")
+    storage = storage[storage["OnlinePowerCapacityMW"] != 0]
+    storage["duration"] = (
+        storage["OnlineEnergyCapacityMWh"] / storage["OnlinePowerCapacityMW"]
+    )
+    storage = storage[["scenario_name", "duration", "OnlinePowerCapacityMW"]]
+    storage["duration_group"] = pd.cut(storage.duration, bins=STORAGE_BINS)
+    storage = storage.groupby(
+        ["scenario_name", "duration_group"]
+    ).OnlinePowerCapacityMW.sum()
+    storage /= 10 ** 3
+    storage = storage.unstack()
 
-def get_change_in_tx_and_capacity(tools):
     # Calculate transmission
     tx = tools.get_dataframe(
         "transmission.csv",
@@ -53,84 +66,56 @@ def get_change_in_tx_and_capacity(tools):
     tx["BuildTx"] *= 1e-6
     tx = (
         tx.groupby("scenario_name", as_index=False)["BuildTx"]
-        .sum()
-        .set_index("scenario_name")
+            .sum()
+            .set_index("scenario_name")
     )
     tx = tx.rename({"BuildTx": "New Tx"}, axis=1)
 
-    cap = tools.get_dataframe("gen_cap.csv")
-    cap = tools.transform.gen_type(cap)
-    cap = cap.groupby(["scenario_name", "gen_type"], as_index=False)[
-        "GenCapacity"
-    ].sum()
-    cap = cap.pivot(columns="gen_type", index="scenario_name", values="GenCapacity")
-    cap *= 1e-3  # Convert to GW
-    cap = cap.rename_axis("Technology", axis=1).rename_axis("Scenario")
-    # Remove columns that don't change
-    s = cap.std()
-    cap = cap[[c for c in cap.columns if c not in s[s == 0]]]
-    # df -= df.loc[0.23] # Make it as change compared to baseline
-    return cap, tx
+    cmap = "viridis"
+    cmap = tools.plt.pyplot.get_cmap(cmap)
+    n = len(STORAGE_BINS)
+    colors = [cmap(x / (n - 2)) for x in range(n - 1)]
+    # storage["color"] = tools.pd.cut(storage.duration, bins=STORAGE_BINS, labels=colors)
+
+    return storage, tx
 
 
-def get_storage_data(tools):
-    storage = tools.get_dataframe("storage_capacity.csv")
-    storage = storage[storage["OnlinePowerCapacityMW"] != 0]
-    storage["duration"] = (
-        storage["OnlineEnergyCapacityMWh"] / storage["OnlinePowerCapacityMW"]
-    )
-    storage = storage[["scenario_name", "duration", "OnlinePowerCapacityMW"]]
-    storage_group = storage.groupby(["scenario_name"])
-    calc = weightedcalcs.Calculator("OnlinePowerCapacityMW")
-    #     mean = storage_group.mean().rename("mean_val")
-    median = calc.quantile(storage_group, "duration", 0.5).rename("median_val")
-    lower_inner = calc.quantile(storage_group, "duration", quartile_inner).rename(
-        "lower_inner"
-    )
-    upper_inner = calc.quantile(storage_group, "duration", 1 - quartile_inner).rename(
-        "upper_inner"
-    )
-    lower = calc.quantile(storage_group, "duration", quartile).rename("lower")
-    upper = calc.quantile(storage_group, "duration", 1 - quartile).rename("upper")
-    maxi = storage_group["duration"].max().rename("max")
-    mini = storage_group["duration"].min().rename("min")
-    df = pd.concat([mini, lower, lower_inner, median, upper_inner, upper, maxi], axis=1)
-    return df
+storage_data_ws_ratio, tx = get_storage_data(tools_ws_ratio)
 
-
-storage_data_ws_ratio = get_storage_data(tools_ws_ratio)
-cap_ws_ratio, tx_ws_ratio = get_change_in_tx_and_capacity(tools_ws_ratio)
-
-# %% GET HYDRO DATA
-cap_hydro, tx_hydro = get_change_in_tx_and_capacity(tools_hydro)
+# GET HYDRO DATA
 storage_data_hydro = get_storage_data(tools_hydro)
 
+#  GET TX DATA
+tools_tx = GraphTools(
+    scenarios=[
+        get_scenario("T4", "No Tx\nBuild Costs"),
+        get_scenario("1342", "Baseline"),
+        get_scenario("T5", "10x Tx Build Costs"),
+    ]
+)
+tools_tx.pre_graphing(multi_scenario=True)
+storage_data_tx = get_storage_data(tools_tx)
+
+# GET COST DATA
+cost_labels = ["50% of\nBaseline", "Baseline", "ATB Costs"]
+tools_cost = GraphTools(
+    scenarios=[
+        get_scenario("C16", "50% of\nBaseline"),
+        get_scenario("1342", "Baseline"),
+        get_scenario("C12", "ATB Costs"),
+    ]
+)
+
+tools_cost.pre_graphing(multi_scenario=True)
 # %% DEFINE FIGURE AND PLOTTING FUNCTIONS
 set_style()
+plt.close()
 fig = plt.figure()
 fig.set_size_inches(12, 12)
 
 
-def set_ws_ratio_axis(ax):
-    ax.set_xlabel("Wind-to-Solar Share")
-    ax.set_xticks([0.2, 0.5, 0.8])
-    ax.set_xticks([0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8], minor=True)
-    ax.set_xticklabels(["80%\nSolar", "50/50 Wind-Solar", "80%\nWind"])
-    ax.axvline(baseline_ws_ratio, linestyle="dotted")
-    ax.set_xlim([0.08, 0.86])
-
-
-def set_hydro_axis(ax):
-    ax.set_xlabel("Hydropower Reduction")
-    ax.set_xticks([0, 0.5, 1])
-    ax.set_xticks([0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9], minor=True)
-    ax.set_xticklabels(["No\nhydro", "50% of baseline", "Baseline"])
-
-
-def plot_cap_and_tx_change(ax, rax, cap, tx, colors):
-    tx.plot(ax=rax, marker=".", linestyle="dashdot", legend=False, color="grey")
-    rax.set_ylim(0, 120)
-    cap.plot(ax=ax, color=colors, marker=".", legend=False)
+def plot_cap_and_tx_change(ax, cap, colors):
+    cap.plot(ax=ax, color=colors["Storage"], marker=".", legend=False)
 
 
 def plot_storage(ax, df):
@@ -171,90 +156,95 @@ def plot_storage(ax, df):
         edgecolor=None,
         label=f"{int(quartile_inner * 100)}-{int(100 - quartile_inner * 100)}th percentile",
     )
-    ax.set_ylim(3.5, 900)
-    ax.set_yscale("log")
 
-
-def set_capacity_ax(ax):
-    ax.set_ylim(0, 600)
-
-
-storage_ticks = [4, 10, 50, 100, 500]
 
 # Define axes
-ax_top_left = fig.add_subplot(2, 2, 1)
-ax_top_right = fig.add_subplot(2, 2, 2)  # , sharey=ax1)
-ax_bottom_left = fig.add_subplot(2, 2, 3, sharex=ax_top_left)
-ax_bottom_right = fig.add_subplot(2, 2, 4, sharex=ax_top_right)  # , sharey=ax3)
-rax_top_left = ax_top_left.twinx()
-rax_top_right = ax_top_right.twinx()
-plt.subplots_adjust(wspace=0.01, hspace=0.01)
+gs = matplotlib.gridspec.GridSpec(5, 2, figure=fig, height_ratios=[1, 2, 0.25, 1, 2])
+ax_top_left = fig.add_subplot(gs[1, 0])
+ax_top_right = fig.add_subplot(gs[1, 1], sharey=ax_top_left)
+ax_bottom_left = fig.add_subplot(gs[4, 0])
+ax_bottom_right = fig.add_subplot(gs[4, 1], sharey=ax_bottom_left)
+cap_top_left = fig.add_subplot(gs[0, 0], sharex=ax_top_left)
+cap_top_right = fig.add_subplot(gs[0, 1], sharex=ax_top_right, sharey=cap_top_left)
+cap_bottom_left = fig.add_subplot(gs[3, 0], sharex=ax_bottom_left)
+cap_bottom_right = fig.add_subplot(gs[3, 1], sharex=ax_bottom_right, sharey=cap_bottom_left)
+rax_top_left = cap_top_left.twinx()
+rax_top_right = cap_top_right.twinx()
+rax_bottom_left = cap_bottom_left.twinx()
+rax_bottom_right = cap_bottom_right.twinx()
+rax_top_left.get_shared_y_axes().join(rax_top_left, rax_top_right)
+rax_bottom_left.get_shared_y_axes().join(rax_bottom_left, rax_bottom_right)
+plt.subplots_adjust(wspace=0.01, hspace=0.1)
 
-# %% PLOT TOP LEFT
-ax = ax_top_left
-rax = rax_top_left
-ax.clear()
-rax.clear()
-rax.spines["left"].set_position(("axes", -0.2))
-rax.yaxis.set_label_position("left")
-rax.yaxis.tick_left()
-rax.tick_params(top=False, bottom=False, right=False, left=True, which="both")
-ax.tick_params(top=False, bottom=False, right=False, left=True, which="major")
-ax.tick_params(top=False, bottom=False, right=False, left=False, which="minor")
-# ax.spines["left"].set_color("black")
-rax.spines["left"].set_color("grey")
-rax.set_ylabel("New Transmission Built (millions of MW-km)")
+# Labels
+label = "Storage Duration (h)"
+ax_top_left.set_ylabel(label)
+ax_bottom_left.set_ylabel(label)
+label = "Power Capacity (GW)"
+cap_top_left.set_ylabel(label)
+cap_bottom_left.set_ylabel(label)
+ax_bottom_left.set_ylim(0, 70)
 
-plot_cap_and_tx_change(ax, rax, cap_ws_ratio, tx_ws_ratio, colors=tools_ws_ratio.get_colors())
-set_ws_ratio_axis(ax)
-set_capacity_ax(ax)
-ax.legend()
-rax.legend()
-ax.set_ylabel("Capacity (GW)")
+# Position axes
+rax_top_left.spines["left"].set_position(("axes", -0.2))
+rax_top_left.yaxis.set_label_position("left")
+rax_bottom_left.spines["left"].set_position(("axes", -0.2))
+rax_bottom_left.yaxis.set_label_position("left")
 
 # %% PLOT BOTTOM LEFT
 
 ax = ax_bottom_left
-ax.clear()
 ax.tick_params(top=False, bottom=True, right=False, left=True, which="both")
 
 plot_storage(ax, storage_data_ws_ratio)
-ax.set_ylabel("Storage Duration (h)")
-ax.set_yticks(storage_ticks)
-ax.yaxis.set_major_formatter(ScalarFormatter())
-set_ws_ratio_axis(ax)
-ax.text(baseline_ws_ratio - 0.03, 50, "Baseline Scenario", rotation=90, style="italic")
 
-# %% PLOT TOP RIGHT
-ax = ax_top_right
-rax = rax_top_right
-ax.clear()
-rax.clear()
-ax.tick_params(top=False, bottom=False, right=False, left=False, which="both")
-rax.tick_params(top=False, bottom=False, right=False, left=False, which="both")
+ax.set_xlabel("Wind-to-Solar Share")
+ax.set_xticks([0.2, 0.5, 0.8])
+ax.set_xticks([0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8], minor=True)
+ax.set_xticklabels(["80%\nSolar", "50/50 Wind-Solar", "80%\nWind"])
+ax.axvline(baseline_ws_ratio, linestyle="dotted")
+ax.set_xlim([0.08, 0.86])
+ax.text(baseline_ws_ratio - 0.03, 30, "Baseline Scenario", rotation=90, style="italic")
 
-plot_cap_and_tx_change(ax, rax, cap_hydro, tx_hydro, colors=tools_hydro.get_colors())
-set_capacity_ax(ax)
-set_hydro_axis(ax)
-ax.set_yticklabels([])
-rax.set_yticklabels([])
+ax = cap_bottom_left
+plot_cap_and_tx_change(ax, cap_ws_ratio, tools_ws_ratio.get_colors())
 
 # %% PLOT BOTTOM RIGHT
 ax = ax_bottom_right
-ax.clear()
 ax.tick_params(top=False, bottom=True, right=False, left=False, which="both")
 plot_storage(ax, storage_data_hydro)
-ax.set_yticklabels([])
-set_hydro_axis(ax)
-ax.set_yticks(storage_ticks)
-ax.legend()
+ax.set_xlabel("Hydropower Reduction")
+ax.set_xticks([0, 0.5, 1])
+ax.set_xticks([0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9], minor=True)
+ax.set_xticklabels(["No\nhydro", "50% of baseline", "Baseline"])
+
+ax = cap_bottom_right
+plot_cap_and_tx_change(ax, cap_hydro, tools_hydro.get_colors())
+
+# %% PLOT TX
+ax = ax_top_left
+plot_storage(ax, storage_data_tx)
+# ax.set_xticklabels([""])
+ax.set_xlabel("Transmission Scenario")
+
+ax = cap_top_left
+plot_cap_and_tx_change(ax, cap_tx, tools_tx.get_colors())
+# %% PLOT COSTS
+ax = ax_top_right
+storage_data_costs = storage_data_costs.sort_values(by="median_val")
+plot_storage(ax, storage_data_costs)
+
+ax = cap_top_right
+plot_cap_and_tx_change(ax, cap_costs, tools_cost.get_colors())
+ax.set_xlabel("Cost Scenario")
 # %% CALCULATIONS
 df = cap_ws_ratio["Storage"].copy()
-1- df.loc[0.5] / df.loc[baseline_ws_ratio]
-#%%
+1 - df.loc[0.5] / df.loc[baseline_ws_ratio]
+# %%
 df = storage_data_ws_ratio
 df.loc[baseline_ws_ratio]
-#%%
+# %%
 df.loc[0.5]
-#%%
+# %%
+
 df.loc[0.833]
