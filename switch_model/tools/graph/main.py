@@ -475,6 +475,15 @@ class DataHandler:
     def scenarios(self):
         return self._scenarios
 
+    def get_scenario_name(self, index):
+        """
+        Returns the scenario_name given the scenario_index.
+        Can be used as follows to convert an scenario_index that's an
+        index in a Dataframe to the scenario names.
+        df.index = df.index.map(tools.get_scenario_name)
+        """
+        return self._scenarios[index].name
+
     def get_dataframe(
         self,
         filename,
