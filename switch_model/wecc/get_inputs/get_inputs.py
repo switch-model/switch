@@ -401,6 +401,7 @@ def query_db(full_config, skip_cf):
             "trans_lifetime_yrs",
             "trans_fixed_om_fraction"
         ],
+        # See Issue #80 for reasoning behind the 85 year lifetime.
         f"""
         SELECT trans_capital_cost_per_mw_km,
             85 as trans_lifetime_yrs,
