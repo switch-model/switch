@@ -534,7 +534,7 @@ class GraphTools(DataHandler):
         self.transform = TransformTools(self)
         self.maps = GraphMapTools(self)
 
-    def _create_axes(self, num_rows=1, size=(8, 5), ylabel=None, **kwargs):
+    def _create_axes(self, num_rows=1, size=(8, 5), ylabel=None, projection=None, **kwargs):
         """
         Create a set of matplotlib axes
         """
@@ -543,7 +543,7 @@ class GraphTools(DataHandler):
             size=(size[0] * num_columns, size[1]),
             **kwargs
         )
-        ax = fig.subplots(nrows=num_rows, ncols=num_columns, sharey='row', squeeze=False)
+        ax = fig.subplots(nrows=num_rows, ncols=num_columns, sharey='row', squeeze=False, subplot_kw=dict(projection=projection))
 
         ax = [[ax[j][i] for j in range(num_rows)] for i in range(num_columns)]
 
@@ -763,6 +763,23 @@ class GraphTools(DataHandler):
         fig.legend([h for _, h in legend_pairs], [l for l, _ in legend_pairs])
 
     @staticmethod
+    def create_bin_labels(bins):
+        """Returns an array of labels representing te bins."""
+        i = 1
+        labels = []
+        while i < len(bins):
+            low = bins[i-1]
+            high = bins[i]
+            if low == float("-inf"):
+                labels.append(f"<{high}")
+            elif high == float("inf"):
+                labels.append(f"{low}+")
+            else:
+                labels.append(f"{low} - {high}")
+            i += 1
+        return labels
+
+    @staticmethod
     def sort_build_years(x):
         def val(v):
             r = v if v != "Pre-existing" else "000"
@@ -794,7 +811,7 @@ def graph_scenarios(scenarios: List[Scenario], graph_dir, overwrite=False, modul
         try:
             importlib.import_module(module_name)
         except ModuleNotFoundError:
-            warnings.warn(f"Module {module_name} not found. Graphs in this module will not be created.")
+            warnings.warn(f"Failed to load {module_name}. Graphs in this module will not be created.")
 
     # Initialize the graphing tool
     graph_tools = GraphTools(scenarios=scenarios, graph_dir=graph_dir, **kwargs)
@@ -809,7 +826,7 @@ def graph_scenarios(scenarios: List[Scenario], graph_dir, overwrite=False, modul
             try:
                 func = registered_graphs[figure]
             except KeyError:
-                raise Exception(f"{figures} not found in list of registered graphs."
+                raise Exception(f"{figures} not found in list of registered graphs. "
                                 f"Make sure your graphing function is in a module.")
             run_graph_func(graph_tools, func)
 

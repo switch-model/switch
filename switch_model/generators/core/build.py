@@ -790,6 +790,7 @@ def buildout_map(tools):
     buildout = tools.get_dataframe("gen_cap.csv").rename({"GenCapacity": "value"}, axis=1)
     buildout = tools.transform.gen_type(buildout)
     buildout = buildout.groupby(["gen_type", "gen_load_zone"], as_index=False)["value"].sum()
+    buildout["value"] *= 1e-3  # Convert to GW
     ax = tools.maps.graph_pie_chart(buildout)
     transmission = tools.get_dataframe("transmission.csv", convert_dot_to_na=True).fillna(0)
     transmission = transmission.rename({"trans_lz1": "from", "trans_lz2": "to", "BuildTx": "value"}, axis=1)
