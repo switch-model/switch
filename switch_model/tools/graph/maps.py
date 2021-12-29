@@ -20,6 +20,19 @@ class GraphMapTools:
         self._cartopy = None
         self._projection = None
 
+    @staticmethod
+    def can_make_maps():
+        try:
+            import geopandas
+            import shapely
+            import cartopy
+        except ModuleNotFoundError:
+            warnings.warn(
+                "Packages geopandas, shapely or cartopy are missing, no maps will be created. "
+                "If on Windows make sure you install them through conda.")
+            return False
+        return True
+
     def get_projection(self):
         self._load_maps()
         return self._projection

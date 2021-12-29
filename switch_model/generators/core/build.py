@@ -785,6 +785,8 @@ def graph_buildout_per_tech(tools):
     title="Map of online capacity per load zone."
 )
 def buildout_map(tools):
+    if not tools.maps.can_make_maps():
+        return
     buildout = tools.get_dataframe("gen_cap.csv").rename({"GenCapacity": "value"}, axis=1)
     buildout = tools.transform.gen_type(buildout)
     buildout = buildout.groupby(["gen_type", "gen_load_zone"], as_index=False)["value"].sum()
@@ -795,4 +797,4 @@ def buildout_map(tools):
     transmission = transmission.groupby(["from", "to", "PERIOD"], as_index=False).sum().drop("PERIOD", axis=1)
     # Rename the columns appropriately
     transmission.value *= 1e-3
-    tools.maps.graph_transmission(transmission, cutoff=0.1, ax=ax, legend=True)
+    tools.maps.graph_transmission(transmission, ax=ax, legend=True)

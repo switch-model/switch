@@ -23,4 +23,4 @@ def graph_scenarios_from_cli(scenarios, args):
         if args.modules is None:
             args.modules = []  # Provide an empty list of modules
 
-    graph_scenarios(scenarios, args.graph_dir, args.overwrite, args.skip_long, args.modules, args.figures)
+    graph_scenarios(scenarios, graph_dir=args.graph_dir, overwrite=args.overwrite, module_names=args.modules, figures=args.figures, skip_long=args.skip_long)
