@@ -920,7 +920,7 @@ def graph_buildout_per_tech(tools):
     ax.axhline(y=1, linestyle="--", color="b")
 
 
-@graph("buildout_map", title="Map of online capacity per load zone.")
+@graph("online_capacity_map", title="Map of online capacity per load zone.")
 def buildout_map(tools):
     if not tools.maps.can_make_maps():
         return
@@ -937,7 +937,7 @@ def buildout_map(tools):
         "transmission.csv", convert_dot_to_na=True
     ).fillna(0)
     transmission = transmission.rename(
-        {"trans_lz1": "from", "trans_lz2": "to", "BuildTx": "value"}, axis=1
+        {"trans_lz1": "from", "trans_lz2": "to", "TxCapacityNameplate": "value"}, axis=1
     )
     transmission = transmission[["from", "to", "value", "PERIOD"]]
     transmission = (
@@ -947,4 +947,4 @@ def buildout_map(tools):
     )
     # Rename the columns appropriately
     transmission.value *= 1e-3
-    tools.maps.graph_transmission(transmission, ax=ax, legend=True)
+    tools.maps.graph_transmission_capacity(transmission, ax=ax, legend=True)

@@ -260,8 +260,16 @@ class GraphMapTools:
         return ax
 
     def graph_duration(
-        self, df, bins=(0, 4, 6, 8, 10, float("inf")), cmap="RdPu", ax=None, size=60
+        self,
+        df,
+        bins=(0, 4, 6, 8, 10, float("inf")),
+        ax=None,
+        title="Storage duration (h)",
+        **kwargs,
     ):
+        self.graph_points(df, bins=bins, ax=ax, title=title, **kwargs)
+
+    def graph_points(self, df, bins, cmap="RdPu", ax=None, size=60, title=None):
         """
         Graphs the data from the dataframe to a points on each cell.
         The dataframe should have 2 columns, gen_load_zone and value.
@@ -290,7 +298,7 @@ class GraphMapTools:
                 edgecolor="dimgray",
             )
         legend = ax.legend(
-            title="Storage duration (h)",
+            title=title,
             handles=[
                 self._tools.plt.lines.Line2D(
                     [],
@@ -316,41 +324,21 @@ class GraphMapTools:
             legend
         )  # Required, see : https://matplotlib.org/stable/tutorials/intermediate/legend_guide.html#multiple-legends-on-the-same-axes
 
-    def graph_points(self, df, ax=None):
-        """
-        Graphs a point in each load zone based on a dataframe with two columns
-        - gen_load_zone
-        - value
-        """
-        _, center_points = self._load_maps()
+    def graph_transmission_capacity(
+        self, df, bins=(0, 1, 5, 10, float("inf")), title="Tx Capacity (GW)", **kwargs
+    ):
+        self.graph_lines(df, bins=bins, title=title, **kwargs)
 
-        df = df.merge(center_points, on="gen_load_zone")
-        # Cast to GeoDataFrame
-        df = self._geopandas.GeoDataFrame(
-            df[["geometry", "value"]], geometry="geometry"
-        )
-
-        if ax is None:
-            ax = self.draw_base_map()
-        df.plot(
-            ax=ax,
-            column="value",
-            legend=True,
-            cmap="coolwarm",
-            markersize=30,
-            norm=self._tools.plt.colors.CenteredNorm(),
-        )
-
-    def graph_transmission(
+    def graph_lines(
         self,
         df,
+        bins,
         ax=None,
         legend=True,
-        bins=(0, 1, 5, 10, float("inf")),
         widths=(0.5, 1, 2, 3),
         color="red",
         bbox_to_anchor=(1, 0.3),
-        title="Tx Capacity (GW)",
+        title=None,
     ):
         """
         Graphs the data frame a dataframe onto a map.

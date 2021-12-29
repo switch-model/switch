@@ -427,7 +427,7 @@ def transmission_map(tools):
     )
     transmission = transmission[["from", "to", "value"]]
     transmission.value *= 1e-3
-    tools.maps.graph_transmission(transmission)
+    tools.maps.graph_transmission_capacity(transmission)
 
 
 @graph(
@@ -452,4 +452,4 @@ def transmission_map(tools):
     )
     # Rename the columns appropriately
     transmission.value *= 1e-3
-    tools.maps.graph_transmission(transmission)
+    tools.maps.graph_transmission_capacity(transmission)
