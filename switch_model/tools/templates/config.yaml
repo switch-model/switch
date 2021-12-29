@@ -7,6 +7,7 @@
 # ------------------
 # General config
 # ------------------
+version: 3.0
 inputs_dir: inputs
 
 # --------------------------------
@@ -17,7 +18,7 @@ get_inputs:
   schema: switch
 
   # Scenario configuration
-  scenario_id: <FILL_IN>
+  scenario_id: 176
   #  the following parameters are optional and will override the defaults for that scenario
   #  this should only be used for preliminary exploration of scenarios or for testing
   #  if a scenario is part of research, it should be included in the database as a row in the scenarios table.
@@ -43,20 +44,27 @@ get_inputs:
   #  generation_plant_technologies_scenario_id:
   #  variable_o_m_cost_scenario_id:
   #  wind_to_solar_ratio:
-# add_storage was used by Martin when studying LDES
-# you likely don't need to use these parameters
-# they won't impact your runs
-# add_storage:
-  # costs_scenario: 0
-  # plants_scenario: 0
-  # constant_scenario: 0
-  # minimums_scenario: 0
-# When the following line is uncommented (regardless of its value) then only California load zones are kept
-# only_california: 0
-# When the following lines are uncommented all the Central_PV and Wind projects within the same load zone gets
-# aggregated into a single project. This helps reduce the model complexity.
-# cf_quantile is the percentile for the capacity factor to use. 1 will use the largest capacity factor
-# of all the available candidate plants, 0.5 will use the median plant and 0 will use the worst plant.
-# aggregate_projects_by_zone:
-#  agg_techs: ["Central_PV"]
-#  cf_method: "file" # Other options are "weighted_mean" and "95_quantile"
+post_process_steps: # The following post process steps will be run in order
+#  - add_storage # Used by Martin when studying LDES, likely shouldn't uncomment this line
+#  - aggregate_candidate_projects
+  - replace_plants_in_zone_all
+  - create_graph_files
+#  - energy_cost
+  - fix_prebuild_conflict
+#  - only_california
+#  - reserve_technologies
+post_process_config:
+  # add_storage was used by Martin when studying LDES you likely don't need to uncomment these parameters
+  # add_storage:
+    # costs_scenario: 0
+    # plants_scenario: 0
+    # constant_scenario: 0
+    # minimums_scenario: 0
+
+  # When the following lines are uncommented all the Central_PV and Wind projects within the same load zone gets
+  # aggregated into a single project. This helps reduce the model complexity.
+  # cf_quantile is the percentile for the capacity factor to use. 1 will use the largest capacity factor
+  # of all the available candidate plants, 0.5 will use the median plant and 0 will use the worst plant.
+#   aggregate_candidate_projects:
+#    agg_techs: ["Central_PV"]
+#    cf_method: "file" # Other options are "weighted_mean" and "95_quantile"

@@ -24,18 +24,13 @@ import warnings
 import numpy as np
 import pandas as pd
 
-from switch_model.wecc.get_inputs.register_post_process import register_post_process
+from switch_model.wecc.get_inputs.register_post_process import post_process_step
 
 
-@register_post_process(
-    name="aggregate_projects_by_zone",
-    msg="Aggregating candidate projects by load zone for specified technologies",
-    only_with_config=True,
-    priority=4
-)
-def post_process(config):
-    agg_techs = config["agg_techs"]
-    cf_method = config["cf_method"]
+@post_process_step(msg="Aggregating candidate projects by load zone for specified technologies")
+def post_process(func_config):
+    agg_techs = func_config["agg_techs"]
+    cf_method = func_config["cf_method"]
     assert type(agg_techs) == list
     # Don't allow hydro to be aggregated since we haven't implemented how to handle
     # hydro_timeseries.csv
@@ -43,7 +38,8 @@ def post_process(config):
     assert "Hydro_Pumped" not in agg_techs
 
     print(
-        f"\t\tAggregating on projects where gen_tech in {agg_techs} with capacity factor method {cf_method}")
+        f"\t\tAggregating on projects where gen_tech in {agg_techs} with capacity factor method {cf_method}"
+    )
     key = "GENERATION_PROJECT"
 
     #################
@@ -54,16 +50,23 @@ def post_process(config):
     filename = "generation_projects_info.csv"
     df = pd.read_csv(filename, index_col=False, dtype={key: str})
     columns = df.columns.values
-    predetermined = pd.read_csv("gen_build_predetermined.csv", usecols=[key], dtype={key: str})[key]
+    predetermined = pd.read_csv(
+        "gen_build_predetermined.csv", usecols=[key], dtype={key: str}
+    )[key]
     should_agg = df["gen_tech"].isin(agg_techs) & (~df[key].isin(predetermined))
     if cf_method == "file":
         # Filter out projects where we don't have a capacity factor
-        zonal_cf = pd.read_csv("zonal_capacity_factors.csv", index_col=False)
+        try:
+            zonal_cf = pd.read_csv("zonal_capacity_factors.csv", index_col=False)
+        except FileNotFoundError:
+            raise Exception("Post process step 'aggregate_candidate_projects' with method 'file'"
+                            " requires an external zonal_capacity_factors.csv to exist. This file can be generated"
+                            " using the scripts in zonal_capacity_factors.csv.")
         valid_proj = df.merge(
             zonal_cf[["gen_load_zone", "gen_tech"]].drop_duplicates(),
             on=["gen_load_zone", "gen_tech"],
-            how='right',
-            validate="many_to_one"
+            how="right",
+            validate="many_to_one",
         )[key]
         should_agg &= df[key].isin(valid_proj)
     projects_no_agg = df[~should_agg].copy()
@@ -91,7 +94,8 @@ def post_process(config):
             num_unique = x.nunique()
             non_unique_values = num_unique[num_unique != 1].index.values
             raise Exception(
-                f"The following columns are not unique and we do not know how to aggregate them: {non_unique_values}")
+                f"The following columns are not unique and we do not know how to aggregate them: {non_unique_values}"
+            )
 
         # Set the aggregated columns
         x["gen_capacity_limit_mw"] = capacity_limit.sum()
@@ -115,13 +119,13 @@ def post_process(config):
     df_keep = df[~should_agg]
     df = df[should_agg]
     # Replace the plant id with the aggregated plant id
-    df = df \
-        .merge(keys_to_agg[[key, "agg_key"]],
-               on=key,
-               how='left',
-               validate="many_to_one") \
-        .drop(key, axis=1) \
+    df = (
+        df.merge(
+            keys_to_agg[[key, "agg_key"]], on=key, how="left", validate="many_to_one"
+        )
+        .drop(key, axis=1)
         .rename({"agg_key": key}, axis=1)
+    )
 
     # Aggregate
     def agg_costs(x):
@@ -131,16 +135,15 @@ def post_process(config):
             num_unique = x.nunique()
             non_unique_values = num_unique[num_unique != 1].index.values
             raise Exception(
-                f"The following columns are not unique and we do not know how to aggregate them: {non_unique_values}")
+                f"The following columns are not unique and we do not know how to aggregate them: {non_unique_values}"
+            )
 
         # Return the single row
         return x
-    df = df \
-        .groupby([key], as_index=False, dropna=False, sort=False) \
-        .apply(agg_costs)
+
+    df = df.groupby([key], as_index=False, dropna=False, sort=False).apply(agg_costs)
     df = pd.concat([df, df_keep])
     df[columns].to_csv(filename, index=False)
-
 
     #########
     # 3. Average the variable capacity factors
@@ -153,13 +156,11 @@ def post_process(config):
     df_keep = df[~should_agg]
     df = df[should_agg]
     # Replace the plant id with the aggregated plant id
-    df = df \
-        .merge(keys_to_agg,
-               on=key,
-               how='left',
-               validate="many_to_one") \
-        .drop(key, axis=1) \
+    df = (
+        df.merge(keys_to_agg, on=key, how="left", validate="many_to_one")
+        .drop(key, axis=1)
         .rename({"agg_key": key}, axis=1)
+    )
 
     # Aggregate by group and timepoint
     dfgroup = df.groupby([key, "timepoint"], as_index=False, dropna=False, sort=False)
@@ -167,15 +168,13 @@ def post_process(config):
         df = dfgroup.quantile(0.95)
     elif cf_method == "weighted_mean":
         # Code to take the weighted average
-        df = dfgroup \
-            .quantile(lambda x: np.average(x["gen_max_capacity_factor"], weights=x["weight"])) \
-            .rename({None: "gen_max_capacity_factor"}, axis=1)
+        df = dfgroup.quantile(
+            lambda x: np.average(x["gen_max_capacity_factor"], weights=x["weight"])
+        ).rename({None: "gen_max_capacity_factor"}, axis=1)
     elif cf_method == "file":
         df = df.drop(["gen_max_capacity_factor", "weight"], axis=1).drop_duplicates()
         df = df.merge(
-            zonal_cf,
-            on=["gen_load_zone", "timepoint", "gen_tech"],
-            how='left'
+            zonal_cf, on=["gen_load_zone", "timepoint", "gen_tech"], how="left"
         )
     else:
         raise NotImplementedError(f"Method '{cf_method}' is not implemented.")
@@ -213,15 +212,25 @@ def create_capacity_factors():
         outputs/dispatch.csv (to know the DispatchGen and Curtailment)
     """
     # Read the projects
-    projects = pd.read_csv("inputs/generation_projects_info.csv",
-                           usecols=["GENERATION_PROJECT", "gen_tech", "gen_is_variable", "gen_is_baseload",
-                                    "gen_forced_outage_rate"],
-                           dtype={"GENERATION_PROJECT": str},
-                           index_col=False)
+    projects = pd.read_csv(
+        "inputs/generation_projects_info.csv",
+        usecols=[
+            "GENERATION_PROJECT",
+            "gen_tech",
+            "gen_is_variable",
+            "gen_is_baseload",
+            "gen_forced_outage_rate",
+        ],
+        dtype={"GENERATION_PROJECT": str},
+        index_col=False,
+    )
     # Filter out predetermined plants
-    predetermined = pd.read_csv("inputs/gen_build_predetermined.csv", usecols=["GENERATION_PROJECT"],
-                                dtype={"GENERATION_PROJECT": str},
-                                index_col=False)["GENERATION_PROJECT"]
+    predetermined = pd.read_csv(
+        "inputs/gen_build_predetermined.csv",
+        usecols=["GENERATION_PROJECT"],
+        dtype={"GENERATION_PROJECT": str},
+        index_col=False,
+    )["GENERATION_PROJECT"]
     n = len(projects)
     projects = projects[~projects["GENERATION_PROJECT"].isin(predetermined)]
     print(f"Removed {n - len(projects)} projects that were predetermined plants.")
@@ -229,9 +238,13 @@ def create_capacity_factors():
     # Determine the gen_techs where gen_is_variable is always True and gen_is_baseload is always False.
     # Grouping and summing works since summing Falses gives 0 but summing Trues gives >0.
     projects["gen_is_not_variable"] = ~projects["gen_is_variable"]
-    grouped_projects = projects.groupby("gen_tech", as_index=False)[["gen_is_not_variable", "gen_is_baseload"]].sum()
+    grouped_projects = projects.groupby("gen_tech", as_index=False)[
+        ["gen_is_not_variable", "gen_is_baseload"]
+    ].sum()
     grouped_projects = grouped_projects[
-        (grouped_projects["gen_is_not_variable"] == 0) & (grouped_projects["gen_is_baseload"] == 0)]
+        (grouped_projects["gen_is_not_variable"] == 0)
+        & (grouped_projects["gen_is_baseload"] == 0)
+    ]
     gen_tech = grouped_projects["gen_tech"]
     del grouped_projects
     print(f"Aggregating for gen_tech: {gen_tech.values}")
@@ -243,49 +256,77 @@ def create_capacity_factors():
     print(f"Removed {n - len(projects)} projects that aren't of allowed gen_tech.")
 
     # Calculate the gen_forced_outage_rate and verify it is identical for all the projects within the same group
-    outage_rates = projects.groupby("gen_tech", as_index=False)["gen_forced_outage_rate"]
+    outage_rates = projects.groupby("gen_tech", as_index=False)[
+        "gen_forced_outage_rate"
+    ]
     if (outage_rates.nunique()["gen_forced_outage_rate"] - 1).sum() != 0:
-        outage_rates = outage_rates.nunique().set_index("gen_tech")["gen_forced_outage_rate"] - 1
+        outage_rates = (
+            outage_rates.nunique().set_index("gen_tech")["gen_forced_outage_rate"] - 1
+        )
         outage_rates = outage_rates[outage_rates != 0]
         raise Exception(
-            f"These generation technologies have different forced outage rates: {outage_rates.index.values}")
-    outage_rates = outage_rates.mean()  # They're all the same so mean returns the proper value
+            f"These generation technologies have different forced outage rates: {outage_rates.index.values}"
+        )
+    outage_rates = (
+        outage_rates.mean()
+    )  # They're all the same so mean returns the proper value
     del projects
     print("Check passed: gen_forced_outage_rate is identical.")
 
     # Read the dispatch instructions
-    dispatch = pd.read_csv("outputs/dispatch.csv",
-                           usecols=["generation_project", "timestamp", "gen_tech", "gen_load_zone", "DispatchGen_MW",
-                                    "Curtailment_MW"],
-                           index_col=False,
-                           dtype={"generation_project": str})
+    dispatch = pd.read_csv(
+        "outputs/dispatch.csv",
+        usecols=[
+            "generation_project",
+            "timestamp",
+            "gen_tech",
+            "gen_load_zone",
+            "DispatchGen_MW",
+            "Curtailment_MW",
+        ],
+        index_col=False,
+        dtype={"generation_project": str},
+    )
     # Keep only valid projects
     dispatch = dispatch[dispatch["generation_project"].isin(valid_gens)]
     # Group by timestamp, gen_tech and load_zone
-    dispatch = dispatch.groupby(["timestamp", "gen_tech", "gen_load_zone"], as_index=False).sum()
+    dispatch = dispatch.groupby(
+        ["timestamp", "gen_tech", "gen_load_zone"], as_index=False
+    ).sum()
     # Get the DispatchUpperLimit from DispatchGen + Curtailment
-    dispatch["DispatchUpperLimit"] = dispatch["DispatchGen_MW"] + dispatch["Curtailment_MW"]
+    dispatch["DispatchUpperLimit"] = (
+        dispatch["DispatchGen_MW"] + dispatch["Curtailment_MW"]
+    )
     dispatch = dispatch.drop(["DispatchGen_MW", "Curtailment_MW"], axis=1)
 
     # Add the period to each row by merging with outputs/timestamp.csv
-    timestamps = pd.read_csv("outputs/timestamps.csv",
-                             usecols=["timestamp", "timepoint", "period"],
-                             index_col=False)
+    timestamps = pd.read_csv(
+        "outputs/timestamps.csv",
+        usecols=["timestamp", "timepoint", "period"],
+        index_col=False,
+    )
     dispatch = dispatch.merge(
-        timestamps,
-        on="timestamp",
-        how='left',
-        validate="many_to_one"
+        timestamps, on="timestamp", how="left", validate="many_to_one"
     )
     del timestamps
 
     # Read the gen_cap.csv
-    cap = pd.read_csv("outputs/gen_cap.csv",
-                      usecols=["GENERATION_PROJECT", "PERIOD", "gen_tech", "gen_load_zone", "GenCapacity"],
-                      index_col=False,
-                      dtype={"GENERATION_PROJECT": str}).rename({"PERIOD": "period"}, axis=1)
+    cap = pd.read_csv(
+        "outputs/gen_cap.csv",
+        usecols=[
+            "GENERATION_PROJECT",
+            "PERIOD",
+            "gen_tech",
+            "gen_load_zone",
+            "GenCapacity",
+        ],
+        index_col=False,
+        dtype={"GENERATION_PROJECT": str},
+    ).rename({"PERIOD": "period"}, axis=1)
     # Keep only valid projects
-    cap = cap[cap["GENERATION_PROJECT"].isin(valid_gens)].drop("GENERATION_PROJECT", axis=1)
+    cap = cap[cap["GENERATION_PROJECT"].isin(valid_gens)].drop(
+        "GENERATION_PROJECT", axis=1
+    )
     # Sum for the tech, period and load zone
     cap = cap.groupby(["period", "gen_tech", "gen_load_zone"], as_index=False).sum()
     # Merge onto dispatch
@@ -293,34 +334,41 @@ def create_capacity_factors():
         cap,
         on=["period", "gen_tech", "gen_load_zone"],
         how="left",
-        validate="many_to_one"
+        validate="many_to_one",
     )
     del cap
 
     # Filter out zones with no buildout
     is_no_buildout = dispatch["GenCapacity"] == 0
-    missing_data = dispatch\
-        [is_no_buildout]\
-        [["period", "gen_tech", "gen_load_zone"]]\
-        .drop_duplicates()\
-        .groupby(["period", "gen_tech"], as_index=False)["gen_load_zone"]\
-        .nunique()\
+    missing_data = (
+        dispatch[is_no_buildout][["period", "gen_tech", "gen_load_zone"]]
+        .drop_duplicates()
+        .groupby(["period", "gen_tech"], as_index=False)["gen_load_zone"]
+        .nunique()
         .rename({"gen_load_zone": "Number of Load Zones"}, axis=1)
+    )
     if missing_data["Number of Load Zones"].sum() > 0:
         warnings.warn(
-            f"Unable to make capacity factors for the following categories since total capacity in those zones is 0.\n{missing_data}")
+            f"Unable to make capacity factors for the following categories since total capacity in those zones is 0.\n{missing_data}"
+        )
     dispatch = dispatch[~is_no_buildout]
 
     # Merge outage rates onto dispatch
-    dispatch = dispatch.merge(
-        outage_rates,
-        on="gen_tech"
-    )
+    dispatch = dispatch.merge(outage_rates, on="gen_tech")
     del outage_rates
 
     dispatch["gen_max_capacity_factor"] = dispatch["DispatchUpperLimit"] / (
-                dispatch["GenCapacity"] * (1 - dispatch["gen_forced_outage_rate"]))
-    dispatch = dispatch[["gen_tech", "gen_load_zone", "timestamp", "timepoint", "gen_max_capacity_factor"]]
+        dispatch["GenCapacity"] * (1 - dispatch["gen_forced_outage_rate"])
+    )
+    dispatch = dispatch[
+        [
+            "gen_tech",
+            "gen_load_zone",
+            "timestamp",
+            "timepoint",
+            "gen_max_capacity_factor",
+        ]
+    ]
     dispatch.to_csv("zonal_capacity_factors.csv", index=False)
 
 
