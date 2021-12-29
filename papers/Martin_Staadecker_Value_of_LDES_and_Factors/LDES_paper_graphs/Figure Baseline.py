@@ -198,9 +198,9 @@ duration = duration[["gen_load_zone", "value"]]
 # %% PLOT BOTTOM PANEL
 ax = ax2
 tools.maps.draw_base_map(ax)
-tools.maps.graph_transmission(transmission, ax=ax, legend=False, color="green", bbox_to_anchor=(1, 0.65),
+tools.maps.graph_transmission_capacity(transmission, ax=ax, legend=False, color="green", bbox_to_anchor=(1, 0.65),
                               title="Total Tx Capacity (GW)")
-tools.maps.graph_transmission(newtx, ax=ax, legend=False, color="red", bbox_to_anchor=(1, 0.44),
+tools.maps.graph_transmission_capacity(newtx, ax=ax, legend=False, color="red", bbox_to_anchor=(1, 0.44),
                               title="New Tx Capacity (GW)")
 tools.maps.graph_pie_chart(capacity, ax=ax)
 tools.maps.graph_duration(duration, ax=ax)

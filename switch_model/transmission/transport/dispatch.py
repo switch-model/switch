@@ -150,10 +150,10 @@ def transmission_dispatch(tools):
                                axis=1)
     dispatch["value"] *= dispatch["tp_duration"] * 1e-6  # Change from power value to energy value
     dispatch = dispatch.groupby(["from", "to"], as_index=False)["value"].sum()
-    ax = tools.maps.graph_transmission(dispatch)
+    ax = tools.maps.graph_lines(dispatch, bins=(0, 10, 100, 1000, float("inf")), title="Transmission\nDispatch (TWh/yr)")
     exports = dispatch[["from", "value"]].rename({"from": "gen_load_zone"}, axis=1).copy()
     imports = dispatch[["to", "value"]].rename({"to": "gen_load_zone"}, axis=1).copy()
     imports["value"] *= -1
     exports = pd.concat([imports, exports])
     exports = exports.groupby("gen_load_zone", as_index=False).sum()
-    tools.maps.graph_points(exports, ax)
+    tools.maps.graph_points(exports, ax=ax, bins=(float("-inf"), -100, -30, -10, 10, 30, 100, float("inf")), cmap="coolwarm", title="Exports (TWh)")

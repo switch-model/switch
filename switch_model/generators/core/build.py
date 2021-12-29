@@ -781,7 +781,7 @@ def graph_buildout_per_tech(tools):
     ax.axhline(y=1, linestyle="--", color='b')
 
 @graph(
-    "buildout_map",
+    "online_capacity_map",
     title="Map of online capacity per load zone."
 )
 def buildout_map(tools):
@@ -793,9 +793,9 @@ def buildout_map(tools):
     buildout["value"] *= 1e-3  # Convert to GW
     ax = tools.maps.graph_pie_chart(buildout)
     transmission = tools.get_dataframe("transmission.csv", convert_dot_to_na=True).fillna(0)
-    transmission = transmission.rename({"trans_lz1": "from", "trans_lz2": "to", "BuildTx": "value"}, axis=1)
+    transmission = transmission.rename({"trans_lz1": "from", "trans_lz2": "to", "TxCapacityNameplate": "value"}, axis=1)
     transmission = transmission[["from", "to", "value", "PERIOD"]]
     transmission = transmission.groupby(["from", "to", "PERIOD"], as_index=False).sum().drop("PERIOD", axis=1)
     # Rename the columns appropriately
     transmission.value *= 1e-3
-    tools.maps.graph_transmission(transmission, ax=ax, legend=True)
+    tools.maps.graph_transmission_capacity(transmission, ax=ax, legend=True)

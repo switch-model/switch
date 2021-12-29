@@ -366,7 +366,7 @@ def transmission_map(tools):
     transmission = transmission.rename({"trans_lz1": "from", "trans_lz2": "to", "TxCapacityNameplate": "value"}, axis=1)
     transmission = transmission[["from", "to", "value"]]
     transmission.value *= 1e-3
-    tools.maps.graph_transmission(transmission)
+    tools.maps.graph_transmission_capacity(transmission)
 
 @graph(
     "transmission_buildout",
@@ -382,4 +382,4 @@ def transmission_map(tools):
     transmission = transmission.groupby(["from", "to", "PERIOD"], as_index=False).sum().drop("PERIOD", axis=1)
     # Rename the columns appropriately
     transmission.value *= 1e-3
-    tools.maps.graph_transmission(transmission)
+    tools.maps.graph_transmission_capacity(transmission)
