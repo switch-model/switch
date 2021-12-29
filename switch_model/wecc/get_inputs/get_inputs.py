@@ -21,6 +21,7 @@ from switch_model.wecc.get_inputs.scenario import load_scenario_from_config
 from switch_model.wecc.utilities import connect
 from switch_model.version import __version__
 
+
 def write_csv_from_query(cursor, fname: str, headers: List[str], query: str):
     """Create CSV file from cursor."""
     print(f"\t{fname}.csv... ", flush=True, end="")
@@ -334,7 +335,7 @@ def query_db(config, skip_cf):
         [
             "trans_capital_cost_per_mw_km",
             "trans_lifetime_yrs",
-            "trans_fixed_om_fraction"
+            "trans_fixed_om_fraction",
         ],
         f"""
         SELECT trans_capital_cost_per_mw_km,
@@ -433,7 +434,7 @@ def query_db(config, skip_cf):
             "gen_self_discharge_rate",
             "gen_discharge_efficiency",
             "gen_land_use_rate",
-            "gen_storage_energy_to_power_ratio"
+            "gen_storage_energy_to_power_ratio",
         ],
         f"""
             select
@@ -480,7 +481,12 @@ def query_db(config, skip_cf):
     write_csv_from_query(
         db_cursor,
         "gen_build_predetermined",
-        ["GENERATION_PROJECT", "build_year", "gen_predetermined_cap", "gen_predetermined_storage_energy_mwh"],
+        [
+            "GENERATION_PROJECT",
+            "build_year",
+            "gen_predetermined_cap",
+            "gen_predetermined_storage_energy_mwh",
+        ],
         f"""select generation_plant_id, build_year, capacity as gen_predetermined_cap, gen_predetermined_storage_energy_mwh
                 from generation_plant_existing_and_planned
                 join generation_plant as t using(generation_plant_id)
@@ -529,7 +535,7 @@ def query_db(config, skip_cf):
     ########################################################
     # FINANCIALS
 
-    #updated from $2016 and 7%
+    # updated from $2016 and 7%
     write_csv(
         [[2018, 0.05, 0.05]],
         "financials",
@@ -588,10 +594,10 @@ def query_db(config, skip_cf):
             p.label || '_M' || date_part('month', timestamp_utc) AS tp_to_hts
         FROM switch.sampled_timepoint AS tp
             JOIN switch.period AS p USING(period_id, study_timeframe_id)
-        WHERE time_sample_id = {time_sample_id}
-            AND study_timeframe_id = {study_timeframe_id}
+        WHERE time_sample_id = {params.time_sample_id}
+            AND study_timeframe_id = {params.study_timeframe_id}
         ORDER BY 1;
-        """
+        """,
     )
 
     write_csv_from_query(
@@ -655,7 +661,7 @@ def query_db(config, skip_cf):
         where period!=0
         group by period
         order by 1;
-        """
+        """,
     )
 
     ########################################################
@@ -679,7 +685,7 @@ def query_db(config, skip_cf):
             where period!=0
             group by load_zone, period
             order by 1, 2;
-            """
+            """,
         )
         modules.append("switch_model.policies.rps_unbundled")
 
@@ -901,11 +907,17 @@ def ca_policies(db_cursor, scenario_params):
     write_csv_from_query(
         db_cursor,
         "ca_policies",
-        ['PERIOD', 'ca_min_gen_timepoint_ratio', 'ca_min_gen_period_ratio', 'carbon_cap_tco2_per_yr_CA'],
-        query
+        [
+            "PERIOD",
+            "ca_min_gen_timepoint_ratio",
+            "ca_min_gen_period_ratio",
+            "carbon_cap_tco2_per_yr_CA",
+        ],
+        query,
     )
 
-    modules.append('switch_model.policies.CA_policies')
+    modules.append("switch_model.policies.CA_policies")
+
 
 def planning_reserves(db_cursor, scenario_params):
     # reserve_capacity_value.csv specifies the capacity factors that should be used when calculating
@@ -917,7 +929,7 @@ def planning_reserves(db_cursor, scenario_params):
     write_csv_from_query(
         db_cursor,
         "reserve_capacity_value",
-        ["GENERATION_PROJECT","timepoint","gen_capacity_value"],
+        ["GENERATION_PROJECT", "timepoint", "gen_capacity_value"],
         f"""
         select
             generation_plant_id,
@@ -954,7 +966,11 @@ def planning_reserves(db_cursor, scenario_params):
     write_csv_from_query(
         db_cursor,
         "planning_reserve_requirements",
-        ["PLANNING_RESERVE_REQUIREMENT", "prr_cap_reserve_margin", "prr_enforcement_timescale"],
+        [
+            "PLANNING_RESERVE_REQUIREMENT",
+            "prr_cap_reserve_margin",
+            "prr_enforcement_timescale",
+        ],
         """
         SELECT
             planning_reserve_requirement, prr_cap_reserve_margin, prr_enforcement_timescale
