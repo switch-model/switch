@@ -931,6 +931,7 @@ def buildout_map(tools):
     buildout = buildout.groupby(["gen_type", "gen_load_zone"], as_index=False)[
         "value"
     ].sum()
+    buildout["value"] *= 1e-3  # Convert to GW
     ax = tools.maps.graph_pie_chart(buildout)
     transmission = tools.get_dataframe(
         "transmission.csv", convert_dot_to_na=True

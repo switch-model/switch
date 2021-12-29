@@ -6,12 +6,11 @@ from switch_model.tools.graph.main import GraphTools
 from papers.Martin_Staadecker_Value_of_LDES_and_Factors.LDES_paper_graphs.util import (
     get_scenario,
     set_style,
-    create_bin_labels,
 )
 
 # GET DATA FOR W/S RATIO
 STORAGE_BINS = (float("-inf"), 6, 8, 10, 15, float("inf"))
-STORAGE_LABELS = create_bin_labels(STORAGE_BINS)
+STORAGE_LABELS = GraphTools.create_bin_labels(STORAGE_BINS)
 
 # Define tools for wind to solar ratio set
 baseline_ws_ratio = 0.187

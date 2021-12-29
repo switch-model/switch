@@ -75,6 +75,7 @@ setup(
         "pandas",  # used for input upgrades and testing that functionality
         "gurobipy",  # used to provided python bindings for Gurobi for faster solving
         "pyyaml",  # used to read configurations for switch
+        # Following libraries used for graphing
         "matplotlib",
         "seaborn",
         "plotnine",
@@ -93,8 +94,9 @@ setup(
         ],
         # These packages are installed when one runs 'pip install --editable .[dev]'
         "dev": ["ipdb", "black", "psycopg2-binary"],
-        # On Windows at least, installing these will only work via conda. (e.g. conda install -c conda-forge cartopy)
-        "maps": ["geopandas", "shapely", "geos", "pyshp", "cartopy"]
+        # On Windows at least, installing these will only work via conda.
+        # Run conda install -c conda-forge geopandas shapely geos [... all the other packages]
+        "maps": ["geopandas", "shapely", "geos", "pyshp", "cartopy", "plotnine"]
     },
     entry_points={
         "console_scripts": [

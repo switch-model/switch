@@ -1067,4 +1067,7 @@ def dispatch_map(tools):
     dispatch = dispatch.groupby(["gen_type", "gen_load_zone"], as_index=False)[
         "value"
     ].sum()
-    tools.maps.graph_pie_chart(dispatch)
+    dispatch["value"] *= 1e-3
+    tools.maps.graph_pie_chart(
+        dispatch, bins=(0, 10, 100, 200, float("inf")), title="Yearly Dispatch (TWh)"
+    )

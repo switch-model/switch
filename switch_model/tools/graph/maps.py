@@ -85,8 +85,22 @@ class GraphMapTools:
         self._loaded_dependencies = True
         return self._wecc_lz, self._center_points
 
-    def draw_base_map(self, ax):
+    def draw_base_map(self, ax=None):
         wecc_lz, center_points = self._load_maps()
+
+        if ax is None:
+            ax = self._tools.get_axes(projection=self._projection)
+
+        # We check that the axes are cartopy Axes. Otherwise .set_global() and .set_extent()
+        # will not be defined.
+        # Note we first need to check that self._cartopy.mpl exists since it starts out
+        # uninitialized.
+        if (not hasattr(self._cartopy, "mpl")) or type(
+            ax
+        ) != self._cartopy.mpl.geoaxes.GeoAxesSubplot:
+            raise Exception(
+                "Axes need to be create with 'projection=tools.maps.get_projection()'"
+            )
 
         map_colors = {
             "ocean": "lightblue",
@@ -169,10 +183,10 @@ class GraphMapTools:
     def graph_pie_chart(
         self,
         df,
-        bins=(0, 10, 30, 60, 1000),
+        bins=(0, 10, 30, 60, float("inf")),
         sizes=(200, 400, 600, 800),
-        labels=("<10", "10 to 30", "30 to 60", "60+"),
         ax=None,
+        title="Power Capacity (GW)",
     ):
         """
         Graphs the data from the dataframe to a map pie chart.
@@ -181,13 +195,16 @@ class GraphMapTools:
         _, center_points = self._load_maps()
 
         if ax is None:
-            ax = self._tools.get_axes()
-            self.draw_base_map(ax)
+            ax = self.draw_base_map()
         df = df.merge(center_points, on="gen_load_zone")
 
         assert not df["gen_type"].isnull().values.any()
         colors = self._tools.get_colors()
         lz_values = df.groupby("gen_load_zone")[["value"]].sum()
+        if (lz_values["value"] == 0).any():
+            raise NotImplementedError(
+                "Can't plot when some load zones have total value of 0"
+            )
         lz_values["size"] = self._tools.pd.cut(lz_values.value, bins=bins, labels=sizes)
         if lz_values["size"].isnull().values.any():
             lz_values["size"] = 300
@@ -205,13 +222,13 @@ class GraphMapTools:
             self._pie_plot(x, y, ratios, tech_color, total_size, ax)
 
         legend_points = []
-        for size, label in zip(sizes, labels):
+        for size, label in zip(sizes, self._tools.create_bin_labels(bins)):
             legend_points.append(
                 ax.scatter([], [], c="k", alpha=0.5, s=size, label=str(label))
             )
         legend = ax.legend(
             handles=legend_points,
-            title="Power Capacity (GW)",
+            title=title,
             labelspacing=1.5,
             bbox_to_anchor=(1, 0),
             framealpha=0,
@@ -243,13 +260,7 @@ class GraphMapTools:
         return ax
 
     def graph_duration(
-        self,
-        df,
-        bins=(0, 4, 6, 8, 10, float("inf")),
-        labels=("<4", "4 to 6", "6 to 8", "8 to 10", "10+"),
-        cmap="RdPu",
-        ax=None,
-        size=60,
+        self, df, bins=(0, 4, 6, 8, 10, float("inf")), cmap="RdPu", ax=None, size=60
     ):
         """
         Graphs the data from the dataframe to a points on each cell.
@@ -261,8 +272,7 @@ class GraphMapTools:
             cmap = self._tools.plt.pyplot.get_cmap(cmap)
 
         if ax is None:
-            ax = self._tools.get_axes()
-            self.draw_base_map(ax)
+            ax = self.draw_base_map()
         df = df.merge(center_points, on="gen_load_zone", validate="one_to_one")
         n = len(bins)
         colors = [cmap(x / (n - 2)) for x in range(n - 1)]
@@ -293,7 +303,7 @@ class GraphMapTools:
                     markeredgewidth=1,
                     markeredgecolor="dimgray",
                 )
-                for c, l in zip(colors, labels)
+                for c, l in zip(colors, self._tools.create_bin_labels(bins))
             ],
             bbox_to_anchor=(1, 1),
             loc="upper left",
@@ -321,8 +331,7 @@ class GraphMapTools:
         )
 
         if ax is None:
-            ax = self._tools.get_axes()
-            self.draw_base_map(ax)
+            ax = self.draw_base_map()
         df.plot(
             ax=ax,
             column="value",
@@ -337,9 +346,8 @@ class GraphMapTools:
         df,
         ax=None,
         legend=True,
-        bins=(0, 1, 5, 10, 30),
+        bins=(0, 1, 5, 10, float("inf")),
         widths=(0.5, 1, 2, 3),
-        labels=("<1", "1 to 5", "5 to 10", "10 to 30"),
         color="red",
         bbox_to_anchor=(1, 0.3),
         title="Tx Capacity (GW)",
@@ -352,8 +360,7 @@ class GraphMapTools:
         - value: the value to plot
         """
         if ax is None:
-            ax = self._tools.get_axes()
-            self.draw_base_map(ax)
+            ax = self.draw_base_map()
         _, center_points = self._load_maps()
 
         # Merge duplicate rows if table was unidirectional
@@ -378,6 +385,7 @@ class GraphMapTools:
             )
 
         df["geometry"] = df.apply(make_line, axis=1)
+        df = df[df.value != 0]  # Drop lines with no thickness
         # Cast to GeoDataFrame
         df = self._geopandas.GeoDataFrame(
             df[["geometry", "value"]], geometry="geometry"
@@ -391,7 +399,7 @@ class GraphMapTools:
         df.plot(ax=ax, legend=legend, lw=df["width"], color=color)
 
         legend_points = []
-        for width, label in zip(widths, labels):
+        for width, label in zip(widths, self._tools.create_bin_labels(bins)):
             legend_points.append(
                 ax.plot([], [], c=color, lw=width, label=str(label))[0]
             )
