@@ -93,6 +93,8 @@ setup(
         ],
         # These packages are installed when one runs 'pip install --editable .[dev]'
         "dev": ["ipdb", "black", "psycopg2-binary"],
+        # On Windows at least, installing these will only work via conda. (e.g. conda install -c conda-forge cartopy)
+        "maps": ["geopandas", "shapely", "geos", "pyshp", "cartopy"]
     },
     entry_points={
         "console_scripts": [
