@@ -95,8 +95,8 @@ setup(
         # These packages are installed when one runs 'pip install --editable .[dev]'
         "dev": ["ipdb", "black", "psycopg2-binary"],
         # On Windows at least, installing these will only work via conda.
-        # Run conda install -c conda-forge geopandas shapely geos [... all the other packages]
-        "maps": ["geopandas", "shapely", "geos", "pyshp", "cartopy", "plotnine"]
+        # Run conda install -c conda-forge geopandas shapely [... all the other packages]
+        "maps_INSTALL_WITH_CONDA": ["geopandas", "shapely", "cartopy", "plotnine"]
     },
     entry_points={
         "console_scripts": [

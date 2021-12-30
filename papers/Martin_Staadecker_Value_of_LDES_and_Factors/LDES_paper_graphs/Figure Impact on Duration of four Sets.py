@@ -19,7 +19,10 @@ tools_ws_ratio = GraphTools(
     scenarios=[
         get_scenario("WS10", 0.0909),
         get_scenario("1342", baseline_ws_ratio),
+        get_scenario("WS043", 0.3),
+        get_scenario("WS066", 0.4),
         get_scenario("WS100", 0.5),
+        get_scenario("WS233", 0.7),
         get_scenario("WS500", 0.833),
     ]
 )
