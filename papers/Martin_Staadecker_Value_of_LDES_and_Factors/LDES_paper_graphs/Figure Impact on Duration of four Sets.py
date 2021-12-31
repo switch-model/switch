@@ -18,12 +18,14 @@ baseline_ws_ratio = 0.187
 tools_ws_ratio = GraphTools(
     scenarios=[
         get_scenario("WS10", 0.0909),
+        get_scenario("WS018", 0.15),
         get_scenario("1342", baseline_ws_ratio),
         get_scenario("WS027", 0.21),
         get_scenario("WS033", 0.25),
         get_scenario("WS043", 0.3),
         get_scenario("WS066", 0.4),
         get_scenario("WS100", 0.5),
+        get_scenario("WS150", 0.6),
         get_scenario("WS233", 0.7),
         get_scenario("WS500", 0.833),
     ]
@@ -50,12 +52,17 @@ tools_tx = GraphTools(
 )
 tools_tx.pre_graphing(multi_scenario=True)
 
+baseline_energy_cost = 22.43
+
 # GET COST DATA
 tools_cost = GraphTools(
     scenarios=[
-        get_scenario("C16", "50% of\nBaseline"),
-        get_scenario("1342", "Baseline"),
-        get_scenario("C12", "ATB Costs"),
+        get_scenario("C21", 0.5),
+        get_scenario("C18", 1),
+        get_scenario("C17", 10),
+        get_scenario("1342", baseline_energy_cost),
+        get_scenario("C19", 70),
+        get_scenario("C20", 102)
     ]
 )
 tools_cost.pre_graphing(multi_scenario=True)
@@ -138,8 +145,8 @@ ax.set_xticks([0.2, 0.5, 0.8])
 ax.set_xticks([0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8], minor=True)
 ax.set_xticklabels(["80%\nSolar", "50-50\nWind-Solar", "80%\nWind"])
 ax.axvline(baseline_ws_ratio, linestyle="dotted", color="dimgrey")
-ax.set_xlim([0.08, 0.86])
 ax.text(baseline_ws_ratio - 0.04, 50, "Baseline", rotation=90, color="dimgrey")
+ax.set_xlim([0.08, 0.86])
 
 # %% PLOT HYDRO
 storage_hy, tx_hy = get_storage_data(tools_hydro)
@@ -158,7 +165,15 @@ plot_panel(ax, storage_tx, "Set C: Varying Transmission Build Costs")
 # %% PLOT COSTS
 ax = ax_bottom_right
 storage_cost, tx_cost = get_storage_data(tools_cost)
-plot_panel(ax, storage_cost, "Set D: Varying Storage Costs")
+plot_panel(ax, storage_cost, "Set D: Varying Storage Energy Costs")
+ax.set_xscale("log")
+ax.tick_params(top=False, bottom=True, right=False, left=False, which="both")
+ax.set_xticks([1, 10, 100])
+ax.set_xticks([0.5, 0.6, 0.7, 0.8, 0.9, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50, 60, 70, 80, 90], minor=True)
+ax.set_xticklabels(["1\n$/kWh", "10\n$/kWh", "100\n$/kWh"])
+ax.set_xlabel("(log scale)")
+ax.axvline(baseline_energy_cost, linestyle="dotted", color="dimgrey")
+ax.text(baseline_energy_cost - 6, 75, "Baseline", rotation=90, color="dimgrey")
 
 plt.subplots_adjust()
 # %% CALCULATIONS
