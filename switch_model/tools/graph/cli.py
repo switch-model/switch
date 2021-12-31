@@ -1,3 +1,5 @@
+from switch_model.utilities import StepTimer
+
 from switch_model.tools.graph.main import graph_scenarios
 
 
@@ -48,6 +50,7 @@ def graph_scenarios_from_cli(scenarios, args):
         if args.modules is None:
             args.modules = []  # Provide an empty list of modules
 
+    timer = StepTimer()
     graph_scenarios(
         scenarios,
         graph_dir=args.graph_dir,
@@ -56,3 +59,7 @@ def graph_scenarios_from_cli(scenarios, args):
         figures=args.figures,
         skip_long=args.skip_long,
     )
+
+    # If more than 30 seconds have elapsed, send an audible notification to indicate completion.
+    if timer.step_time() > 30:
+        print("\a")
