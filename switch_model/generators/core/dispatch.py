@@ -705,8 +705,8 @@ def graph_total_dispatch(tools):
 
     # For generation types that make less than 2% in every period, group them under "Other"
     # ---------
-    # sum the generation across the energy_sources for each period, 2% of that is the cutoff for that period
-    cutoff_per_period = total_dispatch.sum(axis=1) * 0.02
+    # sum the generation across the energy_sources for each period, 0.5% of that is the cutoff for that period
+    cutoff_per_period = total_dispatch.sum(axis=1) * 0.005
     # Check for each technology if it's below the cutoff for every period
     is_below_cutoff = total_dispatch.lt(cutoff_per_period, axis=0).all()
     # groupby if the technology is below the cutoff
