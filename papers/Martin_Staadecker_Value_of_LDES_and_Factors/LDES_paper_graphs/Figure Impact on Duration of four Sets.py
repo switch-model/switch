@@ -12,7 +12,7 @@ from papers.Martin_Staadecker_Value_of_LDES_and_Factors.LDES_paper_graphs.util i
 STORAGE_BINS = (float("-inf"), 6, 10, 20, float("inf"))
 STORAGE_LABELS = GraphTools.create_bin_labels(STORAGE_BINS)
 for i in range(len(STORAGE_LABELS)):
-    STORAGE_LABELS[i] = STORAGE_LABELS[i] + "h Storage"
+    STORAGE_LABELS[i] = STORAGE_LABELS[i] + "h Storage (GW)"
 
 # Define tools for wind to solar ratio set
 baseline_ws_ratio = 0.187
@@ -28,7 +28,7 @@ tools_ws_ratio = GraphTools(
         get_scenario("WS066", 0.4),
         get_scenario("WS100", 0.5),
         get_scenario("WS150", 0.6),
-        get_scenario("WS233", 0.7),
+        # get_scenario("WS233", 0.7), # Removed since results are invalid
         get_scenario("WS500", 0.833),
     ]
 )
@@ -76,20 +76,27 @@ tools_cost.pre_graphing(multi_scenario=True)
 
 def get_data(tools):
     storage = tools.get_dataframe("storage_capacity.csv")
-    storage = storage[storage["OnlinePowerCapacityMW"] != 0]
-    storage["duration"] = (
-            storage["OnlineEnergyCapacityMWh"] / storage["OnlinePowerCapacityMW"]
+    duration = storage.copy()
+    duration = duration[duration["OnlinePowerCapacityMW"] != 0]
+    duration["duration"] = (
+            duration["OnlineEnergyCapacityMWh"] / duration["OnlinePowerCapacityMW"]
     )
-    storage = storage[["scenario_index", "duration", "OnlinePowerCapacityMW"]]
-    storage["Duration (h)"] = pd.cut(
-        storage.duration, bins=STORAGE_BINS, labels=STORAGE_LABELS
+    duration = duration[["scenario_index", "duration", "OnlinePowerCapacityMW"]]
+    duration["Duration (h)"] = pd.cut(
+        duration.duration, bins=STORAGE_BINS, labels=STORAGE_LABELS
     )
-    storage = storage.groupby(
+    duration = duration.groupby(
         ["scenario_index", "Duration (h)"]
     ).OnlinePowerCapacityMW.sum()
-    storage /= 10 ** 3
-    storage = storage.unstack()
+    duration /= 10 ** 3
+    duration = duration.unstack()
+    duration.index = duration.index.map(tools.get_scenario_name)
+
+    storage = storage[["scenario_index", "OnlineEnergyCapacityMWh"]]
+    storage = storage.groupby("scenario_index").sum()
     storage.index = storage.index.map(tools.get_scenario_name)
+    storage *= 1e-6
+    storage.columns = ["Storage Energy Capacity (TWh)"]
 
     # Calculate transmission
     tx = tools.get_dataframe(
@@ -119,7 +126,8 @@ def get_data(tools):
     cap = cap[["Wind"]]
     cap.index = cap.index.map(tools.get_scenario_name)
 
-    return storage, tx, cap
+    return duration, tx, cap, storage
+
 
 # %% DEFINE FIGURE AND PLOTTING FUNCTIONS
 set_style()
@@ -128,60 +136,77 @@ fig = plt.figure()
 fig.set_size_inches(12, 12)
 
 # Define axes
-ax_top_left = fig.add_subplot(2, 2, 1)
-ax_top_right = fig.add_subplot(2, 2, 2, sharey=ax_top_left)
-ax_bottom_left = fig.add_subplot(2, 2, 3)
-ax_bottom_right = fig.add_subplot(2, 2, 4, sharey=ax_bottom_left)
+ax_tl = fig.add_subplot(2, 2, 1)
+ax_tr = fig.add_subplot(2, 2, 2, sharey=ax_tl)
+ax_bl = fig.add_subplot(2, 2, 3)
+ax_br = fig.add_subplot(2, 2, 4, sharey=ax_bl)
 Y_LIM = 325
-ax_top_left.set_ylim(0, Y_LIM)
-ax_bottom_left.set_ylim(0, Y_LIM)
+ax_tl.set_ylim(0, Y_LIM)
+ax_bl.set_ylim(0, Y_LIM)
 
-def create_secondary_y_axis(ax, include_label):
+
+def create_secondary_y_axis(ax, include_label, y_lim, y_label, color="grey", offset=-0.2):
     rax = ax.twinx()
-    rax.set_ylim(0, Y_LIM / 2.5)
+    rax.set_ylim(0, y_lim)
     if include_label:
-        rax.spines["left"].set_position(("axes", -0.2))
+        rax.spines["left"].set_position(("axes", offset))
         rax.yaxis.set_label_position("left")
         rax.yaxis.tick_left()
         rax.tick_params(top=False, bottom=False, right=False, left=True, which="both")
-        rax.spines["left"].set_color("grey")
-        rax.set_ylabel("New Transmission Built (millions of MW-km)")
+        rax.spines["left"].set_color(color)
+        rax.set_ylabel(y_label)
     else:
         rax.tick_params(top=False, bottom=False, right=False, left=False, which="both")
         rax.set_yticklabels([])
     return rax
 
 
-rax_top_left = create_secondary_y_axis(ax_top_left, True)
-rax_top_right = create_secondary_y_axis(ax_top_right, False)
-rax_bottom_left = create_secondary_y_axis(ax_bottom_left, True)
-rax_bottom_right = create_secondary_y_axis(ax_bottom_right, False)
+rax_ylim = Y_LIM / 2.5
+y_label = "New Transmission Built (millions of MW-km)"
+c = "purple"
+rax_top_left = create_secondary_y_axis(ax_tl, True, rax_ylim, y_label, c)
+rax_top_right = create_secondary_y_axis(ax_tr, False, rax_ylim, y_label, c)
+rax_bottom_left = create_secondary_y_axis(ax_bl, True, rax_ylim, y_label, c)
+rax_bottom_right = create_secondary_y_axis(ax_br, False, rax_ylim, y_label, c)
+
+rrax_ylim = Y_LIM / 50
+y_label = "Energy Capacity (TWh)"
+c = "green"
+rrax_tl = create_secondary_y_axis(ax_tl, True, rrax_ylim, y_label, c, offset=-0.4)
+rrax_tr = create_secondary_y_axis(ax_tr, False, rrax_ylim, y_label, c, offset=-0.4)
+rrax_bl = create_secondary_y_axis(ax_bl, True, rrax_ylim, y_label, c, offset=-0.4)
+rrax_br = create_secondary_y_axis(ax_br, False, rrax_ylim, y_label, c, offset=-0.4)
 
 
 # %% DEFINE PLOTTING CODE
-def plot_panel(ax, rax, storage, tx, cap, x_label=""):
+def plot_panel(ax, rax, rrax, data, title=""):
+    duration, tx, cap, storage = data
     lw = 2.5
     s = 7.5
     colors = tools_ws_ratio.get_colors()
+    duration.index.name = None
     storage.index.name = None
-    storage.plot(ax=ax, marker=".", colormap="autumn", legend=False, linewidth=lw, markersize=s)
-    storage.sum(axis=1).plot(ax=ax, marker=".", color=colors["Storage"], label="All Storage", legend=False, linewidth=lw,
-                             markersize=s)
-    rax.plot(tx, marker=".", color="purple", label="Built Tx", linewidth=lw, alpha=0.5)
+    duration.plot(ax=ax, marker=".", colormap="autumn", legend=False, linewidth=lw, markersize=s)
+    duration.sum(axis=1).plot(ax=ax, marker=".", color="black", label="All Storage (GW)", legend=False,
+                              linewidth=lw,
+                              markersize=s)
+    rax.plot(tx, marker=".", color="purple", label="Built Transmission", linewidth=lw, alpha=0.5)
     cap.plot(ax=ax, marker=".", color=colors, legend=False, linewidth=lw, markersize=s, alpha=0.5)
+    storage.plot(ax=rrax, marker=".", color="green", linewidth=lw, markersize=s,
+                 legend=False)
     ax.set_ylabel("Power Capacity (GW)")
-    ax.set_title(x_label)
+    ax.set_title(title)
 
 
 # %% PLOT WIND TO SOLAR PENETRATION
 
-storage_ws, tx_ws, cap_ws = get_data(tools_ws_ratio)
+data_ws = get_data(tools_ws_ratio)
 
-ax = ax_top_left
+ax = ax_tl
 rax = rax_top_left
 ax.tick_params(top=False, bottom=True, right=False, left=True, which="both")
 
-plot_panel(ax, rax, storage_ws, tx_ws, cap_ws, "Set A: Varying Wind-vs-Solar Share")
+plot_panel(ax, rax, rrax_tl, data_ws, "Set A: Varying Wind-vs-Solar Share")
 
 ax.set_xticks([0.2, 0.5, 0.8])
 ax.set_xticks([0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8], minor=True)
@@ -193,33 +218,73 @@ ax.set_xlim([0.08, 0.86])
 fig.legend(loc="lower center", ncol=4)
 
 # %% PLOT HYDRO
-storage_hy, tx_hy, cap_hy = get_data(tools_hydro)
-ax = ax_top_right
+data_hy = get_data(tools_hydro)
+ax = ax_tr
 rax = rax_top_right
-plot_panel(ax, rax, storage_hy, tx_hy, cap_hy, "Set B: Reducing Hydropower Generation")
+plot_panel(ax, rax, rrax_tr, data_hy, "Set B: Reducing Hydropower Generation")
 ax.tick_params(top=False, bottom=True, right=False, left=False, which="both")
 ax.set_xticks([0, 0.5, 1])
 ax.set_xticks([0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9], minor=True)
 ax.set_xticklabels(["No\nhydropower", "50%\nhydropower", "Baseline\nHydropower"])
 
 # %% PLOT TX
-ax = ax_bottom_left
+ax = ax_bl
 rax = rax_bottom_left
-storage_tx, tx_tx, cap_tx = get_data(tools_tx)
-plot_panel(ax, rax, storage_tx, tx_tx, cap_tx, "Set C: Varying Transmission Build Costs")
+data_tx = get_data(tools_tx)
+plot_panel(ax, rax, rrax_bl, data_tx, "Set C: Varying Transmission Build Costs")
 # %% PLOT COSTS
-ax = ax_bottom_right
+ax = ax_br
 rax = rax_bottom_right
-storage_cost, tx_cost, cap_cost = get_data(tools_cost)
-plot_panel(ax, rax, storage_cost, tx_cost, cap_cost, "Set D: Varying Storage Energy Costs")
+data_cost = get_data(tools_cost)
+plot_panel(ax, rax, rrax_br, data_cost, "Set D: Varying Storage Energy Costs")
 ax.set_xscale("log")
 ax.tick_params(top=False, bottom=True, right=False, left=False, which="both")
 ax.set_xticks([1, 10, 100])
-ax.set_xticks([0.5, 0.6, 0.7, 0.8, 0.9, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50, 60, 70, 80, 90], minor=True)
+ax.set_xticks(
+    [
+        0.5,
+        0.6,
+        0.7,
+        0.8,
+        0.9,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        20,
+        30,
+        40,
+        50,
+        60,
+        70,
+        80,
+        90,
+    ],
+    minor=True,
+)
 ax.set_xticklabels(["1\n$/kWh", "10\n$/kWh", "100\n$/kWh"])
 ax.set_xlabel("(log scale)")
 ax.axvline(baseline_energy_cost, linestyle="dotted", color="dimgrey")
 ax.text(baseline_energy_cost - 6, 125, "Baseline", rotation=90, color="dimgrey")
 
-plt.subplots_adjust()
-# %% CALCULATIONS
+plt.subplots_adjust(left=0.2, right=0.95, top=0.95, wspace=0.1)
+# %% AVERAGE POWER DURATION
+df = data_ws[3].copy()
+df2 = data_ws[0].sum(axis=1).copy()
+df *= 1000
+scenario = 0.833
+df.loc[scenario] / df2.loc[scenario]
+# %% MAX POWER DURATION
+df = tools_ws_ratio.get_dataframe("storage_capacity.csv")
+df = df[df.scenario_name == 0.833]
+df["duration"] = df["duration"] = (
+        df["OnlineEnergyCapacityMWh"] / df["OnlinePowerCapacityMW"]
+)
+df = df[["load_zone", "duration", "OnlinePowerCapacityMW"]]
+df.sort_values("duration")

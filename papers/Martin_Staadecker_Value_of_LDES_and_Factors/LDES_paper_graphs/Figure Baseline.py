@@ -41,7 +41,7 @@ load = tools.get_dataframe(
 ).rename({"zone_demand_mw": "value"}, axis=1)
 # Sum load across all the load zones
 load = load.groupby("timestamp", as_index=False).sum()
-# Include Tx Losses in demand and flip sign
+# Flip sign
 load["value"] *= -1
 
 
@@ -338,3 +338,19 @@ df["biomass_contr"] = df["Biomass"] / df["value"]
 df = df["biomass_contr"]
 df = df.sort_values(ascending=False)
 df * 100
+
+# %% CALI DEMAND PEAK AND MEDIAN
+# Get load dataframe
+df = tools.get_dataframe(
+    "load_balance.csv",
+    usecols=["timestamp", "load_zone", "zone_demand_mw"],
+).rename({"zone_demand_mw": "value"}, axis=1)
+df = tools.transform.load_zone(df, load_zone_col="load_zone")
+df = df[df.region == "CA"]
+df = tools.transform.timestamp(df)
+df = df.groupby("datetime").value.sum()
+df *= -1e-3
+df = df.sort_values()
+df.mean()
+# df
+
