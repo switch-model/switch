@@ -161,7 +161,7 @@ class GraphMapTools:
             )
 
     def graph_pie_chart(self, df, bins=(0, 10, 30, 60, float("inf")), sizes=(200, 400, 600, 800), ax=None,
-                        title="Power Capacity (GW)"):
+                        title="Power Capacity (GW)", legend=True):
         """
         Graphs the data from the dataframe to a map pie chart.
         The dataframe should have 3 columns, gen_load_zone, gen_type and value.
@@ -191,39 +191,40 @@ class GraphMapTools:
             ratios = (group_sum / group_sum.sum()).values
             self._pie_plot(x, y, ratios, tech_color, total_size, ax)
 
-        legend_points = []
-        for size, label in zip(sizes, self._tools.create_bin_labels(bins)):
-            legend_points.append(
-                ax.scatter([], [], c="k", alpha=0.5, s=size, label=str(label))
+        if legend:
+            legend_points = []
+            for size, label in zip(sizes, self._tools.create_bin_labels(bins)):
+                legend_points.append(
+                    ax.scatter([], [], c="k", alpha=0.5, s=size, label=str(label))
+                )
+            legend = ax.legend(
+                handles=legend_points,
+                title=title,
+                labelspacing=1.5,
+                bbox_to_anchor=(1, 0),
+                framealpha=0,
+                loc="lower left",
+                fontsize=8,
+                title_fontsize=10
             )
-        legend = ax.legend(
-            handles=legend_points,
-            title=title,
-            labelspacing=1.5,
-            bbox_to_anchor=(1, 0),
-            framealpha=0,
-            loc="lower left",
-            fontsize=8,
-            title_fontsize=10
-        )
-        ax.add_artist(legend)  # Required, see : https://matplotlib.org/stable/tutorials/intermediate/legend_guide.html#multiple-legends-on-the-same-axes
+            ax.add_artist(legend)  # Required, see : https://matplotlib.org/stable/tutorials/intermediate/legend_guide.html#multiple-legends-on-the-same-axes
 
-        legend_points = []
-        for tech in df["gen_type"].unique():
-            legend_points.append(
-                ax.scatter([],[],c=colors[tech], marker="s", label=tech)
+            legend_points = []
+            for tech in df["gen_type"].unique():
+                legend_points.append(
+                    ax.scatter([],[],c=colors[tech], marker="s", label=tech)
+                )
+
+            legend = ax.legend(
+                handles=legend_points,
+                ncol=5,
+                loc="upper left",
+                bbox_to_anchor=(0, 0),
+                # framealpha=0,
+                fontsize=8,
+                title_fontsize=10,
             )
-
-        legend = ax.legend(
-            handles=legend_points,
-            ncol=5,
-            loc="upper left",
-            bbox_to_anchor=(0, 0),
-            # framealpha=0,
-            fontsize=8,
-            title_fontsize=10,
-        )
-        ax.add_artist(legend)
+            ax.add_artist(legend)
 
         return ax
 
@@ -237,7 +238,8 @@ class GraphMapTools:
             cmap="RdPu",
             ax=None,
             size=60,
-            title=None
+            title=None,
+            legend=True
     ):
         """
         Graphs the data from the dataframe to a points on each cell.
@@ -266,25 +268,26 @@ class GraphMapTools:
                 linewidth=1,
                 edgecolor="dimgray",
             )
-        legend = ax.legend(
-            title=title,
-            handles=[
-                self._tools.plt.lines.Line2D(
-                    [], [], color=c, marker=".", markersize=15, label=l, linestyle="None",
-                    markeredgewidth=1,
-                    markeredgecolor="dimgray"
-                )
-                for c, l in zip(colors, self._tools.create_bin_labels(bins))
-            ],
-            bbox_to_anchor=(1, 1),
-            loc="upper left",
-            framealpha=0,
-            fontsize=8,
-            title_fontsize=10,
-            # labelspacing=1
-        )
-        ax.add_artist(
-            legend)  # Required, see : https://matplotlib.org/stable/tutorials/intermediate/legend_guide.html#multiple-legends-on-the-same-axes
+        if legend:
+            legend = ax.legend(
+                title=title,
+                handles=[
+                    self._tools.plt.lines.Line2D(
+                        [], [], color=c, marker=".", markersize=15, label=l, linestyle="None",
+                        markeredgewidth=1,
+                        markeredgecolor="dimgray"
+                    )
+                    for c, l in zip(colors, self._tools.create_bin_labels(bins))
+                ],
+                bbox_to_anchor=(1, 1),
+                loc="upper left",
+                framealpha=0,
+                fontsize=8,
+                title_fontsize=10,
+                # labelspacing=1
+            )
+            ax.add_artist(
+                legend)  # Required, see : https://matplotlib.org/stable/tutorials/intermediate/legend_guide.html#multiple-legends-on-the-same-axes
 
     def graph_transmission_capacity(self, df, bins=(0, 1, 5, 10, float("inf")), title="Tx Capacity (GW)", **kwargs):
         self.graph_lines(df, bins=bins, title=title, **kwargs)
@@ -336,20 +339,21 @@ class GraphMapTools:
             color=color
         )
 
-        legend_points = []
-        for width, label in zip(widths, self._tools.create_bin_labels(bins)):
-            legend_points.append(
-                ax.plot([], [], c=color, lw=width, label=str(label))[0]
+        if legend:
+            legend_points = []
+            for width, label in zip(widths, self._tools.create_bin_labels(bins)):
+                legend_points.append(
+                    ax.plot([], [], c=color, lw=width, label=str(label))[0]
+                )
+            legend = ax.legend(
+                handles=legend_points,
+                title=title,
+                bbox_to_anchor=bbox_to_anchor,
+                framealpha=0,
+                loc="center left",
+                fontsize=8,
+                title_fontsize=10
             )
-        legend = ax.legend(
-            handles=legend_points,
-            title=title,
-            bbox_to_anchor=bbox_to_anchor,
-            framealpha=0,
-            loc="center left",
-            fontsize=8,
-            title_fontsize=10
-        )
-        ax.add_artist(legend)  # Required, see : https://matplotlib.org/stable/tutorials/intermediate/legend_guide.html#multiple-legends-on-the-same-axes
+            ax.add_artist(legend)  # Required, see : https://matplotlib.org/stable/tutorials/intermediate/legend_guide.html#multiple-legends-on-the-same-axes
 
         return ax
