@@ -269,7 +269,7 @@ class GraphMapTools:
         title="Storage duration (h)",
         **kwargs,
     ):
-        self.graph_points(df, bins=bins, ax=ax, title=title, **kwargs)
+        return self.graph_points(df, bins=bins, ax=ax, title=title, **kwargs)
 
     def graph_points(
         self, df, bins, cmap="RdPu", ax=None, size=60, title=None, legend=True
@@ -289,35 +289,38 @@ class GraphMapTools:
         n = len(bins)
         colors = [cmap(x / (n - 2)) for x in range(n - 1)]
         df["color"] = self._tools.pd.cut(df.value, bins=bins, labels=colors)
+        if "size" not in df.columns:
+            df["size"] = size
         for i, row in df.iterrows():
             x, y = row["geometry"].x, row["geometry"].y
             ax.scatter(
                 x,
                 y,
-                s=size,
+                s=row["size"],
                 color=row["color"],
                 transform=self._projection,
                 zorder=10,
                 linewidth=1,
                 edgecolor="dimgray",
             )
+        legend_handles = [
+            self._tools.plt.lines.Line2D(
+                [],
+                [],
+                color=c,
+                marker=".",
+                markersize=15,
+                label=l,
+                linestyle="None",
+                markeredgewidth=1,
+                markeredgecolor="dimgray",
+            )
+            for c, l in zip(colors, self._tools.create_bin_labels(bins))
+        ]
         if legend:
             legend = ax.legend(
                 title=title,
-                handles=[
-                    self._tools.plt.lines.Line2D(
-                        [],
-                        [],
-                        color=c,
-                        marker=".",
-                        markersize=15,
-                        label=l,
-                        linestyle="None",
-                        markeredgewidth=1,
-                        markeredgecolor="dimgray",
-                    )
-                    for c, l in zip(colors, self._tools.create_bin_labels(bins))
-                ],
+                handles=legend_handles,
                 bbox_to_anchor=(1, 1),
                 loc="upper left",
                 framealpha=0,
@@ -328,11 +331,30 @@ class GraphMapTools:
             ax.add_artist(
                 legend
             )  # Required, see : https://matplotlib.org/stable/tutorials/intermediate/legend_guide.html#multiple-legends-on-the-same-axes
+        return legend_handles
 
     def graph_transmission_capacity(
         self, df, bins=(0, 1, 5, 10, float("inf")), title="Tx Capacity (GW)", **kwargs
     ):
         self.graph_lines(df, bins=bins, title=title, **kwargs)
+
+    def graph_load_zone_colors(self, colors, ax):
+        _, center_points = self._load_maps()
+
+        if ax is None:
+            ax = self.draw_base_map()
+
+        for _, lz in self._wecc_lz.iterrows():
+            # Add load zone borders
+            ax.add_geometries(
+                lz.geometry,
+                crs=self._projection,
+                facecolor=colors.loc[lz.gen_load_zone],
+                edgecolor="dimgray",
+                linewidth=0.5,
+                linestyle="--",
+                # alpha=0.8,
+            )
 
     def graph_lines(
         self,
