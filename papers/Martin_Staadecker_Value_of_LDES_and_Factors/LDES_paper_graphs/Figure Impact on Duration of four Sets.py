@@ -1,8 +1,6 @@
 # %% IMPORTS AND SCENARIO DEFINITION
-import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
-from matplotlib.cm import get_cmap
 from matplotlib.colors import LinearSegmentedColormap
 
 from switch_model.tools.graph.main import GraphTools
@@ -249,6 +247,7 @@ ax.set_xticklabels(["No\nhydropower", "50%\nhydropower", "Baseline\nHydropower"]
 ax = ax_bl
 rax = rax_bottom_left
 data_tx = get_data(tools_tx)
+ax.set_xticks([0, 1, 2])
 plot_panel(ax, rax, rrax_bl, rrrax_bl, data_tx, "Set C: Varying Transmission Build Costs")
 # %% PLOT COSTS
 ax = ax_br
@@ -318,3 +317,27 @@ df
 df.loc["Hydro"] / df.sum()
 # %%
 data_tx
+# %% Storage duration in 50% hydro
+df = tools_hydro.get_dataframe("dispatch_zonal_annual_summary.csv")
+df = df[df.scenario_name == 1]
+df = tools_hydro.transform.gen_type(df)
+df = df[["gen_load_zone", "gen_type", "Energy_GWh_typical_yr"]].set_index("gen_load_zone")
+df_sum = df.groupby("gen_load_zone").Energy_GWh_typical_yr.sum()
+df_sum = df_sum.rename("total")
+df = df.join(df_sum)
+cutoff = 0.5
+df["percent"] = df["Energy_GWh_typical_yr"] / df["total"]
+df = df[["percent", "gen_type"]].reset_index()
+df = df[df.gen_type == "Hydro"]
+df = df[df.percent > cutoff]
+valid_load_zones = df["gen_load_zone"]
+
+
+df = tools_hydro.get_dataframe("storage_capacity.csv")
+# df = df[df.scenario_name == 0.5]
+df = df[["load_zone", "scenario_name", "OnlinePowerCapacityMW", "OnlineEnergyCapacityMWh"]]
+df = df[df.load_zone.isin(valid_load_zones)]
+df = df.groupby("scenario_name").sum()
+df["OnlineEnergyCapacityMWh"] / df["OnlinePowerCapacityMW"]
+valid_load_zones
+
