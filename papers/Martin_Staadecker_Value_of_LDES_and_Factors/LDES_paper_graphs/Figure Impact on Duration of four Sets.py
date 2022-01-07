@@ -55,7 +55,7 @@ tools_hydro.pre_graphing(multi_scenario=True)
 #  GET TX DATA
 tools_tx = GraphTools(
     scenarios=[
-        get_scenario("T4", "No Tx\nBuild Costs"),
+        get_scenario("T4", "No Tx Build Costs\n(No Tx Congestion)"),
         get_scenario("1342", "Baseline"),
         get_scenario("T5", "10x Tx\nBuild Costs"),
     ]
@@ -307,7 +307,7 @@ pw, en
 # %% HYDRO power total capacity
 df = tools_hydro.get_dataframe("dispatch_annual_summary.csv")
 scenario = 1
-scenario = 0.5
+# scenario = 0.5
 df = df[df.scenario_name == scenario]
 df = tools_hydro.transform.gen_type(df)
 df = df[df.gen_type != "Storage"]
