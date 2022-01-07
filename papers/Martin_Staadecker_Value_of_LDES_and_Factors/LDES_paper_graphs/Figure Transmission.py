@@ -13,12 +13,26 @@ from papers.Martin_Staadecker_Value_of_LDES_and_Factors.LDES_paper_graphs.util i
 )
 
 scenarios = [
-    get_scenario("T4", "No Tx\nBuild Costs"),
+    get_scenario("T4", "No Tx Congestion\n(No Tx Build Costs)"),
     get_scenario("1342", "Baseline"),
-    # get_scenario("T5", "10x Tx\nBuild Costs"),
+]
+scenarios_supplementary = [
+    get_scenario("1342", "Baseline"),
+    get_scenario("T5", "10x Tx Build Costs"),
 ]
 tools = GraphTools(scenarios=scenarios)
 tools.pre_graphing(multi_scenario=True)
+
+tools_supplementary = GraphTools(scenarios=scenarios_supplementary)
+tools_supplementary.pre_graphing(multi_scenario=True)
+
+zones_to_highlight = ["CA_SCE_CEN", "CA_IID", "NV_S", "AZ_SE", "MEX_BAJA", "AZ_APS_SW", "CA_SCE_SE",
+                      "AZ_NW"]
+
+# Uncomment to make supplementary figure
+# tools = tools_supplementary
+# zones_to_highlight = None
+
 n = len(scenarios)
 
 
@@ -46,14 +60,9 @@ def get_data(scenario_index):
     df = df["percent_gen"]
 
     duration = tools.get_dataframe(
-        "storage_capacity.csv",
-        usecols=[
-            "load_zone",
-            "OnlineEnergyCapacityMWh",
-            "OnlinePowerCapacityMW",
-            "period",
-        ],
+        "storage_capacity.csv"
     ).rename({"load_zone": "gen_load_zone"}, axis=1)
+    duration = duration[duration.scenario_index == scenario_index]
     duration = duration[duration["period"] == 2050].drop(columns="period")
     duration = duration.groupby("gen_load_zone", as_index=False).sum()
     duration["value"] = (
@@ -102,7 +111,7 @@ def percent_to_color(percent):
 def plot(ax, data, legend):
     percent_gen, duration = data
 
-    max_size = 1000
+    max_size = 800
     max = 50
     duration["size"] = duration["OnlinePowerCapacityMW"] / max  * max_size
     tools.maps.draw_base_map(ax)
@@ -139,3 +148,82 @@ fig.colorbar(
     location="right",
     label="Yearly Generation / Yearly Demand",
 )
+
+
+def highlight_zones(zones, ax):
+    if zones is None:
+        return
+    for _, lz in tools.maps._wecc_lz.iterrows():
+        if lz.gen_load_zone in zones:
+            # Add load zone borders
+            ax.add_geometries(
+                lz.geometry,
+                crs=tools.maps.get_projection(),
+                facecolor=(0, 0, 0, 0), # Transparent
+                edgecolor="tab:green",
+                linewidth=2,
+                # linestyle="--",
+                # alpha=0,
+            )
+
+
+highlight_zones(zones_to_highlight, axes[0])
+
+# %%
+df = tools_supplementary.get_dataframe("storage_capacity.csv")
+df = df.set_index("load_zone")
+df_baseline = df[df.scenario_index == 0]
+df_compare = df[df.scenario_index == 1]
+df = df_baseline.join(df_compare, lsuffix="_base", rsuffix="_compare")
+df["change_in_cap"] = (
+    df["OnlineEnergyCapacityMWh_compare"] - df["OnlineEnergyCapacityMWh_base"]
+) * 1e-3
+# df["change_in_cap"] = (df["OnlineEnergyCapacityMWh_compare"] / df["OnlineEnergyCapacityMWh_base"]) * 100
+df = df["change_in_cap"]
+# df = df[df > 0]
+df.sum()
+df_compare["OnlineEnergyCapacityMWh"].sum() / df_baseline[
+    "OnlineEnergyCapacityMWh"
+].sum() * 100
+
+# %% Num of load zones generating less than 25% of demand
+scenario_index = 0
+# scenario_index = 1 # For baseline
+df = data[scenario_index][0].copy()
+df = df[df < 50]
+len(df)
+
+# %% Contribution of zones to highligh
+
+scenario_index = 0
+# scenario_index = 1 # For baseline
+dispatch = tools.get_dataframe("dispatch_zonal_annual_summary.csv")
+dispatch = dispatch[dispatch.scenario_index == scenario_index]
+dispatch = tools.transform.gen_type(dispatch)
+dispatch = dispatch[dispatch.gen_type != "Storage"]
+dispatch = dispatch.groupby("gen_load_zone")[["Energy_GWh_typical_yr"]].sum()
+dispatch.columns = ["generation_gwh"]
+dispatch = dispatch.reset_index()
+dispatch.sort_values("generation_gwh")
+total = dispatch.generation_gwh.sum()
+total_for_zone = dispatch[
+    dispatch.gen_load_zone.isin(zones_to_highlight)
+].generation_gwh.sum()
+total_for_zone / total
+
+
+# %% Num zones to highlight
+len(zones_to_highlight)
+
+# %% Power contribution for load zones
+df = tools.get_dataframe("storage_capacity.csv")
+df = df.set_index("load_zone")
+df_compare = df[df.scenario_index == 0]
+df_baseline = df[df.scenario_index == 1]
+df = df_baseline.join(df_compare, lsuffix="_base", rsuffix="_compare")
+df["change_in_cap"] = (
+                              df["OnlineEnergyCapacityMWh_compare"] - df["OnlineEnergyCapacityMWh_base"]
+                      ) * 1e-3
+# df["change_in_cap"] = (df["OnlineEnergyCapacityMWh_compare"] / df["OnlineEnergyCapacityMWh_base"]) * 100
+df = df["change_in_cap"]
+df.loc[["CA_LADWP"]]
