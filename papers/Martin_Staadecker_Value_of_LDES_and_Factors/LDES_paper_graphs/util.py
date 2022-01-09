@@ -12,7 +12,7 @@ def get_scenario(rel_path, name=None):
 
 
 def set_style():
-    plt.interactive(True)  # Allows the plots to continually update in SciView
+    plt.interactive(True)  # Allows the plots to continually update in PyCharm's SciView
     plt.rcParams["font.family"] = "sans-serif"
     plt.rcParams["ytick.minor.visible"] = False
     plt.rcParams["xtick.minor.visible"] = False

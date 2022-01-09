@@ -1,7 +1,5 @@
-#%%
+# %%
 
-# Imports
-import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib.pyplot import setp
 from matplotlib.ticker import PercentFormatter
@@ -12,38 +10,33 @@ from papers.Martin_Staadecker_Value_of_LDES_and_Factors.LDES_paper_graphs.util i
 )
 from switch_model.tools.graph.main import GraphTools
 
-set_style()
 
-# Define scenarios
-# Define constants
-# Prepare graph tools
 tools = GraphTools(
     scenarios=[
-        (get_scenario("1342", name=1.94)),
-        (get_scenario("M7", name=2)),
-        (get_scenario("M6", name=4)),
-        (get_scenario("M5", name=8)),
-        (get_scenario("M4", name=16)),
-        (get_scenario("M3", name=32)),
-        (get_scenario("M2", name=64)),
+        get_scenario("1342", name=1.94),
+        # get_scenario("M7", name=2),
+        get_scenario("M6", name=4),
+        # get_scenario("M5", name=8),
+        get_scenario("M4", name=16),
+        # get_scenario("M3", name=32),
+        get_scenario("M2", name=64),
     ]
 )
 tools.pre_graphing(multi_scenario=True)
 
-# Specify formatting and get figure
-fig = tools.get_figure(size=(12, 12))
-
-
-ax1 = fig.add_subplot(3, 2, 1)
-ax2 = fig.add_subplot(3, 2, 2, sharey=ax1)
-ax3 = fig.add_subplot(3, 2, 3, sharey=ax1, sharex=ax1)
-ax4 = fig.add_subplot(3, 2, 4, sharey=ax1, sharex=ax2)
-ax5 = fig.add_subplot(3, 2, 5)
-ax6 = fig.add_subplot(3, 2, 6)
-setp(ax2.get_yticklabels(), visible=False)
-setp(ax4.get_yticklabels(), visible=False)
-setp(ax1.get_xticklabels(), visible=False)
-setp(ax2.get_xticklabels(), visible=False)
+# %%
+set_style()
+plt.close()
+fig = plt.figure()
+fig.set_size_inches(12, 12)
+ax1 = fig.add_subplot(2, 2, 1)
+ax2 = fig.add_subplot(2, 2, 2, sharey=ax1)
+ax3 = fig.add_subplot(2, 2, 3, sharey=ax1, sharex=ax1)
+ax4 = fig.add_subplot(2, 2, 4, sharey=ax1, sharex=ax2)
+# setp(ax2.get_yticklabels(), visible=False)
+# setp(ax4.get_yticklabels(), visible=False)
+# setp(ax1.get_xticklabels(), visible=False)
+# setp(ax2.get_xticklabels(), visible=False)
 
 #%%
 
@@ -199,81 +192,6 @@ figure_2_energy_balance(tools, ax3, scenario_name=16)
 #%%
 
 figure_2_energy_balance(tools, ax4, scenario_name=64)
-
-#%%
-
-ax = ax5
-ax.clear()
-df = tools.get_dataframe(
-    "gen_cap.csv",
-    usecols=["gen_tech", "gen_energy_source", "GenCapacity", "scenario_name"],
-)
-df = tools.transform.gen_type(df)
-df = df.rename({"GenCapacity": "value"}, axis=1)
-df = df.groupby(["scenario_name", "gen_type"], as_index=False).value.sum()
-scaling = df[df["scenario_name"] == 1.94][["gen_type", "value"]].rename(
-    columns={"value": "scaling"}
-)
-df = df.merge(scaling, on="gen_type")
-df.value /= df.scaling
-df.value = (df.value - 1) * 100
-df = df[df["gen_type"].isin(("Wind", "Solar", "Biomass"))]
-df = df.pivot(index="scenario_name", columns="gen_type", values="value")
-df = df.rename_axis("Technology", axis=1)
-df.plot(ax=ax, color=tools.get_colors(), legend=False)
-ax.set_ylabel("Percent Change in Installed Capacity against Baseline")
-ax.yaxis.set_major_formatter(PercentFormatter())
-ax.set_xlabel("WECC-wide Storage Capacity (TWh)")
-ax.set_title("B. Impact of Storage on Generation Mix")
-
-#%%
-
-ax = ax6
-ax.clear()
-
-df = tools.get_dataframe("storage_builds.csv").astype({"scenario_name": "int"})
-df = df[df["build_year"] == 2050]
-df["power"] = df["IncrementalPowerCapacityMW"] / 1000
-df["energy"] = df["IncrementalEnergyCapacityMWh"] / 1000
-
-df = tools.transform.load_zone(df)
-df = df.groupby(["scenario_name", "region"], as_index=False)[["power", "energy"]].sum()
-# df = df[df["scenario_name"] < 30]
-# Filter out rows where there's no power built
-# df = df[df["power"] > 0.0001]
-df["duration"] = (df["energy"] / df["power"]) / 24
-df = df.rename(columns={"scenario_name": "Storage Capacity (TWh)"})
-average_duration = df.groupby("Storage Capacity (TWh)").sum()
-average_duration = (
-    (average_duration["energy"] / average_duration["power"]) / 24
-).rename("duration")
-average_power = df.groupby("Storage Capacity (TWh)")["power"].mean().rename("power")
-average = pd.concat([average_power, average_duration], axis=1).reset_index()
-ax.scatter(
-    df["duration"], df["power"], c=df["Storage Capacity (TWh)"], s=10, cmap="seismic"
-)
-
-average.drop("Storage Capacity (TWh)", axis=1).set_index("duration").plot(
-    ax=ax, legend=False
-)
-
-average.plot.scatter(
-    "duration",
-    "power",
-    c="Storage Capacity (TWh)",
-    s=50,
-    colormap="seismic",
-    ax=ax,
-    marker="^",
-    logx=True,
-    logy=True,
-)
-# df_lines = df.pivot(index="duration", values="power", columns="region").interpolate(axis='index', limit_area="inside")
-# df_lines.plot(ax=ax, legend=False, color="black", linewidth=0.5)
-ax.tick_params(axis="x", which="both")
-ax.set_xlabel("Storage Duration (days)")
-ax.set_ylabel("Storage Power (GW)")
-ax.set_title("C. Storage Buildout Per Scenario")
 
 #%%
 
