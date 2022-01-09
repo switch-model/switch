@@ -193,7 +193,7 @@ df = data[scenario_index][0].copy()
 df = df[df < 50]
 len(df)
 
-# %% Contribution of zones to highligh
+# %% Contribution of zones to highlight
 
 scenario_index = 0
 # scenario_index = 1 # For baseline
@@ -211,19 +211,22 @@ total_for_zone = dispatch[
 ].generation_gwh.sum()
 total_for_zone / total
 
-
 # %% Num zones to highlight
 len(zones_to_highlight)
 
 # %% Power contribution for load zones
 df = tools.get_dataframe("storage_capacity.csv")
 df = df.set_index("load_zone")
+cities = ["CA_LADWP", "WA_SEATAC", "CA_PGE_BAY", "CA_SCE_S", "AZ_PHX"]
+# df = df.loc[cities]
+df["OnlineEnergyCapacityMWh"] *= 1e-3
 df_compare = df[df.scenario_index == 0]
 df_baseline = df[df.scenario_index == 1]
 df = df_baseline.join(df_compare, lsuffix="_base", rsuffix="_compare")
-df["change_in_cap"] = (
-                              df["OnlineEnergyCapacityMWh_compare"] - df["OnlineEnergyCapacityMWh_base"]
-                      ) * 1e-3
+df["change_in_cap"] = df["OnlineEnergyCapacityMWh_compare"] - df["OnlineEnergyCapacityMWh_base"]
 # df["change_in_cap"] = (df["OnlineEnergyCapacityMWh_compare"] / df["OnlineEnergyCapacityMWh_base"]) * 100
 df = df["change_in_cap"]
-df.loc[["CA_LADWP"]]
+df.sort_values()
+# df.sum()
+# df_compare["OnlineEnergyCapacityMWh"].sum() / df_baseline["OnlineEnergyCapacityMWh"].sum() * 100
+

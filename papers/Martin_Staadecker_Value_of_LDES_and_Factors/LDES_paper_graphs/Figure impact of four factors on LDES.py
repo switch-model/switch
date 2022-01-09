@@ -1,4 +1,5 @@
 # %% IMPORTS AND SCENARIO DEFINITION
+import pandas
 import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
@@ -341,3 +342,21 @@ df = df.groupby("scenario_name").sum()
 df["OnlineEnergyCapacityMWh"] / df["OnlinePowerCapacityMW"]
 valid_load_zones
 
+# %% TX Change
+df = data_tx[2]
+df
+# %% COSTS
+df = data_cost
+table = 1
+df[table], (data_cost[table] / data_cost[table].loc[22.43] - 1) * 100
+# %%
+df = tools_cost.get_dataframe("storage_capacity.csv")
+df["duration"] = df["OnlineEnergyCapacityMWh"] / df["OnlinePowerCapacityMW"]
+df = df.groupby("scenario_name").duration.max()
+df
+# %%
+df = tools_cost.get_dataframe("storage_capacity.csv")
+df["duration"] = df["OnlineEnergyCapacityMWh"] / df["OnlinePowerCapacityMW"]
+total_power = df.groupby("scenario_name").OnlinePowerCapacityMW.sum()
+total_energy = df.groupby("scenario_name").OnlineEnergyCapacityMWh.sum()
+total_energy / total_power
