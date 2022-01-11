@@ -8,7 +8,7 @@ completed runs.
 
 Changes are listed from oldest (first line) to newest (last line of table).
 
-| PR | Month | Change description |
+| PR | Estimated Merge Time (check PR for exact date) | Change description |
 | ---- | --- | ---------------------|
 | #12 | March 2021 | Use the middle of the period instead of the start as the cutoff for retirement and predetermined buildout. |
 | #15 | March 2021 | Fix bug where storage costs where being over-counted. |
@@ -18,4 +18,5 @@ Changes are listed from oldest (first line) to newest (last line of table).
 | #68 | June 2021 | Change financial params to 2018 dollars & 5% interest rate. Start using terrain multipliers (which now include the economic multiplier). |
 | #72 | July 2021 | Drop build and O&M costs of existing transmission lines. |
 | #89 | August 2021 | Change hydro module average flow constraint to a monthly constraint rather than per timeseries and change it to a <= rather than ==. |
+| #90 | August 2021 | Change the lifetime of transmission lines from 20yr to 85yr |
 | #117 | January 2022 | Revert hydro module change (#89) to disallow curtailment of hydro (see #114). |
