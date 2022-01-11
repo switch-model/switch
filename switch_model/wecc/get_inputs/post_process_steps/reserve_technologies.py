@@ -6,18 +6,15 @@ import shutil
 # Third-party packages
 import pandas as pd
 
-from switch_model.wecc.get_inputs.register_post_process import register_post_process
+from switch_model.wecc.get_inputs.register_post_process import post_process_step
 
 
-@register_post_process(
-    name="no_fosill_reserve",
-    msg="Aggregating candidate projects by load zone for specified technologies",
-    only_with_config=True,
-    priority=4
+@post_process_step(
+    msg="Removing fossil fuels from reserves.",
 )
-def post_process(config):
-    """ This function sets to zero the column that allows each candidate technology to
-    proividee"""
+def post_process(_):
+    """This function sets to zero the column that allows each candidate technology to
+    provide"""
 
     fname = "generation_projects_info.csv"
     df = pd.read_csv(fname)

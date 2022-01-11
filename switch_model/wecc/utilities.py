@@ -23,7 +23,7 @@ def load_dotenv():
         pass
 
 
-def connect(schema="switch"):
+def connect(schema="switch", connection_env_var="DB_URL"):
     """Connects to the Postgres DB
 
     This function uses the environment variables to get the URL to connect to the DB. Both
@@ -32,16 +32,17 @@ def connect(schema="switch"):
     Parameters
     ----------
     schema: str Schema of the DB to look for tables. Default is switch
+    connection_env_var: The environment variable to use as the connection string
 
     Returns
     -------
     conn: Database connection object from psycopg2
     """
     load_dotenv()
-    db_url = os.getenv("DB_URL")
+    db_url = os.getenv(connection_env_var)
     if db_url is None:
         raise Exception(
-            "Please set the environment variable 'DB_URL' to the database URL."
+            f"Please set the environment variable '{connection_env_var}' to the database URL."
             "The format is normally: postgresql://<user>:<password>@<host>:5432/<database>"
         )
 
