@@ -32,6 +32,8 @@ INPUT FILE FORMAT
 
 """
 import math
+
+import pandas as pd
 from scipy import fft
 
 from pyomo.environ import *
@@ -502,58 +504,91 @@ def post_solve(instance, outdir):
     "state_of_charge",
     title="State of Charge Throughout the Year",
     supports_multi_scenario=True,
+    note="The daily charge/discharge amount is calculated as"
+    " the difference between the maximum and minimum"
+    " state of charge in a 1-day rolling window.\n"
+    "The black line is the 14-day rolling mean of the state of charge.",
 )
 def graph_state_of_charge(tools):
+    # Each panel is a period and scenario
+    panel_group = ["period", "scenario_name"]
+    rolling_mean_window_size = "14D"
+
     # Get the total state of charge per timepoint and scenario
-    df = tools.get_dataframe("storage_dispatch")
-    df = df.groupby(["timepoint", "scenario_name"], as_index=False)[
-        "StateOfCharge"
-    ].sum()
+    soc = tools.get_dataframe("storage_dispatch.csv").rename(
+        {"StateOfCharge": "value"}, axis=1
+    )
+    soc = soc.groupby(["timepoint", "scenario_name"], as_index=False).value.sum()
+    # Convert values to TWh
+    soc.value /= 1e6
     # Add datetime information
-    df = tools.transform.timestamp(df, key_col="timepoint")
+    soc = tools.transform.timestamp(soc, key_col="timepoint")[
+        panel_group + ["datetime", "value"]
+    ]
     # Count num rows
-    num_periods = len(df["period"].unique())
+    num_periods = len(soc["period"].unique())
+
+    # Used later
+    grouped_soc = soc.set_index("datetime").groupby(panel_group, as_index=False)
+
+    # Calculate the weekly SOC
+    weekly_soc = (
+        grouped_soc.rolling(rolling_mean_window_size, center=True)
+        .value.mean()
+        .reset_index()
+    )
 
     # Get the total capacity per period and scenario
     capacity = tools.get_dataframe("storage_capacity.csv")
-    capacity = capacity.groupby(["period", "scenario_name"], as_index=False)[
-        "OnlineEnergyCapacityMWh"
-    ].sum()
-
-    # Add the capacity to our dataframe
-    df = df.merge(
-        capacity, on=["period", "scenario_name"], validate="many_to_one", how="left"
+    capacity = (
+        capacity.groupby(panel_group, as_index=False)["OnlineEnergyCapacityMWh"]
+        .sum()
+        .rename({"OnlineEnergyCapacityMWh": "value"}, axis=1)
     )
+    capacity.value /= 1e6
+    capacity["type"] = "Total Energy Capacity"
 
-    # Convert values to TWh
-    df["StateOfCharge"] /= 1e6
-    df["OnlineEnergyCapacityMWh"] /= 1e6
+    # Add information regarding the diurnal cycle to the dataframe
+    # Find the difference between the min and max for every day of the year
+    group = grouped_soc.rolling("D", center=True).value
+    daily_size = (
+        (group.max() - group.min()).reset_index().groupby(panel_group, as_index=False)
+    )
+    # Find the mean between the difference of the min and max
+    avg_daily_size = daily_size.mean()[panel_group + ["value"]]
+    avg_daily_size["type"] = "Mean Daily Charge/Discharge"
+    max_daily_size = daily_size.max()[panel_group + ["value"]]
+    max_daily_size["type"] = "Maximum Daily Charge/Discharge"
 
-    # Determine information for the label
-    y_axis_lim = df["OnlineEnergyCapacityMWh"].max()
-    offset = y_axis_lim * 0.05
-    df["label_position"] = df["OnlineEnergyCapacityMWh"] + offset
-    df["label"] = df["OnlineEnergyCapacityMWh"].round(decimals=2)
-    label_x_pos = df["datetime"].median()
+    # Determine information for the labels
+    y_axis_max = capacity.value.max()
+    label_x_pos = soc["datetime"].median()
+
+    hlines = pd.concat([capacity, avg_daily_size, max_daily_size])
+
+    # For the max label
+    hlines["label_pos"] = hlines.value + y_axis_max * 0.05
+    hlines["label"] = hlines.value.round(decimals=2)
 
     # Plot with plotnine
     pn = tools.pn
     plot = (
-        pn.ggplot(df, pn.aes(x="datetime", y="StateOfCharge"))
-        + pn.geom_line()
+        pn.ggplot(soc, pn.aes(x="datetime", y="value"))
+        + pn.geom_line(color="gray")
+        + pn.geom_line(data=weekly_soc, color="black")
         + pn.labs(y="State of Charge (TWh)", x="Time of Year")
         + pn.geom_hline(
-            pn.aes(yintercept="OnlineEnergyCapacityMWh"),
+            pn.aes(yintercept="value", label="label", color="type"),
+            data=hlines,
             linetype="dashed",
-            color="blue",
         )
         + pn.geom_text(
-            pn.aes(label="label", x=label_x_pos, y="label_position"),
+            pn.aes(label="label", x=label_x_pos, y="label_pos"),
+            data=hlines,
             fontweight="light",
             size="10",
         )
     )
-
     tools.save_figure(by_scenario_and_period(tools, plot, num_periods).draw())
 
 

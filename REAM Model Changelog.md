@@ -1,7 +1,7 @@
 # REAM Model Breaking Changes
 
 This file specifies the breaking changes that we have done to the model.
-A breaking change is any change that would change the results of previously
+A breaking change is any change that might change the results of previously
 completed runs.
 
 ## List of breaking changes to model
@@ -19,3 +19,4 @@ Changes are listed from oldest (first line) to newest (last line of table).
 | #72 | July 2021 | Drop build and O&M costs of existing transmission lines. |
 | #89 | August 2021 | Change hydro module average flow constraint to a monthly constraint rather than per timeseries and change it to a <= rather than ==. |
 | #90 | August 2021 | Change the lifetime of transmission lines from 20yr to 85yr |
+| #117 | January 2022 | Revert hydro module change (#89) to disallow curtailment of hydro (see #114). |
