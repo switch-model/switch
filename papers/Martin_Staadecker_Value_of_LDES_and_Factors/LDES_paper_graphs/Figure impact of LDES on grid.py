@@ -17,17 +17,23 @@ tools = GraphTools(
     scenarios=[
         get_scenario("1342", name=1.94),
         get_scenario("M7", name=2),
+        get_scenario("M10", name=2.5),
+        get_scenario("M9", name=3),
         get_scenario("M6", name=4),
         get_scenario("M5", name=8),
+        get_scenario("M11", name=12),
         get_scenario("M4", name=16),
+        get_scenario("M14", name=18),
+        get_scenario("M13", name=20),
         get_scenario("M8", name=24),
         get_scenario("M3", name=32),
+        get_scenario("M12", name=48),
         get_scenario("M2", name=64),
     ]
 )
 tools.pre_graphing(multi_scenario=True)
 
-scenarios_for_yearly_lmp = [1.94, 4, 8, 16, 32, 64]
+scenarios_for_yearly_lmp = [1.94, 4, 16, 32, 48, 64]
 
 # %% CREATE FIGURE
 set_style()
@@ -42,6 +48,7 @@ ax4 = fig.add_subplot(2, 2, 4)
 # %% Daily LMP
 
 ax = ax3
+ax.clear()
 time_mapping = {
     0: "Midnight",
     4: "4am",
@@ -103,7 +110,7 @@ ax.set_title("D. Average estimated LMP throughout the year")
 # %% IMPACT ON TX AND GEN
 
 ax = ax2
-
+ax.clear()
 # Calculate transmission
 tx = tools.get_dataframe(
     "transmission.csv",
@@ -153,10 +160,13 @@ df = pd.concat([tx, buildout, cap], axis=1)
 # Convert to percent against baseline
 df = (df / df.iloc[0] - 1) * 100
 
+dotted_tx = df.loc[[1.94,3,20,64], ["Built Transmission"]]
+
 # Plot
 colors = tools.get_colors()
 colors["Built Transmission"] = "y"
 colors["Built Generation"] = "r"
+dotted_tx.plot(ax=ax, linestyle="dashed", color="y", alpha=0.8)
 df.plot(ax=ax, marker=".", color=colors)
 ax.set_ylabel("Change in capacity compared to baseline")
 ax.yaxis.set_major_formatter(PercentFormatter())
@@ -167,7 +177,7 @@ ax.set_ylim(-100, None)
 
 # Read dispatch.csv
 ax = ax1
-cap = tools.get_dataframe(
+curtailment = tools.get_dataframe(
     "dispatch.csv",
     usecols=[
         "gen_tech",
@@ -180,19 +190,28 @@ cap = tools.get_dataframe(
     na_filter=False,  # For performance
 )
 # Keep only renewable
-cap = cap[cap["is_renewable"]]
+curtailment = curtailment[curtailment["is_renewable"]]
 # Add the gen_type column
-cap = tools.transform.gen_type(cap)
+curtailment = tools.transform.gen_type(curtailment)
 # Convert to GW
-cap["value"] = cap["Curtailment_MW"] * cap["tp_weight_in_year_hrs"] / 1000
-cap = cap.groupby(["scenario_name", "gen_type"], as_index=False).value.sum()
-cap = cap.pivot(index="scenario_name", columns="gen_type", values="value")
-cap /= 1000
-cap = cap.rename_axis("Technology", axis=1)
-cap.plot(ax=ax, color=tools.get_colors(), marker=".")
+curtailment["value"] = curtailment["Curtailment_MW"] * curtailment["tp_weight_in_year_hrs"] / 1000
+curtailment = curtailment.groupby(["scenario_name", "gen_type"], as_index=False).value.sum()
+curtailment = curtailment.pivot(index="scenario_name", columns="gen_type", values="value")
+curtailment /= 1000
+curtailment = curtailment.rename_axis("Technology", axis=1)
+curtailment.plot(ax=ax, color=tools.get_colors(), marker=".")
 ax.set_ylabel("Yearly curtailment (GWh)")
 ax.set_xlabel("WECC-wide storage capacity (TWh)")
 ax.set_title("A. Impact of LDES on curtailment")
 ax.tick_params(top=False, bottom=False, right=False, left=False)
 # %%
 plt.subplots_adjust(hspace=0.2, wspace=0.25, left=0.07, right=0.97, top=0.95, bottom=0.07)
+
+# %% CALCULATIONS
+cap_total = cap["Solar"] + cap["Wind"]
+1 - (cap_total / cap_total.iloc[0])
+# %%
+cap_total
+# %%
+1 - buildout / buildout.iloc[0]
+
