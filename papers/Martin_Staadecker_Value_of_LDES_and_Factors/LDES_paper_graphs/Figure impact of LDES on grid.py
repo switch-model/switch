@@ -33,8 +33,6 @@ tools = GraphTools(
 )
 tools.pre_graphing(multi_scenario=True)
 
-scenarios_for_yearly_lmp = [1.94, 4, 16, 32, 48, 64]
-
 # %% CREATE FIGURE
 set_style()
 plt.close()
@@ -57,7 +55,7 @@ time_mapping = {
     16: "4pm",
     20: "8pm"
 }
-cap = tools.get_dataframe(
+daily_lmp = tools.get_dataframe(
     "load_balance.csv",
     usecols=[
         "timestamp",
@@ -65,12 +63,12 @@ cap = tools.get_dataframe(
         "scenario_name",
     ],
 ).rename(columns={"normalized_energy_balance_duals_dollar_per_mwh": "value"})
-cap = tools.transform.timestamp(cap)
-cap = cap.groupby(["scenario_name", "hour"], as_index=False)["value"].mean()
-cap = cap.pivot(index="scenario_name", columns="hour", values="value")
-cap *= 0.1  # Convert from $/MWh to cents/kWh
-cap = cap.rename(time_mapping, axis=1).rename_axis("Time of day (PST)", axis=1)
-cap.plot(
+daily_lmp = tools.transform.timestamp(daily_lmp)
+daily_lmp = daily_lmp.groupby(["scenario_name", "hour"], as_index=False)["value"].mean()
+daily_lmp = daily_lmp.pivot(index="scenario_name", columns="hour", values="value")
+daily_lmp *= 0.1  # Convert from $/MWh to cents/kWh
+daily_lmp = daily_lmp.rename(time_mapping, axis=1).rename_axis("Time of day (PST)", axis=1)
+daily_lmp.plot(
     ax=ax,
     xlabel="WECC-wide storage capacity (TWh)",
     marker=".",
@@ -79,6 +77,8 @@ cap.plot(
 ax.set_title("C. Average estimated LMP by time of day")
 # %% YEARLY LMP
 ax = ax4
+ax.clear()
+scenarios_for_yearly_lmp = [5, 7, 8, 11, 12]
 
 cap = tools.get_dataframe(
     "load_balance.csv",
@@ -91,22 +91,26 @@ cap = tools.get_dataframe(
 cap = cap.groupby(["scenario_name", "timestamp"], as_index=False).mean()
 cap = tools.transform.timestamp(cap)
 cap = cap.set_index("datetime")
-cap = (
-    cap.groupby("scenario_name", as_index=False)
-    .rolling("7D", center=True)["value"]
-    .mean()
-)
-cap = cap.unstack("scenario_name").rename_axis("Storage Capacity (TWh)", axis=1)
+cap["month"] = cap.index.month
+cap = cap.groupby(["scenario_name", "month"]).value.mean()
+cap = cap.unstack("month").rename_axis("Storage Capacity (TWh)", axis=1)
 # Convert from $/MWh to cents/kWh
 cap *= 0.1
 cap = cap[scenarios_for_yearly_lmp]
+cap = cap.rename({
+    5: "May",
+    7: "July",
+    8: "August",
+    11: "November",
+    12: "December",
+}, axis=1)
 cap.plot(
     ax=ax,
-    colormap="viridis",
-    xlabel="Time of year",
-    ylabel=u"Estimated LMP (\xa2/kWh)",
+    xlabel="WECC-wide storage capacity (TWh)",
+    marker=".",
+    ylabel=u"Monthly-average estimated LMP (\xa2/kWh)",
 )
-ax.set_title("D. Average estimated LMP throughout the year")
+ax.set_title("D. Average estimated LMP during key months")
 # %% IMPACT ON TX AND GEN
 
 ax = ax2
@@ -214,4 +218,21 @@ cap_total = cap["Solar"] + cap["Wind"]
 cap_total
 # %%
 1 - buildout / buildout.iloc[0]
-
+# %% biomass decrease
+1 - cap / cap.iloc[0]
+cap - cap.iloc[0]
+# %% change from 20 to 64
+1 - cap / cap.loc[20] # wind decrease %
+cap / cap.loc[20] - 1 # solar increase %
+(cap - cap.loc[20]) / 1000
+# %% transmission
+tx / tx.iloc[0] * 100
+(3 - 1.94) * 1000 / ((1 - tx.loc[3] / tx.iloc[0]) * 100)
+# %% night time vs day time
+df = daily_lmp.divide(daily_lmp["Noon"], axis=0) * 100 - 100
+df.min()
+df.max()
+# %% average drop in daily duals
+df = daily_lmp.mean(axis=1)
+df / df.iloc[0] - 1
+daily_lmp / daily_lmp.iloc[0] - 1
