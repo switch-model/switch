@@ -123,6 +123,14 @@ When reading SWITCH csv files, it is recommended to use the following arguments 
   a Dataframe where `GENERATION_PROJECT` is an `int` with another where it's a `str`, it
   won't work properly.)
   
+- `dtype=str`: An even safer option than `dtype={"GENERATION_PROJECT": str}` is `dtype=str` instead.
+  This is particularly important when reading a file that will than be re-outputed with minimal changes.
+  Without this option, there's the risk of floating point values being slightly 
+  modified (see [here](https://github.com/pandas-dev/pandas/issues/16452)) or integer columns
+  containing na values (`.`) being ["promoted"](https://pandas.pydata.org/pandas-docs/stable/user_guide/gotchas.html?highlight=nan#na-type-promotions) 
+  to floats. Note that with `dtype=str`, all columns are strings so to do mathematical
+  computation on a column it will first need to be converted with `.astype()`.
+  
 - `na_values="."`. Switch uses full stops to indicate an unspecified value. We want Pandas
   to interpret full stops as `NaN` rather than the string `.` so that the column type is
   still properly interpreted rather than being detected as a string.
