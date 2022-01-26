@@ -340,7 +340,7 @@ df = df[["load_zone", "scenario_name", "OnlinePowerCapacityMW", "OnlineEnergyCap
 df = df[df.load_zone.isin(valid_load_zones)]
 df = df.groupby("scenario_name").sum()
 df["OnlineEnergyCapacityMWh"] / df["OnlinePowerCapacityMW"]
-valid_load_zones
+# valid_load_zones
 
 # %% TX Change
 df = data_tx[2]
