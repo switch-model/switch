@@ -35,7 +35,7 @@ def get_data(tools):
     capacity = capacity.groupby(["gen_type", "gen_load_zone"], as_index=False)[
         "value"
     ].sum()
-    capacity = capacity[capacity.value > 1e-3]  # Must have at least 1 kW of capacity
+    # capacity = capacity[capacity.value > 1e-3]  # Must have at least 1 kW of capacity
     capacity.value *= 1e-3  # Convert to GW
 
     transmission = tools.get_dataframe(
