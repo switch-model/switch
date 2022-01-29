@@ -142,9 +142,9 @@ ax_right = ax1_right
 colors = tools.get_colors()
 
 lines = []
-for (columnName, columnData) in dispatch.iteritems():
+for (columnName, columnData) in dispatch.items():
     lines += ax.plot(columnData, color=colors[columnName], label=columnName)
-for (columnName, columnData) in curtailment.iteritems():
+for (columnName, columnData) in curtailment.items():
     lines += ax.plot(
         columnData,
         linestyle="dashed",
@@ -168,7 +168,7 @@ ax_right.legend()
 capacity = tools.get_dataframe("gen_cap.csv").rename({"GenCapacity": "value"}, axis=1)
 capacity = tools.transform.gen_type(capacity)
 capacity = capacity.groupby(["gen_type", "gen_load_zone"], as_index=False)["value"].sum()
-capacity = capacity[capacity.value > 1e-3]  # Must have at least 1 kW of capacity
+# capacity = capacity[capacity.value > 1e-3]  # Must have at least 1 kW of capacity
 capacity.value *= 1e-3 # Convert to GW
 
 transmission = tools.get_dataframe("transmission.csv", convert_dot_to_na=True).fillna(0)
@@ -198,9 +198,9 @@ duration = duration[["gen_load_zone", "value"]]
 # %% PLOT BOTTOM PANEL
 ax = ax2
 tools.maps.draw_base_map(ax)
-tools.maps.graph_transmission_capacity(transmission, ax=ax, legend=False, color="green", bbox_to_anchor=(1, 0.65),
+tools.maps.graph_transmission_capacity(transmission, ax=ax, legend=True, color="green", bbox_to_anchor=(1, 0.65),
                               title="Total Tx Capacity (GW)")
-tools.maps.graph_transmission_capacity(newtx, ax=ax, legend=False, color="red", bbox_to_anchor=(1, 0.44),
+tools.maps.graph_transmission_capacity(newtx, ax=ax, legend=True, color="red", bbox_to_anchor=(1, 0.44),
                               title="New Tx Capacity (GW)")
 tools.maps.graph_pie_chart(capacity, ax=ax)
 tools.maps.graph_duration(duration, ax=ax)
@@ -224,7 +224,7 @@ df2.columns = ["Total"]
 df = df.join(df2)
 
 df["Percent"] = (df.Curtailed - df.Total) / df.Total * 100
-ax1.plot(df["Percent"])
+# ax1.plot(df["Percent"])
 print("Max percent curtailed (%)", df.Percent.max())
 
 # %%

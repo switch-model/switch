@@ -73,6 +73,7 @@ daily_lmp.plot(
     xlabel="WECC-wide storage capacity (TWh)",
     marker=".",
     ylabel=u"Estimated LMP (\xa2/kWh)",
+    # cmap="tab10"
 )
 ax.set_title("C. Average estimated LMP by time of day")
 # %% YEARLY LMP
@@ -109,6 +110,7 @@ cap.plot(
     xlabel="WECC-wide storage capacity (TWh)",
     marker=".",
     ylabel=u"Monthly-average estimated LMP (\xa2/kWh)",
+    # cmap="tab10"
 )
 ax.set_title("D. Average estimated LMP during key months")
 # %% IMPACT ON TX AND GEN
