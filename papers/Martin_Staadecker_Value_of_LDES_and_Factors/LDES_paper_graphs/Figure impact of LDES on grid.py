@@ -1,16 +1,18 @@
 # %% GET TOOLS
 
 # Imports
+import matplotlib.gridspec
 import matplotlib.pyplot as plt
 import pandas as pd
+from matplotlib import cm
 from matplotlib.ticker import PercentFormatter
+from matplotlib.colors import Normalize
 
 from papers.Martin_Staadecker_Value_of_LDES_and_Factors.LDES_paper_graphs.util import (
     set_style,
     get_set_e_scenarios,
 )
 from switch_model.tools.graph.main import GraphTools
-
 
 # Prepare graph tools
 tools = GraphTools(scenarios=get_set_e_scenarios())
@@ -21,10 +23,10 @@ set_style()
 plt.close()
 fig = plt.figure()
 fig.set_size_inches(12, 12)
-ax1 = fig.add_subplot(2, 2, 1)
-ax2 = fig.add_subplot(2, 2, 2)
-ax3 = fig.add_subplot(2, 2, 3)
-ax4 = fig.add_subplot(2, 2, 4)
+gs = matplotlib.gridspec.GridSpec(2, 2, figure=fig)
+ax1 = fig.add_subplot(gs[0, 0])
+ax2 = fig.add_subplot(gs[0, 1])
+ax3 = fig.add_subplot(gs[1, :])
 
 # %% IMPACT ON TX AND GEN
 
@@ -131,10 +133,57 @@ ax.set_ylabel("Yearly curtailment (GWh)")
 ax.set_xlabel("WECC-wide storage capacity (TWh)")
 ax.set_title("A. Impact of LDES on curtailment")
 ax.tick_params(top=False, bottom=False, right=False, left=False)
-# %%
-plt.subplots_adjust(
-    hspace=0.2, wspace=0.25, left=0.07, right=0.97, top=0.95, bottom=0.07
+# %% State of charge
+ax = ax3
+ax.clear()
+
+freq = "1D"
+
+state_of_charge = tools.get_dataframe("StateOfCharge.csv")
+state_of_charge = state_of_charge.rename(
+    {"STORAGE_GEN_TPS_2": "timepoint", "StateOfCharge": "value"}, axis=1
 )
+state_of_charge = state_of_charge.groupby(
+    ["scenario_name", "timepoint"], as_index=False
+).value.sum()
+state_of_charge.value *= 1e-6  # Convert from MWh to TWh
+state_of_charge = tools.transform.timestamp(state_of_charge, use_timepoint=True)
+state_of_charge = state_of_charge.set_index("datetime")
+state_of_charge = state_of_charge.groupby("scenario_name").resample(freq).value.mean()
+state_of_charge = state_of_charge.unstack("scenario_name").rename_axis(
+    "Storage Capacity (TWh)", axis=1
+)
+
+demand = tools.get_dataframe("loads.csv", from_inputs=True).rename(
+    {"TIMEPOINT": "timepoint", "zone_demand_mw": "value"}, axis=1
+)
+demand = demand[demand.scenario_name == 1.94]
+demand = demand.groupby("timepoint", as_index=False).value.sum()
+demand = tools.transform.timestamp(demand, use_timepoint=True)
+demand = demand.set_index("datetime")["value"]
+demand = demand.resample(freq).mean()
+demand = demand * 60 / demand.max()
+
+state_of_charge.plot(
+    ax=ax,
+    cmap="viridis",
+    ylabel="WECC-wide stored energy (TWh, 24h mean)",
+    xlabel="Time of year",
+    legend=False,
+)
+plt.colorbar(
+    cm.ScalarMappable(norm=Normalize(1.94, 64), cmap="viridis"),
+    ax=ax,
+    label="Storage Capacity (TWh)",
+    fraction=0.1,
+)
+
+lines = ax.plot(demand, c="dimgray", linestyle="--", alpha=0.5)
+ax.legend(lines, ["Demand"])
+
+ax.set_title("C. State of charge throughout the year")
+# %%
+plt.tight_layout()
 
 # %% CALCULATIONS
 cap_total = cap["Solar"] + cap["Wind"]
@@ -153,14 +202,3 @@ cap / cap.loc[20] - 1  # solar increase %
 # %% transmission
 tx / tx.iloc[0] * 100
 (3 - 1.94) * 1000 / ((1 - tx.loc[3] / tx.iloc[0]) * 100)
-# %% night time vs day time
-df = daily_lmp.divide(daily_lmp["Noon"], axis=0) * 100 - 100
-df.min()
-df.max()
-# %% average drop in daily duals
-df = daily_lmp.mean(axis=1)
-df / df.iloc[0] - 1
-# daily_lmp / daily_lmp.iloc[0] - 1
-# %% night time drop
-df = daily_lmp[["Midnight", "8pm", "4am"]].mean(axis=1)
-(1 - df.loc[3] / df.iloc[0]) * 100 / ((3 - 1.94) * 10)
