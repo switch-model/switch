@@ -182,3 +182,15 @@ geo.plot(
 ax.set_title("B. Estimated LMP by region")
 # %%
 fig.tight_layout()
+
+# %% night time vs day time
+df = daily_lmp.divide(daily_lmp["Noon"], axis=0) * 100 - 100
+df.min()
+df.max()
+# %% average drop in daily duals
+df = daily_lmp.mean(axis=1)
+df / df.iloc[0] - 1
+# daily_lmp / daily_lmp.iloc[0] - 1
+# %% night time drop
+df = daily_lmp[["Midnight", "8pm", "4am"]].mean(axis=1)
+(1 - df.loc[3] / df.iloc[0]) * 100 / ((3 - 1.94) * 10)
