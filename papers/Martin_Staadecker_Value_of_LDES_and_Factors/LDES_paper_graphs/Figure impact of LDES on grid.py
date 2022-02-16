@@ -7,6 +7,7 @@ import pandas as pd
 from matplotlib import cm
 from matplotlib.ticker import PercentFormatter
 from matplotlib.colors import Normalize
+import labellines
 
 from papers.Martin_Staadecker_Value_of_LDES_and_Factors.LDES_paper_graphs.util import (
     set_style,
@@ -83,13 +84,13 @@ df = pd.concat([tx, buildout, cap], axis=1)
 # Convert to percent against baseline
 df = (df / df.iloc[0] - 1) * 100
 
-dotted_tx = df.loc[[1.94, 3, 20, 64], ["Built Transmission"]]
+# dotted_tx = df.loc[[1.94, 3, 20, 64], ["Built Transmission"]]
 
 # Plot
 colors = tools.get_colors()
 colors["Built Transmission"] = "y"
 colors["Built Generation"] = "r"
-dotted_tx.plot(ax=ax, linestyle="dashed", color="y", alpha=0.8)
+# dotted_tx.plot(ax=ax, linestyle="dashed", color="y", alpha=0.8)
 df.plot(ax=ax, marker=".", color=colors)
 ax.set_ylabel("Change in capacity compared to baseline")
 ax.yaxis.set_major_formatter(PercentFormatter())
@@ -178,8 +179,24 @@ plt.colorbar(
     fraction=0.1,
 )
 
-lines = ax.plot(demand, c="dimgray", linestyle="--", alpha=0.5)
-ax.legend(lines, ["Demand"])
+lines = ax.get_lines()
+x_label = {
+    4.0: 135,
+    8.0: 150,
+    20.0: 170,
+    24.0: 230,
+    32.0: 245,
+    48.0: 260,
+    64.0: 285
+}
+for line in lines:
+    label = float(line.get_label())
+    if label not in x_label.keys():
+        continue
+    labellines.labelLine(line, state_of_charge.index[x_label[label]], label=str(int(label)), align=False, color='k')
+
+demand_lines = ax.plot(demand, c="dimgray", linestyle="--", alpha=0.5)
+ax.legend(demand_lines, ["Demand"])
 
 ax.set_title("C. State of charge throughout the year")
 # %%
@@ -200,5 +217,6 @@ cap - cap.iloc[0]
 cap / cap.loc[20] - 1  # solar increase %
 (cap - cap.loc[20]) / 1000
 # %% transmission
-tx / tx.iloc[0] * 100
-(3 - 1.94) * 1000 / ((1 - tx.loc[3] / tx.iloc[0]) * 100)
+100 - tx / tx.iloc[0] * 100
+# (3 - 1.94) * 1000 / ((1 - tx.loc[3] / tx.iloc[0]) * 100)
+
