@@ -193,7 +193,7 @@ for line in lines:
     label = float(line.get_label())
     if label not in x_label.keys():
         continue
-    labellines.labelLine(line, state_of_charge.index[x_label[label]], label=str(int(label)), align=False, color='k')
+    labellines.labelLine(line, state_of_charge.index[x_label[label]], label="S "+str(int(label)), align=False, color='k')
 
 demand_lines = ax.plot(demand, c="dimgray", linestyle="--", alpha=0.5)
 ax.legend(demand_lines, ["Demand"])
