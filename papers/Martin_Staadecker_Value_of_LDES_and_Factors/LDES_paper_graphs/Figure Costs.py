@@ -194,3 +194,32 @@ df / df.iloc[0] - 1
 # %% night time drop
 df = daily_lmp[["Midnight", "8pm", "4am"]].mean(axis=1)
 (1 - df.loc[3] / df.iloc[0]) * 100 / ((3 - 1.94) * 10)
+# %% LMP stats
+raw_load_balance.nunique()
+raw_load_balance
+# %% Variability baseline
+baseline = raw_load_balance[raw_load_balance.scenario_name == 1.94]
+len(baseline[baseline.value == 0]) / len(baseline) * 100 # Percent at 0 LMP
+len(baseline[baseline.value > 40]) / len(baseline)
+# %% Variability 20twh
+df = raw_load_balance[raw_load_balance.scenario_name == 20]
+df.value.quantile(.99)
+len(df[df.value == 0]) / len(df)
+df.value.median()
+# %% Regional NORTH
+df = raw_load_balance[raw_load_balance.region.isin(["CAN", "OR", "WA"])]
+df.groupby("scenario_name").value.mean()
+# %% Regional CA
+df = raw_load_balance[raw_load_balance.region == "CA"]
+df = df.groupby("scenario_name").value.mean()
+df
+-(1 - df / df.iloc[0]) * 100
+# %% Regional SOUTH
+df = raw_load_balance[raw_load_balance.region.isin(["MEX", "AZ", "NV", "NM"])]
+df = df.groupby("scenario_name").value.mean()
+df
+# %% MONTHLY
+cap
+cap.loc[20, :]
+df = cap.loc[64, :].sort_values(ascending=False)
+df
