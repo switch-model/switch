@@ -6,21 +6,21 @@ See docs/Graphs.md to learn how to add graphs.
 # Standard packages
 import functools
 import importlib
-import traceback
 import os
 import warnings
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 # Third-party packages
 import numpy as np
 import pandas as pd
 from PIL import Image
-from matplotlib import pyplot as plt, colors
+from matplotlib import pyplot as plt
 import seaborn as sns
 import matplotlib
 import plotnine
 
 # Local imports
+from switch_model.tools.graph.maps import GraphMapTools
 from switch_model.utilities import StepTimer, get_module_list, query_yes_no, catch_exceptions
 
 # When True exceptions that are thrown while graphing will be caught
@@ -107,168 +107,6 @@ class Scenario:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         os.chdir(Scenario.root_path)
-
-
-class GraphMapTools:
-    def __init__(self, graph_tools):
-        self._tools = graph_tools
-        self._wecc_states = None
-        self._center_points = None
-        self._shapely = None
-        self._geopandas = None
-
-    def _load_maps(self):
-        """
-        Plots the WECC states as a background on the provided axes
-        and returns a dataframe with a mapping of load zones to center points.
-        """
-        if self._wecc_states is None or self._center_points is None:
-            try:
-                import geopandas
-            except ModuleNotFoundError:
-                raise Exception(
-                    "Could not find package 'geopandas'. If on Windows make sure you install it through conda.")
-
-            import shapely
-            self._shapely = shapely
-            self._geopandas = geopandas
-
-            # Read shape files
-            try:
-                wecc_lz = geopandas.read_file(self._tools.get_file_path("maps/wecc_102009.shp", from_inputs=True),
-                                              crs="ESRI:102009")
-                self._wecc_states = geopandas.read_file(
-                    self._tools.get_file_path("maps/wecc_states_4326.shp", from_inputs=True))
-            except FileNotFoundError:
-                raise Exception("Can't create maps, shape files are missing. Try running switch get_inputs.")
-
-            wecc_lz = wecc_lz.rename({"LOAD_AREA": "gen_load_zone"}, axis=1)
-
-            # New dataframe with the centerpoint geometry
-            self._center_points = geopandas.GeoDataFrame(
-                wecc_lz[["gen_load_zone"]],
-                geometry=wecc_lz["geometry"].centroid,
-                crs="ESRI:102009",
-            ).to_crs("EPSG:4326")
-
-        return self._wecc_states, self._center_points
-
-    def _plot_states(self, ax):
-        states, _ = self._load_maps()
-        states.plot(ax=ax, lw=0.5, edgecolor="white", color="#E5E5E5", zorder=-999)
-        ax.axis("off")
-
-    @staticmethod
-    def _pie_plot(x, y, ratios, colors, size, ax=None):
-        # REFERENC: https://tinyurl.com/app/myurls
-        # determine arches
-        start = 0.0
-        xy = []
-        s = []
-        for ratio in ratios:
-            x0 = [0] + np.cos(
-                np.linspace(2 * np.pi * start, 2 * np.pi * (start + ratio), 30)
-            ).tolist()  # 30
-            y0 = [0] + np.sin(
-                np.linspace(2 * np.pi * start, 2 * np.pi * (start + ratio), 30)
-            ).tolist()  # 30
-
-            xy1 = np.column_stack([x0, y0])
-            s1 = np.abs(xy1).max()
-
-            xy.append(xy1)
-            s.append(s1)
-            start += ratio
-
-        for xyi, si, c in zip(xy, s, colors):
-            ax.scatter(
-                [x], [y], marker=xyi, s=size * si ** 2, c=c, edgecolor="k", zorder=10
-            )
-
-    def graph_pie_chart(self, df, max_size=2500, ax=None):
-        """
-        Graphs the data from the dataframe to a map pie chart.
-        The dataframe should have 3 columns, gen_load_zone, gen_type and value.
-        """
-        _, center_points = self._load_maps()
-
-        # Scale the dataframe so the pie charts have the right size
-        current_max_size = df.groupby("gen_load_zone")["value"].sum().max()
-        df["value"] *= max_size / current_max_size
-
-        if ax is None:
-            ax = self._tools.get_axes()
-        self._plot_states(ax)
-        df = df.merge(center_points, on="gen_load_zone")
-
-        assert not df["gen_type"].isnull().values.any()
-        colors = self._tools.get_colors()
-        for index, group in df.groupby(["gen_load_zone"]):
-            x, y = group["geometry"].iloc[0].x, group["geometry"].iloc[0].y
-            group_sum = group.groupby("gen_type")["value"].sum().sort_values()
-            group_sum = group_sum[group_sum != 0].copy()
-
-            tech_color = [colors[tech] for tech in group_sum.index.values]
-            total_size = group_sum.sum()
-            ratios = (group_sum / total_size).values
-            GraphMapTools._pie_plot(x, y, ratios, tech_color, ax=ax, size=total_size)
-        return ax
-
-    def graph_points(self, df, ax=None):
-        """
-        Graphs a point in each load zone based on a dataframe with two columns
-        - gen_load_zone
-        - value
-        """
-        _, center_points = self._load_maps()
-
-        df = df.merge(center_points, on="gen_load_zone")
-        # Cast to GeoDataFrame
-        df = self._geopandas.GeoDataFrame(df[["geometry", "value"]], geometry="geometry")
-
-        if ax is None:
-            ax = self._tools.get_axes()
-        self._plot_states(ax)
-        df.plot(ax=ax, column="value", legend=True, cmap="coolwarm", markersize=30, norm=colors.CenteredNorm())
-
-    def graph_transmission(self, df, cutoff, ax=None, legend=True, zorder=-50):
-        """
-        Graphs the data frame a dataframe onto a map.
-        The dataframe should have 4 columns:
-        - from: the load zone where we're starting from
-        - to: the load zone where we're going to
-        - value: the value to plot
-        """
-        if ax is None:
-            ax = self._tools.get_axes()
-        _, center_points = self._load_maps()
-
-        # Merge duplicate rows if table was unidirectional
-        df[["from", "to"]] = df[["from", "to"]].apply(sorted, axis=1, result_type="expand")
-        df = df.groupby(["from", "to"], as_index=False)["value"].sum()
-
-        df = df.merge(
-            center_points.add_prefix("from_"),
-            left_on="from",
-            right_on="from_gen_load_zone",
-        ).merge(
-            center_points.add_prefix("to_"),
-            left_on="to",
-            right_on="to_gen_load_zone"
-        )[["from_geometry", "to_geometry", "value"]]
-
-        from shapely.geometry import LineString
-
-        def make_line(r):
-            return LineString([r["from_geometry"], r["to_geometry"]])
-
-        df["geometry"] = df.apply(make_line, axis=1)
-        # Cast to GeoDataFrame
-        df = self._geopandas.GeoDataFrame(df[["geometry", "value"]], geometry="geometry")
-
-        self._plot_states(ax)
-        df.plot(ax=ax, column="value", legend=legend, cmap="Greens", zorder=zorder, norm=colors.LogNorm(vmin=cutoff, vmax=df.value.max()))
-        return ax
 
 
 class TransformTools:
@@ -432,8 +270,8 @@ class FigureHandler:
     saving these figures to .png files.
     """
 
-    def __init__(self, output_dir, scenarios):
-        self._output_dir = output_dir
+    def __init__(self, output_dir: Optional[str], scenarios):
+        self._output_dir: Optional[str] = output_dir
         self._scenarios: List[Scenario] = scenarios
 
         # This dictionary stores the figures.
@@ -490,6 +328,8 @@ class FigureHandler:
         return figures[0].axes  # We access the 0 index since we expect there to only be 1 figure
 
     def save_figures(self):
+        if self._output_dir is None:
+            raise Exception("Cannot call save_figures() when the output directory is None.")
         for filename, figures in self._figures.items():
             # If we have a single figure just save it
             if len(figures) == 1:
@@ -560,12 +400,25 @@ class DataHandler:
         # If true the current function being run should only be run
         # once with all the scenarios rather than re-run for each scenario
         self._is_multi_scenario_func = None
-        self._active_scenario = None
+        self._active_scenario = 0
 
         # Here we store a mapping of csv file names to their dataframes.
         # Each dataframe has a column called 'scenario' that specifies which scenario
         # a given row belongs to.
         self._dfs: Dict[str, pd.DataFrame] = {}
+
+    @property
+    def scenarios(self):
+        return self._scenarios
+
+    def get_scenario_name(self, index):
+        """
+        Returns the scenario_name given the scenario_index.
+        Can be used as follows to convert an scenario_index that's an
+        index in a Dataframe to the scenario names.
+        df.index = df.index.map(tools.get_scenario_name)
+        """
+        return self._scenarios[index].name
 
     def get_dataframe(self, filename, folder=None, from_inputs=False, convert_dot_to_na=False, force_one_scenario=False,
                       drop_scenario_info=True, usecols=None, **kwargs):
@@ -647,7 +500,7 @@ class GraphTools(DataHandler):
     @graph() annotation.
     """
 
-    def __init__(self, scenarios: List[Scenario], graph_dir: str, skip_long: bool):
+    def __init__(self, scenarios: List[Scenario], graph_dir: Optional[str] = None, skip_long=False):
         """
         @param scenarios list of scenarios that we should run graphing for
                 graph_dir directory where graphs should be saved
@@ -681,7 +534,7 @@ class GraphTools(DataHandler):
         self.transform = TransformTools(self)
         self.maps = GraphMapTools(self)
 
-    def _create_axes(self, num_rows=1, size=(8, 5), ylabel=None, **kwargs):
+    def _create_axes(self, num_rows=1, size=(8, 5), ylabel=None, projection=None, **kwargs):
         """
         Create a set of matplotlib axes
         """
@@ -690,7 +543,7 @@ class GraphTools(DataHandler):
             size=(size[0] * num_columns, size[1]),
             **kwargs
         )
-        ax = fig.subplots(nrows=num_rows, ncols=num_columns, sharey='row', squeeze=False)
+        ax = fig.subplots(nrows=num_rows, ncols=num_columns, sharey='row', squeeze=False, subplot_kw=dict(projection=projection))
 
         ax = [[ax[j][i] for j in range(num_rows)] for i in range(num_columns)]
 
@@ -768,30 +621,15 @@ class GraphTools(DataHandler):
         # Add the figure to the list of figures for that scenario
         self._figure_handler.add_figure(fig, filename=filename)
 
-    def run_graph_func(self, func):
-        """Runs the graphing function"""
-        print(f"{func.name}", end=", ", flush=True)
-        self._is_multi_scenario_func = func.multi_scenario
+    def pre_graphing(self, multi_scenario, name=None, title=None, note=None):
+        self._is_multi_scenario_func = multi_scenario
         self._figure_handler.set_properties(
-            func.name,
-            func.title,
-            func.note,
+            name,
+            title,
+            note,
             allow_multiple_figures=not self._is_multi_scenario_func)
 
-        if self._is_multi_scenario_func:
-            self._active_scenario = 0
-            func(self)
-        else:
-            # For each scenario
-            for i, scenario in enumerate(self._scenarios):
-                # Set the active scenario index so that other functions behave properly
-                self._active_scenario = i
-                # Call the graphing function
-                func(self)
-
-        # Reset to none like it was before just to be safe
-        self._active_scenario = None
-
+    def post_graphing(self):
         # Save the graphs
         self._figure_handler.save_figures()
 
@@ -925,6 +763,23 @@ class GraphTools(DataHandler):
         fig.legend([h for _, h in legend_pairs], [l for l, _ in legend_pairs])
 
     @staticmethod
+    def create_bin_labels(bins):
+        """Returns an array of labels representing te bins."""
+        i = 1
+        labels = []
+        while i < len(bins):
+            low = bins[i-1]
+            high = bins[i]
+            if low == float("-inf"):
+                labels.append(f"<{high}")
+            elif high == float("inf"):
+                labels.append(f"{low}+")
+            else:
+                labels.append(f"{low} - {high}")
+            i += 1
+        return labels
+
+    @staticmethod
     def sort_build_years(x):
         def val(v):
             r = v if v != "Pre-existing" else "000"
@@ -934,7 +789,7 @@ class GraphTools(DataHandler):
         return xm
 
 
-def graph_scenarios(scenarios: List[Scenario], graph_dir, overwrite=False, skip_long=False, module_names=None, figures=None):
+def graph_scenarios(scenarios: List[Scenario], graph_dir, overwrite=False, module_names=None, figures=None, **kwargs):
     # If directory already exists, verify we should overwrite its contents
     if os.path.exists(graph_dir):
         if not overwrite and not query_yes_no(
@@ -956,26 +811,45 @@ def graph_scenarios(scenarios: List[Scenario], graph_dir, overwrite=False, skip_
         try:
             importlib.import_module(module_name)
         except ModuleNotFoundError:
-            warnings.warn(f"Module {module_name} not found. Graphs in this module will not be created.")
+            warnings.warn(f"Failed to load {module_name}. Graphs in this module will not be created.")
 
     # Initialize the graphing tool
-    graph_tools = GraphTools(scenarios=scenarios, graph_dir=graph_dir, skip_long=skip_long)
+    graph_tools = GraphTools(scenarios=scenarios, graph_dir=graph_dir, **kwargs)
 
     # Loop through every graphing module
     print(f"Graphing modules:")
     if figures is None:
         for graph_func in registered_graphs.values():
-            graph_tools.run_graph_func(graph_func)
+            run_graph_func(graph_tools, graph_func)
     else:
         for figure in figures:
             try:
                 func = registered_graphs[figure]
             except KeyError:
-                raise Exception(f"{figures} not found in list of registered graphs."
+                raise Exception(f"{figures} not found in list of registered graphs. "
                                 f"Make sure your graphing function is in a module.")
-            graph_tools.run_graph_func(func)
+            run_graph_func(graph_tools, func)
 
     print(f"\nTook {timer.step_time_as_str()} to generate all graphs.")
+
+
+def run_graph_func(tools, func):
+    """Runs the graphing function"""
+    print(f"{func.name}", end=", ", flush=True)
+    tools.pre_graphing(func.multi_scenario, func.name, func.title, func.note)
+    if func.multi_scenario:
+        func(tools)
+    else:
+        # For each scenario
+        for i, scenario in enumerate(tools.scenarios):
+            # Set the active scenario index so that other functions behave properly
+            tools._active_scenario = i
+            # Call the graphing function
+            func(tools)
+        # Reset to 0 like it was before
+        tools._active_scenario = 0
+
+    tools.post_graphing()
 
 
 def read_modules(scenarios):

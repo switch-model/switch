@@ -10,16 +10,15 @@ import sys
 import switch_model
 from switch_model.utilities import get_git_branch
 
-def version():
+def print_version():
     print("Switch model version " + switch_model.__version__)
     branch = get_git_branch()
     if branch is not None:
         print(f"Switch Git branch: {branch}")
-    return 0
 
 def help_text():
     print(
-        f"Must specifiy one of the following commands: {list(cmds.keys())}.\nE.g. Run 'switch solve' or 'switch get_inputs'.")
+        f"Must specify one of the following commands: {list(cmds.keys()) + ['--version']}.\nE.g. Run 'switch solve' or 'switch get_inputs'.")
 
 
 def get_module_runner(module):
@@ -61,7 +60,8 @@ def main():
     args, remaining_args = parser.parse_known_args()
 
     if args.version:
-        return version()
+        print_version()
+        return 0
 
     # adjust the argument list to make it look like someone ran "python -m <module>" directly
     if len(sys.argv) > 1:

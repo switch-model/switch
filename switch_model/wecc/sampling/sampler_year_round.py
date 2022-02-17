@@ -2,7 +2,10 @@ import pandas as pd
 
 from .utils import read_from_db
 
-
+# TODO: The created data is in UTC which means in PST our timeseries starts at
+#   4pm and ends at 12pm on the 31st. We probably want first_hour to default to 8am with
+#   skip_day_one = False. We also probably want to rename first_hour to first_hour_utc.
+#   Finally we likely want to add a parameter called last_hour_utc and set it to 8am by default.
 def sample_year_round(
         method_config,
         period_values,

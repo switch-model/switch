@@ -381,7 +381,9 @@ def post_solve(instance, outputs_dir=None):
             # the other modules still run
             try:
                 module.post_solve(instance, outputs_dir)
-            except Exception:
+            except KeyboardInterrupt:
+                raise KeyboardInterrupt
+            except:
                 # Print the error that would normally be thrown with the
                 # full stack trace and an explanatory message
                 print(f"ERROR: Module {module.__name__} threw an Exception while running post_solve(). "
@@ -747,6 +749,8 @@ def catch_exceptions(warning_msg="An exception was caught and ignored.", should_
 
             try:
                 return func(*args, **kwargs)
+            except KeyboardInterrupt:
+                raise KeyboardInterrupt
             except:
                 warnings.warn(warning_msg + "\nDetailed error log: " + traceback.format_exc())
 

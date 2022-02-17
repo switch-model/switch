@@ -626,8 +626,8 @@ def graph_total_dispatch(tools):
 
     # For generation types that make less than 2% in every period, group them under "Other"
     # ---------
-    # sum the generation across the energy_sources for each period, 2% of that is the cutoff for that period
-    cutoff_per_period = total_dispatch.sum(axis=1) * 0.02
+    # sum the generation across the energy_sources for each period, 0.5% of that is the cutoff for that period
+    cutoff_per_period = total_dispatch.sum(axis=1) * 0.005
     # Check for each technology if it's below the cutoff for every period
     is_below_cutoff = total_dispatch.lt(cutoff_per_period, axis=0).all()
     # groupby if the technology is below the cutoff
@@ -816,7 +816,8 @@ def graph_curtailment_per_tech(tools):
     title="Balance between demand, generation and storage for last period",
     note="Dashed green and red lines are total generation and total demand (incl. transmission losses),"
          " respectively.\nDotted line is the total state of charge (scaled for readability)."
-         "\nWe used a 14-day rolling mean to smoothen out values."
+         "\nWe used a 14-day rolling mean to smoothen out values.",
+    supports_multi_scenario=True
 )
 def graph_energy_balance_2(tools):
     # Get dispatch dataframe
@@ -915,8 +916,10 @@ def graph_energy_balance_2(tools):
     title="Dispatched electricity per load zone"
 )
 def dispatch_map(tools):
-    dispatch = tools.get_dataframe("dispatch_zonal_annual_summary.csv").rename({"Energy_GWh_typical_yr": "value"},
-                                                                               axis=1)
+    if not tools.maps.can_make_maps():
+        return
+    dispatch = tools.get_dataframe("dispatch_zonal_annual_summary.csv").rename({"Energy_GWh_typical_yr": "value"},                                                                           axis=1)
     dispatch = tools.transform.gen_type(dispatch)
     dispatch = dispatch.groupby(["gen_type", "gen_load_zone"], as_index=False)["value"].sum()
-    tools.maps.graph_pie_chart(dispatch)
+    dispatch["value"] *= 1e-3
+    tools.maps.graph_pie_chart(dispatch, bins=(0, 10, 100, 200, float("inf")), title="Yearly Dispatch (TWh)")

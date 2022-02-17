@@ -222,7 +222,8 @@ def main(args=None, return_model=False, return_instance=False, attach_data_porta
         )
 
         if instance.options.verbose:
-            print(f"Total time spent running SWITCH: {total_time}.")
+            # Note the \a will make a noise which is useful to get the user's attention.
+            print(f"Total time spent running SWITCH: {total_time}.\a")
 
     # end of LogOutput block
 
@@ -853,7 +854,8 @@ def solve(model):
                   " the more accurate the solution.\nIf the solution is not accurate enough"
                   " you should try running switch solve again with --recommended instead of --recommended-fast.\n")
 
-        if query_yes_no("Do you want to abort and exit (without running post-solve)?", default=None):
+        # Note the '\a' will make a noise on most OS' which is useful to get the person's attention
+        if query_yes_no("Do you want to abort and exit (without running post-solve)?\a", default=None):
             raise SystemExit()
 
     if model.options.verbose:

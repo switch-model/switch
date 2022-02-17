@@ -356,6 +356,8 @@ def transmission_capacity(tools):
     note="Lines <1 GW not shown"
 )
 def transmission_map(tools):
+    if not tools.maps.can_make_maps():
+        return
     transmission = tools.get_dataframe("transmission.csv", convert_dot_to_na=True).fillna(0)
     # Keep only the last period
     last_period = transmission["PERIOD"].max()
@@ -364,7 +366,7 @@ def transmission_map(tools):
     transmission = transmission.rename({"trans_lz1": "from", "trans_lz2": "to", "TxCapacityNameplate": "value"}, axis=1)
     transmission = transmission[["from", "to", "value"]]
     transmission.value *= 1e-3
-    tools.maps.graph_transmission(transmission, cutoff=1)
+    tools.maps.graph_transmission_capacity(transmission)
 
 @graph(
     "transmission_buildout",
@@ -372,10 +374,12 @@ def transmission_map(tools):
     note="Lines with <0.1 GW built not shown."
 )
 def transmission_map(tools):
+    if not tools.maps.can_make_maps():
+        return
     transmission = tools.get_dataframe("transmission.csv", convert_dot_to_na=True).fillna(0)
     transmission = transmission.rename({"trans_lz1": "from", "trans_lz2": "to", "BuildTx": "value"}, axis=1)
     transmission = transmission[["from", "to", "value", "PERIOD"]]
     transmission = transmission.groupby(["from", "to", "PERIOD"], as_index=False).sum().drop("PERIOD", axis=1)
     # Rename the columns appropriately
     transmission.value *= 1e-3
-    tools.maps.graph_transmission(transmission, cutoff=0.1)
+    tools.maps.graph_transmission_capacity(transmission)
