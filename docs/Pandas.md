@@ -108,6 +108,39 @@ where the columns over which we are merging are `key_1` and `key_2`.
 
 - `Series.unique()`: Returns a series where duplicate values are dropped.
 
+## Note on reading switch files
+
+When reading SWITCH csv files, it is recommended to use the following arguments in `pd.read_csv()`.
+
+- `index_col=False`. This forces Pandas to not automatically use the 
+  first column as an index to ensure you are not using custom indexes 
+  (See notes on custom indexes above).
+  
+- `dtype={"GENERATION_PROJECT": str}`: If all the generation project IDs happen to be
+  numbers, then Pandas will automatically set the `GENERATION_PROJECT` column type
+  to `int`. However, we don't want this since this may cause issues when dealing with
+  multiple dataframes, some of which have non-numeric IDs. (E.g. if you try merging
+  a Dataframe where `GENERATION_PROJECT` is an `int` with another where it's a `str`, it
+  won't work properly.)
+  
+- `dtype=str`: An even safer option than `dtype={"GENERATION_PROJECT": str}` is `dtype=str` instead.
+  This is particularly important when reading a file that will than be re-outputed with minimal changes.
+  Without this option, there's the risk of floating point values being slightly 
+  modified (see [here](https://github.com/pandas-dev/pandas/issues/16452)) or integer columns
+  containing na values (`.`) being ["promoted"](https://pandas.pydata.org/pandas-docs/stable/user_guide/gotchas.html?highlight=nan#na-type-promotions) 
+  to floats. Note that with `dtype=str`, all columns are strings so to do mathematical
+  computation on a column it will first need to be converted with `.astype()`.
+  
+- `na_values="."`. Switch uses full stops to indicate an unspecified value. We want Pandas
+  to interpret full stops as `NaN` rather than the string `.` so that the column type is
+  still properly interpreted rather than being detected as a string.
+  
+Combining these parameters, here is an example of how to read a switch file.
+
+```
+df = pd.read_csv("some_SWITCH_file.csv", index_col=False, dtype={"GENERATION_PROJECT": str}, na_values=".")
+```
+
 ## Example
 
 This example shows how we can use Pandas to generate a more useful view
@@ -117,9 +150,11 @@ of our generation plants from the SWITCH input files.
 import pandas as pd
 
 # READ
+# See note above on why we use these parameters
 kwargs = dict(
   index_col=False,
-  dtype={"GENERATION_PROJECT": str},  # This ensures that the project id column is read as a string not an int
+  dtype={"GENERATION_PROJECT": str},
+  na_values=".", 
 )
 gen_projects = pd.read_csv("generation_projects_info.csv", **kwargs)
 costs = pd.read_csv("gen_build_costs.csv", **kwargs)
@@ -138,7 +173,7 @@ gen_projects = gen_projects.merge(
 )
 
 # FILTER
-# When uncommented will filter out all the projects that aren't wind.
+# When uncommented, this line will filter out all the projects that aren't wind.
 # gen_projects = gen_projects[gen_projects["gen_energy_source"] == "Wind"]
 
 # WRITE

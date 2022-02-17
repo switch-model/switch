@@ -760,10 +760,10 @@ def graph_capacity(tools):
     )
     capacity_df = capacity_df * 1e-3  # Convert values to GW
 
-    # For generation types that make less than 2% in every period, group them under "Other"
+    # For generation types that make less than 0.5% in every period, group them under "Other"
     # ---------
-    # sum the generation across the energy_sources for each period, 2% of that is the cutoff for that period
-    cutoff_value = 0.01
+    # sum the generation across the energy_sources for each period, 0.5% of that is the cutoff for that period
+    cutoff_value = 0.005
     cutoff_per_period = capacity_df.sum(axis=1) * cutoff_value
     # Check for each technology if it's below the cutoff for every period
     is_below_cutoff = capacity_df.lt(cutoff_per_period, axis=0).all()
@@ -823,10 +823,10 @@ def graph_buildout(tools):
     build_gen = build_gen * 1e-3  # Convert values to GW
     build_gen = build_gen.sort_index(ascending=False, key=tools.sort_build_years)
 
-    # For generation types that make less than 2% in every period, group them under "Other"
+    # For generation types that make less than 0.5% in every period, group them under "Other"
     # ---------
-    # sum the generation across the energy_sources for each period, 2% of that is the cutoff for that period
-    cutoff_value = 0.01
+    # sum the generation across the energy_sources for each period, 0.5% of that is the cutoff for that period
+    cutoff_value = 0.005
     cutoff_per_period = build_gen.sum(axis=1) * cutoff_value
     # Check for each technology if it's below the cutoff for every period
     is_below_cutoff = build_gen.lt(cutoff_per_period, axis=0).all()
@@ -920,8 +920,10 @@ def graph_buildout_per_tech(tools):
     ax.axhline(y=1, linestyle="--", color="b")
 
 
-@graph("buildout_map", title="Map of online capacity per load zone.")
+@graph("online_capacity_map", title="Map of online capacity per load zone.")
 def buildout_map(tools):
+    if not tools.maps.can_make_maps():
+        return
     buildout = tools.get_dataframe("gen_cap.csv").rename(
         {"GenCapacity": "value"}, axis=1
     )
@@ -929,12 +931,13 @@ def buildout_map(tools):
     buildout = buildout.groupby(["gen_type", "gen_load_zone"], as_index=False)[
         "value"
     ].sum()
+    buildout["value"] *= 1e-3  # Convert to GW
     ax = tools.maps.graph_pie_chart(buildout)
     transmission = tools.get_dataframe(
         "transmission.csv", convert_dot_to_na=True
     ).fillna(0)
     transmission = transmission.rename(
-        {"trans_lz1": "from", "trans_lz2": "to", "BuildTx": "value"}, axis=1
+        {"trans_lz1": "from", "trans_lz2": "to", "TxCapacityNameplate": "value"}, axis=1
     )
     transmission = transmission[["from", "to", "value", "PERIOD"]]
     transmission = (
@@ -944,4 +947,4 @@ def buildout_map(tools):
     )
     # Rename the columns appropriately
     transmission.value *= 1e-3
-    tools.maps.graph_transmission(transmission, cutoff=0.1, ax=ax, legend=True)
+    tools.maps.graph_transmission_capacity(transmission, ax=ax, legend=True)

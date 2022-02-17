@@ -164,6 +164,8 @@ def transmission_limits(tools):
     note="Blue dots are net importers, red dots are net exports, greener lines indicate more use. Lines carrying <1TWh total not shown.",
 )
 def transmission_dispatch(tools):
+    if not tools.maps.can_make_maps():
+        return
     dispatch = tools.get_dataframe("transmission_dispatch.csv")
     dispatch = tools.transform.timestamp(dispatch).astype({"period": int})
     # Keep only the last period
@@ -181,7 +183,11 @@ def transmission_dispatch(tools):
         dispatch["tp_duration"] * 1e-6
     )  # Change from power value to energy value
     dispatch = dispatch.groupby(["from", "to"], as_index=False)["value"].sum()
-    ax = tools.maps.graph_transmission(dispatch, cutoff=1)
+    ax = tools.maps.graph_lines(
+        dispatch,
+        bins=(0, 10, 100, 1000, float("inf")),
+        title="Transmission\nDispatch (TWh/yr)",
+    )
     exports = (
         dispatch[["from", "value"]].rename({"from": "gen_load_zone"}, axis=1).copy()
     )
@@ -189,4 +195,10 @@ def transmission_dispatch(tools):
     imports["value"] *= -1
     exports = pd.concat([imports, exports])
     exports = exports.groupby("gen_load_zone", as_index=False).sum()
-    tools.maps.graph_points(exports, ax)
+    tools.maps.graph_points(
+        exports,
+        ax=ax,
+        bins=(float("-inf"), -100, -30, -10, 10, 30, 100, float("inf")),
+        cmap="coolwarm",
+        title="Exports (TWh)",
+    )

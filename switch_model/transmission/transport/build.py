@@ -411,6 +411,8 @@ def transmission_capacity(tools):
     note="Lines <1 GW not shown",
 )
 def transmission_map(tools):
+    if not tools.maps.can_make_maps():
+        return
     transmission = tools.get_dataframe(
         "transmission.csv", convert_dot_to_na=True
     ).fillna(0)
@@ -425,7 +427,7 @@ def transmission_map(tools):
     )
     transmission = transmission[["from", "to", "value"]]
     transmission.value *= 1e-3
-    tools.maps.graph_transmission(transmission, cutoff=1)
+    tools.maps.graph_transmission_capacity(transmission)
 
 
 @graph(
@@ -434,6 +436,8 @@ def transmission_map(tools):
     note="Lines with <0.1 GW built not shown.",
 )
 def transmission_map(tools):
+    if not tools.maps.can_make_maps():
+        return
     transmission = tools.get_dataframe(
         "transmission.csv", convert_dot_to_na=True
     ).fillna(0)
@@ -448,4 +452,4 @@ def transmission_map(tools):
     )
     # Rename the columns appropriately
     transmission.value *= 1e-3
-    tools.maps.graph_transmission(transmission, cutoff=0.1)
+    tools.maps.graph_transmission_capacity(transmission)
