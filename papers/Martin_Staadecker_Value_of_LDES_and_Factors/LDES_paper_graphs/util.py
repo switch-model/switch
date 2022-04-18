@@ -1,5 +1,5 @@
 import os
-
+import seaborn as sns
 from matplotlib import pyplot as plt
 
 from switch_model.tools.graph.main import Scenario
@@ -13,9 +13,25 @@ def get_scenario(rel_path, name=None):
 
 def set_style():
     plt.interactive(True)  # Allows the plots to continually update in PyCharm's SciView
-    plt.rcParams["font.family"] = "sans-serif"
-    plt.rcParams["ytick.minor.visible"] = False
-    plt.rcParams["xtick.minor.visible"] = False
+    sns.set_theme(font_scale=0.6)  # Scale the font down to around 7pt to match guidelines
+    plt.rcParams.update({
+        "font.sans-serif": "Arial",
+        "patch.edgecolor": "none",
+        "figure.dpi": 1000,
+        "savefig.dpi": 1000,
+        "figure.figsize": (6.850394, 6.850394 / 2),
+        # Width according to Joule guidelines https://www.cell.com/figureguidelines
+        "lines.linewidth": 1,
+        "xtick.minor.visible": False,
+        "xtick.major.width": 0.8,
+        "xtick.major.size": 3,
+        "ytick.minor.visible": False,
+        "ytick.major.width": 0.8,
+        "ytick.major.size": 3,
+        "legend.labelspacing": 0.25,
+        "legend.columnspacing": 1
+    })
+
 
 def get_set_e_scenarios():
     return [
