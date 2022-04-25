@@ -5,13 +5,13 @@ from switch_model.tools.graph.main import GraphTools
 
 from papers.Martin_Staadecker_Value_of_LDES_and_Factors.LDES_paper_graphs.util import (
     set_style,
-    get_scenario,
+    get_scenario, save_figure,
 )
 
-tools_solar = GraphTools([get_scenario("WS10", "91% Solar to 9% Wind")])
+tools_solar = GraphTools([get_scenario("WS10", "91% Solar to 9% Wind")], set_style=False)
 tools_solar.pre_graphing(multi_scenario=False)
 
-tools_wind = GraphTools([get_scenario("WS066", "40% Solar to 60% Wind")])
+tools_wind = GraphTools([get_scenario("WS066", "40% Solar to 60% Wind")], set_style=False)
 tools_wind.pre_graphing(multi_scenario=False)
 
 ROLLING_AVERAGE_DAYS = 7
@@ -20,7 +20,6 @@ ROLLING_AVERAGE_DAYS = 7
 set_style()
 plt.close()
 fig = plt.figure()
-fig.set_size_inches(12, 8)
 ax1 = fig.add_subplot(1, 2, 1, projection=tools_solar.maps.get_projection())
 ax2 = fig.add_subplot(1, 2, 2, projection=tools_wind.maps.get_projection())
 
@@ -108,3 +107,6 @@ plot(tools_wind, ax2, get_data(tools_wind))
 plot(tools_solar, ax1, get_data(tools_solar), legend=False)
 plt.tight_layout()
 plt.tight_layout()  # Twice to ensure it works properly, it's a bit weird at times'
+
+# %%
+save_figure("figure-3-wind-vs-solar.png")
