@@ -9,7 +9,7 @@ from matplotlib.ticker import PercentFormatter
 from switch_model.tools.graph.main import GraphTools
 from papers.Martin_Staadecker_Value_of_LDES_and_Factors.LDES_paper_graphs.util import (
     get_scenario,
-    set_style,
+    set_style, save_figure,
 )
 
 scenarios = [
@@ -20,7 +20,7 @@ scenarios_supplementary = [
     get_scenario("1342", "Baseline"),
     get_scenario("T5", "10x Tx Build Costs"),
 ]
-tools = GraphTools(scenarios=scenarios)
+tools = GraphTools(scenarios=scenarios, set_style=False)
 tools.pre_graphing(multi_scenario=True)
 
 tools_supplementary = GraphTools(scenarios=scenarios_supplementary)
@@ -99,7 +99,6 @@ data = [get_data(i) for i in range(n)]
 set_style()
 plt.close()
 fig = plt.figure()
-fig.set_size_inches(12, 6)
 
 # Define axes
 axes = []
@@ -121,7 +120,7 @@ def percent_to_color(percent):
 def plot(ax, data, legend):
     percent_gen, duration = data
 
-    max_size = 800
+    max_size = 400
     max = 50
     duration["size"] = duration["OnlinePowerCapacityMW"] / max * max_size
     tools.maps.draw_base_map(ax)
@@ -137,8 +136,8 @@ def plot(ax, data, legend):
             handles=legend_handles,
             bbox_to_anchor=(0.6, 0),
             loc="lower center",
-            fontsize=8,
-            title_fontsize=10,
+            fontsize="small",
+            title_fontsize="small",
             ncol=4,
         )
         # Add legend for power capacity
@@ -161,8 +160,8 @@ def plot(ax, data, legend):
             ],
             bbox_to_anchor=(0.35, 0),
             loc="lower center",
-            fontsize=8,
-            title_fontsize=10,
+            fontsize="small",
+            title_fontsize="small",
             ncol=3,
             labelspacing=1.5,
         )
@@ -194,13 +193,16 @@ def highlight_zones(zones, ax):
                 crs=tools.maps.get_projection(),
                 facecolor=(0, 0, 0, 0),  # Transparent
                 edgecolor="tab:green",
-                linewidth=2,
+                linewidth=1,
                 # linestyle="--",
                 # alpha=0,
             )
 
 
 highlight_zones(zones_to_highlight, axes[0])
+
+# %% SAVE FIGURE
+save_figure("figure-4-baseline-vs-unlimited-tx.png")
 
 # %%
 df = tools_supplementary.get_dataframe("storage_capacity.csv")
