@@ -1,5 +1,4 @@
 # %% IMPORTS AND SCENARIO DEFINITION
-import pandas
 import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
@@ -7,15 +6,15 @@ from matplotlib.colors import LinearSegmentedColormap
 from switch_model.tools.graph.main import GraphTools
 from papers.Martin_Staadecker_Value_of_LDES_and_Factors.LDES_paper_graphs.util import (
     get_scenario,
-    set_style,
+    set_style, save_figure,
 )
 
 custom_color_map = LinearSegmentedColormap.from_list(
-    "custom_color_map", ["#E0A4AA", "#B9646B", "#7B282E", "#4D0409"]
+    "custom_color_map", ["#E0A4AA", "#B9646B", "#4D0409"]
 )
 
 # GET DATA FOR W/S RATIO
-STORAGE_BINS = (float("-inf"), 6, 10, 20, float("inf"))
+STORAGE_BINS = (float("-inf"), 10, 20, float("inf"))
 STORAGE_LABELS = GraphTools.create_bin_labels(STORAGE_BINS)
 for i in range(len(STORAGE_LABELS)):
     STORAGE_LABELS[i] = STORAGE_LABELS[i] + "h Storage (GW)"
@@ -36,7 +35,7 @@ tools_ws_ratio = GraphTools(
         get_scenario("WS150", 0.6),
         # get_scenario("WS233", 0.7), # Removed since results are invalid
         # get_scenario("WS500", 0.833), # Removed since results are misleading
-    ]
+    ], set_style=False
 )
 tools_ws_ratio.pre_graphing(multi_scenario=True)
 
@@ -49,7 +48,7 @@ tools_hydro = GraphTools(
         get_scenario("H065", 0.65),
         get_scenario("H085", 0.85),
         get_scenario("1342", 1),
-    ]
+    ], set_style=False
 )
 tools_hydro.pre_graphing(multi_scenario=True)
 
@@ -59,7 +58,7 @@ tools_tx = GraphTools(
         get_scenario("T4", "No Tx Build Costs\n(No Tx Congestion)"),
         get_scenario("1342", "Baseline"),
         get_scenario("T5", "10x Tx\nBuild Costs"),
-    ]
+    ], set_style=False
 )
 tools_tx.pre_graphing(multi_scenario=True)
 
@@ -79,7 +78,7 @@ tools_cost = GraphTools(
         get_scenario("C25", 40),
         get_scenario("C19", 70),
         get_scenario("C20", 102)
-    ]
+    ], set_style=False
 )
 tools_cost.pre_graphing(multi_scenario=True)
 
@@ -143,7 +142,7 @@ def get_data(tools):
 set_style()
 plt.close()
 fig = plt.figure()
-fig.set_size_inches(12, 12)
+fig.set_size_inches(6.850394, 6.850394)
 
 # Define axes
 ax_tl = fig.add_subplot(2, 2, 1)
@@ -199,8 +198,8 @@ rrrax_br = create_secondary_y_axis(ax_br, False, y_lim, y_label, c, offset=-0.6)
 # %% DEFINE PLOTTING CODE
 def plot_panel(ax, rax, rrax, rrrax, data, title=""):
     duration, tx, cap, storage = data
-    lw = 2.5
-    s = 7.5
+    lw = 1
+    s = 3
     colors = tools_ws_ratio.get_colors()
     duration.index.name = None
     storage.index.name = None
@@ -208,7 +207,7 @@ def plot_panel(ax, rax, rrax, rrrax, data, title=""):
     duration.sum(axis=1).plot(ax=ax, marker=".", color="red", label="All Storage (GW)", legend=False,
                               linewidth=lw,
                               markersize=s)
-    rax.plot(tx, marker=".", color="tab:olive", label="Built Transmission", linewidth=lw)
+    rax.plot(tx, marker=".", color="tab:olive", label="Built Transmission", linewidth=lw, markersize=s)
     cap["Wind"].plot(ax=ax, marker=".", color=colors, legend=False, linewidth=lw, markersize=s)
     cap["Solar"].plot(ax=rrrax, marker=".", color=colors, legend=False, linewidth=lw, markersize=s)
     storage.plot(ax=rrax, marker=".", color="green", linewidth=lw, markersize=s,
@@ -230,7 +229,7 @@ plot_panel(ax, rax, rrax_tl, rrrax_tl, data_ws, "Set A: Varying Wind-vs-Solar Sh
 ax.set_xticks([0.1, 0.2, 0.3, 0.4, 0.5, 0.6])
 ax.set_xticklabels(["90%-10%\nSolar-Wind", "", "70%-30%\nSolar-Wind", "", "50%-50%\nSolar-Wind", ""])
 ax.axvline(baseline_ws_ratio, linestyle="dotted", color="dimgrey")
-ax.text(baseline_ws_ratio - 0.03, 125, "Baseline", rotation=90, color="dimgrey")
+ax.text(baseline_ws_ratio - 0.02, 125, "Baseline", rotation=90, color="dimgrey")
 
 fig.legend(loc="lower center", ncol=4)
 
@@ -289,14 +288,17 @@ ax.set_xticks(
 ax.set_xticklabels(["1\n$/kWh", "10\n$/kWh", "100\n$/kWh"])
 ax.set_xlabel("(log scale)")
 ax.axvline(baseline_energy_cost, linestyle="dotted", color="dimgrey")
-ax.text(baseline_energy_cost - 6, 125, "Baseline", rotation=90, color="dimgrey")
+ax.text(baseline_energy_cost - 4, 125, "Baseline", rotation=90, color="dimgrey")
 
 plt.subplots_adjust(left=0.275, right=0.97, top=0.95, wspace=0.05)
+
+# %% SAVE FIGURE
+save_figure("figure-s4-analysis-of-4-factors.png")
 # %% MAX POWER DURATION
 df = tools_ws_ratio.get_dataframe("storage_capacity.csv")
 df = df[df.scenario_name == 0.833]
 df["duration"] = df["duration"] = (
-    df["OnlineEnergyCapacityMWh"] / df["OnlinePowerCapacityMW"]
+        df["OnlineEnergyCapacityMWh"] / df["OnlinePowerCapacityMW"]
 )
 df = df[["load_zone", "duration", "OnlinePowerCapacityMW"]]
 df.sort_values("duration")
@@ -332,7 +334,6 @@ df = df[["percent", "gen_type"]].reset_index()
 df = df[df.gen_type == "Hydro"]
 df = df[df.percent > cutoff]
 valid_load_zones = df["gen_load_zone"]
-
 
 df = tools_hydro.get_dataframe("storage_capacity.csv")
 # df = df[df.scenario_name == 0.5]
