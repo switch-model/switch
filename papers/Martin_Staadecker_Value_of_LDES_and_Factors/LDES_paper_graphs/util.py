@@ -25,6 +25,7 @@ def set_style(interactive=True):
         "figure.figsize": (6.850394, 6.850394 / 2),
         # Width according to Joule guidelines https://www.cell.com/figureguidelines
         "lines.linewidth": 1,
+        "lines.markersize": 3,
         "xtick.minor.visible": False,
         "ytick.minor.visible": False,
         "xtick.major.width": 0.8,
