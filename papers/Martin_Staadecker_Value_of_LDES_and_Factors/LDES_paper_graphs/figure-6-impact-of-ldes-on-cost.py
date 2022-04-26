@@ -2,18 +2,18 @@
 
 # Imports
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 from matplotlib import gridspec
+import labellines
 
 from papers.Martin_Staadecker_Value_of_LDES_and_Factors.LDES_paper_graphs.util import (
     set_style,
-    get_set_e_scenarios,
+    get_set_e_scenarios, save_figure,
 )
 from switch_model.tools.graph.main import GraphTools
 
 # Prepare graph tools
-tools = GraphTools(scenarios=get_set_e_scenarios())
+tools = GraphTools(scenarios=get_set_e_scenarios(), set_style=False)
 tools.pre_graphing(multi_scenario=True)
 raw_load_balance = tools.get_dataframe(
     "load_balance.csv",
@@ -24,21 +24,21 @@ raw_load_balance = tools.get_dataframe(
         "scenario_name",
     ],
 ).rename(columns={"normalized_energy_balance_duals_dollar_per_mwh": "value"})
-raw_load_balance.value *= 0.1  # Convert from $/MWh to c/kWh
+# raw_load_balance.value *= 0.1  # Convert from $/MWh to c/kWh
 raw_load_balance = tools.transform.load_zone(raw_load_balance)
 
 # %% CREATE FIGURE
 set_style()
 plt.close()
 fig = plt.figure()
-fig.set_size_inches(12, 12)
+fig.set_size_inches(6.850394, 6.850394)
 gs = gridspec.GridSpec(2, 2, figure=fig)
 ax1 = fig.add_subplot(gs[0, 0])
 ax2 = fig.add_subplot(gs[0, 1])
 ax3 = fig.add_subplot(gs[1, 0])
 ax4 = fig.add_subplot(gs[1, 1])
 
-y_label = u"Mean estimated LMP (\xa2/kWh)"
+y_label = u"Marginal Price of Electricity ($/MWh)"
 x_label = "WECC-wide storage capacity (TWh)"
 
 # %% Variability
@@ -87,7 +87,7 @@ ax.set_xlabel(x_label)
 
 ax.set_ylabel(y_label)
 ax.legend()
-ax.set_title("A. Distribution of estimated LMPs")
+ax.set_title("A. Distribution of marginal prices")
 
 # %% Daily LMP
 
@@ -102,14 +102,17 @@ daily_lmp = daily_lmp.rename(time_mapping, axis=1).rename_axis(
     "Time of day (PST)", axis=1
 )
 daily_lmp = daily_lmp.sort_values(by=1.94, axis=1, ascending=False)
-daily_lmp.plot(
-    ax=ax,
-    xlabel=x_label,
-    marker=".",
-    ylabel=y_label,
-    # cmap="tab10"
-)
-ax.set_title("C. Estimated LMP by time of day")
+lines = []
+for col in daily_lmp:
+    line = ax.plot(daily_lmp[col], marker=".", label=col)
+    if col in ("Noon", "4pm", "8am"):
+        labellines.labelLine(line[0], 10, label=col, outline_width=1, align=False, color='k', fontsize="small")
+    lines += line
+ax.legend(lines, [l.get_label() for l in lines])
+ax.set_xlabel(x_label)
+ax.set_ylabel(y_label)
+
+ax.set_title("C. Marginal price by time of day")
 # %% YEARLY LMP
 ax = ax4
 ax.clear()
@@ -139,14 +142,27 @@ cap = cap.unstack("month").rename_axis("Months", axis=1)
 cap = cap.sort_values(by=1.94, ascending=False, axis=1)
 # cap = cap[["Jan", "Feb-May", "Jun", "Jul", "Aug", "Sep-Oct", "Nov", "Dec"]]
 
-cap.plot(
-    ax=ax,
-    xlabel=x_label,
-    marker=".",
-    ylabel=y_label,
-    # cmap="tab10"
-)
-ax.set_title("D. Estimated LMP by time of year")
+lines = []
+
+y_pos = {
+    "Dec": 10,
+    "Jul": 6,
+    "Jan": 12,
+    "Aug": 9,
+    "Jun": 25
+}
+
+for col in cap:
+    line = ax.plot(cap[col], marker=".", label=col)
+    if col in y_pos:
+        labellines.labelLine(line[0], y_pos[col], label=col, outline_width=1, align=False, color='k', fontsize="small")
+    lines += line
+ax.legend(lines, [l.get_label() for l in lines])
+ax.set_xlabel(x_label)
+ax.set_ylabel(y_label)
+
+
+ax.set_title("D. Marginal price by time of year")
 # %% GEOGRAPHICAL LMP
 ax = ax2
 ax.clear()
@@ -179,9 +195,29 @@ geo.plot(
     ylabel=y_label,
     # cmap="tab10"
 )
-ax.set_title("B. Estimated LMP by region")
+
+lines = []
+
+y_pos = {
+    "California": 8,
+    "Canada": 25
+}
+
+for col in geo:
+    line = ax.plot(geo[col], marker=".", label=col)
+    if col in y_pos:
+        labellines.labelLine(line[0], y_pos[col], label=col, outline_width=1, align=False, color='k', fontsize="small")
+    else:
+        labellines.labelLine(line[0], 48, label=col, outline_width=1, align=False, color='k', fontsize="small")
+    lines += line
+ax.legend(lines, [l.get_label() for l in lines])
+ax.set_xlabel(x_label)
+ax.set_ylabel(y_label)
+
+ax.set_title("B. Marginal price by region")
 # %%
 fig.tight_layout()
+save_figure("figure-6-impact-of-LDES-on-COST.png")
 
 # %% night time vs day time
 df = daily_lmp.divide(daily_lmp["Noon"], axis=0) * 100 - 100
@@ -199,7 +235,7 @@ raw_load_balance.nunique()
 raw_load_balance
 # %% Variability baseline
 baseline = raw_load_balance[raw_load_balance.scenario_name == 1.94]
-len(baseline[baseline.value == 0]) / len(baseline) * 100 # Percent at 0 LMP
+len(baseline[baseline.value == 0]) / len(baseline) * 100  # Percent at 0 LMP
 len(baseline[baseline.value > 40]) / len(baseline)
 # %% Variability 20twh
 df = raw_load_balance[raw_load_balance.scenario_name == 20]
