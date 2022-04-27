@@ -65,6 +65,7 @@ order by generation_project;
 -- Wave at offshore wind sites
 --SC: need to add capacity factor tables for both wave and offshore again in the exact format the wave table was from November implementation
 
+-- Delete once v3 is done ------------------------------------------
 create table public.wave_colocation_CF_v2(
 GENERATION_PROJECT double precision,
 gen_max_capacity_factor double precision,
@@ -76,6 +77,7 @@ primary key (GENERATION_PROJECT, timestamp)
 COPY public.wave_colocation_CF_v2
 FROM '/home/schoudhury/REAM_lab/newData/switch_wave_CF.csv'
 DELIMITER ',' NULL AS 'NULL' CSV HEADER;
+-- End of Deleting block ------------------------------------------
 
 
 -- QA/QC:
@@ -86,26 +88,55 @@ from wave_colocation_CF_v2
 group by 1
 order by 1;
 
--- Offshore wind
 
-create table public.offshore_colocation_CF_v2(
+
+-- version 3 and final:
+drop table public.wave_colocation_CF_v3;
+
+create table public.wave_colocation_CF_v3(
 GENERATION_PROJECT double precision,
 gen_max_capacity_factor double precision,
 site int,
-timestamp text,
-primary key (GENERATION_PROJECT, timestamp)
+year text,
+month text,
+day text,
+hour text,
+primary key (GENERATION_PROJECT, year, month, day, hour)
 );
 
-COPY public.offshore_colocation_CF_v2
-FROM '/home/schoudhury/REAM_lab/newData/switch_offshore_CF.csv'
+COPY public.wave_colocation_CF_v3
+FROM '/home/schoudhury/REAM_lab/newData/switch_wave_CF.csv'
+DELIMITER ',' NULL AS 'NULL' CSV HEADER;
+
+select * from public.wave_colocation_CF_v3;
+
+
+
+
+-- Offshore wind
+drop table public.offshore_colocation_CF_v3;
+
+create table public.offshore_colocation_CF_v3(
+GENERATION_PROJECT double precision,
+gen_max_capacity_factor double precision,
+site int,
+year text,
+month text,
+day text,
+hour text,
+primary key (GENERATION_PROJECT, year, month, day, hour)
+);
+
+COPY public.offshore_colocation_CF_v3
+FROM '/home/schoudhury/REAM_lab/newData/switch_offshore_CF_v3.csv'
 DELIMITER ',' NULL AS 'NULL' CSV HEADER;
 
 
 -- QA/QC:
-select * from public.offshore_colocation_CF_v2;
+select * from public.offshore_colocation_CF_v3;
 
 select generation_project, count(*)
-from offshore_colocation_CF_v2
+from offshore_colocation_CF_v3
 group by 1
 order by 1;
 
@@ -202,7 +233,7 @@ from public.shiny_v2_gen_build_cost_wave_offshore_wind as t;
 
 
 
--- --TODO:
+
 
 ----------------------checked---------------------------------------------------------------
 -- -- 10354 (current scenario)
@@ -219,87 +250,88 @@ where generation_plant_scenario_id = 24;
 -- __________________________________________________________________________________________________
 
 -- new table with WAVE capacity factors duplicated from 2010 for 2010-2060
+
+-- to do:
+DROP TABLE public.test_variable_capacity_factors_wave_shiny;
+
 create table public.test_variable_capacity_factors_wave_shiny(
 generation_plant_id double precision,
 capacity_factor double precision,
 time_stamp_utc text);
 
--- TO DO:
--- do
--- $$
--- begin
--- for year in 2010..2060 loop
--- raise notice 'year: %', year;
+do
+$$
+begin
+for year_index in 2010..2060 loop
+raise notice 'year: %', year_index;
 	
--- insert into public.test_variable_capacity_factors_wave_shiny
--- select t.generation_project as generation_plant_id,
--- gen_max_capacity_factor as capacity_factor, timestamp, 
--- concat( year, substr(timestamp, 5)) as new_stamp
--- from public.wave_colocation_CF_v2 t;
--- end loop;
--- end;
+insert into public.test_variable_capacity_factors_wave_shiny
+select t.generation_project as generation_plant_id,
+gen_max_capacity_factor as capacity_factor, 
+concat(year_index, '-', month, '-', day, ' ', hour, ':00:00') as new_stamp
+from public.wave_colocation_CF_v3 t;
+end loop;
+end;
 $$
 
+-- QA/QC: 14 sites * 8760 hours * (2060 - 2010 + 1) = 6254640 rows retrieved. OK!
+select * from public.test_variable_capacity_factors_wave_shiny;
 
--- select * from public.test_variable_capacity_factors_wave_shiny;
 
 
----TODO:
--- -- select * from switch.variable_capacity_factors_exist_and_candidate_gen
--- -- where generation_plant_id = 1191183122
--- -- order by timestamp_utc asc;
+select * from switch.variable_capacity_factors_exist_and_candidate_gen
+where generation_plant_id = 1191183122
+order by timestamp_utc asc;
 
--- -- TO DO: Shiny: before inserting, make sure the number of rows adds to the number you expect for wave energy and offshore wind sites
+-- Shiny: before inserting, make sure the number of rows adds to the number you expect for wave energy and offshore wind sites
 -- The years with data should still be (2051-2011+1) because there is a join between the new tables you created and the SWITCH tables (which go from 2010 to 2051)
-
--- -- -- 8,260,680 rows  = (2051-2011+1) * 8760 * 23
--- insert into switch.variable_capacity_factors_exist_and_candidate_gen
--- select t.generation_plant_id as generation_plant_id, raw_timepoint_id, t2.timestamp_utc,
--- t.capacity_factor as capacity_factor, 1 as is_new_cap_factor
--- from public.test_variable_capacity_factors_wave_shiny as t
--- join switch.variable_capacity_factors_exist_and_candidate_gen as t2 on (t.time_stamp_utc=to_char(t2.timestamp_utc, 'YYYY-MM-DD HH24:MI:SS'))
--- where t2.generation_plant_id=1191183122 -- random plant_id chosen to match raw_timepoint_id
--- order by 1,2 desc;
+-- PHG checked: 5,028,240 rows = (2051-2011+1) * 8760 * 14
+insert into switch.variable_capacity_factors_exist_and_candidate_gen
+select t.generation_plant_id as generation_plant_id, raw_timepoint_id, t2.timestamp_utc,
+t.capacity_factor as capacity_factor, 1 as is_new_cap_factor
+from public.test_variable_capacity_factors_wave_shiny as t
+join switch.variable_capacity_factors_exist_and_candidate_gen as t2 on (t.time_stamp_utc=to_char(t2.timestamp_utc, 'YYYY-MM-DD HH24:MI:SS'))
+where t2.generation_plant_id=1191183122 -- random plant_id chosen to match raw_timepoint_id
+order by 1,2 desc;
 
 
 
 
 -- -- TODO: new table with OFFSHORE WIND capacity factors duplicated from 2010 for 2010-2060
--- -- create table public.test_variable_capacity_factors_offshore(
--- -- 	generation_plant_id double precision,
--- -- 	capacity_factor double precision,
--- -- 	time_stamp_utc text);
+create table public.test_variable_capacity_factors_offshore(
+generation_plant_id double precision,
+capacity_factor double precision,
+time_stamp_utc text);
 
 
--- -- TODO:
--- -- do
--- -- $$
--- -- begin
--- --    for year in 2010..2060 loop
--- -- 	raise notice 'year: %', year;
+do
+$$
+begin
+for year_index in 2010..2060 loop
+raise notice 'year: %', year_index;
 	
--- -- 	insert into public.test_variable_capacity_factors_wave_shiny
--- -- 	select t.generation_project as generation_plant_id,
--- -- 	gen_max_capacity_factor as capacity_factor,
--- -- 	concat( year, substr(timestamp, 5)) as new_stamp
--- -- 	from public.offshore_colocation_CF_v2 as t;
--- --    end loop;
--- -- end;
--- -- $$
+insert into public.test_variable_capacity_factors_offshore
+select t.generation_project as generation_plant_id,
+gen_max_capacity_factor as capacity_factor, 
+concat(year_index, '-', month, '-', day, ' ', hour, ':00:00') as new_stamp
+from public.offshore_colocation_CF_v3 t;
+end loop;
+end;
+$$
+
+-- QA/QC: 14 sites * 8760 hours * (2060 - 2010 + 1) = 6254640 rows retrieved. OK!
+select * from public.test_variable_capacity_factors_offshore;
 
 
--- -- select * from public.test_variable_capacity_factors_offshore;
-
---TODO:
 -- -- select * from switch.variable_capacity_factors_exist_and_candidate_gen
 -- -- where generation_plant_id = 1191183122
 -- -- order by timestamp_utc asc;
 
--- -- continue here:
--- insert into switch.variable_capacity_factors_exist_and_candidate_gen
--- select t.generation_plant_id as generation_plant_id, raw_timepoint_id, t2.timestamp_utc,
--- t.capacity_factor as capacity_factor, 1 as is_new_cap_factor
--- from public.test_variable_capacity_factors_offshore as t
--- join switch.variable_capacity_factors_exist_and_candidate_gen as t2 on (t.time_stamp_utc=to_char(t2.timestamp_utc, 'YYYY-MM-DD HH24:MI:SS'))
--- where t2.generation_plant_id=1191183122 -- random plant_id chosen to match raw_timepoint_id
--- order by 1,2 desc;
+-- 5028240 rows retrieved = (2051 - 2011 + 1)*14*8760. OK!
+insert into switch.variable_capacity_factors_exist_and_candidate_gen
+select t.generation_plant_id as generation_plant_id, raw_timepoint_id, t2.timestamp_utc,
+t.capacity_factor as capacity_factor, 1 as is_new_cap_factor
+from public.test_variable_capacity_factors_offshore as t
+join switch.variable_capacity_factors_exist_and_candidate_gen as t2 on (t.time_stamp_utc=to_char(t2.timestamp_utc, 'YYYY-MM-DD HH24:MI:SS'))
+where t2.generation_plant_id=1191183122 -- random plant_id chosen to match raw_timepoint_id
+order by 1,2 desc;
