@@ -9,7 +9,7 @@ from matplotlib.ticker import PercentFormatter
 from matplotlib.colors import Normalize
 import labellines
 
-from papers.Martin_Staadecker_Value_of_LDES_and_Factors.LDES_paper_graphs.util import (
+from papers.Martin_Staadecker_et_al_2022.util import (
     set_style,
     get_set_e_scenarios, save_figure,
 )
