@@ -6,10 +6,10 @@ The map is available in the REAM Google Drive under Research -> Switch documenta
 
 from matplotlib import pyplot as plt
 
-from papers.Martin_Staadecker_Value_of_LDES_and_Factors.LDES_paper_graphs.util import get_scenario, set_style
+from papers.Martin_Staadecker_et_al_2022.util import get_scenario, set_style
 from switch_model.tools.graph.main import GraphTools
 
-tools = GraphTools([get_scenario("1342")])
+tools = GraphTools([get_scenario("1342")], set_style=False)
 tools.pre_graphing(multi_scenario=False)
 
 # %% CREATE PLOT FRAME

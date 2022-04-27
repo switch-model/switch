@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 
 from switch_model.tools.graph.main import GraphTools
 
-from papers.Martin_Staadecker_Value_of_LDES_and_Factors.LDES_paper_graphs.util import (
+from papers.Martin_Staadecker_et_al_2022.util import (
     set_style,
     get_scenario, save_figure,
 )

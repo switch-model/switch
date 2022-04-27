@@ -6,7 +6,7 @@ import pandas as pd
 from matplotlib import gridspec
 import labellines
 
-from papers.Martin_Staadecker_Value_of_LDES_and_Factors.LDES_paper_graphs.util import (
+from papers.Martin_Staadecker_et_al_2022.util import (
     set_style,
     get_set_e_scenarios, save_figure,
 )
@@ -259,3 +259,5 @@ cap
 cap.loc[20, :]
 df = cap.loc[64, :].sort_values(ascending=False)
 df
+# %% CHANGE IN PRICE SURGE IN 99th percentile
+1 - variability.loc[20, 0.99] / variability.loc[1.94, 0.99]
