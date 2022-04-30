@@ -43,12 +43,12 @@ tools_ws_ratio.pre_graphing(multi_scenario=True)
 # Define tools for hydro set
 tools_hydro = GraphTools(
     scenarios=[
-        get_scenario("H25", 0),
-        get_scenario("H025", 0.25),
+        get_scenario("H25", 1),
+        get_scenario("H025", 0.75),
         get_scenario("H050", 0.5),
-        get_scenario("H065", 0.65),
-        get_scenario("H085", 0.85),
-        get_scenario("1342", 1),
+        get_scenario("H065", 0.35),
+        get_scenario("H085", 0.15),
+        get_scenario("1342", 0),
     ], set_style=False
 )
 tools_hydro.pre_graphing(multi_scenario=True)
@@ -238,21 +238,23 @@ ax.tick_params(top=False, bottom=True, right=False, left=True, which="both")
 plot_panel(ax, None, None, None, data_ws, "Set A: Varying Wind-vs-Solar Share")
 
 ax.set_xticks([0.1, 0.2, 0.3, 0.4, 0.5, 0.6])
-ax.set_xticklabels(["90%-10%\nSolar-Wind", "", "70%-30%\nSolar-Wind", "", "50%-50%\nSolar-Wind", ""])
+ax.set_xticklabels(["90% Solar\n10% Wind", "", "70% Solar\n30% Wind", "", "50% Solar\n50% Wind", ""])
+ax.set_xlabel("Solar-Wind ratio")
 ax.axvline(baseline_ws_ratio, linestyle="dotted", color="dimgrey")
 ax.text(baseline_ws_ratio - 0.02, 0.1, "Baseline", rotation=90, color="dimgrey")
 
 fig.legend(loc="lower center", ncol=4)
 
 # %% PLOT HYDRO
-data_hy = get_data(tools_hydro, normalize_to_baseline=1)
+data_hy = get_data(tools_hydro, normalize_to_baseline=0)
 ax = ax_tr
 # rax = rax_top_right
 plot_panel(ax, None, None, None, data_hy, "Set B: Reducing Hydropower Generation")
 ax.tick_params(top=False, bottom=True, right=False, left=False, which="both")
 ax.set_xticks([0, 0.5, 1])
 ax.set_xticks([0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9], minor=True)
-ax.set_xticklabels(["No\nhydropower", "50%\nhydropower", "Baseline\nHydropower"])
+ax.set_xticklabels(["0%\n(Baseline)", "50%", "100%\n(No Hydro)"])
+ax.set_xlabel("Hydropower reduction")
 
 # %% PLOT TX
 ax = ax_bl
@@ -301,7 +303,7 @@ ax.set_xlabel("(log scale)")
 ax.axvline(baseline_energy_cost, linestyle="dotted", color="dimgrey")
 ax.text(baseline_energy_cost - 4, 0.1, "Baseline", rotation=90, color="dimgrey")
 
-plt.subplots_adjust(left=0.08, right=0.97, top=0.95, wspace=0.05)
+plt.subplots_adjust(left=0.08, right=0.97, top=0.95, wspace=0.05, hspace=0.25)
 
 # %% SAVE FIGURE
 save_figure("figure-2-analysis-of-4-factors.png")
@@ -372,3 +374,23 @@ df["duration"] = df["OnlineEnergyCapacityMWh"] / df["OnlinePowerCapacityMW"]
 total_power = df.groupby("scenario_name").OnlinePowerCapacityMW.sum()
 total_energy = df.groupby("scenario_name").OnlineEnergyCapacityMWh.sum()
 total_energy / total_power
+# %% California only costs
+df = tools_cost.get_dataframe("storage_capacity.csv")
+df = tools_cost.transform.load_zone(df)
+df = df[df.region == "CA"]
+df["duration"] = df["OnlineEnergyCapacityMWh"] / df["OnlinePowerCapacityMW"]
+print("max duration", df.groupby("scenario_name").duration.max())
+print("median duration", df.groupby("scenario_name").duration.median())
+print("total capacity", df.groupby("scenario_name").OnlineEnergyCapacityMWh.sum() / 1e6)
+
+cap = tools_cost.get_dataframe("gen_cap.csv")
+cap = tools_cost.transform.gen_type(cap)
+cap = cap.groupby(["scenario_index", "gen_type"], as_index=False)[
+    "GenCapacity"
+].sum()
+cap = cap.pivot(columns="gen_type", index="scenario_index", values="GenCapacity")
+cap *= 1e-3  # Convert to GW
+cap = cap.rename_axis("Technology", axis=1).rename_axis(None)
+cap = cap[["Solar"]]
+cap.index = cap.index.map(tools_cost.get_scenario_name)
+cap

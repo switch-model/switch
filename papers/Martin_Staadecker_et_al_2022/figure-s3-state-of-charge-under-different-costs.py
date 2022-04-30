@@ -31,6 +31,8 @@ plt.close()
 fig = plt.figure()
 # fig.set_size_inches(12, 6)
 ax = fig.gca()
+axr = ax.twinx()
+axr.grid(False)
 
 freq = "1D"
 
@@ -58,8 +60,8 @@ demand = tools.transform.timestamp(demand, use_timepoint=True)
 demand = demand.set_index("datetime")["value"]
 demand *= 4 * 1e-6  # Each timestep is 4 hours, converting to TWh
 total_demand = demand.sum()
-demand = demand.resample(freq).mean()
-demand = demand * 35 / demand.max()
+demand = demand.resample(freq).sum()
+demand = demand.iloc[1:-1]
 
 state_of_charge.plot(
     ax=ax,
@@ -67,12 +69,6 @@ state_of_charge.plot(
     ylabel="WECC-wide stored energy (TWh, 24h mean)",
     xlabel="Time of year",
     legend=False,
-)
-plt.colorbar(
-    cm.ScalarMappable(norm=Normalize(0.5, 102), cmap="viridis"),
-    ax=ax,
-    label="Energy Storage Capacity Costs ($/KWh)",
-    fraction=0.1,
 )
 
 lines = ax.get_lines()
@@ -88,10 +84,22 @@ for line in lines:
         continue
     labellines.labelLine(line, state_of_charge.index[x_label[label]], linespacing=1, outline_width=1, label=str(label)+"$/KWh", align=False, color='k', fontsize="small")
 
-demand_lines = ax.plot(demand, c="dimgray", linestyle="--", alpha=0.5)
-ax.legend(demand_lines, [f"Demand ({total_demand:.0f} TWh/year)"])
+demand_lines = axr.plot(demand, c="dimgray", linestyle="--", alpha=0.5)
+axr.legend(demand_lines, [f"Demand ({total_demand:.0f} TWh/year)"])
+axr.set_ylabel("Demand (TWh/day)")
+
+ax.set_ylim(0, 36)
+axr.set_ylim(0, 36 / 5)
 
 plt.tight_layout()
+
+plt.colorbar(
+    cm.ScalarMappable(norm=Normalize(0.5, 102), cmap="viridis"),
+    ax=ax,
+    label="Energy Storage Capacity Costs ($/KWh)",
+    pad=0.08,
+    fraction=0.05,
+)
 # %% SAVE FIGURE
 save_figure("figure-s3-state-of-charge-under-different-costs.png")
 
