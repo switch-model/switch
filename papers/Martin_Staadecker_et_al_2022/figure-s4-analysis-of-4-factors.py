@@ -156,6 +156,7 @@ ax_bl.set_ylim(0, Y_LIM_BASE)
 
 def create_secondary_y_axis(ax, include_label, y_lim, y_label, color="grey", offset=-0.2):
     rax = ax.twinx()
+    rax.grid(False)
     rax.set_ylim(0, y_lim)
     if include_label:
         rax.spines["left"].set_position(("axes", offset))
