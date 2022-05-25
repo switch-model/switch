@@ -27,7 +27,12 @@ print("prebuilt total :", len(prebuilt))
 prebuilt = prebuilt[(prebuilt.build_year + prebuilt.gen_max_age) > 2051]
 print("prebuilt alive :", len(prebuilt))
 
+print("prebuild by tech")
+prebuilt_by_tech = prebuilt.groupby(["gen_energy_source", "gen_tech"]).GENERATION_PROJECT.count()
+print(prebuilt_by_tech)
+
 prebuilt_by_tech = prebuilt.groupby(["gen_energy_source", "gen_tech"]).gen_capacity_limit_mw.sum() / 1000
+print("prebuilt by tech capacity")
 print(prebuilt_by_tech.sort_values(ascending=False))
 print(prebuilt_by_tech.sum())
 
