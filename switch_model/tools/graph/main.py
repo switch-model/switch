@@ -500,7 +500,7 @@ class GraphTools(DataHandler):
     @graph() annotation.
     """
 
-    def __init__(self, scenarios: List[Scenario], graph_dir: Optional[str] = None, skip_long=False):
+    def __init__(self, scenarios: List[Scenario], graph_dir: Optional[str] = None, skip_long=False, set_style=True):
         """
         @param scenarios list of scenarios that we should run graphing for
                 graph_dir directory where graphs should be saved
@@ -523,10 +523,11 @@ class GraphTools(DataHandler):
         self.plt = matplotlib
         self.pn = plotnine
 
-        # Set the style to Seaborn default style
-        sns.set()
-        # Don't show white outline around shapes to avoid confusion
-        plt.rcParams["patch.edgecolor"] = 'none'
+        if set_style:
+            # Set the style to Seaborn default style
+            sns.set()
+            # Don't show white outline around shapes to avoid confusion
+            plt.rcParams["patch.edgecolor"] = 'none'
 
         # Disables pandas warnings that will occur since we are constantly returning only a slice of our master dataframe
         pd.options.mode.chained_assignment = None

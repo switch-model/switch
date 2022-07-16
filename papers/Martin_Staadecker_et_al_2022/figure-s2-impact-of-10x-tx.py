@@ -1,4 +1,3 @@
-import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib.cm import get_cmap, ScalarMappable
 from matplotlib.colors import (
@@ -7,41 +6,24 @@ from matplotlib.colors import (
 from matplotlib.ticker import PercentFormatter
 
 from switch_model.tools.graph.main import GraphTools
-from papers.Martin_Staadecker_Value_of_LDES_and_Factors.LDES_paper_graphs.util import (
+from papers.Martin_Staadecker_et_al_2022.util import (
     get_scenario,
-    set_style,
+    set_style, save_figure,
 )
 
-scenarios = [
-    get_scenario("T4", "No Tx Congestion\n(No Tx Build Costs)"),
-    get_scenario("1342", "Baseline"),
-]
 scenarios_supplementary = [
     get_scenario("1342", "Baseline"),
     get_scenario("T5", "10x Tx Build Costs"),
 ]
-tools = GraphTools(scenarios=scenarios)
-tools.pre_graphing(multi_scenario=True)
 
-tools_supplementary = GraphTools(scenarios=scenarios_supplementary)
+tools_supplementary = GraphTools(scenarios=scenarios_supplementary, set_style=False)
 tools_supplementary.pre_graphing(multi_scenario=True)
 
-zones_to_highlight = [
-    "CA_SCE_CEN",
-    "CA_IID",
-    "NV_S",
-    "AZ_SE",
-    "MEX_BAJA",
-    "AZ_APS_SW",
-    "CA_SCE_SE",
-    "AZ_NW",
-]
-
 # Uncomment to make supplementary figure
-# tools = tools_supplementary
-# zones_to_highlight = None
+tools = tools_supplementary
+zones_to_highlight = None
 
-n = len(scenarios)
+n = len(scenarios_supplementary)
 
 
 # %%  GET DATA
@@ -74,7 +56,7 @@ def get_data(scenario_index):
     duration = duration[duration["period"] == 2050].drop(columns="period")
     duration = duration.groupby("gen_load_zone", as_index=False).sum()
     duration["value"] = (
-        duration["OnlineEnergyCapacityMWh"] / duration["OnlinePowerCapacityMW"]
+            duration["OnlineEnergyCapacityMWh"] / duration["OnlinePowerCapacityMW"]
     )
     duration = duration[["gen_load_zone", "value", "OnlinePowerCapacityMW"]]
     duration["OnlinePowerCapacityMW"] *= 1e-3
@@ -87,7 +69,7 @@ def get_data(scenario_index):
     duration = duration.join(demand)
     duration = duration.reset_index()
     duration["percent_power"] = (
-        duration["OnlinePowerCapacityMW"] / duration["zone_demand_mw"] * 100
+            duration["OnlinePowerCapacityMW"] / duration["zone_demand_mw"] * 100
     )
 
     return df, duration
@@ -99,7 +81,6 @@ data = [get_data(i) for i in range(n)]
 set_style()
 plt.close()
 fig = plt.figure()
-fig.set_size_inches(12, 6)
 
 # Define axes
 axes = []
@@ -121,7 +102,7 @@ def percent_to_color(percent):
 def plot(ax, data, legend):
     percent_gen, duration = data
 
-    max_size = 800
+    max_size = 400
     max = 50
     duration["size"] = duration["OnlinePowerCapacityMW"] / max * max_size
     tools.maps.draw_base_map(ax)
@@ -137,8 +118,8 @@ def plot(ax, data, legend):
             handles=legend_handles,
             bbox_to_anchor=(0.6, 0),
             loc="lower center",
-            fontsize=8,
-            title_fontsize=10,
+            fontsize="small",
+            title_fontsize="small",
             ncol=4,
         )
         # Add legend for power capacity
@@ -161,8 +142,8 @@ def plot(ax, data, legend):
             ],
             bbox_to_anchor=(0.35, 0),
             loc="lower center",
-            fontsize=8,
-            title_fontsize=10,
+            fontsize="small",
+            title_fontsize="small",
             ncol=3,
             labelspacing=1.5,
         )
@@ -194,13 +175,16 @@ def highlight_zones(zones, ax):
                 crs=tools.maps.get_projection(),
                 facecolor=(0, 0, 0, 0),  # Transparent
                 edgecolor="tab:green",
-                linewidth=2,
+                linewidth=1,
                 # linestyle="--",
                 # alpha=0,
             )
 
 
 highlight_zones(zones_to_highlight, axes[0])
+
+# %% SAVE FIGURE
+save_figure("figure-s2-impact-of-10x-tx.png")
 
 # %%
 df = tools_supplementary.get_dataframe("storage_capacity.csv")
@@ -212,8 +196,8 @@ df = df_baseline.join(df_compare, lsuffix="_base", rsuffix="_compare")
 #     df["OnlineEnergyCapacityMWh_compare"] - df["OnlineEnergyCapacityMWh_base"]
 # ) * 1e-3
 df["change_in_cap"] = (
-    df["OnlineEnergyCapacityMWh_compare"] / df["OnlineEnergyCapacityMWh_base"]
-) * 100 - 100
+                              df["OnlineEnergyCapacityMWh_compare"] / df["OnlineEnergyCapacityMWh_base"]
+                      ) * 100 - 100
 df = df["change_in_cap"]
 # df = df[df > 0]
 # df.sum()
@@ -263,7 +247,7 @@ df_compare = df[df.scenario_index == 0]
 df_baseline = df[df.scenario_index == 1]
 df = df_baseline.join(df_compare, lsuffix="_base", rsuffix="_compare")
 df["change_in_cap"] = (
-    df["OnlineEnergyCapacityMWh_compare"] - df["OnlineEnergyCapacityMWh_base"]
+        df["OnlineEnergyCapacityMWh_compare"] - df["OnlineEnergyCapacityMWh_base"]
 )
 # df["change_in_cap"] = (df["OnlineEnergyCapacityMWh_compare"] / df["OnlineEnergyCapacityMWh_base"]) * 100
 df = df["change_in_cap"]

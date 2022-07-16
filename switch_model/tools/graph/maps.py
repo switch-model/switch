@@ -116,17 +116,17 @@ class GraphMapTools:
             crs=self._projection,
             facecolor="whitesmoke",
             edgecolor="dimgray",
-            linewidth=0.5,
+            linewidth=0.25,
             linestyle="--",
             # alpha=0.5,
         )
 
         # Add state borders
-        ax.add_feature(self._cartopy.feature.STATES, linewidth=0.5, edgecolor="dimgray")
+        ax.add_feature(self._cartopy.feature.STATES, linewidth=0.25, edgecolor="dimgray")
 
         # Add international borders
         ax.add_feature(
-            self._cartopy.feature.BORDERS.with_scale(resolution), linewidth=0.5, edgecolor="dimgray"
+            self._cartopy.feature.BORDERS.with_scale(resolution), linewidth=0.25, edgecolor="dimgray"
         )
 
         return ax
@@ -157,10 +157,10 @@ class GraphMapTools:
                 [x], [y], marker=xyi, s=size * si ** 2, c=c, edgecolor="dimgray",
                 transform=self._projection,
                 zorder=10,
-                linewidth=0.5
+                linewidth=0.25
             )
 
-    def graph_pie_chart(self, df, bins=(0, 10, 30, 60, float("inf")), sizes=(200, 400, 600, 800), ax=None,
+    def graph_pie_chart(self, df, bins=(0, 10, 30, 60, float("inf")), sizes=(100, 200, 300, 400), ax=None,
                         title="Power Capacity (GW)", legend=True):
         """
         Graphs the data from the dataframe to a map pie chart.
@@ -179,7 +179,7 @@ class GraphMapTools:
             raise NotImplementedError("Can't plot when some load zones have total value of 0")
         lz_values["size"] = self._tools.pd.cut(lz_values.value, bins=bins, labels=sizes)
         if lz_values["size"].isnull().values.any():
-            lz_values["size"] = 300
+            lz_values["size"] = 150
             warnings.warn("Not using variable pie chart size since values were out of bounds during cutting")
         for index, group in df.groupby("gen_load_zone"):
             x, y = group["geometry"].iloc[0].x, group["geometry"].iloc[0].y
@@ -200,12 +200,12 @@ class GraphMapTools:
             legend = ax.legend(
                 handles=legend_points,
                 title=title,
-                labelspacing=1.5,
+                labelspacing=0.75,
                 bbox_to_anchor=(1, 0),
                 framealpha=0,
                 loc="lower left",
-                fontsize=8,
-                title_fontsize=10
+                fontsize="small",
+                title_fontsize="small"
             )
             ax.add_artist(legend)  # Required, see : https://matplotlib.org/stable/tutorials/intermediate/legend_guide.html#multiple-legends-on-the-same-axes
 
@@ -221,8 +221,9 @@ class GraphMapTools:
                 loc="upper left",
                 bbox_to_anchor=(0, 0),
                 # framealpha=0,
-                fontsize=8,
-                title_fontsize=10,
+                fontsize="small",
+                title_fontsize="small",
+                labelspacing=0.3
             )
             ax.add_artist(legend)
 
@@ -237,7 +238,7 @@ class GraphMapTools:
             bins,
             cmap="RdPu",
             ax=None,
-            size=60,
+            size=30,
             title=None,
             legend=True
     ):
@@ -267,11 +268,11 @@ class GraphMapTools:
                 color=row["color"],
                 transform=self._projection,
                 zorder=10,
-                linewidth=1,
+                linewidth=0.5,
                 edgecolor="dimgray",
             )
-        legend_handles = [self._tools.plt.lines.Line2D([], [], color=c, marker=".", markersize=15, label=l, linestyle="None",
-                                                       markeredgewidth=1, markeredgecolor="dimgray") for c, l in
+        legend_handles = [self._tools.plt.lines.Line2D([], [], color=c, marker=".", markersize=7.5, label=l, linestyle="None",
+                                                       markeredgewidth=0.5, markeredgecolor="dimgray") for c, l in
                           zip(colors, self._tools.create_bin_labels(bins))]
         if legend:
             legend = ax.legend(
@@ -280,8 +281,8 @@ class GraphMapTools:
                 bbox_to_anchor=(1, 1),
                 loc="upper left",
                 framealpha=0,
-                fontsize=8,
-                title_fontsize=10,
+                fontsize="small",
+                title_fontsize="small",
                 # labelspacing=1
             )
             ax.add_artist(
@@ -304,12 +305,12 @@ class GraphMapTools:
                 crs=self._projection,
                 facecolor=colors.loc[lz.gen_load_zone],
                 edgecolor="dimgray",
-                linewidth=0.5,
+                linewidth=0.25,
                 linestyle="--",
                 # alpha=0.8,
             )
 
-    def graph_lines(self, df, bins, ax=None, legend=True, widths=(0.5, 1, 2, 3), color="red", bbox_to_anchor=(1, 0.3),
+    def graph_lines(self, df, bins, ax=None, legend=True, widths=(0.25, 0.5, 1, 1.5), color="red", bbox_to_anchor=(1, 0.3),
                     title=None):
         """
         Graphs the data frame a dataframe onto a map.
@@ -345,7 +346,7 @@ class GraphMapTools:
         df = self._geopandas.GeoDataFrame(df[["geometry", "value"]], geometry="geometry")
         df["width"] = self._tools.pd.cut(df.value, bins=bins, labels=widths)
         if df["width"].isnull().values.any():
-            df["width"] = 1
+            df["width"] = 0.5
             warnings.warn(
                 "Not using variable widths for tx lines since values were out of bounds during binning"
             )
@@ -368,8 +369,8 @@ class GraphMapTools:
                 bbox_to_anchor=bbox_to_anchor,
                 framealpha=0,
                 loc="center left",
-                fontsize=8,
-                title_fontsize=10
+                fontsize="small",
+                title_fontsize="small"
             )
             ax.add_artist(legend)  # Required, see : https://matplotlib.org/stable/tutorials/intermediate/legend_guide.html#multiple-legends-on-the-same-axes
 
