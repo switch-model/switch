@@ -9,21 +9,21 @@ from matplotlib.ticker import PercentFormatter
 from matplotlib.colors import Normalize
 import labellines
 
-from papers.Martin_Staadecker_Value_of_LDES_and_Factors.LDES_paper_graphs.util import (
+from papers.Martin_Staadecker_et_al_2022.util import (
     set_style,
-    get_set_e_scenarios,
+    get_set_e_scenarios, save_figure,
 )
 from switch_model.tools.graph.main import GraphTools
 
 # Prepare graph tools
-tools = GraphTools(scenarios=get_set_e_scenarios())
+tools = GraphTools(scenarios=get_set_e_scenarios(), set_style=False)
 tools.pre_graphing(multi_scenario=True)
 
 # %% CREATE FIGURE
 set_style()
 plt.close()
 fig = plt.figure()
-fig.set_size_inches(12, 12)
+fig.set_size_inches(6.850394, 6.850394)
 gs = matplotlib.gridspec.GridSpec(2, 2, figure=fig)
 ax1 = fig.add_subplot(gs[0, 0])
 ax2 = fig.add_subplot(gs[0, 1])
@@ -137,6 +137,8 @@ ax.tick_params(top=False, bottom=False, right=False, left=False)
 # %% State of charge
 ax = ax3
 ax.clear()
+axr = ax.twinx()
+axr.grid(False)
 
 freq = "1D"
 
@@ -162,8 +164,10 @@ demand = demand[demand.scenario_name == 1.94]
 demand = demand.groupby("timepoint", as_index=False).value.sum()
 demand = tools.transform.timestamp(demand, use_timepoint=True)
 demand = demand.set_index("datetime")["value"]
-demand = demand.resample(freq).mean()
-demand = demand * 60 / demand.max()
+demand *= 4 * 1e-6  # Each timestep is 4 hours, converting to TWh
+total_demand = demand.sum()
+print(total_demand)
+demand = demand.resample(freq).sum()
 
 state_of_charge.plot(
     ax=ax,
@@ -172,16 +176,11 @@ state_of_charge.plot(
     xlabel="Time of year",
     legend=False,
 )
-plt.colorbar(
-    cm.ScalarMappable(norm=Normalize(1.94, 64), cmap="viridis"),
-    ax=ax,
-    label="Storage Capacity (TWh)",
-    fraction=0.1,
-)
+
 
 lines = ax.get_lines()
 x_label = {
-    4.0: 135,
+    # 4.0: 135,
     8.0: 150,
     20.0: 170,
     24.0: 230,
@@ -193,14 +192,29 @@ for line in lines:
     label = float(line.get_label())
     if label not in x_label.keys():
         continue
-    labellines.labelLine(line, state_of_charge.index[x_label[label]], label="S "+str(int(label)), align=False, color='k')
+    labellines.labelLine(line, state_of_charge.index[x_label[label]], linespacing=1, outline_width=1, label=str(int(label))+"TWh", align=False, color='k', fontsize="small")
 
-demand_lines = ax.plot(demand, c="dimgray", linestyle="--", alpha=0.5)
-ax.legend(demand_lines, ["Demand"])
+demand = demand.iloc[1:-1]
+demand_lines = axr.plot(demand, c="dimgray", linestyle="--", alpha=0.5)
+axr.legend(demand_lines, [f"Demand ({total_demand:.0f} TWh/year)"])
+
+ax.set_ylim(0, 65)
+axr.set_ylim(0, 65 / 10)
+axr.set_ylabel("Demand (TWh/day)")
 
 ax.set_title("C. State of charge throughout the year")
-# %%
+
 plt.tight_layout()
+
+plt.colorbar(
+    cm.ScalarMappable(norm=Normalize(1.94, 64), cmap="viridis"),
+    ax=ax,
+    label="Storage Capacity (TWh)",
+    fraction=0.1,
+    pad=0.1
+)
+# %% SAVE FIGURE
+save_figure("figure-5-impact-of-ldes-on-grid.png")
 
 # %% CALCULATIONS
 cap_total = cap["Solar"] + cap["Wind"]

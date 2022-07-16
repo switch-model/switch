@@ -4,12 +4,12 @@ from matplotlib import dates as mdates
 
 from switch_model.tools.graph.main import GraphTools
 
-from papers.Martin_Staadecker_Value_of_LDES_and_Factors.LDES_paper_graphs.util import (
+from papers.Martin_Staadecker_et_al_2022.util import (
     set_style,
-    get_scenario,
+    get_scenario, save_figure,
 )
 
-tools = GraphTools([get_scenario("1342")])
+tools = GraphTools([get_scenario("1342")], set_style=False)
 tools.pre_graphing(multi_scenario=False)
 
 ROLLING_AVERAGE_DAYS = 7
@@ -81,8 +81,8 @@ load = load.drop(columns="tp_duration")
 
 curtailment = (
     dispatch[["gen_type", "with_curtailment"]]
-    .copy()
-    .rename({"with_curtailment": "value"}, axis=1)
+        .copy()
+        .rename({"with_curtailment": "value"}, axis=1)
 )
 dispatch = dispatch[["gen_type", "dispatch"]].rename({"dispatch": "value"}, axis=1)
 
@@ -99,10 +99,10 @@ dispatch = (
 dispatch = rolling_avg(dispatch)
 curtailment = (
     curtailment.groupby("gen_type")
-    .value.resample("D")
-    .sum()
-    .unstack(level=1)
-    .transpose()
+        .value.resample("D")
+        .sum()
+        .unstack(level=1)
+        .transpose()
 )
 curtailment = rolling_avg(curtailment)
 load = load[["value"]].resample("D").sum()
@@ -122,20 +122,17 @@ duals = tools.get_dataframe(
 duals = duals.groupby(["timestamp"], as_index=False).mean()
 duals = process_time(duals).drop(columns=["tp_duration"])
 duals = rolling_avg(duals)
-# Convert from $/MWh to cents/kWh
-duals *= 0.1
 
 # %% CREATE PLOT FRAME
 set_style()
 plt.close()
 fig = plt.figure()
-fig.set_size_inches(8, 12)
-ax1 = fig.add_subplot(2, 1, 1)
-ax2 = fig.add_subplot(2, 1, 2, projection=tools.maps.get_projection())
-ax1_right = ax1.twinx()
+ax1 = fig.add_subplot(1, 2, 1)
+ax2 = fig.add_subplot(1, 2, 2, projection=tools.maps.get_projection())
 # %% PLOT TOP PANEL
 ax = ax1
-ax_right = ax1_right
+ax_right = ax1.twinx()
+ax_right.grid(False)
 # Plot
 # Get the colors for the lines
 # plot
@@ -151,15 +148,15 @@ for (columnName, columnData) in curtailment.items():
         color=colors[columnName],
         label=columnName + " (no curtail.)",
     )
-ax_right.plot(duals, label="Estimated LMP", color="red")
+ax_right.plot(duals, label="Marginal Price", color="red")
 lines += ax.plot(load, color="orange", label="Demand")
 ax.set_title("A. Seasonal Profiles in the Baseline")
 ax.set_ylabel("Dispatch (TWh/day)")
-ax_right.set_ylabel(u"Estimated Locational Marginal Price (\xa2/kWh)")
+ax_right.set_ylabel(u"Marginal Price of Electricity ($/MWh)")
 locator = mdates.MonthLocator()
 ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(locator))
 ax.set_ylim(-0.1, 4.7)
-ax_right.set_ylim(-1, 47)
+ax_right.set_ylim(-10, 470)
 ax.legend(lines, [l.get_label() for l in lines], framealpha=0.5, loc="upper left")
 ax_right.legend()
 
@@ -169,7 +166,7 @@ capacity = tools.get_dataframe("gen_cap.csv").rename({"GenCapacity": "value"}, a
 capacity = tools.transform.gen_type(capacity)
 capacity = capacity.groupby(["gen_type", "gen_load_zone"], as_index=False)["value"].sum()
 # capacity = capacity[capacity.value > 1e-3]  # Must have at least 1 kW of capacity
-capacity.value *= 1e-3 # Convert to GW
+capacity.value *= 1e-3  # Convert to GW
 
 transmission = tools.get_dataframe("transmission.csv", convert_dot_to_na=True).fillna(0)
 transmission = transmission[transmission["PERIOD"] == 2050]
@@ -198,19 +195,19 @@ duration = duration[["gen_load_zone", "value"]]
 # %% PLOT BOTTOM PANEL
 ax = ax2
 tools.maps.draw_base_map(ax)
-tools.maps.graph_transmission_capacity(transmission, ax=ax, legend=True, color="green", bbox_to_anchor=(1, 0.65),
-                              title="Total Tx Capacity (GW)")
-tools.maps.graph_transmission_capacity(newtx, ax=ax, legend=True, color="red", bbox_to_anchor=(1, 0.44),
-                              title="New Tx Capacity (GW)")
+tools.maps.graph_transmission_capacity(transmission, ax=ax, legend=True, color="green", bbox_to_anchor=(1, 0.61),
+                                       title="Total Tx Capacity (GW)")
+tools.maps.graph_transmission_capacity(newtx, ax=ax, legend=True, color="red", bbox_to_anchor=(1, 0.4),
+                                       title="New Tx Capacity (GW)")
 tools.maps.graph_pie_chart(capacity, ax=ax)
 tools.maps.graph_duration(duration, ax=ax)
 ax.set_title("B. Geographical Distributions in the Baseline")
 plt.tight_layout()
-plt.tight_layout() # Twice to ensure it works properly, it's a bit weird at times'
+plt.tight_layout()  # Twice to ensure it works properly, it's a bit weird at times
 
+# %%
+save_figure("figure-1-baseline.png")
 # %% CALCULATIONS
-
-import pandas as pd
 
 # Panel A analysis
 df = curtailment.copy()
@@ -301,7 +298,7 @@ df = df.groupby("region").value.sum() * -1
 df_north = df[~df.index.isin(southern_regions)]
 df_north.sum() / df.sum() * 100
 
-#%%
+# %%
 df = tools.get_dataframe("transmission.csv", convert_dot_to_na=True).fillna(0)
 df = df[df["PERIOD"] == 2050]
 df = tools.transform.load_zone(df, load_zone_col="trans_lz1").rename({"region": "region_1"}, axis=1)
@@ -317,12 +314,12 @@ df_north = df_north.sum()
 df = df.sum()
 df_north / df
 
-#%%
+# %%
 df = duration
 df = df.sort_values(by="value")
 df
 
-#%%
+# %%
 df = tools.get_dataframe("storage_capacity.csv")
 df = df[df["period"] == 2050].drop(columns="period")
 # df = df[df["load_zone"] != "CAN_ALB"]
@@ -353,4 +350,3 @@ df *= -1e-3
 df = df.sort_values()
 df.mean()
 # df
-
