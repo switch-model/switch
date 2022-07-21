@@ -144,6 +144,18 @@ gen_energy_source as energy_source, 0 as min_load_fraction, 0 as startup_fuel, 0
 from public.generation_project_info_wave_offshore_wind_industry_sites as t1
 join switch.load_zone as t2 on(t2.name=gen_load_zone);
 
+-- Fixing bug (only query ran on July 17th, 2022):
+update switch.generation_plant
+set min_build_capacity = 0,
+capacity_limit_mw = (select t1.gen_capacity_limit_mw 
+					 from public.generation_project_info_wave_offshore_wind_industry_sites as t1
+					 where t1.generation_project = generation_plant_id),
+final_capacity_limit_mw	= (select t1.gen_capacity_limit_mw 
+					 from public.generation_project_info_wave_offshore_wind_industry_sites as t1
+					 where t1.generation_project = generation_plant_id)
+where generation_plant_id >= 1300000000
+and generation_plant_id <= 1300000200;
+
 
 insert into switch.generation_plant_scenario_member
 select 26 as generation_plant_scenario_id, t1.generation_project as generation_plant_id
