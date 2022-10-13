@@ -25,6 +25,7 @@ class ScenarioParams:
         self.generation_plant_technologies_scenario_id = None
         self.variable_o_m_cost_scenario_id = None
         self.wind_to_solar_ratio = None
+        self.transmission_scenario_id = None
 
 
 def load_scenario_from_config(config, db_cursor) -> ScenarioParams:
