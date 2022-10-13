@@ -315,16 +315,32 @@ def query_db(config, skip_cf):
             "trans_terrain_multiplier",
             "trans_new_build_allowed",
         ],
-        """
-         SELECT start_load_zone_id || '-' || end_load_zone_id, t1.name, t2.name,
-             trans_length_km, trans_efficiency, existing_trans_cap_mw, transmission_line_id,
-            derating_factor, terrain_multiplier * transmission_cost_econ_multiplier as terrain_multiplier,
-            new_build_allowed
-         FROM transmission_lines
-             join load_zone as t1 on(t1.load_zone_id=start_load_zone_id)
-             join load_zone as t2 on(t2.load_zone_id=end_load_zone_id)
-         WHERE start_load_zone_id < end_load_zone_id
-         ORDER BY 2,3;
+        f"""
+        SELECT
+          start_load_zone_id || '-' || end_load_zone_id,
+          t1.name,
+          t2.name,
+          trans_length_km,
+          trans_efficiency,
+          existing_trans_cap_mw,
+          transmission_line_id,
+          derating_factor,
+          terrain_multiplier * transmission_cost_econ_multiplier as terrain_multiplier,
+          new_build_allowed
+        FROM
+          switch.transmission_lines
+          join switch.load_zone as t1 on(
+            t1.load_zone_id = start_load_zone_id
+          )
+          join switch.load_zone as t2 on(
+            t2.load_zone_id = end_load_zone_id
+          )
+        WHERE
+          start_load_zone_id < end_load_zone_id and
+          transmission_scenario_id = {params.transmission_scenario_id}
+        ORDER BY
+          2,
+          3;
          """,
     )
 
