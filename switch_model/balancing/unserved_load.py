@@ -24,7 +24,9 @@ def define_components(mod):
     load in any load zone.
 
     UnservedLoad[z, tp] is a decision variable that describes how much
-    load in MWh is not supplied in a given load zone, at a given timepoint.
+    load (MW) is not supplied in a given load zone, at a given timepoint. This
+    is applied at distribution nodes if available, otherwise at zone-center
+    nodes.
 
     UnservedLoadPenalty[tp] is an expression that summarizes the cost penalties
     of the load that is left unserved in all load zones at a given timepoint.
@@ -37,7 +39,10 @@ def define_components(mod):
     mod.UnservedLoad = Var(
         mod.LOAD_ZONES, mod.TIMEPOINTS,
         within=NonNegativeReals)
-    mod.Zone_Power_Injections.append('UnservedLoad')
+    try:
+        mod.Distributed_Power_Injections.append('UnservedLoad')
+    except AttributeError:
+        mod.Zone_Power_Injections.append('UnservedLoad')
 
     mod.UnservedLoadPenalty = Expression(
         mod.TIMEPOINTS,
