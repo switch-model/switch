@@ -1039,7 +1039,6 @@ def solve(model):
             ).items():
                 model.solver.options[k] = v
 
-        # import pdb; pdb.set_trace()
         model.solver_manager = SolverManagerFactory(model.options.solver_manager)
 
     # get solver arguments
@@ -1091,7 +1090,6 @@ def solve(model):
         except:
             pass
         raise
-    # import pdb; pdb.set_trace()
 
     if model.options.verbose:
         print(
@@ -1103,6 +1101,16 @@ def solve(model):
     # Treat infeasibility as an error, rather than trying to load and save the results
     # (note: in this case, results.solver.status may be SolverStatus.warning instead of
     # SolverStatus.error)
+    infeasibility_message = (
+        "You can identify infeasible constraints by adding "
+        "switch_model.balancing.diagnose_infeasibility to the module list and "
+        "solving again."
+        "\n\nAlternatively, if the solver can generate an irreducibly "
+        "inconsistent set (IIS), more information may be available by setting "
+        "the appropriate flags in the --solver-options-string and then calling "
+        'this script with "--suffixes iis".\n'
+    )
+
     if results.solver.termination_condition == TerminationCondition.infeasible:
         if hasattr(model, "iis"):
             print(
@@ -1110,15 +1118,8 @@ def solve(model):
             )
             print("\n".join(sorted(c.name for c in model.iis)))
         else:
-            print(
-                "Model was infeasible; if the solver can generate an irreducibly inconsistent set (IIS),"
-            )
-            print(
-                "more information may be available by setting the appropriate flags in the "
-            )
-            print(
-                '--solver-options-string and calling this script with "--suffixes iis".'
-            )
+            print("Model was infeasible. " + infeasibility_message)
+
         # This infeasibility logging module could be nice, but it doesn't work
         # for my solvers and produces extraneous messages.
         # import pyomo.util.infeasible
@@ -1129,21 +1130,31 @@ def solve(model):
     # Note that checking for results.solver.status in {SolverStatus.ok,
     # SolverStatus.warning} is not enough because with a warning there will
     # sometimes be a solution and sometimes not.
-    # Note: the results object originally contains values for model components
-    # in results.solution.variable, etc., but pyomo.solvers.solve erases it via
-    # result.solution.clear() after calling model.solutions.load_from() with it.
-    # load_from() loads values into the model.solutions._entry, so we check there.
-    # (See pyomo.PyomoModel.ModelSolutions.add_solution() for the code that
-    # actually creates _entry).
-    # Another option might be to check that model.solutions[-1].status (previously
-    # result.solution.status, but also cleared) is in
-    # pyomo.opt.SolutionStatus.['optimal', 'bestSoFar', 'feasible', 'globallyOptimal', 'locallyOptimal'],
-    # but this seems pretty foolproof (if undocumented).
-    if len(model.solutions[-1]._entry["variable"]) == 0:
+
+    try:
+        # pyomo 5.2, maybe earlier or later
+        no_solution = len(model.solutions.solutions) == 0
+        solution_status = "unavailable"
+    except AttributeError:
+        # other pyomo version (4.4 or 5.6.8?)
+        # Note: the results object originally contains values for model components
+        # in results.solution.variable, etc., but pyomo.solvers.solve erases it via
+        # result.solution.clear() after calling model.solutions.load_from() with it.
+        # load_from() loads values into the model.solutions._entry, so we check there.
+        # (See pyomo.PyomoModel.ModelSolutions.add_solution() for the code that
+        # actually creates _entry).
+        # Another option might be to check that model.solutions[-1].status (previously
+        # result.solution.status, but also cleared) is in
+        # pyomo.opt.SolutionStatus.['optimal', 'bestSoFar', 'feasible', 'globallyOptimal', 'locallyOptimal'],
+        # but this seems pretty foolproof (if undocumented).
+        no_solution = len(model.solutions[-1]._entry["variable"]) == 0
+        solution_status = model.solutions[-1].status
+
+    if no_solution:
         # no solution returned
         print("Solver terminated without a solution.")
         print("  Solver Status: ", results.solver.status)
-        print("  Solution Status: ", model.solutions[-1].status)
+        print("  Solution Status: ", solution_status)
         print("  Termination Condition: ", results.solver.termination_condition)
         if (
             model.options.solver == "glpk"
@@ -1152,6 +1163,7 @@ def solve(model):
             print(
                 "Hint: glpk has been known to classify infeasible problems as 'other'."
             )
+            print(infeasibility_message)
         raise RuntimeError("Solver failed to find an optimal solution.")
 
     # Report any warnings; these are written to stderr so users can find them in
