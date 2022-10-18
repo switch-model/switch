@@ -22,12 +22,12 @@ def define_arguments(argparser):
     # )
     argparser.add_argument(
         "--export-capacities", action='store_true', default=False,
-        help="Exports cummulative installed generating capacity in MW per \
+        help="Exports cumulative installed generating capacity in MW per \
         technology per period."
     )
     argparser.add_argument(
         "--export-transmission", action='store_true', default=False,
-        help="Exports cummulative installed transmission capacity in MW per \
+        help="Exports cumulative installed transmission capacity in MW per \
         path per period."
     )
     argparser.add_argument(
@@ -106,7 +106,7 @@ def post_solve(mod, outdir):
         table into a Pandas Dataframe. Usually represents time.
 
         by_period: A boolean indicating whether the plot should be stacked
-        by period (False) or if values should be cummulative (True). In the
+        by period (False) or if values should be cumulative (True). In the
         former, x axis represents the investment alternatives and in the
         latter, it represents periods (hence he boolean values required).
 
@@ -269,7 +269,7 @@ def post_solve(mod, outdir):
         n_elements = mod.GENERATION_TECHNOLOGIES.__len__()
         index = 'gentech'
 
-        table_name = "cummulative_capacity_by_tech_periods"
+        table_name = "cumulative_capacity_by_tech_periods"
         print(table_name+" ...")
         table = export.write_table(
             mod, mod.GENERATION_TECHNOLOGIES,
@@ -301,7 +301,7 @@ def post_solve(mod, outdir):
         n_elements = mod.TRANSMISSION_LINES.__len__()
         index = 'path'
 
-        table_name = "cummulative_transmission_by_path_periods"
+        table_name = "cumulative_transmission_by_path_periods"
         print(table_name+" ...")
         table = export.write_table(
             mod, True, mod.TRANSMISSION_LINES,
