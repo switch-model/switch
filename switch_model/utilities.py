@@ -624,13 +624,13 @@ def load_aug(switch_data, optional=False, optional_params=[], **kwargs):
     for (i, p) in enumerate(optional_params):
         if not isinstance(p, string_types):
             optional_params[i] = p.name
-    # Expand the list optional parameters to include any parameter that
-    # has default() defined. I need to allow an explicit list of default
-    # parameters to support optional parameters like gen_unit_size which
-    # don't have default value because it is undefined for generators
-    # for which it does not apply.
+    # Expand the list of optional parameters to include any parameter that has
+    # default() defined or that comes from an optional table. We also allow an
+    # explicit list of optional parameters to support parameters like
+    # gen_unit_size, which doesn't have a default value because it is undefined
+    # for generators for which it does not apply.
     for p in params:
-        if p.default() is not None:
+        if (optional or p.default() is not None) and p.name not in optional_params:
             optional_params.append(p.name)
     # How many index columns do we expect?
     # Grab the dimensionality of the index param if it was provided.
