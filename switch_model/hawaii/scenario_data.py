@@ -245,8 +245,13 @@ def get_queries(args):
     else:
         args["enable_must_run_before"] = args.get("enable_must_run_before", 0)
 
-    # fill in default arguments (use a dummy technology '-' if none supplied)
+    # fill in default arguments (use a dummy entry '-' if none supplied)
     args["exclude_technologies"] = args.get("exclude_technologies", ("-",))
+    args["exclude_land_classes"] = args.get("exclude_land_classes", ("-",))
+    args["exclude_slope_classes"] = args.get("exclude_slope_classes", ("-",))
+    for a in ["exclude_technologies", "exclude_land_classes", "exclude_slope_classes"]:
+        if not isinstance(args[a], tuple):
+            raise ValueError(f"Argument {a} must be a tuple or omitted.")
 
     #########################
     # timescales
@@ -365,8 +370,11 @@ def get_queries(args):
                 )
             WHERE (e.project_id IS NOT NULL OR c.technology IS NOT NULL)
                 AND p.load_zone in %(load_zones)s
+                AND p.technology NOT IN %(exclude_technologies)s
+                -- exclude some land_class and slope_class values, but allow nulls through
+                AND (p.land_class IS NULL OR p.land_class NOT IN %(exclude_land_classes)s)
+                AND (p.slope_class IS NULL OR p.slope_class NOT IN %(exclude_slope_classes)s)
                 AND g.tech_scenario IN ('all', %(tech_scenario)s)
-                AND g.technology NOT IN %(exclude_technologies)s
         ),
         study_generator_info AS (
             SELECT DISTINCT g.*
@@ -720,7 +728,10 @@ def get_queries(args):
             gen_startup_fuel,
             gen_storage_efficiency,
             gen_storage_energy_to_power_ratio,
-            gen_storage_max_cycles_per_year
+            gen_storage_max_cycles_per_year,
+            land_class as gen_land_class,
+            land_area as gen_land_area,
+            slope_class as gen_slope_class
         FROM study_projects JOIN study_generator_info USING (technology)
         ORDER BY 2, 3, 1;
     """.format(
@@ -747,14 +758,29 @@ def get_queries(args):
         args,
     )
 
-    def scale_inflate_cost(cost_term):
+    def adjust_cost(cost_term, cost_adjustment_table=None):
         """
-        Generate inflation-adjusted cost expression, given a cost expression in a table;
-        assumes base_year exists in the same table.
+        Generate cost expression including the following adjustments:
+        - multiply by 1000.0 to convert from cost per kW or kWh to cost per MW or MWh
+        - adjust for inflation between project base year and study base year
+        - optionally apply project-specific cost adjustment terms
+
+        Assumes base_year exists in the table referenced by cost_term.
+        Applies cost_multiplier and cost_offset terms from cost_adjustment_table if
+        specified.
         """
-        table = cost_term.split(".")[0] + "." if "." in cost_term else ""
-        return "({cost} * 1000.0 * power(1.0+%(inflation_rate)s, %(base_financial_year)s-{table}base_year))".format(
-            cost=cost_term, table=table
+        cost_table = cost_term.split(".")[0] + "." if "." in cost_term else ""
+
+        if cost_adjustment_table:
+            cat = cost_adjustment_table
+            cost_term = f"({cost_term}*{cat}.cost_multiplier + {cat}.cost_offset)"
+
+        return (
+            f"("
+            f"{cost_term}"
+            f" * 1000.0"
+            f" * power(1.0+%(inflation_rate)s, %(base_financial_year)s-{cost_table}base_year)"
+            f")"
         )
 
     add_query(
@@ -800,23 +826,25 @@ def get_queries(args):
             {c_capital_cost_per_mw} AS gen_overnight_cost,
             {c_capital_cost_per_mwh} AS gen_storage_energy_overnight_cost,
             {c_fixed_o_m} AS gen_fixed_o_m
-        FROM study_projects proj
+        FROM study_projects p
             JOIN study_generator_info i USING (technology)
             JOIN gen_build_costs c ON c.technology=i.technology AND c.tech_scenario=i.tech_scenario
             JOIN periods per ON (per.time_sample = %(time_sample)s AND c.year = per.period)
             LEFT JOIN gen_build_predetermined e
-                ON e.project_id = proj.project_id AND e.build_year = c.year
+                ON e.project_id = p.project_id AND e.build_year = c.year
         WHERE
             e.project_id IS NULL -- no existing projects
             AND (i.min_vintage_year IS NULL OR c.year >= i.min_vintage_year)
         ORDER BY 1, 2;
     """.format(
-            b_capital_cost_per_mw=scale_inflate_cost("b.capital_cost_per_kw"),
-            b_capital_cost_per_mwh=scale_inflate_cost("b.capital_cost_per_kwh"),
-            c_capital_cost_per_mw=scale_inflate_cost("c.capital_cost_per_kw"),
-            c_capital_cost_per_mwh=scale_inflate_cost("c.capital_cost_per_kwh"),
-            b_fixed_o_m=scale_inflate_cost("b.fixed_o_m"),
-            c_fixed_o_m=scale_inflate_cost("c.fixed_o_m"),
+            b_capital_cost_per_mw=adjust_cost("b.capital_cost_per_kw"),
+            b_capital_cost_per_mwh=adjust_cost("b.capital_cost_per_kwh"),
+            c_capital_cost_per_mw=adjust_cost(
+                "c.capital_cost_per_kw", cost_adjustment_table="p"
+            ),
+            c_capital_cost_per_mwh=adjust_cost("c.capital_cost_per_kwh"),
+            b_fixed_o_m=adjust_cost("b.fixed_o_m"),
+            c_fixed_o_m=adjust_cost("c.fixed_o_m"),
         ),
         args,
     )
@@ -1086,6 +1114,19 @@ def get_queries(args):
         )
 
     #########################
+    # Total land in each class in each load zone
+    add_query(
+        queries,
+        "load_zone_land_class_area.csv",
+        """
+        SELECT load_zone, land_class, area as load_zone_land_class_area
+        FROM load_zone_land_class_area
+        WHERE load_zone in %(load_zones)s;
+    """,
+        args,
+    )
+
+    #########################
     # EV annual energy consumption (original, basic version)
     # print "ev_scenario:", args.get('ev_scenario', None)
     if args.get("ev_scenario", None) is not None:
@@ -1310,6 +1351,9 @@ def db_cursor():
         try:
             # note: the connection gets created when the module loads and never gets closed (until presumably python exits)
             con = psycopg2.connect(database=pgdatabase, host=pghost, user=pguser)
+            # use read-only session, because that's enough for this script and it's possible something
+            # weird could come through in the configuration info that gets passed to postgresql
+            con.set_session(readonly=True, autocommit=True)
             print(
                 "Reading data from database {} on server {}".format(pgdatabase, pghost)
             )
