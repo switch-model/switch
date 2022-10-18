@@ -1447,15 +1447,16 @@ def write_dual_costs(m, include_iter_num=True):
 
 
 def filename_tag(m, include_iter_num=True):
+    tag = ""
     if m.options.scenario_name:
-        t = m.options.scenario_name + "_"
-    else:
-        t = ""
+        tag += "_" + m.options.scenario_name
     if include_iter_num:
-        t = t + "_".join(map(str, m.iteration_node))
-    if t:
-        t = "_" + t
-    return t
+        if m.options.max_iter is None:
+            n_digits = 4
+        else:
+            n_digits = len(str(m.options.max_iter - 1))
+        tag += "".join(f"_{t:0{n_digits}d}" for t in m.iteration_node)
+    return tag
 
 
 def post_solve(m, outputs_dir):
