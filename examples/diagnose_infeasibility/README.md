@@ -1,7 +1,7 @@
 SYNOPSIS
+	switch solve --verbose --log-run --exclude-module switch_model.balancing.diagnose_infeasibility
 	switch solve --verbose --log-run
 
-This example is the same as "copperplate0" but with no existing builds
--- without proj_existing_builds.tab or proj_build_costs.tab.  This is
-a regression test for
-https://github.com/switch-model/switch/issues/24.
+This example is the same as "new_builds_only" but with caps on construction
+that make the model infeasible. This is useful for experimenting with the
+diagnose_infeasibility module (and this is used for testing that module). 
