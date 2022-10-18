@@ -198,6 +198,12 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=True):
             instance = model.create_instance(data, report_timing=True)
     else:
         instance = model.create_instance(data, report_timing=False)
+
+    # use same logger for instance, since otherwise it gets a different,
+    # non-working logger (e.g., post-solve logging fails in Pyomo 5.2 /
+    # Python 3.6.0 due to missing instance.logger.level attribute)
+    instance.logger = model.logger
+
     # Note: model.create() was replaced by model.create_instance() in Pyomo 4.1
     # and we require at least Pyomo 4.4.
 
