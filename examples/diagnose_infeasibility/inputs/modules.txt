@@ -10,4 +10,5 @@ switch_model.reporting
 # Custom Modules
 switch_model.generators.core.no_commit
 switch_model.energy_sources.fuel_costs.simple
+switch_model.transmission.local_td
 switch_model.balancing.diagnose_infeasibility
