@@ -13,7 +13,7 @@ class TestLoader(unittest.TestLoader):
     # unittest.main does not allow multiple "--start-directory"
     # options, but we can make it scan multiple separate directories
     # by overriding discover().  This allows us to have a "tests"
-    # directory that's separate from "switch_mod".
+    # directory that's separate from "switch_model".
     #
     # We don't want to scan for *.py files in the parent directory in
     # case any of those are throwaway scripts that have unexpected
