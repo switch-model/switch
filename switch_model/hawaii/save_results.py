@@ -490,17 +490,14 @@ def write_results(m, outputs_dir):
             if m.gen_uses_fuel[g]
             else m.gen_energy_source[g]
         )
-
-    built_gens = tuple(
-        sorted(
-            set(
-                g
-                for pe in m.PERIODS
-                for g in m.GENERATION_PROJECTS
-                if value(m.GenCapacity[g, pe]) > 0.001
-            )
-        )
-    )
+    built_gens = tuple(sorted(set(
+        g 
+        for pe in m.PERIODS 
+        for g in m.GENERATION_PROJECTS 
+        # starting 2021-04-29, we report all techs, whether built or not,
+        # so that the columns are the same across scenarios
+        # if value(m.GenCapacity[g, pe]) > 0.001
+    )))
     active_periods_for_gen = defaultdict(set)
     used_cap = getattr(
         m, "CommitGen", m.DispatchGen
