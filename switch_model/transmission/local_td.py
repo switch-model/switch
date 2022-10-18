@@ -76,7 +76,10 @@ def define_components(mod):
 
     existing_local_td[z in LOAD_ZONES] is the amount of local transmission and
     distribution capacity in MW that is in place prior to the start of the
-    study. This is assumed to remain in service throughout the study.
+    study. This is assumed to remain in service throughout the study. It can be
+    omitted, in which case Switch constructs enough to meet loads (possibly less
+    than is in place already in cases where local T&D costs and losses have a
+    strong effect on results).
 
     BuildLocalTD[load_zone, period] is a decision variable
     describing how much local transmission and distribution to add in each load
@@ -101,13 +104,15 @@ def define_components(mod):
     local T&D requirements.
         LocalTDCapacity >= max_local_demand
 
-    local_td_annual_cost_per_mw[z in LOAD_ZONES] describes the total
-    annual costs for each MW of local transmission & distribution. This
-    value should include the annualized capital costs as well as fixed
-    operations & maintenance costs. These costs will be applied to
-    existing and new infrastructure. We assume that existing capacity
-    will be replaced at the end of its life, so these costs will
-    continue indefinitely.
+    local_td_annual_cost_per_mw[z in LOAD_ZONES] describes the total annual
+    costs for each MW of local transmission & distribution. This value should
+    include the annualized capital costs as well as fixed operations &
+    maintenance costs. These costs will be applied to existing and new
+    infrastructure. We assume that existing capacity will be replaced at the end
+    of its life, so these costs will continue indefinitely. This can be omitted,
+    in which case it is assumed to be zero. (In that case, the main effect of
+    the local_td module would be to calculate losses between the central node
+    and the distribution node.)
 
     --- NOTES ---
 
@@ -121,8 +126,11 @@ def define_components(mod):
     """
 
     # Local T&D
-    mod.existing_local_td = Param(mod.LOAD_ZONES, within=NonNegativeReals)
-    mod.min_data_check('existing_local_td')
+    mod.existing_local_td = Param(
+        mod.LOAD_ZONES,
+        within=NonNegativeReals,
+        default=0.0
+    )
 
     mod.BuildLocalTD = Var(
         mod.LOAD_ZONES, mod.PERIODS,
@@ -147,7 +155,9 @@ def define_components(mod):
     )
     mod.local_td_annual_cost_per_mw = Param(
         mod.LOAD_ZONES,
-        within=NonNegativeReals)
+        within=NonNegativeReals,
+        default=0.0,
+    )
     mod.min_data_check('local_td_annual_cost_per_mw')
     mod.LocalTDFixedCosts = Expression(
         mod.PERIODS,
