@@ -191,7 +191,7 @@ def get_value(obj, missing_val_list=[]):
     Retrieve value of one element of a Variable or Expression, converting
     division-by-zero to nan and uninitialized values to None.
     """
-    if getattr(obj, 'value', 0) is None:
+    if not hasattr(obj, 'expr') and getattr(obj, 'value', 0) is None:
         # If variables are not used in constraints or the objective function,
         # they will never get values, and give a ValueError if accessed.
         # Accessing obj.value may be undocumented, but avoids using value(obj),
