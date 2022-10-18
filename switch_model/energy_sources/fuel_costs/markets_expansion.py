@@ -115,6 +115,8 @@ def define_components(m):
             if (
                 # starts before end of current period
                 vintage < m.period_start[p] + m.period_length_years[p]
+                # available to be built
+                and (r, vintage, st) in m.RFM_SUPPLY_TIERS
                 # ends after start of current period
                 and vintage + m.rfm_supply_tier_max_age[r, vintage, st]
                 > m.period_start[p]
@@ -124,7 +126,8 @@ def define_components(m):
 
     # Don't double-activate any tier
     m.Only_One_RFMSupplyTierActive = Constraint(
-        m.RFM_SUPPLY_TIERS, rule=lambda m, r, p, st: RFMSupplyTierActive[r, p, st] <= 1
+        m.RFM_SUPPLY_TIERS,
+        rule=lambda m, r, p, st: m.RFMSupplyTierActive[r, p, st] <= 1,
     )
 
     # force all unlimited tiers to be activated (since they must have no cost,
