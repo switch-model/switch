@@ -414,7 +414,9 @@ def write_results(m, outputs_dir):
                 g
                 for pe in m.PERIODS
                 for g in m.GENERATION_PROJECTS
-                if value(m.GenCapacity[g, pe]) > 0.001
+                # starting 2021-04-29, we report all techs, whether built or not,
+                # so that the columns are the same across scenarios
+                # if value(m.GenCapacity[g, pe]) > 0.001
             )
         )
     )
