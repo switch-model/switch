@@ -258,6 +258,7 @@ def define_components(mod):
         within=NonNegativeReals,
         initialize=lambda m, t: (
             m.tp_duration_hrs[t] * m.ts_scale_to_period[m.tp_ts[t]]))
+    # TODO: build this in one pass, not multiple scans
     mod.TPS_IN_TS = Set(
         mod.TIMESERIES,
         ordered=True,

@@ -310,7 +310,8 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, 'gen_build_predetermined.csv'),
-        param=(mod.gen_predetermined_storage_energy_mwh,))
+        param=(mod.gen_predetermined_storage_energy_mwh,),
+    )
 
 def post_solve(instance, outdir):
     """
