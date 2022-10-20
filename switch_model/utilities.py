@@ -292,6 +292,20 @@ def create_model(*args, **kwargs):
     return SwitchAbstractModel(*args, **kwargs)
 
 
+def unique_list(seq):
+    """
+    Create a list with the unique elements from seq, preserving original order.
+
+    This is often useful instead of `set()` when creating Pyomo Sets from unique
+    members of a collection, since Pyomo >= 5.7 always creates ordered sets and
+    deprecates use of Python's unordered sets for initialization.
+    """
+    # from https://stackoverflow.com/a/17016257/
+    # Note that this solution depends on Python's order-preserving dicts after
+    # in version 3.7+, which is fine since Switch requires Python >= 3.7.
+    return list(dict.fromkeys(seq))
+
+
 def make_iterable(item):
     """Return an iterable for the one or more items passed."""
     if isinstance(item, string_types):

@@ -1,6 +1,7 @@
 from __future__ import print_function
 import os
 from pyomo.environ import *
+from switch_model.utilities import unique_list
 
 
 def define_arguments(argparser):
@@ -32,21 +33,16 @@ ev_zone_type_period_params = [
 
 def define_components(m):
 
-    # indexing set for EV bids, decomposed to get sets of EV bid numbers and EV types
+    # indexing set for EV bids, filtered to get sets of EV bid numbers and EV types
     m.EV_ZONE_TYPE_BID_TP = Set(
         dimen=4
     )  # load zone, vehicle type, bid number, timepoint
-
-    def rule(m):
-        bids = m.EV_BID_NUMS_set = set()
-        types = m.EV_TYPES_set = set()
-        for z, t, n, tp in m.EV_ZONE_TYPE_BID_TP:
-            bids.add(n)
-            types.add(t)
-
-    m.Split_EV_Sets = BuildAction(rule=rule)
-    m.EV_BID_NUMS = Set(initialize=lambda m: m.EV_BID_NUMS_set)
-    m.EV_TYPES = Set(initialize=lambda m: m.EV_TYPES_set)
+    m.EV_BID_NUMS = Set(
+        initialize=lambda m: unique_list(n for z, t, n, tp in m.EV_ZONE_TYPE_BID_TP)
+    )
+    m.EV_TYPES = Set(
+        initialize=lambda m: unique_list(t for z, t, n, tp in m.EV_ZONE_TYPE_BID_TP)
+    )
 
     # parameters describing the EV and ICE fleet each year
 

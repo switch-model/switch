@@ -9,7 +9,7 @@ Specifically, this module can differentiate spinning reserve products into regul
 import os
 from collections import defaultdict
 from pyomo.environ import *
-from switch_model.utilities import iteritems
+from switch_model.utilities import iteritems, unique_list
 
 
 dependencies = (
@@ -440,10 +440,10 @@ def define_components(m):
     # and generation projects that can provide reserves
     # note: these are also the indexing sets of the above set arrays; maybe that could be used?
     m.SPINNING_RESERVE_TYPES_FROM_GENS = Set(
-        initialize=lambda m: set(rt for (g, rt) in m.GEN_SPINNING_RESERVE_TYPES)
+        initialize=lambda m: unique_list(rt for (g, rt) in m.GEN_SPINNING_RESERVE_TYPES)
     )
     m.SPINNING_RESERVE_CAPABLE_GENS = Set(
-        initialize=lambda m: set(g for (g, rt) in m.GEN_SPINNING_RESERVE_TYPES)
+        initialize=lambda m: unique_list(g for (g, rt) in m.GEN_SPINNING_RESERVE_TYPES)
     )
 
     # slice GEN_SPINNING_RESERVE_TYPES both ways for later use

@@ -6,6 +6,7 @@ Defines balancing areas for operational reserves.
 """
 import os
 from pyomo.environ import *
+from switch_model.utilities import unique_list
 
 dependencies = "switch_model.timescales", "switch_model.balancing.load_zones"
 
@@ -35,7 +36,7 @@ def define_components(mod):
         mod.LOAD_ZONES, default="system_wide_balancing_area"
     )
     mod.BALANCING_AREAS = Set(
-        initialize=lambda m: set(m.zone_balancing_area[z] for z in m.LOAD_ZONES)
+        initialize=lambda m: unique_list(m.zone_balancing_area[z] for z in m.LOAD_ZONES)
     )
     mod.ZONES_IN_BALANCING_AREA = Set(
         mod.BALANCING_AREAS,
