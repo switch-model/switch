@@ -285,44 +285,27 @@ def reload_prior_solution_from_pickle(instance, pickle_file):
 
 patched_pyomo = False
 def patch_pyomo():
+    # patch Pyomo if needed
     global patched_pyomo
-    if not patched_pyomo:
-        patched_pyomo = True
-        # patch Pyomo if needed
+    if patched_pyomo:
+        return
+    patched_pyomo = True
 
-        # Pyomo 4.2 and 4.3 mistakenly discard the original rule during
-        # Expression.construct. This makes it impossible to reconstruct
-        # expressions (e.g., for iterated models). So we patch it.
-        if (4, 2) <= pyomo.version.version_info[:2] <= (4, 3):
-            # test whether patch is needed:
-            m = ConcreteModel()
-            m.e = Expression(rule=lambda m: 0)
-            if hasattr(m.e, "_init_rule") and m.e._init_rule is None:
-                # add a deprecation warning here when we stop supporting Pyomo 4.2 or 4.3
-                old_construct = pyomo.environ.Expression.construct
-                def new_construct(self, *args, **kwargs):
-                    # save rule, call the function, then restore it
-                    _init_rule = self._init_rule
-                    old_construct(self, *args, **kwargs)
-                    self._init_rule = _init_rule
-                pyomo.environ.Expression.construct = new_construct
-            del m
-
-        # Pyomo 5.1.1 (and maybe others) is very slow to load prior solutions because
-        # it does a full-component search for each component name as it assigns the
-        # data. This ends up taking longer than solving the model. So we micro-
-        # patch pyomo.core.base.PyomoModel.ModelSolutions.add_solution to use
-        # Pyomo's built-in caching system for component names.
-        # TODO: create a pull request for Pyomo to do this
-        # NOTE: space inside the long quotes is significant; must match the Pyomo code
-        old_code = """
+    # Pyomo 5.1.1 (and maybe others) is very slow to load prior solutions
+    # because it does a full-component search for each component name as it
+    # assigns the data. This ends up taking longer than solving the model. So we
+    # micro- patch pyomo.core.base.PyomoModel.ModelSolutions.add_solution to use
+    # Pyomo's built-in caching system for component names.
+    # TODO: create a pull request for Pyomo to do this
+    # NOTE: space inside the long quotes is significant; must match the Pyomo code
+    old_code = """
                     for obj in instance.component_data_objects(Var):
                         cache[obj.name] = obj
                     for obj in instance.component_data_objects(Objective, active=True):
                         cache[obj.name] = obj
                     for obj in instance.component_data_objects(Constraint, active=True):
                         cache[obj.name] = obj"""
-        new_code = """
+    new_code = """
                     # use buffer to avoid full search of component for data object
                     # which introduces a delay that is quadratic in model size
                     buf=dict()
@@ -333,19 +316,20 @@ def patch_pyomo():
                     for obj in instance.component_data_objects(Constraint, active=True):
                         cache[obj.getname(fully_qualified=True, name_buffer=buf)] = obj"""
 
-        from pyomo.core.base.PyomoModel import ModelSolutions
-        add_solution_code = inspect.getsource(ModelSolutions.add_solution)
-        if old_code in add_solution_code:
-            # create and inject a new version of the method
-            add_solution_code = add_solution_code.replace(old_code, new_code)
-            replace_method(ModelSolutions, 'add_solution', add_solution_code)
-        elif pyomo.version.version_info[:2] >= (5, 0):
-            print(
-                "NOTE: The patch to pyomo.core.base.PyomoModel.ModelSolutions.add_solution "
-                "has been deactivated because the Pyomo source code has changed. "
-                "Check whether this patch is still needed and edit {} accordingly."
-                .format(__file__)
-            )
+    from pyomo.core.base.PyomoModel import ModelSolutions
+    add_solution_code = inspect.getsource(ModelSolutions.add_solution)
+    if old_code in add_solution_code:
+        # create and inject a new version of the method
+        add_solution_code = add_solution_code.replace(old_code, new_code)
+        replace_method(ModelSolutions, 'add_solution', add_solution_code)
+    elif pyomo.version.version_info[:2] >= (5, 0):
+        print(
+            "NOTE: The patch to pyomo.core.base.PyomoModel.ModelSolutions.add_solution "
+            "has been deactivated because the Pyomo source code has changed. "
+            "Check whether this patch is still needed and edit {} accordingly."
+            .format(__file__)
+        )
+
 
 def replace_method(class_ref, method_name, new_source_code):
     """
