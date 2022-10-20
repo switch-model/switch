@@ -22,8 +22,12 @@ class UtilitiesTest(unittest.TestCase):
 
     def test_save_inputs_as_dat(self):
         (model, instance) = switch_model.solve.main(
-            args=["--inputs-dir", os.path.join('examples', '3zone_toy', 'inputs')],
-            return_model=True, return_instance=True
+            args=[
+                "--inputs-dir",
+                os.path.join(os.path.dirname(__file__), '..', 'examples', '3zone_toy', 'inputs')
+            ],
+            return_model=True,
+            return_instance=True
         )
         temp_dir = tempfile.mkdtemp(prefix="switch_test_")
         try:
