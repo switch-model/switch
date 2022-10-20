@@ -791,6 +791,7 @@ def warn(message):
     """
     Send warning message to sys.stderr.
     Unlike warnings.warn, this does not add the current line of code to the message.
+    TODO: replace all calls to this with model.logger.warn()
     """
     sys.stderr.write("WARNING: " + message + "\n")
 
@@ -843,6 +844,44 @@ class LogOutput(object):
     the current date and time. Directory will be created if needed, and file
     will have microseconds added to the name if needed to avoid overwriting
     existing any existing file.
+
+    TODO:
+    - make this thread-aware (register and lookup an output stream for this
+      particular thread),
+    - accept model as argument instead of logs_dir and get the file name from
+      model.options or else create a name as shown here
+    - allow nesting (requesting same log file that is already open), so we can
+      wrap the body of solve.main but also wrap solve.solve, solve.presolve,
+      etc., so we can
+    - make sure it appends to existing files rather than replacing
+    - wrap all our API code (solve.main, solve.iterate, solve.solve,
+      model.pre_solve, model.post_solve, model.__init__, etc.) with
+      LogOutput(model) so that all log messages for one model will go to the
+      same file, even if multiple models are processed at the same time in
+      different threads or sequentially in the same thread.
+    - Alternatively, treat logging as app-specific rather than model-specific,
+      so switch solve or switch solve-scenarios identifies the active log file
+      and log level when it first starts, and sticks with that until it exits.
+    - Once all modules use loggers instead of print, it may be possible to have
+      this work by creating file handlers for the root logger, each of which has
+      a filter that only accepts messages if the current thread matches the
+      thread that created that logger (i.e., only accepts messages from the
+      thread that created it). Then the handler is removed when the block
+      finishes.
+
+    Note: Python/pyomo holds logging info on a singleton basis (in the logging module
+    for each pyomo module name), so we either need to
+        (1) patch the logging module to have/lookup different loggers per
+            thread, probably based on thread ID, then wrap our API with a logger
+            configuration (or stdout capture), so every operation on a particular
+            model is wrapped with logger configuration for that model; or
+        (2) treat logging as an application setting (either switch solve or
+            switch solve-scenarios), not a model setting, so we just start
+            logging/capture at startup and continue till the app exits; or
+        (3) like (1) but with locks on our API to prevent multithreading, so we
+            don't have to patch the logging module, just reconfigure the root logger
+            at the start of each function (but this precludes any multithreaded
+            loading/running of Switch models). (preferred)
     """
 
     def __init__(self, logs_dir):
