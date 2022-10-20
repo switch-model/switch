@@ -60,10 +60,6 @@ def main(args=None, return_model=False, return_instance=False):
             pm()
         sys.excepthook = debug
 
-    # Create a unique logger for this model (other models may have different
-    # logging settings and may exist at the same time as this one).
-    logger = make_logger(pre_module_options)
-
     # Write output to a log file if logging option is specified
     # TODO: change all our non-interactive output to report via the logger, then
     # use logger.addHandler(logging.FileHandler(log_file_path)) in make_logger()
@@ -78,17 +74,24 @@ def main(args=None, return_model=False, return_instance=False):
         logs_dir = None # disables logging
 
     with LogOutput(logs_dir):
+        # Create a unique logger for this model (other models may have different
+        # logging settings and may exist at the same time as this one). This has
+        # to be done after we start LogOutput, because the logger gets a
+        # reference to the current sys.stdout, which should be the tee to the
+        # log file.
+        logger = make_logger(pre_module_options)
+
         logger.info("\n=======================================================================")
-        logger.info("Switch {}, http://switch-model.org".format(switch_model.__version__))
+        logger.info("Switch {}, https://switch-model.org".format(switch_model.__version__))
         logger.info("=======================================================================")
 
         # Warn users about deprecated flags; we know this earlier but don't have
         # a working logger to report it until here.
-        if '--verbose' in args or '--quiet' in args:
-            logger.warn(unwrap("""
-                The --verbose and --quiet flags will be removed in a future
-                version of Switch. Please use --log-level instead.
-            """))
+        # if '--verbose' in args or '--quiet' in args:
+        #     logger.warn(unwrap("""
+        #         The --verbose and --quiet flags will be removed in a future
+        #         version of Switch. Please use --log-level instead.
+        #     """))
 
         # Check for outdated inputs. This has to happen before modules.txt is
         # parsed to avoid errors from incompatible files.
@@ -688,16 +691,14 @@ def add_pre_module_args(parser):
         choices = ['error', 'warning', 'info', 'debug'],
         help='Amount of detail to include in on-screen logging and log files. '
              'Default is "warning".')
-    # Deprecated logging flags are retained for now so we can warn users to
-    # change their settings.
+    # Older logging flags are retained for now to avoid disruption. They may be
+    # deprecated later.
     parser.add_argument(
         '--verbose', dest='log_level', action='store_const', const='info',
-        help='Obsolete logging flag; use --log-level info or '
-             '--log-level debug instead.')
+        help='Older logging flag; equivalent to --log-level info')
     parser.add_argument(
         '--quiet', dest='log_level', action='store_const', const='warning',
-        help='Obsolete logging flag; use --log-level warning or '
-             '--log-level error insead.')
+        help='Older logging flag; equivalent to --log-level warning')
 
     parser.add_argument(
         '--debug', action='store_true', default=False,
@@ -930,7 +931,7 @@ def solve(model):
     # Note that checking for results.solver.status in {SolverStatus.ok,
     # SolverStatus.warning} is not enough because with a warning there will
     # sometimes be a solution and sometimes not.
-    
+
     try:
         # pyomo 5.2, maybe earlier or later
         no_solution = (len(model.solutions.solutions) == 0)
@@ -967,6 +968,7 @@ def solve(model):
     if results.solver.status == SolverStatus.warning:
         warn(
             "Solver terminated with warning.\n"
+            + "  Solver Status: {}\n".format(results.solver.status)
             + "  Solution Status: {}\n".format(model.solutions[-1].status)
             + "  Termination Condition: {}".format(results.solver.termination_condition)
         )
