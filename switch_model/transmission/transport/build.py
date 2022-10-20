@@ -12,6 +12,7 @@ import pandas as pd
 from pyomo.environ import *
 
 from switch_model.financials import capital_recovery_factor as crf
+from switch_model.utilities import unique_list
 
 dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
     'switch_model.financials'
@@ -252,18 +253,18 @@ def define_components(mod):
     mod.Cost_Components_Per_Period.append('TxFixedCosts')
 
     def init_DIRECTIONAL_TX(model):
-        tx_dir = set()
+        tx_dir = []
         for tx in model.TRANSMISSION_LINES:
-            tx_dir.add((model.trans_lz1[tx], model.trans_lz2[tx]))
-            tx_dir.add((model.trans_lz2[tx], model.trans_lz1[tx]))
+            tx_dir.append((model.trans_lz1[tx], model.trans_lz2[tx]))
+            tx_dir.append((model.trans_lz2[tx], model.trans_lz1[tx]))
         return tx_dir
     mod.DIRECTIONAL_TX = Set(
         dimen=2,
         initialize=init_DIRECTIONAL_TX)
     mod.TX_CONNECTIONS_TO_ZONE = Set(
         mod.LOAD_ZONES,
-        initialize=lambda m, lz: set(
-            z for z in m.LOAD_ZONES if (z,lz) in m.DIRECTIONAL_TX))
+        initialize=lambda m, lz: [
+            z for z in m.LOAD_ZONES if (z,lz) in m.DIRECTIONAL_TX])
 
     def init_trans_d_line(m, zone_from, zone_to):
         for tx in m.TRANSMISSION_LINES:

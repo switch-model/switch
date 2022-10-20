@@ -29,10 +29,10 @@ def define_components(m):
         filter=lambda m, rfm, per, tier: m.rfm_fuel[rfm].upper() == 'LNG'
     )
     m.LNG_REGIONAL_FUEL_MARKETS = Set(
-        initialize=lambda m: {rfm for rfm, per, tier in m.LNG_RFM_SUPPLY_TIERS}
+        initialize=lambda m: unique_list(rfm for rfm, per, tier in m.LNG_RFM_SUPPLY_TIERS)
     )
     m.LNG_TIERS = Set(
-        initialize=lambda m: {tier for rfm, per, tier in m.LNG_RFM_SUPPLY_TIERS}
+        initialize=lambda m: unique_list(tier for rfm, per, tier in m.LNG_RFM_SUPPLY_TIERS)
     )
 
     # force LNG to be deactivated when RPS is 100%;

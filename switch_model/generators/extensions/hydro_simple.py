@@ -31,10 +31,10 @@ available.
 
 from __future__ import division
 
-import logging
 import os
 
 from pyomo.environ import *
+from switch_model.utilities import unique_list
 
 dependencies = (
     'switch_model.timescales',
@@ -57,7 +57,7 @@ def define_components(mod):
     HYDRO_GEN_TPS is the set of Hydro projects and available
     dispatch points. This is a filtered version of GEN_TPS that
     only includes hydro projects.
-    
+
     hydro_min_flow_mw[(g, ts) in HYDRO_GEN_TS] is a parameter that
     determines minimum flow levels, specified in units of MW dispatch.
 
@@ -86,14 +86,16 @@ def define_components(mod):
         )
     )
     mod.HYDRO_GENS = Set(
-        initialize=lambda m: set(g for (g, ts) in m.HYDRO_GEN_TS_RAW),
+        initialize=lambda m: unique_list(g for (g, ts) in m.HYDRO_GEN_TS_RAW),
         doc="Dispatchable hydro projects")
     mod.HYDRO_GEN_TS = Set(
         dimen=2,
-        initialize=lambda m: set(
+        initialize=lambda m: unique_list(
             (g, m.tp_ts[tp])
-                for g in m.HYDRO_GENS
-                    for tp in m.TPS_FOR_GEN[g]))
+            for g in m.HYDRO_GENS
+            for tp in m.TPS_FOR_GEN[g]
+        )
+    )
     mod.HYDRO_GEN_TPS = Set(
         initialize=mod.GEN_TPS,
         filter=lambda m, g, t: g in m.HYDRO_GENS)
@@ -111,8 +113,7 @@ def define_components(mod):
     # could indicate that the user expects those plants to operate longer
     # than indicated.
     def _warn_on_extra_HYDRO_GEN_TS(m):
-        extra_indexes = set(m.HYDRO_GEN_TS_RAW) - set(m.HYDRO_GEN_TS)
-        num_impacted_generators = len(set([g for g,t in extra_indexes]))
+        extra_indexes = m.HYDRO_GEN_TS_RAW - m.HYDRO_GEN_TS
         extraneous = {g: [] for (g,t) in extra_indexes}
         for (g,t) in extra_indexes:
             extraneous[g].append(t)
@@ -126,13 +127,13 @@ def define_components(mod):
             "could indicate a benign issue where the process that built "
             "the dataset used simplified logic and/or didn't know the "
             "scheduled operating dates. If you expect those datapoints to "
-            "be useful, then those plants need to either come online earlier "
-            ", have longer lifetimes, or have options to build new capacity "
+            "be useful, then those plants need to either come online earlier, "
+            "have longer lifetimes, or have options to build new capacity "
             "when the old capacity reaches the provided end-of-life date."
-            "\n".format(num_impacted_generators))
+            "\n".format(len(extraneous)))
         if extra_indexes:
-            logging.warning(warning_msg)
-            logging.info("Plants with extra timepoints:\n{}".format(pprint))
+            m.logger.warning(warning_msg)
+            m.logger.info("Plants with extra timepoints:\n{}".format(pprint))
         return(True)
     mod.warn_on_extra_HYDRO_GEN_TS = BuildCheck(
         rule=_warn_on_extra_HYDRO_GEN_TS)

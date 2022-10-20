@@ -154,16 +154,16 @@ def define_components(model):
         statically (zone_demand_mw), ignoring the impact of all distributed
         energy resources.
         """
-        peak_timepoint_list = set()
+        peak_timepoint_list = []
         ZONES = [z for (_prr, z) in m.PRR_ZONES if _prr == prr]
         for p in m.PERIODS:
             peak_load = 0.0
             for t in m.TPS_IN_PERIOD[p]:
                 load = sum(m.zone_demand_mw[z, t] for z in ZONES)
-                if load > peak_load:
+                if load >= peak_load:
                     peak_timepoint = t
                     peak_load = load
-            peak_timepoint_list.add(peak_timepoint)
+            peak_timepoint_list.append(peak_timepoint)
         return peak_timepoint_list
     def PRR_TIMEPOINTS_init(m):
         PRR_TIMEPOINTS = []
@@ -221,9 +221,10 @@ def define_components(model):
             for g in m.GENS_IN_ZONE[z]
             if (g, t) in m.GEN_TPS and m.gen_can_provide_cap_reserves[g]
         ]
+        STORAGE_GENS = getattr(m, 'STORAGE_GENS', set())
         for g in GENS:
             # Storage is only credited with its expected output
-            if g in getattr(m, 'STORAGE_GENS', set()):
+            if g in STORAGE_GENS:
                 reserve_cap += m.DispatchGen[g, t] - m.ChargeStorage[g, t]
             # If local_td is included with DER modeling, avoid allocating
             # distributed generation to central grid capacity because it will
@@ -277,7 +278,7 @@ def load_inputs(model, switch_data, inputs_dir):
     """
     Files or columns marked with * are optional. See notes above on default
     values.
-    
+
     reserve_capacity_value.csv*
         GEN, TIMEPOINT, gen_capacity_value
 

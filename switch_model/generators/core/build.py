@@ -9,6 +9,7 @@ import os
 from pyomo.environ import *
 from switch_model.financials import capital_recovery_factor as crf
 from switch_model.reporting import write_table
+from switch_model.utilities import unique_list
 
 dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
     'switch_model.financials', 'switch_model.energy_sources.properties.properties'
@@ -191,7 +192,7 @@ def define_components(mod):
     mod.gen_dbid = Param(mod.GENERATION_PROJECTS, default=lambda m, g: g)
     mod.gen_tech = Param(mod.GENERATION_PROJECTS)
     mod.GENERATION_TECHNOLOGIES = Set(initialize=lambda m:
-        {m.gen_tech[g] for g in m.GENERATION_PROJECTS}
+        unique_list(m.gen_tech[g] for g in m.GENERATION_PROJECTS)
     )
     mod.gen_energy_source = Param(mod.GENERATION_PROJECTS,
         validate=lambda m,val,g: val in m.ENERGY_SOURCES or val == "multiple")
@@ -361,14 +362,14 @@ def define_components(mod):
         mod.GEN_BLD_YRS,
         within=mod.PERIODS,
         ordered=True,
-        initialize=lambda m, g, bld_yr: set(
+        initialize=lambda m, g, bld_yr: [
             period for period in m.PERIODS
-            if gen_build_can_operate_in_period(m, g, bld_yr, period)))
+            if gen_build_can_operate_in_period(m, g, bld_yr, period)])
     # The set of build years that could be online in the given period
     # for the given project.
     mod.BLD_YRS_FOR_GEN_PERIOD = Set(
         mod.GENERATION_PROJECTS, mod.PERIODS,
-        initialize=lambda m, g, period: set(
+        initialize=lambda m, g, period: unique_list(
             bld_yr for (gen, bld_yr) in m.GEN_BLD_YRS
             if gen == g and
                gen_build_can_operate_in_period(m, g, bld_yr, period)))

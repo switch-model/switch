@@ -151,9 +151,9 @@ def define_components(mod):
 
     def period_active_gen_rule(m, period):
         if not hasattr(m, 'period_active_gen_dict'):
-            m.period_active_gen_dict = collections.defaultdict(set)
+            m.period_active_gen_dict = dict()
             for (_g, _period) in m.GEN_PERIODS:
-                m.period_active_gen_dict[_period].add(_g)
+                m.period_active_gen_dict.setdefault(_period, []).append(_g)
         result = m.period_active_gen_dict.pop(period)
         if len(m.period_active_gen_dict) == 0:
             delattr(m, 'period_active_gen_dict')
@@ -176,8 +176,8 @@ def define_components(mod):
             d = m._TPS_FOR_GEN_IN_PERIOD_dict = dict()
             for _gen in m.GENERATION_PROJECTS:
                 for t in m.TPS_FOR_GEN[_gen]:
-                    d.setdefault((_gen, m.tp_period[t]), set()).add(t)
-        result = d.pop((gen, period), set())
+                    d.setdefault((_gen, m.tp_period[t]), []).append(t)
+        result = d.pop((gen, period), [])
         if not d:  # all gone, delete the attribute
             del m._TPS_FOR_GEN_IN_PERIOD_dict
         return result
