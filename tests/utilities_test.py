@@ -58,10 +58,9 @@ class UtilitiesTest(unittest.TestCase):
 
 
     def test_min_data_check(self):
-        from switch_model.utilities import _add_min_data_check
-        from pyomo.environ import AbstractModel, Param, Set
-        mod = AbstractModel()
-        _add_min_data_check(mod)
+        from switch_model.utilities import SwitchAbstractModel
+        from pyomo.environ import Param, Set
+        mod = SwitchAbstractModel(module_list=[])
         mod.set_A = Set(initialize=[1,2])
         mod.paramA_full = Param(mod.set_A, initialize={1:'a',2:'b'})
         mod.paramA_empty = Param(mod.set_A)

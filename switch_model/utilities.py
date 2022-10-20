@@ -40,97 +40,231 @@ def define_AbstractModel(*module_list, **kwargs):
     args = kwargs.get("args", sys.argv[1:])
     return create_model(module_list, args)
 
-def create_model(module_list=None, args=sys.argv[1:], logger=None):
+class SwitchAbstractModel(AbstractModel):
+    """
+    Subclass of standard Pyomo ConcreteModel with methods to implement Switch-
+    specific behavior (initializing via modules, etc.).
+    """
+    def __init__(self, module_list=None, args=sys.argv[1:], logger=None):
+        """
+        Construct a customized Pyomo AbstractModel using the Switch modules or
+        packages in the given list.
+
+        This is implemented as calling the following functions for each module
+        that has them defined:
+
+        define_dynamic_lists(model): Add lists to the model that other modules
+        can register with. Used for power balance equations, cost components of
+        the objective function, etc.
+
+        define_components(model): Add components to the model object
+        (parameters, sets, decisions variables, expressions, and/or
+        constraints). Also register with relevant dynamic_lists.
+
+        define_dynamic_components(model): Add dynamic components to the model
+        that depend on the contents of dyanmics lists. Power balance constraints
+        and the objective function are defined in this manner.
+
+        See financials and balancing.load_zones for examples of dynamic
+        definitions.
+
+        All modules can request access to command line parameters and set their
+        default values for those options. If this codebase is being used more
+        like a library than a stand-alone executable, this behavior can cause
+        problems. For example, running this model with PySP's runph tool will
+        cause errors where a runph argument such as --instance-directory is
+        unknown to the switch modules, so parse_args() generates an error. This
+        behavior can be avoided calling this function with an empty list for
+        args: create_model(module_list, args=[])
+
+        """
+        # do standard Pyomo initialization
+        AbstractModel.__init__(self)
+
+        # Load modules
+        if module_list is None:
+            import switch_model.solve
+            module_list = switch_model.solve.get_module_list(args)
+        self.module_list = module_list
+        for m in module_list:
+            importlib.import_module(m)
+
+        # Each model usually has its own logger, passed in by
+        # switch_model.solve, because users may specify different logging
+        # settings for each model. If not provided, we attach a default logger,
+        # since all modules assume there's one in place.
+        # (This is used to maintain consistent logging level throughout the
+        # model life cycle. In the future it could be used to log different
+        # models to different files. Currently that is handled by redirecting
+        # all output to the right file via a wrapper around any code that may
+        # produce output, to ensure we catch print() calls (deprecated) and
+        # messages from Pyomo and its solver.
+        if logger is None:
+            logger = logging.getLogger("Switch Default Logger")
+        self.logger = logger
+
+        # Define and parse model configuration options
+        argparser = _ArgumentParser(allow_abbrev=False)
+        for module in self.get_modules():
+            if hasattr(module, 'define_arguments'):
+                module.define_arguments(argparser)
+        self.options = argparser.parse_args(args)
+
+        # Apply verbose flag to support code that still uses it (newer code should
+        # use model.logger.isEnabledFor(logging.LEVEL)
+        self.options.verbose = self.logger.isEnabledFor(logging.INFO)
+
+        # Define model components
+        for module in self.get_modules():
+            if hasattr(module, 'define_dynamic_lists'):
+                module.define_dynamic_lists(self)
+        for module in self.get_modules():
+            if hasattr(module, 'define_components'):
+                module.define_components(self)
+        for module in self.get_modules():
+            if hasattr(module, 'define_dynamic_components'):
+                module.define_dynamic_components(self)
+
+
+    def get_modules(self):
+        """ Return a list of loaded module objects for this model. """
+        for m in self.module_list:
+            yield sys.modules[m]
+
+
+    def min_data_check(self, *mandatory_components):
+        """
+        This function checks that an instance of Pyomo abstract model has
+        mandatory components defined. If a user attempts to create an instance
+        without defining all of the necessary data, this will produce fatal
+        errors with clear messages stating specifically what components have
+        missing data.
+
+        Without this check, Switch gives fatal errors if the users forgets to
+        specify data for a component that doesn't have a default value, but the
+        error message is obscure and references the first code that tries to
+        reference the component with missing data.
+
+        BuildCheck's message lists the name of the check that failed, but
+        doesn't provide mechanisms for printing a specific error message. Just
+        printing to screen is easy to miss, so we raise a ValueError with a
+        clear and specific message.
+        """
+        try:
+            self.__num_min_data_checks += 1
+        except AttributeError:
+            self.__num_min_data_checks = 0 # initialize
+        new_data_check_name = "min_data_check_" + str(self.__num_min_data_checks)
+        setattr(
+            self,
+            new_data_check_name,
+            BuildCheck(
+                rule=lambda m: check_mandatory_components(m, *mandatory_components)
+            )
+        )
+
+
+    def load_inputs(self, inputs_dir=None, attach_data_portal=True):
+        """
+        Load input data using the appropriate modules and return a model
+        instance. This is implemented by calling the load_inputs() function of
+        each module, if the module has that function.
+        """
+        if inputs_dir is None:
+            inputs_dir = getattr(self.options, "inputs_dir", "inputs")
+
+        # Load data; add a fancier load function to the data portal
+        timer = StepTimer()
+        data = DataPortal(model=self)
+        data.load_aug = types.MethodType(load_aug, data)
+        for module in self.get_modules():
+            if hasattr(module, 'load_inputs'):
+                module.load_inputs(self, data, inputs_dir)
+        if self.options.verbose:
+            print("Data read in {:.2f} s.\n".format(timer.step_time()))
+
+        if self.logger.isEnabledFor(logging.DEBUG):
+            instance = self.create_instance(data, report_timing=True)
+        # elif self.logger.isEnabledFor(logging.INFO):
+        #     with TimingLineCounter(self):
+        #         instance = self.create_instance(data, report_timing=True)
+        else:
+            instance = self.create_instance(data, report_timing=False)
+
+        if attach_data_portal:
+            instance.DataPortal = data
+
+        if self.options.verbose:
+            print("Instance created from data in {:.2f} s.\n".format(timer.step_time()))
+
+        return instance
+
+
+    def create_instance(*args, **kwargs):
+        """
+        Use standard Pyomo create_instance method, then convert to
+        SwitchConcreteModel
+
+        Pyomo deepcopies the AbstractModel during create_instance and then
+        reassigns its __class__ as ConcreteModel before returning it (with a
+        note that "It is absolutely crazy that this is allowed in Python"). This
+        doesn't give a natural way to use our subclass of ConcreteModel (with
+        pre_solve and post_solve methods). So we just use the same trick again
+        and reassign as SwitchConcreteModel
+        """
+        instance = AbstractModel.create_instance(*args, **kwargs)
+        instance.__class__ = SwitchConcreteModel
+        return instance
+
+
+class SwitchConcreteModel(ConcreteModel):
+    """
+    Subclass of standard Pyomo ConcreteModel with methods to implement Switch-
+    specific behavior (pre_solve, post_solve, has_discrete_variables).
     """
 
-    Construct a Pyomo AbstractModel using the Switch modules or packages
-    in the given list and return the model. The following utility methods
-    are attached to the model as class methods to simplify their use:
-    min_data_check(), load_inputs(), pre_solve(), post_solve().
+    get_modules = SwitchAbstractModel.get_modules
 
-    This is implemented as calling the following functions for each module
-    that has them defined:
+    def has_discrete_variables(model):
+        all_elements = lambda v: v.itervalues() if v.is_indexed() else [v]
+        return any(
+            v.is_binary() or v.is_integer()
+            for variable in model.component_objects(Var, active=True)
+            for v in all_elements(variable)
+        )
 
-    define_dynamic_lists(model): Add lists to the model that other modules can
-    register with. Used for power balance equations, cost components of the
-    objective function, etc.
 
-    define_components(model): Add components to the model object (parameters,
-    sets, decisions variables, expressions, and/or constraints). Also register
-    with relevant dynamic_lists.
+    def pre_solve(self, outputs_dir=None):
+        """
+        Call pre-solve function (if present) in all modules used to compose this
+        model. This method can be used to adjust the instance after it is
+        created and before it is solved.
+        """
+        for module in self.get_modules():
+            if hasattr(module, 'pre_solve'):
+                module.pre_solve(self)
 
-    define_dynamic_components(model): Add dynamic components to the model that
-    depend on the contents of dyanmics lists. Power balance constraints and
-    the objective function are defined in this manner.
 
-    See financials and balancing.load_zones for examples of dynamic definitions.
+    def post_solve(self, outputs_dir=None):
+        """
+        Call post-solve function (if present) in all modules used to compose
+        this model. This method can be used to report or save results from the
+        solved model.
+        """
+        if outputs_dir is None:
+            outputs_dir = getattr(self.options, "outputs_dir", "outputs")
+        if not os.path.exists(outputs_dir):
+            os.makedirs(outputs_dir)
 
-    All modules can request access to command line parameters and set their
-    default values for those options. If this codebase is being used more like
-    a library than a stand-alone executable, this behavior can cause problems.
-    For example, running this model with PySP's runph tool will cause errors
-    where a runph argument such as --instance-directory is unknown to the
-    switch modules, so parse_args() generates an error. This behavior can be
-    avoided calling this function with an empty list for args:
-    create_model(module_list, args=[])
+        for module in self.get_modules():
+            if hasattr(module, 'post_solve'):
+                module.post_solve(self, outputs_dir)
 
+
+def create_model(*args, **kwargs):
+    """ Stub function to implement old functionality, now achieved via subclass.
     """
-    model = AbstractModel()
-
-    # Load modules
-    if module_list is None:
-        import switch_model.solve
-        module_list = switch_model.solve.get_module_list(args)
-    model.module_list = module_list
-    for m in module_list:
-        importlib.import_module(m)
-
-    # Each model usually has its own logger, passed in by switch_model.solve,
-    # because users may specify different logging settings for each model. If
-    # needed, we attach a default logger, since all modules assume there's one
-    # in place.
-    if logger is None:
-        logger = logging.getLogger("Switch Default Logger")
-    model.logger = logger
-
-    # Bind utility functions to the model as class objects
-    # Should we be formally extending their class instead?
-    _add_min_data_check(model)
-    model.has_discrete_variables = types.MethodType(has_discrete_variables, model)
-    model.get_modules = types.MethodType(get_modules, model)
-    model.load_inputs = types.MethodType(load_inputs, model)
-    model.pre_solve = types.MethodType(pre_solve, model)
-    model.post_solve = types.MethodType(post_solve, model)
-
-    # Define and parse model configuration options
-    argparser = _ArgumentParser(allow_abbrev=False)
-    for module in model.get_modules():
-        if hasattr(module, 'define_arguments'):
-            module.define_arguments(argparser)
-    model.options = argparser.parse_args(args)
-
-    # Apply verbose flag to support code that still uses it (newer code should
-    # use model.logger.isEnabledFor(logging.LEVEL)
-    model.options.verbose = logger.isEnabledFor(logging.INFO)
-
-    # Define model components
-    for module in model.get_modules():
-        if hasattr(module, 'define_dynamic_lists'):
-            module.define_dynamic_lists(model)
-    for module in model.get_modules():
-        if hasattr(module, 'define_components'):
-            module.define_components(model)
-    for module in model.get_modules():
-        if hasattr(module, 'define_dynamic_components'):
-            module.define_dynamic_components(model)
-
-    return model
-
-
-def get_modules(model):
-    """ Return a list of loaded module objects for this model. """
-    for m in model.module_list:
-        yield sys.modules[m]
+    return SwitchAbstractModel(*args, **kwargs)
 
 
 def make_iterable(item):
@@ -161,58 +295,6 @@ class StepTimer(object):
         self.start_time = now = time.time()
         return now - last_start
 
-def load_inputs(model, inputs_dir=None, attach_data_portal=True):
-    """
-    Load input data for an AbstractModel using the modules in the given
-    list and return a model instance. This is implemented as calling the
-    load_inputs() function of each module, if the module has that function.
-    """
-    if inputs_dir is None:
-        inputs_dir = getattr(model.options, "inputs_dir", "inputs")
-
-    # Load data; add a fancier load function to the data portal
-    timer = StepTimer()
-    data = DataPortal(model=model)
-    data.load_aug = types.MethodType(load_aug, data)
-    for module in model.get_modules():
-        if hasattr(module, 'load_inputs'):
-            module.load_inputs(model, data, inputs_dir)
-    if model.options.verbose:
-        print("Data read in {:.2f} s.\n".format(timer.step_time()))
-
-    # TODO: if logging level is info rather than debug:
-    # set report_timing to True and capture pyomo output; count lines as they
-    # come (like "1.72 seconds to construct Constraint Enforce_Dispatch_Lower_Limit_Non_Renewable; 54912 indices total")
-    # and report % complete on our standard logger (with backspaces so it only
-    # shows one number at a time). Should be able to infer number of lines that
-    # will come by counting components or counting entries in m._decl_order
-    # (may need to update the count as this goes, because some BuildActions will
-    # add more components to the end of the component list).
-    # instance = model.create_instance(
-    #     data, report_timing=model.logger.isEnabledFor(logging.DEBUG)
-    # )
-    if model.logger.isEnabledFor(logging.DEBUG):
-        instance = model.create_instance(data, report_timing=True)
-    elif model.logger.isEnabledFor(logging.INFO):
-        with TimingLineCounter(model):
-            instance = model.create_instance(data, report_timing=True)
-    else:
-        instance = model.create_instance(data, report_timing=False)
-
-    # use same logger for instance, since otherwise it gets a different,
-    # non-working logger (e.g., post-solve logging fails in Pyomo 5.2 /
-    # Python 3.6.0 due to missing instance.logger.level attribute)
-    instance.logger = model.logger
-
-    # Note: model.create() was replaced by model.create_instance() in Pyomo 4.1
-    # and we require at least Pyomo 4.4.
-
-    if model.options.verbose:
-        print("Instance created from data in {:.2f} s.\n".format(timer.step_time()))
-
-    if attach_data_portal:
-        instance.DataPortal = data
-    return instance
 
 
 def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
@@ -267,32 +349,6 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
                     "Error! Component type {} not recognized for model element '{}'.".
                     format(comp_class, component_name))
 
-def pre_solve(instance, outputs_dir=None):
-    """
-    Call pre-solve function (if present) in all modules used to compose this model.
-    This function can be used to adjust the instance after it is created and before it is solved.
-    """
-    for module in instance.get_modules():
-        if hasattr(module, 'pre_solve'):
-            module.pre_solve(instance)
-
-def post_solve(instance, outputs_dir=None):
-    """
-    Call post-solve function (if present) in all modules used to compose this model.
-    This function can be used to report or save results from the solved model.
-    """
-    if outputs_dir is None:
-        outputs_dir = getattr(instance.options, "outputs_dir", "outputs")
-    if not os.path.exists(outputs_dir):
-        os.makedirs(outputs_dir)
-
-    # TODO: implement a check to call post solve functions only if
-    # solver termination condition is not 'infeasible' or 'unknown'
-    # (the latter may occur when there are problems with licenses, etc)
-
-    for module in instance.get_modules():
-        if hasattr(module, 'post_solve'):
-            module.post_solve(instance, outputs_dir)
 
 def unwrap(message):
     return (
@@ -302,63 +358,8 @@ def unwrap(message):
         .strip()
     )
 
-def min_data_check(model, *mandatory_model_components):
-    """
 
-    This function checks that an instance of Pyomo abstract model has
-    mandatory components defined. If a user attempts to create an
-    instance without defining all of the necessary data, this will
-    produce fatal errors with clear messages stating specifically what
-    components have missing data. This function is attached to an
-    abstract model by the _add_min_data_check() function. See
-    _add_min_data_check() documentation for usage examples.
-
-    Without this check, I would get fatal errors if I forgot to specify data
-    for a component that didn't have a default value, but the error message
-    was obscure and gave me a line number with the first snippet of code
-    that tried to reference the component with missing data. It took me a
-    little bit of time to figure out what was causing that failure, and I'm
-    a skilled programmer. I would like this model to be accessible to non-
-    programmers as well, so I felt it was important to use the BuildCheck
-    Pyomo function to validate data during construction of a model instance.
-
-    I found that BuildCheck's message listed the name of the check that
-    failed, but did not provide mechanisms for printing a specific error
-    message. I tried printing to the screen, but that output tended to be
-    obscured or hidden. I've settled on raising a ValueError for now with a
-    clear and specific message. I could also use logging.error() or related
-    logger methods, and rely on BuildCheck to throw an error, but I've
-    already implemented this, and those other methods don't offer any clear
-    advantages that I can see.
-
-    """
-    model.__num_min_data_checks += 1
-    new_data_check_name = "min_data_check_" + str(model.__num_min_data_checks)
-    setattr(model, new_data_check_name, BuildCheck(
-        rule=lambda m: check_mandatory_components(
-            m, *mandatory_model_components)))
-
-
-def _add_min_data_check(model):
-    """
-    Bind the min_data_check() method to an instance of a Pyomo AbstractModel
-    object if it has not already been added. Also add a counter to keep
-    track of what to name the next check that is added.
-    """
-    if getattr(model, 'min_data_check', None) is None:
-        model.__num_min_data_checks = 0
-        model.min_data_check = types.MethodType(min_data_check, model)
-
-
-def has_discrete_variables(model):
-    all_elements = lambda v: v.itervalues() if v.is_indexed() else [v]
-    return any(
-        v.is_binary() or v.is_integer()
-        for variable in model.component_objects(Var, active=True)
-        for v in all_elements(variable)
-    )
-
-def check_mandatory_components(model, *mandatory_model_components):
+def check_mandatory_components(model, *mandatory_components):
     """
     Checks whether mandatory elements of a Pyomo model are populated,
     and returns a clear error message if they don't exist.
@@ -380,7 +381,7 @@ def check_mandatory_components(model, *mandatory_model_components):
     This does not work with indexed sets.
     """
 
-    for component_name in mandatory_model_components:
+    for component_name in mandatory_components:
         obj = getattr(model, component_name)
         o_class = type(obj).__name__
         if o_class == 'SimpleSet' or o_class == 'OrderedSimpleSet':
@@ -562,8 +563,7 @@ def load_aug(switch_data, optional=False, optional_params=[], **kwargs):
     elif suffix == 'csv':
         separator = ','
     else:
-        raise switch_model.utilities.InputError(
-            'Unrecognized file type for input file {}'.format(path))
+        raise InputError('Unrecognized file type for input file {}'.format(path))
     # TODO: parse this more formally, e.g. using csv module
     headers = headers_line.strip().split(separator)
     # Skip if the file is empty.
