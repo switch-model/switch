@@ -11,6 +11,7 @@ from __future__ import division
 import os
 import csv
 from pyomo.environ import *
+from switch_model.utilities import unique_list
 
 dependencies = (
     "switch_model.timescales",
@@ -218,8 +219,7 @@ def define_components(mod):
         ),
     )
     mod.ZONE_FUELS = Set(
-        dimen=2,
-        initialize=lambda m: set((z, m.rfm_fuel[rfm]) for (z, rfm) in m.ZONE_RFMS),
+        dimen=2, initialize=lambda m: [(z, m.rfm_fuel[rfm]) for (z, rfm) in m.ZONE_RFMS]
     )
 
     def zone_fuel_rfm_init(m, load_zone, fuel):
@@ -234,7 +234,7 @@ def define_components(mod):
     mod.min_data_check("REGIONAL_FUEL_MARKETS", "rfm_fuel", "zone_fuel_rfm")
     mod.ZONES_IN_RFM = Set(
         mod.REGIONAL_FUEL_MARKETS,
-        initialize=lambda m, rfm: set(z for (z, r) in m.ZONE_RFMS if r == rfm),
+        initialize=lambda m, rfm: unique_list(z for (z, r) in m.ZONE_RFMS if r == rfm),
     )
 
     # RFM_SUPPLY_TIERS = [(regional_fuel_market, period, supply_tier_index)...]
@@ -253,9 +253,9 @@ def define_components(mod):
         mod.REGIONAL_FUEL_MARKETS,
         mod.PERIODS,
         dimen=3,
-        initialize=lambda m, rfm, ip: set(
+        initialize=lambda m, rfm, ip: [
             (r, p, st) for (r, p, st) in m.RFM_SUPPLY_TIERS if r == rfm and p == ip
-        ),
+        ],
     )
 
     mod.ConsumeFuelTier = Var(

@@ -346,15 +346,15 @@ def define_components(mod):
     mod.min_data_check("water_node_from", "water_node_to")
     mod.INWARD_WCONS_TO_WNODE = Set(
         mod.WATER_NODES,
-        initialize=lambda m, wn: set(
+        initialize=lambda m, wn: [
             wc for wc in m.WATER_CONNECTIONS if m.water_node_to[wc] == wn
-        ),
+        ],
     )
     mod.OUTWARD_WCONS_FROM_WNODE = Set(
         mod.WATER_NODES,
-        initialize=lambda m, wn: set(
+        initialize=lambda m, wn: [
             wc for wc in m.WATER_CONNECTIONS if m.water_node_from[wc] == wn
-        ),
+        ],
     )
     mod.DispatchWater = Var(
         mod.WCON_TPS,

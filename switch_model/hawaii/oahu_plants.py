@@ -2,6 +2,7 @@
 
 import os
 from pyomo.environ import *
+from switch_model.utilities import unique_list
 
 
 def define_arguments(argparser):
@@ -87,7 +88,9 @@ def kalaeloa(m):
         ),
     )
     m.KALAELOA_ACTIVE_TIMEPOINTS = Set(
-        initialize=lambda m: set(tp for g, tp in m.KALAELOA_MAIN_UNIT_DISPATCH_POINTS)
+        initialize=lambda m: unique_list(
+            tp for g, tp in m.KALAELOA_MAIN_UNIT_DISPATCH_POINTS
+        )
     )
 
     # run kalaeloa at full power or not
@@ -201,7 +204,7 @@ def cogen(m):
     )
 
     m.REFINERY_BIOFUELS = Set(
-        initialize=lambda m: set(
+        initialize=lambda m: unique_list(
             f
             for g in m.REFINERY_GENS
             for f in m.FUELS_FOR_GEN[g]
