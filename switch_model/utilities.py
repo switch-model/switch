@@ -164,6 +164,38 @@ class SwitchAbstractModel(AbstractModel):
         )
 
 
+    def _initialize_component(self, *args, **kwargs):
+        """
+        This method is called to initialize each Pyomo component; we hook onto
+        it to report construction progress
+        """
+        AbstractModel._initialize_component(self, *args, **kwargs)
+
+        try:
+            self.__n_components_constructed = self.__n_components_constructed + 1
+        except AttributeError:
+            self.__n_components_constructed = 1
+
+        try:
+            next_report = self.__next_report_components_construction
+        except:
+            next_report = 0
+
+        fraction_constructed = self.__n_components_constructed / len(self._decl_order)
+
+        # TODO: add code to produce output like this, even if
+        # n_components_to_construct changes between calls
+        # Constructed 10% of components
+        # Constructed 20% of components
+        if fraction_constructed >= next_report:
+            self.logger.info(
+                f"Constructed "
+                f"{self.__n_components_constructed} of {len(self._decl_order)} "
+                f"components ({fraction_constructed:.0%})"
+            )
+            self.__next_report_components_construction = next_report + 0.1
+
+
     def load_inputs(self, inputs_dir=None, attach_data_portal=True):
         """
         Load input data using the appropriate modules and return a model
@@ -185,9 +217,6 @@ class SwitchAbstractModel(AbstractModel):
 
         if self.logger.isEnabledFor(logging.DEBUG):
             instance = self.create_instance(data, report_timing=True)
-        # elif self.logger.isEnabledFor(logging.INFO):
-        #     with TimingLineCounter(self):
-        #         instance = self.create_instance(data, report_timing=True)
         else:
             instance = self.create_instance(data, report_timing=False)
 
@@ -891,86 +920,6 @@ class LogOutput(object):
                 file_path = path('%Y-%m-%d_%H-%M-%S.%f')
         return file_path
 
-class TimingLineCounterStream(object):
-    """
-    Virtual stream that intercepts lines like '0 seconds to construct  Set
-    PERIODS; 1 index total\n' sent from Pyomo to stdout and turns them into a
-    count of constructed components. Designed for use with
-    model.create_instance(report_timing=True)
-    """
-    match_line = re.compile(r'^[ ]*[0-9.]+ seconds to construct .* total\n$')
-
-    def __init__(self, orig_stream, model):
-        self.orig_stream = orig_stream
-        self.model = model
-        self.last_message = ''
-        self.components_completed = 0
-    def __getattr__(self, *args, **kwargs):
-        """
-        Provide orig_stream attributes when attributes are requested for this class.
-        This supports code that assumes sys.stdout is an object with its own
-        methods, etc.
-        """
-        return getattr(self.orig_stream, *args, **kwargs)
-    def write(self, text):
-        if self.last_message and self.orig_stream.isatty():
-                # Remove previous progress message; also overwrite with spaces
-                # in case it's at end of a line. We skip this when not in a
-                # terminal, e.g., in an IPython kernel.
-                self.orig_stream.write(''.join(
-                    c * len(self.last_message) for c in '\b \b'
-                ))
-        if self.match_line.match(text):
-            self.components_completed += 1
-
-            # report on progress
-            # Note: the attached model is the abstract version, not the
-            # instance currently being constructed, so we have no way to know
-            # if components are added or deleted during construction. So we just
-            # use the original component count and update if we overshoot.
-            self.last_message = '{} of {} components constructed{}'.format(
-                self.components_completed,
-                max(self.components_completed, len(self.model._decl_order)),
-                '' if self.orig_stream.isatty() else '\n'
-            )
-        else:
-            # normal text, not a timing report
-            self.orig_stream.write(text)
-        # write the current message (possibly repeating below some normal text)
-        self.orig_stream.write(self.last_message)
-
-        return len(text)
-
-class TimingLineCounter(object):
-    """
-    Intercept lines like '0 seconds to construct Set PERIODS; 1 index total'
-    sent to stdout and turn them into a percentage count, relative to size of
-    the passed model. Designed for use with model.create_instance(report_timing=True)
-    """
-    def __init__(self, model):
-        self.model = model
-    def __enter__(self):
-        self.stdout = sys.stdout
-        sys.stdout = TimingLineCounterStream(sys.stdout, self.model)
-    def __exit__(self, type, value, traceback):
-        if getattr(sys.stdout, 'last_message', ''):
-            # add newline after last status message
-            sys.stdout.last_message = ''
-            print("")
-        sys.stdout = self.stdout
-
-# test_model = lambda: None
-# test_model._decl_order = [1, 2, 3]
-# lines = """Hello world!
-#         0.01 seconds to construct Constraint Force_LNG_Tier; 260 indices total
-# Blocking activation of tier ('Hawaii_LNG', 2045, 'container_25').
-#         0.19 seconds to construct Set LNG_GEN_TIMEPOINTS; 1 index total
-# Here's another message!
-#         0.19 seconds to construct Set LNG_GEN_TIMEPOINTS; 1 index total"""
-# with CountTimingLines(test_model):
-#     for line in lines.split('\n'):
-#         print(line)
-#         time.sleep(0.5)
 
 def iteritems(obj):
     """ Iterator of key, value pairs for obj;
