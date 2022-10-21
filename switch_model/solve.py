@@ -92,13 +92,13 @@ def main(args=None, return_model=False, return_instance=False):
         logger = make_logger(pre_module_options)
 
         logger.info(
-            "\n======================================================================="
-        )
-        logger.info(
-            "Switch {}, https://switch-model.org".format(switch_model.__version__)
-        )
-        logger.info(
-            "======================================================================="
+            textwrap.dedent(
+                f"""
+                =======================================================================
+                Switch {switch_model.__version__}, https://switch-model.org
+                =======================================================================
+                """
+            )
         )
 
         # Warn users about deprecated flags; we know this earlier but don't have
@@ -123,11 +123,11 @@ def main(args=None, return_model=False, return_instance=False):
                 print(
                     unwrap(
                         """
-                    Limited help is available because the inputs directory
-                    needs to be upgraded. Module-specific help will be
-                    available after upgrading the inputs directory via "switch
-                    solve" or "switch upgrade".
-                """
+                        Limited help is available because the inputs directory
+                        needs to be upgraded. Module-specific help will be
+                        available after upgrading the inputs directory via "switch
+                        solve" or "switch upgrade".
+                        """
                     )
                 )
                 parser.print_help()
@@ -190,7 +190,7 @@ def main(args=None, return_model=False, return_instance=False):
 
         if model.options.verbose:
             print(
-                "\n======================================================================="
+                "======================================================================="
             )
             print("Arguments:")
             print(
@@ -214,11 +214,7 @@ def main(args=None, return_model=False, return_instance=False):
 
         instance.pre_solve()
         if instance.options.verbose:
-            print(
-                "Total time spent constructing model: {:.2f} s.\n".format(
-                    timer.step_time()
-                )
-            )
+            print(f"Total time spent constructing model: {timer.step_time():.2f} s.\n")
 
         # return the instance as-is if requested
         if return_instance:

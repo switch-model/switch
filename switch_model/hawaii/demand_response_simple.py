@@ -23,13 +23,6 @@ def define_arguments(argparser):
         "Specify 'none' to disable. Default is 'spinning' if an operating reserve module is used, "
         "otherwise it is 'none'.",
     )
-    argparser.add_argument(
-        "--demand-response-reserve-types",
-        nargs="+",
-        default=["spinning"],
-        help="Type(s) of reserves to provide from demand response (e.g., 'contingency' or 'regulation'). "
-        "Specify 'none' to disable.",
-    )
 
 
 def define_components(m):

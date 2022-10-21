@@ -199,6 +199,10 @@ def define_components(mod):
     mod.GENERATION_TECHNOLOGIES = Set(
         initialize=lambda m: unique_list(m.gen_tech[g] for g in m.GENERATION_PROJECTS)
     )
+    mod.gen_energy_source = Param(
+        mod.GENERATION_PROJECTS,
+        validate=lambda m, val, g: val in m.ENERGY_SOURCES or val == "multiple",
+    )
     mod.gen_load_zone = Param(mod.GENERATION_PROJECTS, within=mod.LOAD_ZONES)
     mod.gen_max_age = Param(mod.GENERATION_PROJECTS, within=PositiveIntegers)
     mod.gen_is_variable = Param(mod.GENERATION_PROJECTS, within=Boolean)

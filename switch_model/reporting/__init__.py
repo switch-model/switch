@@ -72,15 +72,6 @@ def define_arguments(argparser):
         action="extend",
         help="List of expressions to save in addition to variables; can also be 'all' or 'none'.",
     )
-    argparser.add_argument(
-        "--save-expressions",
-        "--save-expression",
-        dest="save_expressions",
-        nargs="+",
-        default=[],
-        action="extend",
-        help="List of expressions to save in addition to variables; can also be 'all' or 'none'.",
-    )
 
 
 def write_table(instance, *indexes, **kwargs):
