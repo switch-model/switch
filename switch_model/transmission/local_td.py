@@ -16,8 +16,12 @@ import os
 import pandas as pd
 from pyomo.environ import *
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
-    'switch_model.financials'
+dependencies = (
+    "switch_model.timescales",
+    "switch_model.balancing.load_zones",
+    "switch_model.financials",
+)
+
 
 def define_dynamic_lists(mod):
     """
@@ -126,65 +130,63 @@ def define_components(mod):
     """
 
     # Local T&D
-    mod.existing_local_td = Param(
-        mod.LOAD_ZONES,
-        within=NonNegativeReals,
-        default=0.0
-    )
+    mod.existing_local_td = Param(mod.LOAD_ZONES, within=NonNegativeReals, default=0.0)
 
-    mod.BuildLocalTD = Var(
-        mod.LOAD_ZONES, mod.PERIODS,
-        within=NonNegativeReals)
+    mod.BuildLocalTD = Var(mod.LOAD_ZONES, mod.PERIODS, within=NonNegativeReals)
     mod.LocalTDCapacity = Expression(
-        mod.LOAD_ZONES, mod.PERIODS,
-        rule=lambda m, z, period:
-            m.existing_local_td[z]
-            + sum(
-                m.BuildLocalTD[z, bld_yr]
-                for bld_yr in m.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD[period]
-        )
+        mod.LOAD_ZONES,
+        mod.PERIODS,
+        rule=lambda m, z, period: m.existing_local_td[z]
+        + sum(
+            m.BuildLocalTD[z, bld_yr]
+            for bld_yr in m.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD[period]
+        ),
     )
     mod.distribution_loss_rate = Param(default=0.053)
 
     mod.Meet_Local_TD = Constraint(
         mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS,
-        rule=lambda m, z, period:
-            m.LocalTDCapacity[z, period] * (1-m.distribution_loss_rate)
-            >=
-            m.zone_expected_coincident_peak_demand[z, period]
+        rule=lambda m, z, period: m.LocalTDCapacity[z, period]
+        * (1 - m.distribution_loss_rate)
+        >= m.zone_expected_coincident_peak_demand[z, period],
     )
     mod.local_td_annual_cost_per_mw = Param(
         mod.LOAD_ZONES,
         within=NonNegativeReals,
         default=0.0,
     )
-    mod.min_data_check('local_td_annual_cost_per_mw')
+    mod.min_data_check("local_td_annual_cost_per_mw")
     mod.LocalTDFixedCosts = Expression(
         mod.PERIODS,
         doc="Summarize annual local T&D costs for the objective function.",
         rule=lambda m, p: sum(
             m.LocalTDCapacity[z, p] * m.local_td_annual_cost_per_mw[z]
-            for z in m.LOAD_ZONES))
-    mod.Cost_Components_Per_Period.append('LocalTDFixedCosts')
-
+            for z in m.LOAD_ZONES
+        ),
+    )
+    mod.Cost_Components_Per_Period.append("LocalTDFixedCosts")
 
     # DISTRIBUTED NODE
     mod.WithdrawFromCentralGrid = Var(
         mod.ZONE_TIMEPOINTS,
         within=NonNegativeReals,
-        doc="Power withdrawn from a zone's central node sent over local T&D.")
+        doc="Power withdrawn from a zone's central node sent over local T&D.",
+    )
     mod.Enforce_Local_TD_Capacity_Limit = Constraint(
         mod.ZONE_TIMEPOINTS,
-        rule=lambda m, z, t:
-            m.WithdrawFromCentralGrid[z,t] <= m.LocalTDCapacity[z,m.tp_period[t]])
+        rule=lambda m, z, t: m.WithdrawFromCentralGrid[z, t]
+        <= m.LocalTDCapacity[z, m.tp_period[t]],
+    )
     mod.InjectIntoDistributedGrid = Expression(
         mod.ZONE_TIMEPOINTS,
         doc="Describes WithdrawFromCentralGrid after line losses.",
-        rule=lambda m, z, t: m.WithdrawFromCentralGrid[z,t] * (1-m.distribution_loss_rate))
+        rule=lambda m, z, t: m.WithdrawFromCentralGrid[z, t]
+        * (1 - m.distribution_loss_rate),
+    )
 
     # Register energy injections & withdrawals
-    mod.Zone_Power_Withdrawals.append('WithdrawFromCentralGrid')
-    mod.Distributed_Power_Injections.append('InjectIntoDistributedGrid')
+    mod.Zone_Power_Withdrawals.append("WithdrawFromCentralGrid")
+    mod.Distributed_Power_Injections.append("InjectIntoDistributedGrid")
 
 
 def define_dynamic_components(mod):
@@ -208,9 +210,13 @@ def define_dynamic_components(mod):
             sum(
                 getattr(m, component)[z, t]
                 for component in m.Distributed_Power_Injections
-            ) == sum(
+            )
+            == sum(
                 getattr(m, component)[z, t]
-                for component in m.Distributed_Power_Withdrawals)))
+                for component in m.Distributed_Power_Withdrawals
+            )
+        ),
+    )
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -234,14 +240,16 @@ def load_inputs(mod, switch_data, inputs_dir):
     """
 
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'load_zones.csv'),
-        param=(mod.existing_local_td, mod.local_td_annual_cost_per_mw))
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'trans_params.csv'),
-        optional=True,
-        optional_params=['distribution_loss_rate'],
-        param=[mod.distribution_loss_rate]
+        filename=os.path.join(inputs_dir, "load_zones.csv"),
+        param=(mod.existing_local_td, mod.local_td_annual_cost_per_mw),
     )
+    switch_data.load_aug(
+        filename=os.path.join(inputs_dir, "trans_params.csv"),
+        optional=True,
+        optional_params=["distribution_loss_rate"],
+        param=[mod.distribution_loss_rate],
+    )
+
 
 def post_solve(instance, outdir):
     """
@@ -259,7 +267,7 @@ def post_solve(instance, outdir):
 
     """
     wide_dat = []
-    for z,t in instance.ZONE_TIMEPOINTS:
+    for z, t in instance.ZONE_TIMEPOINTS:
         record = {"load_zone": z, "timestamp": t}
         for component in instance.Distributed_Power_Injections:
             record[component] = value(getattr(instance, component)[z, t])
@@ -271,14 +279,14 @@ def post_solve(instance, outdir):
     wide_df.to_csv(os.path.join(outdir, "local_td_energy_balance_wide.csv"))
 
     normalized_dat = []
-    for z,t in instance.ZONE_TIMEPOINTS:
+    for z, t in instance.ZONE_TIMEPOINTS:
         for component in instance.Distributed_Power_Injections:
             record = {
                 "load_zone": z,
                 "timestamp": t,
                 "component": component,
                 "injects_or_withdraws": "injects",
-                "value": value(getattr(instance, component)[z, t])
+                "value": value(getattr(instance, component)[z, t]),
             }
             normalized_dat.append(record)
         for component in instance.Distributed_Power_Withdrawals:
@@ -287,7 +295,7 @@ def post_solve(instance, outdir):
                 "timestamp": t,
                 "component": component,
                 "injects_or_withdraws": "withdraws",
-                "value": value(-1.0 * getattr(instance, component)[z, t])
+                "value": value(-1.0 * getattr(instance, component)[z, t]),
             }
             normalized_dat.append(record)
     df = pd.DataFrame(normalized_dat)

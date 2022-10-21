@@ -12,8 +12,8 @@ import switch_model.solve
 from pyomo.environ import DataPortal
 from testfixtures import compare
 
-class UtilitiesTest(unittest.TestCase):
 
+class UtilitiesTest(unittest.TestCase):
     def test_approx_equal(self):
         assert not utilities.approx_equal(1, 2)
         assert not utilities.approx_equal(1, 1.02)
@@ -24,10 +24,12 @@ class UtilitiesTest(unittest.TestCase):
         (model, instance) = switch_model.solve.main(
             args=[
                 "--inputs-dir",
-                os.path.join(os.path.dirname(__file__), '..', 'examples', '3zone_toy', 'inputs')
+                os.path.join(
+                    os.path.dirname(__file__), "..", "examples", "3zone_toy", "inputs"
+                ),
             ],
             return_model=True,
-            return_instance=True
+            return_instance=True,
         )
         temp_dir = tempfile.mkdtemp(prefix="switch_test_")
         try:
@@ -42,37 +44,38 @@ class UtilitiesTest(unittest.TestCase):
     def test_check_mandatory_components(self):
         from pyomo.environ import ConcreteModel, Param, Set
         from switch_model.utilities import check_mandatory_components
+
         mod = ConcreteModel()
-        mod.set_A = Set(initialize=[1,2])
-        mod.paramA_full = Param(mod.set_A, initialize={1:'a',2:'b'})
+        mod.set_A = Set(initialize=[1, 2])
+        mod.paramA_full = Param(mod.set_A, initialize={1: "a", 2: "b"})
         mod.paramA_empty = Param(mod.set_A)
         mod.set_B = Set()
         mod.paramB_empty = Param(mod.set_B)
         mod.paramC = Param(initialize=1)
         mod.paramD = Param()
-        check_mandatory_components(mod, 'set_A', 'paramA_full')
-        check_mandatory_components(mod, 'paramB_empty')
-        check_mandatory_components(mod, 'paramC')
+        check_mandatory_components(mod, "set_A", "paramA_full")
+        check_mandatory_components(mod, "paramB_empty")
+        check_mandatory_components(mod, "paramC")
         with self.assertRaises(ValueError):
-            check_mandatory_components(mod, 'set_A', 'paramA_empty')
+            check_mandatory_components(mod, "set_A", "paramA_empty")
         with self.assertRaises(ValueError):
-            check_mandatory_components(mod, 'set_A', 'set_B')
+            check_mandatory_components(mod, "set_A", "set_B")
         with self.assertRaises(ValueError):
-            check_mandatory_components(mod, 'paramC', 'paramD')
-
+            check_mandatory_components(mod, "paramC", "paramD")
 
     def test_min_data_check(self):
         from switch_model.utilities import SwitchAbstractModel
         from pyomo.environ import Param, Set
+
         mod = SwitchAbstractModel(module_list=[], args=[])
-        mod.set_A = Set(initialize=[1,2])
-        mod.paramA_full = Param(mod.set_A, initialize={1:'a',2:'b'})
+        mod.set_A = Set(initialize=[1, 2])
+        mod.paramA_full = Param(mod.set_A, initialize={1: "a", 2: "b"})
         mod.paramA_empty = Param(mod.set_A)
-        mod.min_data_check('set_A', 'paramA_full')
+        mod.min_data_check("set_A", "paramA_full")
         self.assertIsNotNone(mod.create_instance())
-        mod.min_data_check('set_A', 'paramA_empty')
+        mod.min_data_check("set_A", "paramA_empty")
         # Fiddle with the pyomo logger to suppress its error message
-        logger = logging.getLogger('pyomo.core')
+        logger = logging.getLogger("pyomo.core")
         orig_log_level = logger.level
         logger.setLevel(logging.FATAL)
         with self.assertRaises(ValueError):
@@ -80,5 +83,5 @@ class UtilitiesTest(unittest.TestCase):
         logger.setLevel(orig_log_level)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

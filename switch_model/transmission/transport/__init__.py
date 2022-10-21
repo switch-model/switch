@@ -9,5 +9,6 @@ The core modules in the package are build and dispatch.
 
 """
 core_modules = [
-    'switch_model.transmission.transport.build',
-    'switch_model.transmission.transport.dispatch']
+    "switch_model.transmission.transport.build",
+    "switch_model.transmission.transport.dispatch",
+]

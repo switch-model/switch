@@ -11,8 +11,9 @@ Changes are:
 import os
 import switch_model.upgrade
 
-upgrades_from = '2.0.0b1'
-upgrades_to = '2.0.0b2'
+upgrades_from = "2.0.0b1"
+upgrades_to = "2.0.0b2"
+
 
 def upgrade_input_dir(inputs_dir):
     """
@@ -21,14 +22,15 @@ def upgrade_input_dir(inputs_dir):
     """
     # Find modules.txt; it should be either in the inputs directory or in its
     # parent directory.
-    modules_path = os.path.join(inputs_dir, 'modules.txt')
+    modules_path = os.path.join(inputs_dir, "modules.txt")
     if not os.path.isfile(modules_path):
-        modules_path = os.path.join(inputs_dir, '..', 'modules.txt')
+        modules_path = os.path.join(inputs_dir, "..", "modules.txt")
     if not os.path.isfile(modules_path):
         raise RuntimeError(
             "Unable to find modules or modules.txt file for input directory '{}'. "
-            "This file should be located in the input directory or its parent."
-            .format(inputs_dir)
+            "This file should be located in the input directory or its parent.".format(
+                inputs_dir
+            )
         )
 
     # Replace switch_mod with switch_model in modules.txt
@@ -41,13 +43,14 @@ def upgrade_input_dir(inputs_dir):
     with open(modules_path) as f:
         module_list = [line.strip() for line in f.read().splitlines()]
         final_module_list = [
-            'switch_model' + line[10:] if line.startswith('switch_mod.') or line == 'switch_mod'
+            "switch_model" + line[10:]
+            if line.startswith("switch_mod.") or line == "switch_mod"
             else line
             for line in module_list
         ]
 
-    with open(modules_path, 'w') as f:
-       for module in final_module_list:
+    with open(modules_path, "w") as f:
+        for module in final_module_list:
             f.write(module + "\n")
 
     # Write a new version text file.

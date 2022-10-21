@@ -36,11 +36,15 @@ cmd_line_args = sys.argv[1:]
 # Other command-line arguments will be passed through to solve.py via
 # scenario_cmd_line_args
 parser = _ArgumentParser(
-    allow_abbrev=False, description='Solve one or more Switch scenarios.'
+    allow_abbrev=False, description="Solve one or more Switch scenarios."
 )
 parser.add_argument(
-    '--scenario', '--scenarios', nargs='+', dest='scenarios',
-    default=[], action='extend'
+    "--scenario",
+    "--scenarios",
+    nargs="+",
+    dest="scenarios",
+    default=[],
+    action="extend",
 )
 parser.add_argument("--scenario-list", default="scenarios.txt")
 parser.add_argument("--scenario-queue", default="scenario_queue")
@@ -48,15 +52,17 @@ parser.add_argument("--job-id", default=None)
 
 # import pdb; pdb.set_trace()
 # get a namespace object with successfully parsed scenario manager arguments
-scenario_manager_args = parser.parse_known_args(args=option_file_args + cmd_line_args)[0]
+scenario_manager_args = parser.parse_known_args(args=option_file_args + cmd_line_args)[
+    0
+]
 # get lists of other arguments to pass through to standard solve routine
 scenario_option_file_args = parser.parse_known_args(args=option_file_args)[1]
 scenario_cmd_line_args = parser.parse_known_args(args=cmd_line_args)[1]
 
 # create a logger for this module's output based on default arguments
-logger = solve.make_logger(solve.parse_pre_module_options(
-    scenario_option_file_args + scenario_cmd_line_args
-))
+logger = solve.make_logger(
+    solve.parse_pre_module_options(scenario_option_file_args + scenario_cmd_line_args)
+)
 
 requested_scenarios = scenario_manager_args.scenarios
 scenario_list_file = scenario_manager_args.scenario_list
@@ -77,11 +83,11 @@ scenario_queue_dir = scenario_manager_args.scenario_queue
 # If a job id is not specified, interrupted jobs will not be restarted.
 job_id = scenario_manager_args.job_id
 if job_id is None:
-    job_id = os.environ.get('SWITCH_JOB_ID')
+    job_id = os.environ.get("SWITCH_JOB_ID")
 if job_id is None:
     # this cannot be running in parallel with another task with the same pid on
     # the same host, so it's safe to requeue any jobs with this id
-    job_id = socket.gethostname() + '_' + str(os.getpid())
+    job_id = socket.gethostname() + "_" + str(os.getpid())
 
 # TODO: other options for requeueing jobs:
 # - use file locks on lockfiles: lock a
@@ -132,12 +138,13 @@ if job_id is None:
 # the DB), so users can restart scenarios by deleting the 'done' file.
 # But this requires synchronized clocks across workers...
 
-running_scenarios_file = os.path.join(scenario_queue_dir, job_id+"_running.txt")
+running_scenarios_file = os.path.join(scenario_queue_dir, job_id + "_running.txt")
 
 # list of scenarios currently being run by this job (always just one with the current code)
 running_scenarios = []
 
-#import pdb; pdb.set_trace()
+# import pdb; pdb.set_trace()
+
 
 def main(args=None):
     # make sure the scenario_queue_dir exists (marginally better to do this once
@@ -145,7 +152,7 @@ def main(args=None):
     try:
         os.makedirs(scenario_queue_dir)
     except OSError:
-        pass    # directory probably exists already
+        pass  # directory probably exists already
 
     # remove lock directories for any scenarios that were
     # previously being solved by this job but were interrupted
@@ -177,6 +184,7 @@ def main(args=None):
 
         mark_completed(scenario_name)
 
+
 def scenarios_to_run():
     """Generator function which returns argument lists for each scenario that should be run.
 
@@ -193,13 +201,17 @@ def scenarios_to_run():
         # just run them in the order specified, with no queue-management
         for scenario_name in requested_scenarios:
             completed = False
-            scenario_args = scenario_option_file_args + get_scenario_dict()[scenario_name] + scenario_cmd_line_args
+            scenario_args = (
+                scenario_option_file_args
+                + get_scenario_dict()[scenario_name]
+                + scenario_cmd_line_args
+            )
             # flag the scenario as being run; then run it whether or not it was previously run
             checkout(scenario_name, force=True)
             yield (scenario_name, scenario_args)
         # no more scenarios to run
         return
-    else:   # no specific scenarios requested
+    else:  # no specific scenarios requested
         # Run every scenario in the list, with queue management
         # This is done by repeatedly scanning the scenario list and choosing
         # the first scenario that hasn't been run. This way, users can edit the
@@ -212,7 +224,9 @@ def scenarios_to_run():
             # This list is found by retrieving the names of the lock-directories.
             already_run = {f for f in os.listdir(".") if os.path.isdir(f)}
             for scenario_name, base_args in get_scenario_dict().items():
-                scenario_args = scenario_option_file_args + base_args + scenario_cmd_line_args
+                scenario_args = (
+                    scenario_option_file_args + base_args + scenario_cmd_line_args
+                )
                 if scenario_name not in already_run and checkout(scenario_name):
                     # run this scenario, then start again at the top of the list
                     ran.append(scenario_name)
@@ -222,15 +236,20 @@ def scenarios_to_run():
                 else:
                     if scenario_name not in skipped and scenario_name not in ran:
                         skipped.append(scenario_name)
-                        logger.info("Skipping {} because it was already run.".format(scenario_name))
+                        logger.info(
+                            "Skipping {} because it was already run.".format(
+                                scenario_name
+                            )
+                        )
                 # move on to the next candidate
         # no more scenarios to run
         if skipped and not ran:
             logger.warn(
                 "Skipping all scenarios because they have already been solved. "
                 "If you would like to run these scenarios again, "
-                "please remove the {sq} directory or its contents. (rm -rf {sq})"
-                .format(sq=scenario_queue_dir)
+                "please remove the {sq} directory or its contents. (rm -rf {sq})".format(
+                    sq=scenario_queue_dir
+                )
             )
         return
 
@@ -243,13 +262,15 @@ def parse_arg(arg, args=sys.argv[1:], **parse_kw):
     # (They have no reason to set the destination anyway.)
     # note: we use the term "option" so that parsing errors will make a little more
     # sense, e.g., if users call with "--suffixes <blank>" (instead of just omitting it)
-    parse_kw["dest"]="option"
+    parse_kw["dest"] = "option"
     parser.add_argument(arg, **parse_kw)
     return parser.parse_known_args(args)[0].option
+
 
 def get_scenario_name(scenario_args):
     # use ad-hoc parsing to extract the scenario name from a scenario-definition string
     return parse_arg("--scenario-name", default=None, args=scenario_args)
+
 
 def last_index(lst, val):
     try:
@@ -257,18 +278,18 @@ def last_index(lst, val):
     except ValueError:
         return -1
 
+
 def get_scenario_dict():
     # note: we read the list from the disk each time so that we get a fresher
     # version if the standard list is changed during a long solution effort.
     # This ignores comments in the scenario list (possibly starting mid-line),
     # just like switch solve does in options.txt.
-    with open(scenario_list_file, 'r') as f:
-        scenario_list = [
-            shlex.split(r, comments=True) for r in f.read().splitlines()
-        ]
+    with open(scenario_list_file, "r") as f:
+        scenario_list = [shlex.split(r, comments=True) for r in f.read().splitlines()]
     # drop any empty lines
     scenario_list = [s for s in scenario_list if s]
     return OrderedDict((get_scenario_name(s), s) for s in scenario_list)
+
 
 def checkout(scenario_name, force=False):
     # write a flag that we are solving this scenario, before actually trying to lock it
@@ -283,7 +304,7 @@ def checkout(scenario_name, force=False):
         os.mkdir(os.path.join(scenario_queue_dir, scenario_name))
         locked = True
     except OSError as e:
-        if e.errno != 17:     # File exists
+        if e.errno != 17:  # File exists
             raise
         locked = False
     if locked or force:
@@ -294,12 +315,14 @@ def checkout(scenario_name, force=False):
         write_running_scenarios_file()
         return False
 
+
 def mark_completed(scenario_name):
     # remove the scenario from the list of running scenarios (since it's been completed now)
     running_scenarios.remove(scenario_name)
     write_running_scenarios_file()
     # note: the scenario lock directory is left in place so the scenario won't get checked
     # out again
+
 
 def write_running_scenarios_file():
     # write the list of scenarios currently being run by this job to disk
@@ -313,15 +336,16 @@ def write_running_scenarios_file():
         # done that actually haven't.)
         flags = "r+" if os.path.exists(running_scenarios_file) else "w"
         with open(running_scenarios_file, flags) as f:
-            f.write("\n".join(running_scenarios)+"\n")
+            f.write("\n".join(running_scenarios) + "\n")
             f.truncate()
     else:
         # remove the running_scenarios_file entirely if it would be empty
         try:
             os.remove(running_scenarios_file)
         except OSError as e:
-            if e.errno != 2:    # no such file
+            if e.errno != 2:  # no such file
                 raise
+
 
 def unlock_running_scenarios():
     # called during startup to remove lockfiles for any scenarios that were still running
@@ -333,8 +357,9 @@ def unlock_running_scenarios():
             try:
                 os.rmdir(os.path.join(scenario_queue_dir, scenario_name))
             except OSError as e:
-                if e.errno != 2:    # no such file
+                if e.errno != 2:  # no such file
                     raise
+
 
 # run the main function if called as a script
 if __name__ == "__main__":

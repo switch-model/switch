@@ -11,9 +11,15 @@ from pyomo.environ import *
 import os, collections
 from switch_model.financials import capital_recovery_factor as crf
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
-    'switch_model.financials', 'switch_model.energy_sources.properties', \
-    'switch_model.generators.core.build', 'switch_model.generators.core.dispatch'
+dependencies = (
+    "switch_model.timescales",
+    "switch_model.balancing.load_zones",
+    "switch_model.financials",
+    "switch_model.energy_sources.properties",
+    "switch_model.generators.core.build",
+    "switch_model.generators.core.dispatch",
+)
+
 
 def define_components(mod):
     """
@@ -106,67 +112,69 @@ def define_components(mod):
     mod.STORAGE_GENS = Set(within=mod.GENERATION_PROJECTS)
     mod.STORAGE_GEN_PERIODS = Set(
         within=mod.GEN_PERIODS,
-        initialize=lambda m: [(g, p) for g in m.STORAGE_GENS for p in m.PERIODS_FOR_GEN[g]]
+        initialize=lambda m: [
+            (g, p) for g in m.STORAGE_GENS for p in m.PERIODS_FOR_GEN[g]
+        ],
     )
-    mod.gen_storage_efficiency = Param(
-        mod.STORAGE_GENS,
-        within=PercentFraction)
+    mod.gen_storage_efficiency = Param(mod.STORAGE_GENS, within=PercentFraction)
     # TODO: rename to gen_charge_to_discharge_ratio?
     mod.gen_store_to_release_ratio = Param(
-        mod.STORAGE_GENS,
-        within=NonNegativeReals,
-        default=1.0)
+        mod.STORAGE_GENS, within=NonNegativeReals, default=1.0
+    )
     mod.gen_storage_energy_to_power_ratio = Param(
-        mod.STORAGE_GENS,
-        within=NonNegativeReals,
-        default=float("inf")) # inf is a flag that no value is specified (nan and None don't work)
+        mod.STORAGE_GENS, within=NonNegativeReals, default=float("inf")
+    )  # inf is a flag that no value is specified (nan and None don't work)
     mod.gen_storage_max_cycles_per_year = Param(
-        mod.STORAGE_GENS,
-        within=NonNegativeReals,
-        default=float('inf'))
+        mod.STORAGE_GENS, within=NonNegativeReals, default=float("inf")
+    )
 
     # TODO: build this set up instead of filtering down, to improve performance
     mod.STORAGE_GEN_BLD_YRS = Set(
         dimen=2,
         initialize=mod.GEN_BLD_YRS,
-        filter=lambda m, g, bld_yr: g in m.STORAGE_GENS)
+        filter=lambda m, g, bld_yr: g in m.STORAGE_GENS,
+    )
     mod.gen_storage_energy_overnight_cost = Param(
-        mod.STORAGE_GEN_BLD_YRS,
-        within=NonNegativeReals)
-    mod.min_data_check('gen_storage_energy_overnight_cost')
+        mod.STORAGE_GEN_BLD_YRS, within=NonNegativeReals
+    )
+    mod.min_data_check("gen_storage_energy_overnight_cost")
     mod.gen_predetermined_storage_energy_mwh = Param(
-        mod.PREDETERMINED_GEN_BLD_YRS,
-        within=NonNegativeReals)
+        mod.PREDETERMINED_GEN_BLD_YRS, within=NonNegativeReals
+    )
+
     def bounds_BuildStorageEnergy(m, g, bld_yr):
-        if((g, bld_yr) in m.gen_predetermined_storage_energy_mwh):
-            return (m.gen_predetermined_storage_energy_mwh[g, bld_yr],
-                    m.gen_predetermined_storage_energy_mwh[g, bld_yr])
+        if (g, bld_yr) in m.gen_predetermined_storage_energy_mwh:
+            return (
+                m.gen_predetermined_storage_energy_mwh[g, bld_yr],
+                m.gen_predetermined_storage_energy_mwh[g, bld_yr],
+            )
         else:
             return (0, None)
+
     mod.BuildStorageEnergy = Var(
         mod.STORAGE_GEN_BLD_YRS,
         within=NonNegativeReals,
-        bounds=bounds_BuildStorageEnergy)
+        bounds=bounds_BuildStorageEnergy,
+    )
 
     # Summarize capital costs of energy storage for the objective function
     # Note: A bug in to 2.0.0b3 - 2.0.5, assigned costs that were several times
     # too high
     mod.StorageEnergyCapitalCost = Expression(
-        mod.STORAGE_GENS, mod.PERIODS,
+        mod.STORAGE_GENS,
+        mod.PERIODS,
         rule=lambda m, g, p: sum(
             m.BuildStorageEnergy[g, bld_yr]
             * m.gen_storage_energy_overnight_cost[g, bld_yr]
             * crf(m.interest_rate, m.gen_max_age[g])
             for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]
-        )
+        ),
     )
     mod.StorageEnergyFixedCost = Expression(
         mod.PERIODS,
-        rule=lambda m, p: sum(
-            m.StorageEnergyCapitalCost[g, p] for g in m.STORAGE_GENS
-        )
+        rule=lambda m, p: sum(m.StorageEnergyCapitalCost[g, p] for g in m.STORAGE_GENS),
     )
-    mod.Cost_Components_Per_Period.append('StorageEnergyFixedCost')
+    mod.Cost_Components_Per_Period.append("StorageEnergyFixedCost")
 
     # 2.0.0b3 code:
     # mod.StorageEnergyInstallCosts = Expression(
@@ -177,30 +185,29 @@ def define_components(mod):
     #            for (g, bld_yr) in m.STORAGE_GEN_BLD_YRS))
 
     mod.StorageEnergyCapacity = Expression(
-        mod.STORAGE_GENS, mod.PERIODS,
+        mod.STORAGE_GENS,
+        mod.PERIODS,
         rule=lambda m, g, period: sum(
             m.BuildStorageEnergy[g, bld_yr]
             for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, period]
-        )
+        ),
     )
 
     mod.STORAGE_GEN_TPS = Set(
         dimen=2,
         initialize=lambda m: (
-            (g, tp)
-                for g in m.STORAGE_GENS
-                    for tp in m.TPS_FOR_GEN[g]))
+            (g, tp) for g in m.STORAGE_GENS for tp in m.TPS_FOR_GEN[g]
+        ),
+    )
 
-    mod.ChargeStorage = Var(
-        mod.STORAGE_GEN_TPS,
-        within=NonNegativeReals)
+    mod.ChargeStorage = Var(mod.STORAGE_GEN_TPS, within=NonNegativeReals)
 
     # Summarize storage charging for the energy balance equations
     # TODO: rename this StorageTotalCharging or similar (to indicate it's a
     # sum for a zone, not a net quantity for a project)
     def rule(m, z, t):
         # Construct and cache a set for summation as needed
-        if not hasattr(m, 'Storage_Charge_Summation_dict'):
+        if not hasattr(m, "Storage_Charge_Summation_dict"):
             m.Storage_Charge_Summation_dict = collections.defaultdict(set)
             for g, t2 in m.STORAGE_GEN_TPS:
                 z2 = m.gen_load_zone[g]
@@ -208,58 +215,73 @@ def define_components(mod):
         # Use pop to free memory
         relevant_projects = m.Storage_Charge_Summation_dict.pop((z, t), {})
         return sum(m.ChargeStorage[g, t] for g in relevant_projects)
+
     mod.StorageNetCharge = Expression(mod.LOAD_ZONES, mod.TIMEPOINTS, rule=rule)
     # Register net charging with zonal energy balance. Discharging is already
     # covered by DispatchGen.
-    mod.Zone_Power_Withdrawals.append('StorageNetCharge')
+    mod.Zone_Power_Withdrawals.append("StorageNetCharge")
 
     # use fixed energy/power ratio (# hours of capacity) when specified
     mod.Enforce_Fixed_Energy_Storage_Ratio = Constraint(
         mod.STORAGE_GEN_BLD_YRS,
-        rule=lambda m, g, y:
-            Constraint.Skip if m.gen_storage_energy_to_power_ratio[g] == float("inf") # no value specified
-            else
-            (m.BuildStorageEnergy[g, y] == m.gen_storage_energy_to_power_ratio[g] * m.BuildGen[g, y])
+        rule=lambda m, g, y: Constraint.Skip
+        if m.gen_storage_energy_to_power_ratio[g] == float("inf")  # no value specified
+        else (
+            m.BuildStorageEnergy[g, y]
+            == m.gen_storage_energy_to_power_ratio[g] * m.BuildGen[g, y]
+        ),
     )
 
     def Charge_Storage_Upper_Limit_rule(m, g, t):
-        return m.ChargeStorage[g,t] <= \
-            m.DispatchUpperLimit[g, t] * m.gen_store_to_release_ratio[g]
-    mod.Charge_Storage_Upper_Limit = Constraint(
-        mod.STORAGE_GEN_TPS,
-        rule=Charge_Storage_Upper_Limit_rule)
+        return (
+            m.ChargeStorage[g, t]
+            <= m.DispatchUpperLimit[g, t] * m.gen_store_to_release_ratio[g]
+        )
 
-    mod.StateOfCharge = Var(
-        mod.STORAGE_GEN_TPS,
-        within=NonNegativeReals)
+    mod.Charge_Storage_Upper_Limit = Constraint(
+        mod.STORAGE_GEN_TPS, rule=Charge_Storage_Upper_Limit_rule
+    )
+
+    mod.StateOfCharge = Var(mod.STORAGE_GEN_TPS, within=NonNegativeReals)
 
     def Track_State_Of_Charge_rule(m, g, t):
-        return m.StateOfCharge[g, t] == \
-            m.StateOfCharge[g, m.tp_previous[t]] + \
-            (m.ChargeStorage[g, t] * m.gen_storage_efficiency[g] -
-             m.DispatchGen[g, t]) * m.tp_duration_hrs[t]
+        return (
+            m.StateOfCharge[g, t]
+            == m.StateOfCharge[g, m.tp_previous[t]]
+            + (
+                m.ChargeStorage[g, t] * m.gen_storage_efficiency[g]
+                - m.DispatchGen[g, t]
+            )
+            * m.tp_duration_hrs[t]
+        )
+
     mod.Track_State_Of_Charge = Constraint(
-        mod.STORAGE_GEN_TPS,
-        rule=Track_State_Of_Charge_rule)
+        mod.STORAGE_GEN_TPS, rule=Track_State_Of_Charge_rule
+    )
 
     def State_Of_Charge_Upper_Limit_rule(m, g, t):
-        return m.StateOfCharge[g, t] <= \
-            m.StorageEnergyCapacity[g, m.tp_period[t]]
+        return m.StateOfCharge[g, t] <= m.StorageEnergyCapacity[g, m.tp_period[t]]
+
     mod.State_Of_Charge_Upper_Limit = Constraint(
-        mod.STORAGE_GEN_TPS,
-        rule=State_Of_Charge_Upper_Limit_rule)
+        mod.STORAGE_GEN_TPS, rule=State_Of_Charge_Upper_Limit_rule
+    )
 
     # batteries can only complete the specified number of cycles per year, averaged over each period
     mod.Battery_Cycle_Limit = Constraint(
         mod.STORAGE_GEN_PERIODS,
         rule=lambda m, g, p:
-            # solvers sometimes perform badly with infinite constraint
-            Constraint.Skip if m.gen_storage_max_cycles_per_year[g] == float('inf')
-            else (
-                sum(m.DispatchGen[g, tp] * m.tp_duration_hrs[tp] for tp in m.TPS_IN_PERIOD[p])
-                <=
-                m.gen_storage_max_cycles_per_year[g] * m.StorageEnergyCapacity[g, p] * m.period_length_years[p]
+        # solvers sometimes perform badly with infinite constraint
+        Constraint.Skip
+        if m.gen_storage_max_cycles_per_year[g] == float("inf")
+        else (
+            sum(
+                m.DispatchGen[g, tp] * m.tp_duration_hrs[tp]
+                for tp in m.TPS_IN_PERIOD[p]
             )
+            <= m.gen_storage_max_cycles_per_year[g]
+            * m.StorageEnergyCapacity[g, p]
+            * m.period_length_years[p]
+        ),
     )
 
 
@@ -290,28 +312,34 @@ def load_inputs(mod, switch_data, inputs_dir):
     # gen_storage_efficiency has been specified, then require valid settings for all
     # STORAGE_GENS.
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'generation_projects_info.csv'),
+        filename=os.path.join(inputs_dir, "generation_projects_info.csv"),
         optional_params=[
-            'gen_store_to_release_ratio',
-            'gen_storage_energy_to_power_ratio',
-            'gen_storage_max_cycles_per_year'],
+            "gen_store_to_release_ratio",
+            "gen_storage_energy_to_power_ratio",
+            "gen_storage_max_cycles_per_year",
+        ],
         param=(
             mod.gen_storage_efficiency,
             mod.gen_store_to_release_ratio,
             mod.gen_storage_energy_to_power_ratio,
-            mod.gen_storage_max_cycles_per_year))
+            mod.gen_storage_max_cycles_per_year,
+        ),
+    )
     # Base the set of storage projects on storage efficiency being specified.
     # TODO: define this in a more normal way
-    switch_data.data()['STORAGE_GENS'] = {
-        None: list(switch_data.data(name='gen_storage_efficiency').keys())}
+    switch_data.data()["STORAGE_GENS"] = {
+        None: list(switch_data.data(name="gen_storage_efficiency").keys())
+    }
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'gen_build_costs.csv'),
-        param=(mod.gen_storage_energy_overnight_cost))
+        filename=os.path.join(inputs_dir, "gen_build_costs.csv"),
+        param=(mod.gen_storage_energy_overnight_cost),
+    )
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'gen_build_predetermined.csv'),
+        filename=os.path.join(inputs_dir, "gen_build_predetermined.csv"),
         param=(mod.gen_predetermined_storage_energy_mwh,),
     )
+
 
 def post_solve(instance, outdir):
     """
@@ -319,25 +347,56 @@ def post_solve(instance, outdir):
     dispatch info to storage_dispatch.csv
     """
     import switch_model.reporting as reporting
+
     reporting.write_table(
-        instance, instance.STORAGE_GEN_BLD_YRS,
+        instance,
+        instance.STORAGE_GEN_BLD_YRS,
         output_file=os.path.join(outdir, "storage_builds.csv"),
-        headings=("generation_project", "period", "load_zone",
-                  "IncrementalPowerCapacityMW", "IncrementalEnergyCapacityMWh",
-                  "OnlinePowerCapacityMW", "OnlineEnergyCapacityMWh" ),
+        headings=(
+            "generation_project",
+            "period",
+            "load_zone",
+            "IncrementalPowerCapacityMW",
+            "IncrementalEnergyCapacityMWh",
+            "OnlinePowerCapacityMW",
+            "OnlineEnergyCapacityMWh",
+        ),
         values=lambda m, g, bld_yr: (
-            g, bld_yr, m.gen_load_zone[g],
-            m.BuildGen[g, bld_yr], m.BuildStorageEnergy[g, bld_yr],
-            (m.GenCapacity[g, bld_yr] if bld_yr in m.PERIODS else m.BuildGen[g, bld_yr]),
-            (m.StorageEnergyCapacity[g, bld_yr] if bld_yr in m.PERIODS else m.BuildStorageEnergy[g, bld_yr])
-            ))
+            g,
+            bld_yr,
+            m.gen_load_zone[g],
+            m.BuildGen[g, bld_yr],
+            m.BuildStorageEnergy[g, bld_yr],
+            (
+                m.GenCapacity[g, bld_yr]
+                if bld_yr in m.PERIODS
+                else m.BuildGen[g, bld_yr]
+            ),
+            (
+                m.StorageEnergyCapacity[g, bld_yr]
+                if bld_yr in m.PERIODS
+                else m.BuildStorageEnergy[g, bld_yr]
+            ),
+        ),
+    )
     reporting.write_table(
-        instance, instance.STORAGE_GEN_TPS,
+        instance,
+        instance.STORAGE_GEN_TPS,
         output_file=os.path.join(outdir, "storage_dispatch.csv"),
-        headings=("generation_project", "timepoint", "load_zone",
-                  "ChargeMW", "DischargeMW", "StateOfCharge"),
+        headings=(
+            "generation_project",
+            "timepoint",
+            "load_zone",
+            "ChargeMW",
+            "DischargeMW",
+            "StateOfCharge",
+        ),
         values=lambda m, g, t: (
-            g, m.tp_timestamp[t], m.gen_load_zone[g],
-            m.ChargeStorage[g, t], m.DispatchGen[g, t],
-            m.StateOfCharge[g, t]
-            ))
+            g,
+            m.tp_timestamp[t],
+            m.gen_load_zone[g],
+            m.ChargeStorage[g, t],
+            m.DispatchGen[g, t],
+            m.StateOfCharge[g, t],
+        ),
+    )

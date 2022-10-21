@@ -14,8 +14,12 @@ from pyomo.environ import *
 from switch_model.financials import capital_recovery_factor as crf
 from switch_model.utilities import unique_list
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
-    'switch_model.financials'
+dependencies = (
+    "switch_model.timescales",
+    "switch_model.balancing.load_zones",
+    "switch_model.financials",
+)
+
 
 def define_components(mod):
     """
@@ -161,15 +165,15 @@ def define_components(mod):
     # configurations that are sometimes run with interzonal transmission and sometimes not
     # (e.g., island interconnect scenarios). However, presence of this column will still be
     # checked by load_data_aug.
-    mod.min_data_check('trans_lz1', 'trans_lz2')
+    mod.min_data_check("trans_lz1", "trans_lz2")
 
     def _check_tx_duplicate_paths(m):
-        forward_paths = set([
-            (m.trans_lz1[tx], m.trans_lz2[tx]) for tx in m.TRANSMISSION_LINES
-        ])
-        reverse_paths = set([
-            (m.trans_lz2[tx], m.trans_lz1[tx]) for tx in m.TRANSMISSION_LINES
-        ])
+        forward_paths = set(
+            [(m.trans_lz1[tx], m.trans_lz2[tx]) for tx in m.TRANSMISSION_LINES]
+        )
+        reverse_paths = set(
+            [(m.trans_lz2[tx], m.trans_lz1[tx]) for tx in m.TRANSMISSION_LINES]
+        )
         overlap = forward_paths.intersection(reverse_paths)
         if overlap:
             logging.error(
@@ -177,57 +181,54 @@ def define_components(mod):
                 "in input files. They are expected to specify a single path "
                 "per pair of connected load zones. "
                 "(Ex: either A->B or B->A, but not both). "
-                "Over-specified lines: {}".format(overlap))
-            return(False)
+                "Over-specified lines: {}".format(overlap)
+            )
+            return False
         else:
-            return(True)
+            return True
+
     mod.check_tx_duplicate_paths = BuildCheck(rule=_check_tx_duplicate_paths)
 
     mod.trans_dbid = Param(mod.TRANSMISSION_LINES, default=lambda m, tx: tx)
     mod.trans_length_km = Param(mod.TRANSMISSION_LINES, within=NonNegativeReals)
-    mod.trans_efficiency = Param(
-        mod.TRANSMISSION_LINES,
-        within=PercentFraction)
-    mod.existing_trans_cap = Param(
-        mod.TRANSMISSION_LINES,
-        within=NonNegativeReals)
-    mod.min_data_check(
-        'trans_length_km', 'trans_efficiency', 'existing_trans_cap')
+    mod.trans_efficiency = Param(mod.TRANSMISSION_LINES, within=PercentFraction)
+    mod.existing_trans_cap = Param(mod.TRANSMISSION_LINES, within=NonNegativeReals)
+    mod.min_data_check("trans_length_km", "trans_efficiency", "existing_trans_cap")
     mod.trans_new_build_allowed = Param(
-        mod.TRANSMISSION_LINES, within=Boolean, default=True)
+        mod.TRANSMISSION_LINES, within=Boolean, default=True
+    )
     mod.TRANS_BLD_YRS = Set(
         dimen=2,
         initialize=mod.TRANSMISSION_LINES * mod.PERIODS,
-        filter=lambda m, tx, p: m.trans_new_build_allowed[tx])
+        filter=lambda m, tx, p: m.trans_new_build_allowed[tx],
+    )
     mod.BuildTx = Var(mod.TRANS_BLD_YRS, within=NonNegativeReals)
     mod.TxCapacityNameplate = Expression(
-        mod.TRANSMISSION_LINES, mod.PERIODS,
+        mod.TRANSMISSION_LINES,
+        mod.PERIODS,
         rule=lambda m, tx, period: sum(
             m.BuildTx[tx, bld_yr]
             for bld_yr in m.PERIODS
             if bld_yr <= period and (tx, bld_yr) in m.TRANS_BLD_YRS
-        ) + m.existing_trans_cap[tx])
+        )
+        + m.existing_trans_cap[tx],
+    )
     mod.trans_derating_factor = Param(
-        mod.TRANSMISSION_LINES,
-        within=PercentFraction,
-        default=1)
+        mod.TRANSMISSION_LINES, within=PercentFraction, default=1
+    )
     mod.TxCapacityNameplateAvailable = Expression(
-        mod.TRANSMISSION_LINES, mod.PERIODS,
-        rule=lambda m, tx, period: (
-            m.TxCapacityNameplate[tx, period] * m.trans_derating_factor[tx]))
-    mod.trans_terrain_multiplier = Param(
         mod.TRANSMISSION_LINES,
-        within=NonNegativeReals,
-        default=1)
-    mod.trans_capital_cost_per_mw_km = Param(
-        within=NonNegativeReals,
-        default=1000)
-    mod.trans_lifetime_yrs = Param(
-        within=NonNegativeReals,
-        default=20)
-    mod.trans_fixed_om_fraction = Param(
-        within=NonNegativeReals,
-        default=0.03)
+        mod.PERIODS,
+        rule=lambda m, tx, period: (
+            m.TxCapacityNameplate[tx, period] * m.trans_derating_factor[tx]
+        ),
+    )
+    mod.trans_terrain_multiplier = Param(
+        mod.TRANSMISSION_LINES, within=NonNegativeReals, default=1
+    )
+    mod.trans_capital_cost_per_mw_km = Param(within=NonNegativeReals, default=1000)
+    mod.trans_lifetime_yrs = Param(within=NonNegativeReals, default=20)
+    mod.trans_fixed_om_fraction = Param(within=NonNegativeReals, default=0.03)
     # Total annual fixed costs for building new transmission lines...
     # Multiply capital costs by capital recover factor to get annual
     # payments. Add annual fixed O&M that are expressed as a fraction of
@@ -236,9 +237,12 @@ def define_components(mod):
         mod.TRANSMISSION_LINES,
         within=NonNegativeReals,
         initialize=lambda m, tx: (
-            m.trans_capital_cost_per_mw_km * m.trans_terrain_multiplier[tx] *
-            m.trans_length_km[tx] * (crf(m.interest_rate, m.trans_lifetime_yrs) +
-                m.trans_fixed_om_fraction)))
+            m.trans_capital_cost_per_mw_km
+            * m.trans_terrain_multiplier[tx]
+            * m.trans_length_km[tx]
+            * (crf(m.interest_rate, m.trans_lifetime_yrs) + m.trans_fixed_om_fraction)
+        ),
+    )
     # An expression to summarize annual costs for the objective
     # function. Units should be total annual future costs in $base_year
     # real dollars. The objective function will convert these to
@@ -248,9 +252,9 @@ def define_components(mod):
         rule=lambda m, p: sum(
             m.TxCapacityNameplate[tx, p] * m.trans_cost_annual[tx]
             for tx in m.TRANSMISSION_LINES
-        )
+        ),
     )
-    mod.Cost_Components_Per_Period.append('TxFixedCosts')
+    mod.Cost_Components_Per_Period.append("TxFixedCosts")
 
     def init_DIRECTIONAL_TX(model):
         tx_dir = []
@@ -258,23 +262,25 @@ def define_components(mod):
             tx_dir.append((model.trans_lz1[tx], model.trans_lz2[tx]))
             tx_dir.append((model.trans_lz2[tx], model.trans_lz1[tx]))
         return tx_dir
-    mod.DIRECTIONAL_TX = Set(
-        dimen=2,
-        initialize=init_DIRECTIONAL_TX)
+
+    mod.DIRECTIONAL_TX = Set(dimen=2, initialize=init_DIRECTIONAL_TX)
     mod.TX_CONNECTIONS_TO_ZONE = Set(
         mod.LOAD_ZONES,
         initialize=lambda m, lz: [
-            z for z in m.LOAD_ZONES if (z,lz) in m.DIRECTIONAL_TX])
+            z for z in m.LOAD_ZONES if (z, lz) in m.DIRECTIONAL_TX
+        ],
+    )
 
     def init_trans_d_line(m, zone_from, zone_to):
         for tx in m.TRANSMISSION_LINES:
-            if((m.trans_lz1[tx] == zone_from and m.trans_lz2[tx] == zone_to) or
-               (m.trans_lz2[tx] == zone_from and m.trans_lz1[tx] == zone_to)):
+            if (m.trans_lz1[tx] == zone_from and m.trans_lz2[tx] == zone_to) or (
+                m.trans_lz2[tx] == zone_from and m.trans_lz1[tx] == zone_to
+            ):
                 return tx
+
     mod.trans_d_line = Param(
-        mod.DIRECTIONAL_TX,
-        within=mod.TRANSMISSION_LINES,
-        initialize=init_trans_d_line)
+        mod.DIRECTIONAL_TX, within=mod.TRANSMISSION_LINES, initialize=init_trans_d_line
+    )
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -300,27 +306,34 @@ def load_inputs(mod, switch_data, inputs_dir):
     # TODO: send issue / pull request to Pyomo to allow .csv files with
     # no rows after header (fix bugs in pyomo.core.plugins.data.text)
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'transmission_lines.csv'),
+        filename=os.path.join(inputs_dir, "transmission_lines.csv"),
         index=mod.TRANSMISSION_LINES,
         optional_params=(
-            'trans_dbid', 'trans_derating_factor',
-            'trans_terrain_multiplier', 'trans_new_build_allowed'
+            "trans_dbid",
+            "trans_derating_factor",
+            "trans_terrain_multiplier",
+            "trans_new_build_allowed",
         ),
         param=(
-            mod.trans_lz1, mod.trans_lz2,
-            mod.trans_length_km, mod.trans_efficiency, mod.existing_trans_cap,
-            mod.trans_dbid, mod.trans_derating_factor,
-            mod.trans_terrain_multiplier, mod.trans_new_build_allowed
-        )
+            mod.trans_lz1,
+            mod.trans_lz2,
+            mod.trans_length_km,
+            mod.trans_efficiency,
+            mod.existing_trans_cap,
+            mod.trans_dbid,
+            mod.trans_derating_factor,
+            mod.trans_terrain_multiplier,
+            mod.trans_new_build_allowed,
+        ),
     )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'trans_params.csv'),
+        filename=os.path.join(inputs_dir, "trans_params.csv"),
         optional=True,
         param=(
             mod.trans_capital_cost_per_mw_km,
             mod.trans_lifetime_yrs,
-            mod.trans_fixed_om_fraction
-        )
+            mod.trans_fixed_om_fraction,
+        ),
     )
 
 
@@ -328,18 +341,23 @@ def post_solve(instance, outdir):
     mod = instance
     normalized_dat = [
         {
-        	"TRANSMISSION_LINE": tx,
-        	"PERIOD": p,
-        	"trans_lz1": mod.trans_lz1[tx],
-        	"trans_lz2": mod.trans_lz2[tx],
-        	"trans_dbid": mod.trans_dbid[tx],
-        	"trans_length_km": mod.trans_length_km[tx],
-        	"trans_efficiency": mod.trans_efficiency[tx],
-        	"trans_derating_factor": mod.trans_derating_factor[tx],
-        	"TxCapacityNameplate": value(mod.TxCapacityNameplate[tx,p]),
-        	"TxCapacityNameplateAvailable": value(mod.TxCapacityNameplateAvailable[tx,p]),
-        	"TotalAnnualCost": value(mod.TxCapacityNameplate[tx,p] * mod.trans_cost_annual[tx])
-        } for tx, p in mod.TRANSMISSION_LINES * mod.PERIODS
+            "TRANSMISSION_LINE": tx,
+            "PERIOD": p,
+            "trans_lz1": mod.trans_lz1[tx],
+            "trans_lz2": mod.trans_lz2[tx],
+            "trans_dbid": mod.trans_dbid[tx],
+            "trans_length_km": mod.trans_length_km[tx],
+            "trans_efficiency": mod.trans_efficiency[tx],
+            "trans_derating_factor": mod.trans_derating_factor[tx],
+            "TxCapacityNameplate": value(mod.TxCapacityNameplate[tx, p]),
+            "TxCapacityNameplateAvailable": value(
+                mod.TxCapacityNameplateAvailable[tx, p]
+            ),
+            "TotalAnnualCost": value(
+                mod.TxCapacityNameplate[tx, p] * mod.trans_cost_annual[tx]
+            ),
+        }
+        for tx, p in mod.TRANSMISSION_LINES * mod.PERIODS
     ]
     tx_build_df = pd.DataFrame(normalized_dat)
     tx_build_df.set_index(["TRANSMISSION_LINE", "PERIOD"], inplace=True)

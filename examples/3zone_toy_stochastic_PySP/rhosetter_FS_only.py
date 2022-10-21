@@ -25,6 +25,7 @@ optimizations.
 # The rhosetter module should be in the same directory as this file.
 from rhosetter import set_rho_values
 
+
 def ph_rhosetter_callback(ph, scenario_tree, scenario):
     # This component name must match the expression used for first stage
     # costs defined in the ReferenceModel.

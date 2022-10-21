@@ -8,8 +8,13 @@ Switch model.
 
 from pyomo.environ import *
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
-    'switch_model.financials', 'switch_model.transmission.transport.build'
+dependencies = (
+    "switch_model.timescales",
+    "switch_model.balancing.load_zones",
+    "switch_model.financials",
+    "switch_model.transmission.transport.build",
+)
+
 
 def define_components(mod):
     """
@@ -49,36 +54,42 @@ def define_components(mod):
     """
 
     mod.TRANS_TIMEPOINTS = Set(
-        dimen=3,
-        initialize=lambda m: m.DIRECTIONAL_TX * m.TIMEPOINTS
+        dimen=3, initialize=lambda m: m.DIRECTIONAL_TX * m.TIMEPOINTS
     )
     mod.DispatchTx = Var(mod.TRANS_TIMEPOINTS, within=NonNegativeReals)
 
     mod.Maximum_DispatchTx = Constraint(
         mod.TRANS_TIMEPOINTS,
         rule=lambda m, zone_from, zone_to, tp: (
-            m.DispatchTx[zone_from, zone_to, tp] <=
-            m.TxCapacityNameplateAvailable[m.trans_d_line[zone_from, zone_to],
-                                     m.tp_period[tp]]))
+            m.DispatchTx[zone_from, zone_to, tp]
+            <= m.TxCapacityNameplateAvailable[
+                m.trans_d_line[zone_from, zone_to], m.tp_period[tp]
+            ]
+        ),
+    )
 
     mod.TxPowerSent = Expression(
         mod.TRANS_TIMEPOINTS,
-        rule=lambda m, zone_from, zone_to, tp: (
-            m.DispatchTx[zone_from, zone_to, tp]))
+        rule=lambda m, zone_from, zone_to, tp: (m.DispatchTx[zone_from, zone_to, tp]),
+    )
     mod.TxPowerReceived = Expression(
         mod.TRANS_TIMEPOINTS,
         rule=lambda m, zone_from, zone_to, tp: (
-            m.DispatchTx[zone_from, zone_to, tp] *
-            m.trans_efficiency[m.trans_d_line[zone_from, zone_to]]))
+            m.DispatchTx[zone_from, zone_to, tp]
+            * m.trans_efficiency[m.trans_d_line[zone_from, zone_to]]
+        ),
+    )
 
     def TXPowerNet_calculation(m, z, tp):
-        return (
-            sum(m.TxPowerReceived[zone_from, z, tp]
-                for zone_from in m.TX_CONNECTIONS_TO_ZONE[z]) -
-            sum(m.TxPowerSent[z, zone_to, tp]
-                for zone_to in m.TX_CONNECTIONS_TO_ZONE[z]))
+        return sum(
+            m.TxPowerReceived[zone_from, z, tp]
+            for zone_from in m.TX_CONNECTIONS_TO_ZONE[z]
+        ) - sum(
+            m.TxPowerSent[z, zone_to, tp] for zone_to in m.TX_CONNECTIONS_TO_ZONE[z]
+        )
+
     mod.TXPowerNet = Expression(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
-        rule=TXPowerNet_calculation)
+        mod.LOAD_ZONES, mod.TIMEPOINTS, rule=TXPowerNet_calculation
+    )
     # Register net transmission as contributing to zonal energy balance
-    mod.Zone_Power_Injections.append('TXPowerNet')
+    mod.Zone_Power_Injections.append("TXPowerNet")

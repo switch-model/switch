@@ -11,8 +11,12 @@ strictly required in all cases.
 import os
 from pyomo.environ import *
 
-dependencies = 'switch_model.timescales',\
-    'switch_model.balancing.load_areas', 'switch_model.financials'
+dependencies = (
+    "switch_model.timescales",
+    "switch_model.balancing.load_areas",
+    "switch_model.financials",
+)
+
 
 def define_components(mod):
     """
@@ -33,22 +37,21 @@ def define_components(mod):
 
     """
 
-    mod.unserved_load_penalty = Param(
-        within=NonNegativeReals,
-        default=500)
-    mod.UnservedLoad = Var(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
-        within=NonNegativeReals)
+    mod.unserved_load_penalty = Param(within=NonNegativeReals, default=500)
+    mod.UnservedLoad = Var(mod.LOAD_ZONES, mod.TIMEPOINTS, within=NonNegativeReals)
     try:
-        mod.Distributed_Power_Injections.append('UnservedLoad')
+        mod.Distributed_Power_Injections.append("UnservedLoad")
     except AttributeError:
-        mod.Zone_Power_Injections.append('UnservedLoad')
+        mod.Zone_Power_Injections.append("UnservedLoad")
 
     mod.UnservedLoadPenalty = Expression(
         mod.TIMEPOINTS,
-        rule=lambda m, tp: sum(m.UnservedLoad[z, tp] *
-            m.unserved_load_penalty for z in m.LOAD_ZONES))
-    mod.Cost_Components_Per_TP.append('UnservedLoadPenalty')
+        rule=lambda m, tp: sum(
+            m.UnservedLoad[z, tp] * m.unserved_load_penalty for z in m.LOAD_ZONES
+        ),
+    )
+    mod.Cost_Components_Per_TP.append("UnservedLoadPenalty")
+
 
 def load_inputs(mod, switch_data, inputs_dir):
     """
@@ -63,7 +66,7 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     """
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'lost_load_cost.csv'),
+        filename=os.path.join(inputs_dir, "lost_load_cost.csv"),
         optional=True,
-        param=(mod.unserved_load_penalty,)
+        param=(mod.unserved_load_penalty,),
     )

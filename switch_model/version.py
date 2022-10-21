@@ -5,4 +5,4 @@ This file should not contain anything that is not part of a minimal python
 distribution because it needs to be executed before Switch (and its
 dependencies) are installed.
 """
-__version__='2.0.6'
+__version__ = "2.0.6"

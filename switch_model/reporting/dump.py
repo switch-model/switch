@@ -10,12 +10,21 @@ environment.
 """
 import os, sys
 
+
 def define_arguments(argparser):
-    argparser.add_argument("--dump-level", type=int, default=2,
-        help="Use 1 for an abbreviated dump via instance.display(), or 2 " +
-             "for a complete dump via instance.pprint().")
-    argparser.add_argument("--dump-to-screen", action='store_true', default=False,
-        help="Print the model dump to screen as well as an export file.")
+    argparser.add_argument(
+        "--dump-level",
+        type=int,
+        default=2,
+        help="Use 1 for an abbreviated dump via instance.display(), or 2 "
+        + "for a complete dump via instance.pprint().",
+    )
+    argparser.add_argument(
+        "--dump-to-screen",
+        action="store_true",
+        default=False,
+        help="Print the model dump to screen as well as an export file.",
+    )
 
 
 def _print_output(instance):
@@ -33,7 +42,9 @@ def post_solve(instance, outdir):
     instance.display() or instance.pprint(), depending on the value of
     dump-level. Default is pprint().
     """
-    stdout_copy = sys.stdout  # make a copy of current sys.stdout to return to eventually
+    stdout_copy = (
+        sys.stdout
+    )  # make a copy of current sys.stdout to return to eventually
     out_path = os.path.join(outdir, "model_dump.txt")
     out_file = open(out_path, "w", buffering=1)
     sys.stdout = out_file

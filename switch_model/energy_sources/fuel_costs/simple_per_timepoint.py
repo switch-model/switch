@@ -11,9 +11,14 @@ supply curves. This is mutually exclusive with the fuel_markets module.
 import os
 from pyomo.environ import *
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
-    'switch_model.energy_sources.properties.properties',\
-    'switch_model.generators.core.build', 'switch_model.generators.core.dispatch'
+dependencies = (
+    "switch_model.timescales",
+    "switch_model.balancing.load_zones",
+    "switch_model.energy_sources.properties.properties",
+    "switch_model.generators.core.build",
+    "switch_model.generators.core.dispatch",
+)
+
 
 def define_components(mod):
     """
@@ -50,27 +55,28 @@ def define_components(mod):
     mod.ZONE_FUEL_TIMEPOINTS = Set(
         dimen=3,
         validate=lambda m, z, f, p: (
-            z in m.LOAD_ZONES and
-            f in m.FUELS and
-            p in m.TIMEPOINTS))
+            z in m.LOAD_ZONES and f in m.FUELS and p in m.TIMEPOINTS
+        ),
+    )
     mod.fuel_cost_per_timepoint = Param(
-        mod.ZONE_FUEL_TIMEPOINTS,
-        within=NonNegativeReals)
-    mod.min_data_check('ZONE_FUEL_TIMEPOINTS', 'fuel_cost_per_timepoint')
+        mod.ZONE_FUEL_TIMEPOINTS, within=NonNegativeReals
+    )
+    mod.min_data_check("ZONE_FUEL_TIMEPOINTS", "fuel_cost_per_timepoint")
 
     # don't allow use of a fuel when no cost has been specified
     mod.GEN_TP_FUELS_UNAVAILABLE = Set(
         initialize=mod.GEN_TP_FUELS,
-        filter=lambda m, g, t, f:
-            (m.gen_load_zone[g], f, t) not in m.ZONE_FUEL_TIMEPOINTS
+        filter=lambda m, g, t, f: (m.gen_load_zone[g], f, t)
+        not in m.ZONE_FUEL_TIMEPOINTS,
     )
     mod.Enforce_Fuel_Unavailability = Constraint(
         mod.GEN_TP_FUELS_UNAVAILABLE,
-        rule=lambda m, g, t, f: m.GenFuelUseRate[g, t, f] == 0)
+        rule=lambda m, g, t, f: m.GenFuelUseRate[g, t, f] == 0,
+    )
 
     # Summarize total fuel costs in each timepoint for the objective function
     def FuelCostsPerTP_rule(m, t):
-        if not hasattr(m, 'FuelCostsPerTP_dict'):
+        if not hasattr(m, "FuelCostsPerTP_dict"):
             # cache all Fuel_Cost_TP values in a dictionary (created in one pass)
             m.FuelCostsPerTP_dict = {t2: 0.0 for t2 in m.TIMEPOINTS}
             for (g, t2, f) in m.GEN_TP_FUELS:
@@ -82,8 +88,9 @@ def define_components(mod):
         # return a result from the dictionary and pop the element each time
         # to release memory
         return m.FuelCostsPerTP_dict.pop(t)
+
     mod.FuelCostsPerTP = Expression(mod.TIMEPOINTS, rule=FuelCostsPerTP_rule)
-    mod.Cost_Components_Per_TP.append('FuelCostsPerTP')
+    mod.Cost_Components_Per_TP.append("FuelCostsPerTP")
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -96,6 +103,7 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     """
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'fuel_cost_per_timepoint.csv'),
+        filename=os.path.join(inputs_dir, "fuel_cost_per_timepoint.csv"),
         index=mod.ZONE_FUEL_TIMEPOINTS,
-        param=[mod.fuel_cost_per_timepoint])
+        param=[mod.fuel_cost_per_timepoint],
+    )

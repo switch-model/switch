@@ -21,7 +21,8 @@ Defines model components to allow capital investment to expand fuel markets.
 import os
 from pyomo.environ import *
 
-infinity = float('inf')
+infinity = float("inf")
+
 
 def define_components(m):
     """
@@ -88,16 +89,16 @@ def define_components(m):
     # during each period note: this must be zero if a tier has unlimited
     # capacity, to avoid having infinite cost
     m.rfm_supply_tier_fixed_cost = Param(
-        m.RFM_SUPPLY_TIERS, default=0.0,
-        validate=lambda m, v, r, p, st:
-            v == 0.0 or m.rfm_supply_tier_limit[r, p, st] < infinity
+        m.RFM_SUPPLY_TIERS,
+        default=0.0,
+        validate=lambda m, v, r, p, st: v == 0.0
+        or m.rfm_supply_tier_limit[r, p, st] < infinity,
     )
 
     # lifetime for each tier, once it is placed in service
     # (default is one period)
     m.rfm_supply_tier_max_age = Param(
-        m.RFM_SUPPLY_TIERS,
-        default=lambda m, r, p, st: m.period_length_years[p]
+        m.RFM_SUPPLY_TIERS, default=lambda m, r, p, st: m.period_length_years[p]
     )
 
     # Note: in large regions, a tier represents a block of expandable capacity,
@@ -120,22 +121,22 @@ def define_components(m):
                 and vintage + m.rfm_supply_tier_max_age[r, vintage, st]
                 > m.period_start[p]
             )
-        )
+        ),
     )
 
     # Don't double-activate any tier
     m.Only_One_RFMSupplyTierActive = Constraint(
         m.RFM_SUPPLY_TIERS,
-        rule=lambda m, r, p, st: m.RFMSupplyTierActive[r, p, st] <= 1
+        rule=lambda m, r, p, st: m.RFMSupplyTierActive[r, p, st] <= 1,
     )
 
     # force all unlimited tiers to be activated (since they must have no cost,
     # and to avoid a limit of 0.0 * infinity in the constraint below)
-    m.Force_Activate_Unlimited_RFM_Supply_Tier = Constraint(m.RFM_SUPPLY_TIERS,
-        rule=lambda m, r, p, st:
-            (m.RFMSupplyTierActive[r, p, st] == 1)
-            if (m.rfm_supply_tier_limit[r, p, st] == infinity)
-            else Constraint.Skip
+    m.Force_Activate_Unlimited_RFM_Supply_Tier = Constraint(
+        m.RFM_SUPPLY_TIERS,
+        rule=lambda m, r, p, st: (m.RFMSupplyTierActive[r, p, st] == 1)
+        if (m.rfm_supply_tier_limit[r, p, st] == infinity)
+        else Constraint.Skip,
     )
 
     # only allow delivery from activated tiers
@@ -144,12 +145,12 @@ def define_components(m):
     # complementary
     m.Enforce_RFM_Supply_Tier_Activated = Constraint(
         m.RFM_SUPPLY_TIERS,
-        rule=lambda m, r, p, st:
-            (
-                m.ConsumeFuelTier[r, p, st]
-                <=
-                m.RFMSupplyTierActive[r, p, st] * m.rfm_supply_tier_limit[r, p, st]
-            ) if m.rfm_supply_tier_limit[r, p, st] < infinity else Constraint.Skip
+        rule=lambda m, r, p, st: (
+            m.ConsumeFuelTier[r, p, st]
+            <= m.RFMSupplyTierActive[r, p, st] * m.rfm_supply_tier_limit[r, p, st]
+        )
+        if m.rfm_supply_tier_limit[r, p, st] < infinity
+        else Constraint.Skip,
     )
 
     # total cost incurred for all the activated supply tiers
@@ -158,7 +159,8 @@ def define_components(m):
         rule=lambda m, p: sum(
             (
                 # note: we dance around projects with unlimited supply and 0.0 fixed cost
-                0.0 if m.rfm_supply_tier_fixed_cost[rfm_st] == 0.0
+                0.0
+                if m.rfm_supply_tier_fixed_cost[rfm_st] == 0.0
                 else (
                     m.rfm_supply_tier_fixed_cost[rfm_st]
                     * m.RFMSupplyTierActive[rfm_st]
@@ -167,13 +169,15 @@ def define_components(m):
             )
             for r in m.REGIONAL_FUEL_MARKETS
             for rfm_st in m.SUPPLY_TIERS_FOR_RFM_PERIOD[r, p]
-        )
+        ),
     )
-    m.Cost_Components_Per_Period.append('RFM_Fixed_Costs_Annual')
+    m.Cost_Components_Per_Period.append("RFM_Fixed_Costs_Annual")
+
 
 def load_inputs(m, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'fuel_supply_curves.csv'),
-        select=('regional_fuel_market', 'period', 'tier', 'fixed_cost', 'max_age'),
-        param=(m.rfm_supply_tier_fixed_cost,m.rfm_supply_tier_max_age))
+        filename=os.path.join(inputs_dir, "fuel_supply_curves.csv"),
+        select=("regional_fuel_market", "period", "tier", "fixed_cost", "max_age"),
+        param=(m.rfm_supply_tier_fixed_cost, m.rfm_supply_tier_max_age),
+    )

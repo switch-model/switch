@@ -4,16 +4,23 @@ import os
 from pyomo.environ import *
 from switch_model.utilities import unique_list
 
+
 def define_arguments(argparser):
-    argparser.add_argument("--run-kalaeloa-even-with-high-rps", action='store_true', default=False,
+    argparser.add_argument(
+        "--run-kalaeloa-even-with-high-rps",
+        action="store_true",
+        default=False,
         help="Enforce the 75 MW minimum-output rule for Kalaeloa in all years (otherwise relaxed "
-             "if RPS or EV share >= 75%%). Mimics behavior from switch 2.0.0b2.")
+        "if RPS or EV share >= 75%%). Mimics behavior from switch 2.0.0b2.",
+    )
+
 
 def define_components(m):
     refineries_closed(m)
     kalaeloa(m)
     schofield(m)
     cogen(m)
+
 
 def refineries_closed(m):
     """
@@ -30,22 +37,20 @@ def refineries_closed(m):
     We shut these down if fossil fuel is used for less than 25% of total power
     or vehicles. (Maybe 50% would be better?)
     """
+
     def filter(m, tp):
         ev_share = (
-            m.ev_share['Oahu', m.tp_period[tp]]
-            if hasattr(m, 'ev_share')
-            else 0.0
+            m.ev_share["Oahu", m.tp_period[tp]] if hasattr(m, "ev_share") else 0.0
         )
         rps_level = (
             m.rps_target_for_period[m.tp_period[tp]]
-            if hasattr(m, 'rps_target_for_period')
+            if hasattr(m, "rps_target_for_period")
             else 0.0
         )
-        return (ev_share >= 0.75 or rps_level >= 0.75)
-    m.REFINERIES_CLOSED_TPS = Set(
-        initialize=m.TIMEPOINTS,
-        filter=filter
-    )
+        return ev_share >= 0.75 or rps_level >= 0.75
+
+    m.REFINERIES_CLOSED_TPS = Set(initialize=m.TIMEPOINTS, filter=filter)
+
 
 def kalaeloa(m):
     """Special dispatch/commitment rules for Kalaeloa plant."""
@@ -57,50 +62,54 @@ def kalaeloa(m):
     # run both 1 & 2 at 90 MW, and run 3 at 28 MW
 
     m.KALAELOA_MAIN_UNITS = Set(
-        initialize=["Oahu_Kalaeloa_CC1", "Oahu_Kalaeloa_CC2", "Kalaeloa_CC1", "Kalaeloa_CC2"],
-        filter=lambda m, g: g in m.GENERATION_PROJECTS
+        initialize=[
+            "Oahu_Kalaeloa_CC1",
+            "Oahu_Kalaeloa_CC2",
+            "Kalaeloa_CC1",
+            "Kalaeloa_CC2",
+        ],
+        filter=lambda m, g: g in m.GENERATION_PROJECTS,
     )
     m.KALAELOA_DUCT_BURNERS = Set(
         initialize=["Oahu_Kalaeloa_CC3", "Kalaeloa_CC3"],
-        filter=lambda m, g: g in m.GENERATION_PROJECTS
+        filter=lambda m, g: g in m.GENERATION_PROJECTS,
     )
 
     m.KALAELOA_MAIN_UNIT_DISPATCH_POINTS = Set(
         dimen=2,
         initialize=lambda m: (
             (g, tp) for g in m.KALAELOA_MAIN_UNITS for tp in m.TPS_FOR_GEN[g]
-        )
+        ),
     )
     m.KALAELOA_DUCT_BURNER_DISPATCH_POINTS = Set(
         dimen=2,
         initialize=lambda m: (
             (g, tp) for g in m.KALAELOA_DUCT_BURNERS for tp in m.TPS_FOR_GEN[g]
-        )
+        ),
     )
     m.KALAELOA_ACTIVE_TIMEPOINTS = Set(
-        initialize=lambda m: unique_list(tp for g, tp in m.KALAELOA_MAIN_UNIT_DISPATCH_POINTS)
+        initialize=lambda m: unique_list(
+            tp for g, tp in m.KALAELOA_MAIN_UNIT_DISPATCH_POINTS
+        )
     )
 
     # run kalaeloa at full power or not
     # (if linearized, this is the fraction of capacity that is dispatched)
     m.RunKalaeloaUnitFull = Var(m.KALAELOA_MAIN_UNIT_DISPATCH_POINTS, within=Binary)
 
-    m.Run_Kalaeloa_Unit_Full_Enforce = Constraint( # big-m constraint
+    m.Run_Kalaeloa_Unit_Full_Enforce = Constraint(  # big-m constraint
         m.KALAELOA_MAIN_UNIT_DISPATCH_POINTS,
-        rule=lambda m, g, tp:
-            m.DispatchGen[g, tp]
-            + (1 - m.RunKalaeloaUnitFull[g, tp]) * m.gen_capacity_limit_mw[g]
-            >=
-            m.GenCapacityInTP[g, tp] * m.gen_availability[g]
+        rule=lambda m, g, tp: m.DispatchGen[g, tp]
+        + (1 - m.RunKalaeloaUnitFull[g, tp]) * m.gen_capacity_limit_mw[g]
+        >= m.GenCapacityInTP[g, tp] * m.gen_availability[g],
     )
 
     # only run duct burner if all main units are full-on
     m.Run_Kalaeloa_Duct_Burner_Only_When_Full = Constraint(
-        m.KALAELOA_DUCT_BURNER_DISPATCH_POINTS, m.KALAELOA_MAIN_UNITS,
-        rule=lambda m, g_duct, tp, g_main:
-            m.DispatchGen[g_duct, tp]
-            <=
-            m.RunKalaeloaUnitFull[g_main, tp] * m.gen_capacity_limit_mw[g_duct]
+        m.KALAELOA_DUCT_BURNER_DISPATCH_POINTS,
+        m.KALAELOA_MAIN_UNITS,
+        rule=lambda m, g_duct, tp, g_main: m.DispatchGen[g_duct, tp]
+        <= m.RunKalaeloaUnitFull[g_main, tp] * m.gen_capacity_limit_mw[g_duct],
     )
 
     # force at least one Kalaeloa unit to run at full power at all times
@@ -118,13 +127,16 @@ def kalaeloa(m):
         # We assume that Kalaeloa's must-run rule applies only until the
         # refineries close, as specified in the m.oahu_refineries_closed parameter
         if both_units_out or (
-             tp in m.REFINERIES_CLOSED_TPS
-             and not m.options.run_kalaeloa_even_with_high_rps
+            tp in m.REFINERIES_CLOSED_TPS
+            and not m.options.run_kalaeloa_even_with_high_rps
         ):
             return Constraint.Skip
         else:
-            return (sum(m.DispatchGen[g, tp] for g in m.KALAELOA_MAIN_UNITS) >= 75.0)
-    m.Kalaeloa_Must_Run = Constraint(m.KALAELOA_ACTIVE_TIMEPOINTS, rule=Kalaeloa_Must_Run_rule)
+            return sum(m.DispatchGen[g, tp] for g in m.KALAELOA_MAIN_UNITS) >= 75.0
+
+    m.Kalaeloa_Must_Run = Constraint(
+        m.KALAELOA_ACTIVE_TIMEPOINTS, rule=Kalaeloa_Must_Run_rule
+    )
 
 
 def schofield(m):
@@ -137,14 +149,13 @@ def schofield(m):
     """
 
     m.SCHOFIELD_GENS = Set(
-        initialize=m.GENERATION_PROJECTS,
-        filter=lambda m, g: 'schofield' in g.lower()
+        initialize=m.GENERATION_PROJECTS, filter=lambda m, g: "schofield" in g.lower()
     )
-    m.One_Schofield = BuildCheck(rule=lambda m: len(m.SCHOFIELD_GENS)==1)
+    m.One_Schofield = BuildCheck(rule=lambda m: len(m.SCHOFIELD_GENS) == 1)
 
-    if not hasattr(m, 'f_rps_eligible'):
+    if not hasattr(m, "f_rps_eligible"):
         raise RuntimeError(
-            'The {} module requires the hawaii.rps module.'.format(__name__)
+            "The {} module requires the hawaii.rps module.".format(__name__)
         )
 
     def rule(m, g, t):
@@ -152,11 +163,13 @@ def schofield(m):
             return Constraint.Skip  # beyond retirement date
         all_fuel = sum(m.GenFuelUseRate[g, t, f] for f in m.FUELS_FOR_GEN[g])
         renewable_fuel = sum(
-            m.GenFuelUseRate[g, t, f]
-            for f in m.FUELS_FOR_GEN[g] if m.f_rps_eligible[f]
+            m.GenFuelUseRate[g, t, f] for f in m.FUELS_FOR_GEN[g] if m.f_rps_eligible[f]
         )
         return renewable_fuel >= 0.5 * all_fuel
-    m.Schofield_50_Percent_Renewable = Constraint(m.SCHOFIELD_GENS, m.TIMEPOINTS, rule=rule)
+
+    m.Schofield_50_Percent_Renewable = Constraint(
+        m.SCHOFIELD_GENS, m.TIMEPOINTS, rule=rule
+    )
 
 
 def cogen(m):
@@ -166,25 +179,26 @@ def cogen(m):
     """
     m.REFINERY_GENS = Set(
         initialize=m.GENERATION_PROJECTS,
-        filter=lambda m, g: any(rg in g for rg in ['Hawaii_Cogen', 'Tesoro_Hawaii'])
+        filter=lambda m, g: any(rg in g for rg in ["Hawaii_Cogen", "Tesoro_Hawaii"]),
     )
-    m.Two_Refinery_Gens = BuildCheck(rule=lambda m: len(m.REFINERY_GENS)==2)
+    m.Two_Refinery_Gens = BuildCheck(rule=lambda m: len(m.REFINERY_GENS) == 2)
 
     # relax commitment requirement when refineries are closed
     def rule(m, g, tp):
         if (g, tp) in m.Enforce_Commit_Lower_Limit:
             print("relaxing commitment for {}, {}".format(g, tp))
             m.Enforce_Commit_Lower_Limit[g, tp].deactivate()
+
     m.Relax_Refinery_Cogen_Baseload_Constraint = BuildAction(
-        m.REFINERY_GENS, m.REFINERIES_CLOSED_TPS,
-        rule=rule
+        m.REFINERY_GENS, m.REFINERIES_CLOSED_TPS, rule=rule
     )
     # force 0 production when refineries are closed
     def rule(m, g, t):
         if (g, t) not in m.GEN_TPS:
             return Constraint.Skip  # beyond retirement date
         else:
-            return (m.DispatchGen[g, tp] == 0)
+            return m.DispatchGen[g, tp] == 0
+
     m.Shutdown_Refinery_Cogens = Constraint(
         m.REFINERY_GENS, m.REFINERIES_CLOSED_TPS, rule=rule
     )
@@ -203,4 +217,7 @@ def cogen(m):
             return Constraint.Skip  # beyond retirement date or wrong fuel
         else:
             return m.GenFuelUseRate[g, t, f] == 0.0
-    m.Cogen_No_Biofuel = Constraint(m.REFINERY_GENS, m.TIMEPOINTS, m.REFINERY_BIOFUELS, rule=rule)
+
+    m.Cogen_No_Biofuel = Constraint(
+        m.REFINERY_GENS, m.TIMEPOINTS, m.REFINERY_BIOFUELS, rule=rule
+    )

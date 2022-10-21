@@ -11,9 +11,15 @@ from __future__ import print_function
 from pyomo.environ import *
 from switch_model.financials import capital_recovery_factor
 
+
 def define_arguments(argparser):
-    argparser.add_argument('--force-lng-tier', nargs='*', default=None,
-        help="LNG tier to use: tier [start [stop]] or 'none' to use no LNG. Optimal choices will be made if nothing specified.")
+    argparser.add_argument(
+        "--force-lng-tier",
+        nargs="*",
+        default=None,
+        help="LNG tier to use: tier [start [stop]] or 'none' to use no LNG. Optimal choices will be made if nothing specified.",
+    )
+
 
 def define_components(m):
 
@@ -26,24 +32,30 @@ def define_components(m):
 
     m.LNG_RFM_SUPPLY_TIERS = Set(
         initialize=m.RFM_SUPPLY_TIERS,
-        filter=lambda m, rfm, per, tier: m.rfm_fuel[rfm].upper() == 'LNG'
+        filter=lambda m, rfm, per, tier: m.rfm_fuel[rfm].upper() == "LNG",
     )
     m.LNG_REGIONAL_FUEL_MARKETS = Set(
-        initialize=lambda m: unique_list(rfm for rfm, per, tier in m.LNG_RFM_SUPPLY_TIERS)
+        initialize=lambda m: unique_list(
+            rfm for rfm, per, tier in m.LNG_RFM_SUPPLY_TIERS
+        )
     )
     m.LNG_TIERS = Set(
-        initialize=lambda m: unique_list(tier for rfm, per, tier in m.LNG_RFM_SUPPLY_TIERS)
+        initialize=lambda m: unique_list(
+            tier for rfm, per, tier in m.LNG_RFM_SUPPLY_TIERS
+        )
     )
 
     # force LNG to be deactivated when RPS is 100%;
     # this forces recovery of all costs before the 100% RPS takes effect
     # (otherwise the model sometimes tries to postpone recovery beyond the end of the study)
-    if hasattr(m, 'RPS_Enforce'):
-        m.No_LNG_In_100_RPS = Constraint(m.LNG_RFM_SUPPLY_TIERS,
-            rule=lambda m, rfm, per, tier:
-                (m.RFMSupplyTierActivate[rfm, per, tier] == 0)
-                    if m.rps_target_for_period[per] >= 1.0
-                        else Constraint.Skip
+    if hasattr(m, "RPS_Enforce"):
+        m.No_LNG_In_100_RPS = Constraint(
+            m.LNG_RFM_SUPPLY_TIERS,
+            rule=lambda m, rfm, per, tier: (
+                m.RFMSupplyTierActivate[rfm, per, tier] == 0
+            )
+            if m.rps_target_for_period[per] >= 1.0
+            else Constraint.Skip,
         )
 
     # user can study different LNG durations by specifying a tier to activate and
@@ -78,13 +90,23 @@ def define_components(m):
             # user specified a tier to activate and possibly a date range
             # force that active and deactivate all others.
             force_tier = m.options.force_lng_tier[0]
-            force_tier_start = float(m.options.force_lng_tier[1]) if len(m.options.force_lng_tier) > 1 else m.PERIODS.first()
-            force_tier_end = float(m.options.force_lng_tier[2]) if len(m.options.force_lng_tier) > 2 else m.PERIODS.last()
-            if force_tier.lower() == 'none':
+            force_tier_start = (
+                float(m.options.force_lng_tier[1])
+                if len(m.options.force_lng_tier) > 1
+                else m.PERIODS.first()
+            )
+            force_tier_end = (
+                float(m.options.force_lng_tier[2])
+                if len(m.options.force_lng_tier) > 2
+                else m.PERIODS.last()
+            )
+            if force_tier.lower() == "none":
                 action = 0
             elif force_tier not in m.LNG_TIERS:
                 raise ValueError(
-                    "--force-lng-tier argument '{}' does not match any LNG market tier.".format(force_tier)
+                    "--force-lng-tier argument '{}' does not match any LNG market tier.".format(
+                        force_tier
+                    )
                 )
             elif tier == force_tier and force_tier_start <= per <= force_tier_end:
                 # force tier on
@@ -98,16 +120,25 @@ def define_components(m):
             result = action
         else:
             if m.options.verbose:
-                print("{} activation of tier {}.".format('Forcing' if action else 'Blocking', (rfm, per, tier)))
-            result = (m.RFMSupplyTierActivate[rfm, per, tier] == action)
+                print(
+                    "{} activation of tier {}.".format(
+                        "Forcing" if action else "Blocking", (rfm, per, tier)
+                    )
+                )
+            result = m.RFMSupplyTierActivate[rfm, per, tier] == action
         return result
+
     m.Force_LNG_Tier = Constraint(m.LNG_RFM_SUPPLY_TIERS, rule=Force_LNG_Tier_rule)
 
-
     # list of all projects and timepoints when LNG could potentially be used
-    m.LNG_GEN_TIMEPOINTS = Set(dimen=2, initialize = lambda m:
-        ((p, t) for p in m.GENS_BY_FUEL['LNG'] for t in m.TIMEPOINTS
-            if (p, t) in m.GEN_TPS)
+    m.LNG_GEN_TIMEPOINTS = Set(
+        dimen=2,
+        initialize=lambda m: (
+            (p, t)
+            for p in m.GENS_BY_FUEL["LNG"]
+            for t in m.TIMEPOINTS
+            if (p, t) in m.GEN_TPS
+        ),
     )
 
     # HECO PSIP 2016-04 has only Kahe 5, Kahe 6, Kalaeloa and CC_383 burning LNG,
@@ -120,16 +151,22 @@ def define_components(m):
     # are included in the LNG supply tiers, so we don't need to worry about that.
     m.LNG_CONVERTED_PLANTS = Set(
         initialize=[
-            'Oahu_Kahe_K5', 'Oahu_Kahe_K6',
-            'Oahu_Kalaeloa_CC1_CC2', # used in some older models
-            'Oahu_Kalaeloa_CC1', 'Oahu_Kalaeloa_CC2', 'Oahu_Kalaeloa_CC3',
-            'Oahu_CC_383', 'Oahu_CC_152', 'Oahu_CT_100'
+            "Oahu_Kahe_K5",
+            "Oahu_Kahe_K6",
+            "Oahu_Kalaeloa_CC1_CC2",  # used in some older models
+            "Oahu_Kalaeloa_CC1",
+            "Oahu_Kalaeloa_CC2",
+            "Oahu_Kalaeloa_CC3",
+            "Oahu_CC_383",
+            "Oahu_CC_152",
+            "Oahu_CT_100",
         ]
     )
-    m.LNG_In_Converted_Plants_Only = Constraint(m.LNG_GEN_TIMEPOINTS,
-        rule=lambda m, g, tp:
-            Constraint.Skip if g in m.LNG_CONVERTED_PLANTS
-            else (m.GenFuelUseRate[g, tp, 'LNG'] == 0)
+    m.LNG_In_Converted_Plants_Only = Constraint(
+        m.LNG_GEN_TIMEPOINTS,
+        rule=lambda m, g, tp: Constraint.Skip
+        if g in m.LNG_CONVERTED_PLANTS
+        else (m.GenFuelUseRate[g, tp, "LNG"] == 0),
     )
 
     # CODE BELOW IS DISABLED because we have abandoned the 'container' tier which cost
