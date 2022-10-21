@@ -86,11 +86,13 @@ def define_components(mod):
     # and dispatch.
     mod.BASELOAD_GEN_PERIODS = Set(
         dimen=2,
-        rule=lambda m: [(g, p) for g in m.BASELOAD_GENS for p in m.PERIODS_FOR_GEN[g]],
+        initialize=lambda m: [
+            (g, p) for g in m.BASELOAD_GENS for p in m.PERIODS_FOR_GEN[g]
+        ],
     )
     mod.BASELOAD_GEN_TPS = Set(
         dimen=2,
-        rule=lambda m: [
+        initialize=lambda m: [
             (g, t) for g, p in m.BASELOAD_GEN_PERIODS for t in m.TPS_IN_PERIOD[p]
         ],
     )

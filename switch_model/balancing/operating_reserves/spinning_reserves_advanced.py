@@ -458,11 +458,11 @@ def define_components(m):
 
     m.SPINNING_RESERVE_TYPES_FOR_GEN = Set(
         m.SPINNING_RESERVE_CAPABLE_GENS,
-        rule=lambda m, g: m.SPINNING_RESERVE_TYPES_FOR_GEN_dict.pop(g),
+        initialize=lambda m, g: m.SPINNING_RESERVE_TYPES_FOR_GEN_dict.pop(g),
     )
     m.GENS_FOR_SPINNING_RESERVE_TYPE = Set(
         m.SPINNING_RESERVE_TYPES_FROM_GENS,
-        rule=lambda m, rt: m.GENS_FOR_SPINNING_RESERVE_TYPE_dict.pop(rt),
+        initialize=lambda m, rt: m.GENS_FOR_SPINNING_RESERVE_TYPE_dict.pop(rt),
     )
 
     # types, generators and timepoints when reserves could be supplied
@@ -663,10 +663,12 @@ def define_dynamic_components(m):
     m.Aggregate_Spinning_Reserve_Details = BuildAction(rule=rule)
 
     m.SPINNING_RESERVE_REQUIREMENT_UP_BALANCING_AREA_TIMEPOINTS = Set(
-        dimen=3, rule=lambda m: list(m.Spinning_Reserve_Up_Requirements_dict.keys())
+        dimen=3,
+        initialize=lambda m: list(m.Spinning_Reserve_Up_Requirements_dict.keys()),
     )
     m.SPINNING_RESERVE_REQUIREMENT_DOWN_BALANCING_AREA_TIMEPOINTS = Set(
-        dimen=3, rule=lambda m: list(m.Spinning_Reserve_Down_Requirements_dict.keys())
+        dimen=3,
+        initialize=lambda m: list(m.Spinning_Reserve_Down_Requirements_dict.keys()),
     )
 
     # satisfy all spinning reserve requirements
