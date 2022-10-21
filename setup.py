@@ -60,16 +60,16 @@ setup(
         'production cost', 'capacity expansion',
         'planning', 'optimization'
     ],
-    python_requires='>=2.7.12',
+    python_requires='>=3.7.0',
     install_requires=[
         # 4.4.1+ works with glpk 4.60+; 5.6.9 gives warning and 5.7 gives error
-        'Pyomo >=4.4.1, <=5.6.8', 
+        'Pyomo >=5.5.1, <=6.4.2',
         # by default, incompatible 6.0 gets installed with Pyomo 5.6.*
-        'pyutilib <=5.7.3',
+        'pyutilib >=5.6.3, <=6.0.0',
         # needed by Pyomo when we run our tests, but not included
-        'pint', 
+        'pint',
         # used for standard tests
-        'testfixtures', 
+        'testfixtures',
         # used for input upgrades and some reporting
         'pandas',
     ],
