@@ -20,11 +20,12 @@ class TestLoader(unittest.TestLoader):
     # effects when imported.
     def discover(self, start_dir, pattern, top_level_dir):
         test_suite = unittest.TestSuite()
-        for subdir in ('switch_model', 'tests'):
+        for subdir in ("switch_model", "tests"):
             test_suite.addTests(
                 super(TestLoader, self).discover(
-                    os.path.join(top_level_dir, subdir),
-                    pattern, top_level_dir))
+                    os.path.join(top_level_dir, subdir), pattern, top_level_dir
+                )
+            )
         return test_suite
 
     # The unittest module does not have built-in support for finding
@@ -37,7 +38,7 @@ class TestLoader(unittest.TestLoader):
         if not docstring:
             # Work around a misfeature whereby doctest complains if a
             # module contains no docstrings.
-            module.__doc__ = 'Placeholder docstring'
+            module.__doc__ = "Placeholder docstring"
         test_suite.addTests(doctest.DocTestSuite(module))
         if not docstring:
             # Restore the original, in case this matters.
@@ -48,12 +49,16 @@ class TestLoader(unittest.TestLoader):
 def main():
     script_dir = os.path.join(os.getcwd(), os.path.dirname(__file__))
     # print('old argv: {}'.format(sys.argv))
-    argv = [sys.argv[0],
-            'discover',
-            '--top-level-directory', script_dir,
-            '--pattern', '*.py'] + sys.argv[1:]
+    argv = [
+        sys.argv[0],
+        "discover",
+        "--top-level-directory",
+        script_dir,
+        "--pattern",
+        "*.py",
+    ] + sys.argv[1:]
     unittest.TestProgram(testLoader=TestLoader(), argv=argv, module=None)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

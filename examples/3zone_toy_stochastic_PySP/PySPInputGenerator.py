@@ -48,6 +48,7 @@ scenario_list should be modified to reflect those changes.
 
 """
 from __future__ import print_function
+
 # Inputs directory relative to the location of this script.
 inputs_dir = "inputs"
 # ScenarioStructure.dat and RootNode.dat will be saved to a
@@ -58,11 +59,10 @@ pysp_subdir = "pysp_inputs"
 stage_list = ["Investment", "Operation"]
 stage_vars = {
     "Investment": ["BuildGen", "BuildLocalTD", "BuildTx"],
-    "Operation": ["DispatchGen", "GenFuelUseRate"]
+    "Operation": ["DispatchGen", "GenFuelUseRate"],
 }
 # List of scenario names
-scenario_list = [
-    "LowFuelCosts", "MediumFuelCosts", "HighFuelCosts"]
+scenario_list = ["LowFuelCosts", "MediumFuelCosts", "HighFuelCosts"]
 
 ###########################################################
 
@@ -82,6 +82,7 @@ print("loading inputs into model...")
 instance = model.load_inputs(inputs_dir=inputs_dir)
 print("inputs successfully loaded...")
 
+
 def save_dat_files():
 
     if not os.path.exists(os.path.join(inputs_dir, pysp_subdir)):
@@ -92,8 +93,9 @@ def save_dat_files():
 
     dat_file = os.path.join(inputs_dir, pysp_subdir, "RootNode.dat")
     print("creating and saving {}...".format(dat_file))
-    utilities.save_inputs_as_dat(model, instance, save_path=dat_file,
-        sorted_output=model.options.sorted_output)
+    utilities.save_inputs_as_dat(
+        model, instance, save_path=dat_file, sorted_output=model.options.sorted_output
+    )
 
     #######################
     # ScenarioStructure.dat
@@ -117,7 +119,7 @@ def save_dat_files():
 
         f.write("param NodeStage := RootNode {}\n".format(stage_list[0]))
         for s in scenario_list:
-            f.write("    {scen} {st}\n".format(scen=s,st=stage_list[1]))
+            f.write("    {scen} {st}\n".format(scen=s, st=stage_list[1]))
         f.write(";\n\n")
 
         f.write("set Children[RootNode] := ")
@@ -127,7 +129,7 @@ def save_dat_files():
 
         f.write("param ConditionalProbability := RootNode 1.0")
         # All scenarios have the same probability in this example
-        probs = [1.0/len(scenario_list)] * (len(scenario_list) - 1)
+        probs = [1.0 / len(scenario_list)] * (len(scenario_list) - 1)
         # The remaining probability is lumped in the last scenario to avoid rounding issues
         probs.append(1.0 - sum(probs))
         for (s, p) in zip(scenario_list, probs):
@@ -150,14 +152,16 @@ def save_dat_files():
             if hasattr(instance, cname):
                 dimen = getattr(instance, cname).index_set().dimen
                 if dimen == 0:
-                   f.write("    {cn}\n".format(cn=cname))
+                    f.write("    {cn}\n".format(cn=cname))
                 else:
-                    indexing = (",".join(["*"]*dimen))
+                    indexing = ",".join(["*"] * dimen)
                     f.write("    {cn}[{dim}]\n".format(cn=cname, dim=indexing))
             else:
                 raise ValueError(
-                    "Variable '{}' is not a component of the model. Did you make a typo?".
-                    format(cname))
+                    "Variable '{}' is not a component of the model. Did you make a typo?".format(
+                        cname
+                    )
+                )
 
         for st in stage_list:
             f.write("set StageVariables[{}] := \n".format(st))
@@ -171,8 +175,9 @@ def save_dat_files():
         f.write("    Operation OperationCost\n")
         f.write(";")
 
+
 ####################
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # If the script is executed on the command line, then the .dat files are created.
     save_dat_files()

@@ -37,7 +37,7 @@ print("loading model...")
 
 # Ideally, we would use the main codebase to generate the model, but the
 # mandatory switch argument parser is interferring with pysp's command line tools
-#model = switch_model.solve.main(return_model=True)
+# model = switch_model.solve.main(return_model=True)
 
 module_list = switch_model.solve.get_module_list(args=None)
 model = utilities.create_model(module_list, args=[])
@@ -53,14 +53,19 @@ model = utilities.create_model(module_list, args=[])
 # are nested inside another function in the financials module, they can't
 # be called from this script.
 
+
 def calc_tp_costs_in_period(m, t):
-	return sum(
-		getattr(m, tp_cost)[t] * m.tp_weight_in_year[t]
-		for tp_cost in m.Cost_Components_Per_TP)
+    return sum(
+        getattr(m, tp_cost)[t] * m.tp_weight_in_year[t]
+        for tp_cost in m.Cost_Components_Per_TP
+    )
+
+
 def calc_annual_costs_in_period(m, p):
-	return sum(
-		getattr(m, annual_cost)[p]
-		for annual_cost in m.Cost_Components_Per_Period)
+    return sum(
+        getattr(m, annual_cost)[p] for annual_cost in m.Cost_Components_Per_Period
+    )
+
 
 # In the current version of Switch, all annual costs are defined
 # by First Stage decision variables, such as fixed O&M and capital
@@ -73,14 +78,19 @@ def calc_annual_costs_in_period(m, p):
 # decisions in this example.
 # Further comments on this are written in the Readme file.
 
-model.InvestmentCost = Expression(rule=lambda m: sum(
-                calc_annual_costs_in_period(m, p) * m.bring_annual_costs_to_base_year[p]
-                for p in m.PERIODS))
+model.InvestmentCost = Expression(
+    rule=lambda m: sum(
+        calc_annual_costs_in_period(m, p) * m.bring_annual_costs_to_base_year[p]
+        for p in m.PERIODS
+    )
+)
 
-model.OperationCost = Expression(rule=lambda m:
-	sum(
-		sum(calc_tp_costs_in_period(m, t) for t in m.TPS_IN_PERIOD[p]
-		   ) * m.bring_annual_costs_to_base_year[p]
-	for p in m.PERIODS))
+model.OperationCost = Expression(
+    rule=lambda m: sum(
+        sum(calc_tp_costs_in_period(m, t) for t in m.TPS_IN_PERIOD[p])
+        * m.bring_annual_costs_to_base_year[p]
+        for p in m.PERIODS
+    )
+)
 
 print("model successfully loaded...")
