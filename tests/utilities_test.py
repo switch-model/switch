@@ -67,7 +67,7 @@ class UtilitiesTest(unittest.TestCase):
         from switch_model.utilities import SwitchAbstractModel
         from pyomo.environ import Param, Set
 
-        mod = SwitchAbstractModel(module_list=[])
+        mod = SwitchAbstractModel(module_list=[], args=[])
         mod.set_A = Set(initialize=[1, 2])
         mod.paramA_full = Param(mod.set_A, initialize={1: "a", 2: "b"})
         mod.paramA_empty = Param(mod.set_A)
