@@ -117,13 +117,19 @@ def define_components(m):
     # data for the individual bids; each load_zone gets one bid for each timeseries,
     # and each bid covers all the timepoints in that timeseries. So we just record
     # the bid for each timepoint for each load_zone.
-    m.dr_bid = Param(m.DR_BID_LIST, m.LOAD_ZONES, m.TIMEPOINTS, mutable=True)
+    m.dr_bid = Param(
+        m.DR_BID_LIST, m.LOAD_ZONES, m.TIMEPOINTS, within=Reals, mutable=True
+    )
 
     # price used to get this bid (only kept for reference)
-    m.dr_price = Param(m.DR_BID_LIST, m.LOAD_ZONES, m.TIMEPOINTS, mutable=True)
+    m.dr_price = Param(
+        m.DR_BID_LIST, m.LOAD_ZONES, m.TIMEPOINTS, within=Reals, mutable=True
+    )
 
     # the private benefit of serving each bid
-    m.dr_bid_benefit = Param(m.DR_BID_LIST, m.LOAD_ZONES, m.TIMESERIES, mutable=True)
+    m.dr_bid_benefit = Param(
+        m.DR_BID_LIST, m.LOAD_ZONES, m.TIMESERIES, within=Reals, mutable=True
+    )
 
     # weights to assign to the bids for each timeseries when constructing an optimal demand profile
     m.DRBidWeight = Var(
@@ -212,7 +218,7 @@ def define_components(m):
 
     # annual costs, recovered via baseline prices
     # but not included in switch's calculation of costs
-    m.other_costs = Param(m.PERIODS, mutable=True, default=0.0)
+    m.other_costs = Param(m.PERIODS, within=Reals, mutable=True, default=0.0)
     m.Cost_Components_Per_Period.append("other_costs")
 
     # variable to store the baseline data

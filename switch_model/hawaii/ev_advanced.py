@@ -125,7 +125,7 @@ def define_components(m):
 
     # EV bid data -- total MW used by 100% EV fleet, for each zone, veh type,
     # bid number, timepoint
-    m.ev_bid_by_type = Param(m.EV_ZONE_TYPE_BID_TP)
+    m.ev_bid_by_type = Param(m.EV_ZONE_TYPE_BID_TP, within=NonNegativeReals)
 
     # aggregate across vehicle types (types are only needed for reporting)
     m.ev_bid_mw = Param(

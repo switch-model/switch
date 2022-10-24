@@ -142,7 +142,7 @@ def define_components(mod):
             for bld_yr in m.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD[period]
         ),
     )
-    mod.distribution_loss_rate = Param(default=0.053)
+    mod.distribution_loss_rate = Param(within=NonNegativeReals, default=0.053)
 
     mod.Meet_Local_TD = Constraint(
         mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS,
@@ -151,9 +151,7 @@ def define_components(mod):
         >= m.zone_expected_coincident_peak_demand[z, period],
     )
     mod.local_td_annual_cost_per_mw = Param(
-        mod.LOAD_ZONES,
-        within=NonNegativeReals,
-        default=0.0,
+        mod.LOAD_ZONES, within=NonNegativeReals, default=0.0
     )
     mod.min_data_check("local_td_annual_cost_per_mw")
     mod.LocalTDFixedCosts = Expression(
