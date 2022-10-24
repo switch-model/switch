@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2020 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -24,7 +24,7 @@ module_messages = {
     # description of significant changes to particular modules (other than moving)
     # old_module: message
     "switch_model": "Beginning with Switch 2.0.5, all inputs must be in .csv files and all "
-    "outputs will be written to .csv files.",
+    "outputs will be written to .csv files."
 }
 
 
