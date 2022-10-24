@@ -28,15 +28,17 @@ def define_components(m):
 def define_hydrogen_components(m):
 
     # electrolyzer details
-    m.hydrogen_electrolyzer_capital_cost_per_mw = Param()
-    m.hydrogen_electrolyzer_fixed_cost_per_mw_year = Param(default=0.0)
+    m.hydrogen_electrolyzer_capital_cost_per_mw = Param(within=NonNegativeReals)
+    m.hydrogen_electrolyzer_fixed_cost_per_mw_year = Param(
+        within=NonNegativeReals, default=0.0
+    )
+    # assumed to include any refurbishment needed
     m.hydrogen_electrolyzer_variable_cost_per_kg = Param(
-        default=0.0
-    )  # assumed to include any refurbishment needed
-    m.hydrogen_electrolyzer_kg_per_mwh = (
-        Param()
-    )  # assumed to deliver H2 at enough pressure for liquifier and daily buffering
-    m.hydrogen_electrolyzer_life_years = Param()
+        within=NonNegativeReals, default=0.0
+    )
+    # assumed to deliver H2 at enough pressure for liquifier and daily buffering
+    m.hydrogen_electrolyzer_kg_per_mwh = Param(within=NonNegativeReals)
+    m.hydrogen_electrolyzer_life_years = Param(within=NonNegativeReals)
     m.BuildElectrolyzerMW = Var(m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals)
     m.ElectrolyzerCapacityMW = Expression(
         m.LOAD_ZONES,
@@ -60,11 +62,15 @@ def define_hydrogen_components(m):
     # This allows the system to do some intra-day arbitrage without going all the way to liquification
 
     # liquifier details
-    m.hydrogen_liquifier_capital_cost_per_kg_per_hour = Param()
-    m.hydrogen_liquifier_fixed_cost_per_kg_hour_year = Param(default=0.0)
-    m.hydrogen_liquifier_variable_cost_per_kg = Param(default=0.0)
-    m.hydrogen_liquifier_mwh_per_kg = Param()
-    m.hydrogen_liquifier_life_years = Param()
+    m.hydrogen_liquifier_capital_cost_per_kg_per_hour = Param(within=NonNegativeReals)
+    m.hydrogen_liquifier_fixed_cost_per_kg_hour_year = Param(
+        within=NonNegativeReals, default=0.0
+    )
+    m.hydrogen_liquifier_variable_cost_per_kg = Param(
+        within=NonNegativeReals, default=0.0
+    )
+    m.hydrogen_liquifier_mwh_per_kg = Param(within=NonNegativeReals)
+    m.hydrogen_liquifier_life_years = Param(within=NonNegativeReals)
     m.BuildLiquifierKgPerHour = Var(
         m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals
     )  # capacity to build, measured in kg/hour of throughput
@@ -87,9 +93,9 @@ def define_hydrogen_components(m):
     )
 
     # storage tank details
-    m.liquid_hydrogen_tank_capital_cost_per_kg = Param()
-    m.liquid_hydrogen_tank_minimum_size_kg = Param(default=0.0)
-    m.liquid_hydrogen_tank_life_years = Param()
+    m.liquid_hydrogen_tank_capital_cost_per_kg = Param(within=NonNegativeReals)
+    m.liquid_hydrogen_tank_minimum_size_kg = Param(within=NonNegativeReals, default=0.0)
+    m.liquid_hydrogen_tank_life_years = Param(within=NonNegativeReals)
     m.BuildLiquidHydrogenTankKg = Var(
         m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals
     )  # in kg
@@ -113,13 +119,16 @@ def define_hydrogen_components(m):
     # note: we assume the system will be large enough to neglect boil-off
 
     # fuel cell details
-    m.hydrogen_fuel_cell_capital_cost_per_mw = Param()
-    m.hydrogen_fuel_cell_fixed_cost_per_mw_year = Param(default=0.0)
+    m.hydrogen_fuel_cell_capital_cost_per_mw = Param(within=NonNegativeReals)
+    m.hydrogen_fuel_cell_fixed_cost_per_mw_year = Param(
+        within=NonNegativeReals, default=0.0
+    )
+    # assumed to include any refurbishment needed
     m.hydrogen_fuel_cell_variable_cost_per_mwh = Param(
-        default=0.0
-    )  # assumed to include any refurbishment needed
-    m.hydrogen_fuel_cell_mwh_per_kg = Param()
-    m.hydrogen_fuel_cell_life_years = Param()
+        within=NonNegativeReals, default=0.0
+    )
+    m.hydrogen_fuel_cell_mwh_per_kg = Param(within=NonNegativeReals)
+    m.hydrogen_fuel_cell_life_years = Param(within=NonNegativeReals)
     m.BuildFuelCellMW = Var(m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals)
     m.FuelCellCapacityMW = Expression(
         m.LOAD_ZONES,

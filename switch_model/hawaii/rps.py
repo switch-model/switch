@@ -124,7 +124,7 @@ def define_components(m):
     )
 
     m.RPS_YEARS = Set(ordered=True, dimen=1)
-    m.rps_target = Param(m.RPS_YEARS)
+    m.rps_target = Param(m.RPS_YEARS, within=PercentFraction)
 
     def rps_target_for_period_rule(m, p):
         """find the last target that is in effect before the _end_ of the period"""

@@ -27,17 +27,14 @@ def define_arguments(argparser):
 
 def define_components(m):
     # setup various parameters describing the EV and ICE fleet each year
-    for p in [
-        "ev_share",
-        "ice_miles_per_gallon",
-        "ev_miles_per_kwh",
-        "ev_extra_cost_per_vehicle_year",
-        "n_all_vehicles",
-        "vmt_per_vehicle",
-    ]:
-        setattr(m, p, Param(m.LOAD_ZONES, m.PERIODS))
+    m.ev_share = Param(m.LOAD_ZONES, m.PERIODS, within=PercentFraction)
+    m.ice_miles_per_gallon = Param(m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals)
+    m.ev_miles_per_kwh = Param(m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals)
+    m.ev_extra_cost_per_vehicle_year = Param(m.LOAD_ZONES, m.PERIODS, within=Reals)
+    m.n_all_vehicles = Param(m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals)
+    m.vmt_per_vehicle = Param(m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals)
 
-    m.ev_bau_mw = Param(m.LOAD_ZONES, m.TIMEPOINTS)
+    m.ev_bau_mw = Param(m.LOAD_ZONES, m.TIMEPOINTS, within=Reals)
 
     # calculate the extra annual cost (non-fuel) of having EVs, relative to ICEs (mostly for batteries, could also be chargers)
     m.ev_extra_annual_cost = Param(
