@@ -674,3 +674,37 @@ def load_inputs(mod, switch_data, inputs_dir):
         index=mod.MULTI_FUEL_GEN_FUELS,
         param=tuple(),
     )
+
+
+def post_solve(m, outdir):
+    write_table(
+        m,
+        sorted(m.GEN_PERIODS) if m.options.sorted_output else m.GEN_PERIODS,
+        output_file=os.path.join(outdir, "gen_cap.csv"),
+        headings=(
+            "GENERATION_PROJECT",
+            "PERIOD",
+            "gen_tech",
+            "gen_load_zone",
+            "gen_energy_source",
+            "GenCapacity",
+            "GenCapitalCosts",
+            "GenFixedOMCosts",
+        ),
+        values=lambda m, g, p: (
+            g,
+            p,
+            m.gen_tech[g],
+            m.gen_load_zone[g],
+            m.gen_energy_source[g],
+            m.GenCapacity[g, p],
+            m.GenCapitalCosts[g, p]
+            + (
+                m.StorageEnergyFixedCost[g, p]
+                if hasattr(m, "StorageEnergyFixedCost")
+                and (g, p) in m.StorageEnergyFixedCost
+                else 0.0
+            ),
+            m.GenFixedOMCosts[g, p],
+        ),
+    )
