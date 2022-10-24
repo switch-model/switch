@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2020 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 import os, shutil, argparse, glob
 import pandas as pd
@@ -22,7 +22,7 @@ module_messages = {
     "switch_model.generators.core.build": "Beginning with Switch 2.0.6, gen_multiple_fuels.dat should "
     "be replaced with gen_multiple_fuels.csv. The .csv file should have "
     "two columns: GENERATION_PROJECT and fuel. It should have one row for "
-    "each allowed fuel for each multi-fuel generator.",
+    "each allowed fuel for each multi-fuel generator."
 }
 
 
