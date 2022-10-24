@@ -158,7 +158,7 @@ def define_components(mod):
 
     """
 
-    mod.TRANSMISSION_LINES = Set()
+    mod.TRANSMISSION_LINES = Set(dimen=1)
     mod.trans_lz1 = Param(mod.TRANSMISSION_LINES, within=mod.LOAD_ZONES)
     mod.trans_lz2 = Param(mod.TRANSMISSION_LINES, within=mod.LOAD_ZONES)
     # we don't do a min_data_check for TRANSMISSION_LINES, because it may be empty for model
@@ -189,7 +189,7 @@ def define_components(mod):
 
     mod.check_tx_duplicate_paths = BuildCheck(rule=_check_tx_duplicate_paths)
 
-    mod.trans_dbid = Param(mod.TRANSMISSION_LINES, default=lambda m, tx: tx)
+    mod.trans_dbid = Param(mod.TRANSMISSION_LINES, default=lambda m, tx: tx, within=Any)
     mod.trans_length_km = Param(mod.TRANSMISSION_LINES, within=NonNegativeReals)
     mod.trans_efficiency = Param(mod.TRANSMISSION_LINES, within=PercentFraction)
     mod.existing_trans_cap = Param(mod.TRANSMISSION_LINES, within=NonNegativeReals)
@@ -266,6 +266,7 @@ def define_components(mod):
     mod.DIRECTIONAL_TX = Set(dimen=2, initialize=init_DIRECTIONAL_TX)
     mod.TX_CONNECTIONS_TO_ZONE = Set(
         mod.LOAD_ZONES,
+        dimen=1,
         initialize=lambda m, lz: [
             z for z in m.LOAD_ZONES if (z, lz) in m.DIRECTIONAL_TX
         ],

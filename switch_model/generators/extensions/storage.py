@@ -109,8 +109,9 @@ def define_components(mod):
 
     """
 
-    mod.STORAGE_GENS = Set(within=mod.GENERATION_PROJECTS)
+    mod.STORAGE_GENS = Set(within=mod.GENERATION_PROJECTS, dimen=1)
     mod.STORAGE_GEN_PERIODS = Set(
+        dimen=2,
         within=mod.GEN_PERIODS,
         initialize=lambda m: [
             (g, p) for g in m.STORAGE_GENS for p in m.PERIODS_FOR_GEN[g]

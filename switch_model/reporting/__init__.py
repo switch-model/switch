@@ -19,7 +19,7 @@ dependency on load_zones.
 
 """
 from __future__ import print_function
-from switch_model.utilities import string_types
+from switch_model.utilities import string_types, UnknownSetDimen
 
 dependencies = "switch_model.financials"
 
@@ -54,7 +54,11 @@ def define_arguments(argparser):
         default=False,
         action="store_true",
         dest="sorted_output",
-        help="Write generic variable result values in sorted order",
+        help=(
+            "Sort result files lexicographically. Otherwise results are "
+            "written in the same order as the input data (with Pyomo 5.7+) or "
+            "in random order (with earlier versions of Pyomo)."
+        ),
     )
     argparser.add_argument(
         "--skip-generic-output",
@@ -175,16 +179,23 @@ def save_generic_results(instance, outdir, sorted_output):
             writer = csv.writer(fh, dialect="switch-csv")
             if var.is_indexed():
                 index_name = var.index_set().name
+                index_dimen = var.index_set().dimen
+                if index_dimen is UnknownSetDimen:
+                    # Need to specify dimen even if it's 1 in Pyomo 5.7+. We
+                    # could potentially use
+                    # pyomo.dataportal.process_data._guess_set_dimen() but it is
+                    # undocumented and not needed if all the sets have dimen
+                    # specified, which they do now.
+                    raise ValueError(
+                        f"Set {index_name} has unknown dimen; unable to infer "
+                        f"number of index columns to write to {var.name}.csv."
+                    )
                 # Write column headings
                 writer.writerow(
-                    [
-                        "%s_%d" % (index_name, i + 1)
-                        for i in range(var.index_set().dimen)
-                    ]
-                    + [var.name]
+                    [f"{index_name}_{i+1}" for i in range(index_dimen)] + [var.name]
                 )
-                # Results are saved in a random order by default for
-                # increased speed. Sorting is available if wanted.
+                # Results are saved in the order of the index set by default.
+                # Lexicographic sorting is available if wanted.
                 items = sorted(var.items()) if sorted_output else list(var.items())
                 for key, obj in items:
                     writer.writerow(tuple(make_iterable(key)) + (get_value(obj),))

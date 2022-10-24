@@ -21,7 +21,7 @@ def define_arguments(argparser):
 
 def define_components(m):
 
-    m.PH_GENS = Set()
+    m.PH_GENS = Set(dimen=1)
 
     m.ph_load_zone = Param(m.PH_GENS)
 

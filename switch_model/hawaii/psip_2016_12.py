@@ -342,13 +342,16 @@ def define_components(m):
 
     # make a special list including all standard generation technologies plus "LoadShiftBattery"
     m.GEN_TECHS_AND_BATTERIES = Set(
+        dimen=1,
         initialize=lambda m: [g for g in m.GENERATION_TECHNOLOGIES]
-        + ["LoadShiftBattery"]
+        + ["LoadShiftBattery"],
     )
 
     # make a list of renewable technologies
     m.RENEWABLE_TECHNOLOGIES = Set(
-        initialize=m.GENERATION_TECHNOLOGIES, filter=lambda m, tech: is_renewable(tech)
+        dimen=1,
+        initialize=m.GENERATION_TECHNOLOGIES,
+        filter=lambda m, tech: is_renewable(tech),
     )
 
     def technology_target_init(m, per, tech):
@@ -454,7 +457,7 @@ def define_components(m):
     aes_size = 180
     aes_bld_year = 1992
     m.AES_OPERABLE_PERIODS = Set(
-        initialize=lambda m: m.PERIODS_FOR_GEN_BLD_YR[aes_g, aes_bld_year]
+        dimen=1, initialize=lambda m: m.PERIODS_FOR_GEN_BLD_YR[aes_g, aes_bld_year]
     )
     m.OperateAES = Var(m.AES_OPERABLE_PERIODS, within=Binary)
     m.Enforce_AES_Deactivate = Constraint(

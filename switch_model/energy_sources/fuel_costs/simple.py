@@ -58,6 +58,7 @@ def define_components(mod):
     mod.min_data_check("ZONE_FUEL_PERIODS", "fuel_cost")
 
     mod.GEN_TP_FUELS_UNAVAILABLE = Set(
+        dimen=3,
         initialize=mod.GEN_TP_FUELS,
         filter=lambda m, g, t, f: (m.gen_load_zone[g], f, m.tp_period[t])
         not in m.ZONE_FUEL_PERIODS,

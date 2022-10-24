@@ -107,7 +107,7 @@ def define_components(m):
     ##################
 
     # list of all bids that have been received from the demand system
-    m.DR_BID_LIST = Set(initialize=[], ordered=True)
+    m.DR_BID_LIST = Set(dimen=1, initialize=[], ordered=True)
     # we need an explicit indexing set for everything that depends on DR_BID_LIST
     # so we can reconstruct it (and them) each time we add an element to DR_BID_LIST
     # (not needed, and actually doesn't work -- reconstruct() fails for sets)

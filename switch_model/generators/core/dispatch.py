@@ -166,12 +166,14 @@ def define_components(mod):
 
     mod.GENS_IN_PERIOD = Set(
         mod.PERIODS,
+        dimen=1,
         initialize=period_active_gen_rule,
         doc="The set of projects active in a given period.",
     )
 
     mod.TPS_FOR_GEN = Set(
         mod.GENERATION_PROJECTS,
+        dimen=1,
         within=mod.TIMEPOINTS,
         initialize=lambda m, g: (
             tp for p in m.PERIODS_FOR_GEN[g] for tp in m.TPS_IN_PERIOD[p]
@@ -192,7 +194,11 @@ def define_components(mod):
         return result
 
     mod.TPS_FOR_GEN_IN_PERIOD = Set(
-        mod.GENERATION_PROJECTS, mod.PERIODS, within=mod.TIMEPOINTS, initialize=init
+        mod.GENERATION_PROJECTS,
+        mod.PERIODS,
+        dimen=1,
+        within=mod.TIMEPOINTS,
+        initialize=init,
     )
 
     mod.GEN_TPS = Set(
@@ -273,10 +279,7 @@ def define_components(mod):
         initialize=init_gen_availability,
     )
 
-    mod.VARIABLE_GEN_TPS_RAW = Set(
-        dimen=2,
-        within=mod.VARIABLE_GENS * mod.TIMEPOINTS,
-    )
+    mod.VARIABLE_GEN_TPS_RAW = Set(dimen=2, within=mod.VARIABLE_GENS * mod.TIMEPOINTS)
     mod.gen_max_capacity_factor = Param(
         mod.VARIABLE_GEN_TPS_RAW,
         within=Reals,

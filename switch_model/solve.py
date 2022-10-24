@@ -383,12 +383,14 @@ def patch_pyomo():
         add_solution_code = add_solution_code.replace(old_code, new_code)
         replace_method(ModelSolutions, "add_solution", add_solution_code)
     elif pyomo.version.version_info[:2] >= (5, 0):
+        # We don't allow later versions of Pyomo than we've tested with, so
+        # this should only show up during testing when preparing to release a
+        # new version.
         print(
             "NOTE: The patch to pyomo.core.base.PyomoModel.ModelSolutions.add_solution "
             "has been deactivated because the Pyomo source code has changed. "
-            "Check whether this patch is still needed and edit {} accordingly.".format(
-                __file__
-            )
+            f"Check whether this patch is still needed and edit {__file__} "
+            "accordingly."
         )
 
 

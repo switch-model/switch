@@ -94,7 +94,9 @@ def define_dynamic_components(m):
         m.make_component_smoothing_dict = BuildAction(rule=rule)
 
         # Force IncreaseSmoothedValue to equal any step-up in a smoothed value
-        m.ISV_INDEX = Set(initialize=lambda m: list(m.component_smoothing_dict.keys()))
+        m.ISV_INDEX = Set(
+            dimen=1, initialize=lambda m: list(m.component_smoothing_dict.keys())
+        )
         m.IncreaseSmoothedValue = Var(m.ISV_INDEX, within=NonNegativeReals)
         m.Calculate_IncreaseSmoothedValue = Constraint(
             m.ISV_INDEX,

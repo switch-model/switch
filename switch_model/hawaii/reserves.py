@@ -48,16 +48,20 @@ def define_components(m):
     # projects that can provide reserves
     # TODO: add batteries, hydrogen and pumped storage to this
     m.FIRM_GENS = Set(
+        dimen=1,
         initialize=m.GENERATION_PROJECTS,
         # filter=lambda m, p: m.gen_energy_source[p] not in ['Wind', 'Solar']
     )
-    m.FIRM_GEN_TPS = Set(initialize=m.GEN_TPS, filter=lambda m, p, tp: p in m.FIRM_GENS)
+    m.FIRM_GEN_TPS = Set(
+        dimen=2, initialize=m.GEN_TPS, filter=lambda m, p, tp: p in m.FIRM_GENS
+    )
     m.CONTINGENCY_GENS = Set(
+        dimen=1,
         initialize=m.GENERATION_PROJECTS,
         filter=lambda m, p: p in m.DISCRETELY_SIZED_GENS,
     )
     m.CONTINGENCY_GEN_TPS = Set(
-        initialize=m.GEN_TPS, filter=lambda m, p, tp: p in m.CONTINGENCY_GENS
+        initialize=m.GEN_TPS, dimen=2, filter=lambda m, p, tp: p in m.CONTINGENCY_GENS
     )
 
     # Calculate spinning reserve requirements.

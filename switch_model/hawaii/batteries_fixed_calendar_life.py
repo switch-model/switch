@@ -10,9 +10,8 @@ def define_components(m):
 
     # battery capital cost
     # TODO: accept a single battery_capital_cost_per_mwh_capacity value or the annual values shown here
-    m.BATTERY_CAPITAL_COST_YEARS = (
-        Set()
-    )  # list of all years for which capital costs are available
+    # years that have capital cost data available
+    m.BATTERY_CAPITAL_COST_YEARS = Set(dimen=1)
     m.battery_capital_cost_per_mwh_capacity_by_year = Param(
         m.BATTERY_CAPITAL_COST_YEARS
     )

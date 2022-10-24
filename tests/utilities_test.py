@@ -42,14 +42,14 @@ class UtilitiesTest(unittest.TestCase):
             shutil.rmtree(temp_dir)
 
     def test_check_mandatory_components(self):
-        from pyomo.environ import ConcreteModel, Param, Set
+        from pyomo.environ import ConcreteModel, Param, Set, Any
         from switch_model.utilities import check_mandatory_components
 
         mod = ConcreteModel()
-        mod.set_A = Set(initialize=[1, 2])
-        mod.paramA_full = Param(mod.set_A, initialize={1: "a", 2: "b"})
+        mod.set_A = Set(dimen=1, initialize=[1, 2])
+        mod.paramA_full = Param(mod.set_A, initialize={1: "a", 2: "b"}, within=Any)
         mod.paramA_empty = Param(mod.set_A)
-        mod.set_B = Set()
+        mod.set_B = Set(dimen=1)
         mod.paramB_empty = Param(mod.set_B)
         mod.paramC = Param(initialize=1)
         mod.paramD = Param()
@@ -65,11 +65,11 @@ class UtilitiesTest(unittest.TestCase):
 
     def test_min_data_check(self):
         from switch_model.utilities import SwitchAbstractModel
-        from pyomo.environ import Param, Set
+        from pyomo.environ import Param, Set, Any
 
         mod = SwitchAbstractModel(module_list=[], args=[])
-        mod.set_A = Set(initialize=[1, 2])
-        mod.paramA_full = Param(mod.set_A, initialize={1: "a", 2: "b"})
+        mod.set_A = Set(initialize=[1, 2], dimen=1)
+        mod.paramA_full = Param(mod.set_A, initialize={1: "a", 2: "b"}, within=Any)
         mod.paramA_empty = Param(mod.set_A)
         mod.min_data_check("set_A", "paramA_full")
         self.assertIsNotNone(mod.create_instance())

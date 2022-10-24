@@ -138,7 +138,9 @@ def gen_fixed_contingency(m):
     that is usually online and/or reserves are cheap).
     """
     m.GenFixedContingency = Param(
-        m.BALANCING_AREA_TIMEPOINTS, initialize=lambda m: m.options.fixed_contingency
+        m.BALANCING_AREA_TIMEPOINTS,
+        initialize=lambda m: m.options.fixed_contingency,
+        within=NonNegativeReals,
     )
     m.Spinning_Reserve_Up_Contingencies.append("GenFixedContingency")
 
@@ -296,6 +298,7 @@ def hawaii_spinning_reserve_requirements(m):
             "Spinning reserves required to back up variable renewable "
             "generators, as fraction of potential output."
         ),
+        within=NonNegativeReals,
     )
 
     def var_gen_cap_reserve_limit_default(m, g):
@@ -313,6 +316,7 @@ def hawaii_spinning_reserve_requirements(m):
     m.var_gen_cap_reserve_limit = Param(
         m.VARIABLE_GENS,
         default=var_gen_cap_reserve_limit_default,
+        within=NonNegativeReals,
         doc="Maximum spinning reserves required, as fraction of installed capacity",
     )
     m.HawaiiVarGenUpSpinningReserveRequirement = Expression(
@@ -424,8 +428,9 @@ def define_components(m):
     """
     m.contingency_safety_factor = Param(
         default=1.0,
+        within=NonNegativeReals,
         doc=(
-            "The spinning reserve requiremet will be set to this value "
+            "The spinning reserve requirement will be set to this value "
             "times the maximum contingency. This defaults to 1 to provide "
             "n-1 security for the largest committed generator. "
         ),
@@ -440,10 +445,14 @@ def define_components(m):
     # and generation projects that can provide reserves
     # note: these are also the indexing sets of the above set arrays; maybe that could be used?
     m.SPINNING_RESERVE_TYPES_FROM_GENS = Set(
-        initialize=lambda m: unique_list(rt for (g, rt) in m.GEN_SPINNING_RESERVE_TYPES)
+        dimen=1,
+        initialize=lambda m: unique_list(
+            rt for (g, rt) in m.GEN_SPINNING_RESERVE_TYPES
+        ),
     )
     m.SPINNING_RESERVE_CAPABLE_GENS = Set(
-        initialize=lambda m: unique_list(g for (g, rt) in m.GEN_SPINNING_RESERVE_TYPES)
+        dimen=1,
+        initialize=lambda m: unique_list(g for (g, rt) in m.GEN_SPINNING_RESERVE_TYPES),
     )
 
     # slice GEN_SPINNING_RESERVE_TYPES both ways for later use
@@ -458,10 +467,12 @@ def define_components(m):
 
     m.SPINNING_RESERVE_TYPES_FOR_GEN = Set(
         m.SPINNING_RESERVE_CAPABLE_GENS,
+        dimen=1,
         initialize=lambda m, g: m.SPINNING_RESERVE_TYPES_FOR_GEN_dict.pop(g),
     )
     m.GENS_FOR_SPINNING_RESERVE_TYPE = Set(
         m.SPINNING_RESERVE_TYPES_FROM_GENS,
+        dimen=1,
         initialize=lambda m, rt: m.GENS_FOR_SPINNING_RESERVE_TYPE_dict.pop(rt),
     )
 
@@ -651,7 +662,7 @@ def define_dynamic_components(m):
             # lst is the name of a dynamic list from which to aggregate components
             d = defaultdict(float)
             for comp in getattr(m, lst):
-                for key, val in iteritems(getattr(m, comp)):
+                for key, val in getattr(m, comp).items():
                     d[key] += val
             setattr(m, lst + "_dict", d)
 

@@ -65,6 +65,7 @@ def define_components(mod):
 
     # don't allow use of a fuel when no cost has been specified
     mod.GEN_TP_FUELS_UNAVAILABLE = Set(
+        dimen=3,
         initialize=mod.GEN_TP_FUELS,
         filter=lambda m, g, t, f: (m.gen_load_zone[g], f, t)
         not in m.ZONE_FUEL_TIMEPOINTS,

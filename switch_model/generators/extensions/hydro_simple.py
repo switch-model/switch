@@ -85,6 +85,7 @@ def define_components(mod):
         validate=lambda m, g, ts: ((g in m.GENERATION_PROJECTS) & (ts in m.TIMESERIES)),
     )
     mod.HYDRO_GENS = Set(
+        dimen=1,
         initialize=lambda m: unique_list(g for (g, ts) in m.HYDRO_GEN_TS_RAW),
         doc="Dispatchable hydro projects",
     )
@@ -95,7 +96,7 @@ def define_components(mod):
         ),
     )
     mod.HYDRO_GEN_TPS = Set(
-        initialize=mod.GEN_TPS, filter=lambda m, g, t: g in m.HYDRO_GENS
+        dimen=2, initialize=mod.GEN_TPS, filter=lambda m, g, t: g in m.HYDRO_GENS
     )
 
     # Validate that a timeseries data is specified for every hydro generator /

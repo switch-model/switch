@@ -1,4 +1,11 @@
 -------------------------------------------------------------------------------
+Switch 2.0.7
+-------------------------------------------------------------------------------
+Note that as of version 5.7, Pyomo no longer supports "inf", "infinity" or "nan"
+values in the input files, so Switch will likely report errors if you have
+those.
+
+-------------------------------------------------------------------------------
 Switch 2.0.6
 -------------------------------------------------------------------------------
 This release fixes a bug where the fixed costs of storage energy capacity (the
@@ -9,7 +16,7 @@ current period. This increased the apparent cost of storage by approximately
 persisted through version 2.0.5, so results from earlier models will need to be
 updated.
 
-This will be the last version of Switch to work in Python 2. It requires at 
+This will be the last version of Switch to work in Python 2. It requires at
 least Python 2.7.12 and also works with Python 3.
 
 -------------------------------------------------------------------------------
