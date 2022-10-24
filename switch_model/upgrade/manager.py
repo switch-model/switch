@@ -220,8 +220,9 @@ def add_parser_args(parser):
         default=False,
         action="store_true",
         help=(
-            "Recursively scan the provided path for inputs directories "
-            'named "inputs", and upgrade each directory found. Note, this '
+            "Recursively scan from the current directory, searching for "
+            "directories named as shown in --inputs-dir-name, and "
+            "upgrading each directory found. Note, this "
             "requires each inputs directory to include modules.txt. This "
             "will not work if modules.txt is in the parent directory."
         ),
