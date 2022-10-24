@@ -597,6 +597,19 @@ def define_arguments(argparser):
         help="Name of research scenario represented by this model",
     )
 
+    # flag for output; used by many modules so we define it here
+    argparser.add_argument(
+        "--sorted-output",
+        default=False,
+        action="store_true",
+        dest="sorted_output",
+        help=(
+            "Sort result files lexicographically. Otherwise results are "
+            "written in the same order as the input data (with Pyomo 5.7+) or "
+            "in random order (with earlier versions of Pyomo)."
+        ),
+    )
+
     # note: pyomo has a --solver-suffix option but it is not clear
     # whether that does the same thing as --suffix defined here,
     # so we don't reuse the same name.
