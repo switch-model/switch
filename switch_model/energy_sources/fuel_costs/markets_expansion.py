@@ -91,6 +91,7 @@ def define_components(m):
     m.rfm_supply_tier_fixed_cost = Param(
         m.RFM_SUPPLY_TIERS,
         default=0.0,
+        within=NonNegativeReals,
         validate=lambda m, v, r, p, st: v == 0.0
         or m.rfm_supply_tier_limit[r, p, st] < infinity,
     )
@@ -98,7 +99,9 @@ def define_components(m):
     # lifetime for each tier, once it is placed in service
     # (default is one period)
     m.rfm_supply_tier_max_age = Param(
-        m.RFM_SUPPLY_TIERS, default=lambda m, r, p, st: m.period_length_years[p]
+        m.RFM_SUPPLY_TIERS,
+        default=lambda m, r, p, st: m.period_length_years[p],
+        within=NonNegativeReals,
     )
 
     # Note: in large regions, a tier represents a block of expandable capacity,

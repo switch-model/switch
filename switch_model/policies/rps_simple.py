@@ -66,11 +66,12 @@ def define_components(mod):
 
     mod.f_rps_eligible = Param(mod.FUELS, within=Boolean, default=False)
     mod.RPS_ENERGY_SOURCES = Set(
+        dimen=1,
         initialize=lambda m: list(m.NON_FUEL_ENERGY_SOURCES)
-        + [f for f in m.FUELS if m.f_rps_eligible[f]]
+        + [f for f in m.FUELS if m.f_rps_eligible[f]],
     )
 
-    mod.RPS_PERIODS = Set(validate=lambda m, p: p in m.PERIODS)
+    mod.RPS_PERIODS = Set(dimen=1, validate=lambda m, p: p in m.PERIODS)
     mod.rps_target = Param(mod.RPS_PERIODS, within=PercentFraction)
 
     mod.RPSFuelEnergy = Expression(

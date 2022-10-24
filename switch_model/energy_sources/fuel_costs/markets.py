@@ -210,7 +210,7 @@ def define_components(mod):
 
     """
 
-    mod.REGIONAL_FUEL_MARKETS = Set()
+    mod.REGIONAL_FUEL_MARKETS = Set(dimen=1)
     mod.rfm_fuel = Param(mod.REGIONAL_FUEL_MARKETS, within=mod.FUELS)
     mod.ZONE_RFMS = Set(
         dimen=2,
@@ -234,6 +234,7 @@ def define_components(mod):
     mod.min_data_check("REGIONAL_FUEL_MARKETS", "rfm_fuel", "zone_fuel_rfm")
     mod.ZONES_IN_RFM = Set(
         mod.REGIONAL_FUEL_MARKETS,
+        dimen=1,
         initialize=lambda m, rfm: unique_list(z for (z, r) in m.ZONE_RFMS if r == rfm),
     )
 
@@ -345,7 +346,10 @@ def define_components(mod):
         return d.pop((rfm, p), [])  # pop releases memory
 
     mod.GENS_FOR_RFM_PERIOD = Set(
-        mod.REGIONAL_FUEL_MARKETS, mod.PERIODS, initialize=GENS_FOR_RFM_PERIOD_rule
+        mod.REGIONAL_FUEL_MARKETS,
+        mod.PERIODS,
+        dimen=1,
+        initialize=GENS_FOR_RFM_PERIOD_rule,
     )
 
     def Enforce_Fuel_Consumption_rule(m, rfm, p):
@@ -360,6 +364,7 @@ def define_components(mod):
     )
 
     mod.GEN_TP_FUELS_UNAVAILABLE = Set(
+        dimen=3,
         initialize=mod.GEN_TP_FUELS,
         filter=lambda m, g, t, f: (m.gen_load_zone[g], f) not in m.ZONE_FUELS,
     )
@@ -549,4 +554,8 @@ def _load_simple_cost_data(mod, switch_data, path):
             st = 0
             switch_data.data(name="RFM_SUPPLY_TIERS").append((rfm, p, st))
             switch_data.data(name="rfm_supply_tier_cost")[rfm, p, st] = f_cost
-            switch_data.data(name="rfm_supply_tier_limit")[rfm, p, st] = float("inf")
+            # No need to specify an upper limit, since default is infinity
+            # (and this creates inf values in the data portal that could get
+            # written out to .dat files for PySP, which would be unable to read
+            # those values in Pyomo 5.7+)
+            # switch_data.data(name="rfm_supply_tier_limit")[rfm, p, st] = float("inf")

@@ -49,7 +49,7 @@ def refineries_closed(m):
         )
         return ev_share >= 0.75 or rps_level >= 0.75
 
-    m.REFINERIES_CLOSED_TPS = Set(initialize=m.TIMEPOINTS, filter=filter)
+    m.REFINERIES_CLOSED_TPS = Set(dimen=1, initialize=m.TIMEPOINTS, filter=filter)
 
 
 def kalaeloa(m):
@@ -62,6 +62,7 @@ def kalaeloa(m):
     # run both 1 & 2 at 90 MW, and run 3 at 28 MW
 
     m.KALAELOA_MAIN_UNITS = Set(
+        dimen=1,
         initialize=[
             "Oahu_Kalaeloa_CC1",
             "Oahu_Kalaeloa_CC2",
@@ -71,6 +72,7 @@ def kalaeloa(m):
         filter=lambda m, g: g in m.GENERATION_PROJECTS,
     )
     m.KALAELOA_DUCT_BURNERS = Set(
+        dimen=1,
         initialize=["Oahu_Kalaeloa_CC3", "Kalaeloa_CC3"],
         filter=lambda m, g: g in m.GENERATION_PROJECTS,
     )
@@ -88,9 +90,10 @@ def kalaeloa(m):
         ),
     )
     m.KALAELOA_ACTIVE_TIMEPOINTS = Set(
+        dimen=1,
         initialize=lambda m: unique_list(
             tp for g, tp in m.KALAELOA_MAIN_UNIT_DISPATCH_POINTS
-        )
+        ),
     )
 
     # run kalaeloa at full power or not
@@ -149,7 +152,9 @@ def schofield(m):
     """
 
     m.SCHOFIELD_GENS = Set(
-        initialize=m.GENERATION_PROJECTS, filter=lambda m, g: "schofield" in g.lower()
+        dimen=1,
+        initialize=m.GENERATION_PROJECTS,
+        filter=lambda m, g: "schofield" in g.lower(),
     )
     m.One_Schofield = BuildCheck(rule=lambda m: len(m.SCHOFIELD_GENS) == 1)
 
@@ -178,6 +183,7 @@ def cogen(m):
     Don't burn biodiesel in cogen plants.
     """
     m.REFINERY_GENS = Set(
+        dimen=1,
         initialize=m.GENERATION_PROJECTS,
         filter=lambda m, g: any(rg in g for rg in ["Hawaii_Cogen", "Tesoro_Hawaii"]),
     )
@@ -204,12 +210,13 @@ def cogen(m):
     )
 
     m.REFINERY_BIOFUELS = Set(
+        dimen=1,
         initialize=lambda m: unique_list(
             f
             for g in m.REFINERY_GENS
             for f in m.FUELS_FOR_GEN[g]
             if m.f_rps_eligible[f]
-        )
+        ),
     )
     # don't burn biofuels in cogen plants
     def rule(m, g, t, f):

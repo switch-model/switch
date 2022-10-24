@@ -201,7 +201,9 @@ def gen_unit_contingency(m):
     # justify the duplication because I don't think discrete unit commitment
     # should be a prerequisite for this functionality.
     m.UNIT_CONTINGENCY_DISPATCH_POINTS = Set(
-        initialize=m.GEN_TPS, filter=lambda m, g, tp: g in m.DISCRETELY_SIZED_GENS
+        dimen=2,
+        initialize=m.GEN_TPS,
+        filter=lambda m, g, tp: g in m.DISCRETELY_SIZED_GENS,
     )
     m.GenIsCommitted = Var(
         m.UNIT_CONTINGENCY_DISPATCH_POINTS,
@@ -301,6 +303,7 @@ def hawaii_spinning_reserve_requirements(m):
     m.var_gen_power_reserve = Param(
         m.VARIABLE_GENS,
         default=1.0,
+        within=NonNegativeReals,
         doc=(
             "Spinning reserves required to back up variable renewable "
             "generators, as fraction of potential output."
@@ -318,6 +321,7 @@ def hawaii_spinning_reserve_requirements(m):
     m.var_gen_cap_reserve_limit = Param(
         m.VARIABLE_GENS,
         default=var_gen_cap_reserve_limit_default,
+        within=NonNegativeReals,
         doc="Maximum spinning reserves required, as fraction of installed capacity",
     )
     m.HawaiiVarGenUpSpinningReserveRequirement = Expression(
@@ -435,6 +439,7 @@ def define_components(m):
     """
     m.contingency_safety_factor = Param(
         default=2.0,
+        within=NonNegativeReals,
         doc=(
             "The spinning reserve requiremet will be set to this value "
             "times the maximum contingency. This defaults to 2 to ensure "
@@ -552,6 +557,7 @@ def define_dynamic_components(m):
         ),
     )
     m.BALANCING_AREA_TIMEPOINT_CONTINGENCIES = Set(
+        dimen=3,
         initialize=m.BALANCING_AREA_TIMEPOINTS * m.Spinning_Reserve_Contingencies,
         doc=(
             "The set of spinning reserve contingencies, copied from the "

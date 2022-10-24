@@ -194,7 +194,9 @@ def main(args=None, return_model=False, return_instance=False):
             )
             print("Arguments:")
             print(
-                ", ".join(k + "=" + repr(v) for k, v in vars(model.options).items() if v)
+                ", ".join(
+                    k + "=" + repr(v) for k, v in vars(model.options).items() if v
+                )
             )
             print("Modules:\n" + ", ".join(m for m in modules))
             if iterate_modules:
@@ -212,9 +214,7 @@ def main(args=None, return_model=False, return_instance=False):
 
         instance.pre_solve()
         if instance.options.verbose:
-            print(
-                f"Total time spent constructing model: {timer.step_time():.2f} s.\n"
-            )
+            print(f"Total time spent constructing model: {timer.step_time():.2f} s.\n")
 
         # return the instance as-is if requested
         if return_instance:
@@ -383,12 +383,14 @@ def patch_pyomo():
         add_solution_code = add_solution_code.replace(old_code, new_code)
         replace_method(ModelSolutions, "add_solution", add_solution_code)
     elif pyomo.version.version_info[:2] >= (5, 0):
+        # We don't allow later versions of Pyomo than we've tested with, so
+        # this should only show up during testing when preparing to release a
+        # new version.
         print(
             "NOTE: The patch to pyomo.core.base.PyomoModel.ModelSolutions.add_solution "
             "has been deactivated because the Pyomo source code has changed. "
-            "Check whether this patch is still needed and edit {} accordingly.".format(
-                __file__
-            )
+            f"Check whether this patch is still needed and edit {__file__} "
+            "accordingly."
         )
 
 

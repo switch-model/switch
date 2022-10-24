@@ -116,7 +116,9 @@ def define_components(m):
     ##################
 
     # cost per MWh for unserved load (high)
-    m.dr_unserved_load_penalty_per_mwh = Param(initialize=10000)
+    m.dr_unserved_load_penalty_per_mwh = Param(
+        initialize=10000, within=NonNegativeReals
+    )
     # amount of unserved load during each timepoint
     m.DRUnservedLoad = Var(m.LOAD_ZONES, m.TIMEPOINTS, within=NonNegativeReals)
     # total cost for unserved load
@@ -133,14 +135,14 @@ def define_components(m):
     m.Cost_Components_Per_TP.append("DR_Unserved_Load_Penalty")
 
     # list of products (commodities and reserves) that can be bought or sold
-    m.DR_PRODUCTS = Set(initialize=["energy", "energy up", "energy down"])
+    m.DR_PRODUCTS = Set(dimen=1, initialize=["energy", "energy up", "energy down"])
 
     ###################
     # Price Responsive Demand bids
     ##################
 
     # list of all bids that have been received from the demand system
-    m.DR_BID_LIST = Set(initialize=[], ordered=True)
+    m.DR_BID_LIST = Set(dimen=1, initialize=[], ordered=True)
     # we need an explicit indexing set for everything that depends on DR_BID_LIST
     # so we can reconstruct it (and them) each time we add an element to DR_BID_LIST
     # (not needed, and actually doesn't work -- reconstruct() fails for sets)
@@ -151,16 +153,28 @@ def define_components(m):
     # and each bid covers all the timepoints in that timeseries. So we just record
     # the bid for each timepoint for each load_zone.
     m.dr_bid = Param(
-        m.DR_BID_LIST, m.LOAD_ZONES, m.TIMEPOINTS, m.DR_PRODUCTS, mutable=True
+        m.DR_BID_LIST,
+        m.LOAD_ZONES,
+        m.TIMEPOINTS,
+        m.DR_PRODUCTS,
+        mutable=True,
+        within=NonNegativeReals,
     )
 
     # price used to get this bid (only kept for reference)
     m.dr_price = Param(
-        m.DR_BID_LIST, m.LOAD_ZONES, m.TIMEPOINTS, m.DR_PRODUCTS, mutable=True
+        m.DR_BID_LIST,
+        m.LOAD_ZONES,
+        m.TIMEPOINTS,
+        m.DR_PRODUCTS,
+        mutable=True,
+        within=NonNegativeReals,
     )
 
     # the private benefit of serving each bid
-    m.dr_bid_benefit = Param(m.DR_BID_LIST, m.LOAD_ZONES, m.TIMESERIES, mutable=True)
+    m.dr_bid_benefit = Param(
+        m.DR_BID_LIST, m.LOAD_ZONES, m.TIMESERIES, mutable=True, within=NonNegativeReals
+    )
 
     # weights to assign to the bids for each timeseries when constructing an optimal demand profile
     m.DRBidWeight = Var(
@@ -574,12 +588,7 @@ def post_iterate(m):
     if m.iteration_number == 0:
         util.create_table(
             output_file=os.path.join(outputs_dir, "bid_{t}.csv".format(t=tag)),
-            headings=(
-                "bid_num",
-                "load_zone",
-                "timeseries",
-                "timepoint",
-            )
+            headings=("bid_num", "load_zone", "timeseries", "timepoint")
             + tuple("marginal_cost " + prod for prod in m.DR_PRODUCTS)
             + tuple("price " + prod for prod in m.DR_PRODUCTS)
             + tuple("bid " + prod for prod in m.DR_PRODUCTS)
@@ -591,12 +600,7 @@ def post_iterate(m):
         m.LOAD_ZONES,
         m.TIMEPOINTS,
         output_file=os.path.join(outputs_dir, "bid_{t}.csv".format(t=tag)),
-        values=lambda m, z, tp: (
-            b,
-            z,
-            m.tp_ts[tp],
-            m.tp_timestamp[tp],
-        )
+        values=lambda m, z, tp: (b, z, m.tp_ts[tp], m.tp_timestamp[tp])
         + tuple(m.prev_marginal_cost[z, tp, prod] for prod in m.DR_PRODUCTS)
         + tuple(m.dr_price[b, z, tp, prod] for prod in m.DR_PRODUCTS)
         + tuple(m.dr_bid[b, z, tp, prod] for prod in m.DR_PRODUCTS)
@@ -1087,7 +1091,7 @@ def register_demand_response_reserves(m):
             # define variables for each type of reserves to be provided
             # choose how to allocate the slack between the different reserve products
             m.DR_SPINNING_RESERVE_TYPES = Set(
-                initialize=m.options.demand_response_reserve_types
+                dimen=1, initialize=m.options.demand_response_reserve_types
             )
             m.DemandResponseSpinningReserveUp = Var(
                 m.DR_SPINNING_RESERVE_TYPES,

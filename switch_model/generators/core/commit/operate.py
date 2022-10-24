@@ -271,8 +271,12 @@ def define_components(mod):
     )
 
     # StartupGenCapacity costs
-    mod.gen_startup_fuel = Param(mod.FUEL_BASED_GENS, default=0.0)
-    mod.gen_startup_om = Param(mod.GENERATION_PROJECTS, default=0.0)
+    mod.gen_startup_fuel = Param(
+        mod.FUEL_BASED_GENS, default=0.0, within=NonNegativeReals
+    )
+    mod.gen_startup_om = Param(
+        mod.GENERATION_PROJECTS, default=0.0, within=NonNegativeReals
+    )
     # Note: lump-sum startup O&M cost is divided by the duration of the
     # timepoint to give a cost-per-hour during this timepoint, as needed by
     # Cost_Components_Per_TP.
@@ -384,7 +388,9 @@ def define_components(mod):
         default=lambda m, g: 1.0 if m.gen_is_baseload[g] else 0.0,
     )
     mod.gen_min_load_fraction_TP = Param(
-        mod.GEN_TPS, default=lambda m, g, t: m.gen_min_load_fraction[g]
+        mod.GEN_TPS,
+        default=lambda m, g, t: m.gen_min_load_fraction[g],
+        within=NonNegativeReals,
     )
     mod.DispatchLowerLimit = Expression(
         mod.GEN_TPS,

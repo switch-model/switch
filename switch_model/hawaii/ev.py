@@ -198,7 +198,9 @@ def define_components(m):
                 # using advanced formulation, index by reserve type, balancing area, timepoint
                 # define variables for each type of reserves to be provided
                 # choose how to allocate the slack between the different reserve products
-                m.EV_SPINNING_RESERVE_TYPES = Set(initialize=m.options.ev_reserve_types)
+                m.EV_SPINNING_RESERVE_TYPES = Set(
+                    dimen=1, initialize=m.options.ev_reserve_types
+                )
                 m.EVSpinningReserveUp = Var(
                     m.EV_SPINNING_RESERVE_TYPES,
                     m.BALANCING_AREA_TIMEPOINTS,

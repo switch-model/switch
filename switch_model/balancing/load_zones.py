@@ -78,7 +78,7 @@ def define_components(mod):
 
     """
 
-    mod.LOAD_ZONES = Set()
+    mod.LOAD_ZONES = Set(dimen=1)
     mod.ZONE_TIMEPOINTS = Set(
         dimen=2,
         initialize=lambda m: m.LOAD_ZONES * m.TIMEPOINTS,
@@ -88,7 +88,7 @@ def define_components(mod):
     mod.zone_ccs_distance_km = Param(
         mod.LOAD_ZONES, within=NonNegativeReals, default=0.0
     )
-    mod.zone_dbid = Param(mod.LOAD_ZONES, default=lambda m, z: z)
+    mod.zone_dbid = Param(mod.LOAD_ZONES, default=lambda m, z: z, within=Any)
     mod.min_data_check("LOAD_ZONES", "zone_demand_mw")
     try:
         mod.Distributed_Power_Withdrawals.append("zone_demand_mw")
@@ -194,15 +194,9 @@ def post_solve(instance, outdir):
         instance.LOAD_ZONES,
         instance.TIMEPOINTS,
         output_file=os.path.join(outdir, "load_balance.csv"),
-        headings=(
-            "load_zone",
-            "timestamp",
-        )
+        headings=("load_zone", "timestamp")
         + tuple(instance.Zone_Power_Injections + instance.Zone_Power_Withdrawals),
-        values=lambda m, z, t: (
-            z,
-            m.tp_timestamp[t],
-        )
+        values=lambda m, z, t: (z, m.tp_timestamp[t])
         + tuple(
             getattr(m, component)[z, t]
             for component in (m.Zone_Power_Injections + m.Zone_Power_Withdrawals)

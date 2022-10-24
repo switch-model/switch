@@ -333,7 +333,7 @@ def define_hydrogen_components(m):
                 # define variables for each type of reserves to be provided
                 # choose how to allocate the slack between the different reserve products
                 m.HYDROGEN_SPINNING_RESERVE_TYPES = Set(
-                    initialize=m.options.hydrogen_reserve_types
+                    dimen=1, initialize=m.options.hydrogen_reserve_types
                 )
                 m.HydrogenSpinningReserveUp = Var(
                     m.HYDROGEN_SPINNING_RESERVE_TYPES,
