@@ -407,7 +407,7 @@ def post_solve(instance, outdir):
     """
     Exported files:
 
-    dispatch-wide.csv - Dispatch results timepoints in "wide" format with
+    dispatch_wide.csv - Dispatch results timepoints in "wide" format with
     timepoints as rows, generation projects as columns, and dispatch level
     as values
 
@@ -423,21 +423,17 @@ def post_solve(instance, outdir):
     dispatch_annual_summary.pdf - A figure of annual summary data. Only written
     if the ggplot python library is installed.
     """
+    gen_proj = list(instance.GENERATION_PROJECTS)  # native order
     if instance.options.sorted_output:
-        gen_proj = instance.GENERATION_PROJECTS  # native order
-    else:
-        gen_proj = sorted(instance.GENERATION_PROJECTS)
+        gen_proj.sort()
 
     write_table(
         instance,
         instance.TIMEPOINTS,
-        output_file=os.path.join(outdir, "dispatch-wide.csv"),
+        output_file=os.path.join(outdir, "dispatch_wide.csv"),
         headings=("timestamp",) + tuple(gen_proj),
         values=lambda m, t: (m.tp_timestamp[t],)
-        + tuple(
-            m.DispatchGen[p, t] if (p, t) in m.GEN_TPS else 0.0
-            for p in sorted(m.GENERATION_PROJECTS)
-        ),
+        + tuple(m.DispatchGen[p, t] if (p, t) in m.GEN_TPS else 0.0 for p in gen_proj),
     )
 
     dispatch_normalized_dat = []
