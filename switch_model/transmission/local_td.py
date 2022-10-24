@@ -274,6 +274,8 @@ def post_solve(instance, outdir):
         wide_dat.append(record)
     wide_df = pd.DataFrame(wide_dat)
     wide_df.set_index(["load_zone", "timestamp"], inplace=True)
+    if instance.options.sorted_output:
+        wide_df.sort_index(inplace=True)
     wide_df.to_csv(os.path.join(outdir, "local_td_energy_balance_wide.csv"))
 
     normalized_dat = []
@@ -298,4 +300,6 @@ def post_solve(instance, outdir):
             normalized_dat.append(record)
     df = pd.DataFrame(normalized_dat)
     df.set_index(["load_zone", "timestamp", "component"], inplace=True)
+    if instance.options.sorted_output:
+        df.sort_index(inplace=True)
     df.to_csv(os.path.join(outdir, "local_td_energy_balance.csv"))
