@@ -362,4 +362,6 @@ def post_solve(instance, outdir):
     ]
     tx_build_df = pd.DataFrame(normalized_dat)
     tx_build_df.set_index(["TRANSMISSION_LINE", "PERIOD"], inplace=True)
+    if instance.options.sorted_output:
+        tx_build_df.sort_index(inplace=True)
     tx_build_df.to_csv(os.path.join(outdir, "transmission.csv"))

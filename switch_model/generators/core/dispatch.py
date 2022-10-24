@@ -423,11 +423,16 @@ def post_solve(instance, outdir):
     dispatch_annual_summary.pdf - A figure of annual summary data. Only written
     if the ggplot python library is installed.
     """
+    if instance.options.sorted_output:
+        gen_proj = instance.GENERATION_PROJECTS  # native order
+    else:
+        gen_proj = sorted(instance.GENERATION_PROJECTS)
+
     write_table(
         instance,
         instance.TIMEPOINTS,
         output_file=os.path.join(outdir, "dispatch-wide.csv"),
-        headings=("timestamp",) + tuple(sorted(instance.GENERATION_PROJECTS)),
+        headings=("timestamp",) + tuple(gen_proj),
         values=lambda m, t: (m.tp_timestamp[t],)
         + tuple(
             m.DispatchGen[p, t] if (p, t) in m.GEN_TPS else 0.0
@@ -487,6 +492,8 @@ def post_solve(instance, outdir):
         dispatch_normalized_dat.append(record)
     dispatch_full_df = pd.DataFrame(dispatch_normalized_dat)
     dispatch_full_df.set_index(["generation_project", "timestamp"], inplace=True)
+    if instance.options.sorted_output:
+        dispatch_full_df.sort_index(inplace=True)
     dispatch_full_df.to_csv(os.path.join(outdir, "dispatch.csv"))
 
     summary_columns = [
