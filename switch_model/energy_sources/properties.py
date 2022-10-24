@@ -91,8 +91,8 @@ def define_components(mod):
 
     """
 
-    mod.NON_FUEL_ENERGY_SOURCES = Set()
-    mod.FUELS = Set()
+    mod.NON_FUEL_ENERGY_SOURCES = Set(dimen=1)
+    mod.FUELS = Set(dimen=1)
     mod.f_co2_intensity = Param(mod.FUELS, within=NonNegativeReals)
     mod.f_upstream_co2_intensity = Param(mod.FUELS, within=Reals, default=0)
     mod.min_data_check("f_co2_intensity")
@@ -103,7 +103,9 @@ def define_components(mod):
 
     # ENERGY_SOURCES is the union of fuel and non-fuels sets. Pipe | is
     # the union operator for Pyomo sets.
-    mod.ENERGY_SOURCES = Set(initialize=mod.NON_FUEL_ENERGY_SOURCES | mod.FUELS)
+    mod.ENERGY_SOURCES = Set(
+        dimen=1, initialize=mod.NON_FUEL_ENERGY_SOURCES | mod.FUELS
+    )
     mod.min_data_check("ENERGY_SOURCES")
 
 

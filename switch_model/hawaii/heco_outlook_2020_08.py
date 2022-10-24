@@ -653,16 +653,18 @@ def define_components(m):
 
     # import pdb; pdb.set_trace()
 
-    m.FORECASTED_TECH_GROUPS = Set(initialize=techs_for_tech_group.keys())
+    m.FORECASTED_TECH_GROUPS = Set(dimen=1, initialize=techs_for_tech_group.keys())
     m.FORECASTED_TECH_GROUP_TECHS = Set(
-        m.FORECASTED_TECH_GROUPS, initialize=techs_for_tech_group
+        m.FORECASTED_TECH_GROUPS, dimen=1, initialize=techs_for_tech_group
     )
-    m.FORECASTED_TECHS = Set(initialize=tech_tech_group.keys())
+    m.FORECASTED_TECHS = Set(dimen=1, initialize=tech_tech_group.keys())
     m.tech_tech_group = Param(m.FORECASTED_TECHS, initialize=tech_tech_group)
 
     # make a list of renewable technologies
     m.RENEWABLE_TECH_GROUPS = Set(
-        initialize=m.FORECASTED_TECH_GROUPS, filter=lambda m, tg: is_renewable(tg)
+        dimen=1,
+        initialize=m.FORECASTED_TECH_GROUPS,
+        filter=lambda m, tg: is_renewable(tg),
     )
 
     def tech_group_target(m, per, tech, targets):

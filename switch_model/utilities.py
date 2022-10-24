@@ -212,6 +212,7 @@ class SwitchAbstractModel(AbstractModel):
         for module in self.get_modules():
             if hasattr(module, "load_inputs"):
                 module.load_inputs(self, data, inputs_dir)
+
         if self.options.verbose:
             print("Data read in {:.2f} s.\n".format(timer.step_time()))
 
@@ -254,7 +255,7 @@ class SwitchConcreteModel(ConcreteModel):
     get_modules = SwitchAbstractModel.get_modules
 
     def has_discrete_variables(model):
-        all_elements = lambda v: v.itervalues() if v.is_indexed() else [v]
+        all_elements = lambda v: v.values() if v.is_indexed() else [v]
         return any(
             v.is_binary() or v.is_integer()
             for variable in model.component_objects(Var, active=True)
@@ -376,7 +377,14 @@ def save_inputs_as_dat(
             component = getattr(model, component_name)
             comp_class = type(component).__name__
             component_data = instance.DataPortal.data(name=component_name)
-            if comp_class == "SimpleSet" or comp_class == "OrderedSimpleSet":
+            if comp_class in {
+                "SimpleSet",  # Pyomo < 6.0
+                "OrderedSimpleSet",
+                "AbstractOrderedSimpleSet",
+                "ScalarSet",  # Pyomo >= 6.0
+                "OrderedScalarSet",
+                "AbstractOrderedScalarSet",
+            }:
                 f.write(
                     "set {} := {};\n".format(component_name, join_space(component_data))
                 )
@@ -390,7 +398,7 @@ def save_inputs_as_dat(
                     ):
                         f.write(" {} {}\n".format(join_space(key), quote_str(value)))
                     f.write(";\n")
-            elif comp_class == "SimpleParam":
+            elif comp_class in {"SimpleParam", "ScalarParam"}:  # Pyomo < or >= 6.0
                 f.write("param {} := {};\n".format(component_name, component_data))
             elif comp_class == "IndexedSet":
                 for key, vals in iteritems(component_data):
@@ -436,7 +444,12 @@ def check_mandatory_components(model, *mandatory_components):
     for component_name in mandatory_components:
         obj = getattr(model, component_name)
         o_class = type(obj).__name__
-        if o_class == "SimpleSet" or o_class == "OrderedSimpleSet":
+        if o_class in {
+            "SimpleSet",  # Pyomo < 6.0
+            "OrderedSimpleSet",
+            "ScalarSet",  # Pyomo >= 6.0
+            "OrderedScalarSet",
+        }:
             if len(obj) == 0:
                 raise ValueError(
                     "No data is defined for the mandatory set '{}'.".format(
@@ -463,7 +476,7 @@ def check_mandatory_components(model, *mandatory_components):
                         + "the mandatory indexed set '{}'"
                     ).format(component_name)
                 )
-        elif o_class == "SimpleParam":
+        elif o_class in {"SimpleParam", "ScalarParam"}:  # Pyomo < or >= 6.0
             if obj.value is None:
                 raise ValueError(
                     "Value not provided for mandatory parameter '{}'".format(
@@ -671,10 +684,20 @@ def load_aug(switch_data, optional=False, optional_params=[], **kwargs):
         num_indexes = 0
 
     if num_indexes is UnknownSetDimen:
-        # Pyomo 5.7 and later use a sentinel and don't set the dimension
-        # until later (construction time?) if no dimension is specified,
-        # so we have to apply the default here
-        num_indexes = 1
+        # Pyomo < 5.7 assumes dimension is 1 if not specified. But Pyomo 5.7 and
+        # later use a sentinel and don't set the dimension if no dimension is
+        # specified. We can't assume the dimension is 1, because SetProducts
+        # (e.g., index_set() for a multi-indexed Param)  or filtered versions of
+        # sets inherit UnknownSetDimen. We could potentially only raise this
+        # error when the user doesn't provide a select statement, but it's a
+        # general enough problem to just raise all the time. We could
+        # potentially use pyomo.dataportal.process_data._guess_set_dimen() but
+        # it is undocumented and not needed if all the sets have dimen
+        # specified, which they do now.
+        raise ValueError(
+            f"Set {params[0].index_set()} has unknown dimen; unable to infer "
+            f"number of index columns to read from {path}."
+        )
 
     # Make a select list if requested. Assume the left-most columns are
     # indexes and that other columns are named after their parameters.

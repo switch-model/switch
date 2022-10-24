@@ -30,7 +30,7 @@ def define_components(m):
     # maximum share of hourly load that can be rescheduled
     # this is mutable so various values can be tested
     m.demand_response_max_share = Param(
-        default=m.options.demand_response_share, mutable=True
+        default=m.options.demand_response_share, mutable=True, within=PercentFraction
     )
 
     # maximum amount of load that can be _added_ each hour; we assume

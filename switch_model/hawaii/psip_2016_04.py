@@ -218,7 +218,7 @@ def define_components(m):
     aes_size = 180
     aes_bld_year = 1992
     m.AES_OPERABLE_PERIODS = Set(
-        initialize=lambda m: m.PERIODS_FOR_GEN_BLD_YR[aes_g, aes_bld_year]
+        dimen=1, initialize=lambda m: m.PERIODS_FOR_GEN_BLD_YR[aes_g, aes_bld_year]
     )
     m.OperateAES = Var(m.AES_OPERABLE_PERIODS, within=Binary)
     m.Enforce_AES_Deactivate = Constraint(

@@ -38,10 +38,12 @@ def define_components(m):
         dimen=4
     )  # load zone, vehicle type, bid number, timepoint
     m.EV_BID_NUMS = Set(
-        initialize=lambda m: unique_list(n for z, t, n, tp in m.EV_ZONE_TYPE_BID_TP)
+        dimen=1,
+        initialize=lambda m: unique_list(n for z, t, n, tp in m.EV_ZONE_TYPE_BID_TP),
     )
     m.EV_TYPES = Set(
-        initialize=lambda m: unique_list(t for z, t, n, tp in m.EV_ZONE_TYPE_BID_TP)
+        dimen=1,
+        initialize=lambda m: unique_list(t for z, t, n, tp in m.EV_ZONE_TYPE_BID_TP),
     )
 
     # parameters describing the EV and ICE fleet each year
@@ -50,7 +52,9 @@ def define_components(m):
     # (could eventually be a decision variable)
     m.ev_share = Param(m.LOAD_ZONES, m.PERIODS, within=PercentFraction)
     for p in ev_zone_type_period_params:
-        setattr(m, p, Param(m.LOAD_ZONES, m.EV_TYPES, m.PERIODS))
+        setattr(
+            m, p, Param(m.LOAD_ZONES, m.EV_TYPES, m.PERIODS, within=NonNegativeReals)
+        )
 
     # calculate the extra annual cost (non-fuel) of having EVs, relative to ICEs,
     # for batteries and chargers
@@ -63,6 +67,7 @@ def define_components(m):
             for z in m.LOAD_ZONES
             for t in m.EV_TYPES
         ),
+        within=NonNegativeReals,
     )
 
     # calculate total fuel usage, cost and emissions for ICE (non-EV) vehicles
@@ -222,7 +227,9 @@ def define_components(m):
                 # using advanced formulation, index by reserve type, balancing area, timepoint.
                 # define variables for each type of reserves to be provided
                 # choose how to allocate the slack between the different reserve products
-                m.EV_SPINNING_RESERVE_TYPES = Set(initialize=m.options.ev_reserve_types)
+                m.EV_SPINNING_RESERVE_TYPES = Set(
+                    dimen=1, initialize=m.options.ev_reserve_types
+                )
                 m.EVSpinningReserveUp = Var(
                     m.EV_SPINNING_RESERVE_TYPES,
                     m.BALANCING_AREA_TIMEPOINTS,

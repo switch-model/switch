@@ -116,13 +116,14 @@ def define_components(m):
     m.f_rps_eligible = Param(m.FUELS, within=Binary, default=False)
 
     m.RPS_ENERGY_SOURCES = Set(
+        dimen=1,
         initialize=lambda m: [
             s for s in m.NON_FUEL_ENERGY_SOURCES if s.lower() != "battery"
         ]
-        + [f for f in m.FUELS if m.f_rps_eligible[f]]
+        + [f for f in m.FUELS if m.f_rps_eligible[f]],
     )
 
-    m.RPS_YEARS = Set(ordered=True)
+    m.RPS_YEARS = Set(ordered=True, dimen=1)
     m.rps_target = Param(m.RPS_YEARS)
 
     def rps_target_for_period_rule(m, p):
@@ -246,18 +247,20 @@ def define_components(m):
 
     if m.options.rps_prefer_dist_pv:
         m.DIST_PV_GENS = Set(
+            dimen=1,
             initialize=lambda m: [
                 g
                 for g in m.GENS_BY_NON_FUEL_ENERGY_SOURCE["SUN"]
                 if "DistPV" in m.gen_tech[g]
-            ]
+            ],
         )
         m.LARGE_PV_GENS = Set(
+            dimen=1,
             initialize=lambda m: [
                 g
                 for g in m.GENS_BY_NON_FUEL_ENERGY_SOURCE["SUN"]
                 if g not in m.DIST_PV_GENS
-            ]
+            ],
         )
         # LargePVAllowed must be 1 to allow large PV to be built
         m.LargePVAllowed = Var(m.PERIODS, within=Binary)  #
