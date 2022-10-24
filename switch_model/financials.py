@@ -349,6 +349,8 @@ def post_solve(instance, outdir):
         ]
         df = pd.DataFrame(normalized_dat)
         df.set_index(["PERIOD"], inplace=True)
+        if instance.options.sorted_output:
+            df.sort_index(inplace=True)
         df.to_csv(os.path.join(outdir, "electricity_cost.csv"))
 
     # Itemized annual costs
@@ -387,4 +389,6 @@ def post_solve(instance, outdir):
         for tp_cost in m.Cost_Components_Per_TP
     ]
     df = pd.DataFrame(annualized_costs).set_index(["PERIOD", "Component"]).sort_index()
+    if instance.options.sorted_output:
+        df.sort_index(inplace=True)
     df.to_csv(os.path.join(outdir, "costs_itemized.csv"))

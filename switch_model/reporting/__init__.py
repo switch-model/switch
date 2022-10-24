@@ -92,10 +92,13 @@ def write_table(instance, *indexes, **kwargs):
                         row[i] = sig_digits.format(v)
             return tuple(row)
 
+        idx = list(itertools.product(*indexes))
+        if instance.options.sorted_output:
+            idx.sort()
+
         try:
             w.writerows(
-                format_row(row=values(instance, *unpack_elements(x)))
-                for x in itertools.product(*indexes)
+                format_row(row=values(instance, *unpack_elements(x))) for x in idx
             )
         except TypeError:  # lambda got wrong number of arguments
             # use old code, which doesn't unpack the indices
@@ -103,7 +106,7 @@ def write_table(instance, *indexes, **kwargs):
                 # TODO: flatten x (unpack tuples) like Pyomo before calling values()
                 # That may cause problems elsewhere though...
                 format_row(row=values(instance, *x))
-                for x in itertools.product(*indexes)
+                for x in idx
             )
             print(
                 "DEPRECATION WARNING: switch_model.reporting.write_table() was called with a function"
