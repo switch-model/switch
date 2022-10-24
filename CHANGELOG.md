@@ -5,6 +5,8 @@ Note that as of version 5.7, Pyomo no longer supports "inf", "infinity" or "nan"
 values in the input files, so Switch will likely report errors if you have
 those.
 
+Renamed outputs/dispatch-wide.csv to outputs/dispatch_wide.csv
+
 -------------------------------------------------------------------------------
 Switch 2.0.6
 -------------------------------------------------------------------------------
