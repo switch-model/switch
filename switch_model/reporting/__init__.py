@@ -148,6 +148,7 @@ def post_solve(instance, outdir):
         save_generic_results(instance, outdir, instance.options.sorted_output)
     save_total_cost_value(instance, outdir)
     save_cost_components(instance, outdir)
+    save_gen_cap(instance, outdir)
 
 
 def save_generic_results(instance, outdir, sorted_output):
@@ -273,4 +274,38 @@ def save_cost_components(m, outdir):
         headings=("component", "npv_cost"),
         values=lambda m, c: (c, cost_dict[c]),
         digits=16,
+    )
+
+
+def save_gen_cap(m, outdir):
+    write_table(
+        m,
+        sorted(m.GEN_PERIODS) if m.options.sorted_output else m.GEN_PERIODS,
+        output_file=os.path.join(outdir, "gen_cap.csv"),
+        headings=(
+            "GENERATION_PROJECT",
+            "PERIOD",
+            "gen_tech",
+            "gen_load_zone",
+            "gen_energy_source",
+            "GenCapacity",
+            "GenCapitalCosts",
+            "GenFixedOMCosts",
+        ),
+        values=lambda m, g, p: (
+            g,
+            p,
+            m.gen_tech[g],
+            m.gen_load_zone[g],
+            m.gen_energy_source[g],
+            m.GenCapacity[g, p],
+            m.GenCapitalCosts[g, p]
+            + (
+                m.StorageEnergyFixedCost[g, p]
+                if hasattr(m, "StorageEnergyFixedCost")
+                and (g, p) in m.StorageEnergyFixedCost
+                else 0.0
+            ),
+            m.GenFixedOMCosts[g, p],
+        ),
     )
