@@ -13,20 +13,20 @@ def define_components(m):
     # years that have capital cost data available
     m.BATTERY_CAPITAL_COST_YEARS = Set(dimen=1)
     m.battery_capital_cost_per_mwh_capacity_by_year = Param(
-        m.BATTERY_CAPITAL_COST_YEARS
+        m.BATTERY_CAPITAL_COST_YEARS, within=NonNegativeReals
     )
 
     # TODO: merge this code with batteries.py and auto-select between fixed calendar life and cycle life
     # based on whether battery_n_years or battery_n_cycles is provided. (Or find some hybrid that can
     # handle both well?)
     # number of years the battery can last; we assume there is no limit on cycle life within this period
-    m.battery_n_years = Param()
+    m.battery_n_years = Param(within=NonNegativeReals)
     # maximum depth of discharge
-    m.battery_max_discharge = Param()
+    m.battery_max_discharge = Param(within=NonNegativeReals)
     # round-trip efficiency
-    m.battery_efficiency = Param()
+    m.battery_efficiency = Param(within=NonNegativeReals)
     # fastest time that storage can be emptied (down to max_discharge)
-    m.battery_min_discharge_time = Param()
+    m.battery_min_discharge_time = Param(within=NonNegativeReals)
 
     # amount of battery capacity to build and use (in MWh)
     # TODO: integrate this with other project data, so it can contribute to reserves, etc.

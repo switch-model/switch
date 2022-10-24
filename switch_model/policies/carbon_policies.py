@@ -19,13 +19,14 @@ is unspecified.
 """
 from __future__ import division
 import os
-from pyomo.environ import Set, Param, Expression, Constraint, Suffix
+from pyomo.environ import Set, Param, Expression, Constraint, Suffix, NonNegativeReals
 import switch_model.reporting as reporting
 
 
 def define_components(model):
     model.carbon_cap_tco2_per_yr = Param(
         model.PERIODS,
+        within=NonNegativeReals,
         default=float("inf"),
         doc=(
             "Emissions from this model must be less than this cap. "
@@ -45,6 +46,7 @@ def define_components(model):
 
     model.carbon_cost_dollar_per_tco2 = Param(
         model.PERIODS,
+        within=NonNegativeReals,
         default=0.0,
         doc="The cost adder applied to emissions, in future dollars per metric tonne of CO2.",
     )
