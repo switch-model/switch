@@ -671,7 +671,7 @@ def define_components(m):
             and (g, per) in build_var
         )
 
-        if build == 0:
+        if isinstance(build, int) and build == 0:
             # no matching projects found, left with literal 0
             if target == 0:
                 return Constraint.Skip
