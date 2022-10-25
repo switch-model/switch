@@ -80,10 +80,13 @@ def define_components(m):
         m.LOAD_ZONES,
         m.EV_TYPES,
         m.PERIODS,
-        initialize=lambda m, z, evt, p: (1.0 - m.ev_share[z, p])
-        * m.n_vehicles[z, evt, p]
-        * m.ice_gals_per_year[z, evt, p]
-        * motor_fuel_mmbtu_per_gallon[m.ice_fuel[z, evt, p]],
+        within=NonNegativeReals,
+        initialize=lambda m, z, evt, p: (
+            (1.0 - m.ev_share[z, p])
+            * m.n_vehicles[z, evt, p]
+            * m.ice_gals_per_year[z, evt, p]
+            * motor_fuel_mmbtu_per_gallon[m.ice_fuel[z, evt, p]]
+        ),
     )
     # non-EV fuel cost
     if hasattr(m, "rfm_supply_tier_cost"):
@@ -94,6 +97,7 @@ def define_components(m):
         ice_fuel_cost_func = lambda m, z, p, f: m.fuel_cost[z, f, p]
     m.ice_annual_fuel_cost = Param(
         m.PERIODS,
+        within=Reals,
         initialize=lambda m, p: sum(
             m.ice_annual_fuel_mmbtu[z, evt, p]
             * ice_fuel_cost_func(m, z, p, m.ice_fuel[z, evt, p])
@@ -107,6 +111,7 @@ def define_components(m):
     # at present, this doesn't affect the system emissions or emission cost
     m.ice_annual_emissions = Param(
         m.PERIODS,
+        within=NonNegativeReals,
         initialize=lambda m, p: sum(
             m.ice_annual_fuel_mmbtu[z, evt, p]
             * (
@@ -141,12 +146,14 @@ def define_components(m):
     m.ev_charge_min = Param(
         m.LOAD_ZONES,
         m.TIMEPOINTS,
+        within=Reals,
         initialize=lambda m, z, tp: m.ev_share[z, m.tp_period[tp]]
         * min(m.ev_bid_mw[z, n, tp] for n in m.EV_BID_NUMS),
     )
     m.ev_charge_max = Param(
         m.LOAD_ZONES,
         m.TIMEPOINTS,
+        within=Reals,
         initialize=lambda m, z, tp: m.ev_share[z, m.tp_period[tp]]
         * max(m.ev_bid_mw[z, n, tp] for n in m.EV_BID_NUMS),
     )

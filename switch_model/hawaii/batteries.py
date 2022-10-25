@@ -38,11 +38,13 @@ def define_components(m):
     # but charge a usage fee corresponding to the reduction in life during each cycle
     # (i.e., enough to restore it to like-new status, on average)
     m.battery_cost_per_mwh_cycled = Param(
+        within=NonNegativeReals,
         initialize=lambda m: m.battery_capital_cost_per_mwh_capacity
-        / (m.battery_n_cycles * m.battery_max_discharge)
+        / (m.battery_n_cycles * m.battery_max_discharge),
     )
     m.battery_fixed_cost_per_year = Param(
-        initialize=lambda m: m.battery_capital_cost_per_mwh_capacity * m.interest_rate
+        within=NonNegativeReals,
+        initialize=lambda m: m.battery_capital_cost_per_mwh_capacity * m.interest_rate,
     )
 
     # amount of battery capacity to build and use (in MWh)

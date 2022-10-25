@@ -498,12 +498,16 @@ def define_components(m):
         if type(q) is tuple
     ]
 
-    m.FORECASTED_TECH_GROUPS = Set(dimen=1, initialize=techs_for_tech_group.keys())
+    m.FORECASTED_TECH_GROUPS = Set(
+        dimen=1, initialize=list(techs_for_tech_group.keys())
+    )
     m.FORECASTED_TECH_GROUP_TECHS = Set(
         m.FORECASTED_TECH_GROUPS, dimen=1, initialize=techs_for_tech_group
     )
-    m.FORECASTED_TECHS = Set(dimen=1, initialize=tech_tech_group.keys())
-    m.tech_tech_group = Param(m.FORECASTED_TECHS, initialize=tech_tech_group)
+    m.FORECASTED_TECHS = Set(dimen=1, initialize=list(tech_tech_group.keys()))
+    m.tech_tech_group = Param(
+        m.FORECASTED_TECHS, within=Any, initialize=tech_tech_group
+    )
 
     # make a list of renewable technologies
     m.RENEWABLE_TECH_GROUPS = Set(
@@ -532,14 +536,14 @@ def define_components(m):
         return tech_group_target(m, per, tech, tech_group_power_targets)
 
     m.tech_group_power_target = Param(
-        m.PERIODS, m.FORECASTED_TECH_GROUPS, initialize=rule
+        m.PERIODS, m.FORECASTED_TECH_GROUPS, within=Reals, initialize=rule
     )
 
     def rule(m, per, tech):
         return tech_group_target(m, per, tech, tech_group_energy_targets)
 
     m.tech_group_energy_target = Param(
-        m.PERIODS, m.FORECASTED_TECH_GROUPS, initialize=rule
+        m.PERIODS, m.FORECASTED_TECH_GROUPS, within=Reals, initialize=rule
     )
 
     def MakeTechGroupDicts_rule(m):

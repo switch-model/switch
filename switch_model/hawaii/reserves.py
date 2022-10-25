@@ -75,6 +75,7 @@ def define_components(m):
     # regulating reserves required, as fraction of potential output (up to limit)
     m.regulating_reserve_fraction = Param(
         ["CentralTrackingPV", "DistPV", "OnshoreWind", "OffshoreWind"],
+        within=NonNegativeReals,
         initialize={
             "CentralTrackingPV": 1.0,
             "DistPV": 1.0,  # 0.81270193,
@@ -85,6 +86,7 @@ def define_components(m):
     # maximum regulating reserves required, as fraction of installed capacity
     m.regulating_reserve_limit = Param(
         ["CentralTrackingPV", "DistPV", "OnshoreWind", "OffshoreWind"],
+        within=NonNegativeReals,
         initialize={
             "CentralTrackingPV": 0.21288916,
             "DistPV": 0.21288916,  # 0.14153171,
