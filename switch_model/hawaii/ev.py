@@ -39,6 +39,7 @@ def define_components(m):
     # calculate the extra annual cost (non-fuel) of having EVs, relative to ICEs (mostly for batteries, could also be chargers)
     m.ev_extra_annual_cost = Param(
         m.PERIODS,
+        within=Reals,
         initialize=lambda m, p: sum(
             m.ev_extra_cost_per_vehicle_year[z, p]
             * m.ev_share[z, p]
@@ -67,6 +68,7 @@ def define_components(m):
         )
     m.ice_annual_fuel_cost = Param(
         m.PERIODS,
+        within=NonNegativeReals,
         initialize=lambda m, p: sum(
             (1.0 - m.ev_share[z, p])
             * m.n_all_vehicles[z, p]
@@ -87,6 +89,7 @@ def define_components(m):
     m.ev_mwh_ts = Param(
         m.LOAD_ZONES,
         m.TIMESERIES,
+        within=NonNegativeReals,
         initialize=lambda m, z, ts: sum(m.ev_bau_mw[z, tp] for tp in m.TPS_IN_TS[ts])
         * m.ts_duration_of_tp[ts],
     )

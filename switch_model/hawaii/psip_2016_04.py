@@ -160,7 +160,10 @@ def define_components(m):
         return target
 
     m.technology_target = Param(
-        m.PERIODS, m.GENERATION_TECHNOLOGIES, initialize=technology_target_init
+        m.PERIODS,
+        m.GENERATION_TECHNOLOGIES,
+        within=Reals,
+        initialize=technology_target_init,
     )
 
     # with PSIP: BuildGen is zero except for technology_targets

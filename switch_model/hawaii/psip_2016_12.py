@@ -367,7 +367,10 @@ def define_components(m):
         return target
 
     m.technology_target = Param(
-        m.PERIODS, m.GEN_TECHS_AND_BATTERIES, initialize=technology_target_init
+        m.PERIODS,
+        m.GEN_TECHS_AND_BATTERIES,
+        within=NonNegativeReals,
+        initialize=technology_target_init,
     )
 
     def MakeGenTechDicts_rule(m):
