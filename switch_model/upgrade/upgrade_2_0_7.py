@@ -41,6 +41,16 @@ def upgrade_input_dir(inputs_dir):
         "build_gen_predetermined",
     )
 
+    move_column(
+        inputs_dir,
+        old_file_name="trans_params.csv",
+        old_col_name="distribution_loss_rate",
+        new_file_name="load_zones.csv",
+        new_col_name="local_td_loss_rate",
+        join_cols=tuple(),
+        optional_col=True,
+    )
+
 
 def rename_file(inputs_dir, old_name, new_name, optional_file=True):
     old_path = os.path.join(inputs_dir, old_name)
@@ -75,6 +85,45 @@ def rename_column(
         switch_model.upgrade.print_verbose(
             f"Column {old_col_name} was already renamed to {new_col_name} in {file_name}."
         )
+
+
+def move_column(
+    inputs_dir,
+    old_file_name,
+    old_col_name,
+    new_file_name,
+    new_col_name,
+    join_cols,
+    optional_col=True,
+):
+    old_path = os.path.join(inputs_dir, old_file_name)
+    new_path = os.path.join(inputs_dir, new_file_name)
+    if optional_col and not os.path.isfile(old_path):
+        return
+    # add dummy key to allow cross-joins
+    fixed_join_cols = list(join_cols) + ["dummy_join_key"]
+    old_df = pd.read_csv(old_path, na_values=["."], sep=",").assign(dummy_join_key=0)
+    # TODO: create new_path if it doesn't exist
+    new_df = pd.read_csv(new_path, na_values=["."], sep=",").assign(dummy_join_key=0)
+    if old_col_name in old_df.columns:
+        new_col = old_df.loc[:, fixed_join_cols + [old_col_name]].merge(
+            new_df.loc[:, fixed_join_cols], on=fixed_join_cols
+        )
+        new_df[new_col_name] = new_col[old_col_name]
+        new_df.drop("dummy_join_key", axis=1, inplace=True)
+        new_df.to_csv(new_path, sep=",", na_rep=".", index=False)
+        old_df.drop([old_col_name, "dummy_join_key"], axis=1, inplace=True)
+        old_df.to_csv(old_path, sep=",", na_rep=".", index=False)
+        switch_model.upgrade.print_verbose(
+            f"Column {old_file_name} > {old_col_name} has been moved to {new_file_name} > {new_col_name}."
+        )
+    elif new_col_name in new_df.columns:
+        switch_model.upgrade.print_verbose(
+            f"Column {old_file_name} > {old_col_name} was already moved to {new_file_name} > {new_col_name}."
+        )
+    elif not optional_col:
+        # column wasn't found and isn't optional
+        raise ValueError(f"Mandatory column {old_col_name} not found in {old_path}.")
 
 
 def item_list(items):
