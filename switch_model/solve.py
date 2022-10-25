@@ -83,6 +83,9 @@ def main(args=None, return_model=False, return_instance=False):
     else:
         logs_dir = None  # disables logging
 
+    # set root logger to the same level as the model
+    logging.getLogger("root").setLevel(pre_module_options.log_level.upper())
+
     with LogOutput(logs_dir):
         # Create a unique logger for this model (other models may have different
         # logging settings and may exist at the same time as this one). This has
@@ -1056,7 +1059,7 @@ def solve(model):
 
     # patch Pyomo to retrieve MIP duals from cplex if needed
     if model.options.retrieve_cplex_mip_duals:
-        retrieve_cplex_mip_duals()
+        retrieve_cplex_mip_duals(model)
 
     # solve the model
     if model.options.verbose:
@@ -1208,29 +1211,34 @@ def make_logger(parsed_args):
     return logger
 
 
-def retrieve_cplex_mip_duals():
+def retrieve_cplex_mip_duals(model):
     """patch Pyomo's solver to retrieve duals and reduced costs for MIPs
     from cplex lp solver. (This could be made permanent in
     pyomo.solvers.plugins.solvers.CPLEX.create_command_line)."""
     from pyomo.solvers.plugins.solvers.CPLEX import CPLEXSHELL
 
     old_create_command_line = CPLEXSHELL.create_command_line
+    logger = model.logger
 
     def new_create_command_line(*args, **kwargs):
         # call original command
         command = old_create_command_line(*args, **kwargs)
         # alter script
-        if hasattr(command, "script") and "optimize\n" in command.script:
+        if (
+            hasattr(command, "script")
+            and "optimize\n" in command.script
+            and not "change problem fix\n" in command.script
+        ):
             command.script = command.script.replace(
                 "optimize\n",
                 "optimize\nchange problem fix\noptimize\n"
                 # see http://www-01.ibm.com/support/docview.wss?uid=swg21399941
                 # and http://www-01.ibm.com/support/docview.wss?uid=swg21400009
             )
-            print("changed CPLEX solve script to the following:")
-            print(command.script)
+            logger.info("changed CPLEX solve script to the following:")
+            logger.info(command.script)
         else:
-            print(
+            logger.warning(
                 "Unable to patch CPLEX solver script to retrieve duals "
                 "for MIP problems"
             )
