@@ -20,6 +20,41 @@ class UtilitiesTest(unittest.TestCase):
         assert utilities.approx_equal(1, 1.01)
         assert utilities.approx_equal(1, 1)
 
+    def test_retrieve_cplex_mip_duals(self):
+        try:
+            m = switch_model.solve.main(
+                args=[
+                    "--inputs-dir",
+                    os.path.join(
+                        os.path.dirname(__file__),
+                        "..",
+                        "examples",
+                        "discrete_and_min_build",
+                        "inputs",
+                    ),
+                    "--log-level",
+                    "error",
+                    "--suffix",
+                    "dual",
+                    "--retrieve-cplex-mip-duals",
+                    "--solver",
+                    "cplex",
+                ]
+            )
+        except Exception as e:  # cplex unavailable
+            if str(e) == "No executable found for solver 'cplex'":
+                pass
+            else:
+                raise
+        else:
+            # breakpoint() # inspect model to get new values
+            model_vals = [
+                m.dual[m.Distributed_Energy_Balance["South", 1]],
+                m.dual[m.Enforce_Min_Build_Lower["S-NG_CC", 2020]],
+            ]
+            expected_vals = [980032.4664183848, -835405.9051712567]
+            compare(model_vals, expected_vals)
+
     def test_save_inputs_as_dat(self):
         (model, instance) = switch_model.solve.main(
             args=[
