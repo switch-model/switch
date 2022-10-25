@@ -610,7 +610,7 @@ def define_components(m):
     existing_techs = (
         pd.read_csv(os.path.join(m.options.inputs_dir, "gen_build_predetermined.csv"))
         .merge(gen_info, how="inner")
-        .groupby(["build_year", "tech_group"])["gen_predetermined_cap"]
+        .groupby(["build_year", "tech_group"])["build_gen_predetermined"]
         .sum()
         .reset_index()
     )
@@ -718,13 +718,13 @@ def define_components(m):
                     unit_sizes[tech_group] = unit_size
         # get predetermined capacity for all technologies
         m.tech_group_predetermined_power_cap_dict = defaultdict(float)
-        for (g, per), cap in m.gen_predetermined_cap.items():
+        for (g, per), cap in m.build_gen_predetermined.items():
             tech = m.gen_tech[g]
             if tech in m.FORECASTED_TECHS:
                 tech_group = m.tech_tech_group[tech]
                 m.tech_group_predetermined_power_cap_dict[tech_group, per] += cap
         m.tech_group_predetermined_energy_cap_dict = defaultdict(float)
-        for (g, per), cap in m.gen_predetermined_cap.items():
+        for (g, per), cap in m.build_gen_predetermined.items():
             tech = m.gen_tech[g]
             if tech in m.FORECASTED_TECHS and g in m.STORAGE_GENS:
                 # Need to get predetermined energy capacity here, but there's no

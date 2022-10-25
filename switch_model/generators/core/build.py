@@ -93,7 +93,7 @@ def define_components(mod):
     only includes existing or planned projects that are not subject to
     optimization.
 
-    gen_predetermined_cap[(g, build_year) in PREDETERMINED_GEN_BLD_YRS] is
+    build_gen_predetermined[(g, build_year) in PREDETERMINED_GEN_BLD_YRS] is
     a parameter that describes how much capacity was built in the past
     for existing projects, or is planned to be built for future projects.
 
@@ -378,10 +378,10 @@ def define_components(mod):
     mod.NEW_GEN_BLD_YRS = Set(
         dimen=2, initialize=lambda m: m.GEN_BLD_YRS - m.PREDETERMINED_GEN_BLD_YRS
     )
-    mod.gen_predetermined_cap = Param(
+    mod.build_gen_predetermined = Param(
         mod.PREDETERMINED_GEN_BLD_YRS, within=NonNegativeReals
     )
-    mod.min_data_check("gen_predetermined_cap")
+    mod.min_data_check("build_gen_predetermined")
 
     def gen_build_can_operate_in_period(m, g, build_year, period):
         if build_year in m.PERIODS:
@@ -430,8 +430,8 @@ def define_components(mod):
     def bounds_BuildGen(model, g, bld_yr):
         if (g, bld_yr) in model.PREDETERMINED_GEN_BLD_YRS:
             return (
-                model.gen_predetermined_cap[g, bld_yr],
-                model.gen_predetermined_cap[g, bld_yr],
+                model.build_gen_predetermined[g, bld_yr],
+                model.build_gen_predetermined[g, bld_yr],
             )
         elif g in model.CAPACITY_LIMITED_GENS:
             # This does not replace Max_Build_Potential because
@@ -450,7 +450,7 @@ def define_components(mod):
     # starting point we assign an appropriate value to all the existing
     # projects here.
     def BuildGen_assign_default_value(m, g, bld_yr):
-        m.BuildGen[g, bld_yr] = m.gen_predetermined_cap[g, bld_yr]
+        m.BuildGen[g, bld_yr] = m.build_gen_predetermined[g, bld_yr]
 
     mod.BuildGen_assign_default_value = BuildAction(
         mod.PREDETERMINED_GEN_BLD_YRS, rule=BuildGen_assign_default_value
@@ -594,7 +594,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     optional for simulations where there is no existing capacity:
 
     gen_build_predetermined.csv
-        GENERATION_PROJECT, build_year, gen_predetermined_cap
+        GENERATION_PROJECT, build_year, build_gen_predetermined
 
     The following file is mandatory, because it sets cost parameters for
     both existing and new project buildouts:
@@ -661,7 +661,7 @@ def load_inputs(mod, switch_data, inputs_dir):
         optional=True,
         filename=os.path.join(inputs_dir, "gen_build_predetermined.csv"),
         index=mod.PREDETERMINED_GEN_BLD_YRS,
-        param=(mod.gen_predetermined_cap),
+        param=(mod.build_gen_predetermined),
     )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "gen_build_costs.csv"),

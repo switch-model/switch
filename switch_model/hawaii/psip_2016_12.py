@@ -384,7 +384,7 @@ def define_components(m):
                 unit_sizes[tech] = unit_size
         # get predetermined capacity for all technologies
         predet_cap = m.gen_tech_predetermined_cap_dict = defaultdict(float)
-        for (g, per), cap in m.gen_predetermined_cap.items():
+        for (g, per), cap in m.build_gen_predetermined.items():
             tech = m.gen_tech[g]
             predet_cap[tech, per] += cap
 

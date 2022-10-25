@@ -749,8 +749,8 @@ def get_queries(args):
         SELECT
             "GENERATION_PROJECT",
             build_year,
-            SUM(gen_predetermined_cap) as gen_predetermined_cap,
-            SUM(gen_predetermined_storage_energy_mwh) as gen_predetermined_storage_energy_mwh
+            SUM(gen_predetermined_cap) as build_gen_predetermined,
+            SUM(gen_predetermined_storage_energy_mwh) as build_gen_energy_predetermined
         FROM study_projects JOIN gen_build_predetermined USING (project_id)
         GROUP BY 1, 2
         ORDER BY 1, 2;
