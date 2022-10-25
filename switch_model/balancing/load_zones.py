@@ -66,10 +66,10 @@ def define_components(mod):
     zone_expected_coincident_peak_demand[z,p] is an optional parameter than can
     be used to externally specify peak load planning requirements in MW.
     Currently local_td and planning_reserves determine capacity requirements
-    use zone_expected_coincident_peak_demand as well as load timeseries. Do not
-    specify this parameter if you wish for the model to endogenously determine
-    capacity requirements after accounting for both load and Distributed
-    Energy Resources (DER).
+    based on zone_expected_coincident_peak_demand as well as load timeseries. Do
+    not specify this parameter if you wish for the model to endogenously
+    determine capacity requirements after accounting for both load and
+    Distributed Energy Resources (DER).
 
     Derived parameters:
 

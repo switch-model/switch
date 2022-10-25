@@ -452,7 +452,7 @@ def define_components(m):
         )
         .merge(gen_info, how="inner")
         .groupby(["build_year", "tech_group"])[
-            ["gen_predetermined_cap", "gen_predetermined_storage_energy_mwh"]
+            ["build_gen_predetermined", "build_gen_energy_predetermined"]
         ]
         .agg(lambda x: x.sum(skipna=False))
         .reset_index()
@@ -560,13 +560,13 @@ def define_components(m):
                     unit_sizes[tech_group] = unit_size
         # get predetermined capacity for all technologies
         m.tech_group_predetermined_power_cap_dict = defaultdict(float)
-        for (g, per), cap in m.gen_predetermined_cap.items():
+        for (g, per), cap in m.build_gen_predetermined.items():
             tech = m.gen_tech[g]
             if tech in m.FORECASTED_TECHS:
                 tech_group = m.tech_tech_group[tech]
                 m.tech_group_predetermined_power_cap_dict[tech_group, per] += cap
         m.tech_group_predetermined_energy_cap_dict = defaultdict(float)
-        for (g, per), cap in m.gen_predetermined_storage_energy_mwh.items():
+        for (g, per), cap in m.build_gen_energy_predetermined.items():
             tech = m.gen_tech[g]
             if (
                 tech in m.FORECASTED_TECHS
