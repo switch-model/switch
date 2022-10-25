@@ -1,3 +1,0 @@
-load_zone	timestamp	ZoneTotalCentralDispatch	ZoneTotalDistributedDispatch	zone_demand_mw
-South	2025011512	8	0	8
-South	2025011600	0.5	0	0.5
