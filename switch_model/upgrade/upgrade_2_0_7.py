@@ -30,7 +30,7 @@ def upgrade_input_dir(inputs_dir):
     switch_model.upgrade._write_input_version(inputs_dir, upgrades_to)
 
     # rename modules and report changes
-    update_modules(inputs_dir)
+    # update_modules(inputs_dir)
 
     rename_file(inputs_dir, "generation_projects_info.csv", "gen_info.csv", False)
 
@@ -39,6 +39,13 @@ def upgrade_input_dir(inputs_dir):
         "gen_build_predetermined.csv",
         "gen_predetermined_cap",
         "build_gen_predetermined",
+    )
+
+    rename_column(
+        inputs_dir,
+        "gen_build_predetermined.csv",
+        "gen_predetermined_storage_energy_mwh",  # briefly used pre-release
+        "build_gen_energy_predetermined",
     )
 
     move_column(

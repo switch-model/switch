@@ -10,6 +10,7 @@ from __future__ import print_function
 
 from pyomo.environ import *
 from switch_model.financials import capital_recovery_factor
+from switch_model.utilities import unique_list
 
 
 def define_arguments(argparser):

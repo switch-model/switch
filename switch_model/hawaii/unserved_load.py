@@ -22,7 +22,7 @@ def define_components(m):
     if m.options.unserved_load_penalty is not None:
         # always use penalty factor supplied on the command line, if any
         m.unserved_load_penalty_per_mwh = Param(
-            initialize=m.options.unserved_load_penalty
+            within=NonNegativeReals, initialize=m.options.unserved_load_penalty
         )
     else:
         # no penalty on the command line, use whatever is in the parameter files, or 10000

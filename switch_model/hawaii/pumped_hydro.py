@@ -34,6 +34,7 @@ def define_components(m):
     # total annual cost
     m.ph_fixed_cost_per_mw_per_year = Param(
         m.PH_GENS,
+        within=Reals,
         initialize=lambda m, p: m.ph_capital_cost_per_mw[p]
         * (crf(m.interest_rate, m.ph_project_life[p]) + m.ph_fixed_om_percent[p]),
     )

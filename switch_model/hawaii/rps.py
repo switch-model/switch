@@ -133,12 +133,16 @@ def define_components(m):
         )
         return m.rps_target[latest_target]
 
-    m.rps_target_for_period = Param(m.PERIODS, initialize=rps_target_for_period_rule)
+    m.rps_target_for_period = Param(
+        m.PERIODS, within=NonNegativeReals, initialize=rps_target_for_period_rule
+    )
 
     # maximum share of (bio)fuels in rps
     # note: using Infinity as the upper limit causes the solution to take forever
     # m.rps_fuel_limit = Param(default=float("inf"), mutable=True)
-    m.rps_fuel_limit = Param(initialize=m.options.biofuel_limit, mutable=True)
+    m.rps_fuel_limit = Param(
+        within=NonNegativeReals, initialize=m.options.biofuel_limit, mutable=True
+    )
 
     # calculate amount of pre-existing capacity in each generation project;
     # used when we want to restrict expansion

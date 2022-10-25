@@ -41,7 +41,7 @@ def define_components(m):
     # give negative down reserves when shifted demand exceeded this quantity,
     # which would have to come from somewhere else.
     m.demand_response_max_increase = Param(
-        rule=lambda m: m.demand_response_max_share * 24 / 3
+        within=NonNegativeReals, rule=lambda m: m.demand_response_max_share * 24 / 3
     )
 
     # adjustment to demand during each hour (positive = higher demand)

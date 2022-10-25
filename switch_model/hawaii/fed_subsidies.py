@@ -83,6 +83,7 @@ def define_components(m):
 
     m.gen_investment_subsidy_fraction = Param(
         m.GEN_BLD_YRS,
+        within=Reals,
         rule=lambda m, g, bld_yr: itc_rates.get((bld_yr, m.gen_tech[g]), 0.0),
     )
     # model the renewable investment tax credit as simply prorating the
