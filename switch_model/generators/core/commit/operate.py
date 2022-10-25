@@ -431,7 +431,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     If you only want to override default values for certain columns in a
     row, insert a dot . into the other columns.
 
-    generation_projects_info.csv
+    gen_info.csv
         GENERATION_PROJECT, gen_min_load_fraction, gen_startup_fuel,
         gen_startup_om
 
@@ -446,7 +446,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     """
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, "generation_projects_info.csv"),
+        filename=os.path.join(inputs_dir, "gen_info.csv"),
         param=(
             mod.gen_min_load_fraction,
             mod.gen_startup_fuel,

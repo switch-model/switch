@@ -291,7 +291,7 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     Import storage parameters. Optional columns are noted with a *.
 
-    generation_projects_info.csv
+    gen_info.csv
         GENERATION_PROJECT, ...
         gen_storage_efficiency, gen_store_to_release_ratio*,
         gen_storage_energy_to_power_ratio*, gen_storage_max_cycles_per_year*
@@ -313,7 +313,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     # gen_storage_efficiency has been specified, then require valid settings for all
     # STORAGE_GENS.
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "generation_projects_info.csv"),
+        filename=os.path.join(inputs_dir, "gen_info.csv"),
         optional_params=[
             "gen_store_to_release_ratio",
             "gen_storage_energy_to_power_ratio",

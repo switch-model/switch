@@ -688,7 +688,7 @@ def get_queries(args):
     # COALESCE(gen_connect_cost_per_mw, 0.0) AS gen_connect_cost_per_mw
     add_query(
         queries,
-        "generation_projects_info.csv",
+        "gen_info.csv",
         "WITH "
         + study_info
         + """

@@ -582,7 +582,7 @@ def load_aug(switch_data, optional=False, optional_params=[], **kwargs):
     (user can see immediately where the data come from for each component).
     This can also support auto-documenting of parameters and input files.
     * Maybe each input file should have the same name as the matching index set?
-      generation_projects_info -> generation_projects
+      gen_info -> generation_projects
       gen_build_predetermined -> predetermined_gen_bld_yrs
       gen_build_costs -> gen_bld_yrs
     """
