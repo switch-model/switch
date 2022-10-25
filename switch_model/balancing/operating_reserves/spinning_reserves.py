@@ -600,7 +600,7 @@ def load_inputs(m, switch_data, inputs_dir):
     """
     All files & columns are optional.
 
-    generation_projects_info.csv
+    gen_info.csv
         GENERATION_PROJECTS, ... gen_can_provide_spinning_reserves
 
     spinning_reserve_params.csv may override the default value of
@@ -608,7 +608,7 @@ def load_inputs(m, switch_data, inputs_dir):
     header row and one data row.
     """
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "generation_projects_info.csv"),
+        filename=os.path.join(inputs_dir, "gen_info.csv"),
         optional_params=["gen_can_provide_spinning_reserves"],
         param=(m.gen_can_provide_spinning_reserves),
     )
