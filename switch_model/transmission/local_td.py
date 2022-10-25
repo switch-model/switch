@@ -41,21 +41,21 @@ def define_components(mod):
     """
 
     Define local transmission and distribution portions of an electric grid.
-    This models load zones as two nodes: the central grid node described in
-    the load_zones module, and a distributed (virtual) node that is connected
-    to the central bus via a local_td pathway with losses described by
-    distribution_loss_rate. Distributed Energy Resources (DER) such as
-    distributed solar, demand response, efficiency programs, etc will need to
-    register with the Distributed_Power_Withdrawals and Distributed_Power_Injections lists
-    which are used for power balance equations. This module is divided into
-    two sections: the distribution node and the local_td pathway that connects
-    it to the central grid.
+    This models load zones as two nodes: the central grid node described in the
+    load_zones module, and a distributed (virtual) node that is connected to the
+    central bus via a local_td pathway with losses described by
+    local_td_loss_rate. Distributed Energy Resources (DER) such as distributed
+    solar, demand response, efficiency programs, etc., will need to register
+    with the Distributed_Power_Withdrawals and Distributed_Power_Injections
+    lists which are used for power balance equations. This module is divided
+    into two sections: the distribution node and the local_td pathway that
+    connects it to the central grid.
 
     Note: This module interprets the parameter zone_demand_mw[z,t] as the end-
     use sales rather than the withdrawals from the central grid, and moves
     zone_demand_mw from the Zone_Power_Withdrawals list to the
-    Distributed_Power_Withdrawals list so that distribution losses can be accounted
-    for.
+    Distributed_Power_Withdrawals list so that distribution losses can be
+    accounted for.
 
     Unless otherwise stated, all power capacity is specified in units of MW and
     all sets and parameters are mandatory.
@@ -72,7 +72,7 @@ def define_components(mod):
     load_zone power balance, and has a corresponding expression from the
     perspective of the distributed node:
 
-    InjectIntoDistributedGrid[z,t] = WithdrawFromCentralGrid[z,t] * (1-distribution_loss_rate)
+    InjectIntoDistributedGrid[z,t] = WithdrawFromCentralGrid[z,t] * (1-local_td_loss_rate)
 
     The Distributed_Energy_Balance constraint is defined in define_dynamic_components.
 
@@ -98,10 +98,10 @@ def define_components(mod):
     increasing local T&D requirements, or adding more distributed solar,
     potentially decreasing local T&D requirements.
 
-    distribution_loss_rate is the ratio of average losses for local T&D. This
-    value is relative to delivered energy, so the total energy needed is load
-    * (1 + distribution_loss_rate). This optional value defaults to 0.053
-    based on ReEDS Solar Vision documentation:
+    local_td_loss_rate[z in LOAD_ZONES] is the ratio of average losses for local
+    T&D in zone z. This value is relative to delivered energy, so the total
+    energy needed is load * (1 + local_td_loss_rate). This optional value
+    defaults to 0.053 based on ReEDS Solar Vision documentation:
     http://www1.eere.energy.gov/solar/pdfs/svs_appendix_a_model_descriptions_data.pdf
 
     Meet_Local_TD[z, period] is a constraint that enforces minimal
@@ -120,7 +120,7 @@ def define_components(mod):
 
     --- NOTES ---
 
-    Switch 2 treats all transmission and distribution (long- distance or local)
+    Switch 2 treats all transmission and distribution (long-distance or local)
     the same. Any capacity that is built will be kept online indefinitely. At
     the end of its financial lifetime, existing capacity will be retired and
     rebuilt, so the annual cost of a line upgrade will remain constant in every
@@ -142,13 +142,16 @@ def define_components(mod):
             for bld_yr in m.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD[period]
         ),
     )
-    mod.distribution_loss_rate = Param(within=NonNegativeReals, default=0.053)
+    mod.local_td_loss_rate = Param(
+        mod.LOAD_ZONES, within=NonNegativeReals, default=0.053
+    )
 
     mod.Meet_Local_TD = Constraint(
         mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS,
-        rule=lambda m, z, period: m.LocalTDCapacity[z, period]
-        * (1 - m.distribution_loss_rate)
-        >= m.zone_expected_coincident_peak_demand[z, period],
+        rule=lambda m, z, period: (
+            m.LocalTDCapacity[z, period] * (1 - m.local_td_loss_rate[z])
+            >= m.zone_expected_coincident_peak_demand[z, period]
+        ),
     )
     mod.local_td_annual_cost_per_mw = Param(
         mod.LOAD_ZONES, within=NonNegativeReals, default=0.0
@@ -178,8 +181,9 @@ def define_components(mod):
     mod.InjectIntoDistributedGrid = Expression(
         mod.ZONE_TIMEPOINTS,
         doc="Describes WithdrawFromCentralGrid after line losses.",
-        rule=lambda m, z, t: m.WithdrawFromCentralGrid[z, t]
-        * (1 - m.distribution_loss_rate),
+        rule=lambda m, z, t: (
+            m.WithdrawFromCentralGrid[z, t] * (1 - m.local_td_loss_rate[z])
+        ),
     )
 
     # Register energy injections & withdrawals
@@ -220,32 +224,24 @@ def define_dynamic_components(mod):
 def load_inputs(mod, switch_data, inputs_dir):
     """
 
-    Import local transmission & distribution data. The following files are
-    expected in the input directory. Optional files & columns are marked with
-    *. load_zones.csv will contain additional columns that are used by the
+    Import local transmission & distribution data. The following file is
+    expected in the input directory. Optional columns are marked with *.
+    load_zones.csv will contain additional columns that are used by the
     load_zones module.
 
     load_zones.csv
-        load_zone, ..., existing_local_td, local_td_annual_cost_per_mw
-
-    Note that in the next file, parameter names are written on the first
-    row (as usual), and the single value for each parameter is written in
-    the second row.
-
-    trans_params.csv*
-        ..., distribution_loss_rate*
+        load_zone, ..., existing_local_td, local_td_annual_cost_per_mw, local_td_loss_rate*
 
     """
 
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "load_zones.csv"),
-        param=(mod.existing_local_td, mod.local_td_annual_cost_per_mw),
-    )
-    switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "trans_params.csv"),
-        optional=True,
-        optional_params=["distribution_loss_rate"],
-        param=[mod.distribution_loss_rate],
+        optional_params=["local_td_loss_rate"],
+        param=(
+            mod.existing_local_td,
+            mod.local_td_annual_cost_per_mw,
+            mod.local_td_loss_rate,
+        ),
     )
 
 
