@@ -52,7 +52,6 @@ def scan_and_upgrade(
         for dirname in dirnames:
             path = os.path.join(dirpath, dirname)
             if os.path.exists(os.path.join(path, inputs_dir_name, "modules.txt")):
-                # print_verbose('upgrading {}'.format(os.path.join(path, inputs_dir_name)))
                 upgrade_inputs(
                     os.path.join(path, inputs_dir_name), backup, assign_current_version
                 )
@@ -118,19 +117,22 @@ def _backup(inputs_dir):
         shutil.make_archive(inputs_backup, "zip", inputs_dir)
 
 
-def print_verbose(*args):
+def print_verbose(*args, indent=True):
     global verbose
     if verbose:
-        print(*args)
+        if indent:
+            print("       ", *args)
+        else:
+            print(*args)
 
 
 def upgrade_inputs(inputs_dir, backup=True, assign_current_version=False):
     # This logic will grow over time as complexity evolves.. Don't overengineer
     upgraded = False
     if do_inputs_need_upgrade(inputs_dir):
-        print_verbose("Upgrading " + inputs_dir)
+        print_verbose("Upgrading " + inputs_dir, indent=False)
         if backup:
-            print_verbose("\tBacked up original inputs")
+            print_verbose("Backed up original inputs")
             _backup(inputs_dir)
         # Successively apply the upgrade scripts as needed.
         for (upgrader, v_from, v_to) in upgrade_plugins:
@@ -138,7 +140,7 @@ def upgrade_inputs(inputs_dir, backup=True, assign_current_version=False):
             # note: the next line catches datasets created by/for versions of Switch that
             # didn't require input directory upgrades
             if parse_version(v_from) <= inputs_v < parse_version(v_to):
-                print_verbose("\tUpgrading from " + v_from + " to " + v_to)
+                print_verbose("Upgrading from " + v_from + " to " + v_to)
                 upgrader.upgrade_input_dir(inputs_dir)
         upgraded = True
 
@@ -152,9 +154,9 @@ def upgrade_inputs(inputs_dir, backup=True, assign_current_version=False):
         upgraded = True
 
     if upgraded:
-        print_verbose("\tFinished upgrading " + inputs_dir + "\n")
+        print_verbose("Finished upgrading " + inputs_dir + "\n")
     else:
-        print_verbose("Skipped " + inputs_dir + "; it does not need upgrade.")
+        print_verbose(f"Skipped {inputs_dir}; it does not need upgrade.", indent=False)
 
 
 def main(args=None):

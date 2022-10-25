@@ -592,9 +592,7 @@ def define_components(m):
     # show max battery capacity equal to sum of all prior additions
 
     # m = lambda: 3; m.options = m; m.options.inputs_dir = '/Users/matthias/Dropbox/Research/Ulupono/Enovation Model/pbr_scenario/inputs'
-    gen_info = pd.read_csv(
-        os.path.join(m.options.inputs_dir, "generation_projects_info.csv")
-    )
+    gen_info = pd.read_csv(os.path.join(m.options.inputs_dir, "gen_info.csv"))
     gen_info["tech_group"] = gen_info["gen_tech"].map(tech_tech_group)
     gen_info = gen_info[gen_info["tech_group"].notna()]
     # existing technologies are also subject to rebuilding
@@ -628,7 +626,7 @@ def define_components(m):
         if tech_group not in ages.index:
             raise ValueError(
                 "A target has been specified for {} but there are no matching "
-                "technologies in generation_projects_info.csv.".format(tech_group)
+                "technologies in gen_info.csv.".format(tech_group)
             )
         max_age = ages.loc[tech_group, "mean"]
         tech_life[tech_group] = max_age

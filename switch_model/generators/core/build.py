@@ -576,7 +576,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     Import data describing project builds. The following files are
     expected in the input directory.
 
-    generation_projects_info.csv has mandatory and optional columns. The
+    gen_info.csv has mandatory and optional columns. The
     operations.gen_dispatch module will also look for additional columns in
     this file. You may drop optional columns entirely or mark blank
     values with a dot '.' for select rows for which the column does not
@@ -605,7 +605,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     """
 
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "generation_projects_info.csv"),
+        filename=os.path.join(inputs_dir, "gen_info.csv"),
         optional_params=[
             "gen_dbid",
             "gen_is_baseload",
