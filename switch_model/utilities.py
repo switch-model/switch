@@ -84,13 +84,15 @@ class SwitchAbstractModel(AbstractModel):
         # do standard Pyomo initialization
         AbstractModel.__init__(self)
 
+        # late import to minimize circular dependency
+        import switch_model.solve
+
         # Load modules
         if module_list is None:
-            import switch_model.solve
-
             module_list = switch_model.solve.get_module_list(args)
         self.module_list = module_list
-        for m in module_list:
+
+        for m in self.module_list:
             importlib.import_module(m)
 
         # Each model usually has its own logger, passed in by
@@ -117,6 +119,24 @@ class SwitchAbstractModel(AbstractModel):
         # Apply verbose flag to support code that still uses it (newer code should
         # use model.logger.isEnabledFor(logging.LEVEL)
         self.options.verbose = self.logger.isEnabledFor(logging.INFO)
+
+        # get a list of modules to iterate through
+        self.iterate_modules = switch_model.solve.get_iteration_list(self)
+
+        # Describe model (if wanted) before constructing it
+        self.logger.info(
+            "======================================================================="
+        )
+        self.logger.info(
+            "Arguments:\n"
+            + ", ".join(k + "=" + repr(v) for k, v in vars(self.options).items() if v)
+        )
+        self.logger.info("\nModules:\n" + ", ".join(m for m in self.module_list))
+        if self.iterate_modules:
+            self.logger.info("\nIteration modules:" + str(self.iterate_modules))
+        self.logger.info(
+            "=======================================================================\n"
+        )
 
         # Define model components
         for module in self.get_modules():
