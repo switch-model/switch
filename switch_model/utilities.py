@@ -18,7 +18,7 @@ import types
 import textwrap
 
 from pyomo.environ import *
-import pyomo.opt
+import pyomo.opt, pyomo.version
 
 try:
     # sentinel for sets with no dimension specified in Pyomo 5.7+
@@ -261,6 +261,13 @@ class SwitchConcreteModel(ConcreteModel):
             for variable in model.component_objects(Var, active=True)
             for v in all_elements(variable)
         )
+
+    def preprocess(self, *args, **kwargs):
+        # continue to use in Pyomo 5 but avoid deprecation warning in Pyomo 6+
+        if pyomo.version.version_info[:2] >= (6, 0):
+            return
+        else:
+            ConcreteModel.preprocess()
 
     def pre_solve(self, outputs_dir=None):
         """
