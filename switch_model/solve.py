@@ -172,6 +172,8 @@ def main(args=None, return_model=False, return_instance=False):
         # Add any suffixes specified on the command line (usually only iis)
         add_extra_suffixes(model)
 
+        logger.info("Model created in {:.2f} s.".format(timer.step_time()))
+
         # return the model as-is if requested
         if return_model and not return_instance:
             return model
@@ -188,36 +190,14 @@ def main(args=None, return_model=False, return_instance=False):
                     "Prior solution {} does not exist.".format(prior_solution_file)
                 )
 
-        # get a list of modules to iterate through
-        iterate_modules = get_iteration_list(model)
-
-        if model.options.verbose:
-            print(
-                "======================================================================="
-            )
-            print("Arguments:")
-            print(
-                ", ".join(
-                    k + "=" + repr(v) for k, v in vars(model.options).items() if v
-                )
-            )
-            print("Modules:\n" + ", ".join(m for m in modules))
-            if iterate_modules:
-                print("Iteration modules:", iterate_modules)
-            print(
-                "=======================================================================\n"
-            )
-            print("Model created in {:.2f} s.".format(timer.step_time()))
-            print("Loading inputs...")
-
         # create an instance (also reports time spent reading data and loading into model)
+        logger.info("Loading inputs...")
         instance = model.load_inputs()
 
         #### Below here, we refer to instance instead of model ####
 
         instance.pre_solve()
-        if instance.options.verbose:
-            print(f"Total time spent constructing model: {timer.step_time():.2f} s.\n")
+        logger.info(f"Total time spent constructing model: {timer.step_time():.2f} s.\n")
 
         # return the instance as-is if requested
         if return_instance:
@@ -236,35 +216,27 @@ def main(args=None, return_model=False, return_instance=False):
                 raise
 
         if instance.options.reload_prior_solution:
-            print("Loading prior solution...")
+            logger.info("Loading prior solution...")
             reload_prior_solution_from_pickle(instance, prior_solution_file)
-            if instance.options.verbose:
-                print(
-                    "Loaded previous results into model instance in {:.2f} s.".format(
-                        timer.step_time()
-                    )
-                )
+            logger.info(
+                f"Loaded previous results into model instance in {timer.step_time():.2f} s."
+            )
         else:
             # solve the model (reports time for each step as it goes)
-            if iterate_modules:
-                if instance.options.verbose:
-                    print("Iterating model...")
-                iterate(instance, iterate_modules)
+            if instance.iterate_modules:
+                logger.info("Iterating model...")
+                iterate(instance)
             else:
                 results = solve(instance)
-                if instance.options.verbose:
-                    print("")
-                    print(
-                        "Optimization termination condition was {}.".format(
-                            results.solver.termination_condition
-                        )
-                    )
-                    if str(results.solver.message) != "<undefined>":
-                        print("Solver message: {}".format(results.solver.message))
-                    print("")
-
-                if instance.options.verbose:
-                    timer.step_time()  # restart counter for next step
+                logger.info("")
+                logger.info(
+                    f"Optimization termination condition was "
+                    f"{results.solver.termination_condition}."
+                )
+                if str(results.solver.message) != "<undefined>":
+                    logger.info(f"Solver message: {results.solver.message}")
+                logger.info("")
+                timer.step_time()  # restart counter for next step
 
             # save model configuration for future reference
             file = os.path.join(instance.options.outputs_dir, "model_config.json")
@@ -273,7 +245,7 @@ def main(args=None, return_model=False, return_instance=False):
                     {
                         "options": vars(instance.options),
                         "modules": modules,
-                        "iterate_modules": iterate_modules,
+                        "iterate_modules": instance.iterate_modules,
                     },
                     f,
                     indent=4,
@@ -281,21 +253,14 @@ def main(args=None, return_model=False, return_instance=False):
 
             if not instance.options.no_save_solution:
                 save_results(instance, instance.options.outputs_dir)
-                if instance.options.verbose:
-                    print("Saved results in {:.2f} s.".format(timer.step_time()))
+                logger.info(f"Saved results in {timer.step_time():.2f} s.")
 
         # report results
         # (repeated if model is reloaded, to automatically run any new export code)
         if not instance.options.no_post_solve:
-            if instance.options.verbose:
-                print("Executing post solve functions...")
+            logger.info("Executing post solve functions...")
             instance.post_solve()
-            if instance.options.verbose:
-                print(
-                    "Post solve processing completed in {:.2f} s.".format(
-                        timer.step_time()
-                    )
-                )
+            logger.info(f"Post solve processing completed in {timer.step_time():.2f} s.")
 
     # end of LogOutput block
 
@@ -460,11 +425,10 @@ def reload_prior_solution_from_csvs(instance):
                 if v.is_integer() or v.is_binary():
                     val = int(val)
                 v.value = val
-        if instance.options.verbose:
-            print("Loaded variable {} values into instance.".format(var.name))
+        instance.logger.info(f"Loaded variable {var.name} values into instance.")
 
 
-def iterate(m, iterate_modules, depth=0):
+def iterate(m, depth=0):
     """Iterate through all modules listed in the iterate_list (usually iterate.txt),
     if any. If there is no iterate_list, then this will just solve the model once.
 
@@ -485,7 +449,7 @@ def iterate(m, iterate_modules, depth=0):
     if depth == 0:
         m.iteration_node = tuple()
 
-    if depth == len(iterate_modules):
+    if depth == len(m.iterate_modules):
         # asked to converge at the deepest level
         # just preprocess to reflect all changes and then solve
         m.preprocess()
@@ -493,10 +457,10 @@ def iterate(m, iterate_modules, depth=0):
     else:
         # iterate until converged at the current level
 
-        # note: the modules in iterate_modules were also specified in the model's
+        # note: the modules in m.iterate_modules were also specified in the model's
         # module list, and have already been loaded, so they are accessible via sys.modules
         current_modules = []
-        for module_name in iterate_modules[depth]:
+        for module_name in m.iterate_modules[depth]:
             try:
                 current_modules.append(sys.modules[module_name])
             except KeyError:
@@ -521,7 +485,7 @@ def iterate(m, iterate_modules, depth=0):
                 converged = iterate_module_func(m, module, "pre_iterate", converged)
 
             # converge the deeper-level modules, if any (inner loop)
-            iterate(m, iterate_modules, depth=depth + 1)
+            iterate(m, depth=depth + 1)
 
             # post-iterate modules at this level
             m.iteration_number = j  # may have been changed during iterate()
@@ -531,15 +495,15 @@ def iterate(m, iterate_modules, depth=0):
 
             j += 1
         if converged:
-            print(
+            m.logger.info(
                 "Iteration of {ms} was completed after {j} rounds.".format(
-                    ms=iterate_modules[depth], j=j
+                    ms=m.iterate_modules[depth], j=j
                 )
             )
         else:
-            print(
+            m.logger.info(
                 "Iteration of {ms} was stopped after {j} iterations without convergence.".format(
-                    ms=iterate_modules[depth], j=j
+                    ms=m.iterate_modules[depth], j=j
                 )
             )
     return
@@ -961,7 +925,16 @@ def get_module_list(args):
 
 def get_iteration_list(m):
     # Identify modules to iterate until convergence (if any)
-    iterate_list_file = m.options.iterate_list
+    try:
+        iterate_list_file = m.options.iterate_list
+    except AttributeError as e:
+        # the --iterate-list option is defined in this module, but sometimes
+        # this module will not be in the module list (e.g., for small test
+        # models) so it will not be defined. In those cases, we assume no
+        # iteration should be done, rather than trying to read the default
+        # iteration file. (We could change this to use the default file later
+        # if needed.)
+        return []
     if iterate_list_file is None and os.path.exists("iterate.txt"):
         iterate_list_file = "iterate.txt"
     if iterate_list_file is None:
@@ -1062,9 +1035,8 @@ def solve(model):
         retrieve_cplex_mip_duals(model)
 
     # solve the model
-    if model.options.verbose:
-        timer = StepTimer()
-        print("Solving model...")
+    timer = StepTimer()
+    model.logger.info("Solving model...")
 
     if model.options.tempdir is not None:
         # from https://software.sandia.gov/downloads/pub/pyomo/PyomoOnlineDocs.html#_changing_the_temporary_directory
@@ -1076,19 +1048,16 @@ def solve(model):
         results = model.solver_manager.solve(model, opt=model.solver, **solver_args)
     except ValueError as err:
         # show the solver status for obscure errors if possible
-        print("\nError during solve:\n")
+        model.logger.error("\nError during solve:\n")
         try:
-            print(err.__traceback__.tb_frame.f_locals["results"])
+            model.logger.error(err.__traceback__.tb_frame.f_locals["results"])
         except:
             pass
         raise
 
-    if model.options.verbose:
-        print(
-            "Solved model. Total time spent in solver: {:2f} s.".format(
-                timer.step_time()
-            )
-        )
+    model.logger.info(
+        f"Solved model. Total time spent in solver: {timer.step_time():2f} s."
+    )
 
     # Treat infeasibility as an error, rather than trying to load and save the results
     # (note: in this case, results.solver.status may be SolverStatus.warning instead of
@@ -1105,12 +1074,12 @@ def solve(model):
 
     if results.solver.termination_condition == TerminationCondition.infeasible:
         if hasattr(model, "iis"):
-            print(
+            model.logger.error(
                 "Model was infeasible; irreducibly inconsistent set (IIS) returned by solver:"
             )
-            print("\n".join(sorted(c.name for c in model.iis)))
+            model.logger.error("\n".join(sorted(c.name for c in model.iis)))
         else:
-            print("Model was infeasible. " + infeasibility_message)
+            model.logger.error("Model was infeasible. " + infeasibility_message)
 
         # This infeasibility logging module could be nice, but it doesn't work
         # for my solvers and produces extraneous messages.
@@ -1144,29 +1113,29 @@ def solve(model):
 
     if no_solution:
         # no solution returned
-        print("Solver terminated without a solution.")
-        print("  Solver Status: ", results.solver.status)
-        print("  Solution Status: ", solution_status)
-        print("  Termination Condition: ", results.solver.termination_condition)
+        model.logger.error("Solver terminated without a solution.")
+        model.logger.error("  Solver Status: ", results.solver.status)
+        model.logger.error("  Solution Status: ", solution_status)
+        model.logger.error("  Termination Condition: ", results.solver.termination_condition)
         if (
             model.options.solver == "glpk"
             and results.solver.termination_condition == TerminationCondition.other
         ):
-            print(
+            model.logger.error(
                 "Hint: glpk has been known to classify infeasible problems as 'other'."
             )
-            print(infeasibility_message)
+            model.logger.error(infeasibility_message)
         raise RuntimeError("Solver failed to find an optimal solution.")
 
     # Report any warnings; these are written to stderr so users can find them in
     # error logs (e.g. on HPC systems). These can occur, e.g., if solver reaches
     # time limit or iteration limit but still returns a valid solution
     if results.solver.status == SolverStatus.warning:
-        warn(
+        model.logger.warning(
             "Solver terminated with warning.\n"
-            + "  Solver Status: {}\n".format(results.solver.status)
-            + "  Solution Status: {}\n".format(model.solutions[-1].status)
-            + "  Termination Condition: {}".format(results.solver.termination_condition)
+            f"  Solver Status: {results.solver.status}\n"
+            f"  Solution Status: {model.solutions[-1].status}\n"
+            f"  Termination Condition: {results.solver.termination_condition}"
         )
 
     ### process and return solution ###
