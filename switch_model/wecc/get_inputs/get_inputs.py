@@ -353,10 +353,9 @@ def query_db(config, skip_cf):
             "trans_lifetime_yrs",
             "trans_fixed_om_fraction",
         ],
-        # See Issue #80 for reasoning behind the 85 year lifetime.
         f"""
         SELECT trans_capital_cost_per_mw_km,
-            85 as trans_lifetime_yrs,
+            25 as trans_lifetime_yrs,
             0.03 as trans_fixed_om_fraction
         FROM transmission_base_capital_cost
         WHERE transmission_base_capital_cost_scenario_id = {params.transmission_base_capital_cost_scenario_id}
