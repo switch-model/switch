@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -227,16 +227,16 @@ def define_components(mod):
 
     """
 
-    mod.PERIODS = Set(ordered=True)
+    mod.PERIODS = Set(dimen=1, ordered=True)
     mod.period_start = Param(mod.PERIODS, within=NonNegativeReals)
     mod.period_end = Param(mod.PERIODS, within=NonNegativeReals)
     mod.min_data_check("PERIODS", "period_start", "period_end")
 
-    mod.TIMESERIES = Set(ordered=True)
+    mod.TIMESERIES = Set(ordered=True, dimen=1)
     mod.ts_period = Param(mod.TIMESERIES, within=mod.PERIODS)
-    mod.ts_duration_of_tp = Param(mod.TIMESERIES, within=PositiveReals)
-    mod.ts_num_tps = Param(mod.TIMESERIES, within=PositiveIntegers)
-    mod.ts_scale_to_period = Param(mod.TIMESERIES, within=PositiveReals)
+    mod.ts_duration_of_tp = Param(mod.TIMESERIES, within=NonNegativeReals)
+    mod.ts_num_tps = Param(mod.TIMESERIES, within=NonNegativeIntegers)
+    mod.ts_scale_to_period = Param(mod.TIMESERIES, within=NonNegativeReals)
     mod.min_data_check(
         "TIMESERIES",
         "ts_period",
@@ -245,27 +245,31 @@ def define_components(mod):
         "ts_scale_to_period",
     )
 
-    mod.TIMEPOINTS = Set(ordered=True)
+    mod.TIMEPOINTS = Set(ordered=True, dimen=1)
     mod.tp_ts = Param(mod.TIMEPOINTS, within=mod.TIMESERIES)
     mod.min_data_check("TIMEPOINTS", "tp_ts")
-    mod.tp_timestamp = Param(mod.TIMEPOINTS, default=lambda m, t: t)
+    mod.tp_timestamp = Param(mod.TIMEPOINTS, default=lambda m, t: t, within=Any)
 
     # Derived sets and parameters
     # note: the first five are calculated early so they
     # can be used for the add_one_to_period_end_rule
 
     mod.tp_duration_hrs = Param(
-        mod.TIMEPOINTS, initialize=lambda m, t: m.ts_duration_of_tp[m.tp_ts[t]]
+        mod.TIMEPOINTS,
+        within=NonNegativeReals,
+        initialize=lambda m, t: m.ts_duration_of_tp[m.tp_ts[t]],
     )
     mod.tp_weight = Param(
         mod.TIMEPOINTS,
-        within=PositiveReals,
+        within=NonNegativeReals,
         initialize=lambda m, t: (
             m.tp_duration_hrs[t] * m.ts_scale_to_period[m.tp_ts[t]]
         ),
     )
+    # TODO: build this in one pass, not multiple scans
     mod.TPS_IN_TS = Set(
         mod.TIMESERIES,
+        dimen=1,
         ordered=True,
         within=mod.TIMEPOINTS,
         initialize=lambda m, ts: [t for t in m.TIMEPOINTS if m.tp_ts[t] == ts],
@@ -277,12 +281,14 @@ def define_components(mod):
     )
     mod.TS_IN_PERIOD = Set(
         mod.PERIODS,
+        dimen=1,
         ordered=True,
         within=mod.TIMESERIES,
         initialize=lambda m, p: [ts for ts in m.TIMESERIES if m.ts_period[ts] == p],
     )
     mod.TPS_IN_PERIOD = Set(
         mod.PERIODS,
+        dimen=1,
         ordered=True,
         within=mod.TIMEPOINTS,
         initialize=lambda m, p: [t for t in m.TIMEPOINTS if m.tp_period[t] == p],
@@ -317,16 +323,20 @@ def define_components(mod):
 
     mod.period_length_years = Param(
         mod.PERIODS,
+        within=NonNegativeReals,
         initialize=lambda m, p: m.period_end[p]
         - m.period_start[p]
         + (1 if m.add_one_to_period_end else 0),
     )
     mod.period_length_hours = Param(
-        mod.PERIODS, initialize=lambda m, p: m.period_length_years[p] * hours_per_year
+        mod.PERIODS,
+        within=NonNegativeReals,
+        initialize=lambda m, p: m.period_length_years[p] * hours_per_year,
     )
 
     mod.CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD = Set(
         mod.PERIODS,
+        dimen=1,
         ordered=True,
         initialize=lambda m, p: [
             p2 for p2 in m.PERIODS if m.PERIODS.ord(p2) <= m.PERIODS.ord(p)
@@ -335,21 +345,22 @@ def define_components(mod):
 
     mod.ts_scale_to_year = Param(
         mod.TIMESERIES,
+        within=NonNegativeReals,
         initialize=lambda m, ts: (
             m.ts_scale_to_period[ts] / m.period_length_years[m.ts_period[ts]]
         ),
     )
     mod.ts_duration_hrs = Param(
         mod.TIMESERIES,
+        within=NonNegativeReals,
         initialize=lambda m, ts: (m.ts_num_tps[ts] * m.ts_duration_of_tp[ts]),
     )
 
     mod.tp_weight_in_year = Param(
         mod.TIMEPOINTS,
-        within=PositiveReals,
-        initialize=lambda m, t: (
-            m.tp_weight[t] / m.period_length_years[m.tp_period[t]]
-        ),
+        within=NonNegativeReals,
+        initialize=lambda m, t: m.tp_weight[t] / m.period_length_years[m.tp_period[t]],
+        doc="This weight scales a timepoint to an annual average.",
     )
     # Identify previous step for each timepoint, for use in tracking
     # unit commitment or storage. We use circular indexing (.prevw() method)
@@ -433,19 +444,11 @@ def load_inputs(mod, switch_data, inputs_dir):
     # some columns are not found.
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "periods.csv"),
-        select=("INVESTMENT_PERIOD", "period_start", "period_end"),
         index=mod.PERIODS,
         param=(mod.period_start, mod.period_end),
     )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "timeseries.csv"),
-        select=(
-            "TIMESERIES",
-            "ts_period",
-            "ts_duration_of_tp",
-            "ts_num_tps",
-            "ts_scale_to_period",
-        ),
         index=mod.TIMESERIES,
         param=(
             mod.ts_period,

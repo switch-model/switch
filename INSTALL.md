@@ -108,7 +108,7 @@ that they also use to solve models. This supports a number of activities:
 
 To work this way, first install Switch as described above (this will install all
 the Switch dependencies, even though you will later reinstall Switch itself).
-Then, in a terminal window or Anaconda command prompt Anaconda command prompt,
+Then, in a terminal window or Anaconda command prompt,
 use the `cd` and `mkdir` commands to create and/or enter the directory where you
 would like to store the Switch model code and examples. Once you are in that
 directory, run the following commands (don't type the comments that start with

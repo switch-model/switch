@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 """
 A simple and flexible model of spinning reserves that tracks the state of unit
@@ -134,8 +134,8 @@ def define_arguments(argparser):
         help=(
             "Choose rules for spinning reserves requirements as a function "
             "of variable renewable power and load. Hawaii uses rules "
-            "bootstrapped from the GE RPS study, and '3+5' requires 3% of "
-            "load and 5% of variable renewable output, based on the heuristic "
+            "bootstrapped from the GE RPS study, and '3+5' requires 3%% of "
+            "load and 5%% of variable renewable output, based on the heuristic "
             "described in the 2010 Western Wind and Solar Integration Study."
         ),
     )
@@ -201,7 +201,9 @@ def gen_unit_contingency(m):
     # justify the duplication because I don't think discrete unit commitment
     # should be a prerequisite for this functionality.
     m.UNIT_CONTINGENCY_DISPATCH_POINTS = Set(
-        initialize=m.GEN_TPS, filter=lambda m, g, tp: g in m.DISCRETELY_SIZED_GENS
+        dimen=2,
+        initialize=m.GEN_TPS,
+        filter=lambda m, g, tp: g in m.DISCRETELY_SIZED_GENS,
     )
     m.GenIsCommitted = Var(
         m.UNIT_CONTINGENCY_DISPATCH_POINTS,
@@ -301,6 +303,7 @@ def hawaii_spinning_reserve_requirements(m):
     m.var_gen_power_reserve = Param(
         m.VARIABLE_GENS,
         default=1.0,
+        within=NonNegativeReals,
         doc=(
             "Spinning reserves required to back up variable renewable "
             "generators, as fraction of potential output."
@@ -318,6 +321,7 @@ def hawaii_spinning_reserve_requirements(m):
     m.var_gen_cap_reserve_limit = Param(
         m.VARIABLE_GENS,
         default=var_gen_cap_reserve_limit_default,
+        within=NonNegativeReals,
         doc="Maximum spinning reserves required, as fraction of installed capacity",
     )
     m.HawaiiVarGenUpSpinningReserveRequirement = Expression(
@@ -410,13 +414,24 @@ def define_components(m):
     corresponding variable for downward spinning reserves.
 
     CommitGenSpinningReservesUp_Limit[(g,t) in SPINNING_RESERVE_GEN_TPS] and
-    CommitGenSpinningReservesDown_Limit constraint the CommitGenSpinningReserves
-    variables based on DispatchSlackUp and DispatchSlackDown.
+    CommitGenSpinningReservesDown_Limit constrain the
+    CommitGenSpinningReserves variables based on DispatchSlackUp and
+    DispatchSlackDown (and ChargeStorage, as applicable).
 
     CommittedSpinningReserveUp[(b,t) in BALANCING_AREA_TIMEPOINTS] and
     CommittedSpinningReserveDown are expressions summarizing the
     CommitGenSpinningReserves variables for generators within each balancing
     area.
+
+    CommitGenSpinningReservesUp and CommitGenSpinningReservesDown are
+    variables instead of aliases to DispatchSlackUp & DispatchSlackDown
+    because they may need to take on lower values to reduce the
+    project-level contigencies, especially when discrete unit commitment is
+    enabled, and committed capacity may exceed the amount of capacity that
+    is strictly needed. Having these as variables also flags them for
+    automatic export in model dumps and tab files, and opens up the
+    possibility of further customizations like adding variable costs for
+    spinning reserve provision.
 
     Depending on the configuration parameters unit_contingency,
     project_contingency and spinning_requirement_rule, other components may be
@@ -424,6 +439,7 @@ def define_components(m):
     """
     m.contingency_safety_factor = Param(
         default=2.0,
+        within=NonNegativeReals,
         doc=(
             "The spinning reserve requiremet will be set to this value "
             "times the maximum contingency. This defaults to 2 to ensure "
@@ -439,30 +455,42 @@ def define_components(m):
         initialize=m.GEN_TPS,
         filter=lambda m, g, t: m.gen_can_provide_spinning_reserves[g],
     )
-    # CommitGenSpinningReservesUp and CommitGenSpinningReservesDown are
-    # variables instead of aliases to DispatchSlackUp & DispatchSlackDown
-    # because they may need to take on lower values to reduce the
-    # project-level contigencies, especially when discrete unit commitment is
-    # enabled, and committed capacity may exceed the amount of capacity that
-    # is strictly needed. Having these as variables also flags them for
-    # automatic export in model dumps and tab files, and opens up the
-    # possibility of further customizations like adding variable costs for
-    # spinning reserve provision.
     m.CommitGenSpinningReservesUp = Var(
         m.SPINNING_RESERVE_GEN_TPS, within=NonNegativeReals
     )
     m.CommitGenSpinningReservesDown = Var(
         m.SPINNING_RESERVE_GEN_TPS, within=NonNegativeReals
     )
+    m.CommitGenSpinningReservesSlackUp = Var(
+        m.SPINNING_RESERVE_GEN_TPS,
+        within=NonNegativeReals,
+        doc="Denotes the upward slack in spinning reserves that could be used "
+        "for quickstart reserves, or possibly other reserve products.",
+    )
     m.CommitGenSpinningReservesUp_Limit = Constraint(
         m.SPINNING_RESERVE_GEN_TPS,
-        rule=lambda m, g, t: m.CommitGenSpinningReservesUp[g, t]
-        <= m.DispatchSlackUp[g, t],
+        rule=lambda m, g, t: (
+            m.CommitGenSpinningReservesUp[g, t]
+            + m.CommitGenSpinningReservesSlackUp[g, t]
+            == m.DispatchSlackUp[g, t] +
+            # storage can give more up response by stopping charging
+            (m.ChargeStorage[g, t] if g in getattr(m, "STORAGE_GENS", []) else 0.0)
+        ),
     )
     m.CommitGenSpinningReservesDown_Limit = Constraint(
         m.SPINNING_RESERVE_GEN_TPS,
         rule=lambda m, g, t: m.CommitGenSpinningReservesDown[g, t]
-        <= m.DispatchSlackDown[g, t],
+        <= m.DispatchSlackDown[g, t] +
+        # storage could give more down response by raising ChargeStorage
+        # to the maximum rate
+        (
+            (
+                m.DispatchUpperLimit[g, t] * m.gen_store_to_release_ratio[g]
+                - m.ChargeStorage[g, t]
+            )
+            if g in getattr(m, "STORAGE_GENS", [])
+            else 0.0
+        ),
     )
 
     # Sum of spinning reserve capacity per balancing area and timepoint..
@@ -529,6 +557,7 @@ def define_dynamic_components(m):
         ),
     )
     m.BALANCING_AREA_TIMEPOINT_CONTINGENCIES = Set(
+        dimen=3,
         initialize=m.BALANCING_AREA_TIMEPOINTS * m.Spinning_Reserve_Contingencies,
         doc=(
             "The set of spinning reserve contingencies, copied from the "
@@ -571,7 +600,7 @@ def load_inputs(m, switch_data, inputs_dir):
     """
     All files & columns are optional.
 
-    generation_projects_info.csv
+    gen_info.csv
         GENERATION_PROJECTS, ... gen_can_provide_spinning_reserves
 
     spinning_reserve_params.csv may override the default value of
@@ -579,14 +608,12 @@ def load_inputs(m, switch_data, inputs_dir):
     header row and one data row.
     """
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "generation_projects_info.csv"),
-        auto_select=True,
+        filename=os.path.join(inputs_dir, "gen_info.csv"),
         optional_params=["gen_can_provide_spinning_reserves"],
         param=(m.gen_can_provide_spinning_reserves),
     )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "spinning_reserve_params.csv"),
         optional=True,
-        auto_select=True,
         param=(m.contingency_safety_factor,),
     )

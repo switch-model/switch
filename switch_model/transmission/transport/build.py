@@ -1,14 +1,18 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
 Defines transmission build-outs.
 """
 
+import logging
 import os
-from pyomo.environ import *
-from switch_model.financials import capital_recovery_factor as crf
+
 import pandas as pd
+from pyomo.environ import *
+
+from switch_model.financials import capital_recovery_factor as crf
+from switch_model.utilities import unique_list
 
 dependencies = (
     "switch_model.timescales",
@@ -19,12 +23,10 @@ dependencies = (
 
 def define_components(mod):
     """
+    Defines a transport model for inter-zone transmission. Unless otherwise
+    stated, all power capacity is specified in units of MW and all sets and
+    parameters are mandatory.
 
-    Adds components to a Pyomo abstract model object to describe bulk
-    transmission of an electric grid. This includes parameters, build
-    decisions and constraints. Unless otherwise stated, all power
-    capacity is specified in units of MW and all sets and parameters are
-    mandatory.
 
     TRANSMISSION_LINES is the complete set of transmission pathways
     connecting load zones. Each member of this set is a one dimensional
@@ -55,30 +57,22 @@ def define_components(mod):
     indicating whether new transmission build-outs are allowed along a
     transmission line. This optional parameter defaults to True.
 
-    BLD_YRS_FOR_TX is the set of transmission lines and years in
-    which they have been or could be built. This set includes past and
-    potential future builds. All future builds must come online in the
-    first year of an investment period. This set is composed of two
-    elements with members: (tx, build_year). For existing transmission
-    where the build years are not known, build_year is set to 'Legacy'.
-
-    BLD_YRS_FOR_EXISTING_TX is a subset of BLD_YRS_FOR_TX that lists
-    builds that happened before the first investment period. For most
-    datasets the build year is unknown, so is it always set to 'Legacy'.
+    TRANS_BLD_YRS is the set of transmission lines and future years in
+    which they could be built. This set is composed of two
+    elements with members: (tx, build_year). In a prior implementation,
+    this set also contained existing transmission (with build_year typically
+    set to 'Legacy'), but this changed in commit 868ca08 on June 13, 2019.
 
     existing_trans_cap[tx in TRANSMISSION_LINES] is a parameter that
-    describes how many MW of capacity has been installed before the
+    describes how many MW of capacity was been installed before the
     start of the study.
 
-    NEW_TRANS_BLD_YRS is a subset of BLD_YRS_FOR_TX that describes
-    potential builds.
-
-    BuildTx[(tx, bld_yr) in BLD_YRS_FOR_TX] is a decision variable
+    BuildTx[(tx, bld_yr) in TRANS_BLD_YRS] is a decision variable
     that describes the transfer capacity in MW installed on a corridor
     in a given build year. For existing builds, this variable is locked
     to the existing capacity.
 
-    TxCapacityNameplate[(tx, bld_yr) in BLD_YRS_FOR_TX] is an expression
+    TxCapacityNameplate[(tx, bld_yr) in TRANS_BLD_YRS] is an expression
     that returns the total nameplate transfer capacity of a transmission
     line in a given period. This is the sum of existing and newly-build
     capacity.
@@ -87,9 +81,9 @@ def define_components(mod):
     derating factor for each transmission line that can reflect forced
     outage rates, stability or contingency limitations. This parameter
     is optional and defaults to 1. This parameter should be in the
-    range of 0 to 1, being 0 a value that disables the line completely.
+    range of 0 to 1. A value of 0 will disables the line completely.
 
-    TxCapacityNameplateAvailable[(tx, bld_yr) in BLD_YRS_FOR_TX] is an
+    TxCapacityNameplateAvailable[(tx, bld_yr) in TRANS_BLD_YRS] is an
     expression that returns the available transfer capacity of a
     transmission line in a given period, taking into account the
     nameplate capacity and derating factor.
@@ -134,18 +128,6 @@ def define_components(mod):
     trans_d_line[trans_d] is the transmission line associated with this
     directional path.
 
-    TX_BUILDS_IN_PERIOD[p in PERIODS] is an indexed set that
-    describes which transmission builds will be operational in a given
-    period. Currently, transmission lines are kept online indefinitely,
-    with parts being replaced as they wear out.
-
-    TX_BUILDS_IN_PERIOD[p] will return a subset of (tx, bld_yr)
-    in BLD_YRS_FOR_TX.
-
-    --- Delayed implementation ---
-
-    is_dc_line ... Do I even need to implement this?
-
     --- NOTES ---
 
     The cost stream over time for transmission lines differs from the
@@ -176,7 +158,7 @@ def define_components(mod):
 
     """
 
-    mod.TRANSMISSION_LINES = Set()
+    mod.TRANSMISSION_LINES = Set(dimen=1)
     mod.trans_lz1 = Param(mod.TRANSMISSION_LINES, within=mod.LOAD_ZONES)
     mod.trans_lz2 = Param(mod.TRANSMISSION_LINES, within=mod.LOAD_ZONES)
     # we don't do a min_data_check for TRANSMISSION_LINES, because it may be empty for model
@@ -184,7 +166,30 @@ def define_components(mod):
     # (e.g., island interconnect scenarios). However, presence of this column will still be
     # checked by load_data_aug.
     mod.min_data_check("trans_lz1", "trans_lz2")
-    mod.trans_dbid = Param(mod.TRANSMISSION_LINES, default=lambda m, tx: tx)
+
+    def _check_tx_duplicate_paths(m):
+        forward_paths = set(
+            [(m.trans_lz1[tx], m.trans_lz2[tx]) for tx in m.TRANSMISSION_LINES]
+        )
+        reverse_paths = set(
+            [(m.trans_lz2[tx], m.trans_lz1[tx]) for tx in m.TRANSMISSION_LINES]
+        )
+        overlap = forward_paths.intersection(reverse_paths)
+        if overlap:
+            logging.error(
+                "Transmission lines have bi-directional paths specified "
+                "in input files. They are expected to specify a single path "
+                "per pair of connected load zones. "
+                "(Ex: either A->B or B->A, but not both). "
+                "Over-specified lines: {}".format(overlap)
+            )
+            return False
+        else:
+            return True
+
+    mod.check_tx_duplicate_paths = BuildCheck(rule=_check_tx_duplicate_paths)
+
+    mod.trans_dbid = Param(mod.TRANSMISSION_LINES, default=lambda m, tx: tx, within=Any)
     mod.trans_length_km = Param(mod.TRANSMISSION_LINES, within=NonNegativeReals)
     mod.trans_efficiency = Param(mod.TRANSMISSION_LINES, within=PercentFraction)
     mod.existing_trans_cap = Param(mod.TRANSMISSION_LINES, within=NonNegativeReals)
@@ -252,18 +257,19 @@ def define_components(mod):
     mod.Cost_Components_Per_Period.append("TxFixedCosts")
 
     def init_DIRECTIONAL_TX(model):
-        tx_dir = set()
+        tx_dir = []
         for tx in model.TRANSMISSION_LINES:
-            tx_dir.add((model.trans_lz1[tx], model.trans_lz2[tx]))
-            tx_dir.add((model.trans_lz2[tx], model.trans_lz1[tx]))
+            tx_dir.append((model.trans_lz1[tx], model.trans_lz2[tx]))
+            tx_dir.append((model.trans_lz2[tx], model.trans_lz1[tx]))
         return tx_dir
 
     mod.DIRECTIONAL_TX = Set(dimen=2, initialize=init_DIRECTIONAL_TX)
     mod.TX_CONNECTIONS_TO_ZONE = Set(
         mod.LOAD_ZONES,
-        initialize=lambda m, lz: set(
+        dimen=1,
+        initialize=lambda m, lz: [
             z for z in m.LOAD_ZONES if (z, lz) in m.DIRECTIONAL_TX
-        ),
+        ],
     )
 
     def init_trans_d_line(m, zone_from, zone_to):
@@ -280,45 +286,28 @@ def define_components(mod):
 
 def load_inputs(mod, switch_data, inputs_dir):
     """
-
     Import data related to transmission builds. The following files are
-    expected in the input directory:
+    expected in the input directory. Optional files & columns are marked with
+    a *.
 
     transmission_lines.csv
         TRANSMISSION_LINE, trans_lz1, trans_lz2, trans_length_km,
-        trans_efficiency, existing_trans_cap, trans_dbid,
-        trans_derating_factor, trans_terrain_multiplier,
-        trans_new_build_allowed
-    The last 4 columns of transmission_lines.csv are optional. If the
-    columns are missing or if cells contain a dot (.), those parameters
-    will be set to default values as described in documentation.
+        trans_efficiency, existing_trans_cap, trans_dbid*,
+        trans_derating_factor*, trans_terrain_multiplier*,
+        trans_new_build_allowed*
 
     Note that in the next file, parameter names are written on the first
     row (as usual), and the single value for each parameter is written in
-    the second row. The distribution_loss_rate parameter is read by the
-    local_td module (if used).
+    the second row.
 
-    trans_params.csv
-        trans_capital_cost_per_mw_km, trans_lifetime_yrs,
-        trans_fixed_om_fraction, distribution_loss_rate
+    trans_params.csv*
+        trans_capital_cost_per_mw_km*, trans_lifetime_yrs*,
+        trans_fixed_om_fraction*
     """
-
     # TODO: send issue / pull request to Pyomo to allow .csv files with
     # no rows after header (fix bugs in pyomo.core.plugins.data.text)
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "transmission_lines.csv"),
-        select=(
-            "TRANSMISSION_LINE",
-            "trans_lz1",
-            "trans_lz2",
-            "trans_length_km",
-            "trans_efficiency",
-            "existing_trans_cap",
-            "trans_dbid",
-            "trans_derating_factor",
-            "trans_terrain_multiplier",
-            "trans_new_build_allowed",
-        ),
         index=mod.TRANSMISSION_LINES,
         optional_params=(
             "trans_dbid",
@@ -341,12 +330,10 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "trans_params.csv"),
         optional=True,
-        auto_select=True,
         param=(
             mod.trans_capital_cost_per_mw_km,
             mod.trans_lifetime_yrs,
             mod.trans_fixed_om_fraction,
-            mod.distribution_loss_rate,
         ),
     )
 
@@ -375,4 +362,6 @@ def post_solve(instance, outdir):
     ]
     tx_build_df = pd.DataFrame(normalized_dat)
     tx_build_df.set_index(["TRANSMISSION_LINE", "PERIOD"], inplace=True)
+    if instance.options.sorted_output:
+        tx_build_df.sort_index(inplace=True)
     tx_build_df.to_csv(os.path.join(outdir, "transmission.csv"))

@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -26,15 +26,9 @@ def post_solve(instance, outdir):
         instance.LOAD_ZONES,
         instance.TIMEPOINTS,
         output_file=os.path.join(outdir, "load_balance2.csv"),
-        headings=(
-            "load_zone",
-            "timestamp",
-        )
+        headings=("load_zone", "timestamp")
         + tuple(instance.Zone_Power_Injections + instance.Zone_Power_Withdrawals),
-        values=lambda m, z, t: (
-            z,
-            m.tp_timestamp[t],
-        )
+        values=lambda m, z, t: (z, m.tp_timestamp[t])
         + tuple(
             getattr(m, component)[z, t]
             for component in (m.Zone_Power_Injections + m.Zone_Power_Withdrawals)

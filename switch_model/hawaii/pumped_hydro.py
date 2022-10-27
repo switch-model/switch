@@ -21,32 +21,33 @@ def define_arguments(argparser):
 
 def define_components(m):
 
-    m.PH_GENS = Set()
+    m.PH_GENS = Set(dimen=1)
 
-    m.ph_load_zone = Param(m.PH_GENS)
+    m.ph_load_zone = Param(m.PH_GENS, within=m.LOAD_ZONES)
 
     m.ph_capital_cost_per_mw = Param(m.PH_GENS, within=NonNegativeReals)
     m.ph_project_life = Param(m.PH_GENS, within=NonNegativeReals)
 
     # annual O&M cost for pumped hydro project, percent of capital cost
-    m.ph_fixed_om_percent = Param(m.PH_GENS, within=NonNegativeReals)
+    m.ph_fixed_om_percent = Param(m.PH_GENS, within=Reals)
 
     # total annual cost
     m.ph_fixed_cost_per_mw_per_year = Param(
         m.PH_GENS,
+        within=Reals,
         initialize=lambda m, p: m.ph_capital_cost_per_mw[p]
         * (crf(m.interest_rate, m.ph_project_life[p]) + m.ph_fixed_om_percent[p]),
     )
 
     # round-trip efficiency of the pumped hydro facility
-    m.ph_efficiency = Param(m.PH_GENS)
+    m.ph_efficiency = Param(m.PH_GENS, within=PercentFraction)
 
     # average energy available from water inflow each day
     # (system must balance energy net of this each day)
-    m.ph_inflow_mw = Param(m.PH_GENS)
+    m.ph_inflow_mw = Param(m.PH_GENS, within=Reals)
 
     # maximum size of pumped hydro project
-    m.ph_max_capacity_mw = Param(m.PH_GENS)
+    m.ph_max_capacity_mw = Param(m.PH_GENS, within=NonNegativeReals)
 
     # How much pumped hydro to build
     m.BuildPumpedHydroMW = Var(m.PH_GENS, m.PERIODS, within=NonNegativeReals)
@@ -199,7 +200,6 @@ def load_inputs(m, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, "pumped_hydro.csv"),
-        autoselect=True,
         index=m.PH_GENS,
         param=(
             m.ph_load_zone,

@@ -8,9 +8,13 @@ from switch_model import timescales
 def define_arguments(argparser):
     argparser.add_argument(
         "--ev-timing",
-        choices=["bau", "flat", "optimal"],
-        default="optimal",
-        help="Rule for when to charge EVs -- business-as-usual (upon arrival), flat around the clock, or optimal (default).",
+        default=["optimal"],
+        nargs="+",
+        help="Rule(s) for when to charge EVs -- bau=business-as-usual (upon arrival), "
+        "flat=around the clock, or optimal (default). You may also specify "
+        "multiple options in the form --ev-timing bau=0.32 optimal=0.68 to "
+        "use more than one mode. Modes without shares assigned will receive "
+        "equal fractions of the unallocated charging.",
     )
     argparser.add_argument(
         "--ev-reserve-types",
@@ -23,21 +27,19 @@ def define_arguments(argparser):
 
 def define_components(m):
     # setup various parameters describing the EV and ICE fleet each year
-    for p in [
-        "ev_share",
-        "ice_miles_per_gallon",
-        "ev_miles_per_kwh",
-        "ev_extra_cost_per_vehicle_year",
-        "n_all_vehicles",
-        "vmt_per_vehicle",
-    ]:
-        setattr(m, p, Param(m.LOAD_ZONES, m.PERIODS))
+    m.ev_share = Param(m.LOAD_ZONES, m.PERIODS, within=PercentFraction)
+    m.ice_miles_per_gallon = Param(m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals)
+    m.ev_miles_per_kwh = Param(m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals)
+    m.ev_extra_cost_per_vehicle_year = Param(m.LOAD_ZONES, m.PERIODS, within=Reals)
+    m.n_all_vehicles = Param(m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals)
+    m.vmt_per_vehicle = Param(m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals)
 
-    m.ev_bau_mw = Param(m.LOAD_ZONES, m.TIMEPOINTS)
+    m.ev_bau_mw = Param(m.LOAD_ZONES, m.TIMEPOINTS, within=Reals)
 
     # calculate the extra annual cost (non-fuel) of having EVs, relative to ICEs (mostly for batteries, could also be chargers)
     m.ev_extra_annual_cost = Param(
         m.PERIODS,
+        within=Reals,
         initialize=lambda m, p: sum(
             m.ev_extra_cost_per_vehicle_year[z, p]
             * m.ev_share[z, p]
@@ -47,17 +49,26 @@ def define_components(m):
     )
 
     # calculate total fuel cost for ICE (non-EV) VMTs
-    # We assume gasoline for the ICE vehicles costs the same as diesel
-    # note: this is the utility price, which is actually lower than retail gasoline
     if hasattr(m, "rfm_supply_tier_cost"):
+        # using fuel_costs.markets
         ice_fuel_cost_func = lambda m, z, p: m.rfm_supply_tier_cost[
-            "Hawaii_Diesel", p, "base"
+            "Hawaii_Motor_Gasoline", p, "base"
         ]
-    else:
-        ice_fuel_cost_func = lambda m, z, p: m.fuel_cost[z, "Diesel", p]
-
+    elif hasattr(m, "ZONE_FUEL_PERIODS"):
+        # using fuel_costs.simple
+        ice_fuel_cost_func = lambda m, z, p: m.fuel_cost[z, "Motor_Gasoline", p]
+    elif hasattr(m, "ZONE_FUEL_TIMEPOINTS"):
+        # using fuel_costs.simple_per_timepoint
+        ice_fuel_cost_func = (
+            lambda m, z, p: sum(
+                m.tp_weight[t] * m.fuel_cost_per_timepoint[z, "Motor_Gasoline", t]
+                for t in m.TPS_IN_PERIOD[p]
+            )
+            / m.period_length_hours[p]
+        )
     m.ice_annual_fuel_cost = Param(
         m.PERIODS,
+        within=NonNegativeReals,
         initialize=lambda m, p: sum(
             (1.0 - m.ev_share[z, p])
             * m.n_all_vehicles[z, p]
@@ -78,6 +89,7 @@ def define_components(m):
     m.ev_mwh_ts = Param(
         m.LOAD_ZONES,
         m.TIMESERIES,
+        within=NonNegativeReals,
         initialize=lambda m, z, ts: sum(m.ev_bau_mw[z, tp] for tp in m.TPS_IN_TS[ts])
         * m.ts_duration_of_tp[ts],
     )
@@ -97,59 +109,98 @@ def define_components(m):
     )
 
     # set rules for when to charge EVs
-    if m.options.ev_timing == "optimal":
-        if m.options.verbose:
-            print("Charging EVs at best time each day.")
-        # no extra code needed
-    elif m.options.ev_timing == "flat":
-        if m.options.verbose:
-            print("Charging EVs as baseload.")
-        m.ChargeEVs_flat = Constraint(
-            m.LOAD_ZONES,
-            m.TIMEPOINTS,
-            rule=lambda m, z, tp: m.ChargeEVs[z, tp]
-            == m.ev_mwh_ts[z, m.tp_ts[tp]] / m.ts_duration_hrs[m.tp_ts[tp]],
-        )
-    elif m.options.ev_timing == "bau":
-        if m.options.verbose:
-            print("Charging EVs at business-as-usual times of day.")
-        m.ChargeEVs_bau = Constraint(
-            m.LOAD_ZONES,
-            m.TIMEPOINTS,
-            rule=lambda m, z, tp: m.ChargeEVs[z, tp] == m.ev_bau_mw[z, tp],
-        )
-    else:
-        # should never happen
+    mode_shares = {"optimal": 0.0, "flat": 0.0, "bau": 0.0}
+    for tag in m.options.ev_timing:
+        try:
+            mode, share = tag.split("=", 2)
+            try:
+                share = float(share)
+            except:
+                print(
+                    "\nInvalid share for EV charging mode {}: ({}).".format(mode, share)
+                )
+                raise
+        except ValueError:
+            mode = tag
+            share = None
+        if mode in mode_shares:
+            mode_shares[mode] = share
+        else:
+            raise ValueError(
+                "Invalid EV charging mode specified for --ev-timing: {}".format(mode)
+            )
+    fillers = [mode for (mode, share) in mode_shares.items() if share is None]
+    allocated_shares = sum(share for share in mode_shares.values() if share is not None)
+    if allocated_shares >= 1.00001:
         raise ValueError(
-            "Invalid value specified for --ev-timing: {}".format(
-                str(m.options.ev_timing)
+            "Shares assigned with --ev-timing flag add up to {}. "
+            "They must sum to 1.0 (or less if a catch-all mode is specified).".format(
+                allocated_shares
             )
         )
+    if allocated_shares <= 0.99999 and not fillers:
+        raise ValueError(
+            "Shares assigned with --ev-timing flag add up to {}. "
+            "They must sum to 1.0 if no catch-all mode is specified.".format(
+                allocated_shares
+            )
+        )
+    for mode in fillers:
+        mode_shares[mode] = (1 - allocated_shares) / len(fillers)
+
+    if m.options.verbose:
+        for mode, tag in [
+            ("optimal", "at best time each day"),
+            ("flat", "round the clock each day"),
+            ("bau", "at business-as-usual times each day"),
+        ]:
+            if mode_shares[mode] > 0:
+                print("Charging {:.1%} of EVs {}.".format(mode_shares[mode], tag))
+
+    # force the minimum amount of charging required for the bau and flat modes;
+    # all other charging will be allocated optimally among hours
+    m.Min_EV_Charging = Expression(
+        m.LOAD_ZONES,
+        m.TIMEPOINTS,
+        rule=lambda m, z, tp: mode_shares["flat"]
+        * (m.ev_mwh_ts[z, m.tp_ts[tp]] / m.ts_duration_hrs[m.tp_ts[tp]])
+        + mode_shares["bau"] * m.ev_bau_mw[z, tp],
+    )
+    m.Enforce_EV_Charging_Modes = Constraint(
+        m.LOAD_ZONES,
+        m.TIMEPOINTS,
+        rule=lambda m, z, tp: m.ChargeEVs[z, tp] >= m.Min_EV_Charging[z, tp],
+    )
 
     # add the EV load to the model's energy balance
     m.Zone_Power_Withdrawals.append("ChargeEVs")
 
-    # Register with spinning reserves if it is available and optimal EV charging is enabled.
-    if [rt.lower() for rt in m.options.ev_reserve_types] != [
-        "none"
-    ] and m.options.ev_timing == "optimal":
+    # Register with spinning reserves if it is available and any optimal EV charging is enabled.
+    if [rt.lower() for rt in m.options.ev_reserve_types] != ["none"] and mode_shares[
+        "optimal"
+    ] > 0:
         if hasattr(m, "Spinning_Reserve_Up_Provisions"):
             # calculate available slack from EV charging
             # (from supply perspective, so "up" means less load)
             m.EVSlackUp = Expression(
                 m.BALANCING_AREA_TIMEPOINTS,
                 rule=lambda m, b, t: sum(
-                    m.ChargeEVs[z, t] for z in m.ZONES_IN_BALANCING_AREA[b]
+                    m.ChargeEVs[z, t] - m.Min_EV_Charging[z, t]
+                    for z in m.ZONES_IN_BALANCING_AREA[b]
                 ),
             )
             # note: we currently ignore down-reserves (option of increasing consumption)
             # from EVs since it's not clear how high they could go; we could revisit this if
             # down-reserves have a positive price at equilibrium (probabably won't)
+            # print("\n\nNeed to define Spinning_Reserve_Down_Provisions for EVs.\n")
+            # import time; time.sleep(3)
             if hasattr(m, "GEN_SPINNING_RESERVE_TYPES"):
                 # using advanced formulation, index by reserve type, balancing area, timepoint
                 # define variables for each type of reserves to be provided
                 # choose how to allocate the slack between the different reserve products
-                m.EV_SPINNING_RESERVE_TYPES = Set(initialize=m.options.ev_reserve_types)
+                m.EV_SPINNING_RESERVE_TYPES = Set(
+                    dimen=1, initialize=m.options.ev_reserve_types
+                )
                 m.EVSpinningReserveUp = Var(
                     m.EV_SPINNING_RESERVE_TYPES,
                     m.BALANCING_AREA_TIMEPOINTS,
@@ -180,7 +231,6 @@ def load_inputs(m, switch_data, inputs_dir):
     """
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "ev_fleet_info.csv"),
-        auto_select=True,
         param=[
             getattr(m, p)
             for p in [
@@ -196,7 +246,5 @@ def load_inputs(m, switch_data, inputs_dir):
     # print "loading ev_bau_load.csv"
     # import pdb; pdb.set_trace()
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "ev_bau_load.csv"),
-        auto_select=True,
-        param=m.ev_bau_mw,
+        filename=os.path.join(inputs_dir, "ev_bau_load.csv"), param=m.ev_bau_mw
     )

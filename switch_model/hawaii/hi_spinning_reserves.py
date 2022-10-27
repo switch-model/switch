@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 """
 This customizes the behavior of balancing.operating_reserves.spinning_reserve
@@ -33,6 +33,7 @@ def define_components(m):
     # regulating reserves required, as fraction of potential output (up to limit)
     m.var_gen_power_reserve = Param(
         ["Central_PV", "CentralTrackingPV", "DistPV", "OnshoreWind", "OffshoreWind"],
+        within=NonNegativeReals,
         initialize={
             "Central_PV": 1.0,
             "CentralTrackingPV": 1.0,
@@ -44,6 +45,7 @@ def define_components(m):
     # maximum regulating reserves required, as fraction of installed capacity
     m.var_gen_cap_reserve_limit = Param(
         ["Central_PV", "CentralTrackingPV", "DistPV", "OnshoreWind", "OffshoreWind"],
+        within=NonNegativeReals,
         initialize={
             "Central_PV": 0.21288916,
             "CentralTrackingPV": 0.21288916,

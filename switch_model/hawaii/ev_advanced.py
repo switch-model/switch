@@ -1,6 +1,7 @@
 from __future__ import print_function
 import os
 from pyomo.environ import *
+from switch_model.utilities import unique_list
 
 
 def define_arguments(argparser):
@@ -32,21 +33,18 @@ ev_zone_type_period_params = [
 
 def define_components(m):
 
-    # indexing set for EV bids, decomposed to get sets of EV bid numbers and EV types
+    # indexing set for EV bids, filtered to get sets of EV bid numbers and EV types
     m.EV_ZONE_TYPE_BID_TP = Set(
         dimen=4
     )  # load zone, vehicle type, bid number, timepoint
-
-    def rule(m):
-        bids = m.EV_BID_NUMS_set = set()
-        types = m.EV_TYPES_set = set()
-        for z, t, n, tp in m.EV_ZONE_TYPE_BID_TP:
-            bids.add(n)
-            types.add(t)
-
-    m.Split_EV_Sets = BuildAction(rule=rule)
-    m.EV_BID_NUMS = Set(initialize=lambda m: m.EV_BID_NUMS_set)
-    m.EV_TYPES = Set(initialize=lambda m: m.EV_TYPES_set)
+    m.EV_BID_NUMS = Set(
+        dimen=1,
+        initialize=lambda m: unique_list(n for z, t, n, tp in m.EV_ZONE_TYPE_BID_TP),
+    )
+    m.EV_TYPES = Set(
+        dimen=1,
+        initialize=lambda m: unique_list(t for z, t, n, tp in m.EV_ZONE_TYPE_BID_TP),
+    )
 
     # parameters describing the EV and ICE fleet each year
 
@@ -54,7 +52,9 @@ def define_components(m):
     # (could eventually be a decision variable)
     m.ev_share = Param(m.LOAD_ZONES, m.PERIODS, within=PercentFraction)
     for p in ev_zone_type_period_params:
-        setattr(m, p, Param(m.LOAD_ZONES, m.EV_TYPES, m.PERIODS))
+        setattr(
+            m, p, Param(m.LOAD_ZONES, m.EV_TYPES, m.PERIODS, within=NonNegativeReals)
+        )
 
     # calculate the extra annual cost (non-fuel) of having EVs, relative to ICEs,
     # for batteries and chargers
@@ -67,6 +67,7 @@ def define_components(m):
             for z in m.LOAD_ZONES
             for t in m.EV_TYPES
         ),
+        within=NonNegativeReals,
     )
 
     # calculate total fuel usage, cost and emissions for ICE (non-EV) vehicles
@@ -79,20 +80,24 @@ def define_components(m):
         m.LOAD_ZONES,
         m.EV_TYPES,
         m.PERIODS,
-        initialize=lambda m, z, evt, p: (1.0 - m.ev_share[z, p])
-        * m.n_vehicles[z, evt, p]
-        * m.ice_gals_per_year[z, evt, p]
-        * motor_fuel_mmbtu_per_gallon[m.ice_fuel[z, evt, p]],
+        within=NonNegativeReals,
+        initialize=lambda m, z, evt, p: (
+            (1.0 - m.ev_share[z, p])
+            * m.n_vehicles[z, evt, p]
+            * m.ice_gals_per_year[z, evt, p]
+            * motor_fuel_mmbtu_per_gallon[m.ice_fuel[z, evt, p]]
+        ),
     )
     # non-EV fuel cost
     if hasattr(m, "rfm_supply_tier_cost"):
         ice_fuel_cost_func = lambda m, z, p, f: m.rfm_supply_tier_cost[
-            m.zone_rfm[z, f], p, "base"
+            m.zone_fuel_rfm[z, f], p, "base"
         ]
     else:
         ice_fuel_cost_func = lambda m, z, p, f: m.fuel_cost[z, f, p]
     m.ice_annual_fuel_cost = Param(
         m.PERIODS,
+        within=Reals,
         initialize=lambda m, p: sum(
             m.ice_annual_fuel_mmbtu[z, evt, p]
             * ice_fuel_cost_func(m, z, p, m.ice_fuel[z, evt, p])
@@ -106,6 +111,7 @@ def define_components(m):
     # at present, this doesn't affect the system emissions or emission cost
     m.ice_annual_emissions = Param(
         m.PERIODS,
+        within=NonNegativeReals,
         initialize=lambda m, p: sum(
             m.ice_annual_fuel_mmbtu[z, evt, p]
             * (
@@ -124,7 +130,7 @@ def define_components(m):
 
     # EV bid data -- total MW used by 100% EV fleet, for each zone, veh type,
     # bid number, timepoint
-    m.ev_bid_by_type = Param(m.EV_ZONE_TYPE_BID_TP)
+    m.ev_bid_by_type = Param(m.EV_ZONE_TYPE_BID_TP, within=NonNegativeReals)
 
     # aggregate across vehicle types (types are only needed for reporting)
     m.ev_bid_mw = Param(
@@ -140,12 +146,14 @@ def define_components(m):
     m.ev_charge_min = Param(
         m.LOAD_ZONES,
         m.TIMEPOINTS,
+        within=Reals,
         initialize=lambda m, z, tp: m.ev_share[z, m.tp_period[tp]]
         * min(m.ev_bid_mw[z, n, tp] for n in m.EV_BID_NUMS),
     )
     m.ev_charge_max = Param(
         m.LOAD_ZONES,
         m.TIMEPOINTS,
+        within=Reals,
         initialize=lambda m, z, tp: m.ev_share[z, m.tp_period[tp]]
         * max(m.ev_bid_mw[z, n, tp] for n in m.EV_BID_NUMS),
     )
@@ -226,7 +234,9 @@ def define_components(m):
                 # using advanced formulation, index by reserve type, balancing area, timepoint.
                 # define variables for each type of reserves to be provided
                 # choose how to allocate the slack between the different reserve products
-                m.EV_SPINNING_RESERVE_TYPES = Set(initialize=m.options.ev_reserve_types)
+                m.EV_SPINNING_RESERVE_TYPES = Set(
+                    dimen=1, initialize=m.options.ev_reserve_types
+                )
                 m.EVSpinningReserveUp = Var(
                     m.EV_SPINNING_RESERVE_TYPES,
                     m.BALANCING_AREA_TIMEPOINTS,
@@ -271,18 +281,14 @@ def load_inputs(m, switch_data, inputs_dir):
     Import ev data from .csv files.
     """
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "ev_share.csv"),
-        auto_select=True,
-        param=m.ev_share,
+        filename=os.path.join(inputs_dir, "ev_share.csv"), param=m.ev_share
     )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "ev_fleet_info_advanced.csv"),
-        auto_select=True,
         param=[getattr(m, p) for p in ev_zone_type_period_params],
     )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "ev_charging_bids.csv"),
-        auto_select=True,
         param=m.ev_bid_by_type,
         index=m.EV_ZONE_TYPE_BID_TP,
     )

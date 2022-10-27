@@ -1,4 +1,4 @@
-# Copyright (c) 2016-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -66,6 +66,12 @@ def define_components(mod):
     Note that this describes the energy component and the overnight_cost
     describes the power component.
 
+    build_gen_energy_predetermined[(g, bld_yr) in
+    PREDETERMINED_GEN_BLD_YRS] is the amount of storage that has either been
+    installed previously, or is slated for installation and is not a free
+    decision variable. This is analogous to build_gen_predetermined, but in
+    units of energy of storage capacity (MWh) rather than power (MW).
+
     BuildStorageEnergy[(g, bld_yr) in STORAGE_GEN_BLD_YRS]
     is a decision of how much energy capacity to build onto a storage
     project. This is analogous to BuildGen, but for energy rather than power.
@@ -103,8 +109,9 @@ def define_components(mod):
 
     """
 
-    mod.STORAGE_GENS = Set(within=mod.GENERATION_PROJECTS)
+    mod.STORAGE_GENS = Set(within=mod.GENERATION_PROJECTS, dimen=1)
     mod.STORAGE_GEN_PERIODS = Set(
+        dimen=2,
         within=mod.GEN_PERIODS,
         initialize=lambda m: [
             (g, p) for g in m.STORAGE_GENS for p in m.PERIODS_FOR_GEN[g]
@@ -132,7 +139,24 @@ def define_components(mod):
         mod.STORAGE_GEN_BLD_YRS, within=NonNegativeReals
     )
     mod.min_data_check("gen_storage_energy_overnight_cost")
-    mod.BuildStorageEnergy = Var(mod.STORAGE_GEN_BLD_YRS, within=NonNegativeReals)
+    mod.build_gen_energy_predetermined = Param(
+        mod.PREDETERMINED_GEN_BLD_YRS, within=NonNegativeReals
+    )
+
+    def bounds_BuildStorageEnergy(m, g, bld_yr):
+        if (g, bld_yr) in m.build_gen_energy_predetermined:
+            return (
+                m.build_gen_energy_predetermined[g, bld_yr],
+                m.build_gen_energy_predetermined[g, bld_yr],
+            )
+        else:
+            return (0, None)
+
+    mod.BuildStorageEnergy = Var(
+        mod.STORAGE_GEN_BLD_YRS,
+        within=NonNegativeReals,
+        bounds=bounds_BuildStorageEnergy,
+    )
 
     # Summarize capital costs of energy storage for the objective function
     # Note: A bug in to 2.0.0b3 - 2.0.5, assigned costs that were several times
@@ -267,7 +291,7 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     Import storage parameters. Optional columns are noted with a *.
 
-    generation_projects_info.csv
+    gen_info.csv
         GENERATION_PROJECT, ...
         gen_storage_efficiency, gen_store_to_release_ratio*,
         gen_storage_energy_to_power_ratio*, gen_storage_max_cycles_per_year*
@@ -275,6 +299,10 @@ def load_inputs(mod, switch_data, inputs_dir):
     gen_build_costs.csv
         GENERATION_PROJECT, build_year, ...
         gen_storage_energy_overnight_cost
+
+    gen_build_predetermined.csv
+        GENERATION_PROJECT, build_year, ...,
+        build_gen_energy_predetermined*
 
     """
 
@@ -285,8 +313,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     # gen_storage_efficiency has been specified, then require valid settings for all
     # STORAGE_GENS.
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "generation_projects_info.csv"),
-        auto_select=True,
+        filename=os.path.join(inputs_dir, "gen_info.csv"),
         optional_params=[
             "gen_store_to_release_ratio",
             "gen_storage_energy_to_power_ratio",
@@ -306,8 +333,12 @@ def load_inputs(mod, switch_data, inputs_dir):
     }
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "gen_build_costs.csv"),
-        auto_select=True,
         param=(mod.gen_storage_energy_overnight_cost),
+    )
+    switch_data.load_aug(
+        optional=True,
+        filename=os.path.join(inputs_dir, "gen_build_predetermined.csv"),
+        param=(mod.build_gen_energy_predetermined,),
     )
 
 
@@ -341,7 +372,7 @@ def post_solve(instance, outdir):
     reporting.write_table(
         instance,
         instance.STORAGE_GEN_PERIODS,
-        output_file=os.path.join(outdir, "storage_builds_capacity.csv"),
+        output_file=os.path.join(outdir, "storage_capacity.csv"),
         headings=(
             "generation_project",
             "period",

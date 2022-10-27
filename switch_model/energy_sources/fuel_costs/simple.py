@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -28,8 +28,8 @@ def define_components(mod):
     parameter is mandatory. Unless otherwise specified, all dollar
     values are real dollars in BASE_YEAR.
 
-    ZONE_FUEL_PERIODS is a set that describes fuel availability. Each
-    element of the set is (load_zone, fuel, period).
+    ZONE_FUEL_PERIODS is a set of (load_zone, fuel, period) for which fuel_cost
+    has been provided.
 
     fuel_cost[(z, f, p) in ZONE_FUEL_PERIODS] describes flat fuel costs
     for each supply of fuel. Costs can vary by load zone and period.
@@ -58,10 +58,10 @@ def define_components(mod):
     mod.min_data_check("ZONE_FUEL_PERIODS", "fuel_cost")
 
     mod.GEN_TP_FUELS_UNAVAILABLE = Set(
+        dimen=3,
         initialize=mod.GEN_TP_FUELS,
-        filter=lambda m, g, t, f: (
-            (m.gen_load_zone[g], f, m.tp_period[t]) not in m.ZONE_FUEL_PERIODS
-        ),
+        filter=lambda m, g, t, f: (m.gen_load_zone[g], f, m.tp_period[t])
+        not in m.ZONE_FUEL_PERIODS,
     )
     mod.Enforce_Fuel_Unavailability = Constraint(
         mod.GEN_TP_FUELS_UNAVAILABLE,
@@ -74,7 +74,7 @@ def define_components(mod):
             # cache all Fuel_Cost_TP values in a dictionary (created in one pass)
             m.FuelCostsPerTP_dict = {t2: 0.0 for t2 in m.TIMEPOINTS}
             for (g, t2, f) in m.GEN_TP_FUELS:
-                if (m.gen_load_zone[g], f, m.tp_period[t2]) in m.ZONE_FUEL_PERIODS:
+                if (g, t2, f) not in m.GEN_TP_FUELS_UNAVAILABLE:
                     m.FuelCostsPerTP_dict[t2] += (
                         m.GenFuelUseRate[g, t2, f]
                         * m.fuel_cost[m.gen_load_zone[g], f, m.tp_period[t2]]
@@ -89,8 +89,7 @@ def define_components(mod):
 
 def load_inputs(mod, switch_data, inputs_dir):
     """
-
-    Import simple fuel cost data. The following files are expected in
+    Import simple fuel cost data. The following file is expected in
     the input directory:
 
     fuel_cost.csv
@@ -100,7 +99,6 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "fuel_cost.csv"),
-        select=("load_zone", "fuel", "period", "fuel_cost"),
         index=mod.ZONE_FUEL_PERIODS,
         param=[mod.fuel_cost],
     )

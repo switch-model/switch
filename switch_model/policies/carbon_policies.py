@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 """
 Add emission policies to the model, either in the form of an added cost, or of
@@ -19,13 +19,14 @@ is unspecified.
 """
 from __future__ import division
 import os
-from pyomo.environ import Set, Param, Expression, Constraint, Suffix
+from pyomo.environ import Set, Param, Expression, Constraint, Suffix, NonNegativeReals
 import switch_model.reporting as reporting
 
 
 def define_components(model):
     model.carbon_cap_tco2_per_yr = Param(
         model.PERIODS,
+        within=NonNegativeReals,
         default=float("inf"),
         doc=(
             "Emissions from this model must be less than this cap. "
@@ -45,6 +46,7 @@ def define_components(model):
 
     model.carbon_cost_dollar_per_tco2 = Param(
         model.PERIODS,
+        within=NonNegativeReals,
         default=0.0,
         doc="The cost adder applied to emissions, in future dollars per metric tonne of CO2.",
     )
@@ -75,7 +77,6 @@ def load_inputs(model, switch_data, inputs_dir):
             model.carbon_cap_tco2_per_yr,
             model.carbon_cost_dollar_per_tco2,
         ),
-        auto_select=True,
         param=(model.carbon_cap_tco2_per_yr, model.carbon_cost_dollar_per_tco2),
     )
 
@@ -98,10 +99,15 @@ def post_solve(model, outdir):
             model.AnnualEmissions[period],
             model.carbon_cap_tco2_per_yr[period],
         ]
-        # Only print the carbon cap dual value if it exists and if the problem
-        # is purely linear.
+        # Only print the carbon cap dual value if it exists
+        # Note: we previously only reported it if the model was also strictly
+        # continuous, but now we let the user worry about that (some solvers
+        # can report duals for integer models by fixing the variables to their
+        # integer values, which is often a reasonable approach and should give
+        # meaningful duals for the carbon cost, which occurs on a much higher
+        # level).
         if (
-            not model.has_discrete_variables()
+            period in model.Enforce_Carbon_Cap
             and model.Enforce_Carbon_Cap[period] in model.dual
         ):
             row.append(

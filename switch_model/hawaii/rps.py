@@ -116,14 +116,15 @@ def define_components(m):
     m.f_rps_eligible = Param(m.FUELS, within=Binary, default=False)
 
     m.RPS_ENERGY_SOURCES = Set(
+        dimen=1,
         initialize=lambda m: [
             s for s in m.NON_FUEL_ENERGY_SOURCES if s.lower() != "battery"
         ]
-        + [f for f in m.FUELS if m.f_rps_eligible[f]]
+        + [f for f in m.FUELS if m.f_rps_eligible[f]],
     )
 
-    m.RPS_YEARS = Set(ordered=True)
-    m.rps_target = Param(m.RPS_YEARS)
+    m.RPS_YEARS = Set(ordered=True, dimen=1)
+    m.rps_target = Param(m.RPS_YEARS, within=PercentFraction)
 
     def rps_target_for_period_rule(m, p):
         """find the last target that is in effect before the _end_ of the period"""
@@ -132,12 +133,16 @@ def define_components(m):
         )
         return m.rps_target[latest_target]
 
-    m.rps_target_for_period = Param(m.PERIODS, initialize=rps_target_for_period_rule)
+    m.rps_target_for_period = Param(
+        m.PERIODS, within=NonNegativeReals, initialize=rps_target_for_period_rule
+    )
 
     # maximum share of (bio)fuels in rps
     # note: using Infinity as the upper limit causes the solution to take forever
     # m.rps_fuel_limit = Param(default=float("inf"), mutable=True)
-    m.rps_fuel_limit = Param(initialize=m.options.biofuel_limit, mutable=True)
+    m.rps_fuel_limit = Param(
+        within=NonNegativeReals, initialize=m.options.biofuel_limit, mutable=True
+    )
 
     # calculate amount of pre-existing capacity in each generation project;
     # used when we want to restrict expansion
@@ -246,18 +251,20 @@ def define_components(m):
 
     if m.options.rps_prefer_dist_pv:
         m.DIST_PV_GENS = Set(
+            dimen=1,
             initialize=lambda m: [
                 g
                 for g in m.GENS_BY_NON_FUEL_ENERGY_SOURCE["SUN"]
                 if "DistPV" in m.gen_tech[g]
-            ]
+            ],
         )
         m.LARGE_PV_GENS = Set(
+            dimen=1,
             initialize=lambda m: [
                 g
                 for g in m.GENS_BY_NON_FUEL_ENERGY_SOURCE["SUN"]
                 if g not in m.DIST_PV_GENS
-            ]
+            ],
         )
         # LargePVAllowed must be 1 to allow large PV to be built
         m.LargePVAllowed = Var(m.PERIODS, within=Binary)  #
@@ -881,7 +888,6 @@ def load_inputs(m, switch_data, inputs_dir):
         switch_data.load_aug(
             optional=True,
             filename=os.path.join(inputs_dir, "rps_targets.csv"),
-            autoselect=True,
             index=m.RPS_YEARS,
             param=(m.rps_target,),
         )

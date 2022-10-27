@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -6,6 +6,7 @@ Defines balancing areas for operational reserves.
 """
 import os
 from pyomo.environ import *
+from switch_model.utilities import unique_list
 
 dependencies = "switch_model.timescales", "switch_model.balancing.load_zones"
 
@@ -32,18 +33,24 @@ def define_components(mod):
     """
 
     mod.zone_balancing_area = Param(
-        mod.LOAD_ZONES, default="system_wide_balancing_area"
+        mod.LOAD_ZONES, default="system_wide_balancing_area", within=Any
     )
     mod.BALANCING_AREAS = Set(
-        initialize=lambda m: set(m.zone_balancing_area[z] for z in m.LOAD_ZONES)
+        dimen=1,
+        initialize=lambda m: unique_list(
+            m.zone_balancing_area[z] for z in m.LOAD_ZONES
+        ),
     )
     mod.ZONES_IN_BALANCING_AREA = Set(
         mod.BALANCING_AREAS,
+        dimen=1,
         initialize=lambda m, b: (
             z for z in m.LOAD_ZONES if m.zone_balancing_area[z] == b
         ),
     )
-    mod.BALANCING_AREA_TIMEPOINTS = Set(initialize=mod.BALANCING_AREAS * mod.TIMEPOINTS)
+    mod.BALANCING_AREA_TIMEPOINTS = Set(
+        dimen=2, initialize=mod.BALANCING_AREAS * mod.TIMEPOINTS
+    )
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -60,6 +67,5 @@ def load_inputs(mod, switch_data, inputs_dir):
     # message if some columns are not found.
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "load_zones.csv"),
-        auto_select=True,
         param=(mod.zone_balancing_area),
     )

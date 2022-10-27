@@ -86,7 +86,9 @@ def define_components(m):
     ##################
 
     # cost per MWh for unserved load (high)
-    m.dr_unserved_load_penalty_per_mwh = Param(initialize=10000)
+    m.dr_unserved_load_penalty_per_mwh = Param(
+        within=NonNegativeReals, initialize=10000
+    )
     # amount of unserved load during each timepoint
     m.DRUnservedLoad = Var(m.LOAD_ZONES, m.TIMEPOINTS, within=NonNegativeReals)
     # total cost for unserved load
@@ -107,7 +109,7 @@ def define_components(m):
     ##################
 
     # list of all bids that have been received from the demand system
-    m.DR_BID_LIST = Set(initialize=[], ordered=True)
+    m.DR_BID_LIST = Set(dimen=1, initialize=[], ordered=True)
     # we need an explicit indexing set for everything that depends on DR_BID_LIST
     # so we can reconstruct it (and them) each time we add an element to DR_BID_LIST
     # (not needed, and actually doesn't work -- reconstruct() fails for sets)
@@ -117,13 +119,19 @@ def define_components(m):
     # data for the individual bids; each load_zone gets one bid for each timeseries,
     # and each bid covers all the timepoints in that timeseries. So we just record
     # the bid for each timepoint for each load_zone.
-    m.dr_bid = Param(m.DR_BID_LIST, m.LOAD_ZONES, m.TIMEPOINTS, mutable=True)
+    m.dr_bid = Param(
+        m.DR_BID_LIST, m.LOAD_ZONES, m.TIMEPOINTS, within=Reals, mutable=True
+    )
 
     # price used to get this bid (only kept for reference)
-    m.dr_price = Param(m.DR_BID_LIST, m.LOAD_ZONES, m.TIMEPOINTS, mutable=True)
+    m.dr_price = Param(
+        m.DR_BID_LIST, m.LOAD_ZONES, m.TIMEPOINTS, within=Reals, mutable=True
+    )
 
     # the private benefit of serving each bid
-    m.dr_bid_benefit = Param(m.DR_BID_LIST, m.LOAD_ZONES, m.TIMESERIES, mutable=True)
+    m.dr_bid_benefit = Param(
+        m.DR_BID_LIST, m.LOAD_ZONES, m.TIMESERIES, within=Reals, mutable=True
+    )
 
     # weights to assign to the bids for each timeseries when constructing an optimal demand profile
     m.DRBidWeight = Var(
@@ -212,7 +220,7 @@ def define_components(m):
 
     # annual costs, recovered via baseline prices
     # but not included in switch's calculation of costs
-    m.other_costs = Param(m.PERIODS, mutable=True, default=0.0)
+    m.other_costs = Param(m.PERIODS, within=Reals, mutable=True, default=0.0)
     m.Cost_Components_Per_Period.append("other_costs")
 
     # variable to store the baseline data
