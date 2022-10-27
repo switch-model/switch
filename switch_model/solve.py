@@ -85,8 +85,17 @@ def main(args=None, return_model=False, return_instance=False):
     else:
         logs_dir = None  # disables logging
 
-    # set root logger to the same level as the model
-    logging.getLogger("root").setLevel(pre_module_options.log_level.upper())
+    # set root logger to an appropriate level
+    # we never use pyomo's DEBUG level, because it produces an overwhelming
+    # amount of output
+    pyomo_levels = {
+        'DEBUG': 'INFO',
+        'INFO': 'WARNING',
+        'WARNING': 'WARNING',
+        'ERROR': 'ERROR'
+    }
+    pyomo_log_level = pyomo_levels[pre_module_options.log_level.upper()]
+    logging.getLogger("root").setLevel(pyomo_log_level)
 
     with LogOutput(logs_dir):
         # Create a unique logger for this model (other models may have different
