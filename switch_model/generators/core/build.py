@@ -677,9 +677,56 @@ def load_inputs(mod, switch_data, inputs_dir):
 
 
 def post_solve(m, outdir):
+    # report generator and storage additions in each period and and total
+    # capital outlay for those (up-front capital outlay is not treated as a
+    # direct cost by Switch, but is often interesting to users)
     write_table(
         m,
         m.GEN_PERIODS,
+        output_file=os.path.join(outdir, "gen_build.csv"),
+        headings=(
+            "GENERATION_PROJECT",
+            "PERIOD",
+            "gen_tech",
+            "gen_load_zone",
+            "gen_energy_source",
+            "BuildGen",
+            "BuildStorageEnergy",
+            "GenCapitalOutlay",
+        ),
+        values=lambda m, g, p: (
+            g,
+            p,
+            m.gen_tech[g],
+            m.gen_load_zone[g],
+            m.gen_energy_source[g],
+            m.BuildGen[g, p] if (g, p) in m.BuildGen else 0.0,
+            (
+                m.BuildStorageEnergy[g, p]
+                if hasattr(m, "BuildStorageEnergy") and (g, p) in m.BuildStorageEnergy
+                else 0.0
+            ),
+            (
+                (m.gen_overnight_cost[g, p] + m.gen_connect_cost_per_mw[g])
+                * m.BuildGen[g, p]
+                if (g, p) in m.BuildGen
+                else 0.0
+            )
+            + (
+                (m.BuildStorageEnergy[g, p] * m.gen_storage_energy_overnight_cost[g, p])
+                if hasattr(m, "BuildStorageEnergy") and (g, p) in m.BuildStorageEnergy
+                else 0.0
+            ),
+        ),
+    )
+
+    # report total generator and storage capacity in place for each generator in
+    # each period. Also show capital and fixed O&M recovery per year in that
+    # period (these are the costs Switch seeks to minimize)
+    write_table(
+        m,
+        m.GENERATION_PROJECTS,
+        m.PERIODS,
         output_file=os.path.join(outdir, "gen_cap.csv"),
         headings=(
             "GENERATION_PROJECT",
@@ -688,7 +735,8 @@ def post_solve(m, outdir):
             "gen_load_zone",
             "gen_energy_source",
             "GenCapacity",
-            "GenCapitalCosts",
+            "GenStorageCapacity",
+            "GenCapitalRecovery",
             "GenFixedOMCosts",
         ),
         values=lambda m, g, p: (
@@ -698,11 +746,17 @@ def post_solve(m, outdir):
             m.gen_load_zone[g],
             m.gen_energy_source[g],
             m.GenCapacity[g, p],
+            (
+                m.StorageEnergyCapacity[g, p]
+                if hasattr(m, "StorageEnergyCapacity")
+                and (g, p) in m.StorageEnergyCapacity
+                else 0.0
+            ),
             m.GenCapitalCosts[g, p]
             + (
-                m.StorageEnergyFixedCost[g, p]
-                if hasattr(m, "StorageEnergyFixedCost")
-                and (g, p) in m.StorageEnergyFixedCost
+                m.StorageEnergyCapitalCost[g, p]
+                if hasattr(m, "StorageEnergyCapitalCost")
+                and (g, p) in m.StorageEnergyCapitalCost
                 else 0.0
             ),
             m.GenFixedOMCosts[g, p],
