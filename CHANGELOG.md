@@ -1,14 +1,29 @@
 -------------------------------------------------------------------------------
+Switch 2.0.7
+-------------------------------------------------------------------------------
+Note that as of version 5.7, Pyomo no longer supports "inf", "infinity" or "nan"
+values in the input files, so Switch will likely report errors if you have
+those.
+
+Changed Pyomo dependencies to versions 5.5.1-6.4.2. Note that Pyomo versions
+before 5.7.3 don't work with CPLEX version 12.10 or later (see
+https://github.com/Pyomo/pyomo/pull/1792). If using a recent version of CPLEX,
+you should ensure that you also use version 5.7.3 or later of Pyomo.
+
+Renamed outputs/dispatch-wide.csv to outputs/dispatch_wide.csv
+
+-------------------------------------------------------------------------------
 Switch 2.0.6
 -------------------------------------------------------------------------------
-This release fixes a bug where the fixed costs from all possible build years
-were applied each period, instead of only using the build years that are still
-in service in the current period. This increased the apparent cost of storage by
-approximately (study length) / (storage life). This bug was introduced in 
-version 2.0.0b3 and persisted through version 2.0.5, so results from earlier
-models will need to be updated.
+This release fixes a bug where the fixed costs of storage energy capacity (the
+MWh part of storage) from all possible build years were mistakenly applied each
+period, instead of only using the build years that are still in service in the
+current period. This increased the apparent cost of storage by approximately
+(study length) / (storage life). This bug was introduced in version 2.0.0b3 and
+persisted through version 2.0.5, so results from earlier models will need to be
+updated.
 
-This will be the last version of Switch to work in Python 2. It requires at 
+This will be the last version of Switch to work in Python 2. It requires at
 least Python 2.7.12 and also works with Python 3.
 
 -------------------------------------------------------------------------------

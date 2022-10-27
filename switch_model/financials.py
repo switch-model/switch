@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -11,7 +11,8 @@ from pyomo.environ import *
 import os
 import pandas as pd
 
-dependencies = 'switch_model.timescales'
+dependencies = "switch_model.timescales"
+
 
 def capital_recovery_factor(ir, t):
     """
@@ -35,7 +36,7 @@ def capital_recovery_factor(ir, t):
     rate, paid over 20 years is 0.09439. If the principal was $100, loan\
     payments would be $9.44
     """
-    return 1/t if ir == 0 else ir/(1-(1+ir)**-t)
+    return 1 / t if ir == 0 else ir / (1 - (1 + ir) ** -t)
 
 
 def uniform_series_to_present_value(dr, t):
@@ -60,7 +61,7 @@ def uniform_series_to_present_value(dr, t):
         round(1/capital_recovery_factor(.07,20),7)
     True
     """
-    return t if dr == 0 else (1-(1+dr)**-t)/dr
+    return t if dr == 0 else (1 - (1 + dr) ** -t) / dr
 
 
 def future_to_present_value(dr, t):
@@ -71,7 +72,7 @@ def future_to_present_value(dr, t):
     >>> round(future_to_present_value(.07,10),7)
     0.5083493
     """
-    return (1+dr)**-t
+    return (1 + dr) ** -t
 
 
 def present_to_future_value(ir, t):
@@ -87,7 +88,8 @@ def present_to_future_value(ir, t):
         future_to_present_value(.07,10),7) == 1
     True
     """
-    return (1+ir)**t
+    return (1 + ir) ** t
+
 
 def define_dynamic_lists(mod):
     """
@@ -114,6 +116,7 @@ def define_dynamic_lists(mod):
     """
     mod.Cost_Components_Per_TP = []
     mod.Cost_Components_Per_Period = []
+
 
 def define_components(mod):
     """
@@ -221,23 +224,26 @@ def define_components(mod):
     mod.base_financial_year = Param(within=NonNegativeReals)
     mod.interest_rate = Param(within=NonNegativeReals)
     mod.discount_rate = Param(
-        within=NonNegativeReals, default=lambda m: value(m.interest_rate))
-    mod.min_data_check('base_financial_year', 'interest_rate')
+        within=NonNegativeReals, default=lambda m: value(m.interest_rate)
+    )
+    mod.min_data_check("base_financial_year", "interest_rate")
     mod.bring_annual_costs_to_base_year = Param(
         mod.PERIODS,
         within=NonNegativeReals,
         initialize=lambda m, p: (
-            uniform_series_to_present_value(
-                m.discount_rate, m.period_length_years[p]) *
-            future_to_present_value(
-                m.discount_rate,
-                m.period_start[p] - m.base_financial_year)))
+            uniform_series_to_present_value(m.discount_rate, m.period_length_years[p])
+            * future_to_present_value(
+                m.discount_rate, m.period_start[p] - m.base_financial_year
+            )
+        ),
+    )
     mod.bring_timepoint_costs_to_base_year = Param(
         mod.TIMEPOINTS,
         within=NonNegativeReals,
         initialize=lambda m, t: (
-            m.bring_annual_costs_to_base_year[m.tp_period[t]] *
-            m.tp_weight_in_year[t]))
+            m.bring_annual_costs_to_base_year[m.tp_period[t]] * m.tp_weight_in_year[t]
+        ),
+    )
 
 
 def define_dynamic_components(mod):
@@ -270,7 +276,8 @@ def define_dynamic_components(mod):
     def calc_tp_costs_in_period(m, t):
         return sum(
             getattr(m, tp_cost)[t] * m.tp_weight_in_year[t]
-            for tp_cost in m.Cost_Components_Per_TP)
+            for tp_cost in m.Cost_Components_Per_TP
+        )
 
     # Note: multiply annual costs by a conversion factor if running this
     # model on an intentional subset of annual data whose weights do not
@@ -278,31 +285,29 @@ def define_dynamic_components(mod):
     # This would also require disabling the validate_time_weights check.
     def calc_annual_costs_in_period(m, p):
         return sum(
-            getattr(m, annual_cost)[p]
-            for annual_cost in m.Cost_Components_Per_Period)
+            getattr(m, annual_cost)[p] for annual_cost in m.Cost_Components_Per_Period
+        )
 
     def calc_sys_costs_per_period(m, p):
         return (
             # All annual payments in the period
             (
-                calc_annual_costs_in_period(m, p) +
-                sum(calc_tp_costs_in_period(m, t) for t in m.TPS_IN_PERIOD[p])
-            ) *
+                calc_annual_costs_in_period(m, p)
+                + sum(calc_tp_costs_in_period(m, t) for t in m.TPS_IN_PERIOD[p])
+            )
+            *
             # Conversion from annual costs to base year
             m.bring_annual_costs_to_base_year[p]
         )
 
-    mod.SystemCostPerPeriod = Expression(
-        mod.PERIODS,
-        rule=calc_sys_costs_per_period)
+    mod.SystemCostPerPeriod = Expression(mod.PERIODS, rule=calc_sys_costs_per_period)
     # starting with Pyomo 4.2, it is impossible to call Objective.reconstruct()
     # or calculate terms like Objective / <some other model component>,
     # so it's best to define a separate expression and use that for these purposes.
     mod.SystemCost = Expression(
-        rule=lambda m: sum(m.SystemCostPerPeriod[p] for p in m.PERIODS))
-    mod.Minimize_System_Cost = Objective(
-        rule=lambda m: m.SystemCost,
-        sense=minimize)
+        rule=lambda m: sum(m.SystemCostPerPeriod[p] for p in m.PERIODS)
+    )
+    mod.Minimize_System_Cost = Objective(rule=lambda m: m.SystemCost, sense=minimize)
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -314,59 +319,76 @@ def load_inputs(mod, switch_data, inputs_dir):
     the second.
     """
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'financials.csv'),
-        optional=False, auto_select=True,
-        param=(mod.base_financial_year, mod.interest_rate, mod.discount_rate)
+        filename=os.path.join(inputs_dir, "financials.csv"),
+        optional=False,
+        param=(mod.base_financial_year, mod.interest_rate, mod.discount_rate),
     )
+
 
 def post_solve(instance, outdir):
     m = instance
-    # Overall electricity costs
-    normalized_dat = [
-        {
-        	"PERIOD": p,
-        	"SystemCostPerPeriod_NPV": value(m.SystemCostPerPeriod[p]),
-        	"SystemCostPerPeriod_Real": value(
-        	    m.SystemCostPerPeriod[p] / m.bring_annual_costs_to_base_year[p]
-        	),
-        	"EnergyCostReal_per_MWh": value(
-        	    m.SystemCostPerPeriod[p] / m.bring_annual_costs_to_base_year[p] /
-        	    sum(m.zone_total_demand_in_period_mwh[z,p] for z in m.LOAD_ZONES)
-        	),
-        	"SystemDemand_MWh": value(sum(
-        	    m.zone_total_demand_in_period_mwh[z,p] for z in m.LOAD_ZONES
-        	))
-        } for p in m.PERIODS
-    ]
-    df = pd.DataFrame(normalized_dat)
-    df.set_index(["PERIOD"], inplace=True)
-    df.to_csv(os.path.join(outdir, "electricity_cost.csv"))
+    # Overall electricity costs, if appropriate (some models may be gas-only)
+    if hasattr(m, "zone_total_demand_in_period_mwh"):
+        normalized_dat = [
+            {
+                "PERIOD": p,
+                "SystemCostPerPeriod_NPV": value(m.SystemCostPerPeriod[p]),
+                "SystemCostPerPeriod_Real": value(
+                    m.SystemCostPerPeriod[p] / m.bring_annual_costs_to_base_year[p]
+                ),
+                "EnergyCostReal_per_MWh": value(
+                    m.SystemCostPerPeriod[p]
+                    / m.bring_annual_costs_to_base_year[p]
+                    / sum(m.zone_total_demand_in_period_mwh[z, p] for z in m.LOAD_ZONES)
+                ),
+                "SystemDemand_MWh": value(
+                    sum(m.zone_total_demand_in_period_mwh[z, p] for z in m.LOAD_ZONES)
+                ),
+            }
+            for p in m.PERIODS
+        ]
+        df = pd.DataFrame(normalized_dat)
+        df.set_index(["PERIOD"], inplace=True)
+        if instance.options.sorted_output:
+            df.sort_index(inplace=True)
+        df.to_csv(os.path.join(outdir, "electricity_cost.csv"))
+
     # Itemized annual costs
     annualized_costs = [
         {
-        	"PERIOD": p,
-        	"Component": annual_cost,
-        	"Component_type": "annual",
-        	"AnnualCost_NPV": value(
-        	    getattr(m, annual_cost)[p] * m.bring_annual_costs_to_base_year[p]
-        	),
-        	"AnnualCost_Real": value(getattr(m, annual_cost)[p])
-        } for p in m.PERIODS for annual_cost in m.Cost_Components_Per_Period
+            "PERIOD": p,
+            "Component": annual_cost,
+            "Component_type": "annual",
+            "AnnualCost_NPV": value(
+                getattr(m, annual_cost)[p] * m.bring_annual_costs_to_base_year[p]
+            ),
+            "AnnualCost_Real": value(getattr(m, annual_cost)[p]),
+        }
+        for p in m.PERIODS
+        for annual_cost in m.Cost_Components_Per_Period
     ] + [
         {
-        	"PERIOD": p,
-        	"Component": tp_cost,
-        	"Component_type": "timepoint",
-        	"AnnualCost_NPV": value(sum(
-        	    getattr(m, tp_cost)[t] * m.tp_weight_in_year[t]
-        	    for t in m.TPS_IN_PERIOD[p]
-        	) * m.bring_annual_costs_to_base_year[p]),
-        	"AnnualCost_Real": value(sum(
-        	    getattr(m, tp_cost)[t] * m.tp_weight_in_year[t]
-        	    for t in m.TPS_IN_PERIOD[p]
-        	))
-        } for p in m.PERIODS for tp_cost in m.Cost_Components_Per_TP
+            "PERIOD": p,
+            "Component": tp_cost,
+            "Component_type": "timepoint",
+            "AnnualCost_NPV": value(
+                sum(
+                    getattr(m, tp_cost)[t] * m.tp_weight_in_year[t]
+                    for t in m.TPS_IN_PERIOD[p]
+                )
+                * m.bring_annual_costs_to_base_year[p]
+            ),
+            "AnnualCost_Real": value(
+                sum(
+                    getattr(m, tp_cost)[t] * m.tp_weight_in_year[t]
+                    for t in m.TPS_IN_PERIOD[p]
+                )
+            ),
+        }
+        for p in m.PERIODS
+        for tp_cost in m.Cost_Components_Per_TP
     ]
-    df = pd.DataFrame(annualized_costs)
-    df.set_index(["PERIOD", "Component"], inplace=True)
+    df = pd.DataFrame(annualized_costs).set_index(["PERIOD", "Component"]).sort_index()
+    if instance.options.sorted_output:
+        df.sort_index(inplace=True)
     df.to_csv(os.path.join(outdir, "costs_itemized.csv"))

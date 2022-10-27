@@ -1,4 +1,4 @@
-# Copyright (c) 2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -11,8 +11,12 @@ strictly required in all cases.
 import os
 from pyomo.environ import *
 
-dependencies = 'switch_model.timescales',\
-    'switch_model.balancing.load_areas', 'switch_model.financials'
+dependencies = (
+    "switch_model.timescales",
+    "switch_model.balancing.load_areas",
+    "switch_model.financials",
+)
+
 
 def define_components(mod):
     """
@@ -24,26 +28,30 @@ def define_components(mod):
     load in any load zone.
 
     UnservedLoad[z, tp] is a decision variable that describes how much
-    load in MWh is not supplied in a given load zone, at a given timepoint.
+    load (MW) is not supplied in a given load zone, at a given timepoint. This
+    is applied at distribution nodes if available, otherwise at zone-center
+    nodes.
 
     UnservedLoadPenalty[tp] is an expression that summarizes the cost penalties
     of the load that is left unserved in all load zones at a given timepoint.
 
     """
 
-    mod.unserved_load_penalty = Param(
-        within=NonNegativeReals,
-        default=500)
-    mod.UnservedLoad = Var(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
-        within=NonNegativeReals)
-    mod.Zone_Power_Injections.append('UnservedLoad')
+    mod.unserved_load_penalty = Param(within=NonNegativeReals, default=500)
+    mod.UnservedLoad = Var(mod.LOAD_ZONES, mod.TIMEPOINTS, within=NonNegativeReals)
+    try:
+        mod.Distributed_Power_Injections.append("UnservedLoad")
+    except AttributeError:
+        mod.Zone_Power_Injections.append("UnservedLoad")
 
     mod.UnservedLoadPenalty = Expression(
         mod.TIMEPOINTS,
-        rule=lambda m, tp: sum(m.UnservedLoad[z, tp] *
-            m.unserved_load_penalty for z in m.LOAD_ZONES))
-    mod.Cost_Components_Per_TP.append('UnservedLoadPenalty')
+        rule=lambda m, tp: sum(
+            m.UnservedLoad[z, tp] * m.unserved_load_penalty for z in m.LOAD_ZONES
+        ),
+    )
+    mod.Cost_Components_Per_TP.append("UnservedLoadPenalty")
+
 
 def load_inputs(mod, switch_data, inputs_dir):
     """
@@ -58,7 +66,7 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     """
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'lost_load_cost.csv'),
-        optional=True, auto_select=True,
-        param=(mod.unserved_load_penalty,)
+        filename=os.path.join(inputs_dir, "lost_load_cost.csv"),
+        optional=True,
+        param=(mod.unserved_load_penalty,),
     )

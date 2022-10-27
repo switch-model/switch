@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -8,9 +8,14 @@ that have gen_unit_size specified.
 
 from pyomo.environ import *
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
-    'switch_model.financials', 'switch_model.energy_sources.properties', \
-    'switch_model.generators.core.build'
+dependencies = (
+    "switch_model.timescales",
+    "switch_model.balancing.load_zones",
+    "switch_model.financials",
+    "switch_model.energy_sources.properties",
+    "switch_model.generators.core.build",
+)
+
 
 def define_components(mod):
     """
@@ -33,13 +38,14 @@ def define_components(mod):
     """
 
     mod.DISCRETE_GEN_BLD_YRS = Set(
+        dimen=2,
         initialize=mod.GEN_BLD_YRS,
-        filter=lambda m, g, bld_yr: g in m.DISCRETELY_SIZED_GENS)
-    mod.BuildUnits = Var(
-        mod.DISCRETE_GEN_BLD_YRS,
-        within=NonNegativeIntegers)
+        filter=lambda m, g, bld_yr: g in m.DISCRETELY_SIZED_GENS,
+    )
+    mod.BuildUnits = Var(mod.DISCRETE_GEN_BLD_YRS, within=NonNegativeIntegers)
     mod.Build_Units_Consistency = Constraint(
         mod.DISCRETE_GEN_BLD_YRS,
         rule=lambda m, g, bld_yr: (
-            m.BuildGen[g, bld_yr] ==
-            m.BuildUnits[g, bld_yr] * m.gen_unit_size[g]))
+            m.BuildGen[g, bld_yr] == m.BuildUnits[g, bld_yr] * m.gen_unit_size[g]
+        ),
+    )

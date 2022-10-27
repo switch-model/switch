@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -10,7 +10,8 @@ for the Switch model.
 import os
 from pyomo.environ import *
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones'
+dependencies = "switch_model.timescales", "switch_model.balancing.load_zones"
+
 
 def define_components(mod):
     """
@@ -90,21 +91,22 @@ def define_components(mod):
 
     """
 
-    mod.NON_FUEL_ENERGY_SOURCES = Set()
-    mod.FUELS = Set()
+    mod.NON_FUEL_ENERGY_SOURCES = Set(dimen=1)
+    mod.FUELS = Set(dimen=1)
     mod.f_co2_intensity = Param(mod.FUELS, within=NonNegativeReals)
-    mod.f_upstream_co2_intensity = Param(
-        mod.FUELS, within=Reals, default=0)
-    mod.min_data_check('f_co2_intensity')
+    mod.f_upstream_co2_intensity = Param(mod.FUELS, within=Reals, default=0)
+    mod.min_data_check("f_co2_intensity")
     # Ensure that fuel and non-fuel sets have no overlap.
     mod.e_source_is_fuel_or_not_check = BuildCheck(
-        rule=lambda m: len(m.FUELS & m.NON_FUEL_ENERGY_SOURCES) == 0)
+        rule=lambda m: len(m.FUELS & m.NON_FUEL_ENERGY_SOURCES) == 0
+    )
 
     # ENERGY_SOURCES is the union of fuel and non-fuels sets. Pipe | is
     # the union operator for Pyomo sets.
     mod.ENERGY_SOURCES = Set(
-        initialize=mod.NON_FUEL_ENERGY_SOURCES | mod.FUELS)
-    mod.min_data_check('ENERGY_SOURCES')
+        dimen=1, initialize=mod.NON_FUEL_ENERGY_SOURCES | mod.FUELS
+    )
+    mod.min_data_check("ENERGY_SOURCES")
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -138,11 +140,13 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'non_fuel_energy_sources.csv'),
-        set=('NON_FUEL_ENERGY_SOURCES'))
+        filename=os.path.join(inputs_dir, "non_fuel_energy_sources.csv"),
+        set=("NON_FUEL_ENERGY_SOURCES"),
+    )
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'fuels.csv'),
-        select=('fuel', 'co2_intensity', 'upstream_co2_intensity'),
+        filename=os.path.join(inputs_dir, "fuels.csv"),
+        select=("fuel", "co2_intensity", "upstream_co2_intensity"),
         index=mod.FUELS,
-        param=(mod.f_co2_intensity, mod.f_upstream_co2_intensity))
+        param=(mod.f_co2_intensity, mod.f_upstream_co2_intensity),
+    )

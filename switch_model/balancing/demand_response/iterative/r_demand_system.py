@@ -10,14 +10,24 @@ environment or object in R, and return that to Python. Then that could be
 returned by the python calibrate() function and attached to the model.
 """
 from __future__ import print_function
+from switch_model.utilities import unique_list
+
 
 def define_arguments(argparser):
-    argparser.add_argument("--dr-elasticity-scenario", type=int, default=3,
-        help="Choose a scenario of customer elasticity to be used by R script")
-    argparser.add_argument("--dr-r-script", default=None,
+    argparser.add_argument(
+        "--dr-elasticity-scenario",
+        type=int,
+        default=3,
+        help="Choose a scenario of customer elasticity to be used by R script",
+    )
+    argparser.add_argument(
+        "--dr-r-script",
+        default=None,
         help="Name of R script to use for preparing demand response bids. "
         "Only takes effect when using --dr-demand-module=r_demand_system. "
-        "This script should provide calibrate() and bid() functions. ")
+        "This script should provide calibrate() and bid() functions. ",
+    )
+
 
 def define_components(m):
     # load modules for use later (import is delayed to avoid interfering with unit tests)
@@ -25,20 +35,24 @@ def define_components(m):
         global np
         import numpy as np
     except ImportError:
-        print("="*80)
-        print("Unable to load numpy package, which is used by the r_demand_system module.")
+        print("=" * 80)
+        print(
+            "Unable to load numpy package, which is used by the r_demand_system module."
+        )
         print("Please install this via 'conda install numpy' or 'pip install numpy'.")
-        print("="*80)
+        print("=" * 80)
         raise
     try:
         global rpy2  # not actually needed outside this function
         import rpy2.robjects
         import rpy2.robjects.numpy2ri
     except ImportError:
-        print("="*80)
-        print("Unable to load rpy2 package, which is used by the r_demand_system module.")
+        print("=" * 80)
+        print(
+            "Unable to load rpy2 package, which is used by the r_demand_system module."
+        )
         print("Please install this via 'conda install rpy2' or 'pip install rpy2'.")
-        print("="*80)
+        print("=" * 80)
         raise
     # initialize the R environment
     global r
@@ -61,6 +75,7 @@ def define_components(m):
         )
     r.source(m.options.dr_r_script)
 
+
 def calibrate(m, base_data):
     """Accept a list of tuples showing load_zone, time_series, [base hourly loads], [base hourly prices]
     for each load_zone and time_series (day). Perform any calibration needed in the demand system
@@ -68,21 +83,23 @@ def calibrate(m, base_data):
     Also accept an allocation among different elasticity classes (defined in the R module.)
     """
     base_load_dict = {
-        (z, ts): base_loads
-        for (z, ts, base_loads, base_prices) in base_data
+        (z, ts): base_loads for (z, ts, base_loads, base_prices) in base_data
     }
     base_price_dict = {
-        (z, ts): base_prices
-        for (z, ts, base_loads, base_prices) in base_data
+        (z, ts): base_prices for (z, ts, base_loads, base_prices) in base_data
     }
     load_zones = unique_list(z for (z, ts, base_loads, base_prices) in base_data)
     time_series = unique_list(ts for (z, ts, base_loads, base_prices) in base_data)
     # maybe this should use the hour of day from the model, but this is good enough for now
-    hours_of_day = list(range(1, 1+len(base_data[0][2])))
+    hours_of_day = list(range(1, 1 + len(base_data[0][2])))
 
     # create r arrays of base loads and prices, with indices = (hour of day, time series, load zone)
-    base_loads = make_r_value_array(base_load_dict, hours_of_day, time_series, load_zones)
-    base_prices = make_r_value_array(base_price_dict, hours_of_day, time_series, load_zones)
+    base_loads = make_r_value_array(
+        base_load_dict, hours_of_day, time_series, load_zones
+    )
+    base_prices = make_r_value_array(
+        base_price_dict, hours_of_day, time_series, load_zones
+    )
 
     # calibrate the demand system within R
     r.calibrate(base_loads, base_prices, m.options.dr_elasticity_scenario)
@@ -93,18 +110,19 @@ def bid(m, load_zone, timeseries, prices):
     Return a tuple showing hourly load levels and willingness to pay for those loads."""
 
     bid = r.bid(
-        str(load_zone), str(timeseries),
-        np.array(prices['energy']),
-        np.array(prices['energy up']),
-        np.array(prices['energy down']),
-        m.options.dr_elasticity_scenario
+        str(load_zone),
+        str(timeseries),
+        np.array(prices["energy"]),
+        np.array(prices["energy up"]),
+        np.array(prices["energy down"]),
+        m.options.dr_elasticity_scenario,
     )
     demand = {
-        'energy': list(bid[0]),
-        'energy up': list(bid[1]),
-        'energy down': list(bid[2]),
+        "energy": list(bid[0]),
+        "energy up": list(bid[1]),
+        "energy down": list(bid[2]),
     }
-    wtp = bid[3][0] # everything is a vector in R, so we have to take the first element
+    wtp = bid[3][0]  # everything is a vector in R, so we have to take the first element
 
     return (demand, wtp)
 
@@ -112,7 +130,7 @@ def bid(m, load_zone, timeseries, prices):
 def test_calib():
     """Test calibration routines with sample data. Results should match r.test_calib()."""
     base_data = [
-        ("oahu", 100, [ 500, 1000, 1500], [0.35, 0.35, 0.35]),
+        ("oahu", 100, [500, 1000, 1500], [0.35, 0.35, 0.35]),
         ("oahu", 200, [2000, 2500, 3000], [0.35, 0.35, 0.35]),
         ("maui", 100, [3500, 4000, 4500], [0.35, 0.35, 0.35]),
         ("maui", 200, [5000, 5500, 6000], [0.35, 0.35, 0.35]),
@@ -121,16 +139,11 @@ def test_calib():
     r.print_calib()
 
 
-def unique_list(seq):
-    # from http://stackoverflow.com/questions/480214/how-do-you-remove-duplicates-from-a-list-in-python-whilst-preserving-order
-    seen = set()
-    return [x for x in seq if not (x in seen or seen.add(x))]
-
 def make_r_value_array(base_value_dict, hours_of_day, time_series, load_zones):
     # create a numpy array with indices = (hour of day, time series, load zone)
     arr = np.array(
-        [ [base_value_dict[(z, ts)] for ts in time_series] for z in load_zones],
-        dtype=float
+        [[base_value_dict[(z, ts)] for ts in time_series] for z in load_zones],
+        dtype=float,
     ).transpose()
     # convert to an r array with dimnames, using R's standard array function
     # (it might be slightly neater to use rinterface to build r_array entirely
@@ -143,7 +156,7 @@ def make_r_value_array(base_value_dict, hours_of_day, time_series, load_zones):
         dimnames=r.list(
             np.array(hours_of_day, dtype=str),
             np.array(time_series, dtype=str),
-            np.array(load_zones, dtype=str)
-        )
+            np.array(load_zones, dtype=str),
+        ),
     )
     return r_array

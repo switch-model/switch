@@ -1,4 +1,4 @@
-# Copyright 2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2, which is in the LICENSE file.
 
 """
@@ -13,8 +13,8 @@ nor a Shimmy Service (fast dispatch for load following or regulation).
 import os
 from pyomo.environ import *
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones'
-optional_dependencies = 'switch_model.transmission.local_td'
+dependencies = "switch_model.timescales", "switch_model.balancing.load_zones"
+optional_dependencies = "switch_model.transmission.local_td"
 
 
 def define_components(mod):
@@ -49,32 +49,35 @@ def define_components(mod):
     """
 
     mod.dr_shift_down_limit = Param(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
-        default= 0.0,
+        mod.LOAD_ZONES,
+        mod.TIMEPOINTS,
+        default=0.0,
         within=NonNegativeReals,
-        validate=lambda m, value, z, t: value <= m.zone_demand_mw[z, t])
+        validate=lambda m, value, z, t: value <= m.zone_demand_mw[z, t],
+    )
     mod.dr_shift_up_limit = Param(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
-        default= float('inf'),
-        within=NonNegativeReals)
+        mod.LOAD_ZONES, mod.TIMEPOINTS, default=float("inf"), within=NonNegativeReals
+    )
     mod.ShiftDemand = Var(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
+        mod.LOAD_ZONES,
+        mod.TIMEPOINTS,
         within=Reals,
-        bounds=lambda m, z, t:
-        (
-            (-1.0) * m.dr_shift_down_limit[z,t],
-            m.dr_shift_up_limit[z,t]
-        ))
+        bounds=lambda m, z, t: (
+            (-1.0) * m.dr_shift_down_limit[z, t],
+            m.dr_shift_up_limit[z, t],
+        ),
+    )
 
     mod.DR_Shift_Net_Zero = Constraint(
-        mod.LOAD_ZONES, mod.TIMESERIES,
-        rule=lambda m, z, ts:
-        sum(m.ShiftDemand[z, t] for t in m.TPS_IN_TS[ts]) == 0.0)
+        mod.LOAD_ZONES,
+        mod.TIMESERIES,
+        rule=lambda m, z, ts: sum(m.ShiftDemand[z, t] for t in m.TPS_IN_TS[ts]) == 0.0,
+    )
 
     try:
-        mod.Distributed_Power_Withdrawals.append('ShiftDemand')
+        mod.Distributed_Power_Withdrawals.append("ShiftDemand")
     except AttributeError:
-        mod.Zone_Power_Withdrawals.append('ShiftDemand')
+        mod.Zone_Power_Withdrawals.append("ShiftDemand")
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -89,6 +92,6 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'dr_data.csv'),
-        autoselect=True,
-        param=(mod.dr_shift_down_limit, mod.dr_shift_up_limit))
+        filename=os.path.join(inputs_dir, "dr_data.csv"),
+        param=(mod.dr_shift_down_limit, mod.dr_shift_up_limit),
+    )

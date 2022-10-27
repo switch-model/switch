@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """Script to handle switch <cmd> calls from the command line."""
@@ -8,6 +8,7 @@ import sys, os
 import switch_model
 
 # print "running {} as {}.".format(__file__, __name__)
+
 
 def main():
     cmds = ["solve", "solve-scenarios", "test", "upgrade", "--version"]
@@ -38,8 +39,13 @@ def main():
             from switch_model.upgrade import main
         main()
     else:
-        print("Usage: {} {{{}}} ...".format(os.path.basename(sys.argv[0]), ", ".join(cmds)))
+        print(
+            "Usage: {} {{{}}} ...".format(
+                os.path.basename(sys.argv[0]), ", ".join(cmds)
+            )
+        )
         print("Use one of these commands with --help for more information.")
+
 
 if __name__ == "__main__":
     main()

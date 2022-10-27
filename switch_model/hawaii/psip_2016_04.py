@@ -3,15 +3,33 @@ from __future__ import print_function
 import os
 from pyomo.environ import *
 
+
 def define_arguments(argparser):
-    argparser.add_argument('--psip-force', action='store_true', default=True,
-        help="Force following of PSIP plans (retiring AES and building certain technologies).")
-    argparser.add_argument('--psip-relax', dest='psip_force', action='store_false',
-        help="Relax PSIP plans, to find a more optimal strategy.")
-    argparser.add_argument('--psip-minimal-renewables', action='store_true', default=False,
-        help="Use only the amount of renewables shown in PSIP plans, and no more (should be combined with --psip-relax).")
-    argparser.add_argument('--force-build', nargs=3, default=None,
-        help="Force construction of at least a certain quantity of a particular technology during certain years. Space-separated list of year, technology and quantity.")
+    argparser.add_argument(
+        "--psip-force",
+        action="store_true",
+        default=True,
+        help="Force following of PSIP plans (retiring AES and building certain technologies).",
+    )
+    argparser.add_argument(
+        "--psip-relax",
+        dest="psip_force",
+        action="store_false",
+        help="Relax PSIP plans, to find a more optimal strategy.",
+    )
+    argparser.add_argument(
+        "--psip-minimal-renewables",
+        action="store_true",
+        default=False,
+        help="Use only the amount of renewables shown in PSIP plans, and no more (should be combined with --psip-relax).",
+    )
+    argparser.add_argument(
+        "--force-build",
+        nargs=3,
+        default=None,
+        help="Force construction of at least a certain quantity of a particular technology during certain years. Space-separated list of year, technology and quantity.",
+    )
+
 
 def define_components(m):
     ###################
@@ -21,7 +39,7 @@ def define_components(m):
     # decide whether to enforce the PSIP preferred plan
     # if an environment variable is set, that takes precedence
     # (e.g., on a cluster to override options.txt)
-    psip_env_var = os.environ.get('USE_PSIP_PLAN')
+    psip_env_var = os.environ.get("USE_PSIP_PLAN")
     if psip_env_var is None:
         # no environment variable; use the --psip-relax flag
         psip = m.options.psip_force
@@ -30,7 +48,11 @@ def define_components(m):
     elif psip_env_var.lower() in ["0", "false", "n", "no", "off"]:
         psip = False
     else:
-        raise ValueError('Unrecognized value for environment variable USE_PSIP_PLAN={} (should be 0 or 1)'.format(psip_env_var))
+        raise ValueError(
+            "Unrecognized value for environment variable USE_PSIP_PLAN={} (should be 0 or 1)".format(
+                psip_env_var
+            )
+        )
 
     if psip:
         print("Using PSIP construction plan.")
@@ -51,63 +73,71 @@ def define_components(m):
     # are underway and military projects are being built for their own
     # reasons)
     technology_targets_definite = [
-        (2016, 'CentralTrackingPV', 27.6),  # Waianae Solar by Eurus Energy America
-        (2018, 'IC_Schofield', 54.0),
-        (2018, 'IC_Barge', 100.0),         # JBPHH plant
-        (2021, 'IC_MCBH', 27.0),
+        (2016, "CentralTrackingPV", 27.6),  # Waianae Solar by Eurus Energy America
+        (2018, "IC_Schofield", 54.0),
+        (2018, "IC_Barge", 100.0),  # JBPHH plant
+        (2021, "IC_MCBH", 27.0),
         # Distributed PV from Figure J-19
-        (2016, 'DistPV',  443.993468266547 - 210), # net of 210 MW of pre-existing DistPV
-        (2017, 'DistPV',  92.751756737742),
-        (2018, 'DistPV',  27.278236032368),
-        (2019, 'DistPV',  26.188129564885),
+        (
+            2016,
+            "DistPV",
+            443.993468266547 - 210,
+        ),  # net of 210 MW of pre-existing DistPV
+        (2017, "DistPV", 92.751756737742),
+        (2018, "DistPV", 27.278236032368),
+        (2019, "DistPV", 26.188129564885),
     ]
     # technologies proposed in PSIP but which may not be built if a
     # better plan is found
     technology_targets_psip = [
-        (2018, 'OnshoreWind', 24),      # NPM wind
-        (2018, 'CentralTrackingPV', 109.6),  # replacement for canceled SunEdison projects
-        (2018, 'OnshoreWind', 10),      # CBRE wind
-        (2018, 'CentralTrackingPV', 15),  # CBRE PV
-        (2020, 'OnshoreWind', 30),
-        (2020, 'CentralTrackingPV', 60),
-        (2021, 'CC_383', 383.0),
-        (2030, 'CentralTrackingPV', 100),
-        (2030, 'OffshoreWind', 200),
-        (2040, 'CentralTrackingPV', 200),
-        (2040, 'OffshoreWind', 200),
-        (2045, 'CentralTrackingPV', 300),
-        (2045, 'OffshoreWind', 400),
-        (2020, 'DistPV',  21.8245069017911),
-        (2021, 'DistPV',  15.27427771741),
-        (2022, 'DistPV',  12.0039583149589),
-        (2023, 'DistPV',  10.910655054315),
-        (2024, 'DistPV',  10.913851847475),
-        (2025, 'DistPV',  10.910655054316),
-        (2026, 'DistPV',  9.82054858683205),
-        (2027, 'DistPV',  10.910655054316),
-        (2028, 'DistPV',  10.910655054315),
-        (2029, 'DistPV',  14.1873680430859),
-        (2030, 'DistPV',  9.82054858683205),
-        (2031, 'DistPV',  10.913851847475),
-        (2032, 'DistPV',  9.82054858683193),
-        (2033, 'DistPV',  14.1841712499261),
-        (2034, 'DistPV',  7.64033565186492),
-        (2035, 'DistPV',  13.094064782442),
-        (2036, 'DistPV',  9.82054858683205),
-        (2037, 'DistPV',  10.9202454337949),
-        (2038, 'DistPV',  9.66989970917803),
-        (2039, 'DistPV',  12.1514103994531),
-        (2040, 'DistPV',  12.2397218104919),
-        (2041, 'DistPV',  11.7673956211361),
-        (2042, 'DistPV',  10.9106550543149),
-        (2043, 'DistPV',  9.82054858683205),
-        (2044, 'DistPV',  15.27747451057),
-        (2045, 'DistPV',  10.291675978754),
+        (2018, "OnshoreWind", 24),  # NPM wind
+        (
+            2018,
+            "CentralTrackingPV",
+            109.6,
+        ),  # replacement for canceled SunEdison projects
+        (2018, "OnshoreWind", 10),  # CBRE wind
+        (2018, "CentralTrackingPV", 15),  # CBRE PV
+        (2020, "OnshoreWind", 30),
+        (2020, "CentralTrackingPV", 60),
+        (2021, "CC_383", 383.0),
+        (2030, "CentralTrackingPV", 100),
+        (2030, "OffshoreWind", 200),
+        (2040, "CentralTrackingPV", 200),
+        (2040, "OffshoreWind", 200),
+        (2045, "CentralTrackingPV", 300),
+        (2045, "OffshoreWind", 400),
+        (2020, "DistPV", 21.8245069017911),
+        (2021, "DistPV", 15.27427771741),
+        (2022, "DistPV", 12.0039583149589),
+        (2023, "DistPV", 10.910655054315),
+        (2024, "DistPV", 10.913851847475),
+        (2025, "DistPV", 10.910655054316),
+        (2026, "DistPV", 9.82054858683205),
+        (2027, "DistPV", 10.910655054316),
+        (2028, "DistPV", 10.910655054315),
+        (2029, "DistPV", 14.1873680430859),
+        (2030, "DistPV", 9.82054858683205),
+        (2031, "DistPV", 10.913851847475),
+        (2032, "DistPV", 9.82054858683193),
+        (2033, "DistPV", 14.1841712499261),
+        (2034, "DistPV", 7.64033565186492),
+        (2035, "DistPV", 13.094064782442),
+        (2036, "DistPV", 9.82054858683205),
+        (2037, "DistPV", 10.9202454337949),
+        (2038, "DistPV", 9.66989970917803),
+        (2039, "DistPV", 12.1514103994531),
+        (2040, "DistPV", 12.2397218104919),
+        (2041, "DistPV", 11.7673956211361),
+        (2042, "DistPV", 10.9106550543149),
+        (2043, "DistPV", 9.82054858683205),
+        (2044, "DistPV", 15.27747451057),
+        (2045, "DistPV", 10.291675978754),
     ]
 
     if m.options.force_build is not None:
         b = list(m.options.force_build)
-        b[0] = int(b[0])    # year
+        b[0] = int(b[0])  # year
         b[2] = float(b[2])  # quantity
         b = tuple(b)
         print("Forcing build: {}".format(b))
@@ -123,11 +153,18 @@ def define_components(m):
         start = 2000 if per == m.PERIODS.first() else per
         end = per + m.period_length_years[per]
         target = sum(
-            mw for (tyear, ttech, mw) in technology_targets
-                if ttech == tech and start <= tyear and tyear < end
+            mw
+            for (tyear, ttech, mw) in technology_targets
+            if ttech == tech and start <= tyear and tyear < end
         )
         return target
-    m.technology_target = Param(m.PERIODS, m.GENERATION_TECHNOLOGIES, initialize=technology_target_init)
+
+    m.technology_target = Param(
+        m.PERIODS,
+        m.GENERATION_TECHNOLOGIES,
+        within=Reals,
+        initialize=technology_target_init,
+    )
 
     # with PSIP: BuildGen is zero except for technology_targets
     #     (sum during each period or before first period)
@@ -142,7 +179,9 @@ def define_components(m):
                 # needed to exactly meet the target.
                 # This is needed because some of the targets are based on
                 # nominal unit sizes rather than actual max output.
-                return (target / m.gen_unit_size[g]) / round(target / m.gen_unit_size[g])
+                return (target / m.gen_unit_size[g]) / round(
+                    target / m.gen_unit_size[g]
+                )
             else:
                 return 1.0
 
@@ -164,52 +203,67 @@ def define_components(m):
                 )
                 return Constraint.Infeasible
         elif psip:
-            return (build == target)
-        elif m.options.psip_minimal_renewables and any(txt in tech for txt in ["PV", "Wind", "Solar"]):
+            return build == target
+        elif m.options.psip_minimal_renewables and any(
+            txt in tech for txt in ["PV", "Wind", "Solar"]
+        ):
             # only build the specified amount of renewables, no more
-            return (build == target)
+            return build == target
         else:
             # treat the target as a lower bound
-            return (build >= target)
+            return build >= target
+
     m.Enforce_Technology_Target = Constraint(
         m.PERIODS, m.GENERATION_TECHNOLOGIES, rule=Enforce_Technology_Target_rule
     )
 
-    aes_g = 'Oahu_AES'
+    aes_g = "Oahu_AES"
     aes_size = 180
     aes_bld_year = 1992
-    m.AES_OPERABLE_PERIODS = Set(initialize = lambda m:
-        m.PERIODS_FOR_GEN_BLD_YR[aes_g, aes_bld_year]
+    m.AES_OPERABLE_PERIODS = Set(
+        dimen=1, initialize=lambda m: m.PERIODS_FOR_GEN_BLD_YR[aes_g, aes_bld_year]
     )
     m.OperateAES = Var(m.AES_OPERABLE_PERIODS, within=Binary)
-    m.Enforce_AES_Deactivate = Constraint(m.TIMEPOINTS, rule=lambda m, tp:
-        Constraint.Skip if (aes_g, tp) not in m.GEN_TPS
-        else (m.DispatchGen[aes_g, tp] <= m.OperateAES[m.tp_period[tp]] * aes_size)
+    m.Enforce_AES_Deactivate = Constraint(
+        m.TIMEPOINTS,
+        rule=lambda m, tp: Constraint.Skip
+        if (aes_g, tp) not in m.GEN_TPS
+        else (m.DispatchGen[aes_g, tp] <= m.OperateAES[m.tp_period[tp]] * aes_size),
     )
-    m.AESDeactivateFixedCost = Expression(m.PERIODS, rule=lambda m, per:
-        0.0 if per not in m.AES_OPERABLE_PERIODS
-        else - m.OperateAES[per] * aes_size * m.gen_fixed_om[aes_g, aes_bld_year]
+    m.AESDeactivateFixedCost = Expression(
+        m.PERIODS,
+        rule=lambda m, per: 0.0
+        if per not in m.AES_OPERABLE_PERIODS
+        else -m.OperateAES[per] * aes_size * m.gen_fixed_om[aes_g, aes_bld_year],
     )
-    m.Cost_Components_Per_Period.append('AESDeactivateFixedCost')
+    m.Cost_Components_Per_Period.append("AESDeactivateFixedCost")
 
     if psip:
         # keep AES active until 2022 or just before; deactivate after that
-        m.PSIP_Retire_AES = Constraint(m.AES_OPERABLE_PERIODS, rule=lambda m, per:
-            (m.OperateAES[per] == 1) if per + m.period_length_years[per] <= 2022
-            else (m.OperateAES[per] == 0)
+        m.PSIP_Retire_AES = Constraint(
+            m.AES_OPERABLE_PERIODS,
+            rule=lambda m, per: (m.OperateAES[per] == 1)
+            if per + m.period_length_years[per] <= 2022
+            else (m.OperateAES[per] == 0),
         )
 
         # before 2040: no biodiesel, and only 100-300 GWh of non-LNG fossil fuels
         # period including 2040-2045: <= 300 GWh of oil; unlimited biodiesel or LNG
 
         # no biodiesel before 2040 (then phased in fast enough to meet the RPS)
-        m.EARLY_BIODIESEL_MARKETS = Set(dimen=2, initialize=lambda m: [
-            (rfm, per)
-                for per in m.PERIODS if per + m.period_length_years[per] <= 2040
-                    for rfm in m.REGIONAL_FUEL_MARKETS if m.rfm_fuel == 'Biodiesel'
-        ])
-        m.NoEarlyBiodiesel = Constraint(m.EARLY_BIODIESEL_MARKETS, rule=lambda m, rfm, per:
-            m.FuelConsumptionInMarket[rfm, per] == 0
+        m.EARLY_BIODIESEL_MARKETS = Set(
+            dimen=2,
+            initialize=lambda m: [
+                (rfm, per)
+                for per in m.PERIODS
+                if per + m.period_length_years[per] <= 2040
+                for rfm in m.REGIONAL_FUEL_MARKETS
+                if m.rfm_fuel == "Biodiesel"
+            ],
+        )
+        m.NoEarlyBiodiesel = Constraint(
+            m.EARLY_BIODIESEL_MARKETS,
+            rule=lambda m, rfm, per: m.FuelConsumptionInMarket[rfm, per] == 0,
         )
 
         # # 100-300 GWh of non-LNG fuels in 2021-2040 (based on 2016-04 PSIP fig. 5-5)
@@ -268,18 +322,27 @@ def define_components(m):
         # don't allow construction of any advanced technologies (e.g., batteries, pumped hydro, fuel cells)
         advanced_tech_vars = [
             "BuildBattery",
-            "BuildPumpedHydroMW", "BuildAnyPumpedHydro",
-            "BuildElectrolyzerMW", "BuildLiquifierKgPerHour", "BuildLiquidHydrogenTankKg",
+            "BuildPumpedHydroMW",
+            "BuildAnyPumpedHydro",
+            "BuildElectrolyzerMW",
+            "BuildLiquifierKgPerHour",
+            "BuildLiquidHydrogenTankKg",
             "BuildFuelCellMW",
         ]
+
         def no_advanced_tech_rule_factory(v):
             return lambda m, *k: (getattr(m, v)[k] == 0)
+
         for v in advanced_tech_vars:
             try:
                 var = getattr(m, v)
-                setattr(m, "PSIP_No_"+v, Constraint(var._index, rule=no_advanced_tech_rule_factory(v)))
+                setattr(
+                    m,
+                    "PSIP_No_" + v,
+                    Constraint(var._index, rule=no_advanced_tech_rule_factory(v)),
+                )
             except AttributeError:
-                pass    # model doesn't have this var
+                pass  # model doesn't have this var
 
         # # don't allow any changes to the fuel market, including bulk LNG
         # # not used now; use "--force-lng-tier container" instead

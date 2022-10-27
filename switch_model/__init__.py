@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -18,10 +18,12 @@ Most applications of Switch will also benefit from optional modules such as
 transmission, local_td, reserves, etc.
 """
 from .version import __version__
+
 core_modules = [
-    'switch_model.timescales',
-    'switch_model.financials',
-    'switch_model.balancing.load_zones',
-    'switch_model.energy_sources.properties',
-    'switch_model.generators.core',
-    'switch_model.reporting']
+    "switch_model.timescales",
+    "switch_model.financials",
+    "switch_model.balancing.load_zones",
+    "switch_model.energy_sources.properties",
+    "switch_model.generators.core",
+    "switch_model.reporting",
+]

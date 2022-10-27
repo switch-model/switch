@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -9,9 +9,15 @@ module which constrains dispatch to unit commitment decisions.
 
 from pyomo.environ import *
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
-    'switch_model.financials', 'switch_model.energy_sources.properties.properties', \
-    'switch_model.generators.core.build', 'switch_model.generators.core.dispatch'
+dependencies = (
+    "switch_model.timescales",
+    "switch_model.balancing.load_zones",
+    "switch_model.financials",
+    "switch_model.energy_sources.properties.properties",
+    "switch_model.generators.core.build",
+    "switch_model.generators.core.dispatch",
+)
+
 
 def define_components(mod):
     """
@@ -80,37 +86,46 @@ def define_components(mod):
     # and dispatch.
     mod.BASELOAD_GEN_PERIODS = Set(
         dimen=2,
-        rule=lambda m:
-            [(g, p) for g in m.BASELOAD_GENS for p in m.PERIODS_FOR_GEN[g]])
+        initialize=lambda m: [
+            (g, p) for g in m.BASELOAD_GENS for p in m.PERIODS_FOR_GEN[g]
+        ],
+    )
     mod.BASELOAD_GEN_TPS = Set(
         dimen=2,
-        rule=lambda m:
-            [(g, t) for g, p in m.BASELOAD_GEN_PERIODS for t in m.TPS_IN_PERIOD[p]])
+        initialize=lambda m: [
+            (g, t) for g, p in m.BASELOAD_GEN_PERIODS for t in m.TPS_IN_PERIOD[p]
+        ],
+    )
 
     mod.DispatchBaseloadByPeriod = Var(mod.BASELOAD_GEN_PERIODS)
 
     def DispatchUpperLimit_expr(m, g, t):
         if g in m.VARIABLE_GENS:
-            return (m.GenCapacityInTP[g, t] * m.gen_availability[g] *
-                    m.gen_max_capacity_factor[g, t])
+            return (
+                m.GenCapacityInTP[g, t]
+                * m.gen_availability[g]
+                * m.gen_max_capacity_factor[g, t]
+            )
         else:
             return m.GenCapacityInTP[g, t] * m.gen_availability[g]
-    mod.DispatchUpperLimit = Expression(
-        mod.GEN_TPS,
-        rule=DispatchUpperLimit_expr)
+
+    mod.DispatchUpperLimit = Expression(mod.GEN_TPS, rule=DispatchUpperLimit_expr)
 
     mod.Enforce_Dispatch_Baseload_Flat = Constraint(
         mod.BASELOAD_GEN_TPS,
-        rule=lambda m, g, t:
-            m.DispatchGen[g, t] == m.DispatchBaseloadByPeriod[g, m.tp_period[t]])
+        rule=lambda m, g, t: m.DispatchGen[g, t]
+        == m.DispatchBaseloadByPeriod[g, m.tp_period[t]],
+    )
 
     mod.Enforce_Dispatch_Upper_Limit = Constraint(
         mod.GEN_TPS,
-        rule=lambda m, g, t: (
-            m.DispatchGen[g, t] <= m.DispatchUpperLimit[g, t]))
+        rule=lambda m, g, t: (m.DispatchGen[g, t] <= m.DispatchUpperLimit[g, t]),
+    )
 
     mod.GenFuelUseRate_Calculate = Constraint(
         mod.FUEL_BASED_GEN_TPS,
         rule=lambda m, g, t: (
             sum(m.GenFuelUseRate[g, t, f] for f in m.FUELS_FOR_GEN[g])
-            == m.DispatchGen[g, t] * m.gen_full_load_heat_rate[g]))
+            == m.DispatchGen[g, t] * m.gen_full_load_heat_rate[g]
+        ),
+    )

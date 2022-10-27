@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -11,8 +11,9 @@ import os, shutil, argparse
 import pandas
 import switch_model.upgrade
 
-upgrades_from = '2.0.0b2'
-upgrades_to = '2.0.0b4'
+upgrades_from = "2.0.0b2"
+upgrades_to = "2.0.0b4"
+
 
 def upgrade_input_dir(inputs_dir):
     """
@@ -30,12 +31,12 @@ def upgrade_input_dir(inputs_dir):
         path = os.path.join(inputs_dir, file_name)
         if optional_file and not os.path.isfile(path):
             return
-        df = pandas.read_csv(path, na_values=['.'], sep=r"\s+", index_col=False)
+        df = pandas.read_csv(path, na_values=["."], sep=r"\s+", index_col=False)
         df.rename(columns={old_col_name: new_col_name}, inplace=True)
-        df.to_csv(path, sep='\t', na_rep='.', index=False)
+        df.to_csv(path, sep="\t", na_rep=".", index=False)
 
     old_new_column_names_in_file = {
-        'gen_inc_heat_rates.tab': [('project', 'GENERATION_PROJECT')]
+        "gen_inc_heat_rates.tab": [("project", "GENERATION_PROJECT")]
     }
 
     for fname, old_new_pairs in old_new_column_names_in_file.items():
@@ -43,14 +44,16 @@ def upgrade_input_dir(inputs_dir):
             rename_column(fname, old_col_name=old, new_col_name=new)
 
     # merge trans_optional_params.tab with transmission_lines.tab
-    trans_lines_path = os.path.join(inputs_dir, 'transmission_lines.tab')
-    trans_opt_path = os.path.join(inputs_dir, 'trans_optional_params.tab')
+    trans_lines_path = os.path.join(inputs_dir, "transmission_lines.tab")
+    trans_opt_path = os.path.join(inputs_dir, "trans_optional_params.tab")
     if os.path.isfile(trans_lines_path) and os.path.isfile(trans_lines_path):
-        trans_lines = pandas.read_csv(trans_lines_path, na_values=['.'], sep=r'\s+')
+        trans_lines = pandas.read_csv(trans_lines_path, na_values=["."], sep=r"\s+")
         if os.path.isfile(trans_opt_path):
-            trans_opt = pandas.read_csv(trans_opt_path, na_values=['.'], sep=r'\s+')
-            trans_lines = trans_lines.merge(trans_opt, on='TRANSMISSION_LINE', how='left')
-        trans_lines.to_csv(trans_lines_path, sep='\t', na_rep='.', index=False)
+            trans_opt = pandas.read_csv(trans_opt_path, na_values=["."], sep=r"\s+")
+            trans_lines = trans_lines.merge(
+                trans_opt, on="TRANSMISSION_LINE", how="left"
+            )
+        trans_lines.to_csv(trans_lines_path, sep="\t", na_rep=".", index=False)
         if os.path.isfile(trans_opt_path):
             os.remove(trans_opt_path)
 

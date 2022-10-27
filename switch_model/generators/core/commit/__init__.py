@@ -1,4 +1,4 @@
-# Copyright 2015-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2, which is in the LICENSE file.
 
 """
@@ -10,5 +10,6 @@ module is optional and enforces discrete unit commitment.
 
 """
 core_modules = [
-    'switch_model.generators.core.commit.operate',
-    'switch_model.generators.core.commit.fuel_use']
+    "switch_model.generators.core.commit.operate",
+    "switch_model.generators.core.commit.fuel_use",
+]
