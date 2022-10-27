@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 """
 This module defines planning reserves margins to support resource adequacy
@@ -128,7 +128,7 @@ def define_components(model):
     will not reflect any DER activities.
     """
     model.PLANNING_RESERVE_REQUIREMENTS = Set(
-        doc="Areas and times where planning reserve margins are specified."
+        dimen=1, doc="Areas and times where planning reserve margins are specified."
     )
     model.PRR_ZONES = Set(
         dimen=2,
@@ -142,8 +142,9 @@ def define_components(model):
     )
     model.prr_enforcement_timescale = Param(
         model.PLANNING_RESERVE_REQUIREMENTS,
-        default="period_peak_load",
-        validate=lambda m, value, prr: value in ("all_timepoints", "peak_load"),
+        default="peak_load",
+        within=Any,
+        validate=lambda m, value, prr: value in {"all_timepoints", "peak_load"},
         doc=(
             "Determines whether planning reserve requirements are enforced in "
             "each timepoint, or just timepoints with peak load (zone_demand_mw)."
@@ -157,16 +158,16 @@ def define_components(model):
         statically (zone_demand_mw), ignoring the impact of all distributed
         energy resources.
         """
-        peak_timepoint_list = set()
+        peak_timepoint_list = []
         ZONES = [z for (_prr, z) in m.PRR_ZONES if _prr == prr]
         for p in m.PERIODS:
             peak_load = 0.0
             for t in m.TPS_IN_PERIOD[p]:
                 load = sum(m.zone_demand_mw[z, t] for z in ZONES)
-                if load > peak_load:
+                if load >= peak_load:
                     peak_timepoint = t
                     peak_load = load
-            peak_timepoint_list.add(peak_timepoint)
+            peak_timepoint_list.append(peak_timepoint)
         return peak_timepoint_list
 
     def PRR_TIMEPOINTS_init(m):
@@ -205,7 +206,9 @@ def define_components(model):
         if not m.gen_can_provide_cap_reserves[g]:
             return 0.0
         elif g in m.VARIABLE_GENS:
-            return m.gen_max_capacity_factor[g, t]
+            # This can be > 1 (Ex solar on partly cloudy days). Take a
+            # conservative approach of capping at 100% of nameplate capacity.
+            return min(1.0, m.gen_max_capacity_factor[g, t])
         else:
             return 1.0
 
@@ -230,11 +233,10 @@ def define_components(model):
             for g in m.GENS_IN_ZONE[z]
             if (g, t) in m.GEN_TPS and m.gen_can_provide_cap_reserves[g]
         ]
+        STORAGE_GENS = getattr(m, "STORAGE_GENS", set())
         for g in GENS:
             # Storage is only credited with its expected output
-            # Note: this code appears to have no users, since it references
-            # DispatchGen, which doesn't exist (should be m.DispatchGen).
-            if g in getattr(m, "STORAGE_GENS", set()):
+            if g in STORAGE_GENS:
                 reserve_cap += m.DispatchGen[g, t] - m.ChargeStorage[g, t]
             # If local_td is included with DER modeling, avoid allocating
             # distributed generation to central grid capacity because it will
@@ -295,14 +297,17 @@ def define_dynamic_components(model):
 
 def load_inputs(model, switch_data, inputs_dir):
     """
-    reserve_capacity_value.csv
+    Files or columns marked with * are optional. See notes above on default
+    values.
+
+    reserve_capacity_value.csv*
         GEN, TIMEPOINT, gen_capacity_value
 
-    planning_reserve_requirement_zones.csv
-        PLANNING_RESERVE_REQUIREMENTS, prr_cap_reserve_margin, prr_enforcement_timescale
+    planning_reserve_requirements.csv*
+        PLANNING_RESERVE_REQUIREMENTS, prr_cap_reserve_margin*, prr_enforcement_timescale*
 
-    generation_projects_info.csv
-        ..., gen_can_provide_cap_reserves
+    gen_info.csv
+        ..., gen_can_provide_cap_reserves*
 
     planning_reserve_requirement_zones.csv
         PRR, ZONE
@@ -311,18 +316,17 @@ def load_inputs(model, switch_data, inputs_dir):
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "reserve_capacity_value.csv"),
         optional=True,
-        auto_select=True,
         param=(model.gen_capacity_value),
     )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "planning_reserve_requirements.csv"),
-        auto_select=True,
+        optional=True,
         index=model.PLANNING_RESERVE_REQUIREMENTS,
+        optional_params=["gen_can_provide_cap_reserves", "prr_enforcement_timescale"],
         param=(model.prr_cap_reserve_margin, model.prr_enforcement_timescale),
     )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "generation_projects_info.csv"),
-        auto_select=True,
+        filename=os.path.join(inputs_dir, "gen_info.csv"),
         optional_params=["gen_can_provide_cap_reserves"],
         param=(model.gen_can_provide_cap_reserves),
     )

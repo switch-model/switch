@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 from __future__ import print_function
@@ -7,7 +7,7 @@ from __future__ import absolute_import
 import argparse
 import os
 import shutil
-from distutils.version import StrictVersion
+from pkg_resources import parse_version
 
 import switch_model
 
@@ -17,6 +17,8 @@ from . import upgrade_2_0_0b4
 from . import upgrade_2_0_1
 from . import upgrade_2_0_4
 from . import upgrade_2_0_5
+from . import upgrade_2_0_6
+from . import upgrade_2_0_7
 
 # Available upgrade code. This needs to be in consecutive order so
 # upgrade_inputs can incrementally apply the upgrades.
@@ -29,13 +31,15 @@ upgrade_plugins = [
         upgrade_2_0_1,
         upgrade_2_0_4,
         upgrade_2_0_5,
+        upgrade_2_0_6,
+        upgrade_2_0_7,
     ]
 ]
 
 # Not every code revision requires an update; this is the last revision that did.
 last_required_update = upgrade_plugins[-1][-1]
 
-code_version = StrictVersion(switch_model.__version__)
+code_version = parse_version(switch_model.__version__)
 version_file = "switch_inputs_version.txt"
 # verbose = False
 verbose = True
@@ -48,7 +52,6 @@ def scan_and_upgrade(
         for dirname in dirnames:
             path = os.path.join(dirpath, dirname)
             if os.path.exists(os.path.join(path, inputs_dir_name, "modules.txt")):
-                # print_verbose('upgrading {}'.format(os.path.join(path, inputs_dir_name)))
                 upgrade_inputs(
                     os.path.join(path, inputs_dir_name), backup, assign_current_version
                 )
@@ -101,7 +104,7 @@ def do_inputs_need_upgrade(inputs_dir):
     # Not every code revision requires an update, so just hard-code the last
     # revision that required an update.
     inputs_version = get_input_version(inputs_dir)
-    return StrictVersion(inputs_version) < StrictVersion(last_required_update)
+    return parse_version(inputs_version) < parse_version(last_required_update)
 
 
 def _backup(inputs_dir):
@@ -114,32 +117,35 @@ def _backup(inputs_dir):
         shutil.make_archive(inputs_backup, "zip", inputs_dir)
 
 
-def print_verbose(*args):
+def print_verbose(*args, indent=True):
     global verbose
     if verbose:
-        print(*args)
+        if indent:
+            print("       ", *args)
+        else:
+            print(*args)
 
 
 def upgrade_inputs(inputs_dir, backup=True, assign_current_version=False):
     # This logic will grow over time as complexity evolves.. Don't overengineer
     upgraded = False
     if do_inputs_need_upgrade(inputs_dir):
-        print_verbose("Upgrading " + inputs_dir)
+        print_verbose("Upgrading " + inputs_dir, indent=False)
         if backup:
-            print_verbose("\tBacked up original inputs")
+            print_verbose("Backed up original inputs")
             _backup(inputs_dir)
         # Successively apply the upgrade scripts as needed.
         for (upgrader, v_from, v_to) in upgrade_plugins:
-            inputs_v = StrictVersion(get_input_version(inputs_dir))
+            inputs_v = parse_version(get_input_version(inputs_dir))
             # note: the next line catches datasets created by/for versions of Switch that
             # didn't require input directory upgrades
-            if StrictVersion(v_from) <= inputs_v < StrictVersion(v_to):
-                print_verbose("\tUpgrading from " + v_from + " to " + v_to)
+            if parse_version(v_from) <= inputs_v < parse_version(v_to):
+                print_verbose("Upgrading from " + v_from + " to " + v_to)
                 upgrader.upgrade_input_dir(inputs_dir)
         upgraded = True
 
     if (
-        StrictVersion(last_required_update) < StrictVersion(switch_model.__version__)
+        parse_version(last_required_update) < parse_version(switch_model.__version__)
         and assign_current_version
     ):
         # user requested writing of current version number, even if no upgrade is needed
@@ -148,9 +154,9 @@ def upgrade_inputs(inputs_dir, backup=True, assign_current_version=False):
         upgraded = True
 
     if upgraded:
-        print_verbose("\tFinished upgrading " + inputs_dir + "\n")
+        print_verbose("Finished upgrading " + inputs_dir + "\n")
     else:
-        print_verbose("Skipped " + inputs_dir + "; it does not need upgrade.")
+        print_verbose(f"Skipped {inputs_dir}; it does not need upgrade.", indent=False)
 
 
 def main(args=None):
@@ -218,8 +224,9 @@ def add_parser_args(parser):
         default=False,
         action="store_true",
         help=(
-            "Recursively scan the provided path for inputs directories "
-            'named "inputs", and upgrade each directory found. Note, this '
+            "Recursively scan from the current directory, searching for "
+            "directories named as shown in --inputs-dir-name, and "
+            "upgrading each directory found. Note, this "
             "requires each inputs directory to include modules.txt. This "
             "will not work if modules.txt is in the parent directory."
         ),

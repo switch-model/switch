@@ -10,6 +10,7 @@ environment or object in R, and return that to Python. Then that could be
 returned by the python calibrate() function and attached to the model.
 """
 from __future__ import print_function
+from switch_model.utilities import unique_list
 
 
 def define_arguments(argparser):
@@ -136,12 +137,6 @@ def test_calib():
     ]
     calibrate(base_data)
     r.print_calib()
-
-
-def unique_list(seq):
-    # from http://stackoverflow.com/questions/480214/how-do-you-remove-duplicates-from-a-list-in-python-whilst-preserving-order
-    seen = set()
-    return [x for x in seq if not (x in seen or seen.add(x))]
 
 
 def make_r_value_array(base_value_dict, hours_of_day, time_series, load_zones):

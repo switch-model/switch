@@ -67,16 +67,18 @@ setup(
         "planning",
         "optimization",
     ],
-    python_requires=">=2.7.12",
+    python_requires=">=3.7.0",
     install_requires=[
-        # Pyomo 4.4.1+ works with glpk 4.60+
-        "Pyomo >=4.4.1, <=5.6.8",
-        # pyutilib 6.0 breaks compatibility, and earlier versions of Pyomo
-        # will cheerfully install it, so we explicitly block it
-        "pyutilib <=5.7.3",
-        "pint",  # needed by Pyomo when we run our tests, but not included
-        "testfixtures",  # used for standard tests
-        "pandas",  # used for input upgrades and testing that functionality
+        # 4.4.1+ works with glpk 4.60+; 5.6.9 gives warning and 5.7 gives error
+        "Pyomo >=5.5.1, <=6.4.2",
+        # by default, incompatible 6.0 gets installed with Pyomo 5.6.*
+        "pyutilib >=5.6.3, <=6.0.0",
+        # needed by Pyomo when we run our tests, but not included
+        "pint",
+        # used for standard tests
+        "testfixtures",
+        # used for input upgrades and some reporting
+        "pandas",
     ],
     extras_require={
         # packages used for advanced demand response, progressive hedging
@@ -89,7 +91,7 @@ setup(
             "sympy",
         ],
         "dev": ["ipdb"],
-        "plotting": ["ggplot"],
+        "plotting": ["plotnine"],
         "database_access": ["psycopg2-binary"],
     },
     entry_points={"console_scripts": ["switch = switch_model.main:main"]},

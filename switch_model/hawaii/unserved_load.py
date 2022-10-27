@@ -22,11 +22,11 @@ def define_components(m):
     if m.options.unserved_load_penalty is not None:
         # always use penalty factor supplied on the command line, if any
         m.unserved_load_penalty_per_mwh = Param(
-            initialize=m.options.unserved_load_penalty
+            within=NonNegativeReals, initialize=m.options.unserved_load_penalty
         )
     else:
         # no penalty on the command line, use whatever is in the parameter files, or 10000
-        m.unserved_load_penalty_per_mwh = Param(default=10000)
+        m.unserved_load_penalty_per_mwh = Param(within=NonNegativeReals, default=10000)
 
     # amount of unserved load during each timepoint
     m.UnservedLoad = Var(m.LOAD_ZONES, m.TIMEPOINTS, within=NonNegativeReals)

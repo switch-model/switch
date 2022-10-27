@@ -1,4 +1,4 @@
-# Copyright (c) 2016-2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -260,7 +260,7 @@ def define_components(mod):
     """
     #################
     # Nodes of the water network
-    mod.WATER_NODES = Set()
+    mod.WATER_NODES = Set(dimen=1)
     mod.WNODE_TPS = Set(dimen=2, initialize=lambda m: m.WATER_NODES * m.TIMEPOINTS)
     mod.wnode_constant_inflow = Param(
         mod.WATER_NODES, within=NonNegativeReals, default=0.0
@@ -285,7 +285,7 @@ def define_components(mod):
 
     #################
     # Reservoir nodes
-    mod.RESERVOIRS = Set(within=mod.WATER_NODES)
+    mod.RESERVOIRS = Set(within=mod.WATER_NODES, dimen=1)
     mod.RESERVOIR_TPS = Set(dimen=2, initialize=lambda m: m.RESERVOIRS * m.TIMEPOINTS)
     mod.res_min_vol = Param(mod.RESERVOIRS, within=NonNegativeReals)
     mod.res_max_vol = Param(
@@ -335,7 +335,7 @@ def define_components(mod):
 
     ################
     # Edges of the water network
-    mod.WATER_CONNECTIONS = Set()
+    mod.WATER_CONNECTIONS = Set(dimen=1)
     mod.WCON_TPS = Set(dimen=2, initialize=lambda m: m.WATER_CONNECTIONS * m.TIMEPOINTS)
     mod.water_node_from = Param(mod.WATER_CONNECTIONS, within=mod.WATER_NODES)
     mod.water_node_to = Param(mod.WATER_CONNECTIONS, within=mod.WATER_NODES)
@@ -346,15 +346,17 @@ def define_components(mod):
     mod.min_data_check("water_node_from", "water_node_to")
     mod.INWARD_WCONS_TO_WNODE = Set(
         mod.WATER_NODES,
-        initialize=lambda m, wn: set(
+        dimen=1,
+        initialize=lambda m, wn: [
             wc for wc in m.WATER_CONNECTIONS if m.water_node_to[wc] == wn
-        ),
+        ],
     )
     mod.OUTWARD_WCONS_FROM_WNODE = Set(
         mod.WATER_NODES,
-        initialize=lambda m, wn: set(
+        dimen=1,
+        initialize=lambda m, wn: [
             wc for wc in m.WATER_CONNECTIONS if m.water_node_from[wc] == wn
-        ),
+        ],
     )
     mod.DispatchWater = Var(
         mod.WCON_TPS,
@@ -412,14 +414,12 @@ def define_components(mod):
 
     ################
     # Hydro projects
-    mod.HYDRO_GENS = Set(validate=lambda m, val: val in m.GENERATION_PROJECTS)
+    mod.HYDRO_GENS = Set(dimen=1, within=mod.GENERATION_PROJECTS)
     mod.HYDRO_GEN_TPS = Set(
-        initialize=mod.GEN_TPS, filter=lambda m, g, t: g in m.HYDRO_GENS
+        dimen=2, initialize=mod.GEN_TPS, filter=lambda m, g, t: g in m.HYDRO_GENS
     )
     mod.hydro_efficiency = Param(mod.HYDRO_GENS, within=NonNegativeReals)
-    mod.hydraulic_location = Param(
-        mod.HYDRO_GENS, validate=lambda m, val, g: val in m.WATER_CONNECTIONS
-    )
+    mod.hydraulic_location = Param(mod.HYDRO_GENS, within=mod.WATER_CONNECTIONS)
     mod.TurbinateFlow = Var(mod.HYDRO_GEN_TPS, within=NonNegativeReals)
     mod.SpillFlow = Var(mod.HYDRO_GEN_TPS, within=NonNegativeReals)
     mod.Enforce_Hydro_Generation = Constraint(
@@ -459,7 +459,6 @@ def load_inputs(mod, switch_data, inputs_dir):
 
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "water_nodes.csv"),
-        auto_select=True,
         index=mod.WATER_NODES,
         optional_params=["mod.wnode_constant_inflow", "mod.wnode_constant_consumption"],
         param=(
@@ -471,13 +470,11 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, "water_node_tp_flows.csv"),
-        auto_select=True,
         optional_params=["mod.wnode_tp_inflow", "mod.wnode_tp_consumption"],
         param=(mod.wnode_tp_inflow, mod.wnode_tp_consumption),
     )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "reservoirs.csv"),
-        auto_select=True,
         index=mod.RESERVOIRS,
         param=(
             mod.res_min_vol,
@@ -494,31 +491,26 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "reservoir_tp_data.csv"),
         optional=True,
-        auto_select=True,
         optional_params=["mod.res_max_vol_tp", "mod.res_min_vol_tp"],
         param=(mod.res_max_vol_tp, mod.res_min_vol_tp),
     )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "water_connections.csv"),
-        auto_select=True,
         index=mod.WATER_CONNECTIONS,
         param=(mod.water_node_from, mod.water_node_to, mod.wc_capacity),
     )
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, "min_eco_flows.csv"),
-        auto_select=True,
         param=(mod.min_eco_flow),
     )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "hydro_generation_projects.csv"),
-        auto_select=True,
         index=mod.HYDRO_GENS,
         param=(mod.hydro_efficiency, mod.hydraulic_location),
     )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "spillage_penalty.csv"),
         optional=True,
-        auto_select=True,
         param=(mod.spillage_penalty,),
     )

@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -38,6 +38,7 @@ def define_components(mod):
     """
 
     mod.DISCRETE_GEN_BLD_YRS = Set(
+        dimen=2,
         initialize=mod.GEN_BLD_YRS,
         filter=lambda m, g, bld_yr: g in m.DISCRETELY_SIZED_GENS,
     )

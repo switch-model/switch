@@ -24,25 +24,27 @@ def define_components(m):
     # use the battery, so on average you can always have a refurbished battery on hand.
 
     # battery capital cost
-    m.battery_capital_cost_per_mwh_capacity = Param()
+    m.battery_capital_cost_per_mwh_capacity = Param(within=NonNegativeReals)
     # number of full cycles the battery can do; we assume shallower cycles do proportionally less damage
-    m.battery_n_cycles = Param()
+    m.battery_n_cycles = Param(within=NonNegativeReals)
     # maximum depth of discharge
-    m.battery_max_discharge = Param()
+    m.battery_max_discharge = Param(within=PercentFraction)
     # round-trip efficiency
-    m.battery_efficiency = Param()
+    m.battery_efficiency = Param(within=PercentFraction)
     # fastest time that storage can be emptied (down to max_discharge)
-    m.battery_min_discharge_time = Param()
+    m.battery_min_discharge_time = Param(within=NonNegativeReals)
 
     # we treat storage as infinitely long-lived (so we pay just interest on the loan),
     # but charge a usage fee corresponding to the reduction in life during each cycle
     # (i.e., enough to restore it to like-new status, on average)
     m.battery_cost_per_mwh_cycled = Param(
+        within=NonNegativeReals,
         initialize=lambda m: m.battery_capital_cost_per_mwh_capacity
-        / (m.battery_n_cycles * m.battery_max_discharge)
+        / (m.battery_n_cycles * m.battery_max_discharge),
     )
     m.battery_fixed_cost_per_year = Param(
-        initialize=lambda m: m.battery_capital_cost_per_mwh_capacity * m.interest_rate
+        within=NonNegativeReals,
+        initialize=lambda m: m.battery_capital_cost_per_mwh_capacity * m.interest_rate,
     )
 
     # amount of battery capacity to build and use (in MWh)

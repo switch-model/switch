@@ -1,6 +1,6 @@
 from __future__ import division
 
-# Copyright 2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2, which is in the LICENSE file.
 
 import os
@@ -66,11 +66,12 @@ def define_components(mod):
 
     mod.f_rps_eligible = Param(mod.FUELS, within=Boolean, default=False)
     mod.RPS_ENERGY_SOURCES = Set(
-        initialize=lambda m: set(m.NON_FUEL_ENERGY_SOURCES)
-        | set(f for f in m.FUELS if m.f_rps_eligible[f])
+        dimen=1,
+        initialize=lambda m: list(m.NON_FUEL_ENERGY_SOURCES)
+        + [f for f in m.FUELS if m.f_rps_eligible[f]],
     )
 
-    mod.RPS_PERIODS = Set(validate=lambda m, p: p in m.PERIODS)
+    mod.RPS_PERIODS = Set(dimen=1, validate=lambda m, p: p in m.PERIODS)
     mod.rps_target = Param(mod.RPS_PERIODS, within=PercentFraction)
 
     mod.RPSFuelEnergy = Expression(
@@ -144,7 +145,6 @@ def load_inputs(mod, switch_data, inputs_dir):
     )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "rps_targets.csv"),
-        autoselect=True,
         index=mod.RPS_PERIODS,
         param=(mod.rps_target,),
     )

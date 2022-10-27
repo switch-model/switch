@@ -55,9 +55,30 @@ def define_arguments(argparser):
         "Pre-written options include constant_elasticity_demand_system or r_demand_system. "
         "Specify one of these in the modules list and use --help again to see module-specific options.",
     )
+    argparser.add_argument(
+        "--demand-response-reserve-types",
+        nargs="+",
+        default=[],
+        help="Type(s) of reserves to provide from demand response (e.g., 'contingency' or 'regulation'). "
+        "Specify 'none' to disable. Default is 'spinning' if an operating reserve module is used, "
+        "otherwise it is 'none'.",
+    )
 
 
 def define_components(m):
+
+    # load scipy.optimize; this is done here to avoid loading it during unit tests
+    try:
+        global scipy
+        import scipy.optimize
+    except ImportError:
+        print("=" * 80)
+        print(
+            "Unable to load scipy package, which is used by the demand response system."
+        )
+        print("Please install this via 'conda install scipy' or 'pip install scipy'.")
+        print("=" * 80)
+        raise
 
     ###################
     # Choose the right demand module.
@@ -83,19 +104,6 @@ def define_components(m):
         )
     demand_module = sys.modules[m.options.dr_demand_module]
 
-    # load scipy.optimize for use later
-    try:
-        global scipy
-        import scipy.optimize
-    except ImportError:
-        print("=" * 80)
-        print(
-            "Unable to load scipy package, which is used by the demand response system."
-        )
-        print("Please install this via 'conda install scipy' or 'pip install scipy'.")
-        print("=" * 80)
-        raise
-
     # Make sure the model has dual and rc suffixes
     if not hasattr(m, "dual"):
         m.dual = Suffix(direction=Suffix.IMPORT)
@@ -108,7 +116,9 @@ def define_components(m):
     ##################
 
     # cost per MWh for unserved load (high)
-    m.dr_unserved_load_penalty_per_mwh = Param(initialize=10000)
+    m.dr_unserved_load_penalty_per_mwh = Param(
+        initialize=10000, within=NonNegativeReals
+    )
     # amount of unserved load during each timepoint
     m.DRUnservedLoad = Var(m.LOAD_ZONES, m.TIMEPOINTS, within=NonNegativeReals)
     # total cost for unserved load
@@ -125,14 +135,14 @@ def define_components(m):
     m.Cost_Components_Per_TP.append("DR_Unserved_Load_Penalty")
 
     # list of products (commodities and reserves) that can be bought or sold
-    m.DR_PRODUCTS = Set(initialize=["energy", "energy up", "energy down"])
+    m.DR_PRODUCTS = Set(dimen=1, initialize=["energy", "energy up", "energy down"])
 
     ###################
     # Price Responsive Demand bids
     ##################
 
     # list of all bids that have been received from the demand system
-    m.DR_BID_LIST = Set(initialize=[], ordered=True)
+    m.DR_BID_LIST = Set(dimen=1, initialize=[], ordered=True)
     # we need an explicit indexing set for everything that depends on DR_BID_LIST
     # so we can reconstruct it (and them) each time we add an element to DR_BID_LIST
     # (not needed, and actually doesn't work -- reconstruct() fails for sets)
@@ -143,16 +153,28 @@ def define_components(m):
     # and each bid covers all the timepoints in that timeseries. So we just record
     # the bid for each timepoint for each load_zone.
     m.dr_bid = Param(
-        m.DR_BID_LIST, m.LOAD_ZONES, m.TIMEPOINTS, m.DR_PRODUCTS, mutable=True
+        m.DR_BID_LIST,
+        m.LOAD_ZONES,
+        m.TIMEPOINTS,
+        m.DR_PRODUCTS,
+        mutable=True,
+        within=NonNegativeReals,
     )
 
     # price used to get this bid (only kept for reference)
     m.dr_price = Param(
-        m.DR_BID_LIST, m.LOAD_ZONES, m.TIMEPOINTS, m.DR_PRODUCTS, mutable=True
+        m.DR_BID_LIST,
+        m.LOAD_ZONES,
+        m.TIMEPOINTS,
+        m.DR_PRODUCTS,
+        mutable=True,
+        within=NonNegativeReals,
     )
 
     # the private benefit of serving each bid
-    m.dr_bid_benefit = Param(m.DR_BID_LIST, m.LOAD_ZONES, m.TIMESERIES, mutable=True)
+    m.dr_bid_benefit = Param(
+        m.DR_BID_LIST, m.LOAD_ZONES, m.TIMESERIES, mutable=True, within=NonNegativeReals
+    )
 
     # weights to assign to the bids for each timeseries when constructing an optimal demand profile
     m.DRBidWeight = Var(
@@ -210,10 +232,11 @@ def define_components(m):
             for b in m.DR_BID_LIST
         ),
     )
-    # provide up and down reserves (from supply perspective, so "up" means less load)
-    # note: the bids are negative quantities, indicating _production_ of reserves;
-    # they contribute to the reserve requirement with opposite sign
-    m.DemandUpReserves = Expression(
+
+    # calculate available slack from demand response for use as reserves (from
+    # supply perspective, so "up" means less load), then register spinning
+    # reserves
+    m.DemandUpReserveSales = Expression(
         m.LOAD_ZONES,
         m.TIMEPOINTS,
         rule=lambda m, z, tp: -sum(
@@ -221,7 +244,7 @@ def define_components(m):
             for b in m.DR_BID_LIST
         ),
     )
-    m.DemandDownReserves = Expression(
+    m.DemandDownReserveSales = Expression(
         m.LOAD_ZONES,
         m.TIMEPOINTS,
         rule=lambda m, z, tp: -sum(
@@ -229,34 +252,20 @@ def define_components(m):
             for b in m.DR_BID_LIST
         ),
     )
-    # Register with spinning reserves if it is available
-    if hasattr(m, "Spinning_Reserve_Up_Provisions"):
-        m.DemandSpinningReserveUp = Expression(
+    if hasattr(m, "ZONES_IN_BALANCING_AREA"):
+        m.DemandResponseSlackUp = Expression(
             m.BALANCING_AREA_TIMEPOINTS,
-            rule=lambda m, b, t: sum(
-                m.DemandUpReserves[z, t] for z in m.ZONES_IN_BALANCING_AREA[b]
+            rule=lambda m, ba, tp: sum(
+                m.DemandUpReserveSales[z, tp] for z in m.ZONES_IN_BALANCING_AREA[ba]
             ),
         )
-        m.Spinning_Reserve_Up_Provisions.append("DemandSpinningReserveUp")
-
-        m.DemandSpinningReserveDown = Expression(
+        m.DemandResponseSlackDown = Expression(
             m.BALANCING_AREA_TIMEPOINTS,
-            rule=lambda m, b, t: sum(
-                m.DemandDownReserves[z, t] for z in m.ZONES_IN_BALANCING_AREA[b]
+            rule=lambda m, ba, tp: sum(
+                m.DemandDownReserveSales[z, tp] for z in m.ZONES_IN_BALANCING_AREA[ba]
             ),
         )
-        m.Spinning_Reserve_Down_Provisions.append("DemandSpinningReserveDown")
-    if hasattr(m, "GEN_SPINNING_RESERVE_TYPES"):
-        # User has spacified advanced formulation with different reserve types.
-        # Code needs to be added to support this if needed (see simple.py
-        # for an example). This is not hard, but it gets messy to support
-        # both simple and advanced formulations. Eventually we should just
-        # standardize on the advanced formulation, and then the code will be
-        # fairly simple.
-        raise NotImplementedError(
-            "The {} module does not yet support provision of multiple reserve types. "
-            "Please contact the Switch team if you need this feature.".format(__name__)
-        )
+    register_demand_response_reserves(m)
 
     # replace zone_demand_mw with FlexibleDemand in the energy balance constraint
     # note: the first two lines are simpler than the method I use, but my approach
@@ -331,6 +340,10 @@ def define_components(m):
     # m.TPS_FOR_FLAT_PRICING_GROUP = Set(m.FLAT_PRICING_GROUPS, initialize=rule)
     #
     # m.tp_flat_pricing_block = Param(m.TIMEPOINTS, within=m.FLAT_PRICING_START_TIMES, initialize=rule)
+
+    # provide up and down reserves (from supply perspective, so "up" means less load)
+    # note: the bids are negative quantities, indicating _production_ of reserves;
+    # they contribute to the reserve requirement with opposite sign
 
 
 def pre_iterate(m):
@@ -575,12 +588,7 @@ def post_iterate(m):
     if m.iteration_number == 0:
         util.create_table(
             output_file=os.path.join(outputs_dir, "bid_{t}.csv".format(t=tag)),
-            headings=(
-                "bid_num",
-                "load_zone",
-                "timeseries",
-                "timepoint",
-            )
+            headings=("bid_num", "load_zone", "timeseries", "timepoint")
             + tuple("marginal_cost " + prod for prod in m.DR_PRODUCTS)
             + tuple("price " + prod for prod in m.DR_PRODUCTS)
             + tuple("bid " + prod for prod in m.DR_PRODUCTS)
@@ -592,12 +600,7 @@ def post_iterate(m):
         m.LOAD_ZONES,
         m.TIMEPOINTS,
         output_file=os.path.join(outputs_dir, "bid_{t}.csv".format(t=tag)),
-        values=lambda m, z, tp: (
-            b,
-            z,
-            m.tp_ts[tp],
-            m.tp_timestamp[tp],
-        )
+        values=lambda m, z, tp: (b, z, m.tp_ts[tp], m.tp_timestamp[tp])
         + tuple(m.prev_marginal_cost[z, tp, prod] for prod in m.DR_PRODUCTS)
         + tuple(m.dr_price[b, z, tp, prod] for prod in m.DR_PRODUCTS)
         + tuple(m.dr_bid[b, z, tp, prod] for prod in m.DR_PRODUCTS)
@@ -632,6 +635,15 @@ def post_iterate(m):
     # if m.iteration_number % 5 == 0:
     #     # save time by only writing results every 5 iterations
     # write_results(m)
+
+    # Stop if there are no duals. This is an efficient point to check, and
+    # otherwise the errors later are pretty cryptic.
+    if not m.dual:
+        raise RuntimeError(
+            "No dual values have been calculated. Check that your solver is "
+            "able to provide duals for integer programs. If using cplex, you "
+            "may need to specify --retrieve-cplex-mip-duals."
+        )
 
     write_dual_costs(m)
     write_results(m)
@@ -718,16 +730,20 @@ def total_direct_costs_per_year(m, period):
 
 def electricity_marginal_cost(m, z, tp, prod):
     """Return marginal cost of providing product prod in load_zone z during timepoint tp."""
+    if hasattr(m, "zone_balancing_area"):
+        ba = m.zone_balancing_area[z]
     if prod == "energy":
         component = m.Zone_Energy_Balance[z, tp]
     elif prod == "energy up":
-        component = m.Satisfy_Spinning_Reserve_Up_Requirement[
-            m.zone_balancing_area[z], tp
-        ]
+        if hasattr(m, "Limit_DemandResponseSpinningReserveUp"):
+            component = m.Limit_DemandResponseSpinningReserveUp[ba, tp]
+        else:
+            component = m.Satisfy_Spinning_Reserve_Up_Requirement[ba, tp]
     elif prod == "energy down":
-        component = m.Satisfy_Spinning_Reserve_Down_Requirement[
-            m.zone_balancing_area[z], tp
-        ]
+        if hasattr(m, "Limit_DemandResponseSpinningReserveUp"):
+            component = m.Limit_DemandResponseSpinningReserveDown[ba, tp]
+        else:
+            component = m.Satisfy_Spinning_Reserve_Down_Requirement[ba, tp]
     else:
         raise ValueError("Unrecognized electricity product: {}.".format(prod))
     return m.dual[component] / m.bring_timepoint_costs_to_base_year[tp]
@@ -745,9 +761,9 @@ def electricity_demand(m, z, tp, prod):
     elif prod == "energy up":
         # note: reserves have positive sign when provided by demand side,
         # but that should be shown as negative demand
-        demand = -value(m.DemandUpReserves[z, tp])
+        demand = -value(m.DemandUpReserveSales[z, tp])
     elif prod == "energy down":
-        demand = -value(m.DemandDownReserves[z, tp])
+        demand = -value(m.DemandDownReserveSales[z, tp])
     else:
         raise ValueError("Unrecognized electricity product: {}.".format(prod))
     return demand
@@ -853,6 +869,7 @@ def get_bids(m):
     for z in m.LOAD_ZONES:
         for ts in m.TIMESERIES:
             demand, wtp = demand_module.bid(m, z, ts, prices[z, ts])
+            # import pdb; pdb.set_trace()
             if m.options.dr_flat_pricing:
                 # assume demand side will not provide reserves, even if they offered some
                 # (at zero price)
@@ -1011,8 +1028,15 @@ def add_bids(m, bids):
     if hasattr(m, "DR_Flat_Bid_Weight"):
         m.DR_Flat_Bid_Weight.reconstruct()
     m.FlexibleDemand.reconstruct()
-    m.DemandUpReserves.reconstruct()
-    m.DemandDownReserves.reconstruct()
+    m.DemandUpReserveSales.reconstruct()
+    m.DemandDownReserveSales.reconstruct()
+    if hasattr(m, "DemandResponseSlackUp"):
+        m.DemandResponseSlackUp.reconstruct()
+        m.DemandResponseSlackDown.reconstruct()
+    if hasattr(m, "Limit_DemandResponseSpinningReserveUp"):
+        m.Limit_DemandResponseSpinningReserveUp.reconstruct()
+        m.Limit_DemandResponseSpinningReserveDown.reconstruct()
+
     m.DR_Welfare_Cost.reconstruct()
     # it seems like we have to reconstruct the higher-level components that depend on these
     # ones (even though these are Expressions), because otherwise they refer to objects that
@@ -1021,9 +1045,9 @@ def add_bids(m, bids):
     # (i.e., Energy_Balance refers to the items returned by FlexibleDemand instead of referring
     # to FlexibleDemand itself)
     m.Zone_Energy_Balance.reconstruct()
-    if hasattr(m, "SpinningReservesUpAvailable"):
-        m.SpinningReservesUpAvailable.reconstruct()
-        m.SpinningReservesDownAvailable.reconstruct()
+    if hasattr(m, "Aggregate_Spinning_Reserve_Details"):
+        m.Aggregate_Spinning_Reserve_Details.reconstruct()
+    if hasattr(m, "Satisfy_Spinning_Reserve_Up_Requirement"):
         m.Satisfy_Spinning_Reserve_Up_Requirement.reconstruct()
         m.Satisfy_Spinning_Reserve_Down_Requirement.reconstruct()
     # reconstruct_energy_balance(m)
@@ -1042,6 +1066,72 @@ def reconstruct_energy_balance(m):
         for k in old_Energy_Balance:
             # change dual entries to match new Energy_Balance objects
             m.dual[m.Zone_Energy_Balance[k]] = m.dual.pop(old_Energy_Balance[k])
+
+
+def register_demand_response_reserves(m):
+    if m.options.demand_response_reserve_types == []:
+        if hasattr(m, "Spinning_Reserve_Up_Provisions"):
+            m.options.demand_response_reserve_types == ["spinning"]
+        else:
+            m.options.demand_response_reserve_types == ["none"]
+
+    if [rt.lower() for rt in m.options.demand_response_reserve_types] != ["none"]:
+        # Register with spinning reserves
+        if not hasattr(m, "Spinning_Reserve_Up_Provisions"):
+            raise ValueError(
+                "--demand-response-reserve-types is set to a value other than "
+                "'none' ({}). This requires that a spinning reserve module be "
+                "specified in modules.txt.".format(
+                    m.options.demand_response_reserve_types
+                )
+            )
+
+        if hasattr(m, "GEN_SPINNING_RESERVE_TYPES"):
+            # using advanced formulation, index by reserve type, balancing area, timepoint
+            # define variables for each type of reserves to be provided
+            # choose how to allocate the slack between the different reserve products
+            m.DR_SPINNING_RESERVE_TYPES = Set(
+                dimen=1, initialize=m.options.demand_response_reserve_types
+            )
+            m.DemandResponseSpinningReserveUp = Var(
+                m.DR_SPINNING_RESERVE_TYPES,
+                m.BALANCING_AREA_TIMEPOINTS,
+                within=NonNegativeReals,
+            )
+            m.DemandResponseSpinningReserveDown = Var(
+                m.DR_SPINNING_RESERVE_TYPES,
+                m.BALANCING_AREA_TIMEPOINTS,
+                within=NonNegativeReals,
+            )
+            # constrain reserve provision within available slack
+            m.Limit_DemandResponseSpinningReserveUp = Constraint(
+                m.BALANCING_AREA_TIMEPOINTS,
+                rule=lambda m, ba, tp: sum(
+                    m.DemandResponseSpinningReserveUp[rt, ba, tp]
+                    for rt in m.DR_SPINNING_RESERVE_TYPES
+                )
+                <= m.DemandResponseSlackUp[ba, tp],
+            )
+            m.Limit_DemandResponseSpinningReserveDown = Constraint(
+                m.BALANCING_AREA_TIMEPOINTS,
+                rule=lambda m, ba, tp: sum(
+                    m.DemandResponseSpinningReserveDown[rt, ba, tp]
+                    for rt in m.DR_SPINNING_RESERVE_TYPES
+                )
+                <= m.DemandResponseSlackDown[ba, tp],
+            )
+            m.Spinning_Reserve_Up_Provisions.append("DemandResponseSpinningReserveUp")
+            m.Spinning_Reserve_Down_Provisions.append(
+                "DemandResponseSpinningReserveDown"
+            )
+        else:
+            # using older formulation, only one type of spinning reserves, indexed by balancing area, timepoint
+            if m.options.demand_response_reserve_types != ["spinning"]:
+                raise ValueError(
+                    'Unable to use reserve types other than "spinning" with simple spinning reserves module.'
+                )
+            m.Spinning_Reserve_Up_Provisions.append("DemandResponseSlackUp")
+            m.Spinning_Reserve_Down_Provisions.append("DemandResponseSlackDown")
 
 
 def write_batch_results(m):
@@ -1152,9 +1242,9 @@ def get(component, idx, default):
         return default
 
 
-def write_results(m):
+def write_results(m, include_iter_num=True):
     outputs_dir = m.options.outputs_dir
-    tag = filename_tag(m)
+    tag = filename_tag(m, include_iter_num)
 
     avg_ts_scale = float(sum(m.ts_scale_to_year[ts] for ts in m.TIMESERIES)) / len(
         m.TIMESERIES
@@ -1270,9 +1360,9 @@ def write_results(m):
     # pprint([(t, sum(x[2] for x in b if x[3]==t), sum(x[4] for x in b if x[3]==t)/sum(1.0 for x in b if x[3]==t)) for t in bt])
 
 
-def write_dual_costs(m):
+def write_dual_costs(m, include_iter_num=True):
     outputs_dir = m.options.outputs_dir
-    tag = filename_tag(m)
+    tag = filename_tag(m, include_iter_num)
 
     # with open(os.path.join(outputs_dir, "producer_surplus{t}.csv".format(t=tag)), 'w') as f:
     #     for g, per in m.Max_Build_Potential:
@@ -1360,17 +1450,21 @@ def write_dual_costs(m):
     print("time taken: {dur:.2f}s".format(dur=time.time() - start_time))
 
 
-def filename_tag(m):
+def filename_tag(m, include_iter_num=True):
+    tag = ""
     if m.options.scenario_name:
-        t = m.options.scenario_name + "_"
-    else:
-        t = ""
-    t = t + "_".join(map(str, m.iteration_node))
-    if t:
-        t = "_" + t
-    return t
+        tag += "_" + m.options.scenario_name
+    if include_iter_num:
+        if m.options.max_iter is None:
+            n_digits = 4
+        else:
+            n_digits = len(str(m.options.max_iter - 1))
+        tag += "".join(f"_{t:0{n_digits}d}" for t in m.iteration_node)
+    return tag
 
 
-# def post_solve(m, outputs_dir):
-#     # report the dual costs
-#     write_dual_costs(m)
+def post_solve(m, outputs_dir):
+    # report final results, possibly after smoothing,
+    # and without the iteration number
+    write_dual_costs(m, include_iter_num=False)
+    write_results(m, include_iter_num=False)

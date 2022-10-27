@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -11,6 +11,7 @@ from __future__ import division
 import os
 import csv
 from pyomo.environ import *
+from switch_model.utilities import unique_list
 
 dependencies = (
     "switch_model.timescales",
@@ -47,7 +48,7 @@ def define_components(mod):
     ZONE_FUELS is the set of fuels available in load zones. It is specified
     as set of 2-member tuples of (load_zone, fuel).
 
-    zone_rfm[z, f] is the regional fuel market that supplies a a given load
+    zone_fuel_rfm[z, f] is the regional fuel market that supplies a a given load
     zone. Regional fuel markets may be referred to as fuel regions for
     brevity. A regional fuel market could be as small as a single load
     zone or as large as the entire study region. In general, each fuel
@@ -57,7 +58,7 @@ def define_components(mod):
     that define different regional markets.
 
     ZONE_RFMS is the set of all load-zone regional fuel market combinations.
-    It is the input data from which zone_rfm[z,f] is derived.
+    It is the input data from which zone_fuel_rfm[z,f] is derived.
 
     ZONES_IN_RFM[rfm] is an indexed set that lists the load zones
     within each regional fuel market.
@@ -209,7 +210,7 @@ def define_components(mod):
 
     """
 
-    mod.REGIONAL_FUEL_MARKETS = Set()
+    mod.REGIONAL_FUEL_MARKETS = Set(dimen=1)
     mod.rfm_fuel = Param(mod.REGIONAL_FUEL_MARKETS, within=mod.FUELS)
     mod.ZONE_RFMS = Set(
         dimen=2,
@@ -218,22 +219,23 @@ def define_components(mod):
         ),
     )
     mod.ZONE_FUELS = Set(
-        dimen=2,
-        initialize=lambda m: set((z, m.rfm_fuel[rfm]) for (z, rfm) in m.ZONE_RFMS),
+        dimen=2, initialize=lambda m: [(z, m.rfm_fuel[rfm]) for (z, rfm) in m.ZONE_RFMS]
     )
 
-    def zone_rfm_init(m, load_zone, fuel):
+    def zone_fuel_rfm_init(m, load_zone, fuel):
+        # find first (only) matching rfm
         for (z, rfm) in m.ZONE_RFMS:
             if z == load_zone and fuel == m.rfm_fuel[rfm]:
                 return rfm
 
-    mod.zone_rfm = Param(
-        mod.ZONE_FUELS, within=mod.REGIONAL_FUEL_MARKETS, initialize=zone_rfm_init
+    mod.zone_fuel_rfm = Param(
+        mod.ZONE_FUELS, within=mod.REGIONAL_FUEL_MARKETS, initialize=zone_fuel_rfm_init
     )
-    mod.min_data_check("REGIONAL_FUEL_MARKETS", "rfm_fuel", "zone_rfm")
+    mod.min_data_check("REGIONAL_FUEL_MARKETS", "rfm_fuel", "zone_fuel_rfm")
     mod.ZONES_IN_RFM = Set(
         mod.REGIONAL_FUEL_MARKETS,
-        initialize=lambda m, rfm: set(z for (z, r) in m.ZONE_RFMS if r == rfm),
+        dimen=1,
+        initialize=lambda m, rfm: unique_list(z for (z, r) in m.ZONE_RFMS if r == rfm),
     )
 
     # RFM_SUPPLY_TIERS = [(regional_fuel_market, period, supply_tier_index)...]
@@ -252,9 +254,9 @@ def define_components(mod):
         mod.REGIONAL_FUEL_MARKETS,
         mod.PERIODS,
         dimen=3,
-        initialize=lambda m, rfm, ip: set(
+        initialize=lambda m, rfm, ip: [
             (r, p, st) for (r, p, st) in m.RFM_SUPPLY_TIERS if r == rfm and p == ip
-        ),
+        ],
     )
 
     mod.ConsumeFuelTier = Var(
@@ -291,7 +293,7 @@ def define_components(mod):
     # negative because that would create an unbounded optimization
     # problem.
     def zone_fuel_cost_adder_validate(model, val, z, fuel, p):
-        rfm = model.zone_rfm[z, fuel]
+        rfm = model.zone_fuel_rfm[z, fuel]
         for rfm_supply_tier in model.SUPPLY_TIERS_FOR_RFM_PERIOD[rfm, p]:
             if val + model.rfm_supply_tier_cost[
                 rfm_supply_tier
@@ -326,27 +328,28 @@ def define_components(mod):
     # dispatch into market framework
 
     def GENS_FOR_RFM_PERIOD_rule(m, rfm, p):
-        # Construct and cache a set of gens for each zone/fuel/period, then
-        # return lists of gens for each rfm/period as needed
+        # Construct and cache list of gens for each rfm/period, then return them
+        # as needed
         try:
             d = m.GENS_FOR_RFM_PERIOD_dict
         except AttributeError:
             d = m.GENS_FOR_RFM_PERIOD_dict = dict()
-            # d uses (zone, fuel, period) as key; could use (rfm, period) as key
-            # if m.zone_fuel_rfm (back-lookup) existed
             for g in m.FUEL_BASED_GENS:
                 for f in m.FUELS_FOR_GEN[g]:
-                    for p_ in m.PERIODS_FOR_GEN[g]:
-                        d.setdefault((m.gen_load_zone[g], f, p_), []).append(g)
-        relevant_gens = [
-            g
-            for z in m.ZONES_IN_RFM[rfm]
-            for g in d.pop((z, m.rfm_fuel[rfm], p), [])  # pop releases memory
-        ]
-        return relevant_gens
+                    try:
+                        _rfm = m.zone_fuel_rfm[m.gen_load_zone[g], f]
+                    except KeyError:  # no rfm provides this fuel
+                        pass
+                    else:
+                        for _p in m.PERIODS_FOR_GEN[g]:
+                            d.setdefault((_rfm, _p), []).append(g)
+        return d.pop((rfm, p), [])  # pop releases memory
 
     mod.GENS_FOR_RFM_PERIOD = Set(
-        mod.REGIONAL_FUEL_MARKETS, mod.PERIODS, initialize=GENS_FOR_RFM_PERIOD_rule
+        mod.REGIONAL_FUEL_MARKETS,
+        mod.PERIODS,
+        dimen=1,
+        initialize=GENS_FOR_RFM_PERIOD_rule,
     )
 
     def Enforce_Fuel_Consumption_rule(m, rfm, p):
@@ -361,6 +364,7 @@ def define_components(mod):
     )
 
     mod.GEN_TP_FUELS_UNAVAILABLE = Set(
+        dimen=3,
         initialize=mod.GEN_TP_FUELS,
         filter=lambda m, g, t, f: (m.gen_load_zone[g], f) not in m.ZONE_FUELS,
     )
@@ -369,18 +373,34 @@ def define_components(mod):
         rule=lambda m, g, t, f: m.GenFuelUseRate[g, t, f] == 0,
     )
 
-    # Calculate average fuel costs to allow post-optimization inspection
-    # and cost allocation.
     mod.AverageFuelCosts = Expression(
         mod.REGIONAL_FUEL_MARKETS,
         mod.PERIODS,
+        doc="Average fuel costs to allow post-optimization inspection "
+        "and cost allocation.",
         rule=lambda m, rfm, p: (
             rfm_annual_costs(m, rfm, p)
-            / sum(
-                m.ConsumeFuelTier[rfm_st]
-                for rfm_st in m.SUPPLY_TIERS_FOR_RFM_PERIOD[rfm, p]
+            / (
+                # Avoid divide-by-zero errors if no fuel is consumed.
+                m.FuelConsumptionInMarket[rfm, p]
+                + 0.0001
             )
         ),
+    )
+
+    def GenFuelCosts_rule(m, g, t, f):
+        try:
+            rfm = m.zone_fuel_rfm[m.gen_load_zone[g], f]
+        except KeyError:  # Fuel is unavailable
+            return 0.0
+        p = m.tp_period[t]
+        return m.GenFuelUseRate[g, t, f] * m.AverageFuelCosts[rfm, p]
+
+    mod.GenFuelCosts = Expression(
+        mod.GEN_TP_FUELS,
+        doc="Average cost of fuel consumption, $/hr for post-optimization "
+        "reporting.",
+        rule=GenFuelCosts_rule,
     )
 
 
@@ -534,4 +554,8 @@ def _load_simple_cost_data(mod, switch_data, path):
             st = 0
             switch_data.data(name="RFM_SUPPLY_TIERS").append((rfm, p, st))
             switch_data.data(name="rfm_supply_tier_cost")[rfm, p, st] = f_cost
-            switch_data.data(name="rfm_supply_tier_limit")[rfm, p, st] = float("inf")
+            # No need to specify an upper limit, since default is infinity
+            # (and this creates inf values in the data portal that could get
+            # written out to .dat files for PySP, which would be unable to read
+            # those values in Pyomo 5.7+)
+            # switch_data.data(name="rfm_supply_tier_limit")[rfm, p, st] = float("inf")

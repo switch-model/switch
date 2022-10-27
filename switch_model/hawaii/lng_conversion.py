@@ -10,6 +10,7 @@ from __future__ import print_function
 
 from pyomo.environ import *
 from switch_model.financials import capital_recovery_factor
+from switch_model.utilities import unique_list
 
 
 def define_arguments(argparser):
@@ -31,14 +32,21 @@ def define_components(m):
     # (e.g., bringing in containerized LNG for all islands)
 
     m.LNG_RFM_SUPPLY_TIERS = Set(
+        dimen=3,
         initialize=m.RFM_SUPPLY_TIERS,
         filter=lambda m, rfm, per, tier: m.rfm_fuel[rfm].upper() == "LNG",
     )
     m.LNG_REGIONAL_FUEL_MARKETS = Set(
-        initialize=lambda m: {rfm for rfm, per, tier in m.LNG_RFM_SUPPLY_TIERS}
+        dimen=1,
+        initialize=lambda m: unique_list(
+            rfm for rfm, per, tier in m.LNG_RFM_SUPPLY_TIERS
+        ),
     )
     m.LNG_TIERS = Set(
-        initialize=lambda m: {tier for rfm, per, tier in m.LNG_RFM_SUPPLY_TIERS}
+        dimen=1,
+        initialize=lambda m: unique_list(
+            tier for rfm, per, tier in m.LNG_RFM_SUPPLY_TIERS
+        ),
     )
 
     # force LNG to be deactivated when RPS is 100%;
@@ -146,6 +154,7 @@ def define_components(m):
     # LNG if we didn't explicitly do the conversions; however, now the conversion costs
     # are included in the LNG supply tiers, so we don't need to worry about that.
     m.LNG_CONVERTED_PLANTS = Set(
+        dimen=1,
         initialize=[
             "Oahu_Kahe_K5",
             "Oahu_Kahe_K6",
@@ -156,7 +165,7 @@ def define_components(m):
             "Oahu_CC_383",
             "Oahu_CC_152",
             "Oahu_CT_100",
-        ]
+        ],
     )
     m.LNG_In_Converted_Plants_Only = Constraint(
         m.LNG_GEN_TIMEPOINTS,
@@ -225,7 +234,7 @@ def define_components(m):
     #             for f in m.FUELS_FOR_GEN[g]
     #                 if f != 'LNG'
     #     )
-    #     rfm = m.zone_rfm[m.gen_load_zone[g], 'LNG']
+    #     rfm = m.zone_fuel_rfm[m.gen_load_zone[g], 'LNG']
     #     lng_market_exhausted = 1 - m.LNG_Has_Slack[rfm, m.tp_period[tp]]
     #     return (non_lng_fuel <= big_project_lng * lng_market_exhausted)
     # m.Only_LNG_In_Converted_Plants = Constraint(
@@ -250,7 +259,7 @@ def define_components(m):
     #         if g in m.LNG_CONVERTED_PLANTS:
     #             return Constraint.Skip
     #         # otherwise force production up to the maximum if market has slack
-    #         rfm = m.zone_rfm[m.gen_load_zone[g], 'LNG']
+    #         rfm = m.zone_fuel_rfm[m.gen_load_zone[g], 'LNG']
     #         lng_market_exhausted = 1 - m.LNG_Has_Slack[rfm, m.tp_period[tp]]
     #         rule = (
     #             m.DispatchGen[g, tp]

@@ -1,4 +1,4 @@
-# Copyright 2017 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2, which is in the LICENSE file.
 
 """
@@ -93,6 +93,5 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, "dr_data.csv"),
-        autoselect=True,
         param=(mod.dr_shift_down_limit, mod.dr_shift_up_limit),
     )

@@ -120,7 +120,7 @@ def define_components(m):
                 # define variables for each type of reserves to be provided
                 # choose how to allocate the slack between the different reserve products
                 m.HI_STORAGE_SPINNING_RESERVE_TYPES = Set(
-                    initialize=m.options.hawaii_storage_reserve_types
+                    dimen=1, initialize=m.options.hawaii_storage_reserve_types
                 )
                 m.HawaiiStorageSpinningReserveUp = Var(
                     m.HI_STORAGE_SPINNING_RESERVE_TYPES,

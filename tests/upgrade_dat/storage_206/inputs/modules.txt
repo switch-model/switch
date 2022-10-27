@@ -1,0 +1,13 @@
+# Core Modules
+switch_model
+switch_model.timescales
+switch_model.financials
+switch_model.balancing.load_zones
+switch_model.energy_sources.properties
+switch_model.generators.core.build
+switch_model.generators.core.dispatch
+switch_model.reporting
+# Custom Modules
+switch_model.generators.core.no_commit
+switch_model.energy_sources.fuel_costs.simple
+switch_model.generators.extensions.storage

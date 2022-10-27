@@ -48,16 +48,20 @@ def define_components(m):
     # projects that can provide reserves
     # TODO: add batteries, hydrogen and pumped storage to this
     m.FIRM_GENS = Set(
+        dimen=1,
         initialize=m.GENERATION_PROJECTS,
         # filter=lambda m, p: m.gen_energy_source[p] not in ['Wind', 'Solar']
     )
-    m.FIRM_GEN_TPS = Set(initialize=m.GEN_TPS, filter=lambda m, p, tp: p in m.FIRM_GENS)
+    m.FIRM_GEN_TPS = Set(
+        dimen=2, initialize=m.GEN_TPS, filter=lambda m, p, tp: p in m.FIRM_GENS
+    )
     m.CONTINGENCY_GENS = Set(
+        dimen=1,
         initialize=m.GENERATION_PROJECTS,
         filter=lambda m, p: p in m.DISCRETELY_SIZED_GENS,
     )
     m.CONTINGENCY_GEN_TPS = Set(
-        initialize=m.GEN_TPS, filter=lambda m, p, tp: p in m.CONTINGENCY_GENS
+        initialize=m.GEN_TPS, dimen=2, filter=lambda m, p, tp: p in m.CONTINGENCY_GENS
     )
 
     # Calculate spinning reserve requirements.
@@ -71,6 +75,7 @@ def define_components(m):
     # regulating reserves required, as fraction of potential output (up to limit)
     m.regulating_reserve_fraction = Param(
         ["CentralTrackingPV", "DistPV", "OnshoreWind", "OffshoreWind"],
+        within=NonNegativeReals,
         initialize={
             "CentralTrackingPV": 1.0,
             "DistPV": 1.0,  # 0.81270193,
@@ -81,6 +86,7 @@ def define_components(m):
     # maximum regulating reserves required, as fraction of installed capacity
     m.regulating_reserve_limit = Param(
         ["CentralTrackingPV", "DistPV", "OnshoreWind", "OffshoreWind"],
+        within=NonNegativeReals,
         initialize={
             "CentralTrackingPV": 0.21288916,
             "DistPV": 0.21288916,  # 0.14153171,
@@ -298,5 +304,4 @@ def define_dynamic_components(m):
 # def load_inputs(m, switch_data, inputs_dir):
 #     switch_data.load_aug(
 #         filename=os.path.join(inputs_dir, 'reserve_requirements.csv'),
-#         auto_select=True,
 #         param=(m.RegulatingReserveRequirementMW))

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """Scenario management module.
@@ -20,7 +20,7 @@ scenarios_to_run() in separate processes to select the next job to run.
 
 from __future__ import print_function, absolute_import
 import sys, os, time
-import argparse, shlex, socket, io, glob
+import argparse, shlex, socket, io, glob, multiprocessing
 from collections import OrderedDict
 
 from .utilities import _ArgumentParser
@@ -33,7 +33,8 @@ option_file_args = solve.get_option_file_args()
 cmd_line_args = sys.argv[1:]
 
 # Parse scenario-manager-related command-line arguments.
-# Other command-line arguments will be passed through to solve.py via scenario_cmd_line_args
+# Other command-line arguments will be passed through to solve.py via
+# scenario_cmd_line_args
 parser = _ArgumentParser(
     allow_abbrev=False, description="Solve one or more Switch scenarios."
 )
@@ -45,7 +46,6 @@ parser.add_argument(
     default=[],
     action="extend",
 )
-# parser.add_argument('--scenarios', nargs='+', default=[])
 parser.add_argument("--scenario-list", default="scenarios.txt")
 parser.add_argument("--scenario-queue", default="scenario_queue")
 parser.add_argument("--job-id", default=None)
@@ -58,6 +58,11 @@ scenario_manager_args = parser.parse_known_args(args=option_file_args + cmd_line
 # get lists of other arguments to pass through to standard solve routine
 scenario_option_file_args = parser.parse_known_args(args=option_file_args)[1]
 scenario_cmd_line_args = parser.parse_known_args(args=cmd_line_args)[1]
+
+# create a logger for this module's output based on default arguments
+logger = solve.make_logger(
+    solve.parse_pre_module_options(scenario_option_file_args + scenario_cmd_line_args)
+)
 
 requested_scenarios = scenario_manager_args.scenarios
 scenario_list_file = scenario_manager_args.scenario_list
@@ -154,7 +159,7 @@ def main(args=None):
     unlock_running_scenarios()
 
     for (scenario_name, args) in scenarios_to_run():
-        print(
+        logger.warn(  # not strictly a warning, but often nice to see in the log
             "\n\n=======================================================================\n"
             + "running scenario {s}\n".format(s=scenario_name)
             + "arguments: {}\n".format(args)
@@ -162,14 +167,37 @@ def main(args=None):
         )
 
         # call the standard solve module with the arguments for this particular scenario
-        solve.main(args=args)
+        # We run this in its own process to avoid sharing module state info between
+        # model instances (e.g., a logger created in Pyomo may grab the current sys.stdout
+        # while Switch has temporarily replaced it with a timing counter stream, then
+        # keep using that for subsequent instances)
+        process = multiprocessing.Process(target=run_scenario, args=(args,))
+        process.start()
+        process.join()
 
-        # another option:
+        # other options:
+        # solve.main(args)
+        # or
         # subprocess.call(shlex.split("python -m solve") + args) <- omit args from options.txt
         # it should also be possible to use a solver server, but that's not really needed
         # since this script has built-in queue management.
 
         mark_completed(scenario_name)
+
+
+def run_scenario(args):
+    # reactivate stdin in subprocess
+    # from https://stackoverflow.com/questions/30134297/python-multiprocessing-stdin-input
+    # also see refs to stdin in https://docs.python.org/3/library/multiprocessing.html
+    sys.stdin = os.fdopen(0)
+    try:
+        solve.main(args)
+    except:
+        # code run in a subprocess never has an uncaught exception, so the
+        # excepthook never gets run, which makes it impossible to use the
+        # --debug flag. So we call the excepthook (possibly set by solve.main)
+        # directly.
+        sys.excepthook(*sys.exc_info())
 
 
 def scenarios_to_run():
@@ -223,16 +251,15 @@ def scenarios_to_run():
                 else:
                     if scenario_name not in skipped and scenario_name not in ran:
                         skipped.append(scenario_name)
-                        if is_verbose(scenario_args):
-                            print(
-                                "Skipping {} because it was already run.".format(
-                                    scenario_name
-                                )
+                        logger.info(
+                            "Skipping {} because it was already run.".format(
+                                scenario_name
                             )
+                        )
                 # move on to the next candidate
         # no more scenarios to run
         if skipped and not ran:
-            print(
+            logger.warn(
                 "Skipping all scenarios because they have already been solved. "
                 "If you would like to run these scenarios again, "
                 "please remove the {sq} directory or its contents. (rm -rf {sq})".format(
@@ -267,28 +294,15 @@ def last_index(lst, val):
         return -1
 
 
-def is_verbose(scenario_args):
-    # check options settings for --verbose flag
-    # we can't use parse_arg, because we need to process both --verbose and --quiet
-    # note: this duplicates settings in switch_model.solve, so it may fall out of date
-    return last_index(scenario_args, "--verbose") >= last_index(
-        scenario_args, "--quiet"
-    )
-    # return parse_arg("--verbose", action='store_true', default=False, args=scenario_args)
-
-
 def get_scenario_dict():
-    # note: we read the list from the disk each time so that we get a fresher version
-    # if the standard list is changed during a long solution effort.
+    # note: we read the list from the disk each time so that we get a fresher
+    # version if the standard list is changed during a long solution effort.
+    # This ignores comments in the scenario list (possibly starting mid-line),
+    # just like switch solve does in options.txt.
     with open(scenario_list_file, "r") as f:
-        scenario_list_text = [r.strip() for r in f.read().splitlines()]
-        scenario_list_text = [
-            r for r in scenario_list_text if r and not r.startswith("#")
-        ]
-
-    # note: text.splitlines() omits newlines and ignores presence/absence of \n at end of the text
-    # shlex.split() breaks an command-line-style argument string into a list like sys.argv
-    scenario_list = [shlex.split(r) for r in scenario_list_text]
+        scenario_list = [shlex.split(r, comments=True) for r in f.read().splitlines()]
+    # drop any empty lines
+    scenario_list = [s for s in scenario_list if s]
     return OrderedDict((get_scenario_name(s), s) for s in scenario_list)
 
 

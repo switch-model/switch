@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -66,10 +66,10 @@ def define_components(mod):
     zone_expected_coincident_peak_demand[z,p] is an optional parameter than can
     be used to externally specify peak load planning requirements in MW.
     Currently local_td and planning_reserves determine capacity requirements
-    use zone_expected_coincident_peak_demand as well as load timeseries. Do not
-    specify this parameter if you wish for the model to endogenously determine
-    capacity requirements after accounting for both load and Distributed
-    Energy Resources (DER).
+    based on zone_expected_coincident_peak_demand as well as load timeseries. Do
+    not specify this parameter if you wish for the model to endogenously
+    determine capacity requirements after accounting for both load and
+    Distributed Energy Resources (DER).
 
     Derived parameters:
 
@@ -78,7 +78,7 @@ def define_components(mod):
 
     """
 
-    mod.LOAD_ZONES = Set()
+    mod.LOAD_ZONES = Set(dimen=1)
     mod.ZONE_TIMEPOINTS = Set(
         dimen=2,
         initialize=lambda m: m.LOAD_ZONES * m.TIMEPOINTS,
@@ -88,7 +88,7 @@ def define_components(mod):
     mod.zone_ccs_distance_km = Param(
         mod.LOAD_ZONES, within=NonNegativeReals, default=0.0
     )
-    mod.zone_dbid = Param(mod.LOAD_ZONES, default=lambda m, z: z)
+    mod.zone_dbid = Param(mod.LOAD_ZONES, default=lambda m, z: z, within=Any)
     mod.min_data_check("LOAD_ZONES", "zone_demand_mw")
     try:
         mod.Distributed_Power_Withdrawals.append("zone_demand_mw")
@@ -165,20 +165,16 @@ def load_inputs(mod, switch_data, inputs_dir):
     # message if some columns are not found.
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "load_zones.csv"),
-        auto_select=True,
         index=mod.LOAD_ZONES,
         param=(mod.zone_ccs_distance_km, mod.zone_dbid),
     )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, "loads.csv"),
-        auto_select=True,
-        param=(mod.zone_demand_mw),
+        filename=os.path.join(inputs_dir, "loads.csv"), param=(mod.zone_demand_mw)
     )
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, "zone_coincident_peak_demand.csv"),
         index=mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS,
-        select=("LOAD_ZONE", "PERIOD", "zone_expected_coincident_peak_demand"),
         param=(mod.zone_expected_coincident_peak_demand),
     )
 
@@ -198,15 +194,9 @@ def post_solve(instance, outdir):
         instance.LOAD_ZONES,
         instance.TIMEPOINTS,
         output_file=os.path.join(outdir, "load_balance.csv"),
-        headings=(
-            "load_zone",
-            "timestamp",
-        )
+        headings=("load_zone", "timestamp")
         + tuple(instance.Zone_Power_Injections + instance.Zone_Power_Withdrawals),
-        values=lambda m, z, t: (
-            z,
-            m.tp_timestamp[t],
-        )
+        values=lambda m, z, t: (z, m.tp_timestamp[t])
         + tuple(
             getattr(m, component)[z, t]
             for component in (m.Zone_Power_Injections + m.Zone_Power_Withdrawals)

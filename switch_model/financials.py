@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -321,35 +321,38 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "financials.csv"),
         optional=False,
-        auto_select=True,
         param=(mod.base_financial_year, mod.interest_rate, mod.discount_rate),
     )
 
 
 def post_solve(instance, outdir):
     m = instance
-    # Overall electricity costs
-    normalized_dat = [
-        {
-            "PERIOD": p,
-            "SystemCostPerPeriod_NPV": value(m.SystemCostPerPeriod[p]),
-            "SystemCostPerPeriod_Real": value(
-                m.SystemCostPerPeriod[p] / m.bring_annual_costs_to_base_year[p]
-            ),
-            "EnergyCostReal_per_MWh": value(
-                m.SystemCostPerPeriod[p]
-                / m.bring_annual_costs_to_base_year[p]
-                / sum(m.zone_total_demand_in_period_mwh[z, p] for z in m.LOAD_ZONES)
-            ),
-            "SystemDemand_MWh": value(
-                sum(m.zone_total_demand_in_period_mwh[z, p] for z in m.LOAD_ZONES)
-            ),
-        }
-        for p in m.PERIODS
-    ]
-    df = pd.DataFrame(normalized_dat)
-    df.set_index(["PERIOD"], inplace=True)
-    df.to_csv(os.path.join(outdir, "electricity_cost.csv"))
+    # Overall electricity costs, if appropriate (some models may be gas-only)
+    if hasattr(m, "zone_total_demand_in_period_mwh"):
+        normalized_dat = [
+            {
+                "PERIOD": p,
+                "SystemCostPerPeriod_NPV": value(m.SystemCostPerPeriod[p]),
+                "SystemCostPerPeriod_Real": value(
+                    m.SystemCostPerPeriod[p] / m.bring_annual_costs_to_base_year[p]
+                ),
+                "EnergyCostReal_per_MWh": value(
+                    m.SystemCostPerPeriod[p]
+                    / m.bring_annual_costs_to_base_year[p]
+                    / sum(m.zone_total_demand_in_period_mwh[z, p] for z in m.LOAD_ZONES)
+                ),
+                "SystemDemand_MWh": value(
+                    sum(m.zone_total_demand_in_period_mwh[z, p] for z in m.LOAD_ZONES)
+                ),
+            }
+            for p in m.PERIODS
+        ]
+        df = pd.DataFrame(normalized_dat)
+        df.set_index(["PERIOD"], inplace=True)
+        if instance.options.sorted_output:
+            df.sort_index(inplace=True)
+        df.to_csv(os.path.join(outdir, "electricity_cost.csv"))
+
     # Itemized annual costs
     annualized_costs = [
         {
@@ -385,6 +388,7 @@ def post_solve(instance, outdir):
         for p in m.PERIODS
         for tp_cost in m.Cost_Components_Per_TP
     ]
-    df = pd.DataFrame(annualized_costs)
-    df.set_index(["PERIOD", "Component"], inplace=True)
+    df = pd.DataFrame(annualized_costs).set_index(["PERIOD", "Component"]).sort_index()
+    if instance.options.sorted_output:
+        df.sort_index(inplace=True)
     df.to_csv(os.path.join(outdir, "costs_itemized.csv"))

@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -10,17 +10,14 @@ installed capacity.
 """
 from __future__ import division
 
+import logging
 import os, collections
-from pyomo.environ import *
-from switch_model.reporting import write_table
+
 import pandas as pd
+from pyomo.environ import *
 
-try:
-    from ggplot import *
-
-    can_plot = True
-except:
-    can_plot = False
+from switch_model.reporting import write_table
+from switch_model.utilities import unwrap
 
 dependencies = (
     "switch_model.timescales",
@@ -159,9 +156,9 @@ def define_components(mod):
 
     def period_active_gen_rule(m, period):
         if not hasattr(m, "period_active_gen_dict"):
-            m.period_active_gen_dict = collections.defaultdict(set)
+            m.period_active_gen_dict = dict()
             for (_g, _period) in m.GEN_PERIODS:
-                m.period_active_gen_dict[_period].add(_g)
+                m.period_active_gen_dict.setdefault(_period, []).append(_g)
         result = m.period_active_gen_dict.pop(period)
         if len(m.period_active_gen_dict) == 0:
             delattr(m, "period_active_gen_dict")
@@ -169,12 +166,14 @@ def define_components(mod):
 
     mod.GENS_IN_PERIOD = Set(
         mod.PERIODS,
+        dimen=1,
         initialize=period_active_gen_rule,
         doc="The set of projects active in a given period.",
     )
 
     mod.TPS_FOR_GEN = Set(
         mod.GENERATION_PROJECTS,
+        dimen=1,
         within=mod.TIMEPOINTS,
         initialize=lambda m, g: (
             tp for p in m.PERIODS_FOR_GEN[g] for tp in m.TPS_IN_PERIOD[p]
@@ -188,14 +187,18 @@ def define_components(mod):
             d = m._TPS_FOR_GEN_IN_PERIOD_dict = dict()
             for _gen in m.GENERATION_PROJECTS:
                 for t in m.TPS_FOR_GEN[_gen]:
-                    d.setdefault((_gen, m.tp_period[t]), set()).add(t)
-        result = d.pop((gen, period), set())
+                    d.setdefault((_gen, m.tp_period[t]), []).append(t)
+        result = d.pop((gen, period), [])
         if not d:  # all gone, delete the attribute
             del m._TPS_FOR_GEN_IN_PERIOD_dict
         return result
 
     mod.TPS_FOR_GEN_IN_PERIOD = Set(
-        mod.GENERATION_PROJECTS, mod.PERIODS, within=mod.TIMEPOINTS, initialize=init
+        mod.GENERATION_PROJECTS,
+        mod.PERIODS,
+        dimen=1,
+        within=mod.TIMEPOINTS,
+        initialize=init,
     )
 
     mod.GEN_TPS = Set(
@@ -276,10 +279,7 @@ def define_components(mod):
         initialize=init_gen_availability,
     )
 
-    mod.VARIABLE_GEN_TPS_RAW = Set(
-        dimen=2,
-        within=mod.VARIABLE_GENS * mod.TIMEPOINTS,
-    )
+    mod.VARIABLE_GEN_TPS_RAW = Set(dimen=2, within=mod.VARIABLE_GENS * mod.TIMEPOINTS)
     mod.gen_max_capacity_factor = Param(
         mod.VARIABLE_GEN_TPS_RAW,
         within=Reals,
@@ -293,6 +293,52 @@ def define_components(mod):
     mod.have_minimal_gen_max_capacity_factors = BuildCheck(
         mod.VARIABLE_GEN_TPS, rule=lambda m, g, t: (g, t) in m.VARIABLE_GEN_TPS_RAW
     )
+
+    if mod.logger.isEnabledFor(logging.INFO):
+        # Tell user if the input files specify timeseries for renewable plant
+        # capacity factors that extend beyond the lifetime of the plant.
+        def rule(m):
+            extra_indexes = m.VARIABLE_GEN_TPS_RAW - m.VARIABLE_GEN_TPS
+            if extra_indexes:
+                num_impacted_generators = len(set(g for g, t in extra_indexes))
+                extraneous = {g: [] for (g, t) in extra_indexes}
+                for (g, t) in extra_indexes:
+                    extraneous[g].append(t)
+                pprint = "\n".join(
+                    "* {}: {} to {}".format(g, min(tps), max(tps))
+                    for g, tps in extraneous.items()
+                )
+                # basic message for everyone at info level
+                msg = unwrap(
+                    """
+                    {} generation project[s] have data in
+                    variable_capacity_factors.csv for timepoints when they are
+                    not operable, either before construction is possible or
+                    after retirement.
+                """.format(
+                        num_impacted_generators
+                    )
+                )
+                if m.logger.isEnabledFor(logging.DEBUG):
+                    # more detailed message
+                    msg += unwrap(
+                        """
+                         You can avoid this message by only placing data in
+                        variable_capacity_factors.csv for active periods for
+                        each project. If you expect these project[s] to be
+                        operable during  all the timepoints currently in
+                        variable_capacity_factors.csv, then they need to either
+                        come online earlier, have longer lifetimes, or have
+                        options to build new capacity when the old capacity
+                        reaches its maximum age.
+                    """
+                    )
+                    msg += " Plants with extra timepoints:\n{}".format(pprint)
+                else:
+                    msg += " Use --log-level debug for more details."
+                m.logger.info(msg + "\n")
+
+        mod.notify_on_extra_VARIABLE_GEN_TPS = BuildAction(rule=rule)
 
     mod.GenFuelUseRate = Var(
         mod.GEN_TP_FUELS,
@@ -352,7 +398,6 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, "variable_capacity_factors.csv"),
-        autoselect=True,
         index=mod.VARIABLE_GEN_TPS_RAW,
         param=(mod.gen_max_capacity_factor,),
     )
@@ -362,7 +407,7 @@ def post_solve(instance, outdir):
     """
     Exported files:
 
-    dispatch-wide.csv - Dispatch results timepoints in "wide" format with
+    dispatch_wide.csv - Dispatch results timepoints in "wide" format with
     timepoints as rows, generation projects as columns, and dispatch level
     as values
 
@@ -378,20 +423,23 @@ def post_solve(instance, outdir):
     dispatch_annual_summary.pdf - A figure of annual summary data. Only written
     if the ggplot python library is installed.
     """
+    gen_proj = list(instance.GENERATION_PROJECTS)  # native order
+    if instance.options.sorted_output:
+        gen_proj.sort()
+
     write_table(
         instance,
         instance.TIMEPOINTS,
-        output_file=os.path.join(outdir, "dispatch-wide.csv"),
-        headings=("timestamp",) + tuple(sorted(instance.GENERATION_PROJECTS)),
+        output_file=os.path.join(outdir, "dispatch_wide.csv"),
+        headings=("timestamp",) + tuple(gen_proj),
         values=lambda m, t: (m.tp_timestamp[t],)
-        + tuple(
-            m.DispatchGen[p, t] if (p, t) in m.GEN_TPS else 0.0
-            for p in sorted(m.GENERATION_PROJECTS)
-        ),
+        + tuple(m.DispatchGen[p, t] if (p, t) in m.GEN_TPS else 0.0 for p in gen_proj),
     )
 
-    dispatch_normalized_dat = [
-        {
+    dispatch_normalized_dat = []
+    for g, t in instance.GEN_TPS:
+        p = instance.tp_period[t]
+        record = {
             "generation_project": g,
             "gen_dbid": instance.gen_dbid[g],
             "gen_tech": instance.gen_tech[g],
@@ -417,49 +465,148 @@ def post_solve(instance, outdir):
             )
             if instance.gen_uses_fuel[g]
             else 0,
+            "GenCapacity_MW": value(instance.GenCapacity[g, p]),
+            "GenCapitalCosts": value(instance.GenCapitalCosts[g, p]),
+            "GenFixedOMCosts": value(instance.GenFixedOMCosts[g, p]),
         }
-        for g, t in instance.GEN_TPS
-    ]
+        try:
+            try:
+                record["ChargeStorage_MW"] = -1.0 * value(instance.ChargeStorage[g, t])
+                record["Store_GWh_typical_yr"] = value(
+                    instance.ChargeStorage[g, t] * instance.tp_weight_in_year[t] / 1000
+                )
+                record["Discharge_GWh_typical_yr"] = record["Energy_GWh_typical_yr"]
+                record["Energy_GWh_typical_yr"] -= record["Store_GWh_typical_yr"]
+                record["is_storage"] = True
+            except KeyError:
+                record["ChargeStorage_MW"] = float("NaN")
+                record["Store_GWh_typical_yr"] = float("NaN")
+                record["Discharge_GWh_typical_yr"] = float("NaN")
+                record["is_storage"] = False
+        except AttributeError:
+            pass
+        dispatch_normalized_dat.append(record)
     dispatch_full_df = pd.DataFrame(dispatch_normalized_dat)
     dispatch_full_df.set_index(["generation_project", "timestamp"], inplace=True)
+    if instance.options.sorted_output:
+        dispatch_full_df.sort_index(inplace=True)
     dispatch_full_df.to_csv(os.path.join(outdir, "dispatch.csv"))
 
-    annual_summary = dispatch_full_df.groupby(
-        ["gen_tech", "gen_energy_source", "period"]
-    ).sum()
-    annual_summary.to_csv(
-        os.path.join(outdir, "dispatch_annual_summary.csv"),
-        columns=[
-            "Energy_GWh_typical_yr",
-            "VariableCost_per_yr",
-            "DispatchEmissions_tCO2_per_typical_yr",
+    summary_columns = [
+        "Energy_GWh_typical_yr",
+        "VariableCost_per_yr",
+        "DispatchEmissions_tCO2_per_typical_yr",
+        "GenCapacity_MW",
+        "GenCapitalCosts",
+        "GenFixedOMCosts",
+        "LCOE_dollar_per_MWh",
+        "capacity_factor",
+    ]
+    if "ChargeStorage" in dir(instance):
+        summary_columns.extend(["Store_GWh_typical_yr", "Discharge_GWh_typical_yr"])
+
+    # Annual summary of each generator
+    gen_sum = dispatch_full_df.groupby(
+        [
+            "generation_project",
+            "gen_dbid",
+            "gen_tech",
+            "gen_load_zone",
+            "gen_energy_source",
+            "period",
+            "GenCapacity_MW",
+            "GenCapitalCosts",
+            "GenFixedOMCosts",
+        ]
+    ).agg(
+        lambda x: x.sum(min_count=1, skipna=False)
+    )  # why these arguments?
+    gen_sum.reset_index(inplace=True)
+    gen_sum.set_index(
+        inplace=True,
+        keys=[
+            "generation_project",
+            "gen_dbid",
+            "gen_tech",
+            "gen_load_zone",
+            "gen_energy_source",
+            "period",
         ],
     )
+    gen_sum["Energy_out_avg_MW"] = (
+        gen_sum["Energy_GWh_typical_yr"] * 1000 / gen_sum["tp_weight_in_year_hrs"]
+    )
+    hrs_per_yr = gen_sum.iloc[0]["tp_weight_in_year_hrs"]
+    try:
+        idx = gen_sum["is_storage"].astype(bool)
+        gen_sum.loc[idx, "Energy_out_avg_MW"] = (
+            gen_sum.loc[idx, "Discharge_GWh_typical_yr"]
+            * 1000
+            / gen_sum.loc[idx, "tp_weight_in_year_hrs"]
+        )
+    except KeyError:
+        pass
 
-    zonal_annual_summary = dispatch_full_df.groupby(
+    def add_cap_factor_and_lcoe(df):
+        df["capacity_factor"] = df["Energy_out_avg_MW"] / df["GenCapacity_MW"]
+        no_cap = df["GenCapacity_MW"] == 0
+        df.loc[no_cap, "capacity_factor"] = 0
+
+        df["LCOE_dollar_per_MWh"] = (
+            df["GenCapitalCosts"] + df["GenFixedOMCosts"] + df["VariableCost_per_yr"]
+        ) / (df["Energy_out_avg_MW"] * hrs_per_yr)
+        no_energy = df["Energy_out_avg_MW"] == 0
+        df.loc[no_energy, "LCOE_dollar_per_MWh"] = 0
+
+        return df
+
+    gen_sum = add_cap_factor_and_lcoe(gen_sum)
+    gen_sum.to_csv(
+        os.path.join(outdir, "gen_project_annual_summary.csv"), columns=summary_columns
+    )
+
+    zone_sum = gen_sum.groupby(
         ["gen_tech", "gen_load_zone", "gen_energy_source", "period"]
     ).sum()
-    zonal_annual_summary.to_csv(
+    zone_sum = add_cap_factor_and_lcoe(zone_sum)
+    zone_sum.to_csv(
         os.path.join(outdir, "dispatch_zonal_annual_summary.csv"),
-        columns=[
-            "Energy_GWh_typical_yr",
-            "VariableCost_per_yr",
-            "DispatchEmissions_tCO2_per_typical_yr",
-        ],
+        columns=summary_columns,
     )
 
-    if can_plot:
-        annual_summary_plot = (
-            ggplot(
-                annual_summary.reset_index(),
-                aes(
-                    x="period", weight="Energy_GWh_typical_yr", fill="factor(gen_tech)"
-                ),
-            )
-            + geom_bar(position="stack")
-            + scale_y_continuous(name="Energy (GWh/yr)")
-            + theme_bw()
-        )
-        annual_summary_plot.save(
-            filename=os.path.join(outdir, "dispatch_annual_summary.pdf")
-        )
+    annual_summary = zone_sum.groupby(["gen_tech", "gen_energy_source", "period"]).sum()
+    annual_summary = add_cap_factor_and_lcoe(annual_summary)
+    annual_summary.to_csv(
+        os.path.join(outdir, "dispatch_annual_summary.csv"), columns=summary_columns
+    )
+
+    import warnings
+
+    with warnings.catch_warnings():
+        # suppress warnings during import and use of plotnine
+        warnings.simplefilter("ignore")
+        try:
+            import plotnine as p9
+        except ImportError:
+            pass
+        else:
+            # plotnine was imported successfully
+            plots = [
+                ("gen_energy_source", "dispatch_annual_summary_fuel.pdf"),
+                ("gen_tech", "dispatch_annual_summary_tech.pdf"),
+            ]
+            for y, outfile in plots:
+                annual_summary_plot = (
+                    p9.ggplot(
+                        annual_summary.reset_index(),
+                        p9.aes(
+                            x="period",
+                            weight="Energy_GWh_typical_yr",
+                            fill="factor({})".format(y),
+                        ),
+                    )
+                    + p9.geom_bar(position="stack")
+                    + p9.scale_y_continuous(name="Energy (GWh/yr)")
+                    + p9.theme_bw()
+                )
+                annual_summary_plot.save(filename=os.path.join(outdir, outfile))

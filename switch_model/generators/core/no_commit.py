@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2019 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
 """
@@ -86,11 +86,13 @@ def define_components(mod):
     # and dispatch.
     mod.BASELOAD_GEN_PERIODS = Set(
         dimen=2,
-        rule=lambda m: [(g, p) for g in m.BASELOAD_GENS for p in m.PERIODS_FOR_GEN[g]],
+        initialize=lambda m: [
+            (g, p) for g in m.BASELOAD_GENS for p in m.PERIODS_FOR_GEN[g]
+        ],
     )
     mod.BASELOAD_GEN_TPS = Set(
         dimen=2,
-        rule=lambda m: [
+        initialize=lambda m: [
             (g, t) for g, p in m.BASELOAD_GEN_PERIODS for t in m.TPS_IN_PERIOD[p]
         ],
     )
