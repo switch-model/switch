@@ -284,10 +284,8 @@ class SwitchConcreteModel(ConcreteModel):
 
     def preprocess(self, *args, **kwargs):
         # continue to use in Pyomo 5 but avoid deprecation warning in Pyomo 6+
-        if pyomo.version.version_info[:2] >= (6, 0):
-            return
-        else:
-            ConcreteModel.preprocess()
+        if pyomo.version.version_info[:2] < (6, 0):
+            return ConcreteModel.preprocess(self, *args, **kwargs)
 
     def pre_solve(self, outputs_dir=None):
         """
@@ -909,19 +907,8 @@ class TeeStream(object):
         return getattr(self.stream1, *args, **kwargs)
 
     def write(self, text):
-        for f in [self.stream1, self.stream2]:
-            if f.isatty() or "\b" not in text:
-                # normal processing
-                f.write(text)
-            else:
-                for c in text:
-                    if c == "\b":
-                        # move one character before current position, to
-                        # overwrite current character like a terminal
-                        # (Python can't do f.seek(-1, 1) for some reason.)
-                        f.seek(f.tell() - 1)
-                    else:
-                        f.write(c)
+        self.stream1.write(text)
+        self.stream2.write(text)
         return len(text)
 
     def flush(self):
