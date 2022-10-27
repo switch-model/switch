@@ -171,7 +171,7 @@ def main(args=None):
         # model instances (e.g., a logger created in Pyomo may grab the current sys.stdout
         # while Switch has temporarily replaced it with a timing counter stream, then
         # keep using that for subsequent instances)
-        process = multiprocessing.Process(target=solve.main, args=(args,))
+        process = multiprocessing.Process(target=run_scenario, args=(args,))
         process.start()
         process.join()
 
@@ -183,6 +183,21 @@ def main(args=None):
         # since this script has built-in queue management.
 
         mark_completed(scenario_name)
+
+
+def run_scenario(args):
+    # reactivate stdin in subprocess
+    # from https://stackoverflow.com/questions/30134297/python-multiprocessing-stdin-input
+    # also see refs to stdin in https://docs.python.org/3/library/multiprocessing.html
+    sys.stdin = os.fdopen(0)
+    try:
+        solve.main(args)
+    except:
+        # code run in a subprocess never has an uncaught exception, so the
+        # excepthook never gets run, which makes it impossible to use the
+        # --debug flag. So we call the excepthook (possibly set by solve.main)
+        # directly.
+        sys.excepthook(*sys.exc_info())
 
 
 def scenarios_to_run():
