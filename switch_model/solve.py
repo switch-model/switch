@@ -61,12 +61,14 @@ def main(args=None, return_model=False, return_instance=False):
             import traceback
 
             try:
-                from ipdb import pm
+                from ipdb import post_mortem
             except ImportError:
-                from pdb import pm
+                from pdb import post_mortem
             traceback.print_exception(type, value, tb)
             report_model_in_traceback(tb)
-            pm()
+            # explicitly use _this_ tb, so debug can be called from an
+            # exception handler if needed (see https://stackoverflow.com/a/242514)
+            post_mortem(tb)
 
         sys.excepthook = debug
 
