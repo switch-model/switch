@@ -5,6 +5,11 @@ Note that as of version 5.7, Pyomo no longer supports "inf", "infinity" or "nan"
 values in the input files, so Switch will likely report errors if you have
 those.
 
+Changed Pyomo dependencies to versions 5.5.1-6.4.2. Note that Pyomo versions
+before 5.7.3 don't work with CPLEX version 12.10 or later (see
+https://github.com/Pyomo/pyomo/pull/1792). If using a recent version of CPLEX,
+you should ensure that you also use version 5.7.3 or later of Pyomo.
+
 Renamed outputs/dispatch-wide.csv to outputs/dispatch_wide.csv
 
 -------------------------------------------------------------------------------
