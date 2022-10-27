@@ -359,8 +359,6 @@ def post_solve(instance, outdir):
             "load_zone",
             "IncrementalPowerCapacityMW",
             "IncrementalEnergyCapacityMWh",
-            "OnlinePowerCapacityMW",
-            "OnlineEnergyCapacityMWh",
         ),
         values=lambda m, g, bld_yr: (
             g,
@@ -380,6 +378,27 @@ def post_solve(instance, outdir):
             ),
         ),
     )
+
+    reporting.write_table(
+        instance,
+        instance.STORAGE_GEN_PERIODS,
+        output_file=os.path.join(outdir, "storage_builds_capacity.csv"),
+        headings=(
+            "generation_project",
+            "period",
+            "load_zone",
+            "OnlinePowerCapacityMW",
+            "OnlineEnergyCapacityMWh",
+        ),
+        values=lambda m, g, p: (
+            g,
+            p,
+            m.gen_load_zone[g],
+            m.GenCapacity[g, p],
+            m.StorageEnergyCapacity[g, p],
+        ),
+    )
+
     reporting.write_table(
         instance,
         instance.STORAGE_GEN_TPS,
