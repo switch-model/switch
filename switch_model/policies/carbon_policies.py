@@ -99,10 +99,15 @@ def post_solve(model, outdir):
             model.AnnualEmissions[period],
             model.carbon_cap_tco2_per_yr[period],
         ]
-        # Only print the carbon cap dual value if it exists and if the problem
-        # is purely linear.
+        # Only print the carbon cap dual value if it exists
+        # Note: we previously only reported it if the model was also strictly
+        # continuous, but now we let the user worry about that (some solvers
+        # can report duals for integer models by fixing the variables to their
+        # integer values, which is often a reasonable approach and should give
+        # meaningful duals for the carbon cost, which occurs on a much higher
+        # level).
         if (
-            not model.has_discrete_variables()
+            period in model.Enforce_Carbon_Cap
             and model.Enforce_Carbon_Cap[period] in model.dual
         ):
             row.append(
