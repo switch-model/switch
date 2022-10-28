@@ -214,7 +214,7 @@ def define_components(model):
 
     model.gen_capacity_value = Param(
         model.GEN_TPS,
-        within=PercentFraction,
+        within=NonNegativeReals,
         default=gen_capacity_value_default,
         validate=lambda m, value, g, t: (
             value == 0.0 if not m.gen_can_provide_cap_reserves[g] else True
