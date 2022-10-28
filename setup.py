@@ -67,7 +67,9 @@ setup(
         "planning",
         "optimization",
     ],
-    python_requires=">=3.7.0",
+    # Pyomo 6.4.2 crashes on Python 3.11, so we rule that out until they
+    # resolve it
+    python_requires=">=3.7.0, <3.11.0a0",
     install_requires=[
         # 4.4.1+ works with glpk 4.60+; 5.6.9 gives warning and 5.7 gives error
         "Pyomo >=5.5.1, <=6.4.2",
