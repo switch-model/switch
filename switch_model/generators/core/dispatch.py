@@ -587,10 +587,15 @@ def post_solve(instance, outdir):
         warnings.simplefilter("ignore")
         try:
             import plotnine as p9
+            import matplotlib
         except ImportError:
             pass
         else:
-            # plotnine was imported successfully
+            # plotnine and matplotlib were imported successfully
+            # Tell matplotlib to use a non-interactive backend so it won't add
+            # an icon to the taskbar/dock while creating the plots
+            # see https://matplotlib.org/stable/users/explain/backends.html
+            matplotlib.use("pdf")
             plots = [
                 ("gen_energy_source", "dispatch_annual_summary_fuel.pdf"),
                 ("gen_tech", "dispatch_annual_summary_tech.pdf"),
