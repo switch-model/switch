@@ -67,15 +67,31 @@ setup(
         "planning",
         "optimization",
     ],
-    # Pyomo 6.4.2 crashes on Python 3.11, so we rule that out until they
+    # Pyomo <=6.4.2 crashes on Python 3.11, so we rule that out until they
     # resolve it
     python_requires=">=3.7.0, <3.11.0a0",
     install_requires=[
-        # 4.4.1+ works with glpk 4.60+; 5.6.9 gives warning and 5.7 gives error
-        "Pyomo >=5.5.1, <=6.4.2",
-        # by default, incompatible 6.0 gets installed with Pyomo 5.6.*
-        "pyutilib >=5.6.3, <=6.0.0",
-        # needed by Pyomo when we run our tests, but not included
+        # Most of our code is compatible with Pyomo 5.5.1+, but Pyomo <=5.6.8
+        # has a bug that makes it fail to report when values are out of domain
+        # for a parameter. So we must require a later version than 5.6.8, which
+        # was the highest version we previously supported, so all users will
+        # need to upgrade their Pyomo version.
+        # In principle, we could accept Pyomo 5.6.9 with pyutilib 5.8.0 (works
+        # OK in testing), but we block that because Pyomo 5.6.9 says it's
+        # willing to work with pyutilib 6.0.0, but isn't actually compatible.
+        # We have to allow pyutilib 6.0.0 for the later versions of Pyomo and
+        # setuptools doesn't give us a way to say Pyomo 5.6.9 should only be
+        # installed with pyutilib 5.8.0, so we just block Pyomo 5.6.9.
+        "Pyomo >=5.7.0, <=6.4.2",
+        # Pyomo 5.7 specifies that it needs pyutilib >=6.0.0. We've seen cases
+        # cases where Pyomo released a later pyutilib that broke an earlier
+        # Pyomo (e.g., Pyomo 5.6.x with Pyutilib 6.0.0), so we had to
+        # retroactively pin the pyutilib version. Pyomo 6.0 phased out the
+        # pyutilib dependency, but we still pin at 6.0.0, just in case the user
+        # installs Pyomo 5.7 and Pyutilib releases an incompatible update.
+        "pyutilib ==6.0.0",
+        # pint is needed by Pyomo when running our tests, but isn't installed by
+        # Pyomo.
         "pint",
         # used for standard tests
         "testfixtures",
@@ -84,16 +100,21 @@ setup(
     ],
     extras_require={
         # packages used for advanced demand response, progressive hedging
-        # note: rpy2 discontinued support for Python 2 as of rpy2 2.9.0
         "advanced": [
             "numpy",
             "scipy",
-            'rpy2<2.9.0;python_version<"3.0"',
-            'rpy2;python_version>="3.0"',
+            "rpy2",
             "sympy",
         ],
         "dev": ["ipdb"],
-        "plotting": ["plotnine"],
+        "plotting": [
+            # plotnine before <= 0.9.0 is not compatible with matplotlib >= 3.6
+            # later versions of plotnine may be, but for now we require that
+            # matplotlib be below 3.6.0 to ensure compatibility.
+            # See https://stackoverflow.com/a/73797154/
+            "plotnine<=0.9.0",
+            "matplotlib<3.6.0a0",
+        ],
         "database_access": ["psycopg2-binary"],
     },
     entry_points={"console_scripts": ["switch = switch_model.main:main"]},
