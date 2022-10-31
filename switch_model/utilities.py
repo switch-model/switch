@@ -21,6 +21,12 @@ from pyomo.environ import *
 import pyomo.opt, pyomo.version
 
 try:
+    # sentinel for no value (at least for Param.default()) in newer versions of Pyomo
+    NoValue = Param.NoValue
+except AttributeError:
+    NoValue = None
+
+try:
     # sentinel for sets with no dimension specified in Pyomo 5.7+
     from pyomo.core.base.set import UnknownSetDimen
 except ImportError:
@@ -124,19 +130,22 @@ class SwitchAbstractModel(AbstractModel):
         self.iterate_modules = switch_model.solve.get_iteration_list(self)
 
         # Describe model (if wanted) before constructing it
-        self.logger.info(
-            "======================================================================="
-        )
+        # self.logger.info("=" * 80)
         self.logger.info(
             "Arguments:\n"
-            + ", ".join(k + "=" + repr(v) for k, v in vars(self.options).items() if v)
+            + wrap(
+                ", ".join(
+                    k + "=" + repr(v) for k, v in vars(self.options).items() if v
+                ),
+                indent=4,
+            )
         )
-        self.logger.info("\nModules:\n" + ", ".join(m for m in self.module_list))
-        if self.iterate_modules:
-            self.logger.info("\nIteration modules:" + str(self.iterate_modules))
         self.logger.info(
-            "=======================================================================\n"
+            "\nModules:\n" + wrap(", ".join(m for m in self.module_list), indent=4)
         )
+        if self.iterate_modules:
+            self.logger.info("\nIteration modules:" + wrap(str(self.iterate_modules)))
+        self.logger.info("=" * 80 + "\n")
 
         # Define model components
         for module in self.get_modules():
@@ -204,10 +213,6 @@ class SwitchAbstractModel(AbstractModel):
 
         fraction_constructed = self.__n_components_constructed / len(self._decl_order)
 
-        # TODO: add code to produce output like this, even if
-        # n_components_to_construct changes between calls
-        # Constructed 10% of components
-        # Constructed 20% of components
         if fraction_constructed >= next_report:
             self.logger.info(
                 f"Constructed "
@@ -233,8 +238,8 @@ class SwitchAbstractModel(AbstractModel):
             if hasattr(module, "load_inputs"):
                 module.load_inputs(self, data, inputs_dir)
 
-        if self.options.verbose:
-            print("Data read in {:.2f} s.\n".format(timer.step_time()))
+        self.logger.info(f"Data read in {timer.step_time():.2f} s.")
+        self.logger.info(f"\nConstructing model instance from data and rules...")
 
         if self.logger.isEnabledFor(logging.DEBUG):
             instance = self.create_instance(data, report_timing=True)
@@ -245,7 +250,7 @@ class SwitchAbstractModel(AbstractModel):
             instance.DataPortal = data
 
         if self.options.verbose:
-            print("Instance created from data in {:.2f} s.\n".format(timer.step_time()))
+            print("Model instance constructed in {:.2f} s.\n".format(timer.step_time()))
 
         return instance
 
@@ -353,15 +358,18 @@ class StepTimer(object):
     """
 
     def __init__(self):
-        self.start_time = time.time()
+        self.start_time = self.last_start = time.time()
 
     def step_time(self):
         """
         Reset timer to current time and return time elapsed since last step.
         """
-        last_start = self.start_time
-        self.start_time = now = time.time()
+        last_start = self.last_start
+        self.last_start = now = time.time()
         return now - last_start
+
+    def total_time(self):
+        return time.time() - self.start_time
 
 
 def save_inputs_as_dat(
@@ -440,8 +448,19 @@ def save_inputs_as_dat(
                 )
 
 
-def unwrap(message):
+def unwrap(message, **kwargs):
     return textwrap.dedent(message).replace(" \n", " ").replace("\n", " ").strip()
+
+
+def wrap(message, width=80, indent=0):
+    ind = " " * indent
+    return "\n".join(
+        textwrap.wrap(message, width=80, initial_indent=ind, subsequent_indent=ind)
+    )
+
+
+def rewrap(message, **kwargs):
+    return wrap(unwrap(message), **kwargs)
 
 
 def check_mandatory_components(model, *mandatory_components):
@@ -484,14 +503,23 @@ def check_mandatory_components(model, *mandatory_components):
         elif o_class == "IndexedParam":
             if len(obj) != len(obj.index_set()):
                 missing_index_elements = [k for k in obj.index_set() if k not in obj]
+
+                # get description of where the data should have come from
+                try:
+                    file, col = model.param_column_map[component_name]
+                except (AttributeError, KeyError):
+                    loc = "calculated internally"
+                else:
+                    if col == component_name:
+                        loc = f"read from {file}"
+                    else:
+                        loc = f"read from '{col}' column in {file}"
+
                 raise ValueError(
                     "Values are not provided for every element of the "
-                    "mandatory parameter '{}'. "
-                    "Missing data for {} values, including: {}".format(
-                        component_name,
-                        len(missing_index_elements),
-                        missing_index_elements[:10],
-                    )
+                    f"mandatory parameter '{component_name}' ({loc}). "
+                    f"Missing data for {len(missing_index_elements)} values, "
+                    f"including: {missing_index_elements[:10]}"
                 )
         elif o_class == "IndexedSet":
             if len(obj) != len(obj.index_set()):
@@ -529,7 +557,7 @@ class InputError(Exception):
         self.value = value
 
     def __str__(self):
-        return repr(self.value)
+        return str(self.value)
 
 
 def apply_input_aliases(switch_data, path):
@@ -626,17 +654,14 @@ def load_aug(switch_data, optional=False, optional_params=[], **kwargs):
     # store filename in local variable for easier access
     path = kwargs["filename"]
 
-    # catch obsolete auto_select argument (not used in 2.0.6 and later)
+    # catch obsolete auto_select argument (not used in 2.0.7 and later)
     for a in ["auto_select", "autoselect"]:
         if a in kwargs:
             del kwargs[a]
-            # TODO: receive a reference to the model and use the logger for this
-            print(
-                "WARNING: obsolete argument {} ignored while reading {}. "
+            switch_data._model.logger.warning(
+                f"WARNING: obsolete argument {a} ignored while reading {path}. "
                 "Please remove this from your code. Columns are always "
-                "auto-selected now unless a 'select' argument is passed.".format(
-                    a, path
-                )
+                "auto-selected now unless a 'select' argument is passed."
             )
 
     # Skip if an optional file is unavailable
@@ -664,7 +689,10 @@ def load_aug(switch_data, optional=False, optional_params=[], **kwargs):
     elif suffix == "csv":
         separator = ","
     else:
-        raise InputError("Unrecognized file type for input file {}".format(path))
+        raise InputError(
+            f"Unrecognized file type for input file {path}. Allowed file types "
+            "are .csv (preferred), .tab or .tsv."
+        )
     # TODO: parse this more formally, e.g. using csv module
     headers = headers_line.strip().split(separator)
     # Skip if the file is empty.
@@ -692,7 +720,7 @@ def load_aug(switch_data, optional=False, optional_params=[], **kwargs):
     # gen_unit_size, which doesn't have a default value because it is undefined
     # for generators for which it does not apply.
     for p in params:
-        if (optional or p.default() is not None) and p.name not in optional_params:
+        if (optional or p.default() is not NoValue) and p.name not in optional_params:
             optional_params.append(p.name)
     # How many index columns do we expect?
     # Grab the dimensionality of the index param if it was provided.
@@ -719,9 +747,11 @@ def load_aug(switch_data, optional=False, optional_params=[], **kwargs):
         # potentially use pyomo.dataportal.process_data._guess_set_dimen() but
         # it is undocumented and not needed if all the sets have dimen
         # specified, which they do now.
+        # TODO: name the file where the param was defined?
         raise ValueError(
             f"Set {params[0].index_set()} has unknown dimen; unable to infer "
-            f"number of index columns to read from {path}."
+            f"number of index columns to read from {path}. Use the dimen=n "
+            "argument when calling Set() to avoid this error."
         )
 
     # Make a select list if requested. Assume the left-most columns are
@@ -745,7 +775,7 @@ def load_aug(switch_data, optional=False, optional_params=[], **kwargs):
             if len(params) > p_i >= 0 and params[p_i].name in optional_params:
                 del_items.append((i, p_i))
             else:
-                raise InputError("Column {} not found in file {}.".format(col, path))
+                raise InputError(f"Required column {col} not found in file {path}.")
     # When deleting entries from select & param lists, go from last
     # to first so that the indexes won't get messed up as we go.
     del_items.sort(reverse=True)
@@ -753,13 +783,49 @@ def load_aug(switch_data, optional=False, optional_params=[], **kwargs):
         del kwargs["select"][i]
         del kwargs["param"][p_i]
 
+    # keep a record of which table each param was read from, for reporting
+    # by min_data_check later
+    for col, param in zip(kwargs["select"][num_indexes:], params):
+        try:
+            map = switch_data._model.param_column_map
+        except AttributeError:
+            map = switch_data._model.param_column_map = dict()
+        map[param.name] = (kwargs["filename"], col)
+
     if optional and file_has_no_data_rows:
         # Skip the file.  Note that we are only doing this after having
         # validated the file's column headings.
         return
     # All done with cleaning optional bits. Pass the updated arguments
     # into the DataPortal.load() function.
-    switch_data.load(**kwargs)
+    try:
+        switch_data.load(**kwargs)
+    except Exception as e:
+        # Pyomo error messages can be very cryptic, so we at least make sure to
+        # show which file is being read. Users can use --debug to try to dig a
+        # little deeper, but it requires a lot of Pyomo/Python knowledge.
+        # We could include f"columns {kwargs['select']}", but it gets very busy
+        # This could potentially graft extra text onto the error message, but
+        # for now we just print it with an extra "====" heading above it, which
+        # should integrate fairly well with the error box that will appear just
+        # below.
+        switch_data._model.logger.error(
+            f"\n{'='*80}\nError reading {kwargs['filename']}"
+        )
+        msg = str(e)
+        if msg == "string index out of range":
+            # This is usually caused by empty cells
+            switch_data._model.logger.error(
+                rewrap(
+                    """
+                    Please ensure there are no empty cells (,, on row or , at
+                    end of line with nothing after it) or rows with the wrong
+                    number of cells. Cells with no data should have a single
+                    period (.) rather than being left empty.
+                    """
+                )
+            )
+        raise
 
 
 # Define an argument parser that accepts the allow_abbrev flag to
