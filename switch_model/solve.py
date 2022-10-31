@@ -4,7 +4,7 @@
 from __future__ import print_function
 
 import logging
-import sys, os, time, shlex, re, inspect, textwrap, types, threading, json
+import sys, os, time, shlex, re, inspect, textwrap, types, threading, json, traceback
 
 try:
     import IPython
@@ -37,7 +37,9 @@ from switch_model.utilities import (
     make_iterable,
     LogOutput,
     warn,
+    wrap,
     unwrap,
+    rewrap,
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 
@@ -55,22 +57,15 @@ def main(args=None, return_model=False, return_instance=False):
 
     # turn on post-mortem debugging mode if requested
     # (from http://stackoverflow.com/a/1237407 ; more options available there)
+    # Otherwise, report the traceback, possibly in a cleaner format.
+    global old_excepthook
+    old_excepthook = sys.excepthook
     if pre_module_options.debug:
-
-        def debug(type, value, tb):
-            import traceback
-
-            try:
-                from ipdb import post_mortem
-            except ImportError:
-                from pdb import post_mortem
-            traceback.print_exception(type, value, tb)
-            report_model_in_traceback(tb)
-            # explicitly use _this_ tb, so debug can be called from an
-            # exception handler if needed (see https://stackoverflow.com/a/242514)
-            post_mortem(tb)
-
         sys.excepthook = debug
+    else:
+        global full_traceback
+        full_traceback = pre_module_options.full_traceback
+        sys.excepthook = report_error
 
     # Write output to a log file if logging option is specified
     # TODO: change all our non-interactive output to report via the logger, then
@@ -89,10 +84,10 @@ def main(args=None, return_model=False, return_instance=False):
     # we never use pyomo's DEBUG level, because it produces an overwhelming
     # amount of output
     pyomo_levels = {
-        'DEBUG': 'INFO',
-        'INFO': 'WARNING',
-        'WARNING': 'WARNING',
-        'ERROR': 'ERROR'
+        "DEBUG": "INFO",
+        "INFO": "WARNING",
+        "WARNING": "WARNING",
+        "ERROR": "ERROR",
     }
     pyomo_log_level = pyomo_levels[pre_module_options.log_level.upper()]
     logging.getLogger("root").setLevel(pyomo_log_level)
@@ -108,10 +103,9 @@ def main(args=None, return_model=False, return_instance=False):
         logger.info(
             textwrap.dedent(
                 f"""
-                =======================================================================
+                {'=' * 80}
                 Switch {switch_model.__version__}, https://switch-model.org
-                =======================================================================
-                """
+                {'=' * 80}"""
             )
         )
 
@@ -135,12 +129,12 @@ def main(args=None, return_model=False, return_instance=False):
             if "--help" in args or "-h" in args:
                 # don't prompt to upgrade if they're looking for help
                 print(
-                    unwrap(
+                    rewrap(
                         """
                         Limited help is available because the inputs directory
                         needs to be upgraded. Module-specific help will be
-                        available after upgrading the inputs directory via "switch
-                        solve" or "switch upgrade".
+                        available after upgrading the inputs directory via
+                        "switch solve" or "switch upgrade".
                         """
                     )
                 )
@@ -148,23 +142,23 @@ def main(args=None, return_model=False, return_instance=False):
                 return 0
 
             do_upgrade = query_yes_no(
-                unwrap(
+                rewrap(
                     """
-                Warning! Your inputs directory needs to be upgraded. Do you
-                want to auto-upgrade now? We'll keep a backup of this current
-                version.
-            """
+                    Warning! Your inputs directory needs to be upgraded. Do you
+                    want to auto-upgrade now? We'll keep a backup of this
+                    current version.
+                    """
                 )
             )
             if do_upgrade:
                 upgrade_inputs(module_options.inputs_dir)
             else:
                 print(
-                    unwrap(
+                    rewrap(
                         """
-                    Inputs need to be upgraded. Consider using "switch upgrade
-                    --help". Exiting.
-                """
+                        Inputs need to be upgraded. Consider using "switch upgrade
+                        --help". Exiting.
+                        """
                     )
                 )
                 return -1
@@ -179,11 +173,10 @@ def main(args=None, return_model=False, return_instance=False):
 
         # Define the model
         model = create_model(modules, args=args, logger=logger)
-
         # Add any suffixes specified on the command line (usually only iis)
         add_extra_suffixes(model)
 
-        logger.info("Model created in {:.2f} s.".format(timer.step_time()))
+        logger.info("Model defined in {:.2f} s.".format(timer.step_time()))
 
         # return the model as-is if requested
         if return_model and not return_instance:
@@ -202,13 +195,14 @@ def main(args=None, return_model=False, return_instance=False):
                 )
 
         # create an instance (also reports time spent reading data and loading into model)
-        logger.info("Loading inputs...")
+        logger.info("\nLoading inputs...")
         instance = model.load_inputs()
 
         #### Below here, we refer to instance instead of model ####
 
+        logger.info("Executing pre-solve functions...")
         instance.pre_solve()
-        logger.info(f"Total time spent constructing model: {timer.step_time():.2f} s.\n")
+        logger.info(f"Completed pre-solve processing in {timer.step_time():.2f} s.")
 
         # return the instance as-is if requested
         if return_instance:
@@ -246,7 +240,6 @@ def main(args=None, return_model=False, return_instance=False):
                 )
                 if str(results.solver.message) != "<undefined>":
                     logger.info(f"Solver message: {results.solver.message}")
-                logger.info("")
                 timer.step_time()  # restart counter for next step
 
             # save model configuration for future reference
@@ -263,15 +256,21 @@ def main(args=None, return_model=False, return_instance=False):
                 )
 
             if not instance.options.no_save_solution:
+                logger.info(f"\nSaving solution file...")
                 save_results(instance, instance.options.outputs_dir)
-                logger.info(f"Saved results in {timer.step_time():.2f} s.")
+                logger.info(f"Saved solution file in {timer.step_time():.2f} s.")
 
         # report results
         # (repeated if model is reloaded, to automatically run any new export code)
         if not instance.options.no_post_solve:
-            logger.info("Executing post solve functions...")
+            logger.info("\nExecuting post-solve functions...")
             instance.post_solve()
-            logger.info(f"Post solve processing completed in {timer.step_time():.2f} s.")
+            logger.info(
+                f"Completed post-solve processing in {timer.step_time():.2f} s."
+            )
+
+        logger.info(f"\nSwitch completed successfully in {timer.total_time():0.2f} s.")
+        logger.info("=" * 80 + "\n")
 
     # end of LogOutput block
 
@@ -310,6 +309,58 @@ def main(args=None, return_model=False, return_instance=False):
 
     # return solved model for users who want to do other things with it
     return instance
+
+
+# should we show a full traceback when there is an error?
+full_traceback = False
+
+
+def report_error(exc_type, exc_value, exc_traceback):
+    msg = f"{exc_type.__name__}: {exc_value}"
+    if not "\n" in msg:  # not pre-wrapped by Pyomo
+        msg = wrap(msg, indent=4)
+    print(f"{'=' * 80}\nTerminating early due to error:\n{msg}\n{'-' * 80}")
+    if exc_type is SyntaxError or full_traceback:
+        print("Error details:")
+        # error in a custom module or user requested normal tracebacks; pass it along
+        old_excepthook(exc_type, exc_value, exc_traceback)
+    else:
+        # provide a tidier error message
+        error_locs = []
+        for frame, line in traceback.walk_tb(exc_traceback):
+            # https://stackoverflow.com/q/2000861/3830997
+            # error_locs.append(inspect.getmodule(frame).__spec__.name, line)
+            error_locs.append((frame.f_globals["__name__"], frame.f_code.co_name, line))
+
+        # TODO: only show the traceback if --log-level info?
+
+        print(
+            "The error occurred at\n"
+            + "".join(
+                f"    > {module}.{func}:{line}\n" for module, func, line in error_locs
+            )
+            + "Run with --full-traceback to see more details or --debug to debug interactively.\n"
+            + "=" * 80
+            + "\n"
+        )
+        exit(1)
+
+
+def debug(exc_type, exc_value, exc_traceback):
+    """
+    Launch interactive debugger to handle the exception.
+    """
+    import traceback
+
+    try:
+        from ipdb import post_mortem
+    except ImportError:
+        from pdb import post_mortem
+    traceback.print_exception(exc_type, exc_value, exc_traceback)
+    report_model_in_traceback(exc_traceback)
+    # explicitly use _this_ traceback, so debug can be called from an
+    # exception handler if needed (see https://stackoverflow.com/a/242514)
+    post_mortem(exc_traceback)
 
 
 def reload_prior_solution_from_pickle(instance, pickle_file):
@@ -839,21 +890,31 @@ def add_pre_module_args(parser):
         dest="log_level",
         action="store_const",
         const="info",
-        help="Older logging flag; equivalent to --log-level info",
+        help="Equivalent to --log-level info",
     )
     parser.add_argument(
         "--quiet",
         dest="log_level",
         action="store_const",
         const="warning",
-        help="Older logging flag; equivalent to --log-level warning",
+        help="Equivalent to --log-level warning",
     )
 
     parser.add_argument(
         "--debug",
         action="store_true",
         default=False,
-        help="Automatically start pdb debugger on exceptions",
+        help="Automatically start pdb debugger when an error occurs",
+    )
+
+    parser.add_argument(
+        "--full-traceback",
+        action="store_true",
+        default=False,
+        help=(
+            "Show full Python traceback when an error occurs; can help to "
+            "pinpoint the cause of errors."
+        ),
     )
 
 
@@ -1047,7 +1108,7 @@ def solve(model):
 
     # solve the model
     timer = StepTimer()
-    model.logger.info("Solving model...")
+    model.logger.info("\nSolving model...")
 
     if model.options.tempdir is not None:
         # from https://software.sandia.gov/downloads/pub/pyomo/PyomoOnlineDocs.html#_changing_the_temporary_directory
@@ -1055,19 +1116,27 @@ def solve(model):
 
         TempfileManager.tempdir = model.options.tempdir
 
+    if model.options.tee:
+        # bar above solver output
+        model.logger.info("-" * 33 + " solver output " + "-" * 32)
+
     try:
         results = model.solver_manager.solve(model, opt=model.solver, **solver_args)
     except ValueError as err:
         # show the solver status for obscure errors if possible
-        model.logger.error("\nError during solve:\n")
+        model.logger.error("\n" + "=" * 80 + "\nError during solve:\n")
         try:
             model.logger.error(err.__traceback__.tb_frame.f_locals["results"])
         except:
             pass
         raise
 
+    if model.options.tee:
+        # bar below solver output
+        model.logger.info("-" * 28 + " end of solver output " + "-" * 28 + "\n")
+
     model.logger.info(
-        f"Solved model. Total time spent in solver: {timer.step_time():2f} s."
+        f"Solved model. Total time spent in solver: {timer.step_time():0.2f} s."
     )
 
     # Treat infeasibility as an error, rather than trying to load and save the results
@@ -1127,7 +1196,9 @@ def solve(model):
         model.logger.error("Solver terminated without a solution.")
         model.logger.error("  Solver Status: ", results.solver.status)
         model.logger.error("  Solution Status: ", solution_status)
-        model.logger.error("  Termination Condition: ", results.solver.termination_condition)
+        model.logger.error(
+            "  Termination Condition: ", results.solver.termination_condition
+        )
         if (
             model.options.solver == "glpk"
             and results.solver.termination_condition == TerminationCondition.other
