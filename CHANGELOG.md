@@ -1,16 +1,278 @@
 -------------------------------------------------------------------------------
 Switch 2.0.7
 -------------------------------------------------------------------------------
-Note that as of version 5.7, Pyomo no longer supports "inf", "infinity" or "nan"
-values in the input files, so Switch will likely report errors if you have
-those.
+This release includes a large number of new features and compatibility and
+stability improvements. It should have minimal effect on results from existing
+models. Huge thanks are due to Josiah Johnston for most of these changes and to
+new contributors Desmond Zhong, Brad Venner and Martin Staadecker.
 
-Changed Pyomo dependencies to versions 5.5.1-6.4.2. Note that Pyomo versions
-before 5.7.3 don't work with CPLEX version 12.10 or later (see
-https://github.com/Pyomo/pyomo/pull/1792). If using a recent version of CPLEX,
-you should ensure that you also use version 5.7.3 or later of Pyomo.
+The updates are summarized below. For more details, see the [git commit log](https://github.com/switch-model/switch/blob/master/updates207.txt).
 
-Renamed outputs/dispatch-wide.csv to outputs/dispatch_wide.csv
+**Changes that may affect existing models and results**
+
+- Changed Pyomo dependencies to versions 5.7.0-6.4.2. This has a few implications:
+  - All previous users of Switch will need to upgrade their Pyomo installation,
+    since Switch 2.0.6 was only compatible up through Pyomo 5.6.8. The upgrade
+    to 5.7.0 is needed to get around a bug in Pyomo 5.6.8 and earlier that would
+    incorrectly treat invalid optional data as missing data. If you have invalid
+    data in optional columns, you may now receive error messages instead of it
+    being silently ignored.
+  - Note that Pyomo versions before 5.7.3 don't work with CPLEX version 12.10 or
+    later (see https://github.com/Pyomo/pyomo/pull/1792). If using a recent
+    version of CPLEX, you should ensure that you also use version 5.7.3 or later
+    of Pyomo.
+  - If you have older models or custom modules, you should make the following
+    changes to ensure compatibility with more recent versions of Pyomo:
+    - assign `dimen` values for all Pyomo Sets.
+    - initialize Pyomo Sets using ordered containers, not Python sets.
+      (`switch_model.utilities.unique_list` can be useful for this)
+    - explicitly specify a `within` domain for all Pyomo Sets and Params
+    - don't use `+inf`, `-inf`, `+infinity`, `-infinity` or `nan` in input files
+      (in some cases, one of these may be the default value for a parameter, so
+      the input value can be specified as `.` instead)
+- The `generation_projects_info.csv` input file has been renamed to
+  `gen_info.csv`. The new name is more consistent with other file names, which
+  generally start with "gen_", and may be easier to remember and view in editor
+  tabs. Switch 2.0.7 will offer to automatically update this file (and
+  others) the first time it is run with an version 2.0.6 inputs directory.
+- The `gen_predetermined_cap` column has been renamed to
+  `build_gen_predetermined` in `gen_build_predetermined.csv`. This is more
+  consistent with the new `build_gen_energy_predetermined` column, and the use
+  of 'build' in the names makes it clearer that these columns show the amount of
+  new capacity built in each year, not the total amount of capacity in place
+  that year.
+- The `distribution_loss_rate` column has been moved from the `trans_params.csv`
+  input file to `load_zones.csv` and renamed `local_td_loss_rate`. This makes
+  the name more accurate and allows it to be varied between load_zones.
+- The `gen_multiple_fuels.dat` input file has been replaced with
+  `gen_multiple_fuels.csv`. Users should update their model setup scripts to
+  create the new file. The .csv file should have two columns: `GENERATION_PROJECT`
+  and `fuel`. It should have one row for each allowed fuel for each multi-fuel
+  generator.
+- The `dispatch-wide.csv` output file has been renamed `dispatch_wide.csv`.
+- An extra "m" has been removed from the names of the
+  `cumulative_capacity_by_tech_periods.csv` and
+  `cumulative_transmission_by_path_periods.csv` output files produced by the
+  `reporting.basic_exports` module.
+- Switch now implements a check for bidirectional transmission lines being
+  specified in input files, so the implementation matches documentation.
+- Switch no longer uses the `auto_select`/`autoselect` argument in calls to
+  `switch_data.load_aug`. Columns are always auto-selected now unless a 'select'
+  argument is passed. You should remove this argument from any custom modules
+  you use.
+- Curtailable storage charging is now included as a form of reserves in the
+  `spinning_reserves` module, matching the `spinning_reserves_advanced` module.
+  This may change the results from models that use storage with the
+  `spinning_reserve` module.
+- `balancing.demand_response_simple` now defaults to providing `'spinning'`
+  reserves if a reserve module is loaded, otherwise providing no reserves.
+- `balancing.demand_response.iterative` now works with `spinning_reserves_advanced`,
+  including a `--demand-response-reserve-types` flag. It also now reports final
+  results in a file with no iteration number at the end.
+- The internal `zone_rfm` component has been renamed to `zone_fuel_rfm` to make
+  it more clear that it identifies the rfm for each zone-fuel combination.
+- The output file `gen_cap.csv` now reports storage energy capacity (MWh) in
+  place during each study period, in addition to power capacity (MW) in place.
+  It also includes the capital recovery for the storage MWh in the reported
+  annual capital recovery (previously omitted). The `GenCapitalCosts` column in
+  this file has been renamed to `GenCapitalRecovery` to clarify that it is the
+  amortized capital repayment that occurs for each project during each year, and
+  distinguish it from capital outlay that occurs when the project is first built
+  and is later recovered over time via the GenCapitalRecovery.
+- The new `gen_build.csv` output file shows the amount of power (MW) and storage
+  (MWh) capacity _added_ during each period. This also shows the total capital
+  outlay needed for these additions. Switch uses capital outlay to calculate
+  annual capital recovery requirements, then includes capital recovery each
+  period in the system cost that it optimizes. Switch doesn't use the capital
+  outlay for anything except calculating the annual capital recovery required.
+  However, capital outlay may be of interest to planners.
+- Switch no longer produces the  `storage_builds.csv` output file, since the
+  information from this file is now shown in `gen_build.csv` and `gen_cap.csv`.
+- When using the `balancing.unserved_load` module and the
+  `transmission.local_td` module, unserved load is now applied at the
+  distribution node instead of the zone backbone node. This clarifies
+  supply-demand balance and avoids some cases where reducing the load at the
+  backbone may not be enough to avoid infeasibility. This may slightly change
+  the unserved load and  total cost reported in those models, due to avoiding
+  the need for local transmission and distribution to meet the unserved portion
+  of load.
+- Switch now gives a more compact description of the location of errors when
+  they occur. If you would like to see the full Python traceback (the former
+  behavior), use the new `--full-traceback` flag.
+- The `balancing.planning_reserves` module previously assigned a default
+  capacity value for solar plants that could not exceed 1, even in timepoints
+  when the capacity factor was greater than 1.0. We now allow values greater
+  than 1 when calculating the default value for this parameter.
+- The `--sorted-output` flag is applied more universally. This ensures most
+  outputs will be sorted when requested, including `dispatch.csv`,
+  `dispatch_wide.csv` (columns), `gen_cap.csv`,
+  `gen_project_annual_summary.csv`, `load_balance.csv`,
+  `local_td_energy_balance.csv`, `local_td_energy_balance_wide.csv` and
+  `transmission.csv`. Previous versions did not use this flag so universally, so
+  you may find the order of some outputs changes when you upgrade.
+
+
+**New features**
+
+- new `--log-level` flag can be set to `error`, `warning`, `info` or `debug` to
+  receive varying amounts of information about the model run. `--verbose` is a
+  now a synonym for `--log-level info`, and `--quiet` is equivalent to
+  `--log-level warning` (default). Definitions of the levels are as follows:
+    - `error`: may be used to give extra explanation when an exception is raised
+    - `warning`: warn user about behavior that is most likely wrong but not enough
+      to cause an exception (default output level, so users will see this for
+      most models)
+    - `info`: high-level progress log; used to follow progress of the model
+      without seeing every detail
+    - `debug`: detailed diagnostic data (e.g., recommend improved practices for
+      input data files even if the current files are officially acceptable)
+- A new module `balancing.diagnose_infeasibility` can be used to help diagnose
+  infeasible models, generally caused by inconsistent input data. This module
+  relaxes all constraints, making any model feasible, then seeks to minimize all
+  constraint violations, then reports which constraints are violated. Users can
+  use a `--no-relax CONSTRAINT1 [CONSTRAINT2 ...]` argument to selectively turn
+  some constraints back on, to identify combinations of constraints that cannot
+  be enforced simultaneously. This is similar to CPLEX's irreducibly infeasible
+  set (IIS) feature, but faster and simpler and works with all solvers.
+- Energy balance of the local T&D node is now exported to
+  `local_td_energy_balance.csv` and `local_td_energy_balance_wide.csv`.
+- Updated simple_hydro to model spillways, allowing river flow to exceed the
+  capacity of the generator & reservoir.
+- Storage decisions are now shown in dispatch-related output files if the
+  storage module is included.
+- Expanded export from the generator dispatch module to simplify analysis.
+  `gen_project_annual_summary.csv` shows energy production, emissions, capacity
+  online, capital and O&M costs, levelized cost of energy, capacity factor and
+  storage utilization for each generation project for each study year.
+  `dispatch_zonal_annual_summary.csv` shows the same information per technology
+  per load zone. `dispatch_annual_summary.csv` shows the same information per
+  technology, aggregated across the entire region.
+- Implemented predetermined energy capacity for storage, a parallel to
+  predetermined power capacity. This is specified in MWh in a new
+  `build_gen_energy_predetermined` column in `gen_build_predetermined.csv`. It
+  should be left blank (".") for non-storage projects, or you may omit the
+  column if your model has no storage projects.
+- Added new command-line option `--input-alias` or `--input-aliases`. This
+  allows users to specify replacements for individual input files to use in the
+  current run. e.g., `--input-alias fuel_cost.csv=fuel_cost_high.csv` would use
+  the `fuel_cost_high.csv` file instead of `fuel_cost.csv` in the current run.
+  This can be used with one or more substitutions and can be repeated:
+  `--input-alias[es]` `file1.csv=file1.alternate.csv`
+  `[file2.csv=file2.alternate.csv, ...]`. These are applied as a simple
+  replacement on the filename, then added onto the directory specified with
+  `--inputs-dir`. So usually the replacement will occur within the
+  `--inputs-dir`, but users can specify `some_dir/file.csv` or
+  `../some_other_dir/file.csv` in the alias to refer to files in other
+  directories relative to the normal location of the file. Filename `none` will
+  cause the file to be ignored.
+- When using the `hawaii.ev` module, users can now split the EV fleet between
+  different charging modes using the `--ev-timing` flag: `--ev-timing EV_TIMING
+  [EV_TIMING ...]`. Each EV_TIMING entry consists of a mode and optionally a
+  share, e.g., `--ev-timing bau` charges all vehicles in `bau` mode or
+  `--ev-timing bau=0.32 optimal=0.68` splits the fleet between `bau` and
+  `optimal` mode. Modes are `bau`=business-as-usual (upon arrival), `flat`=around
+  the clock, or `optimal` (default). If modes are specified without shares
+  assigned, they will receive equal fractions of the unallocated charging.
+- It is now possible to put comments on the same line as data in `modules.txt`,
+  `options.txt` and `scenarios.txt`. This can be done by placing a `#` followed
+  by the comment at the end of the line.
+- Zero-weight timeseries are now allowed. These are useful for modeling rare,
+  worst-case days or including worse-than-worst (non-real) days as a form of
+  planning reserves.
+- It is now possible to assign different fuel costs for each timepoint by using
+  `energy_sources.fuel_costs.simple_per_timepoint` instead of
+  `energy_sources.fuel_costs.simple`. It is also possible to set prices on
+  different timescales (e.g., per timeseries) by assigning the same price to all
+  timepoints in that period. This file reads input file
+  `fuel_cost_per_timepoint.csv`, which should have these columns:
+  `fuel_cost_per_timepoint.csv` `load_zone`, `fuel`, `period`,
+  `fuel_cost_per_timepoint`.
+- The new `fuel_costs.markets_expansion` module allows capacity expansion of
+  fuel markets. If using this module, you should add columns
+  `rfm_supply_tier_fixed_cost` and `rfm_supply_tier_max_age` to the
+  `fuel_supply_curves.csv` input file. These can be specified as `.` for tiers
+  that are already available. For candidate tiers that may or may not be built,
+  the `rfm_supply_tier_fixed_cost` specifies the fixed cost per MMBtu of fuel
+  supply made _available_ by that tier (not necessarily used) and
+  `rfm_supply_tier_max_age` specifies the life of the tier if it is activated.
+  This module is useful for considering investments in infrastructure that will
+  expand the availability of fuels, such as a liquified natural gas (LNG)
+  terminal. By testing tiers with different lives (and therefore different costs
+  per MMBtu of fuel made available), it is possible to assess questions such as
+  whether early fuel infrastructure investment will crowd out later renewable
+  deployment. If the power system being studied will block use of a fuel after a
+  certain date, then `rfm_supply_tier_max_age` should end before that date, to
+  ensure that stranded costs after the end of the study are not omitted from the
+  study. To do this, it may be necessary to add side constraints to prevent use
+  of long-lived tiers after certain dates. The `No_LNG_In_100_RPS` constraint in
+  `switch_model.hawaii.lng_conversion` shows an example of this.
+- The new `transmission.copperplate` module can be used to enable unlimited
+  power transfer between zones at no cost.
+- Switch now allows general-purpose models with no zonal power demand and no
+  power system components. This can be useful, e.g., for studying gas networks
+  independently from the electricity system.
+- Progress in constructing model components is reported in 10% steps if
+  `--log-level` is `info`. If `--log-level` is `debug`, these steps are shown
+  along with timing to construct each individual component. Constructing model
+  components is one of the lengthiest steps in Switch, so this gives more
+  reassurance that something is happening.
+- New command line option `--skip-generic-output` tells `switch_model.reporting`
+  not to save data for each model variable after the plan is optimized. These
+  files can also be excluded by omitting the `switch_model.reporting` module
+  from your model, which will also prevent creation of `total_cost.txt` and
+  `cost_components.csv`. Specifying `--no-post-solve` will prevent running the
+  `post_solve` code in all the modules used in the model, and therefore prevent
+  all output.
+- Model configuration is now saved in `model_config.json` in outputs directory.
+- The `demand_response.iterative` module now includes the iteration number in
+  result filenames, which can be useful for monitoring progress of the solution.
+- `existing_local_td` and `local_td_annual_cost_per_mw` are now optional
+  (default 0) when using the `local_td module`. This is useful for models where
+  existing local transmission and distribution capacity is unknown (Switch will
+  automatically build enough) or where the cost of local T&D capacity is not
+  important, e.g., if the user is only concerned about avoiding local T&D
+  losses.
+- Switch will now report dual values (shadow prices) for the carbon cap in
+  `emissions.csv` even for models with integer or binary variables. Note that
+  dual values are not defined in general for integer models, and for this reason
+  many solvers do not provide them. However, it is common practice to solve
+  once, then fix integer variables at their current level, then re-solve the now
+  continuous model and obtain dual values for that (this is what the
+  `--retrieve-cplex-mip-duals` flag does with the `cplex` solver, and some
+  versions of the `cplexamp` solver do this automatically). In this case, the
+  shadow price of carbon assumes none of the integer variables move from their
+  optimized position (e.g., not turning on one more power plant or abandoning
+  the plan to build a plant with a specific minimum size), which should be
+  suitable for most applications.
+- A solved model will be returned at the end of `switch_model.solve.main()` if
+  the `return_model` and `return_instance` arguments are not specified. This can
+  be useful for programmatic control of Switch.
+
+**Other changes**
+
+- Switch code has begun to use `m.logger.error()`, `m.logger.warning()`,
+  `m.logger.info()` and `m.logger.debug()` for screen output, and this is
+  recommended for custom user modules too.
+- Changed plotting library from `ggplot` to `plotnine` for optional plots stored
+  in `dispatch_annual_summary_fuel.pdf` and `dispatch_annual_summary_tech.pdf`
+  (these plots will be generated automatically if you have `plotnine` installed
+  in your Python environment)
+- Numerous adjustments to improve performance, documentation, warning messages
+  or stability. See [git commit
+  log](https://github.com/switch-model/switch/blob/master/updates207.txt) for
+  details.
+- A bug was fixed in the `balancing.planning_reserves` module that may sometimes
+  have caused Switch to crash.
+- Updated planning reserves input documentation & reading to reflect that some
+  parameters are optional and don't have to be specified in files.
+- Fixed a bug with fuel unavailability when calculating fuel costs related to
+  dispatch with the `fuel_costs.markets` module.
+- Switch now uses `SwitchAbstractModel` and `SwitchConcreteModel` classes to
+  encapsulate the features we add to the Pyomo base classes. (Mainly of interest
+  to core developers.)
+- Switch source code now uses the Black autoformatter. This should make the
+  source code a little more readable, and is recommended for any contributions
+  from users.
 
 -------------------------------------------------------------------------------
 Switch 2.0.6

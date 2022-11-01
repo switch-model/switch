@@ -1,0 +1,1358 @@
+commit 728938566b4552f61366eb4292a3448c6d16658a
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Tue Jul 9 11:52:09 2019 -0700
+
+    Allow users to choose log level for warning / info messages. Apply to extra timepoints warnings to avoid spamming user with messages at every run, but giving them access to as detailed information as they request.
+
+commit 2318c1ae5c5158328918c99a2196392eea32e6f1
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Tue Jul 9 12:05:22 2019 -0700
+
+    Make `switch solve` command line options easier to do text searches on, and easier to read on a laptop screen (adding `dest` and reformatting text wrap).
+
+commit f69352e02dbdd4966bb5784eabbec2d7e1c7a282
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Sat Jul 6 14:00:48 2019 -0700
+
+    Fixed bug of storage export crashing for existing storage plants that were built before the start of the study's time horizon.
+
+commit 41443b139fdf360dbf030dfbfedc53afae5e50e0
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Tue Jul 9 12:29:04 2019 -0700
+
+    Fixed a bug where ArgParse doesn't allow unescaped percent signs in help messages. Before this fix, the bug appeared if you executed `switch solve --help` in the examples/production_cost_models/spinning_reserves directory which loads the spinning_reserves module.
+
+commit e6b486efe63a0b49bc9164732dd1f4dbaca317dd
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Tue Jul 9 16:39:42 2019 -0700
+
+    Change plotting libraries from `ggplot` to `plotnine` because the python library `ggplot` has been abandoned for a few years, and `plotnine` is actively maintained and a drop-in replace for our simple use case.
+
+commit 3696e70af713884ea33841827f303e02de517662
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Wed Jul 10 09:11:29 2019 -0700
+
+    Export energy balance of local T&D node.
+
+commit 9a376d053fb71821a3a58f26cda1a6b00c028a8e
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Fri Jul 12 15:24:30 2019 -0700
+
+    When `--interact` is given, use IPython.embed() if IPython is available. This allows tab completion & color highlighting, which enables much faster exploration & debugging.
+
+commit ee9008e995b7ddbb4ddb383edc03cf0474da907a
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Fri Jul 12 18:48:23 2019 -0700
+
+    Include storage decisions in dispatch export if the storage module is included.
+
+commit 469caad63a4ce45337c2a62f90d19f8d7df1787b
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Wed Jul 17 16:42:30 2019 -0700
+
+    If the optional plotting library is available, filter out its spurious warnings about matplotlib API deprecations & save paths for plotnine figures.
+
+commit e8be456be4c2cf2845036ff6e8de4c942b901bc3
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Thu Jul 25 13:35:10 2019 -0700
+
+    Fix long-standing bug that used the wrong parameter name in `load_aug()` (autoselect vs auto_select)
+
+commit 29a43663a798f897562baca0483780444ae35da6
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Thu Jul 25 13:49:12 2019 -0700
+
+    Update simple_hydro to model spillways; a crucial feature of hydro plants used in high-flow conditions where river flow exceeds the capacity of the generator & reservoir. Also minor improvements to documentation and code formatting for improved readability & accuracy.
+
+commit 849bc8eed5cc864bba784fc7e043270c110801a8
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Thu Jul 25 13:55:32 2019 -0700
+
+    Expand export from the dispatch module to simplify analysis:
+    * New file with annual summary per-generation project that includes energy, capacity, costs & capacity factor
+    * New file with tech/annual summary for easily skimming results.
+    * Faster summation of tech/zone annual summary & tech/annual summary. Also include capacity, costs, and cap factor in those summary files.
+    
+    Also, minor updates for python style.
+
+commit f06c0016688da900a3ffc265e1d4be17b679cdf7
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Wed Jul 31 10:47:18 2019 -0700
+
+    Update planning reserves input documentation & reading to reflect that some parameters are optional in the model and don't have to be specified in files. This simplifies the process of defining a bare-bones planning reserve margin for each load zone. I verified that all of the tests still pass.
+
+commit 889f47f12fe236b98e284aa7e73a531baeedd233
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Thu Aug 1 22:58:33 2019 -0700
+
+    Write a simple-to-use expression in fuel markets to get post-optimization fuel costs associated with dispatching generators.
+    Also, reverting a typo bug in dispatch export.
+
+commit fd0e04601bf39cd490ab4644652dfea71d0c7d07
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Wed Aug 7 10:59:03 2019 -0700
+
+    Fix a bug with fuel unavailability when calculating fuel costs related to dispatch with the fuel markets module.
+
+commit 1fa7a56393b9e731953e36a4853e84c62e320e0b
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Wed Aug 7 11:08:29 2019 -0700
+
+    Implement a check for bidirectional transmission lines being specified in input files, so the implementation matches documentation.
+
+commit 2de5b80d0cdebed234375eefc1542a4f44b55a1e
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Wed Aug 7 14:05:23 2019 -0700
+
+    Clarify extra timepoints warning message since it applies to both plants that are retired early and plants whose construction is not complete in the first period. Also minor documentation update.
+
+commit 7e5b960cd012540149ed8d85892e2765bce6dff1
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Wed Aug 7 14:06:09 2019 -0700
+
+    Update transmission documentation to match implementation changes Matthias made in mid-June 2019.
+
+commit 56eaad9ad396502e8148af72747a587b8c76d9e4
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Fri Aug 9 12:31:34 2019 -0700
+
+    Update typo in a warning message.
+
+commit e328faec3ea8365b288f6de7527b7c4a0f667432
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Fri Aug 9 12:38:50 2019 -0700
+
+    Port the extra contribution that ChargeStorage can make to spinning reserves from the spinning_reserves_advanced module to the spinning_reserves module.
+    Add a slack variable to the CommitGenSpinningReservesUp_Limit constraint in both spinning reserves modules to provide a hook for subsequent quickstart reserves.
+    Minor documentation updates to both spinning reserve modules.
+
+commit 89eb49da5026d0cd4d0a42d7db1d69ea0553dd6c
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Fri Aug 9 13:35:41 2019 -0700
+
+    Implement predetermined energy capacity for storage, a parallel to predetermined power capacity. This is necessary for fully specifying existing storage projects.
+
+commit d49f6335230225fdc6fb523a28e3a9e809199309
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Fri Aug 9 16:10:47 2019 -0700
+
+    Fix bugs in planning reserve margin. One bug was a typo in accessing a model component. The other was a problem with default capacity value for solar plants that have capacity factors greater than 1.0 (a frequently observed event on partly-cloudy days). I took a conservative approach of capping capacity value at 100% of nameplate capacity. An alternate approach would be changing the domain of gen_capacity_value from PercentFraction to NonNegativeReals.
+
+commit e5bbfd3b4fb278566f1f81fcc4515802085bc5f4
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Tue Aug 13 11:30:09 2019 -0700
+
+    Added a CLI option (`--logging-level`) to explicitly specify logging levels per Matthias's request. This is an alternative to the standard gnu/linux-style CLI options of -v, -vv & -vvv. I also updated the help messages for the -v options to describe which logging levels will be set in each case.
+
+commit 766e3770b139a674fd24c79360e7dee6cff3687e
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Tue Aug 13 15:04:22 2019 -0700
+
+    Bumping version number to avoid confusion with 2.0.5 release.
+
+commit b5b1a28d5a358d894222fd888323eb0b52dc1c5c
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Fri Aug 16 10:21:38 2019 -0700
+
+    Updating version parser because the prior one (distutils.version) is obsolete, violates current python version guides (PEP 440), and undocumented. The new parser is part of setuptools, which is required to install switch (it's an import in setup.py).
+    Changing version number from alpha to dev which seems a better name for this staging branch.
+
+commit 392170403e42f982af540effe9d021e3ec399bcf
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Thu May 18 22:27:32 2017 -0700
+
+    Make min up & downtime constraints more concise & readable, and use sparse sets instead of sometimes skipping a constraint.
+
+commit 94525dccd26c3796bff338b54f20be876c5980b6
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Fri Aug 16 15:19:40 2019 -0700
+
+    Condense discussion of issues in code by referring to an issue posted on github.
+
+commit 401288a4b85bf70d6d1b8df07f69b94a1768b614
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Wed Aug 21 14:37:45 2019 -0700
+
+    Update documentation and code readability. Also remove a weird line of code for detecting interactive sessions (vs a python script) that isn't used for anything.
+
+commit 13cbca7c509f68c2fabf3edbe98cba4a966c6cc6
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Wed Aug 21 14:40:51 2019 -0700
+
+    Make auto_select in load_aug optional and default to True, unless `select` was explicitly specified in kwargs.
+
+commit ba088dfe83096bf6dbf60e209d25293b6c7924c8
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Wed Aug 21 15:44:24 2019 -0700
+
+    Move load_td I/O into its module instead of the transport.build module. Also minor documentation improvements.
+
+commit a78f59bfa84de8281f8d7c67cb536b25e9c3e267
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Wed Sep 11 17:00:32 2019 -0700
+
+    Trim down timepoints printed in error messages to avoid too long of diagnostic logs.
+
+commit 21bbc274d4aa8557ad06bd268b895c67e087547a
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Sun Oct 6 20:15:02 2019 -0400
+
+    Include levelized cost of energy in dispatch summary files.
+
+commit 29d0332abd8210bd002b0293299ef65762de38a1
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Nov 4 13:33:59 2019 -1000
+
+    Switch from --verbose/--quiet to --log-level flag
+    
+    This commit drops previous pre-release code that created --very-verbose
+    and --very-very-verbose flags, and instead uses the standard Python
+    logging levels (lowercased) with a --log-level flag. We omit the
+    "critical" log level since it is indistinguishable from "error".
+    
+    Our new standard for output will be as follows:
+    
+    - logger.error(): optionally used to give extra explanation when an
+    exception is raised
+    - logger.warning(): warn user about behavior that is most likely wrong
+    but not enough to cause an exception (default output level, so users
+    will see this for most models)
+    - logger.info(): high-level progress log; used to follow progress of the
+    model without seeing every detail
+    - logger.debug(): detailed diagnostic data (e.g., recommend improved
+    practices for input data files even if the current files are officially
+    acceptable)
+    
+    We now issue deprecation warnings if users specify --verbose or --quiet.
+    
+    This code creates a unique logger for each model, because different
+    models may be created during the life of the solve module and may use
+    different --log-run, --logs-dir and --log-level settings.
+    
+    Code needs to be updated to send all reporting via the logging
+    mechanism. Then we may be able to drop the code that captures stdout and
+    stderr to the logfile. However, we will still need to find some way to
+    copy everything to the logfile, including tracebacks and messages from
+    other code (emitted via either print() or the root logger).
+
+commit 4642de038126b9747cd1ad4f9b6638338b82a7e0
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Nov 4 17:32:14 2019 -1000
+
+    Report unused values in variable_capacity_factors.csv with new logger
+
+commit e95abe371f52a73329c78adb8bfe6c48c579f706
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Nov 4 21:53:29 2019 -1000
+
+    Better handling of exceptions and warnings for dispatch summary graphs
+    
+    Catch only ImportError when importing plotnine and not other errors in
+    plotting code. Filter out more warnings from pandas/plotnine. Reduce
+    repetition in plotting setup and execution.
+
+commit 098697956d982fd5b0d3033a240ad45a77091144
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Wed Aug 14 09:57:52 2019 -1000
+
+    Improve INSTALL.md formatting
+
+commit 5b35956297e7f6f02172b568c8fd39fad5598c16
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Nov 1 11:02:22 2019 -1000
+
+    Cosmetic improvements to code and comments
+
+commit de0db927e06cf1eb064b525fd6f0d2ee26dd7bec
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Nov 1 11:11:57 2019 -1000
+
+    Implement --input-aliases option
+    
+    The command-line argument for this was accidentally included in a
+    previous version; this implements the actual behavior.
+    
+    Filename substitutions are specified as
+    --input-alias[es] file1.csv=file1.alternate.csv
+    [file2.csv=file2.alternate.csv, ...]
+    
+    These are applied as a simple replacement on the filename at the end of
+    the path specified in the call to load_aug(). So usually the replacement
+    will occur within the --inputs-dir, but users can specify
+    'some_dir/file.csv' or '../some_other_dir/file.csv' to refer to files in
+    other directories relative to the normal location of the file.
+    
+    Filename 'none' will be converted to an empty string and usually cause
+    the file to be ignored.
+    
+    This enables use of alternative files to study sensitivities without
+    creating complete input directories for each permutation.
+
+commit 7e9b76396f61855dbbbbaa5bcbea99bc75af238c
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Nov 1 11:12:32 2019 -1000
+
+    Bump version number to 2.0.6.
+
+commit 81967edb704070afb469a137658e85226b4f1667
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Nov 1 11:42:46 2019 -1000
+
+    Improve default demand response reserves and share code
+    
+    balancing.demand_response_simple now defaults to providing 'spinning'
+    reserves if a reserve module is loaded, otherwise providing no reserves.
+    
+    Reserve-registration code has also been moved into a function so it can
+    be shared with demand_response_iterative.
+
+commit 81fc53fe68ed6408b0076fc5ed09d9b6d4ce2713
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Nov 1 11:44:53 2019 -1000
+
+    Bring balancing.demand_response.iterative up-to-date
+    
+    Make reserve calculations work with spinning_reserves_advanced,
+    including a "--demand-response-reserve-types" flag. Import
+    register_demand_response_reserves code from demand_response_simple.
+    
+    Avoid throwing errors during unit tests if dependencies are not
+    installed.
+    
+    Raise an explicit error if solver fails to calculate duals.
+    
+    Report results without an iteration number at the end.
+
+commit 056aeb4ef21b72337f7c3f309ca6da402988634d
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Nov 1 11:52:20 2019 -1000
+
+    Allow users to split fleet between different charging modes in hawaii.ev
+
+commit 1ebbaaf4935099121a989c8d7a6c2a5b81fa900d
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Nov 1 11:53:46 2019 -1000
+
+    Update hawaii.fed_subsidies to work with FlatDistPV and SlopedDistPV
+
+commit fe2bee52e4478a5c44b1fbf5b28dd91a4ec34346
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Nov 1 11:55:42 2019 -1000
+
+    Avoid warnings about unused variables if no min H2 tank size specified
+
+commit 1bb408a9366ad892a7ab10bb609f53671689d079
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Nov 1 12:06:07 2019 -1000
+
+    hawaii.save_results saves blanks if no duals are available; no error
+
+commit b52846c2c852b22069d623c5e985cf8f60b2ba82
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Nov 1 12:07:33 2019 -1000
+
+    Use technology priority list when smoothing dispatch
+
+commit 8771c803dcab18e5ee9086133d42f9b71bcaea6d
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Nov 1 12:10:04 2019 -1000
+
+    Allow same-line comments in modules.txt, options.txt and scenarios.txt
+
+commit 8cbea8db21023c8dfb3ac842c04cab9477f4a281
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Nov 1 12:12:06 2019 -1000
+
+    Allow zero-weight timeseries
+    
+    These are useful for modeling rare, worst-case days or including
+    worse-than-worst (non-real) days as a form of planning reserves.
+
+commit a432fbd77de0c6b61921fb41abd1ffa7bc83ac28
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Nov 1 15:15:09 2019 -1000
+
+    Replace psip_2016_12 with heco_outlook_2019
+    
+    psip_2016_12 is brittle and doesn't work with new input data: new
+    project lives in ATB_2019_* (affects rebuild timing), different
+    FlatDistPV and SlopedDistPV (needs combined forecast), and AES
+    retirement in 2022 (now assumed in all cases,
+    not just PSIP).
+    
+    We now replace the old PSIP_2016_12 module with heco_outlook_2019 and
+    throw deprecation errors if people try to use PSIP_2016_12.
+
+commit 4e10f6945e09b9dcbc7faa39fee2359337f4b2f4
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Nov 1 16:28:00 2019 -1000
+
+    Convert gen_multiple_fuels.dat to gen_multiple_fuels.csv
+    
+    Beginning with this version of Switch, gen_multiple_fuels.dat should be
+    replaced with gen_multiple_fuels.csv. The .csv file should have two
+    columns: GENERATION_PROJECT and fuel. It should have one row for each
+    allowed fuel for each multi-fuel generator. This eliminates the last
+    .dat file dependency in Switch.
+    
+    The upgrade script will convert gen_multiple_fuels.dat to
+    gen_multiple_fuels.csv automatically.
+
+commit 621e8dd86560d325e4f6cd9c9e49aac2de6430a5
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Nov 1 16:29:43 2019 -1000
+
+    Tell user if heco_outlook_2019 has a target for a missing technology
+
+commit 396fc6683dc4c77f764d5924762da5a4de2563ef
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Nov 1 16:32:07 2019 -1000
+
+    Update hawaii.scenario_data to work with --scenario-aliases
+
+commit 75a4240c18f995932a97151c245c2cb3ca9372be
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Nov 1 16:35:09 2019 -1000
+
+    Allow different fuel costs for each timepoint (experimental/untested)
+
+commit e912168536efd0da018ea83745e1bb6a5a069dd1
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Nov 5 13:22:15 2019 -1000
+
+    Format help code for PEP-8; streamline message creation for edge cases
+
+commit c0c977faebc81e24233154ee6127f0fed72ca915
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Nov 5 13:53:37 2019 -1000
+
+    Suppress all warnings from plotnine, including during run_tests.py
+
+commit 972a1504dafb399f829dace50b5709a95939292f
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Nov 5 13:55:15 2019 -1000
+
+    Fix bug in reserve code sharing for demand_response.iterative
+
+commit 0ce78316adce1bb1da4089058c36b4370d71ce4b
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Nov 5 13:56:38 2019 -1000
+
+    Update version number for examples
+
+commit 40ad196a8a1ac012c4e0e0e74ec91e695e90cb1a
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Nov 5 15:57:21 2019 -1000
+
+    Set deprecated verbose flag at correct point in model creation sequence
+
+commit 6f872f0307799763aca5c32e164c44098ab55c99
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Nov 22 10:17:48 2019 -1000
+
+    Rename zone_rfm to zone_fuel_rfm to make indexing clearer
+
+commit b452614199b4fed2291c363d2ec23d5fcaff53ad
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Nov 22 10:25:24 2019 -1000
+
+    Fix bug in storage fixed cost calculations
+    
+    In versions 2.0.0b3-2.0.5, fixed costs from all possible build years
+    were applied each period, instead of only using the build years that are
+    still in service in the current period. This increased the apparent cost
+    of storage by approximately (study length) / (storage life). This commit
+    fixes that bug.
+
+commit d03e79ad07dd9c76cd14f6ce30e123d10cce7f9b
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Nov 22 10:30:50 2019 -1000
+
+    Include storage energy costs in GenCapitalCosts in gen_cap.csv
+    
+    Previously only the per-MW costs were included, not the per-MWh costs.
+
+commit 708b2ca94c946e77f61c34bca19e71fcad58899f
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Feb 28 09:20:27 2020 -1000
+
+    Apply inflation to connection costs; allow alternative BAU EV charging profiles
+
+commit 0e53e99c413407bfc536e84f1afe1a427ef1cc7f
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Jul 9 16:19:34 2020 -1000
+
+    Add fuel_costs.markets_expansion for capacity expansion of fuel markets
+
+commit c0d7f6b4e945f2bf3c2acb7b0c84047785ec8f5d
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Jul 9 16:27:27 2020 -1000
+
+    Define per-timepoint fuel costs using fuel_costs.simple_per_timepoint
+    
+    In a previous commit, some per-timepoint capability was added to
+    fuel_costs.simple, which would decide whether to use per-timepoint or
+    per-period costs based on the input data. With this commit, the
+    fuel_costs.simple module reverts to only handling per-period costs, and
+    users can choose the new fuel_costs.simple_per_timepoint module instead
+    if they want to use per-timepoint fuel costs.
+
+commit c564a4d081b56fe0ced53c17d28ff2761d7ba3db
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Jul 9 16:30:11 2020 -1000
+
+    Don't report zonal electricity costs if zonal demand is not defined
+    
+    In some experimental models, Switch is used as a general-purpose
+    optimization framework without any electricity components (e.g., to
+    prototype a gas network model). In this case, trying to report zonal
+    electricity costs would cause an error, because those don't exist. We
+    now test for this case and avoid that error.
+
+commit bef565be239a1c65ad1918a03a258f828273210e
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Jul 9 16:37:14 2020 -1000
+
+    Read gen_predetermined_storage_energy_mwh from gen_build_predetermined.csv
+    
+    Prior to this commit, generators.extensions.storage looked (incorrectly)
+    for gen_predetermined_storage_energy_mwh in gen_build_predetermined.tab
+    instead of gen_build_predetermined.csv. Usually this would fail, and the
+    default value of 0 would be used.
+
+commit 2c22edc903a8cf36f45a56bdc256e632c987fab7
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Jul 9 16:44:04 2020 -1000
+
+    Warn when variables with unassigned values are found during reporting
+    
+    This often occurs if a variable is not sent to the solver or not given a
+    value by the solver. That is usually due to a coding error, where the
+    variable doesn't participate in any active variables or constraints.
+
+commit fce90df228c0649520bb99e62be155c2adf109be
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Jul 9 16:49:08 2020 -1000
+
+    Move Switch banner higher in output stream and use logger instead of print()
+
+commit d853c464e33a47587a7634bf058a4c0a149d4dbe
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Jul 9 16:52:04 2020 -1000
+
+    Skip constructing the model if the prior solution file is missing
+
+commit 8cf18098591cb40d4da589a6a9f6e6701cc0353e
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Jul 9 16:55:01 2020 -1000
+
+    Don't use IPython for --interact due to bug in list comprehension
+    
+    When list comprehensions are executed in IPython.embed(), they
+    frequently fail, as documented at
+    https://github.com/ipython/ipython/issues/12199. This makes it difficult
+    to analyze models interactively with IPython.embed(), so we just use the
+    standard Python shell for now.
+
+commit 3b23000d5ff68e3ef7f9d5ae689d16b919b4efd0
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Jul 9 17:01:27 2020 -1000
+
+    Return solved instance when solve.main() finishes
+    
+    solve.main() returns an unconstructed model with return_model=True or a
+    constructed but unsolved instance with return_instance=True. Previously
+    it just returned None otherwise, i.e., there was no way to obtain a
+    solved model. Now solve.main() always returns the solved model when it
+    reaches the end, provided there are no errors and neither of those flags
+    are set.
+
+commit 2bdfd809eb9aa8f248e8ae3a75a1108d77a9644d
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Jul 9 17:05:34 2020 -1000
+
+    Report location of model in callstack when using --debug
+    
+    If there is an error and the --debug flag is used, the code now looks
+    for a variable that contains a reference to a Pyomo model, and then
+    reports the name of that variable and location in the callstack before
+    running the post-mortem debugger. This may help users find a model to
+    inspect and debug.
+
+commit 6592911f6ed69cfa17e98c872bfbbf6b9f350a8d
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Jul 9 17:09:24 2020 -1000
+
+    Add transmission.copperplate module for free power transfer between zones
+
+commit 8941a85eb06c8a30c984c611c251c2bc343fc3f4
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Jul 9 17:13:05 2020 -1000
+
+    Run each scenario in a separate process
+    
+    Previously, switch solve-scenarios used the standard python environment
+    to run each scenario. This causes problems with the new logging
+    capability, which stores state in a singleton module. So we now run each
+    scenario in its own process. This solves the logging problem but makes
+    debugging scenarios difficult (best to copy the appropriate line from
+    scenarios.txt and use `switch solve --debug` with those options for
+    now).
+
+commit 31629bcc88657bd5ff180c646fd9d4a2ab558d17
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Jul 9 17:14:40 2020 -1000
+
+    Fix typo in generators.core.build documentation.
+
+commit e17bea3f166fd592d55d9731bb9e1728f0daaa52
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Jul 9 17:21:29 2020 -1000
+
+    Fix compatibility with Pyomo 5.7
+
+commit a1b5517d50e03d3a1a0f2019b63e7358358a0d24
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Jul 9 17:23:14 2020 -1000
+
+    Report when applying --input-aliases
+
+commit bbd5bb2d74cac863059e09fe5a7ae2c05f25ebed
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Jul 9 17:30:03 2020 -1000
+
+    Count components as they are created when --log-level is 'info'
+    
+    This intercepts stdout and converts timing messages from Pyomo into a
+    stationary 'n/m components constructed' message. When writing to a file,
+    the file handle is moved back so only the final message is written. If
+    other messages are emitted along the way, they are not erased. This can
+    interfere with the display a little during debugging.
+
+commit b6475a5b5d06c118cecfd8805a56a9ed4d25cfd0
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Jul 9 17:36:16 2020 -1000
+
+    Hawaii: use 'Motor_Gasoline' cost instead of 'Diesel' for ICE vehicles
+
+commit e781c2a8d297e746591749aacfadb2a794de9e1c
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Jul 9 17:39:41 2020 -1000
+
+    Hawaii: Apply federal tax credits to individual generators to support finer reporting
+
+commit 07ac462cf22187d5f8dc476835abc515a19543cd
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Jul 9 17:40:43 2020 -1000
+
+    Hawaii: correct federal tax credits for distributed PV in 2020 and 2021
+
+commit 015e36c73ca61f70292c8390f60b1fda8fb9f314
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Jul 9 17:43:16 2020 -1000
+
+    Hawaii: Finalize heco_outlook_2019, used for PBR proceeding in Dec. 2019
+
+commit 81325d0df84261e7ac1406351a2581caf343bce5
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Jul 10 10:47:35 2020 -1000
+
+    Hawaii: add modules representing Oahu forecasts and HECO plans as of 2020
+
+commit fc8e9b7e7f7eb833089423a5311f727014beac39
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Jul 10 10:49:23 2020 -1000
+
+    Hawaii: add oahu_plants module with rules for all plants; supersedes kalaeloa.py
+
+commit 02cd79d4c4f781f0cfad9addd087d3554170aa91
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Jul 10 10:56:13 2020 -1000
+
+    Hawaii: update and improve backwards compatibility of scenario_data
+    
+    This includes numerous updates, including renaming many _scen_id
+    arguments to _scenario (it will warn about these). It will now also
+    accept the older calling method for scenario_data.write_tables and give
+    a warning about using the new method.
+
+commit a183ce340a033c4b2bf82e6fed54aa34a1015dad
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Jul 10 10:59:21 2020 -1000
+
+    Handle reserves better in hawaii.smooth_dispatch
+    
+    This now finds reserve types automatically and minimizes reserve
+    allocation and target as much as possible, to avoid spurious reporting
+    of use of large amounts of (free) reserves.
+
+commit 66aa9560d13d9db23d3fd79dd42de8bf260f2090
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Jul 10 11:04:10 2020 -1000
+
+    Hawaii: streamline and improve capacity reporting
+    
+    This now reports all available capacity (not just used) in the
+    capacity_by_technology and capacity_by_energy_source output files. New
+    outpuf files capacity_used_by_* have been added to show only the "used
+    and useful" technology. A capacity_by_technology_vertical.csv output
+    file has been added showing the same information in a "stacked"
+    (database-style) format. This is useful for quickly comparing plans
+    between scenarios.
+
+commit 24a62873e651a4442f76aa175570a4642b07e308
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Jul 10 12:04:29 2020 -1000
+
+    Update copyright notices to 2015-2020
+
+commit 0d755223d876af0f41599e2e2a30e03678c9b991
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Jul 10 13:09:41 2020 -1000
+
+    Hawaii: replace kalaeloa with oahu_plants in modules.txt in upgrade script
+
+commit 52566ac45f15c9e22767b3607b25903dffbc149d
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Jul 10 14:26:09 2020 -1000
+
+    Fix bug in new GENS_FOR_RFM_PERIOD code when no rfm matches a gen
+
+commit 433f14e03446fd016701ca0fe67c96c9ba5611a1
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Jul 10 14:27:16 2020 -1000
+
+    Improve message about model location during post-mortem debugging
+
+commit 5e3f179798352ea2bd4e02afe29a9dcd5c3bda5c
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Thu Oct 3 13:37:30 2019 -0400
+
+    Add option to skip saving each decision variable in a separate file (default is to print out all decision variables).
+
+commit b010a5e678d23b636969758e872aaa2dc7c88a4a
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Jul 14 17:48:59 2020 -1000
+
+    Fix bugs in creating capacity_by_technology_vertical.csv
+
+commit 83860d658de35a0c4cd6cb5f2eb60b2480c9c804
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Jul 14 17:51:44 2020 -1000
+
+    Save model configuration in outputs/model_config.json
+
+commit 0ece6a698b7a5ffa8a95f7b045a0315cf65fb1f9
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Wed Jul 15 11:33:27 2020 -1000
+
+    Hawaii: fix bugs when saving capacity_by_technology.csv
+
+commit 95c9d0f43b23a2972c7efe18a9c150c2e24bc302
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Wed Jul 15 11:34:37 2020 -1000
+
+    Identify compatible versions of Pyomo, pyutilib and pandas in setup.py
+
+commit 4cb61b19bf5f1574b5d33d87ba7cf54629b1ab7e
+Merge: 13cbca7 95c9d0f
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Jul 23 17:42:06 2020 -1000
+
+    Merge recent changes from next_release branch
+
+commit d7ed77a77bc515407c6af8fd5c702aca6975cfe4
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Jul 23 18:04:28 2020 -1000
+
+    Deprecate auto_select argument to load_aug since it is never needed
+
+commit 606cc38f59b0d7c6c2a49801e4f3494f8bb5b270
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Jul 23 19:54:07 2020 -1000
+
+    Make compatible with pandas 1.0+
+
+commit 0cddb3e3faf7ce4cccefa012ea1a9eac91c8ad2c
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Wed Aug 19 17:23:31 2020 -1000
+
+    read gen_predetermined_storage_energy_mwh from correct file
+    
+    In the initial implementation (part of this same release),
+    gen_predetermined_storage_energy_mwh was read from
+    gen_build_predetermined.tab instead of gen_build_predetermined.csv. This
+    occurred because this feature was originally written when all inputs
+    used .tab files, and then merged into this release, which uses .csv
+    files. Prior to this commit, this parameter would be quietly and
+    unexpectedly left unset.
+
+commit cc3849983593db4d4c4dac229d7af544c3733137
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Wed Aug 19 17:27:48 2020 -1000
+
+    Hawaii: support setting of gen_predetermined_storage_energy_mwh
+
+commit ea6a7b5593b33568c4f394d0c4b618b50f3d42cf
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Wed Aug 19 17:28:56 2020 -1000
+
+    Hawaii: update near-term forecasts and HECO Plan
+
+commit ce2f8bab279f0c1b2c1fe3710006be9dad24bdb2
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Mar 8 18:34:36 2021 -1000
+
+    hawaii package: more informative message about outdated federal subsidies
+
+commit a7e262b7558dbc8f147fabeda224cb1123e25c51
+Merge: ce2f8ba 60a5953
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Mar 9 13:19:42 2021 -1000
+
+    merge changes from 2.0.6 bugfix release
+
+commit d92e50764d548c0b497d33f8ea09a2940e92329e
+Author: Desmond Zhong <zhongyf11@gmail.com>
+Date:   Sat Dec 26 11:00:12 2020 -0500
+
+    fix typo in planning_reserves
+
+commit 88abc164128b6a7345c7aa8806e2b37f74de54fa
+Author: Desmond Zhong <zhongyf11@gmail.com>
+Date:   Mon May 10 20:59:48 2021 -0400
+
+    fix postprocessing errors in storage module
+
+commit 42c3e60c92915ad4caa5c1b9a7390703cc79794f
+Author: Brad Venner <bvenner@protonmail.com>
+Date:   Sun Jul 4 09:28:50 2021 -0600
+
+    fix reporting for carbon_policies.py
+    
+    Added test for existence of key in get_row to avoid error message when key did not exist.
+
+commit ab0e21154038749a76fab970167cab96eb92a939
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Oct 17 16:24:46 2022 -0700
+
+    clarify description of storage cost bug fixed in 2.0.6
+
+commit 139070f038b5f82ef84828e86cf338261f43b2fa
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Oct 17 16:32:55 2022 -0700
+
+    Apply unserved_load at distribution node when available
+    
+    This clarifies supply-demand balance and avoids infeasibility in
+    models that use switch_model.balancing.unserved_load with
+    switch_model.transmission.local_td (distribution-level balancing
+    in addition to zone-level balancing). This may slightly change
+    the unserved load and  total_cost reported in those models, due
+    to avoiding the need for local transmission and distribution to
+    meet the unserved portion of load.
+
+commit c1113eb0fce1c1a8957b0c2ecf2cbe7f6d140cbe
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Oct 17 16:37:12 2022 -0700
+
+    more precision in examples/**/total_cost.txt
+
+commit 333c388042db554b195b2940459ff0a73ee84d55
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Oct 17 17:04:26 2022 -0700
+
+    include iteration number in result filenames for demand_response.iterative
+
+commit ea5315858feea16d36d3d64c0ce01183c68a7649
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Oct 17 20:31:34 2022 -0700
+
+    add switch_model.balancing.diagnose_infeasibility to help diagnose infeasible models
+    
+    This module relaxes all constraints, making any model feasible, then seeks to
+    minimize all constraint violations, then reports which constraints are violated.
+    Users can use a --no-relax argument to selectively turn some constraints back
+    on, to identify combinations of constraints that cannot be enforced simultaneously.
+    This is similar to CPLEX's irreducibly infeasible set (IIS) feature, but faster
+    and simpler and works with all solvers.
+
+commit 3555e4983fffba626e4e83e2a084343879eee305
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Oct 17 20:43:45 2022 -0700
+
+    fix crashing bug in switch_model.energy_sources.fuel_costs.markets_expansion
+
+commit 1175bede62274f080de64675e55a5d93e3d79cc0
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Oct 17 20:50:52 2022 -0700
+
+    hawaii.save_result: report all projects in capacity_by_*.csv, whether built or not
+    
+    This makes the rows and columns consistent across scenarios, which is helpful for
+    cross-scenario comparisons.
+
+commit 734f9b3d7c49861a3f75b19c3598b2b2aaaab638
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Oct 17 20:58:06 2022 -0700
+
+    Add support for multiple land-use classes in hawaii.scenario_data
+    
+    This includes support for different land_classes and slope_classes
+    and options to exclude projects  or adjust costs based on these
+    classes. The outputs (model inputs) now also include summaries of
+    how much land of each type is available. These changes support
+    corresponding changes in the data pipeline in the switch-hawaii
+    repository.
+
+commit f6bd38855d9fde7f079fd0c8453cd8f3d547d72c
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Oct 17 21:04:06 2022 -0700
+
+    remove extra 'm' from names of cumulative_capacity_by_tech_periods.csv and
+    cumulative_transmission_by_path_periods.csv produced by reporting.basic_exports
+
+commit ac017f77168ab81e50acdd99b30e9754aa05dbe4
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Oct 17 21:53:08 2022 -0700
+
+    Improve messages when trying to solve infeasible models
+    
+    This updates switch_model.solve to catch infeasible models more reliably (this is a
+    moving target with different versions of Pyomo, especially since the glpk solver
+    doesn't identify models as infeasible). It also gives recommendations for using the
+    diagnose_infeasibility module to resolve these issues and updates
+    examples/diagnose_infeasibility/README.md.
+
+commit c59a9d46d3f4ca07996befb13a54dd18ba68ad7e
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Oct 18 09:45:38 2022 -0700
+
+    Allow omission of existing_local_td and local_td_annual_cost_per_mw with local_td module
+    
+    This is useful for models where existing local transmission and distribution capacity is
+    unknown (Switch will automatically build enough) or where the cost of local T&D capacity
+    is not important, e.g., if the user is only concerned about avoiding local T&D losses.
+
+commit 2b6a0ff38c7e897aa4a9a94f8b23f55f8d8b0e3f
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Oct 18 09:50:57 2022 -0700
+
+    Adjust examples/diagnose_infeasibility so total_cost will be consistent across solvers
+    
+    The diagnose_infeasibility module minimizes constraint violations instead of total cost.
+    Often, multiple relaxation options (with different costs) will achieve the same total
+    amount of constraint violation, so the value reported in total_cost.txt can vary
+    randomly between solvers and versions of solvers. This commit ensures there is a
+    unique violation-minimizing solution (relax load-balancing constraint at the
+    distribution node in each zone), so costs will be consistent between solutions. This
+    avoids problems with the test suite potentially failing when solvers change.
+
+commit 4110a65c784486856ffbd145173bea91608d7384
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Oct 18 09:59:24 2022 -0700
+
+    Don't allow missing values for Expressions when reporting results.
+
+commit 19c9200e54114dd8d42dab3b3f2376d66a4ad02b
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Oct 18 10:04:20 2022 -0700
+
+    Use same logger for model and instance (fixes some post-solve logging problems)
+
+commit 944de5c3cdc44759b0ab94844feb149cdc297e1b
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Oct 18 10:05:27 2022 -0700
+
+    Allow omission of any column in an optional input .csv file, even if the file is provided
+    
+    It is confusing for users to specify that a table is optional, but then also have to
+    specify that individual columns are optional. This makes it possible for users just
+    to specify that the table is optional and leave it at that. Normally these params
+    would have a default value and get picked up that way, but in some cases they instead
+    define an indexing set that is used to identify special cases. It is confusing to have
+    to say that those particular columns are optional when the whole table is optional.
+
+commit e23a0f6523aff49bdd7ef8208f8ba035c9fcff58
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Oct 18 10:11:10 2022 -0700
+
+    various small, cosmetic changes
+
+commit 3908fe3dcb425bf7314ac5f5a8e2151b0576cbc2
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Oct 20 11:10:49 2022 -0700
+
+    Create and use SwitchAbstractModel and SwitchConcreteModel classes
+    
+    Since the first release, Switch has used a Pyomo AbstractModel and
+    grafted extra functions onto it as class methods. This would be
+    more common and neater to do via subclassing. So this commit defines
+    SwitchAbstractModel and SwitchConcreteModel classes that have the
+    necessary methods and initializes from those.
+
+commit 156a349fe63d7eec33cd32f0f05752dda2dfe7dc
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Oct 20 11:18:57 2022 -0700
+
+    Remove outdated code from patch_pyomo and reduce nesting
+
+commit 7a135f7805e4186537170b1e62dd56ee0c81f7dc
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Oct 20 11:29:00 2022 -0700
+
+    Ensure Switch logger output goes to log file and improve logging help
+
+commit 2396df70a25b53e11d520346af7e28a912d3f031
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Oct 20 12:14:41 2022 -0700
+
+    Improve code for progress messages during model construction
+    
+    Pyomo takes a long time to convert an abstract model into an instance,
+    attaching all the data it has previously read from disk. This often
+    causes a multi-minute delay with no output from the software, which
+    can cause users to worry. Earlier code turned on Pyomo's report_timing
+    feature and then intercepted the messages from Pyomo and converted
+    them into progress messages, using backspaces to count up in the same
+    place on screen. That solution was brittle because it depends on
+    intercepting stdout (already complicated with our own logging and
+    Pyomo's logging going on) and identifying messages correctly (which can
+    change from one version of Pyomo or Python to another, e.g., it
+    appears Python switched from sending "\n" with the first write
+    call to sending it in a later call at some point). It also interfered
+    with debugging, since it threw away or diverted stdout, which made
+    pdb not display correctly if it was invoked during model construction
+    (which is common).
+    
+    This new version overrides AbstractModel._initialize_component, which
+    Pyomo calls to initialize each component. It does the standard
+    behavior and then adds a simple progress message every 10% of the
+    way if --log-level is info or debug. This should be more reliable and
+    require less maintenance (it will just go quiet if Pyomo stops using
+    _initialize_component).
+
+commit 4d4601d3e802874a63df0f6d70818e11d996aa06
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Oct 20 16:02:41 2022 -0700
+
+    Allow running tests from location other than top level directory
+
+commit 2ff0ec6036a97e81b0f8d52a9709762529e01d7b
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Oct 20 16:04:25 2022 -0700
+
+    Use lists instead of unordered sets to initialize Sets for Pyomo 5.7+ compatibility
+
+commit 947fb52c273db7ade7f61c491460ad9903ca4177
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Oct 20 17:33:21 2022 -0700
+
+    Change Set(...,rule=...) to Set(...,initialize=...)
+
+commit 62a080351807a635853e2abdd6b726234dc50b83
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Oct 20 17:34:24 2022 -0700
+
+    update compatibility range
+
+commit 4ee5477f23cb845c9f78d6f7ab59759b77f9d0c3
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Oct 20 17:35:22 2022 -0700
+
+    don't try to parse command-line arguments during tests
+
+commit 27cea890a46e4e11373ddeaf7ce07920692562c2
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Oct 20 18:00:42 2022 -0700
+
+    Apply Black formatting (mostly automated)
+
+commit 0c82eaa545ced15d28d480d1964212a262c4747b
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Oct 21 17:31:41 2022 -0700
+
+    change 'is 0' to '== 0' to avoid warning in Python 3.8+
+
+commit 7701c4ffe8a9b8f5c097e8fa117b93ed7cc98b06
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Oct 24 14:03:37 2022 -0700
+
+    move code to create gen_cap.csv from generators.core.build to reporting.__init__
+    
+    This ensures that users can prevent all reporting by removing the reporting
+    module from the module list and avoids a crash if they tried to do that
+    previously (due to the gen_cap code trying to access model.options.sort_output,
+    which is defined in reporting.__init__).
+
+commit 71b8615203635279e53c935424c7b0e157ba1991
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Oct 24 14:36:35 2022 -0700
+
+    Make code and examples compatible with Pyomo 5.7 - 6.4
+    
+    Pyomo 5.7 made several changes that broke compatibility with earlier models:
+    
+    - stopped assuming dimen values for sets when they were not specified, which
+      crashed some of our input and output code.
+    - began preserving order in all Sets and emitting warnings if unordered
+      containers such as standard Python sets are used to initialize them (this was
+      done to improve determinism in the model setup).
+    - +inf, -inf, +infinity, -infinity and nan in the input files are now read in as
+      strings instead of floating point values.
+    - a deprecation warning is issued saying that the default domain for Params will
+      be Reals instead of Any, starting in version 6.0.
+    - "Simple" has been changed to "Scalar" in the names of SimpleSet,
+      OrderedSimpleSet, AbstractOrderedSimpleSet and SimpleParam.
+    
+    Pyomo 6.0 also began producing deprecation warnings when itervalues or iteritems
+    methods are used on Pyomo components.
+    
+    To make Switch compatible with Pyomo 5.7 - 6.4, this commit makes the following
+    changes:
+    
+    - assign dimen values to all sets (preferably as the first keyword argument)
+    - use lists instead of sets to initialize Set components
+      (switch_model.utilities.unique_list(iter) is helpful for this.)
+    - replace "inf" in some fuel_supply_curves.csv example files with ".", which
+      will cause them to use the default value, which is float("inf").
+    - don't specify rfm_supply_tier_limit when the fuel_costs.markets module reads
+      additional fuels from fuel_costs.csv. They get a default value of float("inf")
+      anyway.
+    - add a note to CHANGELOG.md that using "inf" and "nan" values in the input
+      files will generate errors with Pyomo 5.7+.
+    - set all Params to have an explicit domain
+    - also check for ScalarSet, OrderedScalarSet, AbstractOrderedScalarSet and
+      ScalarParam in the locations that check for SimpleSet, OrderedSimpleSet,
+      AbstractOrderedSimpleSet and SimpleParam.
+
+commit 2277e089379ba312ba523330b3e2d9f60a010952
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Oct 24 15:06:42 2022 -0700
+
+    Add domains for a few more Params
+
+commit 70768f6395f7ceb973c05c059692d69f6ea3690b
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Oct 24 15:09:59 2022 -0700
+
+    Remove balancing_areas.csv from examples (have been obsolete for several versions)
+
+commit 7cf35d4b8cb2b58b8ac499f996968e5f793ace31
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Oct 24 15:32:59 2022 -0700
+
+    define --sorted-output for all models and move gen_cap.code back to generators.post_solve
+
+commit 61e9f237fdbb23d75e6f7fdbe8d9d9bd90e8e8a2
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Oct 24 16:19:51 2022 -0700
+
+    apply --sorted-output more universally
+    
+    This commit applies --sorted-output automatically in reporting.write_tables
+    and explicitly in several locations where pandas dataframes are written to
+    .csv files. This ensures most outputs will be sorted when requested,
+    including dispatch.csv, dispatch-wide.csv (columns), gen_cap.csv,
+    gen_project_annual_summary.csv, load_balance.csv, local_td_energy_balance.csv,
+    local_td_energy_balance_wide.csv and transmission.csv.
+
+commit 59808a9777f71796de535492ac72a17bcc8271a5
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Oct 24 16:37:45 2022 -0700
+
+    Bump version number to 2.0.7 in example directories
+
+commit c1026e0cb64855181be5e29bf244e4b43bfb7767
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Oct 24 16:57:14 2022 -0700
+
+    Update copyright date to 2022.
+
+commit 24e06ae47e490c46c6b40bb6d0f073b994d87272
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Oct 24 16:57:57 2022 -0700
+
+    rename dispatch-wide.csv to dispatch_wide.csv and fix sorting bug
+
+commit b0a81ee97fc0feb01e464fce11425dcc8a00309c
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Oct 25 09:14:37 2022 -0700
+
+    Rename gen_predetermined_cap to build_gen_predetermined in gen_build_predetermined.csv
+    
+    This also renames gen_predetermined_storage_energy_mwh (new in this release, 2.0.7) to
+    build_gen_energy_predetermined. The new names should be more consistent with each other
+    and also be a little clearer that this is the amount of new capacity built in each year,
+    not the total amount of capacity in place that year.
+
+commit 112c65ebccd32010eb4367273dccbf928e4f0c8b
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Oct 25 10:19:04 2022 -0700
+
+    rename generation_projects_info.csv to gen_info.csv
+    
+    The new name is more consistent with other file names (which generally start with
+    "gen_"), and should be a little easier to remember and view in editor tabs.
+
+commit 333653a4cd938e143ff3a6246220c76edda425c4
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Oct 25 10:28:08 2022 -0700
+
+    remove obsolete output files from example directories
+
+commit 00940c11b45093c5da753cad7bd1bdde0883f07b
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Oct 25 11:26:49 2022 -0700
+
+    Move trans_params.csv/distribution_loss_rate to load_zones.csv/local_td_loss_rate
+    
+    This change encapsulates the local_td data more completely within
+    the local_td module and also gives the parameter a more accurate name
+    and allows it to be varied between load_zones.
+
+commit 976cf7e288eca1750bc184651dabb63fc7993572
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Oct 25 15:13:00 2022 -0700
+
+    add test for --retrieve-cplex-mip-duals flag
+
+commit 526ce3dfb9ddafafdacfe1579aa3daaddeafda61
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Oct 25 15:30:04 2022 -0700
+
+    Ensure every Param has domain and avoid using obj.keys() to initialize components
+    
+    Both of these changes are needed for Pyomo 6+ compatibility. Pyomo issues a
+    deprecation warning for Params with default "Any" domain, due to future plans
+    to change this to "Reals". It also fails to clone models that use obj.keys()
+    to initialize components (probably not able to clone/pickle the iterator).
+
+commit ffc013f21d287814bee2c5c8f11d2ae4813c6e06
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Oct 25 15:49:05 2022 -0700
+
+    Use isinstance() to check whether a sum() of Pyomo components has any members
+    
+    `build` is a Python variable created as the sum of several Pyomo components.
+    We previously checked whether it was empty via `build is 0`, but Python now
+    gives a warning about `is` with a literal, so we changed it to `build == 0`,
+    but that forces evaluation of an unconstructed component, which crashes
+    Pyomo. So instead we check `isinstance(build, int) and build == 0`. The
+    second part is not actually needed, but clarifies what is happening.
+
+commit 2d8cb8afc818d3fbfcdb8b96b9c9a05d61f4a7be
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Wed Oct 26 09:29:12 2022 -0700
+
+    Prevent deprecation warning for model.preprocess() from Pyomo 6.0+
+
+commit 99e0f4180abcd89aa747345bd8c602fe47d193d9
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Wed Oct 26 12:53:53 2022 -0700
+
+    Move model configuration banner above define_components messages
+    
+    To do this, I had to move the banner into SwitchAbstractModel.__init__
+    between the parameter parsing code and the define_components code
+    (or else split __init__ into multiple methods that have to be called
+    in the right order from switch_model.solve). To do that, I had to
+    make iteration_modules a part of the model instead of a temporary
+    variable in switch_model.solve, which seems reasonable anyway. This
+    commit also converts a number of print() calls into logger.info()
+    calls.
+
+commit 84c8e9f315290b1d10773ea5414ea69d37c46adb
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Oct 27 14:16:36 2022 -0700
+
+    get stdin working for breakpoints, post-mortems and model upgrades under solve-scenarios
+
+commit b629069d7f890e4a3b97129853e771f18cbe4ca0
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Oct 27 14:18:02 2022 -0700
+
+    miscellaneous cosmetic tweaks and simplifications
+
+commit 075df3685cfd8ea54e8289642232e6f544df9eda
+Merge: b629069 42c3e60
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Oct 27 14:47:37 2022 -0700
+
+    merge energy-democracy:fix_scc and report carbon cap duals even for integer models
+
+commit cbd02d154f1785b1cc1f5509aa8bcf0bed5fbe2a
+Merge: b629069 075df36
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Oct 27 14:47:59 2022 -0700
+
+    Merge branch 'energy-democracy-fix_scc' into next_release
+
+commit cbabc82c11fa8ee2047266b8d2828bccde3ab7f8
+Merge: 88abc16 cbd02d1
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Oct 27 15:17:23 2022 -0700
+
+    Merge branch 'next_release' into master
+
+commit f8bfae057892ee0ec53c252662df3e5d1d0cf34d
+Merge: cbd02d1 cbabc82
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Oct 27 15:21:49 2022 -0700
+
+    Merge pull request #135 from DesmondZhong/master
+    
+    fix typo in planning_reserves and split storage_builds.csv into storage_builds.csv and storage_capacity.csv
+
+commit 70ad996ff2f53090fd3f28082006b9495cf732e9
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Oct 27 15:59:30 2022 -0700
+
+    Split reporting of generator additions and capacity, and include storage values
+    
+    This commit changes gen_cap.csv to include both power and energy (storage)
+    capacity in place in each period. gen_cap.csv also shows the annual capital
+    recovery and fixed O&M required for each project. This commit also adds a
+    gen_build.csv file that shows the amount of power and energy capacity _added_
+    in each period and the total capital outlay needed when those are built.
+    (Switch uses capital outlay to calculate capital recovery requirements, but
+    doesn't outlay the capital outlay directly. However, capital outlay is of
+    interest to some users.)
+
+commit 9a08550f2f4c203ebe635c2944978939300a4659
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Oct 27 17:16:24 2022 -0700
+
+    Require Python <3.11.0a0 to avoid Pyomo incompatibility with 3.11
+
+commit 650593eddd7a18614c870e2e64ad93f90462791f
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Thu Oct 27 22:04:34 2022 -0700
+
+    Allow planning capacity credit greater than 1.0 when appropriate instead of capping at 1.0
+
+commit 776a7852fb40fc7de10e4dc5a774f25700e45ea3
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Oct 31 15:28:48 2022 -0700
+
+    Raise Pyomo dependency to 5.7 and fix/tidy other dependencies
+    
+    Pyomo versions before 5.7 had a bug where parameter data that was outside
+    the allowed domain would be treated as missing data. This could lead to
+    modeling errors if the data is replaced by default values, so we no longer
+    allow those versions of Pyomo. This means all previous users will need to
+    upgrade their version of Pyomo. This may also (correctly) cause errors to
+    be reported for models that previously seemed to run OK, but had invalid
+    data in optional columns.
+
+commit 93f89e88ad01df43369b1f828965f2c44fb5771e
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Oct 31 15:34:51 2022 -0700
+
+    Prevent optional plotnine plotter from using interactive backend
+
+commit 88c0f7a2b548cbd262ff24cf2821d38cb61e48d6
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Oct 31 15:43:16 2022 -0700
+
+    Improve display of progress and errors: wrap lines, show banners, condense traceback
