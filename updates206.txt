@@ -1,0 +1,35 @@
+commit fe4a579cb876cfdfed45737bf105a3a37d85386f
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Mar 9 11:29:30 2021 -1000
+
+    install only compatible versions of Pyomo and pyutilib
+
+commit eef6fa891ec8c7d134c5098aacdd09df93685952
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Mar 9 11:28:30 2021 -1000
+
+    minor cosmetic changes
+
+commit 2837ec2547fce0b1b8f131bde5534b31a2a68995
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Mar 9 11:23:13 2021 -1000
+
+    prevent SyntaxWarning about using `is` with literal in Python 3.8+
+
+commit ab8b07ddb2d2f9af6885180f99add470117a8341
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Mar 9 11:19:39 2021 -1000
+
+    update version number to 2.0.6
+
+commit 774667a71710785ae23825c0fcaaaa3e10181524
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Nov 22 10:25:24 2019 -1000
+
+    Fix bug in storage fixed cost calculations
+    
+    In versions 2.0.0b3-2.0.5, fixed costs from all possible build years
+    were applied each period, instead of only using the build years that are
+    still in service in the current period. This increased the apparent cost
+    of storage by approximately (study length) / (storage life). This commit
+    fixes that bug.

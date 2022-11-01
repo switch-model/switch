@@ -1,0 +1,250 @@
+commit 422aa877ec5fbf112cec350f23cbbe7015c23704
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Wed Jun 19 15:03:48 2019 -1000
+
+    Remove trailing whitespace from code
+    
+    I usually use the Atom text editor, which automatically removes trailing
+    whitespace when saving files (see
+    https://stackoverflow.com/questions/30403150). A lot of our code has had
+    trailing whitespace, which automatically gets removed by this. This is
+    fine, but creates extra noise in the diff every time I save a file. So I
+    have now removed all the trailing whitespace from all our code, using
+    these commands (on a Mac):
+    
+    export LC_CTYPE=C
+    export LANG=C
+    export LC_ALL=C
+    find . -name '*.py' -exec sed -i '' -E "s/[[:space:]]*$//" {} \;
+
+commit 9e123d0399c30b5488c9aa0d5d6e7282a84802b5
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Wed Jun 19 12:13:31 2019 -1000
+
+    Use '\t' instead of literal tab character for delimiter
+
+commit 0c11a5333c3d9e1634459d2db2656600168916e5
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Wed Jun 19 10:50:26 2019 -1000
+
+    Rename next_volume to end_of_tp_volume in hydro_system
+
+commit de8124d283e5220cd5e0a16fa114e185f1e133de
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Jun 18 18:24:39 2019 -1000
+
+    Additional manual changes for Python 2/3 compatibility
+    
+    I ran `find switch_model -name '*.py' -exec futurize --stage2 {} +` and
+    reviewed all changes that it suggested. Most changes were discarded
+    (e.g., using old_div() for all division or wrapping zip() or map() calls
+    with list() when the results are only used once). However all code with
+    ambiguous behavior found by Python-Future has now been made definite
+    (e.g., added `from __future__ import division`, converted
+    possible-generators to lists, or verified that generators are OK).
+    
+    In the future we should be careful to remember that map(), zip(),
+    .keys(), .values(), .items(), etc., may provide a generator (Python 3)
+    or a list (Python 2), so they must be explicitly converted to lists if
+    they may be accessed more than once. We should also make sure we have
+    good test coverage to catch differences between Python versions.
+    
+    I believe Pyomo almost always uses a single pass through all the
+    iterables it receives (in which case a generator is fine for
+    initialization), but I also remember some cases where it tests the first
+    value in the iterable, then makes another pass. So I have converted all
+    of the possible-generators that we pass to Pyomo to lists.
+
+commit 18dc61ce851df24275259bae3d4c26cc64d6f785
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Jun 18 14:33:16 2019 -1000
+
+    Use conda to install dependencies, then pip to install Switch
+    
+    It is easiest to install dependencies for Switch using the conda
+    command, but Switch itself must currently be installed via the pip
+    command.  Anaconda recommends minimizing use of pip in conda
+    environments
+    (https://www.anaconda.com/using-pip-in-a-conda-environment/). In
+    particular, they recommend installing dependencies with conda first,
+    then using pip for the packages that can't be installed with conda. We
+    have also had problems using pip to install Switch and its dependencies
+    under Anaconda in one pass. e.g., Pyomo depends on nose, but when pip is
+    used to install nose in a conda environment on a Mac, pip attempts to
+    write a man page to /usr/local/man, which is not generally
+    user-writable, so the installation can fail. Or using pip to install
+    rpy2 will fail if R is not already installed.
+    
+    So, instead, we now advise users to install the dependencies with conda
+    first, then use pip to install Switch. This is more verbose than
+    previously, but should avoid some difficult installation problems, and
+    requires only about as much thinking as the previous question of whether
+    to use `pip install switch-model` or `pip install
+    switch-model[advanced]`, etc.
+    
+    This rewrite of the INSTALL file also offers the option of installing
+    Switch from pypi (a "minimal" install) or installing in a local
+    directory (a "complete" install), and explains the differences.
+    
+    This rewrite also makes cbc more parallel to glpk and downplays the
+    possible performance gain (I found cbc was about 10% slower than glpk
+    for a couple of test models).
+    
+    To support use of cbc, I also removed the default solver suffixes, since
+    cbc doesn't support the 'slack' suffix.
+    
+    We also now recommend that users install pint along with Pyomo, because
+    Pyomo requires pint (their unit testing framework) when we run our unit
+    tests. We may eventually want to group testfixtures and pint with git as
+    things that people will want only if they are going to do the "complete"
+    install (and run tests). Then we could remove testfixtures from
+    install_requires in setup.py.
+
+commit 7057f268932aaaf1fea9cda6b4abfa380eea3d8d
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Jun 18 13:51:24 2019 -1000
+
+    Use rpy2<2.9.0 for Python 2, plain rpy2 for Python 3
+
+commit c8fa2c9b4f5cd5c61b00555d09786a84563b2e21
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Jun 18 11:21:55 2019 -1000
+
+    Rename SWITCH and SWITCH-Pyomo to Switch
+
+commit 47c3b51da57a4ec34c66785fb4b400460b937e94
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Jun 17 12:07:23 2019 -1000
+
+    Report Python 3 compatibility in setup.py
+
+commit b0ee9b2770cb1f3d8b81afad794ccdd809225232
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Jun 17 12:06:51 2019 -1000
+
+    Update version number to 2.0.4
+
+commit 3ea4c10b361ef8a87f5bb840cc6d6fca56c08c19
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Jun 17 11:26:41 2019 -1000
+
+    Update code for Python 3 (manual stage)
+    
+    This commit includes a number of changes to achieve cross-compatibility
+    between Python 2 and 3. These do not change the behavior of Switch. The
+    following changes are included:
+    
+    - convert tabs to spaces to avoid mixed-indent errors
+    - use pickle if cPickle is unavailable
+    - replace xrange with range (one instance, not long enough to need
+    xrange in Python 2)
+    - replace basestring with switch_model.utilities.string_types (similar
+    to six.string_types)
+    - replace dict.iteritems() with switch_model.utilities.iteritems(dict)
+
+commit 05416e15700ce0141890951cbc4419b43977d84f
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Jun 17 11:21:22 2019 -1000
+
+    Make run_tests.py compatible with Python 3 (and 2)
+    
+    Unlike Python 2, Python 3 only applies the `discover` command if the
+    active module is `None`. This gives undefined argument errors when
+    trying to run unit tests with the old code. Setting `module=None` in
+    `unittest.TestProgram()` fixes this.
+    
+    In addition, Python 3 passes the search pattern as a keyword arg to the
+    custom testLoader, but Python 2 does not. To achieve compatibility, we
+    just pass all kwargs through to the parent class.
+
+commit 48217a13358bfcb459fb74852eb93772db919290
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Jun 17 10:31:44 2019 -1000
+
+    Read and write .csv, .tab and .tsv files in text mode
+    
+    Switch 2.0.3 read or wrote some .csv and .tab files in binary mode
+    instead of text mode. This was an error and is not permitted under
+    Python 3. In Switch 2.0.4, these files are now read and written in text
+    mode.
+    
+    This means that users should now use the operating system's native line
+    ending (<cr>/<lf> on Windows, <lf> on Linux/Mac) in the following input
+    files.
+    
+    fuel_cost.tab
+    gen_inc_heat_rates.tab
+    
+    In addition, Switch 2.0.4 and later will write all output files with the
+    operating system's native line endings, instead of always using <lf> for
+    .csv, .tab and .tsv files.
+
+commit 0adb8bf85b841a31527e7cfb7653a99fabc95086
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Jun 17 09:48:56 2019 -1000
+
+    Update examples with correct local T&D costs
+
+commit 04af4ed673d0e6eaa9ed52521536a83fc903c76f
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Jun 17 08:20:27 2019 -1000
+
+    Simplified and fixed bugs in local_td capacity and cost calculations
+    
+    Pyomo under Python 3 does not support mixing data types in index keys
+    for
+    variables (it sorts the index keys before sending the variable to the
+    solver,
+    and that causes a comparison error on Python 3). We previously used
+    "Legacy" as
+    a special index key for BuildLocalTD (representing capacity online prior
+    to the
+    study), along with the study periods, which are ints. Since this is no
+    longer
+    allowed, this commit simplifies the code to track existing local T&D
+    capacity
+    separately from new T&D capacity.
+    
+    These changes eliminate the need for the LOCAL_TD_BLD_YRS set, so I have
+    removed
+    that. I also simplified the calculation of LocalTDCapacity, using a new
+    CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD set.
+    
+    omitted from the fixed cost calculations due to an error comparing each
+    period
+    to prior periods ('Legacy' <= 2030 is False in Python 2, but was assumed
+    to be
+    True in the code). This has been fixed now.
+    
+    These changes have several side effects:
+    
+    - local T&D fixed costs will (correctly) be higher than in Switch 2.0.3
+    for all
+      code that uses switch_model.transmission.local_td
+    - the LOCAL_TD_BLD_YRS set has been removed from the model
+    - the CURRENT_AND_PRIOR_PERIODS_FOR_PERIOD set is now defined in
+      switch_model.timescales
+    - BuildLocalTD.tab in the outputs directory now has BuildLocalTD_index_1
+    and
+      BuildLocalTD_index_2 as the first two column headings instead of
+      LOCAL_TD_BLD_YRS_1 and LOCAL_TD_BLD_YRS_2
+    - BuildLocalTD.tab in the outputs directory no longer includes a
+    "Legacy" row
+    - solutions to models that use switch_model.transmission.local_td that
+    were
+      saved by Switch before version 2.0.4 cannot be opened in 2.0.4 or
+    later
+
+commit 689eb5ef0c476ebb7180ce51983618a3416482ca
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Mon Jun 17 08:18:29 2019 -1000
+
+    Update code for Python 3 (automated stage)
+    
+    I used `futurize --stage1 -w` (see
+    http://python-future.org/futurize_cheatsheet.html) on all files to apply
+    straightforward fixes for Python 2/3 compatibility. These mainly include
+    using the print function, performing module-local imports explicitly and
+    using next(<iterable>) instead of <iterable>.next(). After this, the
+    code still runs and passes tests in Python 2.7, but needs further work
+    to run under Python 3.

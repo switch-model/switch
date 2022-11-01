@@ -1,0 +1,272 @@
+commit c744e0d2feb72d29c86dc7a7a10f038325f52249
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Replace switch_mod more selectively to avoid creating "switch_modelel" if the upgrade runs twice.
+
+commit e861893f5b108cf0111f5364ca2e869f01395f0e
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Upgrade data/modules to 2.0.1 and report changes in modules between versions.
+
+commit 2eeec8e061524602adc2eb2929d91de73f56b8f3
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Move --retrieve-cplex-mip-duals capability  from hawaii.switch_patch to core model.
+
+commit 874fc9fb2f579d3aa4d8474a770b6ddcf8d6483d
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Don't define DispatchBaseloadByPeriod for periods when generators are inactive
+
+commit a628f1e95434329745eb7d0104738d8741f9d39b
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Explain uninitialized variable warnings when saving variable.tab files.
+
+commit 52c6d01a708819b47e89c7061244cf4e3c9a504f
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Finish introducing balancing.demand_response.iterative and fix Pyomo 5.6 compatibility
+
+commit ff5a2876ccb7741bfe7695ebb201aa3824dd7771
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    bump version number of example model data to 2.0.1
+
+commit 095d25b976af2b04b0ec7e452eb0c128c4bea89c
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Import from pyomo.environ early to avoid masking other modules
+
+commit 7dc5545d9830ca686bb5bc6b242bdc75b9eaf624
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Fix bug in reserve calculation for EVs that made models infeasible
+
+commit a844668fca3115e29044690e518a2a94411893d3
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Place limits on down-reserves from pumped-storage hydro
+
+commit 7f0b22adc6f967db627d7a7f564d825133318e1c
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Add --rps-prefer-dist-pv option
+
+commit 6384d0032daf9091d6a6f752fc3575cc8a15daeb
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Formalize limits on load-shifting between hours
+
+commit 38c87f1d857966820bbd7551eb411c5635fa3e1c
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Fix cases where 'proj'ect was renamed to 'g'ect
+
+commit 7474b81ca0193832dfeb75851be5ec1c32303b80
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Fix Hawaii storage energy cost calculation
+
+commit 995d58b80a654606a7dd79ebaafc45549eadceaa
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Report total production by energy source in hawaii.save_results
+    
+    This also adds ad-hoc technologies to  production_by_technology.tsv.
+
+commit e76b19c0e35df1e646bf2468ce01cedcd584e6ad
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Work around infeasible models in hawaii.smooth_dispatch
+
+commit a8a707f6f72376bb366837389bdd715fba663a13
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Bug-fix key for smoothing variable
+
+commit d27234dee43c1e9100e056e06d9b4b44b2fc4ab7
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Move old quadratic smoothing method to separate module
+
+commit 17e8088f89c057f85e1b3a7ff811ec9f2fbeccbd
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Minimize changes instead of squared values
+    
+    hawaii.smooth_dispatch previously smoothed the hourly dispatch profile
+    for slack elements (storage, demand response, EVs) by minimizing the sum
+    of the squares of the hourly values of these elements. This requires a
+    quadratic solver and is difficult to setup with hawaii.ev_advanced,
+    which defines EV charging as a convex combination of other decision
+    variables. With this commit, we instead switch to minimizing the hour-
+    to-hour variation of these variables (actually the total upward
+    variation over the study period), which is linear, faster to solve, and
+    works about as well.
+
+commit 9d8a903ca0f8915ec224634cd13005bc8b654b88
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Disaggregate hourly dispatch by non-fuel technologies in hawaii.save_results
+
+commit c5b692f0ac7370cf63177763b23b35c3c2711626
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Move indexed sets from hawaii.switch_patch to main codebase
+
+commit bee83f9303692c72d49620dac25e5a92f70f6f54
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Miscellaneous bug-fixes and tweaks
+    
+    - rename gen_cap.txt to gen_cap.tab and sort rows if requested
+    - calculate spinning reserves from EVs correctly in the
+    hawaii.ev_advanced module
+    - turn off the must-run requirement in hawaii.kalaeloa when RPS or EV
+    share is above 75%
+    - drop support for nominal-dollar fuel price forecasts in
+    hawaii.scenario_data
+    - add --no-post-solve option
+    - improve description of prior solution file
+
+commit 3039c8014f7015a552cc65195f949894de9cad0f
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Smooth ChargeEVs even when it is an Expression
+    
+    The hawaii.ev_advanced module constructs ChargeEVs as a weighted sum of
+    several possible charging profiles. If this is squared and added to the
+    smoothing objective, it makes the model non-positive-definite, so cplex
+    won't solve it. This code instead smoothes a helper variable
+    ChargeEVsVar that is bound to ChargeEVs. This commit also refactors the
+    smoothing code to make it a little DRYer.
+
+commit 95794d716e3db80aaa8cd4025c626a8498c8f9d5
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Patch Pyomo to accelerate reloading prior solution
+    
+    Pyomo 5.1.1 (and probably other versions) is very slow to load prior
+    solutions because it does a full-component search for each component
+    name as it assigns the data. This creates a delay that is quadratic in
+    model size, so reloading solutions takes longer than solving the model
+    from scratch.
+    
+    This code monkey-patches a few lines (!) of
+    pyomo.core.base.PyomoModel.ModelSolutions.add_solution to use Pyomo's
+    built-in caching system for component names. This makes
+    --load-prior-solution fast enough to use for practical work. This is a
+    pretty extreme approach, but there doesn't seem to be another way short
+    of writing our own model-reload code.
+    
+    TODO: create a pull request for Pyomo to do this
+
+commit 535106d408e8b6c7f47b3d4fed4fd25031fd2735
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Test presence of Python argument parsing bug
+    
+    This gives an explicit test of whether the list-argument parsing bug
+    still applies to the current version of Python, and disables the warning
+    if not needed. This also  documents the bug better so future developers
+    can remove the warning when no longer needed.
+
+commit 57ecb68ba1fe06a5cda139784c4d1c6b6db2a7a8
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Move save_results to core and post_solve on reload
+    
+    It is sometimes necessary to reload models to run new post_solve code,
+    e.g., if new outputs are defined after time-consuming models have
+    already been run. Previously, --reload-prior-solution just reloaded
+    the model and dumped the user into an interactive prompt, with no easy
+    way to run module code.
+    
+    This commit changes the behavior of --reload-prior-solution, so that it
+    now acts like an exact alternative to re-running the model, i.e., if the
+    user specifies --reload-prior-solution, we reload the solution, then run
+    the normal post-solve code, and don't drop to an interactive prompt
+    unless they also specify --interact.
+    
+    Since this behavior is now central to the use of the model rather than
+    a quasi-reporting behavior, this commit also moves save_results() back
+    from switch_model.reporting to switch_model.solve.
+    
+    This commit also adds a --no-save-solution flag to disable automatic
+    solution- saving, which is helpful for models that will be solved
+    repeatedly and don't need to be reloaded.
+
+commit 30df74cf08fbed93d76b1385c9b17ca6ea08e870
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Add --quiet and --no-stream-solver arguments to cancel --verbose and --stream-solver
+
+commit 7159ac884bb13619ff53ab948646845d3b624368
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Merge repeated calls to --include-module(s), --exclude-module(s), --save-expression(s), --suffix(es) or --scenario(s)
+
+commit 6919e7cc88cce0f025e72b2eb11f72180aa9618e
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Restart interrupted scenarios with the same --job-id argument or SWITCH_JOB_ID environment variable.
+
+commit 1d89c84583d72ce8b8b5a03987742eb743e0a535
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Carry --no-hydrogen argument through to load_inputs
+
+commit 55614ccd928ba85621bcd94f0c7f7c4e6e45cbbe
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Allow deactivation of hydrogen module via --no-hydrogen flag
+
+commit 2177a3d239a20ec00e8f7cc67f9fd0e3b72b2659
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Report models with solver warnings and use valid solutions if available
+
+commit 5cf309ea7d0b311d21c2014f324e8043ccd921d8
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Improve detection of missing tech_scen_id in back-end database.
+
+commit 53f447687279323ea9cc69a6f663dfd18ebe8c25
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Commit: Matthias Fripp <mfripp@hawaii.edu>
+
+    Start 2.0.1 branch; calculate ev emissions in hawaii.ev_advanced; add --save-expression[s] flag to allow saving of expressions (or params, undocumented)

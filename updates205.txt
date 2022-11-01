@@ -1,0 +1,167 @@
+commit 6c3feb8e12cfcbfcd6281e2c5024d73d435e2691
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Sun Aug 11 08:05:46 2019 -1000
+
+    Use .csv instead of .dat files for examples
+
+commit 244a9c9fb9c156cc6e09faa315bc5bb4c99abbf0
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Sun Aug 11 07:53:38 2019 -1000
+
+    Use .csv instead of .dat files for non-indexed parameters
+    
+    This commit updates Switch to use two-row .csv files instead of .dat files for
+    non-indexed  parameters. The first row holds a list of parameter names and the
+    second row holds their values. The upgrade script for 2.0.5 also converts .dat
+    files into .csv files.
+    
+    This means non-indexed inputs can be viewed and edited with the same tools
+    as all other inputs, and also means users don't need to learn the ampl/pyomo
+    .dat data description language.
+    
+    The following files have been converted to .csv:
+        financials.dat, trans_params.dat, spillage_penalty.dat,
+        spinning_reserve_params.dat, lost_load_cost.dat, hydrogen.dat
+    
+    However, Switch still uses gen_multiple_fuels.dat, which defines indexed sets
+    (future work will convert this to .csv too).
+
+commit 9c3671ebd82586bf31452e9f8c044bc8a131f091
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Sat Aug 10 12:37:31 2019 -1000
+
+    Show Switch version number and website in banner; improve solve messages
+
+commit 922481a3d33668d991d5c2a9107c74f01fcd7545
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Sat Aug 10 12:36:33 2019 -1000
+
+    Report file name and raise error if conversion fails
+
+commit b6b44d6246c97c98ac43b145f641fa69ee07a154
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Sat Aug 10 12:01:58 2019 -1000
+
+    Allow use of cap_cost_scen_id instead of tech_scen_id for older Hawaii models (with warning)
+
+commit 53e0e53480cc9050c7cd91d08f8336bad644b15c
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Sat Aug 10 12:00:40 2019 -1000
+
+    Save Hawaii results in .csv format instead of .tsv
+
+commit 390eba76698b27599bb7fae7f26c2ab2833fddbf
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Sat Aug 10 11:59:55 2019 -1000
+
+    Update version number to 2.0.5
+
+commit 970daeb43a8e6146bafefcab1a2570a836be5304
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Sat Aug 10 11:57:55 2019 -1000
+
+    upgrade examples for 2.0.5 (use .csv for all inputs)
+
+commit 56f29225beae99b44c7f5a51e4b03a9ac9e49d93
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Sat Aug 10 11:56:48 2019 -1000
+
+    add switch_model.upgrade.upgrade_2_0_5
+
+commit 9d94ba7d0b22e8227cafc40fe0f060900f07f85c
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Aug 9 17:21:13 2019 -1000
+
+    Fix .tab parsing errors in upgrade scripts and fix malformed .tab files
+    
+    There has been an extra 1 value in the Hydro_RoR row of
+    upgrade_dat/hydro_simple/inputs/proj_build_costs.tab for a long time. In addition, the Hydro
+    and Hydro_RoR rows were delimited with spaces (often multiple) instead of tab characters.
+    These problems also occurred in the original examples/hydro_simple directory, which has been
+    repeatedly upgraded, creating more malformed files along the way. Spaces were also used in
+    some of the other example files, creating similar problems.
+    
+    These were not caught previously because the following sequence happened:
+    
+    Pyomo was happy to load the original version of these files (2.0.0b0), because it allows space
+    or tab delimiters. It also ignores extra fields on each row, so it just used the first four
+    fields (including the extra 1) and ignored the fifth field. So this example ran with the
+    wrong values for Hydro_RoR in the third and fourth columns until now.
+    
+    The upgrade scripts for later versions read these files using pandas.read_csv with separator
+    set to '\t'. For all the rows delimited with spaces, this meant that the upgrade script read
+    the whole row into the first field and filled the other fields with nulls. Then when the
+    script wrote the file back, it preserved the spaces between the values that had been
+    pulled into the first field, and added on extra '.' values for the no-value fields.
+    Subsequent upgrade scripts ran fine, because they still read all the space-delimited stuff
+    into the first field, and read the '.' values into other fields. Switch was also happy to run
+    with these files at each step, because Pyomo used the spaces as field delimiters and ignored
+    the extra '.' values at the end of the rows.
+    
+    However, when we change to .csv inputs, this no longer works. The upgrade script could read
+    these files in with '\t' delimiters, but then most of the values end up in the first column,
+    and they can't be read correctly by Pyomo when it reads these files expecting ',' delimiters.
+    
+    The solution is as follows: (1) update the upgrade scripts to use r'\s+' (any whitespace) as
+    delimiters when reading .tab files (pre 2.0.5), so that they will then write
+    out correctly formatted, \t-delimited .tab files without extra columns. This fixes the
+    upgrade tests. (2) remove the extra "1" value from the Hydro_RoR rows and update the
+    total_cost.txt to reflect this (in examples and tests).
+
+commit be200020a9d5ebba8674a817f04e50fd6243d14e
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Aug 9 16:10:57 2019 -1000
+
+    Create outputs as .csv files
+
+commit 1392bc751d8e8b37ae3c60b6eed961401487ab1e
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Aug 9 12:27:34 2019 -1000
+
+    Use .csv instead of .tab files (find-replaced file extensions)
+
+commit 121fb879abfeca37386cd3c1f4f812a4ca80967c
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Fri Jun 28 12:26:31 2019 -0700
+
+    Adding comment about relative import.
+
+commit ffa02ff3b8bbafcc1baea4aea0d45d762b8bb9ba
+Author: Benjamin Maluenda <bmaluend@uc.cl>
+Date:   Fri Jun 28 15:20:19 2019 -0400
+
+    Clean up useless files in PySP example (they are already in the corresponding outputs folder).
+
+commit b8280d20e25d5740045cba2133c896f2b7bdb55d
+Author: Benjamin Maluenda <bmaluend@uc.cl>
+Date:   Fri Jun 28 13:40:31 2019 -0400
+
+    Fixed several bugs in the documentation and execution of the stochastic examples that use the PySP module of the Pyomo package.
+    -Output files now obey the current format printed by the PySP module.
+    -The model-directory option was changed to model-location, given that the first is deprecated.
+    -Updated console output files to reflect changes.
+    -Replaced references to old names of various variables to the ones currently in use in Swtich.
+
+commit 7c80e83ec248b18607a385fc69a01dd878a124ea
+Author: Benjamin Maluenda <bmaluend@uc.cl>
+Date:   Fri Jun 28 11:46:02 2019 -0400
+
+    Slightly improved dev installation instructions for Windows users.
+
+commit 01b9d5cfc76bf5c71c280033184a264109d7f239
+Author: josiah.johnston <josiah.johnston@gmail.com>
+Date:   Thu Jun 27 16:11:27 2019 -0700
+
+    Updating PHA example input files with updated model structure. Minor bug fixes to rhosetter.py.
+
+commit bd9fe59fe4634d944387cb63b1bed02d930e365b
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Jun 21 12:30:53 2019 -1000
+
+    Factor out numpy dependency and drop requirements.txt
+
+commit da3ea26e97a5613bdaff3f7a5b635691820d0151
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Jun 21 11:57:26 2019 -1000
+
+    Simplify rhosetter code and remove sympy dependency
