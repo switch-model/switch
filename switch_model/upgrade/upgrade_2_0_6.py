@@ -19,10 +19,6 @@ module_messages = {
     # description of significant changes to particular modules other than
     # moving/renaming
     # old_module: message
-    "switch_model.generators.core.build": "Beginning with Switch 2.0.6, gen_multiple_fuels.dat should "
-    "be replaced with gen_multiple_fuels.csv. The .csv file should have "
-    "two columns: GENERATION_PROJECT and fuel. It should have one row for "
-    "each allowed fuel for each multi-fuel generator."
 }
 
 
@@ -37,9 +33,6 @@ def upgrade_input_dir(inputs_dir):
 
     # rename modules and report changes
     update_modules(inputs_dir)
-
-    # convert the multi-fuels file to csv format (this is the last .dat input)
-    convert_gen_multiple_fuels_to_csv(inputs_dir)
 
     # rename_file('fuel_cost.csv', 'fuel_cost_per_period.csv')
     # rename_column('fuel_cost_per_period.csv', 'fuel_cost', 'period_fuel_cost')
@@ -118,43 +111,3 @@ def update_modules(inputs_dir):
         except KeyError:
             pass
 
-
-def convert_gen_multiple_fuels_to_csv(inputs_dir):
-    old_path = os.path.join(inputs_dir, "gen_multiple_fuels.dat")
-    new_path = os.path.join(inputs_dir, "gen_multiple_fuels.csv")
-
-    if os.path.exists(old_path):
-        old_df = read_dat_file(old_path)
-        # df has one row for each gen; gen is the index and a list of fuels is the value
-        # unpack list of allowed fuels for each generator
-        gen_fuels = [
-            (gen, fuel) for gen, fuels in old_df.itertuples() for fuel in fuels
-        ]
-        new_df = pd.DataFrame.from_records(
-            gen_fuels, columns=["GENERATION_PROJECT", "fuel"]
-        )
-        new_df.to_csv(new_path, sep=",", na_rep=".", index=False)
-        os.remove(old_path)
-
-
-def read_dat_file(path):
-    # define a dummy "model" where every "parameter" reports a dimension of 0.
-    # otherwise Pyomo assumes they have dim=1 and looks for index values.
-    class DummyModel:
-        def __getattr__(self, pname):
-            return DummyParam()
-
-    class DummyParam:
-        def dim(self):
-            return 0
-
-    try:
-        data = DataPortal(model=DummyModel())
-        data.load(filename=path)
-        # this happens to be in a pd-friendly format
-        df = pd.DataFrame(data.data())
-    except Exception as e:
-        print("\nERROR reading {}:\n{}".format(path, e.message))
-        raise
-    else:
-        return df
