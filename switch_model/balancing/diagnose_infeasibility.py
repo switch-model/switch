@@ -4,7 +4,7 @@ Relax constraints to help diagnose data problems in infeasible models
 This module adds relaxation terms to all constraints in the model, which makes
 every model feasible. It then minimizes the simple sum of the relaxation
 variables (i.e., total violation of all constraints) instead of the normal cost
-function. Then it report which constraints were violated and by how much. 
+function. Then it report which constraints were violated and by how much.
 
 Users can experiment by specifying `--no-relax` for some constraints, to find
 out which constraints cannot be met on their own or cannot be met in combination
@@ -98,14 +98,15 @@ def post_solve(m, outputs_dir):
                 relax_var = getattr(m, relax_var_name(constraint, direction))
                 val = relax_var[key].value
                 if val is not None and val >= 1e-9:
-                    # We could use name = c.name here, but for it is slow to
+                    # We could use name = c.name here, but it is slow to
                     # access constraints later in the model (see
                     # https://github.com/Pyomo/pyomo/issues/2560). Using repr()
-                    # also gives a more copy-pastable representation of the
-                    # constraint, which can be useful for debugging.
+                    # or str() on a list also gives a more copy-pastable
+                    # representation of the constraint, which can be useful for
+                    # debugging.
                     name = constraint_name
                     if key is not None:
-                        name += repr(list(key))
+                        name += repr(list(make_iterable(key)))
                     unsatisfied_constraints.append([name, direction * val])
 
     # We report results using logger.info, so users must set log-level to
