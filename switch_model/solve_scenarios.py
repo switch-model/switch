@@ -19,8 +19,7 @@ scenarios_to_run() in separate processes to select the next job to run.
 """
 
 from __future__ import print_function, absolute_import
-import sys, os, time
-import argparse, shlex, socket, io, glob
+import sys, os, shlex, socket, gc
 from collections import OrderedDict
 
 from .utilities import _ArgumentParser
@@ -156,10 +155,16 @@ def main(args=None):
 
         # call the standard solve module with the arguments for this particular scenario
         solve.main(args=args)
+        # sometimes we get out-of-memory errors after finishing one scenario and moving on
+        # to another; this may help with that.
+        gc.collect()
 
         # another option:
         # subprocess.call(shlex.split("python -m solve") + args) <- omit args from options.txt
-        # it should also be possible to use a solver server, but that's not really needed
+        # This would improve isolation between models (no need to garbage collect) and maybe
+        # simplify solve-scenarios, since it just has to run `switch solve` on all the models.
+        # But it seems to interfere with logging (hard to get output from a subprocess).
+        # It should also be possible to use a solver server, but that's not really needed
         # since this script has built-in queue management.
 
         mark_completed(scenario_name)
@@ -327,6 +332,7 @@ def unlock_running_scenarios():
         for scenario_name in interrupted:
             try:
                 os.rmdir(os.path.join(scenario_queue_dir, scenario_name))
+                print("unlocking previously interrupted scenario {}".format(scenario_name, job_id))
             except OSError as e:
                 if e.errno != 2:    # no such file
                     raise

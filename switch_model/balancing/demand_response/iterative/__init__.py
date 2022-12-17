@@ -40,6 +40,9 @@ demand_module = None    # will be set via command-line options
 def define_arguments(argparser):
     argparser.add_argument("--dr-flat-pricing", action='store_true', default=False,
         help="Charge a constant (average) price for electricity, rather than varying hour by hour")
+    # argparser.add_argument("--dr-optimality-abs-gap", default=0.1,
+    #     help="Optimality gap when demand response iteration should stop; expressed in NPV dollars; difference between current solution and best possible solution"
+    # )
     argparser.add_argument("--dr-demand-module", default=None,
         help="Name of module to use for demand-response bids. This should also be "
         "specified in the modules list, and should provide calibrate() and bid() functions. "
@@ -51,6 +54,23 @@ def define_arguments(argparser):
             "Specify 'none' to disable. Default is 'spinning' if an operating reserve module is used, "
             "otherwise it is 'none'."
     )
+    argparser.add_argument("--dr-read-saved-bids", action='store_true', default=True,
+        dest='dr_read_saved_bids',
+        help="Read bids previously saved in {outputs-dir}/bid_{scenario-name}.csv if available."
+    )
+    argparser.add_argument("--dr-no-read-saved-bids", action='store_false', dest='dr_read_saved_bids',
+        help="Do not read bids previously saved in {outputs-dir}/bid_{scenario-name}.csv."
+    )
+    argparser.add_argument("--dr-seed-bids", action='store_true', default=True,
+        dest='dr_seed_bids',
+        help="Create initial bids based on a range of prices before running the model, if no previously saved bids are read in."
+    )
+    argparser.add_argument("--dr-no-seed-bids", action='store_false', 
+        dest='dr_seed_bids',
+        help="Do not create initial bids; will just create a single initial bid based on the base prices."
+    )
+
+
 
 def define_components(m):
 
@@ -122,26 +142,43 @@ def define_components(m):
     ##################
 
     # list of all bids that have been received from the demand system
-    m.DR_BID_LIST = Set(initialize = [], ordered=True)
-    # we need an explicit indexing set for everything that depends on DR_BID_LIST
-    # so we can reconstruct it (and them) each time we add an element to DR_BID_LIST
-    # (not needed, and actually doesn't work -- reconstruct() fails for sets)
-    # m.DR_BIDS_LZ_TP = Set(initialize = lambda m: m.DR_BID_LIST * m.LOAD_ZONES * m.TIMEPOINTS)
-    # m.DR_BIDS_LZ_TS = Set(initialize = lambda m: m.DR_BID_LIST * m.LOAD_ZONES * m.TIMESERIES)
+    m.DR_BID_LIST = Set(initialize=[], within=Integers, ordered=True)
 
     # data for the individual bids; each load_zone gets one bid for each timeseries,
     # and each bid covers all the timepoints in that timeseries. So we just record
     # the bid for each timepoint for each load_zone.
-    m.dr_bid = Param(m.DR_BID_LIST, m.LOAD_ZONES, m.TIMEPOINTS, m.DR_PRODUCTS, mutable=True)
+    m.dr_bid = Param(m.DR_BID_LIST, m.LOAD_ZONES, m.TIMEPOINTS, m.DR_PRODUCTS, within=Reals, mutable=True)
 
     # price used to get this bid (only kept for reference)
-    m.dr_price = Param(m.DR_BID_LIST, m.LOAD_ZONES, m.TIMEPOINTS, m.DR_PRODUCTS, mutable=True)
+    m.dr_price = Param(m.DR_BID_LIST, m.LOAD_ZONES, m.TIMEPOINTS, m.DR_PRODUCTS, within=Reals, mutable=True)
 
     # the private benefit of serving each bid
-    m.dr_bid_benefit = Param(m.DR_BID_LIST, m.LOAD_ZONES, m.TIMESERIES, mutable=True)
+    m.dr_bid_benefit = Param(m.DR_BID_LIST, m.LOAD_ZONES, m.TIMESERIES, within=Reals, mutable=True)
+
+    # # read previously saved bids if available (inverse of bid_{t}.csv code later)
+    # # this is useful for resuming jobs that run out of time or crash, or for regenerating
+    # # outputs
+    # def DR_Read_Saved_Bids_rule(m):
+    #     bid_file = os.path.join(m.options.outputs_dir, "bid_{t}.csv".format(t=m.options.scenario_name))
+    #     if m.options.dr_read_saved_bids and os.path.exists(bid_file):
+    #         if m.options.verbose:
+    #             print("Retrieving previous bids from {}".format(bid_file)
+    #         # make a dict to convert timestamps back to timepoints
+    #         timestamp_tp = {stamp: tp for (tp, stamp) in m.tp_timestamp.items()}
+    #         with open(bid_file) as f:
+    #             # csv is already loaded in util, and switch-csv dialect is already registered
+    #             for r in util.csv.DictReader(f, dialect="switch-csv"):
+    #                 m.DR_BID_LIST.add(r['bid_num'])
+    #                 z = r['load_zone']
+    #                 tp = timestamp_tp[r['timepoint']]
+    #                 m.dr_bid_benefit[b, z, m.tp_ts[tp]] = wtp
+    #                 for prod in m.DR_PRODUCTS:
+    #                     m.dr_bid[b, z, tp, prod] = r['demand ' + prod]
+    #                     m.dr_price[b, z, tp, prod] = r['price ' + prod]
+    # m.DR_Read_Saved_Bids = BuildAction(rule=m.DR_Read_Saved_Bids_rule)
 
     # weights to assign to the bids for each timeseries when constructing an optimal demand profile
-    m.DRBidWeight = Var(m.DR_BID_LIST, m.LOAD_ZONES, m.TIMESERIES, within=NonNegativeReals)
+    m.DRBidWeight = Var(m.DR_BID_LIST, m.LOAD_ZONES, m.TIMESERIES, within=PercentFraction)
 
     # def DR_Convex_Bid_Weight_rule(m, z, ts):
     #     if len(m.DR_BID_LIST) == 0:
@@ -440,18 +477,21 @@ def pre_iterate(m):
         print('previous welfare cost: ${:,.0f}'.format(prev_welfare_cost))
         print("")
 
-    # get the next bid and attach it to the model
+    # get the next bid and attach it to the model (may also calibrate the model and 
+    # create a first bid using baseline prices or read saved bids from previously
+    # interrupted solution)
     update_demand(m)
 
     if m.iteration_number > 0:
-        # get an estimate of best possible net cost of serving load
+        # This is a solved model from the previous iteration.
+        # Get an estimate of best possible net cost of serving load
         # (if we could completely serve the last bid at the prices we quoted,
         # that would be an optimum; the actual cost may be higher but never lower)
-        b = m.DR_BID_LIST.last()    # current bid number
+        current_bid = m.DR_BID_LIST.last()    # current bid number
         best_direct_cost = value(
             sum(
                 sum(
-                    m.prev_marginal_cost[z, tp, prod] * m.dr_bid[b, z, tp, prod]
+                    m.prev_marginal_cost[z, tp, prod] * m.dr_bid[current_bid, z, tp, prod]
                     for z in m.LOAD_ZONES for prod in m.DR_PRODUCTS
                 ) * m.bring_timepoint_costs_to_base_year[tp]
                 for ts in m.TIMESERIES
@@ -461,7 +501,7 @@ def pre_iterate(m):
         best_bid_benefit = value(
             sum(
                 (
-                    - sum(m.dr_bid_benefit[b, z, ts] for z in m.LOAD_ZONES)
+                    - sum(m.dr_bid_benefit[current_bid, z, ts] for z in m.LOAD_ZONES)
                     * m.tp_duration_hrs[tp] / m.ts_num_tps[ts]
                 ) * m.bring_timepoint_costs_to_base_year[tp]
                 for ts in m.TIMESERIES
@@ -476,7 +516,7 @@ def pre_iterate(m):
         #             m.prev_marginal_cost[z, tp, prod] * m.dr_bid[b, z, tp, prod]
         #             for z in m.LOAD_ZONES for prod in m.DR_PRODUCTS
         #         )
-        #         - sum(m.dr_bid_benefit[b, z, ts] for z in m.LOAD_ZONES)
+        #         - sum(m.dr_bid_benefit[last_bid, z, ts] for z in m.LOAD_ZONES)
         #         * m.tp_duration_hrs[tp] / m.ts_num_tps[ts]
         #     ) * m.bring_timepoint_costs_to_base_year[tp]
         #     for ts in m.TIMESERIES
@@ -486,15 +526,16 @@ def pre_iterate(m):
         print("")
         print('best direct cost: ${:,.0f}'.format(best_direct_cost))
         print('best bid benefit: ${:,.0f}'.format(best_bid_benefit))
-        print("")
 
-        print("lower bound=${:,.0f}, previous cost=${:,.0f}, optimality gap (vs direct cost)={}" \
-            .format(best_cost, prev_cost, (prev_cost-best_cost)/abs(prev_direct_cost)))
+        print("")
+        print("lower bound=${:,.0f}, previous cost=${:,.0f}, optimality gap (vs baseline cost)={}" \
+            .format(best_cost, prev_cost, (prev_cost-best_cost)/m.dr_base_expenditure))
         if prev_cost < best_cost:
             print (
                 "WARNING: final cost is below reported lower bound; "
                 "there is probably a problem with the demand system."
             )
+        print("")
 
         # import pdb; pdb.set_trace()
 
@@ -533,21 +574,19 @@ def pre_iterate(m):
     # = prev_marginal_cost * prev_demand + DR_Welfare_Cost
     #   - (prev_marginal_cost * dr_bid - dr_bid_benefit)
 
-    # Check for convergence -- optimality gap is less than 0.1% of best possible cost
-    # (which may be negative)
-    # TODO: index this to the direct costs, rather than the direct costs minus benefits
-    # as it stands, it converges with about $50,000,000 optimality gap, which is about
-    # 3% of direct costs.
-    converged = (m.iteration_number > 0 and (prev_cost - best_cost)/abs(prev_direct_cost) <= 0.0001)
+    # Check for convergence -- optimality gap is less than 1% of baseline expenditure
+    converged = (m.iteration_number > 0 and (prev_cost - best_cost)/m.dr_base_expenditure <= 0.01)
 
     return converged
 
 def post_iterate(m):
     print("\n\n=======================================================")
-    print("Solved model")
+    print("Solved model {}, bid {}".format(
+        '(no name)' if not m.options.scenario_name else m.options.scenario_name,
+        m.DR_BID_LIST.last()
+    ))
     print("=======================================================")
     print("Total cost: ${v:,.0f}".format(v=value(m.SystemCost)))
-
 
     # TODO:
     # maybe calculate prices for the next round here and attach them to the
@@ -561,13 +600,119 @@ def post_iterate(m):
         print("prev_SystemCost={:,.0f}, SystemCost={:,.0f}, ratio={}" \
             .format(m.prev_SystemCost, SystemCost, SystemCost/m.prev_SystemCost))
 
-    tag = m.options.scenario_name
-    outputs_dir = m.options.outputs_dir
+    # # store the current bid weights for future reference
+    # tag = filename_tag(m, False)
+    # outputs_dir = m.options.outputs_dir
+    # if len(m.DR_BID_LIST) == 0:
+    #     util.create_table(
+    #         output_file=os.path.join(outputs_dir, "bid_weights{t}.csv".format(t=tag)),
+    #         headings=("iteration", "load_zone", "timeseries", "bid_num", "weight")
+    #     )
+    # util.append_table(m, m.LOAD_ZONES, m.TIMESERIES, m.DR_BID_LIST,
+    #     output_file=os.path.join(outputs_dir, "bid_weights{t}.csv".format(t=tag)),
+    #     values=lambda m, z, ts, b: (len(m.DR_BID_LIST), z, ts, b, m.DRBidWeight[b, z, ts])
+    # )
 
-    # report information on most recent bid
-    if m.iteration_number == 0:
+    # Stop if there are no duals. This is an efficient point to check, and
+    # otherwise the errors later are pretty cryptic.
+    if not m.dual:
+        raise RuntimeError(
+            "No dual values have been calculated. Check that your solver is "
+            "able to provide duals for integer programs. If using cplex, you "
+            "may need to specify --retrieve-cplex-mip-duals."
+        )
+
+    # if len(m.DR_BID_LIST) % 5 == 0:
+    #     # save time by only writing results every 5 iterations
+    #     write_results(m)
+
+    # write_dual_costs(m)
+    # write_results(m)
+    write_demand_response_summary(m)
+
+
+
+
+def update_demand(m):
+    """
+    This should be called before solving the model, in order to calculate new bids
+    to include in the next run. The first time through, it also uses the fixed demand
+    and marginal costs to calibrate the demand system. The first time through, it will
+    either create an initial bid based on baseline prices or retrieve previously saved
+    bids if available.
+    """
+    if m.iteration_number == 0:  # first run
+        calibrate_model(m)
+        if get_initial_bids(m):
+            # retrieved seed bids or previously saved bids; nothing else to do
+            return
+
+    # print bid weights from prior solution
+    if m.iteration_number > 0:
+        weights = {b: 0.0 for b in m.DR_BID_LIST}
+        for (b, z, ts), w in m.DRBidWeight.items():
+            weights[b] += value(w) * len(m.DR_BID_LIST) / len(m.DRBidWeight)
+        print("average bid weights: " + ', '.join(
+                '{}: {:.5f}'.format(b, w) 
+                for b, w in weights.items() 
+                if w != 0.0 or b == m.DR_BID_LIST.last()
+        ))
+    # Watch for crazy errors in the weights. Sometimes bounds are ignored in the
+    # fixed milp stage (used to get duals) in CPLEX 12.5 or 12.6. This seems to 
+    # be OK in 12.8+, but CPLEX does still make small errors, on the order of
+    # 0.01. We ignore those, since they should be managed via the feasibility 
+    # tolerance (along with all other variables' bounds).
+    bad_weights = {
+        k: value(w) 
+        for k, w in m.DRBidWeight.items() 
+        if value(w) < -0.1 or value(w) > 1.1
+    }
+    if bad_weights:
+        raise ValueError("Some bids have invalid weights (should be 0.0-1.0): {}".format(bad_weights))
+
+    # get new bids from the demand system at the current prices (will use baseline
+    # prices on the first run)
+    print("attaching new demand bids to model")
+    prices = get_prices(m)
+    bids = get_bids(m, prices)
+
+    # add the new bids to the model
+    if m.options.verbose:
+        print("adding bids to model")
+        # print "first day (z, ts, prices, demand, wtp) ="
+        # pprint(bids[0])
+    add_bids(m, bids)
+
+    # save latest bid for retrieval or reference
+    # we do this now instead of in post_iterate, so the bid can be
+    # reloaded if the job is interrupted while solving; this also
+    # avoids double-saving the last bid after reloading.
+    save_latest_bid(m)
+
+    # print "m.dr_bid_benefit (first day):"
+    # pprint([(b, z, ts, value(m.dr_bid_benefit[b, z, ts]))
+    #     for b in m.DR_BID_LIST
+    #     for z in m.LOAD_ZONES
+    #     for ts in [m.TIMESERIES.first()]])
+
+    # print "m.dr_bid (first day):"
+    # print [(b, z, ts, value(m.dr_bid[b, z, ts]))
+    #     for b in m.DR_BID_LIST
+    #     for z in m.LOAD_ZONES
+    #     for ts in m.TPS_IN_TS[m.TIMESERIES.first()]]
+
+def save_latest_bid(m):
+    # save most recent bid for reloading or reference later
+    tag = filename_tag(m, False)
+    outputs_dir = m.options.outputs_dir
+    b = m.DR_BID_LIST.last()    # current bid
+
+    if len(m.DR_BID_LIST) == 1:
+        # Model only has one bid so far: remake the file and put the bid there
+        # Note: this will need to change if we start getting multiple bids per
+        # iteration, but then we'd need to write multiple bids at this point too.
         util.create_table(
-            output_file=os.path.join(outputs_dir, "bid_{t}.csv".format(t=tag)),
+            output_file=os.path.join(outputs_dir, "bid{t}.csv".format(t=tag)),
             headings=
                 (
                     "bid_num", "load_zone", "timeseries", "timepoint",
@@ -578,10 +723,9 @@ def post_iterate(m):
                     "wtp", "base_price", "base_load"
                 )
         )
-    b = m.DR_BID_LIST.last()    # current bid
     util.append_table(
         m, m.LOAD_ZONES, m.TIMEPOINTS,
-        output_file=os.path.join(outputs_dir, "bid_{t}.csv".format(t=tag)),
+        output_file=os.path.join(outputs_dir, "bid{t}.csv".format(t=tag)),
         values=lambda m, z, tp:
             (
                 b,
@@ -599,78 +743,133 @@ def post_iterate(m):
             )
     )
 
-    # store the current bid weights for future reference
-    if m.iteration_number == 0:
-        util.create_table(
-            output_file=os.path.join(outputs_dir, "bid_weights_{t}.csv".format(t=tag)),
-            headings=("iteration", "load_zone", "timeseries", "bid_num", "weight")
-        )
-    util.append_table(m, m.LOAD_ZONES, m.TIMESERIES, m.DR_BID_LIST,
-        output_file=os.path.join(outputs_dir, "bid_weights_{t}.csv".format(t=tag)),
-        values=lambda m, z, ts, b: (len(m.DR_BID_LIST), z, ts, b, m.DRBidWeight[b, z, ts])
-    )
 
-    # if m.iteration_number % 5 == 0:
-    #     # save time by only writing results every 5 iterations
-    # write_results(m)
-
-    # Stop if there are no duals. This is an efficient point to check, and
-    # otherwise the errors later are pretty cryptic.
-    if not m.dual:
-        raise RuntimeError(
-            "No dual values have been calculated. Check that your solver is "
-            "able to provide duals for integer programs. If using cplex, you "
-            "may need to specify --retrieve-cplex-mip-duals."
-        )
-
-    write_dual_costs(m)
-    write_results(m)
-    write_batch_results(m)
-
-    # if m.iteration_number >= 3:
-    #     import pdb; pdb.set_trace()
-
-
-
-def update_demand(m):
-    """
-    This should be called after solving the model, in order to calculate new bids
-    to include in future runs. The first time through, it also uses the fixed demand
-    and marginal costs to calibrate the demand system, and then replaces the fixed
-    demand with the flexible demand system.
-    """
-    first_run = (m.base_data is None)
-
-    print("attaching new demand bid to model")
-    if first_run:
-        calibrate_model(m)
-    else:   # not first run
+def retrieve_saved_bids(m):
+    # read previously saved bids if available (inverse of save_latest_bid code)
+    # this is useful for resuming jobs that run out of time or crash, or for regenerating
+    # outputs
+    bid_file = os.path.join(m.options.outputs_dir, 'bid{t}.csv'.format(t=filename_tag(m, False)))
+    if m.options.dr_read_saved_bids and os.path.exists(bid_file):
         if m.options.verbose:
-            print("m.DRBidWeight:")
-            pprint([(z, ts, [(b, value(m.DRBidWeight[b, z, ts])) for b in m.DR_BID_LIST])
-                for z in m.LOAD_ZONES
-                for ts in m.TIMESERIES])
+            print("Retrieving previous bids from {}".format(bid_file))
+        # make a dict to convert timestamps back to timepoints
+        timestamp_tp = {stamp: tp for (tp, stamp) in m.tp_timestamp.items()}
+        with open(bid_file) as f:
+            # csv is already loaded in util, and switch-csv dialect is already registered
+            rows = list(util.csv.DictReader(f, dialect="switch-csv"))
 
-    # get new bids from the demand system at the current prices
-    bids = get_bids(m)
+        if m.options.dr_seed_bids:
+            seed_bid_count = 3 + (0 if m.options.dr_flat_pricing else 4*24)
+            saved_bid_count = len({r['bid_num'] for r in rows})
+            if saved_bid_count < seed_bid_count:
+                # This can happen if a job is interrupted while preparing the seeds.
+                # TODO: maybe don't create the bid file until all seeds have been generated?
+                print("Found previous bid file but it does not include all seed bids; restarting.")
+                print("(Expected {} bids but found {}.)".format(seed_bid_count, saved_bid_count))
+                return False
 
-    # add the new bids to the model
+        for r in rows:
+            b = int(r['bid_num'])
+            z = r['load_zone']
+            tp = timestamp_tp[r['timepoint']]
+            if b not in m.DR_BID_LIST:
+                m.DR_BID_LIST.add(b)
+            m.dr_bid_benefit[b, z, m.tp_ts[tp]] = float(r['wtp'])
+            for prod in m.DR_PRODUCTS:
+                m.dr_bid[b, z, tp, prod] = float(r['bid ' + prod])
+                m.dr_price[b, z, tp, prod] = float(r['price ' + prod])
+
+        reconstruct_dr_components(m)
+        if m.options.verbose:
+            print("Applied {} previous bids".format(len(m.DR_BID_LIST)))
+        return True # read saved bids
+    else:
+        return False # didn't read saved bids
+
+
+def get_initial_bids(m):
+    if retrieve_saved_bids(m):
+        return True
+    else:
+        return create_seed_bids(m)
+
+
+def create_seed_bids(m):
+    """Attach seed bids to the model, based on synthetic prices that take various peak and valley values
+    and peak in each possible timepoint. Some seed bids are also based on flat prices. Reserve products
+    have prices 0.01 x energy, to gently nudge the demand system to produce reserves."""
+    
+    if not m.options.dr_seed_bids:
+        return False
+
+    base_prices = {}
+    for z in m.LOAD_ZONES:
+        for ts in m.TIMESERIES:
+            # get average baseline price for each timeseries (usually they're all equal anyway)
+            energy_price = sum(m.base_data_dict[z, tp][1] for tp in m.TPS_IN_TS[ts])/len(m.TPS_IN_TS[ts])
+            for prod in m.DR_PRODUCTS:
+                base_prices[z, ts, prod] = energy_price if prod == 'energy' else (0.01 * energy_price)
+
+    # try flat prices at 0.5, 1 and 2 times base price
     if m.options.verbose:
-        print("adding bids to model")
-        # print "first day (z, ts, prices, demand, wtp) ="
-        # pprint(bids[0])
-    add_bids(m, bids)
-    # print "m.dr_bid_benefit (first day):"
-    # pprint([(b, z, ts, value(m.dr_bid_benefit[b, z, ts]))
-    #     for b in m.DR_BID_LIST
-    #     for z in m.LOAD_ZONES
-    #     for ts in [m.TIMESERIES.first()]])
+        print("Seeding bid list using flat prices at 0.5, 1 and 2 times base price.")
+    for mult in [0.5, 1, 2]:
+        prices = {
+            (z, ts): {
+                prod: [mult * base_prices[z, ts, prod] for tp in m.TPS_IN_TS[ts]] 
+                for prod in m.DR_PRODUCTS
+            }
+            for z in m.LOAD_ZONES for ts in m.TIMESERIES
+        }
+        bids = get_bids(m, prices)
+        add_bids(m, bids)
+        save_latest_bid(m)
 
-    # print "m.dr_bid (first day):"
-    # print [(b, z, ts, value(m.dr_bid[b, z, ts]))
-    #     for b in m.DR_BID_LIST
-    #     for z in m.LOAD_ZONES
-    #     for ts in m.TPS_IN_TS[m.TIMESERIES.first()]]
+    if not m.options.dr_flat_pricing:
+        # try prices that peak in all hours of the day, 
+        # with various degrees of extremeness
+        if m.options.verbose:
+            print("Seeding bid list using prices that peak in each hour.")
+        for low in [0.01, 0.5]:
+            for high in [1.5, 3]:
+                for low_hour in range(24):
+                    # make bids for prices that range from low*base in low_hour
+                    # to high*base in low_hour + 12
+                    prices = {
+                        (z, ts): {
+                            prod: [
+                                interpolate_timepoint(i, m.ts_duration_of_tp[ts], low_hour, low, high) 
+                                * base_prices[z, ts, prod]
+                                for i, tp in enumerate(m.TPS_IN_TS[ts])
+                            ] 
+                            for prod in m.DR_PRODUCTS
+                        }
+                        for z in m.LOAD_ZONES for ts in m.TIMESERIES
+                    }
+                    bids = get_bids(m, prices)
+                    add_bids(m, bids)
+                    save_latest_bid(m)
+
+    return True  # was requested to seed bids and did so
+
+def interpolate_timepoint(i, dur, low_hour, low_value, high_value):
+    """ interpolate between low value in low_hour and high value 12 hours later;
+    value is calculated for timestep i, assuming all timesteps have duration 
+    dur hours. First timepoint (number 0) will always have `low` value."""
+
+    # calculate hour number
+    # This uses the start of the hour as the anchor point (not mid-hour)
+    # so the first timepoint will always have the lowest value, even if 
+    # dur != 1
+    moment = (i * dur - low_hour) % 24.0
+    # calculate fraction of the way through the first 12 hours
+    frac = moment / 12.0
+    if frac > 1:
+        # mirror at 12 hour mark
+        frac = 2 - frac
+    # interpolate from low to high
+    value = (1 - frac) * low_value + (frac) * high_value
+    return value
 
 
 def total_direct_costs_per_year(m, period):
@@ -771,6 +970,16 @@ def calibrate_model(m):
     # calibrate the demand module
     demand_module.calibrate(m, m.base_data)
 
+    # calculate baseline expenditure for use in optimality gap
+    # TODO: make dr_base_price an input parameter and make dr_base_expenditure a calculated parameter
+    m.dr_base_expenditure = sum(
+        m.zone_demand_mw[z, tp] * base_price * m.bring_timepoint_costs_to_base_year[tp]
+        for z in m.LOAD_ZONES for tp in m.TIMEPOINTS
+    )
+    print("Baseline expenditure is ${:,.0f} (NPV)".format(m.dr_base_expenditure))
+
+
+
 def get_prices(m, flat_revenue_neutral=True):
     """Calculate appropriate prices for each day, based on the current state
     of the model."""
@@ -808,15 +1017,14 @@ def get_prices(m, flat_revenue_neutral=True):
 
     return prices
 
-def get_bids(m):
-    """Get bids from the demand system showing quantities at the current prices and willingness-to-pay for those quantities
+def get_bids(m, prices):
+    """Get bids from the demand system showing quantities at the specified prices (usually from get_prices()) 
+    and willingness-to-pay for those quantities
     call bid() with dictionary of prices for different products
 
     Each bid is a tuple of (load_zone, timeseries, {prod: [hourly prices]}, {prod: [hourly quantities]}, wtp)
     quantity will be positive for consumption, negative if customer will supply product
     """
-
-    prices = get_prices(m)
 
     # get bids for all load zones and timeseries
     bids = []
@@ -941,17 +1149,18 @@ def revenue_imbalance(flat_price, m, load_zone, period, dynamic_prices):
 def add_bids(m, bids):
     """
     accept a list of bids written as tuples like
-    (z, ts, prod, prices, demand, wtp)
+    (z, ts, prices, demand, wtp)
     where z is the load zone, ts is the timeseries, prod is the product,
-    demand is a list of demand levels for the timepoints during that series (possibly negative, to sell),
+    demand is a dict with one entry per product; each entry contains a list of demand levels 
+    for all the timepoints during that series (possibly negative, to sell),
     and wtp is the net private benefit from consuming/selling the amount of power in that bid.
-    Then add that set of bids to the model
+    Then add that set of bids to the model.
     """
     # create a bid ID and add it to the list of bids
     if len(m.DR_BID_LIST) == 0:
         b = 1
     else:
-        b = max(m.DR_BID_LIST) + 1
+        b = m.DR_BID_LIST.last() + 1
 
     m.DR_BID_LIST.add(b)
 
@@ -966,8 +1175,13 @@ def add_bids(m, bids):
                 m.dr_price[b, z, tp, prod] = prices[prod][i]
 
     print("len(m.DR_BID_LIST): {l}".format(l=len(m.DR_BID_LIST)))
-    print("m.DR_BID_LIST: {b}".format(b=[x for x in m.DR_BID_LIST]))
+    # print("m.DR_BID_LIST: {b}".format(b=[x for x in m.DR_BID_LIST]))
 
+    # reconstruct components that depend on the bids
+    reconstruct_dr_components(m)
+
+
+def reconstruct_dr_components(m):
     # reconstruct the components that depend on m.DR_BID_LIST, m.dr_bid_benefit and m.dr_bid
     m.DRBidWeight.reconstruct()
     m.DR_Convex_Bid_Weight.reconstruct()
@@ -1014,28 +1228,36 @@ def reconstruct_energy_balance(m):
             m.dual[m.Zone_Energy_Balance[k]] = m.dual.pop(old_Energy_Balance[k])
 
 
-def write_batch_results(m):
+def write_demand_response_summary(m, final=False):
     # append results to the batch results file, creating it if needed
-    output_file = os.path.join(m.options.outputs_dir, "demand_response_summary.csv")
+    outfile = "demand_response_summary" + ("_final" if final else "") + filename_tag(m, False) + ".csv"
+    output_file = os.path.join(m.options.outputs_dir, outfile)
 
-    # create a file to hold batch results if it doesn't already exist
-    # note: we retain this file across scenarios so it can summarize all results,
-    # but this means it needs to be manually cleared before launching a new
-    # batch of scenarios (e.g., when running get_scenario_data or clearing the
-    # scenario_queue directory)
-    if not os.path.isfile(output_file):
+    # create a file to hold results of each iteration if it doesn't already exist
+    # note: we retain this file across iterations so it can summarize all results,
+    # but this means it needs to be manually cleared before relaunching the scenario
+    # (e.g., when running get_scenario_data or clearing the scenario_queue directory)
+    # or at least when clearing the bid log.
+    # TODO: clear this automatically whenever a new model starts, i.e., when the
+    # bid file is created; but there is no neat hook for that.
+    if final or not os.path.isfile(output_file):
         util.create_table(output_file=output_file, headings=summary_headers(m))
 
     util.append_table(m, output_file=output_file, values=lambda m: summary_values(m))
 
 def summary_headers(m):
-    return (
-        ("tag", "iteration", "total_cost")
-        +tuple('total_direct_costs_per_year_'+str(p) for p in m.PERIODS)
-        +tuple('DR_Welfare_Cost_'+str(p) for p in m.PERIODS)
-        +tuple(prod + ' payment ' + str(p) for prod in m.DR_PRODUCTS for p in m.PERIODS)
-        +tuple(prod + ' sold ' + str(p) for prod in m.DR_PRODUCTS for p in m.PERIODS)
+    headers = (
+        ["tag", "iteration", "total_cost"]
+        + ['total_direct_costs_per_year_'+str(p) for p in m.PERIODS]
+        + ['DR_Welfare_Cost_'+str(p) for p in m.PERIODS]
+        + [prod + ' payment ' + str(p) for prod in m.DR_PRODUCTS for p in m.PERIODS]
+        + [prod + ' sold ' + str(p) for prod in m.DR_PRODUCTS for p in m.PERIODS]
+        + ['co2_per_year_'+str(p) for p in m.PERIODS]
     )
+    if hasattr(m, 'RPSEligiblePower'):
+        headers.append("renewable_share_all_years")
+        headers.extend('renewable_share_'+str(p) for p in m.PERIODS)
+    return headers
 
 def summary_values(m):
     demand_components = [
@@ -1046,7 +1268,7 @@ def summary_values(m):
     # tag (configuration)
     values.extend([
         m.options.scenario_name,
-        m.iteration_number,
+        m.DR_BID_LIST.last(),
         m.SystemCost  # total cost (all periods)
     ])
 
@@ -1091,6 +1313,18 @@ def summary_values(m):
         for prod in m.DR_PRODUCTS for p in m.PERIODS
     ])
 
+    # annual emissions (metric tons CO2e per year)
+    values.extend([m.AnnualEmissions[p] for p in m.PERIODS])
+
+    if hasattr(m, 'RPSEligiblePower'):
+        # total renewable share over all periods
+        values.append(
+            sum(m.RPSEligiblePower[p] for p in m.PERIODS)
+            / sum(m.RPSTotalPower[p] for p in m.PERIODS)
+        )
+        # renewable share during each period
+        values.extend([m.RPSEligiblePower[p]/m.RPSTotalPower[p] for p in m.PERIODS])
+
     return values
 
 def get(component, idx, default):
@@ -1099,9 +1333,9 @@ def get(component, idx, default):
     except KeyError:
         return default
 
-def write_results(m, include_iter_num=True):
+def write_results(m, include_bid_num=True):
     outputs_dir = m.options.outputs_dir
-    tag = filename_tag(m, include_iter_num)
+    tag = filename_tag(m, include_bid_num)
 
     avg_ts_scale = float(sum(m.ts_scale_to_year[ts] for ts in m.TIMESERIES))/len(m.TIMESERIES)
     last_bid = m.DR_BID_LIST.last()
@@ -1207,9 +1441,9 @@ def write_results(m, include_iter_num=True):
     # bt=set(x[3] for x in b) # technologies
     # pprint([(t, sum(x[2] for x in b if x[3]==t), sum(x[4] for x in b if x[3]==t)/sum(1.0 for x in b if x[3]==t)) for t in bt])
 
-def write_dual_costs(m, include_iter_num=True):
+def write_dual_costs(m, include_bid_num=True):
     outputs_dir = m.options.outputs_dir
-    tag = filename_tag(m, include_iter_num)
+    tag = filename_tag(m, include_bid_num)
 
     # with open(os.path.join(outputs_dir, "producer_surplus{t}.csv".format(t=tag)), 'w') as f:
     #     for g, per in m.Max_Build_Potential:
@@ -1240,7 +1474,10 @@ def write_dual_costs(m, include_iter_num=True):
                 bound = ubound
             if bound is None:
                 # Variable is unbounded; dual should be 0.0 or possibly a tiny non-zero value.
-                if not (-1e-5 < dual < 1e-5):
+                if -0.01 < dual < 0.01:
+                    # no action needed, treat as 0
+                    pass
+                else:
                     raise ValueError("{} has no {} bound but has a non-zero dual value {}.".format(
                         const.name, "lower" if dual > 0 else "upper", dual))
             else:
@@ -1277,19 +1514,24 @@ def write_dual_costs(m, include_iter_num=True):
         f.writelines(','.join(map(str, r)) + '\n' for r in dual_data)
     print("time taken: {dur:.2f}s".format(dur=time.time()-start_time))
 
-def filename_tag(m, include_iter_num=True):
+def filename_tag(m, include_bid_num=True):
+    tags = []
     if m.options.scenario_name:
-        t = m.options.scenario_name + "_"
-    else:
-        t = ""
-    if include_iter_num:
-        t = t + "_".join(map(str, m.iteration_node))
-    if t:
-        t = "_" + t
-    return t
+        tags.append(m.options.scenario_name)
+    if include_bid_num:
+        if len(m.DR_BID_LIST) == 0:
+            tags.append('0') # should never happen
+        else:
+            tags.append(str(m.DR_BID_LIST.last()))
+    if tags:
+        # add an underscore before the tag
+        tags.insert(0, '')
+    return "_".join(tags)
 
 def post_solve(m, outputs_dir):
     # report final results, possibly after smoothing,
     # and without the iteration number
-    write_dual_costs(m, include_iter_num=False)
-    write_results(m, include_iter_num=False)
+    write_dual_costs(m, include_bid_num=False)
+    write_results(m, include_bid_num=False)
+    write_demand_response_summary(m, final=True)
+
