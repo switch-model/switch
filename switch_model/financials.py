@@ -367,6 +367,9 @@ def post_solve(instance, outdir):
         	))
         } for p in m.PERIODS for tp_cost in m.Cost_Components_Per_TP
     ]
-    df = pd.DataFrame(annualized_costs)
-    df.set_index(["PERIOD", "Component"], inplace=True)
+    df = (
+        pd.DataFrame(annualized_costs)
+        .set_index(["PERIOD", "Component"])
+        .sort_index()
+    )
     df.to_csv(os.path.join(outdir, "costs_itemized.csv"))

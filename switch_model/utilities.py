@@ -339,8 +339,8 @@ def check_mandatory_components(model, *mandatory_model_components):
                     "No data is defined for the mandatory set '{}'.".
                     format(component_name))
         elif o_class == 'IndexedParam':
-            if len(obj) != len(obj._index):
-                missing_index_elements = [v for v in set(obj._index) - set( obj.sparse_keys())]
+            if len(obj) != len(obj.index_set()):
+                missing_index_elements = list(obj.index_set() - obj.sparse_keys())
                 raise ValueError(
                     "Values are not provided for every element of the "
                     "mandatory parameter '{}'. "
@@ -348,7 +348,7 @@ def check_mandatory_components(model, *mandatory_model_components):
                     .format(component_name, len(missing_index_elements), missing_index_elements[:10])
                 )
         elif o_class == 'IndexedSet':
-            if len(obj) != len(obj._index):
+            if len(obj) != len(obj.index_set()):
                 raise ValueError(
                     ("Sets are not defined for every index of " +
                      "the mandatory indexed set '{}'").format(component_name))
@@ -378,6 +378,44 @@ class InputError(Exception):
     def __str__(self):
         return repr(self.value)
 
+def apply_input_aliases(switch_data, path):
+    """
+    Translate filenames based on --input-alias[es] arguments.
+
+    Filename substitutions are specified like
+    --input-aliases ev_share.tab=ev_share.ev_flat.tab rps.tab=rps.2030.tab
+
+    Filename 'none' will be converted to an empty string and usually be ignored.
+
+    This enables use of alternative files to study sensitivities without
+    creating complete input directories for each permutation.
+    """
+    try:
+        file_aliases = switch_data.file_aliases
+    except AttributeError:
+        file_aliases = switch_data.file_aliases = {
+            standard: alternative
+            for standard, alternative in (
+                pair.split('=') for pair in switch_data._model.options.input_aliases
+            )
+        }
+    root, filename = os.path.split(path)
+    if filename in file_aliases:
+        if file_aliases[filename].lower() == 'none':
+            path = ''
+        else:
+            # Note: We could use os.path.normpath() to clean up paths like
+            # 'inputs/../inputs_alt', but leaving them as-is may make it more
+            # clear that an alias is in use if errors crop up later.
+            old_path, path = path, os.path.join(root, file_aliases[filename])
+            if not os.path.isfile(path):
+                # catch alias naming errors (should always point to a real file)
+                raise ValueError(
+                    'Alias "{}" specified for file "{}" does not exist. '
+                    'Specify {}=none if you want to supply no data.'
+                    .format(path, old_path, filename)
+                )
+    return path
 
 def load_aug(switch_data, optional=False, auto_select=False,
              optional_params=[], **kwds):
@@ -395,7 +433,8 @@ def load_aug(switch_data, optional=False, auto_select=False,
     # immediately where the data come from for each component). This can
     # also support auto-documenting of parameters and input files.
 
-    path = kwds['filename']
+    path = kwds['filename'] = apply_input_aliases(switch_data, kwds['filename'])
+
     # Skip if the file is missing
     if optional and not os.path.isfile(path):
         return
