@@ -73,6 +73,7 @@ Temporary Items
 
 # User-specific stuff
 .idea/**
+.fleet
 
 # CMake
 cmake-build-*/
