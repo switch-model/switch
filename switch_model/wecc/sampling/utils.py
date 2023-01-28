@@ -31,20 +31,21 @@ def timeit(f_py=None, to_log=None):
 
     return _decorator(f_py) if callable(f_py) else _decorator
 
+
 @timeit(to_log=True)
 def get_load_data(
     demand_scenario_id: int,
     force_download=False,
     **kwargs,
 ):
-    """ Query the load data from the database"""
+    """Query the load data from the database"""
     fname = f"load_data-{demand_scenario_id}.csv"
 
     if not os.path.exists(fname) or force_download:
         df = read_from_db(
             table_name="demand_timeseries",
             where_clause=f"demand_scenario_id = '{demand_scenario_id}'",
-            **kwargs
+            **kwargs,
         )
         df = df.sort_values(["load_zone_id", "raw_timepoint_id"])
         df["date"] = df["timestamp_utc"].dt.strftime("%Y-%m-%d").values
@@ -116,13 +117,13 @@ def insert_to_db(
 
 
 def read_from_db(
-        table_name: str,
-        db_conn,
-        schema,
-        where_clause: str = None,
-        columns: list = None,
-        verbose=False,
-        **kwargs
+    table_name: str,
+    db_conn,
+    schema,
+    where_clause: str = None,
+    columns: list = None,
+    verbose=False,
+    **kwargs,
 ):
     if not db_conn:
         raise SystemExit(

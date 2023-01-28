@@ -8,9 +8,11 @@ import argparse
 import importlib
 import sys
 
+
 def get_module_runner(module):
     def runner():
         importlib.import_module(module).main()
+
     return runner
 
 
@@ -19,9 +21,12 @@ cmds = {
     "save_scenario": get_module_runner("switch_model.wecc.save_scenario"),
 }
 
+
 def main(args=None):
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("subcommand", choices=cmds.keys(), help="The possible switch subcommands")
+    parser.add_argument(
+        "subcommand", choices=cmds.keys(), help="The possible switch subcommands"
+    )
 
     args, remaining_args = parser.parse_known_args(args)
 

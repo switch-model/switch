@@ -6,7 +6,8 @@ from matplotlib.colors import LinearSegmentedColormap
 from switch_model.tools.graph.main import GraphTools
 from papers.Martin_Staadecker_et_al_2022.util import (
     get_scenario,
-    set_style, save_figure,
+    set_style,
+    save_figure,
 )
 
 custom_color_map = LinearSegmentedColormap.from_list(
@@ -35,7 +36,8 @@ tools_ws_ratio = GraphTools(
         get_scenario("WS150", 0.6),
         # get_scenario("WS233", 0.7), # Removed since results are invalid
         # get_scenario("WS500", 0.833), # Removed since results are misleading
-    ], set_style=False
+    ],
+    set_style=False,
 )
 tools_ws_ratio.pre_graphing(multi_scenario=True)
 
@@ -48,7 +50,8 @@ tools_hydro = GraphTools(
         get_scenario("H065", 0.65),
         get_scenario("H085", 0.85),
         get_scenario("1342", 1),
-    ], set_style=False
+    ],
+    set_style=False,
 )
 tools_hydro.pre_graphing(multi_scenario=True)
 
@@ -58,7 +61,8 @@ tools_tx = GraphTools(
         get_scenario("T4", "No Tx Build Costs\n(No Tx Congestion)"),
         get_scenario("1342", "Baseline"),
         get_scenario("T5", "10x Tx\nBuild Costs"),
-    ], set_style=False
+    ],
+    set_style=False,
 )
 tools_tx.pre_graphing(multi_scenario=True)
 
@@ -77,8 +81,9 @@ tools_cost = GraphTools(
         get_scenario("1342", baseline_energy_cost),
         get_scenario("C25", 40),
         get_scenario("C19", 70),
-        get_scenario("C20", 102)
-    ], set_style=False
+        get_scenario("C20", 102),
+    ],
+    set_style=False,
 )
 tools_cost.pre_graphing(multi_scenario=True)
 
@@ -88,7 +93,7 @@ def get_data(tools):
     duration = storage.copy()
     duration = duration[duration["OnlinePowerCapacityMW"] != 0]
     duration["duration"] = (
-            duration["OnlineEnergyCapacityMWh"] / duration["OnlinePowerCapacityMW"]
+        duration["OnlineEnergyCapacityMWh"] / duration["OnlinePowerCapacityMW"]
     )
     duration = duration[["scenario_index", "duration", "OnlinePowerCapacityMW"]]
     duration["Duration (h)"] = pd.cut(
@@ -97,7 +102,7 @@ def get_data(tools):
     duration = duration.groupby(
         ["scenario_index", "Duration (h)"]
     ).OnlinePowerCapacityMW.sum()
-    duration /= 10 ** 3
+    duration /= 10**3
     duration = duration.unstack()
     duration.index = duration.index.map(tools.get_scenario_name)
 
@@ -154,7 +159,9 @@ ax_tl.set_ylim(0, Y_LIM_BASE)
 ax_bl.set_ylim(0, Y_LIM_BASE)
 
 
-def create_secondary_y_axis(ax, include_label, y_lim, y_label, color="grey", offset=-0.2):
+def create_secondary_y_axis(
+    ax, include_label, y_lim, y_label, color="grey", offset=-0.2
+):
     rax = ax.twinx()
     rax.grid(False)
     rax.set_ylim(0, y_lim)
@@ -204,15 +211,40 @@ def plot_panel(ax, rax, rrax, rrrax, data, title=""):
     colors = tools_ws_ratio.get_colors()
     duration.index.name = None
     storage.index.name = None
-    duration.plot(ax=ax, marker=".", colormap=custom_color_map, legend=False, linewidth=lw, markersize=s)
-    duration.sum(axis=1).plot(ax=ax, marker=".", color="red", label="All Storage (GW)", legend=False,
-                              linewidth=lw,
-                              markersize=s)
-    rax.plot(tx, marker=".", color="tab:olive", label="Built Transmission", linewidth=lw, markersize=s)
-    cap["Wind"].plot(ax=ax, marker=".", color=colors, legend=False, linewidth=lw, markersize=s)
-    cap["Solar"].plot(ax=rrrax, marker=".", color=colors, legend=False, linewidth=lw, markersize=s)
-    storage.plot(ax=rrax, marker=".", color="green", linewidth=lw, markersize=s,
-                 legend=False)
+    duration.plot(
+        ax=ax,
+        marker=".",
+        colormap=custom_color_map,
+        legend=False,
+        linewidth=lw,
+        markersize=s,
+    )
+    duration.sum(axis=1).plot(
+        ax=ax,
+        marker=".",
+        color="red",
+        label="All Storage (GW)",
+        legend=False,
+        linewidth=lw,
+        markersize=s,
+    )
+    rax.plot(
+        tx,
+        marker=".",
+        color="tab:olive",
+        label="Built Transmission",
+        linewidth=lw,
+        markersize=s,
+    )
+    cap["Wind"].plot(
+        ax=ax, marker=".", color=colors, legend=False, linewidth=lw, markersize=s
+    )
+    cap["Solar"].plot(
+        ax=rrrax, marker=".", color=colors, legend=False, linewidth=lw, markersize=s
+    )
+    storage.plot(
+        ax=rrax, marker=".", color="green", linewidth=lw, markersize=s, legend=False
+    )
     ax.set_ylabel("Wind and Storage Power Capacity (GW)")
     ax.set_title(title)
 
@@ -228,7 +260,9 @@ ax.tick_params(top=False, bottom=True, right=False, left=True, which="both")
 plot_panel(ax, rax, rrax_tl, rrrax_tl, data_ws, "Set A: Varying Wind-vs-Solar Share")
 
 ax.set_xticks([0.1, 0.2, 0.3, 0.4, 0.5, 0.6])
-ax.set_xticklabels(["90%-10%\nSolar-Wind", "", "70%-30%\nSolar-Wind", "", "50%-50%\nSolar-Wind", ""])
+ax.set_xticklabels(
+    ["90%-10%\nSolar-Wind", "", "70%-30%\nSolar-Wind", "", "50%-50%\nSolar-Wind", ""]
+)
 ax.axvline(baseline_ws_ratio, linestyle="dotted", color="dimgrey")
 ax.text(baseline_ws_ratio - 0.02, 125, "Baseline", rotation=90, color="dimgrey")
 
@@ -249,7 +283,9 @@ ax = ax_bl
 rax = rax_bottom_left
 data_tx = get_data(tools_tx)
 ax.set_xticks([0, 1, 2])
-plot_panel(ax, rax, rrax_bl, rrrax_bl, data_tx, "Set C: Varying Transmission Build Costs")
+plot_panel(
+    ax, rax, rrax_bl, rrrax_bl, data_tx, "Set C: Varying Transmission Build Costs"
+)
 # %% PLOT COSTS
 ax = ax_br
 rax = rax_bottom_right
@@ -299,7 +335,7 @@ save_figure("figure-s4-analysis-of-4-factors.png")
 df = tools_ws_ratio.get_dataframe("storage_capacity.csv")
 df = df[df.scenario_name == 0.833]
 df["duration"] = df["duration"] = (
-        df["OnlineEnergyCapacityMWh"] / df["OnlinePowerCapacityMW"]
+    df["OnlineEnergyCapacityMWh"] / df["OnlinePowerCapacityMW"]
 )
 df = df[["load_zone", "duration", "OnlinePowerCapacityMW"]]
 df.sort_values("duration")
@@ -325,7 +361,9 @@ data_tx
 df = tools_hydro.get_dataframe("dispatch_zonal_annual_summary.csv")
 df = df[df.scenario_name == 1]
 df = tools_hydro.transform.gen_type(df)
-df = df[["gen_load_zone", "gen_type", "Energy_GWh_typical_yr"]].set_index("gen_load_zone")
+df = df[["gen_load_zone", "gen_type", "Energy_GWh_typical_yr"]].set_index(
+    "gen_load_zone"
+)
 df_sum = df.groupby("gen_load_zone").Energy_GWh_typical_yr.sum()
 df_sum = df_sum.rename("total")
 df = df.join(df_sum)
@@ -338,7 +376,9 @@ valid_load_zones = df["gen_load_zone"]
 
 df = tools_hydro.get_dataframe("storage_capacity.csv")
 # df = df[df.scenario_name == 0.5]
-df = df[["load_zone", "scenario_name", "OnlinePowerCapacityMW", "OnlineEnergyCapacityMWh"]]
+df = df[
+    ["load_zone", "scenario_name", "OnlinePowerCapacityMW", "OnlineEnergyCapacityMWh"]
+]
 df = df[df.load_zone.isin(valid_load_zones)]
 df = df.groupby("scenario_name").sum()
 df["OnlineEnergyCapacityMWh"] / df["OnlinePowerCapacityMW"]

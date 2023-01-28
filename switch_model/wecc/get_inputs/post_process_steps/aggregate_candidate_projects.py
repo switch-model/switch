@@ -27,7 +27,9 @@ import pandas as pd
 from switch_model.wecc.get_inputs.register_post_process import post_process_step
 
 
-@post_process_step(msg="Aggregating candidate projects by load zone for specified technologies")
+@post_process_step(
+    msg="Aggregating candidate projects by load zone for specified technologies"
+)
 def post_process(func_config):
     agg_techs = func_config["agg_techs"]
     cf_method = func_config["cf_method"]
@@ -59,9 +61,11 @@ def post_process(func_config):
         try:
             zonal_cf = pd.read_csv("zonal_capacity_factors.csv", index_col=False)
         except FileNotFoundError:
-            raise Exception("Post process step 'aggregate_candidate_projects' with method 'file'"
-                            " requires an external zonal_capacity_factors.csv to exist. This file can be generated"
-                            " using the scripts in zonal_capacity_factors.csv.")
+            raise Exception(
+                "Post process step 'aggregate_candidate_projects' with method 'file'"
+                " requires an external zonal_capacity_factors.csv to exist. This file can be generated"
+                " using the scripts in zonal_capacity_factors.csv."
+            )
         valid_proj = df.merge(
             zonal_cf[["gen_load_zone", "gen_tech"]].drop_duplicates(),
             on=["gen_load_zone", "gen_tech"],

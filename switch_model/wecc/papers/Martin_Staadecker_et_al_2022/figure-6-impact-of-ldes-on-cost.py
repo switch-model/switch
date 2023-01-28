@@ -8,7 +8,8 @@ import labellines
 
 from papers.Martin_Staadecker_et_al_2022.util import (
     set_style,
-    get_set_e_scenarios, save_figure,
+    get_set_e_scenarios,
+    save_figure,
 )
 from switch_model.tools.graph.main import GraphTools
 
@@ -38,7 +39,7 @@ ax2 = fig.add_subplot(gs[0, 1])
 ax3 = fig.add_subplot(gs[1, 0])
 ax4 = fig.add_subplot(gs[1, 1])
 
-y_label = u"Marginal Price of Electricity ($/MWh)"
+y_label = "Marginal Price of Electricity ($/MWh)"
 x_label = "WECC-wide storage capacity (TWh)"
 
 # %% Variability
@@ -106,7 +107,15 @@ lines = []
 for col in daily_lmp:
     line = ax.plot(daily_lmp[col], marker=".", label=col)
     if col in ("Noon", "4pm", "8am"):
-        labellines.labelLine(line[0], 10, label=col, outline_width=1, align=False, color='k', fontsize="small")
+        labellines.labelLine(
+            line[0],
+            10,
+            label=col,
+            outline_width=1,
+            align=False,
+            color="k",
+            fontsize="small",
+        )
     lines += line
 ax.legend(lines, [l.get_label() for l in lines])
 ax.set_xlabel(x_label)
@@ -144,18 +153,20 @@ cap = cap.sort_values(by=1.94, ascending=False, axis=1)
 
 lines = []
 
-y_pos = {
-    "Dec": 10,
-    "Jul": 6,
-    "Jan": 12,
-    "Aug": 9,
-    "Jun": 25
-}
+y_pos = {"Dec": 10, "Jul": 6, "Jan": 12, "Aug": 9, "Jun": 25}
 
 for col in cap:
     line = ax.plot(cap[col], marker=".", label=col)
     if col in y_pos:
-        labellines.labelLine(line[0], y_pos[col], label=col, outline_width=1, align=False, color='k', fontsize="small")
+        labellines.labelLine(
+            line[0],
+            y_pos[col],
+            label=col,
+            outline_width=1,
+            align=False,
+            color="k",
+            fontsize="small",
+        )
     lines += line
 ax.legend(lines, [l.get_label() for l in lines])
 ax.set_xlabel(x_label)
@@ -198,17 +209,30 @@ geo.plot(
 
 lines = []
 
-y_pos = {
-    "California": 8,
-    "Canada": 25
-}
+y_pos = {"California": 8, "Canada": 25}
 
 for col in geo:
     line = ax.plot(geo[col], marker=".", label=col)
     if col in y_pos:
-        labellines.labelLine(line[0], y_pos[col], label=col, outline_width=1, align=False, color='k', fontsize="small")
+        labellines.labelLine(
+            line[0],
+            y_pos[col],
+            label=col,
+            outline_width=1,
+            align=False,
+            color="k",
+            fontsize="small",
+        )
     else:
-        labellines.labelLine(line[0], 48, label=col, outline_width=1, align=False, color='k', fontsize="small")
+        labellines.labelLine(
+            line[0],
+            48,
+            label=col,
+            outline_width=1,
+            align=False,
+            color="k",
+            fontsize="small",
+        )
     lines += line
 ax.legend(lines, [l.get_label() for l in lines])
 ax.set_xlabel(x_label)
@@ -239,7 +263,7 @@ len(baseline[baseline.value == 0]) / len(baseline) * 100  # Percent at 0 LMP
 len(baseline[baseline.value > 40]) / len(baseline)
 # %% Variability 20twh
 df = raw_load_balance[raw_load_balance.scenario_name == 20]
-df.value.quantile(.99)
+df.value.quantile(0.99)
 len(df[df.value == 0]) / len(df)
 df.value.median()
 # %% Regional NORTH

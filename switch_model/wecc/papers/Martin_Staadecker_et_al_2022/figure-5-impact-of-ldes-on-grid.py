@@ -11,7 +11,8 @@ import labellines
 
 from papers.Martin_Staadecker_et_al_2022.util import (
     set_style,
-    get_set_e_scenarios, save_figure,
+    get_set_e_scenarios,
+    save_figure,
 )
 from switch_model.tools.graph.main import GraphTools
 
@@ -186,13 +187,22 @@ x_label = {
     24.0: 230,
     32.0: 245,
     48.0: 260,
-    64.0: 285
+    64.0: 285,
 }
 for line in lines:
     label = float(line.get_label())
     if label not in x_label.keys():
         continue
-    labellines.labelLine(line, state_of_charge.index[x_label[label]], linespacing=1, outline_width=1, label=str(int(label))+"TWh", align=False, color='k', fontsize="small")
+    labellines.labelLine(
+        line,
+        state_of_charge.index[x_label[label]],
+        linespacing=1,
+        outline_width=1,
+        label=str(int(label)) + "TWh",
+        align=False,
+        color="k",
+        fontsize="small",
+    )
 
 demand = demand.iloc[1:-1]
 demand_lines = axr.plot(demand, c="dimgray", linestyle="--", alpha=0.5)
@@ -211,7 +221,7 @@ plt.colorbar(
     ax=ax,
     label="Storage Capacity (TWh)",
     fraction=0.1,
-    pad=0.1
+    pad=0.1,
 )
 # %% SAVE FIGURE
 save_figure("figure-5-impact-of-ldes-on-grid.png")
@@ -233,4 +243,3 @@ cap / cap.loc[20] - 1  # solar increase %
 # %% transmission
 100 - tx / tx.iloc[0] * 100
 # (3 - 1.94) * 1000 / ((1 - tx.loc[3] / tx.iloc[0]) * 100)
-

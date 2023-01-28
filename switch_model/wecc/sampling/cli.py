@@ -20,24 +20,27 @@ from .sampler_year_round import sample_year_round
 # The schema is general for the script
 SCHEMA = "switch"
 
-sampling_methods = {
-    "peak_median": peak_median,
-    "year_round": sample_year_round
-}
+sampling_methods = {"peak_median": peak_median, "year_round": sample_year_round}
 
 
 def get_period_values(study_id, start_year, end_year, period_length):
     values = []
-    for period_id, period_start in enumerate(range(start_year, end_year, period_length)):
+    for period_id, period_start in enumerate(
+        range(start_year, end_year, period_length)
+    ):
         period_end = period_start + period_length - 1
-        values.append((
-            study_id,
-            period_id + 1,  # Period ID, start at 1
-            period_start,
-            int(round((period_start + period_end) / 2)),  # Period label is middle point round to nearest integer
-            period_length,
-            period_end,
-        ))
+        values.append(
+            (
+                study_id,
+                period_id + 1,  # Period ID, start at 1
+                period_start,
+                int(
+                    round((period_start + period_end) / 2)
+                ),  # Period label is middle point round to nearest integer
+                period_length,
+                period_end,
+            )
+        )
     return values
 
 
@@ -64,7 +67,9 @@ def main():
 
     # Exit if you are not sure if you want to overwrite
     if args.overwrite:
-        if not query_yes_no("You are about to overwrite some data from the Database! Confirm?"):
+        if not query_yes_no(
+            "You are about to overwrite some data from the Database! Confirm?"
+        ):
             sys.exit()
 
     # Load the config file
@@ -102,7 +107,7 @@ def main():
         "overwrite": args.overwrite,
         "verbose": args.verbose,
         "db_conn": db_conn,
-        "schema": SCHEMA
+        "schema": SCHEMA,
     }
 
     # NOTE: This is a safety measure. Maybe unnecesary?

@@ -6,24 +6,28 @@ import labellines
 
 from papers.Martin_Staadecker_et_al_2022.util import (
     set_style,
-    get_scenario, save_figure
+    get_scenario,
+    save_figure,
 )
 from switch_model.tools.graph.main import GraphTools
 
 # Prepare graph tools
-tools = GraphTools(scenarios=[
-    get_scenario("C21", 0.5),
-    get_scenario("C18", 1),
-    get_scenario("C22", 2),
-    get_scenario("C23", 5),
-    get_scenario("C26", 7),
-    get_scenario("C17", 10),
-    get_scenario("C24", 15),
-    get_scenario("1342", 22.43),
-    get_scenario("C25", 40),
-    get_scenario("C19", 70),
-    get_scenario("C20", 102)
-], set_style=False)
+tools = GraphTools(
+    scenarios=[
+        get_scenario("C21", 0.5),
+        get_scenario("C18", 1),
+        get_scenario("C22", 2),
+        get_scenario("C23", 5),
+        get_scenario("C26", 7),
+        get_scenario("C17", 10),
+        get_scenario("C24", 15),
+        get_scenario("1342", 22.43),
+        get_scenario("C25", 40),
+        get_scenario("C19", 70),
+        get_scenario("C20", 102),
+    ],
+    set_style=False,
+)
 tools.pre_graphing(multi_scenario=True)
 
 set_style()
@@ -82,7 +86,16 @@ for line in lines:
     label = float(line.get_label())
     if label not in x_label.keys():
         continue
-    labellines.labelLine(line, state_of_charge.index[x_label[label]], linespacing=1, outline_width=1, label=str(label)+"$/KWh", align=False, color='k', fontsize="small")
+    labellines.labelLine(
+        line,
+        state_of_charge.index[x_label[label]],
+        linespacing=1,
+        outline_width=1,
+        label=str(label) + "$/KWh",
+        align=False,
+        color="k",
+        fontsize="small",
+    )
 
 demand_lines = axr.plot(demand, c="dimgray", linestyle="--", alpha=0.5)
 axr.legend(demand_lines, [f"Demand ({total_demand:.0f} TWh/year)"])
@@ -102,4 +115,3 @@ plt.colorbar(
 )
 # %% SAVE FIGURE
 save_figure("figure-s3-state-of-charge-under-different-costs.png")
-

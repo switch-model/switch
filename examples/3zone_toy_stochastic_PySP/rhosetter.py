@@ -17,17 +17,22 @@ from __future__ import print_function
 from pyomo.environ import Objective
 
 try:
-    from pyomo.repn import generate_standard_repn    # Pyomo >=5.6
+    from pyomo.repn import generate_standard_repn  # Pyomo >=5.6
+
     newPyomo = True
 except ImportError:
-    from pyomo.repn import generate_canonical_repn   # Pyomo <=5.6
+    from pyomo.repn import generate_canonical_repn  # Pyomo <=5.6
+
     newPyomo = False
 
+
 def ph_rhosetter_callback(ph, scenario_tree, scenario):
-    # Derive coefficients from active objective    
-    cost_expr = next(scenario._instance.component_data_objects(
-        Objective, active=True, descend_into=True
-    ))
+    # Derive coefficients from active objective
+    cost_expr = next(
+        scenario._instance.component_data_objects(
+            Objective, active=True, descend_into=True
+        )
+    )
     set_rho_values(ph, scenario_tree, scenario, cost_expr)
 
 
@@ -56,8 +61,7 @@ def set_rho_values(ph, scenario_tree, scenario, cost_expr):
 
     cost_coefficients = {}
     var_names = {}
-    for (variable, coef) in \
-            zip(standard_repn.linear_vars, standard_repn.linear_coefs):
+    for (variable, coef) in zip(standard_repn.linear_vars, standard_repn.linear_coefs):
         variable_id = symbol_map.getSymbol(variable)
         cost_coefficients[variable_id] = coef
         var_names[variable_id] = variable.name
@@ -71,11 +75,13 @@ def set_rho_values(ph, scenario_tree, scenario, cost_expr):
                     tree_node,
                     scenario,
                     variable_id,
-                    cost_coefficients[variable_id] * rho_coefficient)
+                    cost_coefficients[variable_id] * rho_coefficient,
+                )
                 set_rho = True
                 break
         if not set_rho:
             print(
-                "Warning! Could not find tree node for variable {}; rho not set."
-                .format(var_names[variable_id])
+                "Warning! Could not find tree node for variable {}; rho not set.".format(
+                    var_names[variable_id]
+                )
             )
