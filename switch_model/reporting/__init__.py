@@ -277,4 +277,3 @@ def save_cost_components(m, outdir):
         values=lambda m, c: (c, cost_dict[c]),
         digits=16,
     )
-

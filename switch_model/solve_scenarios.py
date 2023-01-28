@@ -184,6 +184,7 @@ def main(args=None):
 
         mark_completed(scenario_name)
 
+
 def run_scenario(args):
     # reactivate stdin in subprocess
     # from https://stackoverflow.com/questions/30134297/python-multiprocessing-stdin-input
