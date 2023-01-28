@@ -6,7 +6,8 @@ from switch_model.tools.graph.main import GraphTools
 
 from papers.Martin_Staadecker_et_al_2022.util import (
     set_style,
-    get_scenario, save_figure,
+    get_scenario,
+    save_figure,
 )
 
 tools = GraphTools([get_scenario("1342")], set_style=False)
@@ -81,8 +82,8 @@ load = load.drop(columns="tp_duration")
 
 curtailment = (
     dispatch[["gen_type", "with_curtailment"]]
-        .copy()
-        .rename({"with_curtailment": "value"}, axis=1)
+    .copy()
+    .rename({"with_curtailment": "value"}, axis=1)
 )
 dispatch = dispatch[["gen_type", "dispatch"]].rename({"dispatch": "value"}, axis=1)
 
@@ -99,10 +100,10 @@ dispatch = (
 dispatch = rolling_avg(dispatch)
 curtailment = (
     curtailment.groupby("gen_type")
-        .value.resample("D")
-        .sum()
-        .unstack(level=1)
-        .transpose()
+    .value.resample("D")
+    .sum()
+    .unstack(level=1)
+    .transpose()
 )
 curtailment = rolling_avg(curtailment)
 load = load[["value"]].resample("D").sum()
@@ -152,7 +153,7 @@ ax_right.plot(duals, label="Marginal Price", color="red")
 lines += ax.plot(load, color="orange", label="Demand")
 ax.set_title("A. Seasonal Profiles in the Baseline")
 ax.set_ylabel("Dispatch (TWh/day)")
-ax_right.set_ylabel(u"Marginal Price of Electricity ($/MWh)")
+ax_right.set_ylabel("Marginal Price of Electricity ($/MWh)")
 locator = mdates.MonthLocator()
 ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(locator))
 ax.set_ylim(-0.1, 4.7)
@@ -164,41 +165,59 @@ ax_right.legend()
 # Get data for mapping code
 capacity = tools.get_dataframe("gen_cap.csv").rename({"GenCapacity": "value"}, axis=1)
 capacity = tools.transform.gen_type(capacity)
-capacity = capacity.groupby(["gen_type", "gen_load_zone"], as_index=False)["value"].sum()
+capacity = capacity.groupby(["gen_type", "gen_load_zone"], as_index=False)[
+    "value"
+].sum()
 # capacity = capacity[capacity.value > 1e-3]  # Must have at least 1 kW of capacity
 capacity.value *= 1e-3  # Convert to GW
 
 transmission = tools.get_dataframe("transmission.csv", convert_dot_to_na=True).fillna(0)
 transmission = transmission[transmission["PERIOD"] == 2050]
 newtx = transmission.copy()
-transmission = transmission.rename({"trans_lz1": "from", "trans_lz2": "to", "TxCapacityNameplate": "value"}, axis=1)
+transmission = transmission.rename(
+    {"trans_lz1": "from", "trans_lz2": "to", "TxCapacityNameplate": "value"}, axis=1
+)
 transmission = transmission[["from", "to", "value"]]
 transmission = transmission[transmission.value != 0]
 transmission.value *= 1e-3  # Convert to GW
 
-newtx = newtx.rename({"trans_lz1": "from", "trans_lz2": "to", "BuildTx": "value"}, axis=1)
+newtx = newtx.rename(
+    {"trans_lz1": "from", "trans_lz2": "to", "BuildTx": "value"}, axis=1
+)
 newtx = newtx[["from", "to", "value"]]
 newtx = newtx[newtx.value != 0]
 newtx.value *= 1e-3  # Convert to GW
 
-duration = tools.get_dataframe("storage_capacity.csv", usecols=[
-    "load_zone",
-    "OnlineEnergyCapacityMWh",
-    "OnlinePowerCapacityMW",
-    "period"
-]).rename({"load_zone": "gen_load_zone"}, axis=1)
+duration = tools.get_dataframe(
+    "storage_capacity.csv",
+    usecols=["load_zone", "OnlineEnergyCapacityMWh", "OnlinePowerCapacityMW", "period"],
+).rename({"load_zone": "gen_load_zone"}, axis=1)
 duration = duration[duration["period"] == 2050].drop(columns="period")
 duration = duration.groupby("gen_load_zone", as_index=False).sum()
-duration["value"] = duration["OnlineEnergyCapacityMWh"] / duration["OnlinePowerCapacityMW"]
+duration["value"] = (
+    duration["OnlineEnergyCapacityMWh"] / duration["OnlinePowerCapacityMW"]
+)
 duration = duration[["gen_load_zone", "value"]]
 
 # %% PLOT BOTTOM PANEL
 ax = ax2
 tools.maps.draw_base_map(ax)
-tools.maps.graph_transmission_capacity(transmission, ax=ax, legend=True, color="green", bbox_to_anchor=(1, 0.61),
-                                       title="Total Tx Capacity (GW)")
-tools.maps.graph_transmission_capacity(newtx, ax=ax, legend=True, color="red", bbox_to_anchor=(1, 0.4),
-                                       title="New Tx Capacity (GW)")
+tools.maps.graph_transmission_capacity(
+    transmission,
+    ax=ax,
+    legend=True,
+    color="green",
+    bbox_to_anchor=(1, 0.61),
+    title="Total Tx Capacity (GW)",
+)
+tools.maps.graph_transmission_capacity(
+    newtx,
+    ax=ax,
+    legend=True,
+    color="red",
+    bbox_to_anchor=(1, 0.4),
+    title="New Tx Capacity (GW)",
+)
 tools.maps.graph_pie_chart(capacity, ax=ax)
 tools.maps.graph_duration(duration, ax=ax)
 ax.set_title("B. Geographical Distributions in the Baseline")
@@ -301,12 +320,18 @@ df_north.sum() / df.sum() * 100
 # %%
 df = tools.get_dataframe("transmission.csv", convert_dot_to_na=True).fillna(0)
 df = df[df["PERIOD"] == 2050]
-df = tools.transform.load_zone(df, load_zone_col="trans_lz1").rename({"region": "region_1"}, axis=1)
-df = tools.transform.load_zone(df, load_zone_col="trans_lz2").rename({"region": "region_2"}, axis=1)
+df = tools.transform.load_zone(df, load_zone_col="trans_lz1").rename(
+    {"region": "region_1"}, axis=1
+)
+df = tools.transform.load_zone(df, load_zone_col="trans_lz2").rename(
+    {"region": "region_2"}, axis=1
+)
 df.BuildTx *= df.trans_length_km
 df.TxCapacityNameplate *= df.trans_length_km
 df = df[["region_1", "region_2", "BuildTx", "TxCapacityNameplate"]]
-df_north = df[(~df.region_1.isin(southern_regions)) & (~df.region_2.isin(southern_regions))]
+df_north = df[
+    (~df.region_1.isin(southern_regions)) & (~df.region_2.isin(southern_regions))
+]
 df = df[df.region_1.isin(southern_regions) == df.region_2.isin(southern_regions)]
 df = df[["BuildTx", "TxCapacityNameplate"]]
 df_north = df_north[["BuildTx", "TxCapacityNameplate"]]

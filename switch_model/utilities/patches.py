@@ -8,6 +8,7 @@ from switch_model.utilities.load_data import register_component_for_loading
 
 _patched_pyomo = False
 
+
 def patch_pyomo():
     global _patched_pyomo
 
@@ -20,11 +21,16 @@ def patch_pyomo():
 
     _patched_pyomo = True
 
+
 def extend_to_allow_loading(cls: Type):
-    def new_init(self, *args, input_file=None, input_column=None, input_optional=None, **kwargs):
+    def new_init(
+        self, *args, input_file=None, input_column=None, input_optional=None, **kwargs
+    ):
         self.__old_init__(*args, **kwargs)
         if input_file is not None:
-            register_component_for_loading(self, input_file, input_column, input_optional, **kwargs)
+            register_component_for_loading(
+                self, input_file, input_column, input_optional, **kwargs
+            )
 
     cls.__old_init__ = cls.__init__
     cls.__init__ = new_init
@@ -46,7 +52,7 @@ def replace_method(class_ref, method_name, new_source_code):
         orig_method.__globals__,
         orig_method.__name__,
         orig_method.__defaults__,
-        orig_method.__closure__
+        orig_method.__closure__,
     )
     # note: this normal function will be automatically converted to an unbound
     # method when it is assigned as an attribute of a class

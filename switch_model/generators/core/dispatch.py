@@ -27,10 +27,14 @@ import pandas as pd
 from switch_model.reporting import write_table
 from switch_model.tools.graph import graph
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones', \
-               'switch_model.financials', 'switch_model.energy_sources.properties', \
-               'switch_model.generators.core.build'
-optional_dependencies = 'switch_model.transmission.local_td'
+dependencies = (
+    "switch_model.timescales",
+    "switch_model.balancing.load_zones",
+    "switch_model.financials",
+    "switch_model.energy_sources.properties",
+    "switch_model.generators.core.build",
+)
+optional_dependencies = "switch_model.transmission.local_td"
 
 
 def define_components(mod):
@@ -176,23 +180,28 @@ def define_components(mod):
     """
 
     def period_active_gen_rule(m, period):
-        if not hasattr(m, 'period_active_gen_dict'):
+        if not hasattr(m, "period_active_gen_dict"):
             m.period_active_gen_dict = collections.defaultdict(set)
             for (_g, _period) in m.GEN_PERIODS:
                 m.period_active_gen_dict[_period].add(_g)
         result = m.period_active_gen_dict.pop(period)
         if len(m.period_active_gen_dict) == 0:
-            delattr(m, 'period_active_gen_dict')
+            delattr(m, "period_active_gen_dict")
         return result
-    mod.GENS_IN_PERIOD = Set(mod.PERIODS, ordered=False, initialize=period_active_gen_rule,
-        doc="The set of projects active in a given period.")
+
+    mod.GENS_IN_PERIOD = Set(
+        mod.PERIODS,
+        ordered=False,
+        initialize=period_active_gen_rule,
+        doc="The set of projects active in a given period.",
+    )
 
     mod.TPS_FOR_GEN = Set(
         mod.GENERATION_PROJECTS,
         within=mod.TIMEPOINTS,
         initialize=lambda m, g: (
             tp for p in m.PERIODS_FOR_GEN[g] for tp in m.TPS_IN_PERIOD[p]
-        )
+        ),
     )
 
     def init(m, gen, period):
@@ -207,42 +216,44 @@ def define_components(mod):
         if not d:  # all gone, delete the attribute
             del m._TPS_FOR_GEN_IN_PERIOD_dict
         return result
+
     mod.TPS_FOR_GEN_IN_PERIOD = Set(
-        mod.GENERATION_PROJECTS, mod.PERIODS,
+        mod.GENERATION_PROJECTS,
+        mod.PERIODS,
         ordered=False,
-        within=mod.TIMEPOINTS, initialize=init)
+        within=mod.TIMEPOINTS,
+        initialize=init,
+    )
 
     mod.GEN_TPS = Set(
         dimen=2,
         initialize=lambda m: (
-            (g, tp)
-                for g in m.GENERATION_PROJECTS
-                    for tp in m.TPS_FOR_GEN[g]))
+            (g, tp) for g in m.GENERATION_PROJECTS for tp in m.TPS_FOR_GEN[g]
+        ),
+    )
     mod.VARIABLE_GEN_TPS = Set(
         dimen=2,
         initialize=lambda m: (
-            (g, tp)
-                for g in m.VARIABLE_GENS
-                    for tp in m.TPS_FOR_GEN[g]))
+            (g, tp) for g in m.VARIABLE_GENS for tp in m.TPS_FOR_GEN[g]
+        ),
+    )
     mod.FUEL_BASED_GEN_TPS = Set(
         dimen=2,
         initialize=lambda m: (
-            (g, tp)
-                for g in m.FUEL_BASED_GENS
-                    for tp in m.TPS_FOR_GEN[g]))
+            (g, tp) for g in m.FUEL_BASED_GENS for tp in m.TPS_FOR_GEN[g]
+        ),
+    )
     mod.GEN_TP_FUELS = Set(
         dimen=3,
         initialize=lambda m: (
-            (g, t, f)
-                for (g, t) in m.FUEL_BASED_GEN_TPS
-                    for f in m.FUELS_FOR_GEN[g]))
+            (g, t, f) for (g, t) in m.FUEL_BASED_GEN_TPS for f in m.FUELS_FOR_GEN[g]
+        ),
+    )
 
     mod.GenCapacityInTP = Expression(
-        mod.GEN_TPS,
-        rule=lambda m, g, t: m.GenCapacity[g, m.tp_period[t]])
-    mod.DispatchGen = Var(
-        mod.GEN_TPS,
-        within=NonNegativeReals)
+        mod.GEN_TPS, rule=lambda m, g, t: m.GenCapacity[g, m.tp_period[t]]
+    )
+    mod.DispatchGen = Var(mod.GEN_TPS, within=NonNegativeReals)
 
     ##########################################
     # Define DispatchGenByFuel
@@ -263,23 +274,32 @@ def define_components(mod):
         dimen=3,
         initialize=mod.GEN_TP_FUELS,
         filter=lambda m, g, t, f: g in m.MULTIFUEL_GENS,
-        doc="Same as GEN_TP_FUELS but only includes multi-fuel projects"
+        doc="Same as GEN_TP_FUELS but only includes multi-fuel projects",
     )
     # DispatchGenByFuelVar is a variable that exists only for multi-fuel projects.
-    mod.DispatchGenByFuelVar = Var(mod.GEN_TP_FUELS_FOR_MULTIFUELS, within=NonNegativeReals)
+    mod.DispatchGenByFuelVar = Var(
+        mod.GEN_TP_FUELS_FOR_MULTIFUELS, within=NonNegativeReals
+    )
     # DispatchGenByFuel_Constraint ensures that the sum of all the fuels is DispatchGen
     mod.DispatchGenByFuel_Constraint = Constraint(
         mod.FUEL_BASED_GEN_TPS,
-        rule=lambda m, g, t:
-        (Constraint.Skip if g not in m.MULTIFUEL_GENS
-         else sum(m.DispatchGenByFuelVar[g, t, f] for f in m.FUELS_FOR_MULTIFUEL_GEN[g]) == m.DispatchGen[g, t])
+        rule=lambda m, g, t: (
+            Constraint.Skip
+            if g not in m.MULTIFUEL_GENS
+            else sum(
+                m.DispatchGenByFuelVar[g, t, f] for f in m.FUELS_FOR_MULTIFUEL_GEN[g]
+            )
+            == m.DispatchGen[g, t]
+        ),
     )
 
     # Define DispatchGenByFuel to equal the matching variable if we have many fuels but to equal
     # the total dispatch if we have only one fuel.
     mod.DispatchGenByFuel = Expression(
         mod.GEN_TP_FUELS,
-        rule=lambda m, g, t, f: m.DispatchGenByFuelVar[g, t, f] if g in m.MULTIFUEL_GENS else m.DispatchGen[g, t]
+        rule=lambda m, g, t, f: m.DispatchGenByFuelVar[g, t, f]
+        if g in m.MULTIFUEL_GENS
+        else m.DispatchGen[g, t],
     )
 
     # End Defining DispatchGenByFuel
@@ -287,9 +307,12 @@ def define_components(mod):
 
     # Only used to improve the performance of calculating ZoneTotalCentralDispatch and ZoneTotalDistributedDispatch
     mod.GENS_FOR_ZONE_TPS = Set(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
+        mod.LOAD_ZONES,
+        mod.TIMEPOINTS,
         ordered=False,
-        initialize=lambda m, z, t: set(g for g in m.GENS_IN_ZONE[z] if (g, t) in m.GEN_TPS)
+        initialize=lambda m, z, t: set(
+            g for g in m.GENS_IN_ZONE[z] if (g, t) in m.GEN_TPS
+        ),
     )
 
     # If we use the local_td module, divide distributed generation into a separate expression so that we can
@@ -297,128 +320,156 @@ def define_components(mod):
     using_local_td = hasattr(mod, "Distributed_Power_Injections")
 
     mod.ZoneTotalCentralDispatch = Expression(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
-        rule=lambda m, z, t: \
-        sum(m.DispatchGen[g, t]
-            for g in m.GENS_FOR_ZONE_TPS[z, t] if not using_local_td or not m.gen_is_distributed[g]) -
-        sum(m.DispatchGen[g, t] * m.gen_ccs_energy_load[g]
-            for g in m.CCS_EQUIPPED_GENS if g in m.GENS_FOR_ZONE_TPS[z, t]),
-        doc="Net power from grid-tied generation projects.")
-    mod.Zone_Power_Injections.append('ZoneTotalCentralDispatch')
+        mod.LOAD_ZONES,
+        mod.TIMEPOINTS,
+        rule=lambda m, z, t: sum(
+            m.DispatchGen[g, t]
+            for g in m.GENS_FOR_ZONE_TPS[z, t]
+            if not using_local_td or not m.gen_is_distributed[g]
+        )
+        - sum(
+            m.DispatchGen[g, t] * m.gen_ccs_energy_load[g]
+            for g in m.CCS_EQUIPPED_GENS
+            if g in m.GENS_FOR_ZONE_TPS[z, t]
+        ),
+        doc="Net power from grid-tied generation projects.",
+    )
+    mod.Zone_Power_Injections.append("ZoneTotalCentralDispatch")
 
     if using_local_td:
         mod.ZoneTotalDistributedDispatch = Expression(
-            mod.LOAD_ZONES, mod.TIMEPOINTS,
-            rule=lambda m, z, t: \
-                sum(m.DispatchGen[g, t]
-                    for g in m.GENS_FOR_ZONE_TPS[z, t] if m.gen_is_distributed[g]),
-            doc="Total power from distributed generation projects."
+            mod.LOAD_ZONES,
+            mod.TIMEPOINTS,
+            rule=lambda m, z, t: sum(
+                m.DispatchGen[g, t]
+                for g in m.GENS_FOR_ZONE_TPS[z, t]
+                if m.gen_is_distributed[g]
+            ),
+            doc="Total power from distributed generation projects.",
         )
-        mod.Distributed_Power_Injections.append('ZoneTotalDistributedDispatch')
+        mod.Distributed_Power_Injections.append("ZoneTotalDistributedDispatch")
 
     def init_gen_availability(m, g):
         if m.gen_is_baseload[g]:
-            return (
-                (1 - m.gen_forced_outage_rate[g]) *
-                (1 - m.gen_scheduled_outage_rate[g]))
+            return (1 - m.gen_forced_outage_rate[g]) * (
+                1 - m.gen_scheduled_outage_rate[g]
+            )
         else:
-            return (1 - m.gen_forced_outage_rate[g])
+            return 1 - m.gen_forced_outage_rate[g]
+
     mod.gen_availability = Param(
         mod.GENERATION_PROJECTS,
         within=NonNegativeReals,
-        initialize=init_gen_availability)
+        initialize=init_gen_availability,
+    )
 
     mod.VARIABLE_GEN_TPS_RAW = Set(
         dimen=2,
         within=mod.VARIABLE_GENS * mod.TIMEPOINTS,
-        input_file='variable_capacity_factors.csv',
-        input_optional=True
+        input_file="variable_capacity_factors.csv",
+        input_optional=True,
     )
     mod.gen_max_capacity_factor = Param(
         mod.VARIABLE_GEN_TPS_RAW,
         within=Reals,
-        input_file='variable_capacity_factors.csv',
-        validate=lambda m, val, g, t: -1 < val < 2)
+        input_file="variable_capacity_factors.csv",
+        validate=lambda m, val, g, t: -1 < val < 2,
+    )
     # Validate that a gen_max_capacity_factor has been defined for every
     # variable gen / timepoint that we need. Extra cap factors (like beyond an
     # existing plant's lifetime) shouldn't cause any problems.
     # This replaces: mod.min_data_check('gen_max_capacity_factor') from when
     # gen_max_capacity_factor was indexed by VARIABLE_GEN_TPS.
     mod.have_minimal_gen_max_capacity_factors = BuildCheck(
-        mod.VARIABLE_GEN_TPS,
-        rule=lambda m, g, t: (g,t) in m.VARIABLE_GEN_TPS_RAW)
+        mod.VARIABLE_GEN_TPS, rule=lambda m, g, t: (g, t) in m.VARIABLE_GEN_TPS_RAW
+    )
 
     mod.GenFuelUseRate = Var(
         mod.GEN_TP_FUELS,
         within=NonNegativeReals,
-        doc=("Other modules constraint this variable based on DispatchGenByFuel and "
-             "module-specific formulations of unit commitment and heat rates."))
+        doc=(
+            "Other modules constraint this variable based on DispatchGenByFuel and "
+            "module-specific formulations of unit commitment and heat rates."
+        ),
+    )
 
     def DispatchEmissions_rule(m, g, t, f):
         if g not in m.CCS_EQUIPPED_GENS:
-            return (
-                m.GenFuelUseRate[g, t, f] *
-                (m.f_co2_intensity[f] + m.f_upstream_co2_intensity[f]))
+            return m.GenFuelUseRate[g, t, f] * (
+                m.f_co2_intensity[f] + m.f_upstream_co2_intensity[f]
+            )
         else:
             ccs_emission_frac = 1 - m.gen_ccs_capture_efficiency[g]
-            return (
-                m.GenFuelUseRate[g, t, f] *
-                (m.f_co2_intensity[f] * ccs_emission_frac +
-                 m.f_upstream_co2_intensity[f]))
-    mod.DispatchEmissions = Expression(
-        mod.GEN_TP_FUELS,
-        rule=DispatchEmissions_rule)
+            return m.GenFuelUseRate[g, t, f] * (
+                m.f_co2_intensity[f] * ccs_emission_frac + m.f_upstream_co2_intensity[f]
+            )
+
+    mod.DispatchEmissions = Expression(mod.GEN_TP_FUELS, rule=DispatchEmissions_rule)
 
     mod.DispatchEmissionsNOx = Expression(
         mod.GEN_TP_FUELS,
-        rule=(lambda m, g, t, f: m.DispatchGenByFuel[g, t, f] * m.f_nox_intensity[f]))
+        rule=(lambda m, g, t, f: m.DispatchGenByFuel[g, t, f] * m.f_nox_intensity[f]),
+    )
 
     mod.DispatchEmissionsSO2 = Expression(
         mod.GEN_TP_FUELS,
-        rule=(lambda m, g, t, f: m.DispatchGenByFuel[g, t, f] * m.f_so2_intensity[f]))
+        rule=(lambda m, g, t, f: m.DispatchGenByFuel[g, t, f] * m.f_so2_intensity[f]),
+    )
 
     mod.DispatchEmissionsCH4 = Expression(
         mod.GEN_TP_FUELS,
-        rule=(lambda m, g, t, f: m.DispatchGenByFuel[g, t, f] * m.f_ch4_intensity[f]))
+        rule=(lambda m, g, t, f: m.DispatchGenByFuel[g, t, f] * m.f_ch4_intensity[f]),
+    )
 
-    mod.AnnualEmissions = Expression(mod.PERIODS,
+    mod.AnnualEmissions = Expression(
+        mod.PERIODS,
         rule=lambda m, period: sum(
             m.DispatchEmissions[g, t, f] * m.tp_weight_in_year[t]
             for (g, t, f) in m.GEN_TP_FUELS
-            if m.tp_period[t] == period),
-        doc="The system's annual CO2 emissions, in metric tonnes of CO2 per year.")
+            if m.tp_period[t] == period
+        ),
+        doc="The system's annual CO2 emissions, in metric tonnes of CO2 per year.",
+    )
 
     mod.AnnualEmissionsNOx = Expression(
         mod.PERIODS,
         rule=lambda m, period: sum(
             m.DispatchEmissionsNOx[g, t, f] * m.tp_weight_in_year[t]
             for (g, t, f) in m.GEN_TP_FUELS
-            if m.tp_period[t] == period),
-        doc="The system's annual NOx emissions, in metric tonnes of NOx per year.")
+            if m.tp_period[t] == period
+        ),
+        doc="The system's annual NOx emissions, in metric tonnes of NOx per year.",
+    )
 
     mod.AnnualEmissionsSO2 = Expression(
         mod.PERIODS,
         rule=lambda m, period: sum(
             m.DispatchEmissionsSO2[g, t, f] * m.tp_weight_in_year[t]
             for (g, t, f) in m.GEN_TP_FUELS
-            if m.tp_period[t] == period),
-        doc="The system's annual SO2 emissions, in metric tonnes of SO2 per year.")
+            if m.tp_period[t] == period
+        ),
+        doc="The system's annual SO2 emissions, in metric tonnes of SO2 per year.",
+    )
 
     mod.AnnualEmissionsCH4 = Expression(
         mod.PERIODS,
         rule=lambda m, period: sum(
             m.DispatchEmissionsCH4[g, t, f] * m.tp_weight_in_year[t]
             for (g, t, f) in m.GEN_TP_FUELS
-            if m.tp_period[t] == period),
-        doc="The system's annual CH4 emissions, in metric tonnes of CH4 per year.")
+            if m.tp_period[t] == period
+        ),
+        doc="The system's annual CH4 emissions, in metric tonnes of CH4 per year.",
+    )
 
     mod.GenVariableOMCostsInTP = Expression(
         mod.TIMEPOINTS,
         rule=lambda m, t: sum(
             m.DispatchGen[g, t] * m.gen_variable_om[g]
-            for g in m.GENS_IN_PERIOD[m.tp_period[t]]),
-        doc="Summarize costs for the objective function")
-    mod.Cost_Components_Per_TP.append('GenVariableOMCostsInTP')
+            for g in m.GENS_IN_PERIOD[m.tp_period[t]]
+        ),
+        doc="Summarize costs for the objective function",
+    )
+    mod.Cost_Components_Per_TP.append("GenVariableOMCostsInTP")
 
 
 def post_solve(instance, outdir):
@@ -443,14 +494,14 @@ def post_solve(instance, outdir):
     """
     sorted_gen = sorted_robust(instance.GENERATION_PROJECTS)
     write_table(
-        instance, instance.TIMEPOINTS,
+        instance,
+        instance.TIMEPOINTS,
         output_file=os.path.join(outdir, "dispatch-wide.csv"),
         headings=("timestamp",) + tuple(sorted_gen),
-        values=lambda m, t: (m.tp_timestamp[t],) + tuple(
-            m.DispatchGen[p, t] if (p, t) in m.GEN_TPS
-            else 0.0
-            for p in sorted_gen
-        )
+        values=lambda m, t: (m.tp_timestamp[t],)
+        + tuple(
+            m.DispatchGen[p, t] if (p, t) in m.GEN_TPS else 0.0 for p in sorted_gen
+        ),
     )
     del sorted_gen
 
@@ -460,83 +511,116 @@ def post_solve(instance, outdir):
     # Note we've refactored to create the Dataframe in one
     # line to reduce the overall memory consumption during
     # the most intensive part of post-solve (this function)
-    dispatch_full_df = pd.DataFrame({
-        "generation_project": c(lambda g, t: g),
-        "gen_dbid": c(lambda g, t: instance.gen_dbid[g]),
-        "gen_tech": c(lambda g, t: instance.gen_tech[g]),
-        "gen_load_zone": c(lambda g, t: instance.gen_load_zone[g]),
-        "gen_energy_source": c(lambda g, t: instance.gen_energy_source[g]),
-        "timestamp": c(lambda g, t: instance.tp_timestamp[t]),
-        "tp_weight_in_year_hrs": c(lambda g, t: instance.tp_weight_in_year[t]),
-        "period": c(lambda g, t: instance.tp_period[t]),
-        "is_renewable": c(lambda g, t: g in instance.VARIABLE_GENS),
-        "DispatchGen_MW": c(lambda g, t: instance.DispatchGen[g, t]),
-        "Curtailment_MW": c(lambda g, t:
-                            value(instance.DispatchUpperLimit[g, t]) - value(instance.DispatchGen[g, t])),
-        "Energy_GWh_typical_yr": c(lambda g, t:
-                                   instance.DispatchGen[g, t] * instance.tp_weight_in_year[t] / 1000),
-        "VariableOMCost_per_yr": c(lambda g, t:
-                                   instance.DispatchGen[g, t] * instance.gen_variable_om[g] *
-                                   instance.tp_weight_in_year[t]),
-        "DispatchEmissions_tCO2_per_typical_yr": c(lambda g, t:
-                                                   sum(
-                                                       instance.DispatchEmissions[g, t, f] *
-                                                       instance.tp_weight_in_year[t]
-                                                       for f in instance.FUELS_FOR_GEN[g]
-                                                   ) if instance.gen_uses_fuel[g] else 0),
-        "DispatchEmissions_tNOx_per_typical_yr": c(lambda g, t:
-                                                   sum(
-                                                       instance.DispatchEmissionsNOx[g, t, f] *
-                                                       instance.tp_weight_in_year[t]
-                                                       for f in instance.FUELS_FOR_GEN[g]
-                                                   ) if instance.gen_uses_fuel[g] else 0),
-        "DispatchEmissions_tSO2_per_typical_yr": c(lambda g, t:
-                                                   sum(
-                                                       instance.DispatchEmissionsSO2[g, t, f] *
-                                                       instance.tp_weight_in_year[t]
-                                                       for f in instance.FUELS_FOR_GEN[g]
-                                                   ) if instance.gen_uses_fuel[g] else 0),
-        "DispatchEmissions_tCH4_per_typical_yr": c(lambda g, t:
-                                                   sum(
-                                                       instance.DispatchEmissionsCH4[g, t, f] *
-                                                       instance.tp_weight_in_year[t]
-                                                       for f in instance.FUELS_FOR_GEN[g]
-                                                   ) if instance.gen_uses_fuel[g] else 0)
-    })
+    dispatch_full_df = pd.DataFrame(
+        {
+            "generation_project": c(lambda g, t: g),
+            "gen_dbid": c(lambda g, t: instance.gen_dbid[g]),
+            "gen_tech": c(lambda g, t: instance.gen_tech[g]),
+            "gen_load_zone": c(lambda g, t: instance.gen_load_zone[g]),
+            "gen_energy_source": c(lambda g, t: instance.gen_energy_source[g]),
+            "timestamp": c(lambda g, t: instance.tp_timestamp[t]),
+            "tp_weight_in_year_hrs": c(lambda g, t: instance.tp_weight_in_year[t]),
+            "period": c(lambda g, t: instance.tp_period[t]),
+            "is_renewable": c(lambda g, t: g in instance.VARIABLE_GENS),
+            "DispatchGen_MW": c(lambda g, t: instance.DispatchGen[g, t]),
+            "Curtailment_MW": c(
+                lambda g, t: value(instance.DispatchUpperLimit[g, t])
+                - value(instance.DispatchGen[g, t])
+            ),
+            "Energy_GWh_typical_yr": c(
+                lambda g, t: instance.DispatchGen[g, t]
+                * instance.tp_weight_in_year[t]
+                / 1000
+            ),
+            "VariableOMCost_per_yr": c(
+                lambda g, t: instance.DispatchGen[g, t]
+                * instance.gen_variable_om[g]
+                * instance.tp_weight_in_year[t]
+            ),
+            "DispatchEmissions_tCO2_per_typical_yr": c(
+                lambda g, t: sum(
+                    instance.DispatchEmissions[g, t, f] * instance.tp_weight_in_year[t]
+                    for f in instance.FUELS_FOR_GEN[g]
+                )
+                if instance.gen_uses_fuel[g]
+                else 0
+            ),
+            "DispatchEmissions_tNOx_per_typical_yr": c(
+                lambda g, t: sum(
+                    instance.DispatchEmissionsNOx[g, t, f]
+                    * instance.tp_weight_in_year[t]
+                    for f in instance.FUELS_FOR_GEN[g]
+                )
+                if instance.gen_uses_fuel[g]
+                else 0
+            ),
+            "DispatchEmissions_tSO2_per_typical_yr": c(
+                lambda g, t: sum(
+                    instance.DispatchEmissionsSO2[g, t, f]
+                    * instance.tp_weight_in_year[t]
+                    for f in instance.FUELS_FOR_GEN[g]
+                )
+                if instance.gen_uses_fuel[g]
+                else 0
+            ),
+            "DispatchEmissions_tCH4_per_typical_yr": c(
+                lambda g, t: sum(
+                    instance.DispatchEmissionsCH4[g, t, f]
+                    * instance.tp_weight_in_year[t]
+                    for f in instance.FUELS_FOR_GEN[g]
+                )
+                if instance.gen_uses_fuel[g]
+                else 0
+            ),
+        }
+    )
     dispatch_full_df.set_index(["generation_project", "timestamp"], inplace=True)
-    write_table(instance, output_file=os.path.join(outdir, "dispatch.csv"), df=dispatch_full_df)
+    write_table(
+        instance, output_file=os.path.join(outdir, "dispatch.csv"), df=dispatch_full_df
+    )
 
-    annual_summary = dispatch_full_df.groupby(['gen_tech', "gen_energy_source", "period"]).sum()
-    write_table(instance, output_file=os.path.join(outdir, "dispatch_annual_summary.csv"),
-                df=annual_summary,
-                columns=["Energy_GWh_typical_yr", "VariableOMCost_per_yr",
-                         "DispatchEmissions_tCO2_per_typical_yr", "DispatchEmissions_tNOx_per_typical_yr",
-                         "DispatchEmissions_tSO2_per_typical_yr", "DispatchEmissions_tCH4_per_typical_yr"])
+    annual_summary = dispatch_full_df.groupby(
+        ["gen_tech", "gen_energy_source", "period"]
+    ).sum()
+    write_table(
+        instance,
+        output_file=os.path.join(outdir, "dispatch_annual_summary.csv"),
+        df=annual_summary,
+        columns=[
+            "Energy_GWh_typical_yr",
+            "VariableOMCost_per_yr",
+            "DispatchEmissions_tCO2_per_typical_yr",
+            "DispatchEmissions_tNOx_per_typical_yr",
+            "DispatchEmissions_tSO2_per_typical_yr",
+            "DispatchEmissions_tCH4_per_typical_yr",
+        ],
+    )
 
     zonal_annual_summary = dispatch_full_df.groupby(
-        ['gen_tech', "gen_load_zone", "gen_energy_source", "period"]
+        ["gen_tech", "gen_load_zone", "gen_energy_source", "period"]
     ).sum()
     write_table(
         instance,
         output_file=os.path.join(outdir, "dispatch_zonal_annual_summary.csv"),
         df=zonal_annual_summary,
-        columns=["Energy_GWh_typical_yr", "VariableOMCost_per_yr",
-                 "DispatchEmissions_tCO2_per_typical_yr", "DispatchEmissions_tNOx_per_typical_yr",
-                 "DispatchEmissions_tSO2_per_typical_yr", "DispatchEmissions_tCH4_per_typical_yr"]
+        columns=[
+            "Energy_GWh_typical_yr",
+            "VariableOMCost_per_yr",
+            "DispatchEmissions_tCO2_per_typical_yr",
+            "DispatchEmissions_tNOx_per_typical_yr",
+            "DispatchEmissions_tSO2_per_typical_yr",
+            "DispatchEmissions_tCH4_per_typical_yr",
+        ],
     )
 
 
-@graph(
-    "dispatch",
-    title="Average daily dispatch",
-    is_long=True
-)
+@graph("dispatch", title="Average daily dispatch", is_long=True)
 def graph_hourly_dispatch(tools):
     """
     Generates a matrix of hourly dispatch plots for each time region
     """
     # Read dispatch.csv
-    df = tools.get_dataframe('dispatch.csv')
+    df = tools.get_dataframe("dispatch.csv")
     # Convert to GW
     df["DispatchGen_MW"] /= 1e3
     # Plot Dispatch
@@ -546,22 +630,17 @@ def graph_hourly_dispatch(tools):
         ylabel="Average daily dispatch (GW)",
     )
 
-@graph(
-    "curtailment",
-    title="Average daily curtailment",
-    is_long=True
-)
+
+@graph("curtailment", title="Average daily curtailment", is_long=True)
 def graph_hourly_curtailment(tools):
     # Read dispatch.csv
-    df = tools.get_dataframe('dispatch.csv')
+    df = tools.get_dataframe("dispatch.csv")
     # Keep only renewable
     df = df[df["is_renewable"]]
-    df["Curtailment_MW"] /= 1e3 # Convert to GW
+    df["Curtailment_MW"] /= 1e3  # Convert to GW
     # Plot curtailment
     tools.graph_time_matrix(
-        df,
-        value_column="Curtailment_MW",
-        ylabel="Average daily curtailment (GW)"
+        df, value_column="Curtailment_MW", ylabel="Average daily curtailment (GW)"
     )
 
 
@@ -576,14 +655,12 @@ def graph_hourly_dispatch(tools):
     Generates a matrix of hourly dispatch plots for each time region
     """
     # Read dispatch.csv
-    df = tools.get_dataframe('dispatch.csv')
+    df = tools.get_dataframe("dispatch.csv")
     # Convert to GW
     df["DispatchGen_MW"] /= 1e3
     # Plot Dispatch
     tools.graph_scenario_matrix(
-        df,
-        value_column="DispatchGen_MW",
-        ylabel="Average daily dispatch (GW)"
+        df, value_column="DispatchGen_MW", ylabel="Average daily dispatch (GW)"
     )
 
 
@@ -595,14 +672,12 @@ def graph_hourly_dispatch(tools):
 )
 def graph_hourly_curtailment(tools):
     # Read dispatch.csv
-    df = tools.get_dataframe('dispatch.csv')
+    df = tools.get_dataframe("dispatch.csv")
     # Keep only renewable
     df = df[df["is_renewable"]]
     df["Curtailment_MW"] /= 1e3  # Convert to GW
     tools.graph_scenario_matrix(
-        df,
-        value_column="Curtailment_MW",
-        ylabel="Average daily curtailment (GW)"
+        df, value_column="Curtailment_MW", ylabel="Average daily curtailment (GW)"
     )
 
 
@@ -619,10 +694,14 @@ def graph_total_dispatch(tools):
     # add type column
     total_dispatch = tools.transform.gen_type(total_dispatch)
     # aggregate and pivot
-    total_dispatch = total_dispatch.pivot_table(columns="gen_type", index="period", values="Energy_GWh_typical_yr",
-                                                aggfunc=tools.np.sum)
+    total_dispatch = total_dispatch.pivot_table(
+        columns="gen_type",
+        index="period",
+        values="Energy_GWh_typical_yr",
+        aggfunc=tools.np.sum,
+    )
     # Convert values to TWh
-    total_dispatch *= 1E-3
+    total_dispatch *= 1e-3
 
     # For generation types that make less than 2% in every period, group them under "Other"
     # ---------
@@ -631,7 +710,9 @@ def graph_total_dispatch(tools):
     # Check for each technology if it's below the cutoff for every period
     is_below_cutoff = total_dispatch.lt(cutoff_per_period, axis=0).all()
     # groupby if the technology is below the cutoff
-    total_dispatch = total_dispatch.groupby(axis=1, by=lambda c: "Other" if is_below_cutoff[c] else c).sum()
+    total_dispatch = total_dispatch.groupby(
+        axis=1, by=lambda c: "Other" if is_below_cutoff[c] else c
+    ).sum()
 
     # Sort columns by the last period
     total_dispatch = total_dispatch.sort_values(by=total_dispatch.index[-1], axis=1)
@@ -640,26 +721,34 @@ def graph_total_dispatch(tools):
     # Get axis
     # Plot
     total_dispatch.plot(
-        kind='bar',
+        kind="bar",
         stacked=True,
         ax=tools.get_axes(),
         color=tools.get_colors(len(total_dispatch)),
         xlabel="Period",
-        ylabel="Total dispatched electricity (TWh)"
+        ylabel="Total dispatched electricity (TWh)",
     )
 
     tools.bar_label()
+
 
 @graph(
     "energy_balance",
     title="Energy Balance For Every Month",
     supports_multi_scenario=True,
-    is_long=True
+    is_long=True,
 )
 def energy_balance(tools):
     # Get dispatch dataframe
-    cols = ["timestamp", "gen_tech", "gen_energy_source", "DispatchGen_MW", "scenario_name", "scenario_index",
-            "Curtailment_MW"]
+    cols = [
+        "timestamp",
+        "gen_tech",
+        "gen_energy_source",
+        "DispatchGen_MW",
+        "scenario_name",
+        "scenario_index",
+        "Curtailment_MW",
+    ]
     df = tools.get_dataframe("dispatch.csv", drop_scenario_info=False)[cols]
     df = tools.transform.gen_type(df)
 
@@ -670,11 +759,16 @@ def energy_balance(tools):
     # Sum dispatch across all the projects of the same type and timepoint
     key_columns = ["timestamp", "gen_type", "scenario_name", "scenario_index"]
     df = df.groupby(key_columns, as_index=False).sum()
-    df = df.melt(id_vars=key_columns, value_vars=["Dispatch", "Dispatch Limit"], var_name="Type")
+    df = df.melt(
+        id_vars=key_columns, value_vars=["Dispatch", "Dispatch Limit"], var_name="Type"
+    )
     df = df.rename({"gen_type": "Source"}, axis=1)
 
-    discharge = df[(df["Source"] == "Storage") & (df["Type"] == "Dispatch")].drop(["Source", "Type"], axis=1).rename(
-        {"value": "discharge"}, axis=1)
+    discharge = (
+        df[(df["Source"] == "Storage") & (df["Type"] == "Dispatch")]
+        .drop(["Source", "Type"], axis=1)
+        .rename({"value": "discharge"}, axis=1)
+    )
 
     # Get load dataframe
     load = tools.get_dataframe("load_balance.csv", drop_scenario_info=False)
@@ -685,23 +779,21 @@ def energy_balance(tools):
     load = load.groupby(key_columns, as_index=False).sum()
 
     # Subtract storage dispatch from generation and add it to the storage charge to get net flow
-    load = load.merge(
-        discharge,
-        how="left",
-        on=key_columns,
-        validate="one_to_one"
-    )
+    load = load.merge(discharge, how="left", on=key_columns, validate="one_to_one")
     load["ZoneTotalCentralDispatch"] -= load["discharge"]
     load["StorageNetCharge"] += load["discharge"]
     load = load.drop("discharge", axis=1)
 
     # Rename and convert from wide to long format
-    load = load.rename({
-        "ZoneTotalCentralDispatch": "Total Generation (excl. storage discharge)",
-        "TXPowerNet": "Transmission Losses",
-        "StorageNetCharge": "Storage Net Flow",
-        "zone_demand_mw": "Demand",
-    }, axis=1).sort_index(axis=1)
+    load = load.rename(
+        {
+            "ZoneTotalCentralDispatch": "Total Generation (excl. storage discharge)",
+            "TXPowerNet": "Transmission Losses",
+            "StorageNetCharge": "Storage Net Flow",
+            "zone_demand_mw": "Demand",
+        },
+        axis=1,
+    ).sort_index(axis=1)
     load = load.melt(id_vars=key_columns, var_name="Source")
     load["Type"] = "Dispatch"
 
@@ -717,26 +809,34 @@ def energy_balance(tools):
     FREQUENCY = "1W"
 
     def groupby_time(df):
-        return df.groupby([
-            "scenario_name",
-            "period",
-            "Source",
-            "Type",
-            tools.pd.Grouper(key="datetime", freq=FREQUENCY, origin="start")
-        ])["value"]
+        return df.groupby(
+            [
+                "scenario_name",
+                "period",
+                "Source",
+                "Type",
+                tools.pd.Grouper(key="datetime", freq=FREQUENCY, origin="start"),
+            ]
+        )["value"]
 
     df = groupby_time(df).sum().reset_index()
 
     # Get the state of charge data
-    soc = tools.get_dataframe("StateOfCharge.csv", dtype={"STORAGE_GEN_TPS_1": str}, drop_scenario_info=False)
-    soc = soc.rename({"STORAGE_GEN_TPS_2": "timepoint", "StateOfCharge": "value"}, axis=1)
+    soc = tools.get_dataframe(
+        "StateOfCharge.csv", dtype={"STORAGE_GEN_TPS_1": str}, drop_scenario_info=False
+    )
+    soc = soc.rename(
+        {"STORAGE_GEN_TPS_2": "timepoint", "StateOfCharge": "value"}, axis=1
+    )
     # Sum over all the projects that are in the same scenario with the same timepoint
     soc = soc.groupby(["timepoint", "scenario_name"], as_index=False).sum()
     soc["Source"] = "State Of Charge"
     soc["value"] /= 1e6  # Convert to TWh
 
     # Group by time
-    soc = tools.transform.timestamp(soc, use_timepoint=True, key_col="timepoint").astype({"period": str})
+    soc = tools.transform.timestamp(
+        soc, use_timepoint=True, key_col="timepoint"
+    ).astype({"period": str})
     soc["Type"] = "Dispatch"
     soc = groupby_time(soc).mean().reset_index()
 
@@ -748,62 +848,78 @@ def energy_balance(tools):
     # Plot
     # Get the colors for the lines
     colors = tools.get_colors()
-    colors.update({
-        "Transmission Losses": "brown",
-        "Storage Net Flow": "cadetblue",
-        "Demand": "black",
-        "Total Generation (excl. storage discharge)": "black",
-        "State Of Charge": "green"
-    })
+    colors.update(
+        {
+            "Transmission Losses": "brown",
+            "Storage Net Flow": "cadetblue",
+            "Demand": "black",
+            "Total Generation (excl. storage discharge)": "black",
+            "State Of Charge": "green",
+        }
+    )
 
     # plot
     num_periods = df["period"].nunique()
     pn = tools.pn
-    plot = pn.ggplot(df) + \
-           pn.geom_line(pn.aes(x="day", y="value", color="Source", linetype="Type")) + \
-           pn.facet_grid("period ~ scenario_name") + \
-           pn.labs(y="Contribution to Energy Balance (TWh)") + \
-           pn.scales.scale_color_manual(values=colors, aesthetics="color", na_value=colors["Other"]) + \
-           pn.scales.scale_x_continuous(
-               name="Month",
-               labels=["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"],
-               breaks=(15, 46, 76, 106, 137, 167, 198, 228, 259, 289, 319, 350),
-               limits=(0, 366)) + \
-           pn.scales.scale_linetype_manual(
-               values={"Dispatch Limit": "dotted", "Dispatch": "solid"}
-           ) + \
-           pn.theme(
-               figure_size=(pn.options.figure_size[0] * tools.num_scenarios, pn.options.figure_size[1] * num_periods))
+    plot = (
+        pn.ggplot(df)
+        + pn.geom_line(pn.aes(x="day", y="value", color="Source", linetype="Type"))
+        + pn.facet_grid("period ~ scenario_name")
+        + pn.labs(y="Contribution to Energy Balance (TWh)")
+        + pn.scales.scale_color_manual(
+            values=colors, aesthetics="color", na_value=colors["Other"]
+        )
+        + pn.scales.scale_x_continuous(
+            name="Month",
+            labels=["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"],
+            breaks=(15, 46, 76, 106, 137, 167, 198, 228, 259, 289, 319, 350),
+            limits=(0, 366),
+        )
+        + pn.scales.scale_linetype_manual(
+            values={"Dispatch Limit": "dotted", "Dispatch": "solid"}
+        )
+        + pn.theme(
+            figure_size=(
+                pn.options.figure_size[0] * tools.num_scenarios,
+                pn.options.figure_size[1] * num_periods,
+            )
+        )
+    )
 
     tools.save_figure(plot.draw())
+
 
 @graph(
     "curtailment_per_period",
     title="Percent of total dispatchable capacity curtailed",
-    is_long=True
+    is_long=True,
 )
 def graph_curtailment_per_tech(tools):
     # Load dispatch.csv
-    df = tools.get_dataframe('dispatch.csv')
+    df = tools.get_dataframe("dispatch.csv")
     df = tools.transform.gen_type(df)
-    df["Total"] = df['DispatchGen_MW'] + df["Curtailment_MW"]
+    df["Total"] = df["DispatchGen_MW"] + df["Curtailment_MW"]
     df = df[df["is_renewable"]]
     # Make PERIOD a category to ensure x-axis labels don't fill in years between period
     # TODO we should order this by period here to ensure they're in increasing order
     df["period"] = df["period"].astype("category")
     df = df.groupby(["period", "gen_type"], as_index=False).sum()
-    df["Percent Curtailed"] = df["Curtailment_MW"] / (df['DispatchGen_MW'] + df["Curtailment_MW"])
-    df = df.pivot(index="period", columns="gen_type", values="Percent Curtailed").fillna(0)
+    df["Percent Curtailed"] = df["Curtailment_MW"] / (
+        df["DispatchGen_MW"] + df["Curtailment_MW"]
+    )
+    df = df.pivot(
+        index="period", columns="gen_type", values="Percent Curtailed"
+    ).fillna(0)
     if len(df) == 0:  # No dispatch from renewable technologies
         return
     # Set the name of the legend.
-    df = df.rename_axis("Type", axis='columns')
+    df = df.rename_axis("Type", axis="columns")
     # Get axes to graph on
     ax = tools.get_axes()
     # Plot
     color = tools.get_colors()
     kwargs = dict() if color is None else dict(color=color)
-    df.plot(ax=ax, kind='line',  xlabel='Period', marker="x", **kwargs)
+    df.plot(ax=ax, kind="line", xlabel="Period", marker="x", **kwargs)
 
     # Set the y-axis to use percent
     ax.yaxis.set_major_formatter(tools.plt.ticker.PercentFormatter(1.0))
@@ -815,15 +931,22 @@ def graph_curtailment_per_tech(tools):
     "energy_balance_2",
     title="Balance between demand, generation and storage for last period",
     note="Dashed green and red lines are total generation and total demand (incl. transmission losses),"
-         " respectively.\nDotted line is the total state of charge (scaled for readability)."
-         "\nWe used a 14-day rolling mean to smoothen out values.",
-    supports_multi_scenario=True
+    " respectively.\nDotted line is the total state of charge (scaled for readability)."
+    "\nWe used a 14-day rolling mean to smoothen out values.",
+    supports_multi_scenario=True,
 )
 def graph_energy_balance_2(tools):
     # Get dispatch dataframe
-    dispatch = tools.get_dataframe("dispatch.csv", usecols=[
-        "timestamp", "gen_tech", "gen_energy_source", "DispatchGen_MW", "scenario_name"
-    ]).rename({"DispatchGen_MW": "value"}, axis=1)
+    dispatch = tools.get_dataframe(
+        "dispatch.csv",
+        usecols=[
+            "timestamp",
+            "gen_tech",
+            "gen_energy_source",
+            "DispatchGen_MW",
+            "scenario_name",
+        ],
+    ).rename({"DispatchGen_MW": "value"}, axis=1)
     dispatch = tools.transform.gen_type(dispatch)
 
     # Sum dispatch across all the projects of the same type and timepoint
@@ -831,9 +954,10 @@ def graph_energy_balance_2(tools):
     dispatch = dispatch[dispatch["gen_type"] != "Storage"]
 
     # Get load dataframe
-    load = tools.get_dataframe("load_balance.csv", usecols=[
-        "timestamp", "zone_demand_mw", "TXPowerNet", "scenario_name"
-    ])
+    load = tools.get_dataframe(
+        "load_balance.csv",
+        usecols=["timestamp", "zone_demand_mw", "TXPowerNet", "scenario_name"],
+    )
 
     def process_time(df):
         df = df.astype({"period": int})
@@ -864,30 +988,40 @@ def graph_energy_balance_2(tools):
     def rolling_sum(df):
         df = df.rolling(freq, center=True).value.sum().reset_index()
         df["value"] /= days
-        df = df[(df.datetime.min() + offset < df.datetime) & (df.datetime < df.datetime.max() - offset)]
+        df = df[
+            (df.datetime.min() + offset < df.datetime)
+            & (df.datetime < df.datetime.max() - offset)
+        ]
         return df
 
     dispatch = rolling_sum(dispatch.groupby("gen_type", as_index=False))
     load = rolling_sum(load).set_index("datetime")["value"]
 
     # Get the state of charge data
-    soc = tools.get_dataframe("StateOfCharge.csv", dtype={"STORAGE_GEN_TPS_1": str}) \
-        .rename(columns={"STORAGE_GEN_TPS_2": "timepoint", "StateOfCharge": "value"})
+    soc = tools.get_dataframe(
+        "StateOfCharge.csv", dtype={"STORAGE_GEN_TPS_1": str}
+    ).rename(columns={"STORAGE_GEN_TPS_2": "timepoint", "StateOfCharge": "value"})
     # Sum over all the projects that are in the same scenario with the same timepoint
     soc = soc.groupby(["timepoint"], as_index=False).sum()
     soc["value"] /= 1e6  # Convert to TWh
     max_soc = soc["value"].max()
 
     # Group by time
-    soc = process_time(tools.transform.timestamp(soc, use_timepoint=True, key_col="timepoint"))
+    soc = process_time(
+        tools.transform.timestamp(soc, use_timepoint=True, key_col="timepoint")
+    )
     soc = soc.rolling(freq, center=True)["value"].mean().reset_index()
-    soc = soc[(soc.datetime.min() + offset < soc.datetime) & (soc.datetime < soc.datetime.max() - offset)]
+    soc = soc[
+        (soc.datetime.min() + offset < soc.datetime)
+        & (soc.datetime < soc.datetime.max() - offset)
+    ]
     soc = soc.set_index("datetime")["value"]
-
 
     dispatch = dispatch[dispatch["value"] != 0]
     dispatch = dispatch.pivot(columns="gen_type", index="datetime", values="value")
-    dispatch = dispatch[dispatch.std().sort_values().index].rename_axis("Technology", axis=1)
+    dispatch = dispatch[dispatch.std().sort_values().index].rename_axis(
+        "Technology", axis=1
+    )
     total_dispatch = dispatch.sum(axis=1)
 
     max_val = max(total_dispatch.max(), load.max())
@@ -900,26 +1034,40 @@ def graph_energy_balance_2(tools):
     # plot
     ax = tools.get_axes(ylabel="Average Daily Generation (TWh)")
     ax.set_ylim(0, max_val * 1.05)
-    dispatch.plot(
-        ax=ax,
-        color=tools.get_colors()
-    )
+    dispatch.plot(ax=ax, color=tools.get_colors())
     soc.plot(ax=ax, color="black", linestyle="dotted")
     load.plot(ax=ax, color="red", linestyle="dashed")
     total_dispatch.plot(ax=ax, color="green", linestyle="dashed")
-    ax.fill_between(total_dispatch.index, total_dispatch.values, load.values, alpha=0.2, where=load<total_dispatch, facecolor="green")
-    ax.fill_between(total_dispatch.index, total_dispatch.values, load.values, alpha=0.2, where=load>total_dispatch, facecolor="red")
+    ax.fill_between(
+        total_dispatch.index,
+        total_dispatch.values,
+        load.values,
+        alpha=0.2,
+        where=load < total_dispatch,
+        facecolor="green",
+    )
+    ax.fill_between(
+        total_dispatch.index,
+        total_dispatch.values,
+        load.values,
+        alpha=0.2,
+        where=load > total_dispatch,
+        facecolor="red",
+    )
 
 
-@graph(
-    "dispatch_map",
-    title="Dispatched electricity per load zone"
-)
+@graph("dispatch_map", title="Dispatched electricity per load zone")
 def dispatch_map(tools):
     if not tools.maps.can_make_maps():
         return
-    dispatch = tools.get_dataframe("dispatch_zonal_annual_summary.csv").rename({"Energy_GWh_typical_yr": "value"},                                                                           axis=1)
+    dispatch = tools.get_dataframe("dispatch_zonal_annual_summary.csv").rename(
+        {"Energy_GWh_typical_yr": "value"}, axis=1
+    )
     dispatch = tools.transform.gen_type(dispatch)
-    dispatch = dispatch.groupby(["gen_type", "gen_load_zone"], as_index=False)["value"].sum()
+    dispatch = dispatch.groupby(["gen_type", "gen_load_zone"], as_index=False)[
+        "value"
+    ].sum()
     dispatch["value"] *= 1e-3
-    tools.maps.graph_pie_chart(dispatch, bins=(0, 10, 100, 200, float("inf")), title="Yearly Dispatch (TWh)")
+    tools.maps.graph_pie_chart(
+        dispatch, bins=(0, 10, 100, 200, float("inf")), title="Yearly Dispatch (TWh)"
+    )

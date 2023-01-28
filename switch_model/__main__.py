@@ -10,20 +10,24 @@ import sys
 import switch_model
 from switch_model.utilities import get_git_branch
 
+
 def print_version():
     print("Switch model version " + switch_model.__version__)
     branch = get_git_branch()
     if branch is not None:
         print(f"Switch Git branch: {branch}")
 
+
 def help_text():
     print(
-        f"Must specify one of the following commands: {list(cmds.keys()) + ['--version']}.\nE.g. Run 'switch solve' or 'switch get_inputs'.")
+        f"Must specify one of the following commands: {list(cmds.keys()) + ['--version']}.\nE.g. Run 'switch solve' or 'switch get_inputs'."
+    )
 
 
 def get_module_runner(module):
     def runner():
         importlib.import_module(module).main()
+
     return runner
 
 
@@ -38,15 +42,22 @@ cmds = {
     "graph": get_module_runner("switch_model.tools.graph.cli_graph"),
     "compare": get_module_runner("switch_model.tools.graph.cli_compare"),
     "db": get_module_runner("switch_model.wecc.__main__"),
-    "help": help_text
+    "help": help_text,
 }
 
 
 def main():
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--version", default=False, action="store_true", help="Get version info")
-    parser.add_argument("subcommand", choices=cmds.keys(), help="The possible switch subcommands", nargs="?",
-                        default="help")
+    parser.add_argument(
+        "--version", default=False, action="store_true", help="Get version info"
+    )
+    parser.add_argument(
+        "subcommand",
+        choices=cmds.keys(),
+        help="The possible switch subcommands",
+        nargs="?",
+        default="help",
+    )
 
     # If users run a script from the command line, the location of the script
     # gets added to the start of sys.path; if they call a module from the

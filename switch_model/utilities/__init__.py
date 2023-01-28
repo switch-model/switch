@@ -23,6 +23,7 @@ from switch_model.utilities.load_data import load_registered_inputs, load_data
 # distinguishing between strings and other iterables.
 string_types = (str,)
 
+
 class CustomModel(AbstractModel):
     """
     Class that wraps pyomo's AbstractModel and adds custom features.
@@ -113,6 +114,7 @@ def define_AbstractModel(*module_list, **kwargs):
     args = kwargs.get("args", sys.argv[1:])
     return create_model(module_list, args)
 
+
 def create_model(module_list=None, args=sys.argv[1:]):
     """
 
@@ -168,26 +170,26 @@ def create_model(module_list=None, args=sys.argv[1:]):
     # Define and parse model configuration options
     argparser = _ArgumentParser(allow_abbrev=False)
     for module in model.get_modules():
-        if hasattr(module, 'define_arguments'):
+        if hasattr(module, "define_arguments"):
             module.define_arguments(argparser)
     model.options = argparser.parse_args(args)
 
     # Define model components
     for module in model.get_modules():
-        if hasattr(module, 'define_dynamic_lists'):
+        if hasattr(module, "define_dynamic_lists"):
             module.define_dynamic_lists(model)
     for module in model.get_modules():
-        if hasattr(module, 'define_components'):
+        if hasattr(module, "define_components"):
             module.define_components(model)
     for module in model.get_modules():
-        if hasattr(module, 'define_dynamic_components'):
+        if hasattr(module, "define_dynamic_components"):
             module.define_dynamic_components(model)
 
     return model
 
 
 def get_modules(model):
-    """ Return a list of loaded module objects for this model. """
+    """Return a list of loaded module objects for this model."""
     for m in model.module_list:
         yield sys.modules[m]
 
@@ -203,6 +205,7 @@ def make_iterable(item):
         except TypeError:
             i = iter([item])
     return i
+
 
 class StepTimer(object):
     """
@@ -229,6 +232,7 @@ class StepTimer(object):
         Reset timer to current time and return time elapsed since last step as a formatted string.
         """
         return format_seconds(self.step_time())
+
 
 def format_seconds(seconds):
     """
@@ -270,7 +274,7 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=False):
     data.load_aug = types.MethodType(load_aug, data)
     load_registered_inputs(data, inputs_dir)
     for module in model.get_modules():
-        if hasattr(module, 'load_inputs'):
+        if hasattr(module, "load_inputs"):
             module.load_inputs(model, data, inputs_dir)
     if model.options.verbose:
         print(f"Data read in {timer.step_time_as_str()}.\n")
@@ -279,7 +283,7 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=False):
     # Determine which option is available and use that.
     if model.options.verbose:
         print("Creating instance...")
-    if hasattr(model, 'create_instance'):
+    if hasattr(model, "create_instance"):
         instance = model.create_instance(data)
         # We want our functions from CustomModel to be accessible
         # Somehow simply setting the class to CustomModel allows us to do this
@@ -300,8 +304,13 @@ def load_inputs(model, inputs_dir=None, attach_data_portal=False):
     return instance
 
 
-def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
-    exclude=[], sorted_output=False):
+def save_inputs_as_dat(
+    model,
+    instance,
+    save_path="inputs/complete_inputs.dat",
+    exclude=[],
+    sorted_output=False,
+):
     """
     Save input data to a .dat file for use with PySP or other command line
     tools that have not been fully integrated with DataPortal.
@@ -310,26 +319,38 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
     """
     # helper function to convert values to strings,
     # putting quotes around values that start as strings
-    quote_str = lambda v: '"{}"'.format(v) if isinstance(v, string_types) else '{}'.format(str(v))
+    quote_str = (
+        lambda v: '"{}"'.format(v)
+        if isinstance(v, string_types)
+        else "{}".format(str(v))
+    )
     # helper function to create delimited lists from single items or iterables of any data type
     from switch_model.reporting import make_iterable
-    join_space = lambda items: ' '.join(map(str, make_iterable(items)))  # space-separated list
-    join_comma = lambda items: ','.join(map(str, make_iterable(items)))  # comma-separated list
+
+    join_space = lambda items: " ".join(
+        map(str, make_iterable(items))
+    )  # space-separated list
+    join_comma = lambda items: ",".join(
+        map(str, make_iterable(items))
+    )  # comma-separated list
 
     with open(save_path, "w") as f:
         for component_name in instance.DataPortal.data():
             if component_name in exclude:
-                continue    # don't write data for components in exclude list
-                            # (they're in scenario-specific files)
+                continue  # don't write data for components in exclude list
+                # (they're in scenario-specific files)
             component = getattr(model, component_name)
             comp_class = type(component).__name__
             component_data = instance.DataPortal.data(name=component_name)
-            if comp_class in ('ScalarSet', 'OrderedScalarSet', 'AbstractOrderedScalarSet'):
+            if comp_class in (
+                "ScalarSet",
+                "OrderedScalarSet",
+                "AbstractOrderedScalarSet",
+            ):
                 f.write(
-                    "set {} := {};\n"
-                    .format(component_name, join_space(component_data))
+                    "set {} := {};\n".format(component_name, join_space(component_data))
                 )
-            elif comp_class == 'IndexedParam':
+            elif comp_class == "IndexedParam":
                 if component_data:  # omit components for which no data were provided
                     f.write("param {} := \n".format(component_name))
                     for key, value in (
@@ -339,18 +360,22 @@ def save_inputs_as_dat(model, instance, save_path="inputs/complete_inputs.dat",
                     ):
                         f.write(" {} {}\n".format(join_space(key), quote_str(value)))
                     f.write(";\n")
-            elif comp_class == 'ScalarParam':
+            elif comp_class == "ScalarParam":
                 f.write("param {} := {};\n".format(component_name, component_data))
-            elif comp_class == 'IndexedSet':
+            elif comp_class == "IndexedSet":
                 for key, vals in component_data.items():
                     f.write(
-                        "set {}[{}] := {};\n"
-                        .format(component_name, join_comma(key), join_space(vals))
+                        "set {}[{}] := {};\n".format(
+                            component_name, join_comma(key), join_space(vals)
+                        )
                     )
             else:
                 raise ValueError(
-                    "Error! Component type {} not recognized for model element '{}'.".
-                    format(comp_class, component_name))
+                    "Error! Component type {} not recognized for model element '{}'.".format(
+                        comp_class, component_name
+                    )
+                )
+
 
 def pre_solve(instance, outputs_dir=None):
     """
@@ -358,8 +383,9 @@ def pre_solve(instance, outputs_dir=None):
     This function can be used to adjust the instance after it is created and before it is solved.
     """
     for module in instance.get_modules():
-        if hasattr(module, 'pre_solve'):
+        if hasattr(module, "pre_solve"):
             module.pre_solve(instance)
+
 
 def post_solve(instance, outputs_dir=None):
     """
@@ -376,7 +402,7 @@ def post_solve(instance, outputs_dir=None):
     # (the latter may occur when there are problems with licenses, etc)
 
     for module in instance.get_modules():
-        if hasattr(module, 'post_solve'):
+        if hasattr(module, "post_solve"):
             # Try-catch is so that if one module fails on post-solve
             # the other modules still run
             try:
@@ -386,8 +412,11 @@ def post_solve(instance, outputs_dir=None):
             except:
                 # Print the error that would normally be thrown with the
                 # full stack trace and an explanatory message
-                print(f"ERROR: Module {module.__name__} threw an Exception while running post_solve(). "
-                      f"Moving on to the next module.\n{traceback.format_exc()}")
+                print(
+                    f"ERROR: Module {module.__name__} threw an Exception while running post_solve(). "
+                    f"Moving on to the next module.\n{traceback.format_exc()}"
+                )
+
 
 def min_data_check(model, *mandatory_model_components):
     """
@@ -421,9 +450,13 @@ def min_data_check(model, *mandatory_model_components):
     """
     model.__num_min_data_checks += 1
     new_data_check_name = "min_data_check_" + str(model.__num_min_data_checks)
-    setattr(model, new_data_check_name, BuildCheck(
-        rule=lambda m: check_mandatory_components(
-            m, *mandatory_model_components)))
+    setattr(
+        model,
+        new_data_check_name,
+        BuildCheck(
+            rule=lambda m: check_mandatory_components(m, *mandatory_model_components)
+        ),
+    )
 
 
 def _add_min_data_check(model):
@@ -445,7 +478,7 @@ def _add_min_data_check(model):
     ...     instance_pass = mod.create()
     >>> mod.min_data_check('set_A', 'paramA_empty')
     """
-    if getattr(model, 'min_data_check', None) is None:
+    if getattr(model, "min_data_check", None) is None:
         model.__num_min_data_checks = 0
         model.min_data_check = types.MethodType(min_data_check, model)
 
@@ -456,6 +489,7 @@ def has_discrete_variables(model):
         for variable in model.component_objects(Var, active=True)
         for v in (variable.values() if variable.is_indexed() else [variable])
     )
+
 
 def check_mandatory_components(model, *mandatory_model_components):
     """
@@ -514,39 +548,54 @@ def check_mandatory_components(model, *mandatory_model_components):
     for component_name in mandatory_model_components:
         obj = getattr(model, component_name)
         o_class = type(obj).__name__
-        if o_class == 'ScalarSet' or o_class == 'OrderedScalarSet':
+        if o_class == "ScalarSet" or o_class == "OrderedScalarSet":
             if len(obj) == 0:
                 raise ValueError(
-                    "No data is defined for the mandatory set '{}'.".
-                    format(component_name))
-        elif o_class == 'IndexedParam':
+                    "No data is defined for the mandatory set '{}'.".format(
+                        component_name
+                    )
+                )
+        elif o_class == "IndexedParam":
             if len(obj) != len(obj._index):
-                missing_index_elements = [v for v in set(obj._index) - set( obj.sparse_keys())]
+                missing_index_elements = [
+                    v for v in set(obj._index) - set(obj.sparse_keys())
+                ]
                 raise ValueError(
                     "Values are not provided for every element of the "
                     "mandatory parameter '{}'. "
-                    "Missing data for {} values, including: {}"
-                    .format(component_name, len(missing_index_elements), missing_index_elements[:10])
+                    "Missing data for {} values, including: {}".format(
+                        component_name,
+                        len(missing_index_elements),
+                        missing_index_elements[:10],
+                    )
                 )
-        elif o_class == 'IndexedSet':
+        elif o_class == "IndexedSet":
             if len(obj) != len(obj._index):
                 raise ValueError(
-                    ("Sets are not defined for every index of " +
-                     "the mandatory indexed set '{}'").format(component_name))
-        elif o_class == 'ScalarParam':
+                    (
+                        "Sets are not defined for every index of "
+                        + "the mandatory indexed set '{}'"
+                    ).format(component_name)
+                )
+        elif o_class == "ScalarParam":
             if obj.value is None:
                 raise ValueError(
-                    "Value not provided for mandatory parameter '{}'".
-                    format(component_name))
+                    "Value not provided for mandatory parameter '{}'".format(
+                        component_name
+                    )
+                )
         else:
             raise ValueError(
-                "Error! Object type {} not recognized for model element '{}'.".
-                format(o_class, component_name))
+                "Error! Object type {} not recognized for model element '{}'.".format(
+                    o_class, component_name
+                )
+            )
     return True
 
 
-def load_aug(switch_data, optional=False, auto_select=False,
-             optional_params=[], **kwds):
+def load_aug(
+    switch_data, optional=False, auto_select=False, optional_params=[], **kwds
+):
     """
     This is a wrapper for the DataPortal object that accepts additional
     keywords. This currently supports a flag for the file being optional.
@@ -554,11 +603,12 @@ def load_aug(switch_data, optional=False, auto_select=False,
     """
     load_data(switch_data, optional, auto_select, optional_params, **kwds)
 
+
 # Register a custom data manager that wraps the default CSVTable DataManager
 # This data manager does the same as CSVTable but converts 'inf' to float("inf")
 # This is necessary since Pyomo no longer converts inf to float('inf') and is
 # now throwing errors when we it expects a number but we input inf.
-@DataManagerFactory.register('switch_csv')
+@DataManagerFactory.register("switch_csv")
 class SwitchCSVDataManger(CSVTable):
     def process(self, model, data, default):
         status = super().process(model, data, default)
@@ -575,35 +625,42 @@ class SwitchCSVDataManger(CSVTable):
 
 class ExtendAction(argparse.Action):
     """Create or extend list with the provided items"""
+
     # from https://stackoverflow.com/a/41153081/3830997
     def __call__(self, parser, namespace, values, option_string=None):
         items = getattr(namespace, self.dest) or []
         items.extend(values)
         setattr(namespace, self.dest, items)
 
+
 class IncludeAction(argparse.Action):
     """Flag the specified items for inclusion in the model"""
+
     def __call__(self, parser, namespace, values, option_string=None):
         items = getattr(namespace, self.dest) or []
-        items.append(('include', values))
+        items.append(("include", values))
         setattr(namespace, self.dest, items)
+
+
 class ExcludeAction(argparse.Action):
     """Flag the specified items for exclusion from the model"""
+
     def __call__(self, parser, namespace, values, option_string=None):
         items = getattr(namespace, self.dest) or []
-        items.append(('exclude', values))
+        items.append(("exclude", values))
         setattr(namespace, self.dest, items)
+
 
 # Test whether we need to issue warnings about the Python parsing bug.
 # (applies to at least Python 2.7.11 and 3.6.2)
 # This bug messes up solve-scenarios if the user specifies
 # --scenario x --solver-options-string="a=b c=d"
 test_parser = argparse.ArgumentParser()
-test_parser.add_argument('--arg1', nargs='+', default=[])
+test_parser.add_argument("--arg1", nargs="+", default=[])
 bad_equal_parser = (
-    len(test_parser.parse_known_args(['--arg1', 'a', '--arg2=a=1 b=2'])[1])
-    == 0
+    len(test_parser.parse_known_args(["--arg1", "a", "--arg2=a=1 b=2"])[1]) == 0
 )
+
 
 class _ArgumentParser(argparse.ArgumentParser):
     """
@@ -612,11 +669,12 @@ class _ArgumentParser(argparse.ArgumentParser):
     - allows use of 'extend', 'include' and 'exclude' actions to accumulate lists
       with multiple calls
     """
+
     def __init__(self, *args, **kwargs):
         super(_ArgumentParser, self).__init__(*args, **kwargs)
-        self.register('action', 'extend', ExtendAction)
-        self.register('action', 'include', IncludeAction)
-        self.register('action', 'exclude', ExcludeAction)
+        self.register("action", "extend", ExtendAction)
+        self.register("action", "include", IncludeAction)
+        self.register("action", "exclude", ExcludeAction)
 
     def parse_known_args(self, args=None, namespace=None):
         # parse_known_args parses arguments like --list-arg a b --other-arg="something with space"
@@ -625,29 +683,30 @@ class _ArgumentParser(argparse.ArgumentParser):
         # We issue a warning to avoid this.
         if bad_equal_parser and args is not None:
             for a in args:
-                if a.startswith('--') and '=' in a:
+                if a.startswith("--") and "=" in a:
                     print(
                         "Warning: argument '{}' may be parsed incorrectly. It is "
-                        "safer to use ' ' instead of '=' as a separator."
-                        .format(a)
+                        "safer to use ' ' instead of '=' as a separator.".format(a)
                     )
                     time.sleep(2)  # give users a chance to see it
         return super(_ArgumentParser, self).parse_known_args(args, namespace)
 
 
 def approx_equal(a, b, tolerance=0.01):
-    return abs(a-b) <= (abs(a) + abs(b)) / 2.0 * tolerance
+    return abs(a - b) <= (abs(a) + abs(b)) / 2.0 * tolerance
 
 
 def default_solver():
-    return pyomo.opt.SolverFactory('glpk')
+    return pyomo.opt.SolverFactory("glpk")
+
 
 def warn(message):
     """
     Send warning message to sys.stderr.
     Unlike warnings.warn, this does not add the current line of code to the message.
     """
-    sys.stderr.write("WARNING: " + message + '\n')
+    sys.stderr.write("WARNING: " + message + "\n")
+
 
 class TeeStream(object):
     """
@@ -656,9 +715,11 @@ class TeeStream(object):
     `sys.stdout=TeeStream(sys.stdout, log_file_handle)` will copy
     output destined for sys.stdout to log_file_handle as well.
     """
+
     def __init__(self, stream1, stream2):
         self.stream1 = stream1
         self.stream2 = stream2
+
     def __getattr__(self, *args, **kwargs):
         """
         Provide stream1 attributes when attributes are requested for this class.
@@ -666,12 +727,15 @@ class TeeStream(object):
         methods, etc.
         """
         return getattr(self.stream1, *args, **kwargs)
+
     def write(self, *args, **kwargs):
         self.stream1.write(*args, **kwargs)
         self.stream2.write(*args, **kwargs)
+
     def flush(self, *args, **kwargs):
         self.stream1.flush(*args, **kwargs)
         self.stream2.flush(*args, **kwargs)
+
 
 class LogOutput(object):
     """
@@ -680,16 +744,18 @@ class LogOutput(object):
     date and time. Directory will be created if needed, and file will be overwritten
     if it already exists (unlikely).
     """
+
     def __init__(self, logs_dir):
         self.logs_dir = logs_dir
+
     def __enter__(self):
-        """ start copying output to log file """
+        """start copying output to log file"""
         if self.logs_dir is not None:
             if not os.path.exists(self.logs_dir):
                 os.makedirs(self.logs_dir)
             log_file_path = os.path.join(
                 self.logs_dir,
-                datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".log"
+                datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".log",
             )
             self.log_file = open(log_file_path, "w", buffering=1)
             self.stdout = sys.stdout
@@ -697,8 +763,9 @@ class LogOutput(object):
             sys.stdout = TeeStream(sys.stdout, self.log_file)
             sys.stderr = TeeStream(sys.stderr, self.log_file)
             print("logging output to " + str(log_file_path))
+
     def __exit__(self, type, value, traceback):
-        """ restore original output streams and close log file """
+        """restore original output streams and close log file"""
         if self.logs_dir is not None:
             sys.stdout = self.stdout
             sys.stderr = self.stderr
@@ -715,8 +782,7 @@ def query_yes_no(question, default="yes"):
 
     The "answer" return value is True for "yes" or False for "no".
     """
-    valid = {"yes": True, "y": True, "ye": True,
-             "no": False, "n": False}
+    valid = {"yes": True, "y": True, "ye": True, "no": False, "n": False}
     if default is None:
         prompt = " [y/n] "
     elif default == "yes":
@@ -729,16 +795,17 @@ def query_yes_no(question, default="yes"):
     while True:
         sys.stdout.write(question + prompt)
         choice = input().lower()
-        if default is not None and choice == '':
+        if default is not None and choice == "":
             return valid[default]
         elif choice in valid:
             return valid[choice]
         else:
-            sys.stdout.write("Please respond with 'yes' or 'no' "
-                             "(or 'y' or 'n').\n")
+            sys.stdout.write("Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n")
 
 
-def catch_exceptions(warning_msg="An exception was caught and ignored.", should_catch=True):
+def catch_exceptions(
+    warning_msg="An exception was caught and ignored.", should_catch=True
+):
     """Decorator that catches exceptions."""
 
     def decorator(func):
@@ -752,7 +819,9 @@ def catch_exceptions(warning_msg="An exception was caught and ignored.", should_
             except KeyboardInterrupt:
                 raise KeyboardInterrupt
             except:
-                warnings.warn(warning_msg + "\nDetailed error log: " + traceback.format_exc())
+                warnings.warn(
+                    warning_msg + "\nDetailed error log: " + traceback.format_exc()
+                )
 
         return wrapper
 
@@ -760,7 +829,11 @@ def catch_exceptions(warning_msg="An exception was caught and ignored.", should_
 
 
 def run_command(command):
-    return subprocess.check_output(command.split(" "), cwd=os.path.dirname(__file__)).strip().decode("UTF-8")
+    return (
+        subprocess.check_output(command.split(" "), cwd=os.path.dirname(__file__))
+        .strip()
+        .decode("UTF-8")
+    )
 
 
 @catch_exceptions("Failed to get Git Branch.")
@@ -780,6 +853,7 @@ def add_git_info():
         add_info("Git Commit", commit_num, section=ResultsInfoSection.GENERAL)
     if branch is not None:
         add_info("Git Branch", branch, section=ResultsInfoSection.GENERAL)
+
 
 def get_module_list(args=None, include_solve_module=True):
     # parse module options
@@ -801,7 +875,9 @@ def get_module_list(args=None, include_solve_module=True):
     if module_list_file is None:
         # note: this could be a RuntimeError, but then users can't do "switch solve --help" in a random directory
         # (alternatively, we could provide no warning at all, since the user can specify --include-modules in the arguments)
-        print("WARNING: No module list found. Please create a modules.txt file with a list of modules to use for the model.")
+        print(
+            "WARNING: No module list found. Please create a modules.txt file with a list of modules to use for the model."
+        )
         modules = []
     else:
         # if it exists, the module list contains one module name per row (no .py extension)
@@ -815,18 +891,20 @@ def get_module_list(args=None, include_solve_module=True):
     # adjust modules as requested by the user
     # include_exclude_modules format: [('include', [mod1, mod2]), ('exclude', [mod3])]
     for action, mods in module_options.include_exclude_modules:
-        if action == 'include':
+        if action == "include":
             for module_name in mods:
-                if module_name not in modules:  # maybe we should raise an error if already present?
+                if (
+                    module_name not in modules
+                ):  # maybe we should raise an error if already present?
                     modules.append(module_name)
-        if action == 'exclude':
+        if action == "exclude":
             for module_name in mods:
                 try:
                     modules.remove(module_name)
                 except ValueError:
-                    raise ValueError(            # maybe we should just pass?
-                        'Unable to exclude module {} because it was not '
-                        'previously included.'.format(module_name)
+                    raise ValueError(  # maybe we should just pass?
+                        "Unable to exclude module {} because it was not "
+                        "previously included.".format(module_name)
                     )
 
     # add this module, since it has callbacks, e.g. define_arguments for iteration and suffixes
@@ -838,20 +916,32 @@ def get_module_list(args=None, include_solve_module=True):
 
 def add_module_args(parser):
     parser.add_argument(
-        "--module-list", default=None,
-        help='Text file with a list of modules to include in the model (default is "modules.txt")'
+        "--module-list",
+        default=None,
+        help='Text file with a list of modules to include in the model (default is "modules.txt")',
     )
     parser.add_argument(
-        "--include-modules", "--include-module", dest="include_exclude_modules", nargs='+',
-        action='include', default=[],
-        help="Module(s) to add to the model in addition to any specified with --module-list file"
+        "--include-modules",
+        "--include-module",
+        dest="include_exclude_modules",
+        nargs="+",
+        action="include",
+        default=[],
+        help="Module(s) to add to the model in addition to any specified with --module-list file",
     )
     parser.add_argument(
-        "--exclude-modules", "--exclude-module", dest="include_exclude_modules", nargs='+',
-        action='exclude', default=[],
-        help="Module(s) to remove from the model after processing --module-list file and prior --include-modules arguments"
+        "--exclude-modules",
+        "--exclude-module",
+        dest="include_exclude_modules",
+        nargs="+",
+        action="exclude",
+        default=[],
+        help="Module(s) to remove from the model after processing --module-list file and prior --include-modules arguments",
     )
     # note: we define --inputs-dir here because it may be used to specify the location of
     # the module list, which is needed before it is loaded.
-    parser.add_argument("--inputs-dir", default="inputs",
-        help='Directory containing input files (default is "inputs")')
+    parser.add_argument(
+        "--inputs-dir",
+        default="inputs",
+        help='Directory containing input files (default is "inputs")',
+    )

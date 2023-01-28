@@ -67,7 +67,7 @@ setup(
         "planning",
         "optimization",
     ],
-    python_requires='>=3.7',
+    python_requires=">=3.7",
     install_requires=[
         "Pyomo>=6.1,<6.4.1",  # 6.1 Has all the bug fixes we need
         "pint",  # needed by Pyomo when we run our tests, but not included
@@ -96,7 +96,7 @@ setup(
         "dev": ["ipdb", "black", "psycopg2-binary"],
         # On Windows at least, installing these will only work via conda.
         # Run conda install -c conda-forge geopandas shapely [... all the other packages]
-        "maps_INSTALL_WITH_CONDA": ["geopandas", "shapely", "cartopy", "plotnine"]
+        "maps_INSTALL_WITH_CONDA": ["geopandas", "shapely", "cartopy", "plotnine"],
     },
     entry_points={
         "console_scripts": [

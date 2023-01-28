@@ -12,7 +12,9 @@ from switch_model.tools.graph.cli import add_arguments, graph_scenarios_from_cli
 
 def main(args=None):
     # Create the command line interface
-    parser = argparse.ArgumentParser(description="Create graphs for a single set of SWITCH results.")
+    parser = argparse.ArgumentParser(
+        description="Create graphs for a single set of SWITCH results."
+    )
     add_arguments(parser)
     args = parser.parse_args(args)
 

@@ -45,6 +45,7 @@ INPUT FILE INFORMATION
         timepoint_id,tp_to_hts
 """
 from __future__ import division
+
 # ToDo: Refactor this code to move the core components into a
 # switch_model.hydro.core module, the simplist components into
 # switch_model.hydro.simple, and the advanced components into
@@ -54,9 +55,15 @@ import os.path
 
 from pyomo.environ import *
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
-    'switch_model.financials', 'switch_model.energy_sources.properties.properties', \
-    'switch_model.generators.core.build', 'switch_model.generators.core.dispatch'
+dependencies = (
+    "switch_model.timescales",
+    "switch_model.balancing.load_zones",
+    "switch_model.financials",
+    "switch_model.energy_sources.properties.properties",
+    "switch_model.generators.core.build",
+    "switch_model.generators.core.dispatch",
+)
+
 
 def define_components(mod):
     """
@@ -96,17 +103,17 @@ def define_components(mod):
     """
     mod.tp_to_hts = Param(
         mod.TIMEPOINTS,
-        input_file='hydro_timepoints.csv',
+        input_file="hydro_timepoints.csv",
         default=lambda m, tp: m.tp_ts[tp],
         doc="Mapping of timepoints to a hydro series.",
-        within=Any
+        within=Any,
     )
 
     mod.HYDRO_TS = Set(
         dimen=1,
         ordered=False,
         initialize=lambda m: set(m.tp_to_hts[tp] for tp in m.TIMEPOINTS),
-        doc="Set of hydro timeseries as defined in the mapping."
+        doc="Set of hydro timeseries as defined in the mapping.",
     )
 
     mod.TPS_IN_HTS = Set(
@@ -114,54 +121,58 @@ def define_components(mod):
         within=mod.TIMEPOINTS,
         ordered=False,
         initialize=lambda m, hts: set(t for t in m.TIMEPOINTS if m.tp_to_hts[t] == hts),
-        doc="Set of timepoints in each hydro timeseries"
+        doc="Set of timepoints in each hydro timeseries",
     )
 
     mod.HYDRO_GEN_TS_RAW = Set(
         dimen=2,
-        input_file='hydro_timeseries.csv',
+        input_file="hydro_timeseries.csv",
         input_optional=True,
-        validate=lambda m, g, hts: (g in m.GENERATION_PROJECTS) & (hts in m.HYDRO_TS), )
+        validate=lambda m, g, hts: (g in m.GENERATION_PROJECTS) & (hts in m.HYDRO_TS),
+    )
 
     mod.HYDRO_GENS = Set(
         dimen=1,
         ordered=False,
         initialize=lambda m: set(g for (g, hts) in m.HYDRO_GEN_TS_RAW),
-        doc="Dispatchable hydro projects")
+        doc="Dispatchable hydro projects",
+    )
 
     mod.HYDRO_GEN_TPS = Set(
-        initialize=mod.GEN_TPS,
-        filter=lambda m, g, t: g in m.HYDRO_GENS)
+        initialize=mod.GEN_TPS, filter=lambda m, g, t: g in m.HYDRO_GENS
+    )
 
     mod.HYDRO_GEN_TS = Set(
         dimen=2,
-        initialize=lambda m: set((g, m.tp_to_hts[tp]) for (g, tp) in m.HYDRO_GEN_TPS))
+        initialize=lambda m: set((g, m.tp_to_hts[tp]) for (g, tp) in m.HYDRO_GEN_TPS),
+    )
 
     # Validate that a timeseries data is specified for every hydro generator /
     # timeseries that we need. Extra data points (ex: outside of planning
     # horizon or beyond a plant's lifetime) can safely be ignored to make it
     # easier to create input files.
     mod.have_minimal_hydro_params = BuildCheck(
-        mod.HYDRO_GEN_TS,
-        rule=lambda m, g, hts: (g, hts) in m.HYDRO_GEN_TS_RAW)
+        mod.HYDRO_GEN_TS, rule=lambda m, g, hts: (g, hts) in m.HYDRO_GEN_TS_RAW
+    )
 
     # Todo: Add validation check that timeseries data are specified for every valid timepoint.
 
     mod.hydro_min_flow_mw = Param(
         mod.HYDRO_GEN_TS_RAW,
         within=NonNegativeReals,
-        input_file='hydro_timeseries.csv',
-        default=0.0)
+        input_file="hydro_timeseries.csv",
+        default=0.0,
+    )
     mod.Enforce_Hydro_Min_Flow = Constraint(
         mod.HYDRO_GEN_TPS,
         rule=lambda m, g, t: Constraint.Skip
         if m.hydro_min_flow_mw[g, m.tp_to_hts[t]] == 0
-        else m.DispatchGen[g, t] >= m.hydro_min_flow_mw[g, m.tp_to_hts[t]])
+        else m.DispatchGen[g, t] >= m.hydro_min_flow_mw[g, m.tp_to_hts[t]],
+    )
 
     mod.hydro_avg_flow_mw = Param(
-        mod.HYDRO_GEN_TS_RAW,
-        within=NonNegativeReals,
-        input_file='hydro_timeseries.csv')
+        mod.HYDRO_GEN_TS_RAW, within=NonNegativeReals, input_file="hydro_timeseries.csv"
+    )
 
     # We use a scaling factor to improve the numerical properties
     # of the model. The scaling factor was determined using trial
@@ -170,12 +181,11 @@ def define_components(mod):
     enforce_hydro_avg_flow_scaling_factor = 1e1
     mod.Enforce_Hydro_Avg_Flow = Constraint(
         mod.HYDRO_GEN_TS,
-        rule=lambda m, g, hts:
-        enforce_hydro_avg_flow_scaling_factor *
+        rule=lambda m, g, hts: enforce_hydro_avg_flow_scaling_factor *
         # Compute the weighted average of the dispatch
         sum(m.DispatchGen[g, t] * m.tp_weight[t] for t in m.TPS_IN_HTS[hts])
         / sum(m.tp_weight[tp] for tp in m.TPS_IN_HTS[hts])
-        == m.hydro_avg_flow_mw[g, hts] * enforce_hydro_avg_flow_scaling_factor
+        == m.hydro_avg_flow_mw[g, hts] * enforce_hydro_avg_flow_scaling_factor,
     )
 
-    mod.min_data_check('hydro_min_flow_mw', 'hydro_avg_flow_mw')
+    mod.min_data_check("hydro_min_flow_mw", "hydro_avg_flow_mw")

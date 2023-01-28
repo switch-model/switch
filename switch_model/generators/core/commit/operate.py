@@ -15,10 +15,14 @@ import os, itertools
 from pyomo.environ import *
 
 dependencies = (
-    'switch_model.timescales', 'switch_model.balancing.load_zones',
-    'switch_model.financials', 'switch_model.energy_sources.properties.properties',
-    'switch_model.generators.core.build', 'switch_model.generators.core.dispatch'
+    "switch_model.timescales",
+    "switch_model.balancing.load_zones",
+    "switch_model.financials",
+    "switch_model.energy_sources.properties.properties",
+    "switch_model.generators.core.build",
+    "switch_model.generators.core.dispatch",
 )
+
 
 def define_components(mod):
     """
@@ -214,59 +218,57 @@ def define_components(mod):
     """
 
     # Commitment decision, bounds and associated slack variables
-    mod.CommitGen = Var(
-        mod.GEN_TPS,
-        within=NonNegativeReals)
+    mod.CommitGen = Var(mod.GEN_TPS, within=NonNegativeReals)
     mod.gen_max_commit_fraction = Param(
-        mod.GEN_TPS,
-        within=PercentFraction,
-        default=lambda m, g, t: 1.0)
+        mod.GEN_TPS, within=PercentFraction, default=lambda m, g, t: 1.0
+    )
     mod.gen_min_commit_fraction = Param(
         mod.GEN_TPS,
         within=PercentFraction,
         default=lambda m, g, t: (
-            m.gen_max_commit_fraction[g, t]
-            if g in m.BASELOAD_GENS
-            else 0.0))
+            m.gen_max_commit_fraction[g, t] if g in m.BASELOAD_GENS else 0.0
+        ),
+    )
     mod.CommitLowerLimit = Expression(
         mod.GEN_TPS,
         rule=lambda m, g, t: (
-            m.GenCapacityInTP[g, t] * m.gen_availability[g] *
-            m.gen_min_commit_fraction[g, t]))
+            m.GenCapacityInTP[g, t]
+            * m.gen_availability[g]
+            * m.gen_min_commit_fraction[g, t]
+        ),
+    )
     mod.CommitUpperLimit = Expression(
         mod.GEN_TPS,
         rule=lambda m, g, t: (
-            m.GenCapacityInTP[g, t] * m.gen_availability[g] *
-            m.gen_max_commit_fraction[g, t]))
+            m.GenCapacityInTP[g, t]
+            * m.gen_availability[g]
+            * m.gen_max_commit_fraction[g, t]
+        ),
+    )
     mod.Enforce_Commit_Lower_Limit = Constraint(
         mod.GEN_TPS,
-        rule=lambda m, g, t: (
-            m.CommitLowerLimit[g, t] <= m.CommitGen[g, t]))
+        rule=lambda m, g, t: (m.CommitLowerLimit[g, t] <= m.CommitGen[g, t]),
+    )
     mod.Enforce_Commit_Upper_Limit = Constraint(
         mod.GEN_TPS,
-        rule=lambda m, g, t: (
-            m.CommitGen[g, t] <= m.CommitUpperLimit[g, t]))
+        rule=lambda m, g, t: (m.CommitGen[g, t] <= m.CommitUpperLimit[g, t]),
+    )
     mod.CommitSlackUp = Expression(
-        mod.GEN_TPS,
-        rule=lambda m, g, t: (
-            m.CommitUpperLimit[g, t] - m.CommitGen[g, t]))
+        mod.GEN_TPS, rule=lambda m, g, t: (m.CommitUpperLimit[g, t] - m.CommitGen[g, t])
+    )
     mod.CommitSlackDown = Expression(
-        mod.GEN_TPS,
-        rule=lambda m, g, t: (
-            m.CommitGen[g, t] - m.CommitLowerLimit[g, t]))
+        mod.GEN_TPS, rule=lambda m, g, t: (m.CommitGen[g, t] - m.CommitLowerLimit[g, t])
+    )
     # StartupGenCapacity & ShutdownGenCapacity (at start of each timepoint)
-    mod.StartupGenCapacity = Var(
-        mod.GEN_TPS,
-        within=NonNegativeReals)
-    mod.ShutdownGenCapacity = Var(
-        mod.GEN_TPS,
-        within=NonNegativeReals)
+    mod.StartupGenCapacity = Var(mod.GEN_TPS, within=NonNegativeReals)
+    mod.ShutdownGenCapacity = Var(mod.GEN_TPS, within=NonNegativeReals)
     mod.Commit_StartupGenCapacity_ShutdownGenCapacity_Consistency = Constraint(
         mod.GEN_TPS,
-        rule=lambda m, g, t:
-            m.CommitGen[g, m.tp_previous[t]]
-            + m.StartupGenCapacity[g, t] - m.ShutdownGenCapacity[g, t]
-            == m.CommitGen[g, t])
+        rule=lambda m, g, t: m.CommitGen[g, m.tp_previous[t]]
+        + m.StartupGenCapacity[g, t]
+        - m.ShutdownGenCapacity[g, t]
+        == m.CommitGen[g, t],
+    )
 
     # StartupGenCapacity costs
     mod.gen_startup_fuel = Param(mod.FUEL_BASED_GENS, default=0.0)
@@ -277,38 +279,44 @@ def define_components(mod):
     mod.Total_StartupGenCapacity_OM_Costs = Expression(
         mod.TIMEPOINTS,
         rule=lambda m, t: sum(
-            m.gen_startup_om[g] * m.StartupGenCapacity[g, t]
-            / m.tp_duration_hrs[t]
+            m.gen_startup_om[g] * m.StartupGenCapacity[g, t] / m.tp_duration_hrs[t]
             for g in m.GENS_IN_PERIOD[m.tp_period[t]]
-        )
+        ),
     )
-    mod.Cost_Components_Per_TP.append('Total_StartupGenCapacity_OM_Costs')
+    mod.Cost_Components_Per_TP.append("Total_StartupGenCapacity_OM_Costs")
 
     mod.gen_min_uptime = Param(
-        mod.GENERATION_PROJECTS,
-        within=NonNegativeReals,
-        default=0.0)
+        mod.GENERATION_PROJECTS, within=NonNegativeReals, default=0.0
+    )
     mod.gen_min_downtime = Param(
-        mod.GENERATION_PROJECTS,
-        within=NonNegativeReals,
-        default=0.0)
-    mod.UPTIME_CONSTRAINED_GEN_TPS = Set(dimen=2, initialize=lambda m: [
-        (g, tp)
-            for g in m.GENERATION_PROJECTS if m.gen_min_uptime[g] > 0.0
-                for tp in m.TPS_FOR_GEN[g]
-    ])
-    mod.DOWNTIME_CONSTRAINED_GEN_TPS = Set(dimen=2, initialize=lambda m: [
-        (g, tp)
-            for g in m.GENERATION_PROJECTS if m.gen_min_downtime[g] > 0.0
-                for tp in m.TPS_FOR_GEN[g]
-    ])
+        mod.GENERATION_PROJECTS, within=NonNegativeReals, default=0.0
+    )
+    mod.UPTIME_CONSTRAINED_GEN_TPS = Set(
+        dimen=2,
+        initialize=lambda m: [
+            (g, tp)
+            for g in m.GENERATION_PROJECTS
+            if m.gen_min_uptime[g] > 0.0
+            for tp in m.TPS_FOR_GEN[g]
+        ],
+    )
+    mod.DOWNTIME_CONSTRAINED_GEN_TPS = Set(
+        dimen=2,
+        initialize=lambda m: [
+            (g, tp)
+            for g in m.GENERATION_PROJECTS
+            if m.gen_min_downtime[g] > 0.0
+            for tp in m.TPS_FOR_GEN[g]
+        ],
+    )
 
     def tp_prev(m, tp, n=1):
         # find nth previous timepoint, wrapping from start to end of day
         return m.TPS_IN_TS[m.tp_ts[tp]].prevw(tp, n)
+
     # min_time_projects = set()
     def min_time_rule(m, g, tp, up):
-        """ This uses a simple rule: all capacity turned on in the last x
+        """This uses a simple rule: all capacity turned on in the last x
         hours must still be on now (or all capacity recently turned off
         must still be off)."""
 
@@ -316,10 +324,12 @@ def define_components(mod):
         # started/shutdown?
         # note: StartupGenCapacity and ShutdownGenCapacity are assumed to
         # occur at the start of the timepoint
-        n_tp = int(round(
-            (m.gen_min_uptime[g] if up else m.gen_min_downtime[g])
-            / m.tp_duration_hrs[tp]
-        ))
+        n_tp = int(
+            round(
+                (m.gen_min_uptime[g] if up else m.gen_min_downtime[g])
+                / m.tp_duration_hrs[tp]
+            )
+        )
         if n_tp == 0:
             # project can be shutdown and restarted in the same timepoint
             rule = Constraint.Skip
@@ -332,10 +342,8 @@ def define_components(mod):
                     # online capacity >= recent startups
                     # (all recent startups are still online)
                     m.CommitGen[g, tp]
-                    >=
-                    sum(
-                        m.StartupGenCapacity[g, tp_prev(m, tp, i)]
-                        for i in range(n_tp)
+                    >= sum(
+                        m.StartupGenCapacity[g, tp_prev(m, tp, i)] for i in range(n_tp)
                     )
                 )
             else:
@@ -348,67 +356,63 @@ def define_components(mod):
                 # online in the prior step.
                 committable_fraction = m.gen_availability[g] * max(
                     m.gen_max_commit_fraction[g, tp_prev(m, tp, i)]
-                        for i in range(n_tp+1)
+                    for i in range(n_tp + 1)
                 )
                 rule = (
                     # committable capacity - committed >= recent shutdowns
                     # (all recent shutdowns are still offline)
-                    m.GenCapacityInTP[g, tp] * committable_fraction
-                    - m.CommitGen[g, tp]
-                    >=
-                    sum(
-                        m.ShutdownGenCapacity[g, tp_prev(m, tp, i)]
-                        for i in range(n_tp)
+                    m.GenCapacityInTP[g, tp] * committable_fraction - m.CommitGen[g, tp]
+                    >= sum(
+                        m.ShutdownGenCapacity[g, tp_prev(m, tp, i)] for i in range(n_tp)
                     )
                 )
         return rule
+
     mod.Enforce_Min_Uptime = Constraint(
-        mod.UPTIME_CONSTRAINED_GEN_TPS,
-        rule=lambda *a: min_time_rule(*a, up=True)
+        mod.UPTIME_CONSTRAINED_GEN_TPS, rule=lambda *a: min_time_rule(*a, up=True)
     )
     mod.Enforce_Min_Downtime = Constraint(
-        mod.DOWNTIME_CONSTRAINED_GEN_TPS,
-        rule=lambda *a: min_time_rule(*a, up=False)
+        mod.DOWNTIME_CONSTRAINED_GEN_TPS, rule=lambda *a: min_time_rule(*a, up=False)
     )
 
     # Dispatch limits relative to committed capacity.
     mod.gen_min_load_fraction = Param(
         mod.GENERATION_PROJECTS,
         within=PercentFraction,
-        default=lambda m, g: 1.0 if m.gen_is_baseload[g] else 0.0)
+        default=lambda m, g: 1.0 if m.gen_is_baseload[g] else 0.0,
+    )
     mod.gen_min_load_fraction_TP = Param(
-        mod.GEN_TPS,
-        default=lambda m, g, t: m.gen_min_load_fraction[g])
+        mod.GEN_TPS, default=lambda m, g, t: m.gen_min_load_fraction[g]
+    )
     mod.DispatchLowerLimit = Expression(
         mod.GEN_TPS,
-        rule=lambda m, g, t: (
-            m.CommitGen[g, t] * m.gen_min_load_fraction_TP[g, t]))
+        rule=lambda m, g, t: (m.CommitGen[g, t] * m.gen_min_load_fraction_TP[g, t]),
+    )
 
     def DispatchUpperLimit_expr(m, g, t):
         if g in m.VARIABLE_GENS:
-            return m.CommitGen[g, t]*m.gen_max_capacity_factor[g, t]
+            return m.CommitGen[g, t] * m.gen_max_capacity_factor[g, t]
         else:
             return m.CommitGen[g, t]
-    mod.DispatchUpperLimit = Expression(
-        mod.GEN_TPS,
-        rule=DispatchUpperLimit_expr)
+
+    mod.DispatchUpperLimit = Expression(mod.GEN_TPS, rule=DispatchUpperLimit_expr)
 
     mod.Enforce_Dispatch_Lower_Limit = Constraint(
         mod.GEN_TPS,
-        rule=lambda m, g, t: (
-            m.DispatchLowerLimit[g, t] <= m.DispatchGen[g, t]))
+        rule=lambda m, g, t: (m.DispatchLowerLimit[g, t] <= m.DispatchGen[g, t]),
+    )
     mod.Enforce_Dispatch_Upper_Limit = Constraint(
         mod.GEN_TPS,
-        rule=lambda m, g, t: (
-            m.DispatchGen[g, t] <= m.DispatchUpperLimit[g, t]))
+        rule=lambda m, g, t: (m.DispatchGen[g, t] <= m.DispatchUpperLimit[g, t]),
+    )
     mod.DispatchSlackUp = Expression(
         mod.GEN_TPS,
-        rule=lambda m, g, t: (
-            m.DispatchUpperLimit[g, t] - m.DispatchGen[g, t]))
+        rule=lambda m, g, t: (m.DispatchUpperLimit[g, t] - m.DispatchGen[g, t]),
+    )
     mod.DispatchSlackDown = Expression(
         mod.GEN_TPS,
-        rule=lambda m, g, t: (
-            m.DispatchGen[g, t] - m.DispatchLowerLimit[g, t]))
+        rule=lambda m, g, t: (m.DispatchGen[g, t] - m.DispatchLowerLimit[g, t]),
+    )
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -434,13 +438,23 @@ def load_inputs(mod, switch_data, inputs_dir):
     """
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'generation_projects_info.csv'),
+        filename=os.path.join(inputs_dir, "generation_projects_info.csv"),
         auto_select=True,
-        param=(mod.gen_min_load_fraction, mod.gen_startup_fuel,
-               mod.gen_startup_om, mod.gen_min_uptime, mod.gen_min_downtime))
+        param=(
+            mod.gen_min_load_fraction,
+            mod.gen_startup_fuel,
+            mod.gen_startup_om,
+            mod.gen_min_uptime,
+            mod.gen_min_downtime,
+        ),
+    )
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'gen_timepoint_commit_bounds.csv'),
+        filename=os.path.join(inputs_dir, "gen_timepoint_commit_bounds.csv"),
         auto_select=True,
-        param=(mod.gen_min_commit_fraction,
-            mod.gen_max_commit_fraction, mod.gen_min_load_fraction_TP))
+        param=(
+            mod.gen_min_commit_fraction,
+            mod.gen_max_commit_fraction,
+            mod.gen_min_load_fraction_TP,
+        ),
+    )

@@ -14,7 +14,8 @@ INPUT FILE INFORMATION
 """
 from pyomo.environ import *
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones'
+dependencies = "switch_model.timescales", "switch_model.balancing.load_zones"
+
 
 def define_components(mod):
     """
@@ -40,14 +41,17 @@ def define_components(mod):
     mod.zone_balancing_area = Param(
         mod.LOAD_ZONES,
         input_file="load_zones.csv",
-        default='system_wide_balancing_area', within=Any)
+        default="system_wide_balancing_area",
+        within=Any,
+    )
     mod.BALANCING_AREAS = Set(
         ordered=False,
-        initialize=lambda m: set(
-        m.zone_balancing_area[z] for z in m.LOAD_ZONES))
+        initialize=lambda m: set(m.zone_balancing_area[z] for z in m.LOAD_ZONES),
+    )
     mod.ZONES_IN_BALANCING_AREA = Set(
         mod.BALANCING_AREAS,
         initialize=lambda m, b: (
-            z for z in m.LOAD_ZONES if m.zone_balancing_area[z] == b))
-    mod.BALANCING_AREA_TIMEPOINTS = Set(
-        initialize=mod.BALANCING_AREAS * mod.TIMEPOINTS)
+            z for z in m.LOAD_ZONES if m.zone_balancing_area[z] == b
+        ),
+    )
+    mod.BALANCING_AREA_TIMEPOINTS = Set(initialize=mod.BALANCING_AREAS * mod.TIMEPOINTS)

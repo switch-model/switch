@@ -8,7 +8,8 @@ from matplotlib.ticker import PercentFormatter
 from switch_model.tools.graph.main import GraphTools
 from papers.Martin_Staadecker_et_al_2022.util import (
     get_scenario,
-    set_style, save_figure,
+    set_style,
+    save_figure,
 )
 
 scenarios_supplementary = [
@@ -56,7 +57,7 @@ def get_data(scenario_index):
     duration = duration[duration["period"] == 2050].drop(columns="period")
     duration = duration.groupby("gen_load_zone", as_index=False).sum()
     duration["value"] = (
-            duration["OnlineEnergyCapacityMWh"] / duration["OnlinePowerCapacityMW"]
+        duration["OnlineEnergyCapacityMWh"] / duration["OnlinePowerCapacityMW"]
     )
     duration = duration[["gen_load_zone", "value", "OnlinePowerCapacityMW"]]
     duration["OnlinePowerCapacityMW"] *= 1e-3
@@ -69,7 +70,7 @@ def get_data(scenario_index):
     duration = duration.join(demand)
     duration = duration.reset_index()
     duration["percent_power"] = (
-            duration["OnlinePowerCapacityMW"] / duration["zone_demand_mw"] * 100
+        duration["OnlinePowerCapacityMW"] / duration["zone_demand_mw"] * 100
     )
 
     return df, duration
@@ -196,8 +197,8 @@ df = df_baseline.join(df_compare, lsuffix="_base", rsuffix="_compare")
 #     df["OnlineEnergyCapacityMWh_compare"] - df["OnlineEnergyCapacityMWh_base"]
 # ) * 1e-3
 df["change_in_cap"] = (
-                              df["OnlineEnergyCapacityMWh_compare"] / df["OnlineEnergyCapacityMWh_base"]
-                      ) * 100 - 100
+    df["OnlineEnergyCapacityMWh_compare"] / df["OnlineEnergyCapacityMWh_base"]
+) * 100 - 100
 df = df["change_in_cap"]
 # df = df[df > 0]
 # df.sum()
@@ -247,7 +248,7 @@ df_compare = df[df.scenario_index == 0]
 df_baseline = df[df.scenario_index == 1]
 df = df_baseline.join(df_compare, lsuffix="_base", rsuffix="_compare")
 df["change_in_cap"] = (
-        df["OnlineEnergyCapacityMWh_compare"] - df["OnlineEnergyCapacityMWh_base"]
+    df["OnlineEnergyCapacityMWh_compare"] - df["OnlineEnergyCapacityMWh_base"]
 )
 # df["change_in_cap"] = (df["OnlineEnergyCapacityMWh_compare"] / df["OnlineEnergyCapacityMWh_base"]) * 100
 df = df["change_in_cap"]

@@ -8,6 +8,7 @@ from switch_model.utilities import query_yes_no, StepTimer
 from switch_model.wecc.get_inputs.get_inputs import query_db
 from switch_model.wecc.utilities import load_config
 
+
 def main():
     timer = StepTimer()
 
@@ -56,7 +57,7 @@ def main():
     post_process_path = ".".join(__name__.split(".")[:-1]) + ".post_process_steps"
 
     def run_post_process(module):
-        """ Run a function from a given module """
+        """Run a function from a given module"""
 
         # This uses python module syntax with a dot. Example: import foo.bar.test
         mod = importlib.import_module(f".{module}", post_process_path)
@@ -65,7 +66,10 @@ def main():
 
         # Get specific configuration for the post process if specified
         post_config = None
-        if "post_process_config" in full_config and full_config["post_process_config"] is not None:
+        if (
+            "post_process_config" in full_config
+            and full_config["post_process_config"] is not None
+        ):
             post_config = full_config["post_process_config"].get(module, None)
 
         # Run post process

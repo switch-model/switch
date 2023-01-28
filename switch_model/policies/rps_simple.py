@@ -1,4 +1,5 @@
 from __future__ import division
+
 # Copyright 2017 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2, which is in the LICENSE file.
 
@@ -22,6 +23,7 @@ TODO:
 Allow the usage of the commit module.
 
 """
+
 
 def define_components(mod):
     """
@@ -62,56 +64,60 @@ def define_components(mod):
 
     """
 
-    mod.f_rps_eligible = Param(
-        mod.FUELS,
-        within=Boolean,
-        default=False)
+    mod.f_rps_eligible = Param(mod.FUELS, within=Boolean, default=False)
     mod.RPS_ENERGY_SOURCES = Set(
         ordered=False,
-        initialize=lambda m: set(m.NON_FUEL_ENERGY_SOURCES) | \
-            set(f for f in m.FUELS if m.f_rps_eligible[f]))
+        initialize=lambda m: set(m.NON_FUEL_ENERGY_SOURCES)
+        | set(f for f in m.FUELS if m.f_rps_eligible[f]),
+    )
 
-    mod.RPS_PERIODS = Set(
-        dimen=1,
-        validate=lambda m, p: p in m.PERIODS)
-    mod.rps_target = Param(
-        mod.RPS_PERIODS,
-        within=PercentFraction)
+    mod.RPS_PERIODS = Set(dimen=1, validate=lambda m, p: p in m.PERIODS)
+    mod.rps_target = Param(mod.RPS_PERIODS, within=PercentFraction)
 
     mod.RPSFuelEnergy = Expression(
         mod.RPS_PERIODS,
         rule=lambda m, p: sum(
-            m.tp_weight[t] *
-            sum(
+            m.tp_weight[t]
+            * sum(
                 m.GenFuelUseRate[g, t, f]
                 for f in m.FUELS_FOR_GEN[g]
                 if m.f_rps_eligible[f]
-            ) / m.gen_full_load_heat_rate[g]
+            )
+            / m.gen_full_load_heat_rate[g]
             for g in m.FUEL_BASED_GENS
-            for t in m.TPS_FOR_GEN_IN_PERIOD[g, p])
-        )
+            for t in m.TPS_FOR_GEN_IN_PERIOD[g, p]
+        ),
+    )
     mod.RPSNonFuelEnergy = Expression(
         mod.RPS_PERIODS,
-        rule=lambda m, p: sum(m.DispatchGen[g, t] * m.tp_weight[t]
+        rule=lambda m, p: sum(
+            m.DispatchGen[g, t] * m.tp_weight[t]
             for g in m.NON_FUEL_BASED_GENS
-                for t in m.TPS_FOR_GEN_IN_PERIOD[g, p]))
+            for t in m.TPS_FOR_GEN_IN_PERIOD[g, p]
+        ),
+    )
 
     mod.RPS_Enforce_Target = Constraint(
         mod.RPS_PERIODS,
-        rule=lambda m, p: (m.RPSFuelEnergy[p] + m.RPSNonFuelEnergy[p] >=
-            m.rps_target[p] * total_demand_in_period(m, p)))
+        rule=lambda m, p: (
+            m.RPSFuelEnergy[p] + m.RPSNonFuelEnergy[p]
+            >= m.rps_target[p] * total_demand_in_period(m, p)
+        ),
+    )
 
 
 def total_generation_in_period(model, period):
     return sum(
         model.DispatchGen[g, t] * model.tp_weight[t]
         for g in model.GENERATION_PROJECTS
-            for t in model.TPS_FOR_GEN_IN_PERIOD[g, period])
+        for t in model.TPS_FOR_GEN_IN_PERIOD[g, period]
+    )
 
 
 def total_demand_in_period(model, period):
-    return sum(model.zone_total_demand_in_period_mwh[zone, period]
-               for zone in model.LOAD_ZONES)
+    return sum(
+        model.zone_total_demand_in_period_mwh[zone, period] for zone in model.LOAD_ZONES
+    )
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -132,15 +138,17 @@ def load_inputs(mod, switch_data, inputs_dir):
     """
 
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'fuels.csv'),
-        select=('fuel','f_rps_eligible'),
-        optional_params=['f_rps_eligible'],
-        param=(mod.f_rps_eligible,))
+        filename=os.path.join(inputs_dir, "fuels.csv"),
+        select=("fuel", "f_rps_eligible"),
+        optional_params=["f_rps_eligible"],
+        param=(mod.f_rps_eligible,),
+    )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'rps_targets.csv'),
+        filename=os.path.join(inputs_dir, "rps_targets.csv"),
         autoselect=True,
         index=mod.RPS_PERIODS,
-        param=(mod.rps_target,))
+        param=(mod.rps_target,),
+    )
 
 
 def post_solve(instance, outdir):
@@ -150,21 +158,34 @@ def post_solve(instance, outdir):
     """
 
     import switch_model.reporting as reporting
+
     def get_row(m, p):
         row = (p,)
         row += (m.RPSFuelEnergy[p] / 1000,)
         row += (m.RPSNonFuelEnergy[p] / 1000,)
-        row += (total_generation_in_period(m,p) / 1000,)
-        row += ((m.RPSFuelEnergy[p] + m.RPSNonFuelEnergy[p]) /
-            total_generation_in_period(m,p),)
+        row += (total_generation_in_period(m, p) / 1000,)
+        row += (
+            (m.RPSFuelEnergy[p] + m.RPSNonFuelEnergy[p])
+            / total_generation_in_period(m, p),
+        )
         row += (total_demand_in_period(m, p),)
-        row += ((m.RPSFuelEnergy[p] + m.RPSNonFuelEnergy[p]) /
-            total_demand_in_period(m, p),)
+        row += (
+            (m.RPSFuelEnergy[p] + m.RPSNonFuelEnergy[p]) / total_demand_in_period(m, p),
+        )
         return row
+
     reporting.write_table(
-        instance, instance.RPS_PERIODS,
+        instance,
+        instance.RPS_PERIODS,
         output_file=os.path.join(outdir, "rps_energy.csv"),
-        headings=("PERIOD", "RPSFuelEnergyGWh", "RPSNonFuelEnergyGWh",
-            "TotalGenerationInPeriodGWh", "RPSGenFraction",
-            "TotalSalesInPeriodGWh", "RPSSalesFraction"),
-        values=get_row)
+        headings=(
+            "PERIOD",
+            "RPSFuelEnergyGWh",
+            "RPSNonFuelEnergyGWh",
+            "TotalGenerationInPeriodGWh",
+            "RPSGenFraction",
+            "TotalSalesInPeriodGWh",
+            "RPSSalesFraction",
+        ),
+        values=get_row,
+    )

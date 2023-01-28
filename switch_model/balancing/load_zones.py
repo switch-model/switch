@@ -29,8 +29,9 @@ from pyomo.environ import *
 from switch_model.reporting import write_table
 from switch_model.tools.graph import graph
 
-dependencies = 'switch_model.timescales'
-optional_dependencies = 'switch_model.transmission.local_td'
+dependencies = "switch_model.timescales"
+optional_dependencies = "switch_model.transmission.local_td"
+
 
 def define_dynamic_lists(mod):
     """
@@ -98,44 +99,50 @@ def define_components(mod):
 
     """
 
-    mod.LOAD_ZONES = Set(dimen=1, input_file='load_zones.csv')
-    mod.ZONE_TIMEPOINTS = Set(dimen=2,
+    mod.LOAD_ZONES = Set(dimen=1, input_file="load_zones.csv")
+    mod.ZONE_TIMEPOINTS = Set(
+        dimen=2,
         initialize=lambda m: m.LOAD_ZONES * m.TIMEPOINTS,
-        doc="The cross product of load zones and timepoints, used for indexing.")
+        doc="The cross product of load zones and timepoints, used for indexing.",
+    )
     mod.zone_demand_mw = Param(
-        mod.ZONE_TIMEPOINTS,
-        input_file="loads.csv",
-        within=NonNegativeReals)
+        mod.ZONE_TIMEPOINTS, input_file="loads.csv", within=NonNegativeReals
+    )
     mod.zone_ccs_distance_km = Param(
         mod.LOAD_ZONES,
         within=NonNegativeReals,
         input_file="load_zones.csv",
-        default=0.0)
+        default=0.0,
+    )
     mod.zone_dbid = Param(
-        mod.LOAD_ZONES,
-        input_file="load_zones.csv",
-        default=lambda m, z: z)
-    mod.min_data_check('LOAD_ZONES', 'zone_demand_mw')
+        mod.LOAD_ZONES, input_file="load_zones.csv", default=lambda m, z: z
+    )
+    mod.min_data_check("LOAD_ZONES", "zone_demand_mw")
     try:
-        mod.Distributed_Power_Withdrawals.append('zone_demand_mw')
+        mod.Distributed_Power_Withdrawals.append("zone_demand_mw")
     except AttributeError:
-        mod.Zone_Power_Withdrawals.append('zone_demand_mw')
+        mod.Zone_Power_Withdrawals.append("zone_demand_mw")
 
     mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS = Set(
-        dimen=2, within=mod.LOAD_ZONES * mod.PERIODS,
+        dimen=2,
+        within=mod.LOAD_ZONES * mod.PERIODS,
         input_file="zone_coincident_peak_demand.csv",
         input_optional=True,
-        doc="Zone-Period combinations with zone_expected_coincident_peak_demand data.")
+        doc="Zone-Period combinations with zone_expected_coincident_peak_demand data.",
+    )
     mod.zone_expected_coincident_peak_demand = Param(
         mod.EXTERNAL_COINCIDENT_PEAK_DEMAND_ZONE_PERIODS,
         input_file="zone_coincident_peak_demand.csv",
-        within=NonNegativeReals)
+        within=NonNegativeReals,
+    )
     mod.zone_total_demand_in_period_mwh = Param(
-        mod.LOAD_ZONES, mod.PERIODS,
+        mod.LOAD_ZONES,
+        mod.PERIODS,
         within=NonNegativeReals,
         initialize=lambda m, z, p: (
-            sum(m.zone_demand_mw[z, t] * m.tp_weight[t]
-                for t in m.TPS_IN_PERIOD[p])))
+            sum(m.zone_demand_mw[z, t] * m.tp_weight[t] for t in m.TPS_IN_PERIOD[p])
+        ),
+    )
 
     # Make sure the model has duals enabled since we use the duals in post_solve()
     mod.enable_duals()
@@ -159,12 +166,12 @@ def define_dynamic_components(mod):
     mod.Zone_Energy_Balance = Constraint(
         mod.ZONE_TIMEPOINTS,
         rule=lambda m, z, t: (
-            sum(
-                getattr(m, component)[z, t]
-                for component in m.Zone_Power_Injections
-            ) == sum(
-                getattr(m, component)[z, t]
-                for component in m.Zone_Power_Withdrawals)))
+            sum(getattr(m, component)[z, t] for component in m.Zone_Power_Injections)
+            == sum(
+                getattr(m, component)[z, t] for component in m.Zone_Power_Withdrawals
+            )
+        ),
+    )
 
 
 def post_solve(instance, outdir):
@@ -190,23 +197,28 @@ def post_solve(instance, outdir):
     throughout a year across all zones.
     """
     write_table(
-        instance, instance.LOAD_ZONES, instance.TIMEPOINTS,
+        instance,
+        instance.LOAD_ZONES,
+        instance.TIMEPOINTS,
         output_file=os.path.join(outdir, "load_balance.csv"),
-        headings=("load_zone", "timestamp", "normalized_energy_balance_duals_dollar_per_mwh",) + tuple(
-            instance.Zone_Power_Injections +
-            instance.Zone_Power_Withdrawals),
-        values=lambda m, z, t:
-        (
+        headings=(
+            "load_zone",
+            "timestamp",
+            "normalized_energy_balance_duals_dollar_per_mwh",
+        )
+        + tuple(instance.Zone_Power_Injections + instance.Zone_Power_Withdrawals),
+        values=lambda m, z, t: (
             z,
             m.tp_timestamp[t],
             m.get_dual(
                 "Zone_Energy_Balance",
-                z, t,
-                divider=m.bring_timepoint_costs_to_base_year[t]
-            )
+                z,
+                t,
+                divider=m.bring_timepoint_costs_to_base_year[t],
+            ),
         )
         + tuple(getattr(m, component)[z, t] for component in m.Zone_Power_Injections)
-        + tuple(-getattr(m, component)[z, t] for component in m.Zone_Power_Withdrawals)
+        + tuple(-getattr(m, component)[z, t] for component in m.Zone_Power_Withdrawals),
     )
 
     def get_component_per_year(m, z, p, component):
@@ -214,41 +226,65 @@ def post_solve(instance, outdir):
         Returns the weighted sum of component across all timepoints in the given period.
         The components must be indexed by zone and timepoint.
         """
-        return sum(getattr(m, component)[z, t] * m.tp_weight_in_year[t] for t in m.TPS_IN_PERIOD[p])
+        return sum(
+            getattr(m, component)[z, t] * m.tp_weight_in_year[t]
+            for t in m.TPS_IN_PERIOD[p]
+        )
 
     write_table(
-        instance, instance.LOAD_ZONES, instance.PERIODS,
+        instance,
+        instance.LOAD_ZONES,
+        instance.PERIODS,
         output_file=os.path.join(outdir, "load_balance_annual_zonal.csv"),
-        headings=("load_zone", "period",) + tuple(instance.Zone_Power_Injections + instance.Zone_Power_Withdrawals),
-        values=lambda m, z, p:
-        (z, p)
-        + tuple(get_component_per_year(m, z, p, component) for component in m.Zone_Power_Injections)
-        + tuple(-get_component_per_year(m, z, p, component) for component in m.Zone_Power_Withdrawals)
+        headings=(
+            "load_zone",
+            "period",
+        )
+        + tuple(instance.Zone_Power_Injections + instance.Zone_Power_Withdrawals),
+        values=lambda m, z, p: (z, p)
+        + tuple(
+            get_component_per_year(m, z, p, component)
+            for component in m.Zone_Power_Injections
+        )
+        + tuple(
+            -get_component_per_year(m, z, p, component)
+            for component in m.Zone_Power_Withdrawals
+        ),
     )
 
     write_table(
-        instance, instance.PERIODS,
+        instance,
+        instance.PERIODS,
         output_file=os.path.join(outdir, "load_balance_annual.csv"),
-        headings=("period",) + tuple(instance.Zone_Power_Injections + instance.Zone_Power_Withdrawals),
-        values=lambda m, p:
-        (p,)
-        + tuple(sum(get_component_per_year(m, z, p, component) for z in m.LOAD_ZONES)
-                for component in m.Zone_Power_Injections)
-        + tuple(-sum(get_component_per_year(m, z, p, component) for z in m.LOAD_ZONES)
-                for component in m.Zone_Power_Withdrawals)
+        headings=("period",)
+        + tuple(instance.Zone_Power_Injections + instance.Zone_Power_Withdrawals),
+        values=lambda m, p: (p,)
+        + tuple(
+            sum(get_component_per_year(m, z, p, component) for z in m.LOAD_ZONES)
+            for component in m.Zone_Power_Injections
+        )
+        + tuple(
+            -sum(get_component_per_year(m, z, p, component) for z in m.LOAD_ZONES)
+            for component in m.Zone_Power_Withdrawals
+        ),
     )
 
 
 @graph(
     "energy_balance_duals",
     title="Energy balance duals per period",
-    note="Note: Outliers and zero-valued duals are ignored."
+    note="Note: Outliers and zero-valued duals are ignored.",
 )
 def graph_energy_balance(tools):
-    load_balance = tools.get_dataframe('load_balance.csv')
+    load_balance = tools.get_dataframe("load_balance.csv")
     load_balance = tools.transform.timestamp(load_balance)
-    load_balance["energy_balance_duals"] = tools.pd.to_numeric(
-        load_balance["normalized_energy_balance_duals_dollar_per_mwh"], errors="coerce") / 10
+    load_balance["energy_balance_duals"] = (
+        tools.pd.to_numeric(
+            load_balance["normalized_energy_balance_duals_dollar_per_mwh"],
+            errors="coerce",
+        )
+        / 10
+    )
     load_balance = load_balance[["energy_balance_duals", "time_row"]]
     load_balance = load_balance.pivot(columns="time_row", values="energy_balance_duals")
     percent_of_zeroes = sum(load_balance == 0) / len(load_balance) * 100
@@ -257,48 +293,48 @@ def graph_energy_balance(tools):
     if load_balance.count().sum() != 0:
         load_balance.plot.box(
             ax=tools.get_axes(note=f"{percent_of_zeroes:.1f}% of duals are zero"),
-            xlabel='Period',
-            ylabel='Energy balance duals (cents/kWh)',
-            showfliers=False
+            xlabel="Period",
+            ylabel="Energy balance duals (cents/kWh)",
+            showfliers=False,
         )
 
 
-@graph(
-    "daily_demand",
-    title="Total daily demand",
-    supports_multi_scenario=True
-)
+@graph("daily_demand", title="Total daily demand", supports_multi_scenario=True)
 def demand(tools):
     df = tools.get_dataframe("loads.csv", from_inputs=True, drop_scenario_info=False)
     df = df.groupby(["TIMEPOINT", "scenario_name"], as_index=False).sum()
     df = tools.transform.timestamp(df, key_col="TIMEPOINT", use_timepoint=True)
-    df = df.groupby(["season", "hour", "scenario_name", "time_row"], as_index=False).mean()
+    df = df.groupby(
+        ["season", "hour", "scenario_name", "time_row"], as_index=False
+    ).mean()
     df["zone_demand_mw"] /= 1e3
     pn = tools.pn
 
-    plot = pn.ggplot(df) + \
-           pn.geom_line(pn.aes(x="hour", y="zone_demand_mw", color="scenario_name")) + \
-           pn.facet_grid("time_row ~ season") + \
-           pn.labs(x="Hour (PST)", y="Demand (GW)", color="Scenario")
+    plot = (
+        pn.ggplot(df)
+        + pn.geom_line(pn.aes(x="hour", y="zone_demand_mw", color="scenario_name"))
+        + pn.facet_grid("time_row ~ season")
+        + pn.labs(x="Hour (PST)", y="Demand (GW)", color="Scenario")
+    )
     tools.save_figure(plot.draw())
 
 
-@graph(
-    "demand",
-    title="Total demand",
-    supports_multi_scenario=True
-)
+@graph("demand", title="Total demand", supports_multi_scenario=True)
 def yearly_demand(tools):
     df = tools.get_dataframe("loads.csv", from_inputs=True, drop_scenario_info=False)
     df = df.groupby(["TIMEPOINT", "scenario_name"], as_index=False).sum()
     df = tools.transform.timestamp(df, key_col="TIMEPOINT", use_timepoint=True)
     df["zone_demand_mw"] *= df["tp_duration"] / 1e3
     df["day"] = df["datetime"].dt.day_of_year
-    df = df.groupby(["day", "scenario_name", "time_row"], as_index=False)["zone_demand_mw"].sum()
+    df = df.groupby(["day", "scenario_name", "time_row"], as_index=False)[
+        "zone_demand_mw"
+    ].sum()
     pn = tools.pn
 
-    plot = pn.ggplot(df) + \
-           pn.geom_line(pn.aes(x="day", y="zone_demand_mw", color="scenario_name")) + \
-           pn.facet_grid("time_row ~ .") + \
-           pn.labs(x="Day of Year", y="Demand (GW)", color="Scenario")
+    plot = (
+        pn.ggplot(df)
+        + pn.geom_line(pn.aes(x="day", y="zone_demand_mw", color="scenario_name"))
+        + pn.facet_grid("time_row ~ .")
+        + pn.labs(x="Day of Year", y="Demand (GW)", color="Scenario")
+    )
     tools.save_figure(plot.draw())

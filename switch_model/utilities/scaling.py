@@ -73,6 +73,7 @@ class ScaledVariable:
     that is 10x ours, and so the variables coefficient's will be 1/10th
     of ours.
     """
+
     def __new__(cls, *args, scaling_factor=1, **kwargs):
         # If scaling is enabled and scaling_factor is not 1
         # return an instance of _ScaledVariable
@@ -95,12 +96,15 @@ class _ScaledVariable(Var):
     it gets assigned with a prefix "_scaled_" and an expression
     representing the unscaled variable is put in its place.
     """
+
     def __init__(self, *args, scaling_factor, bounds=None, **kwargs):
         # We store *args since we need to iterate over the same set when creating the unscaled expression
         self.args = args
         self.scaling_factor = scaling_factor
         self.scaled_name = None  # Gets set later by _AbstractModel
-        self.unscaled_name = None  # Gets set later when an unscaled expression is created
+        self.unscaled_name = (
+            None  # Gets set later when an unscaled expression is created
+        )
 
         if bounds is None:
             scaled_bounds = None
@@ -144,12 +148,16 @@ def _get_unscaled_expression(scaled_var: _ScaledVariable, **kwargs):
         v = getattr(m, scaled_var_name)
         return v[inner_args] / v.scaling_factor
 
-    unscaled_expr = Expression(*scaled_var.args, rule=unscaled_expression_rule, **kwargs)
+    unscaled_expr = Expression(
+        *scaled_var.args, rule=unscaled_expression_rule, **kwargs
+    )
     unscaled_expr.scaled_var_name = scaled_var_name
     return unscaled_expr
 
 
-def get_assign_default_value_rule(variable_name: str, default_value_parameter_name: str):
+def get_assign_default_value_rule(
+    variable_name: str, default_value_parameter_name: str
+):
     """
     Returns a rule that sets a default value for a variable.
 

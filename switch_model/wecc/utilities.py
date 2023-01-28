@@ -7,7 +7,9 @@ import yaml
 def load_config():
     """Read the config.yaml configuration file"""
     if not os.path.isfile("config.yaml"):
-        raise Exception("config.yaml does not exist. Try running 'switch new scenario' to auto-create it.")
+        raise Exception(
+            "config.yaml does not exist. Try running 'switch new scenario' to auto-create it."
+        )
     with open("config.yaml") as f:
         return yaml.load(f, Loader=yaml.FullLoader)
 

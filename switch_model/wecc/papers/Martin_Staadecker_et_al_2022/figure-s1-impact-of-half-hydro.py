@@ -1,13 +1,21 @@
 # %% IMPORT + CREATE tools
 from matplotlib import pyplot as plt
 
-from papers.Martin_Staadecker_et_al_2022.util import set_style, get_scenario, save_figure
+from papers.Martin_Staadecker_et_al_2022.util import (
+    set_style,
+    get_scenario,
+    save_figure,
+)
 from switch_model.tools.graph.main import GraphTools
 
-tools_baseline = GraphTools([get_scenario("1342", "Baseline Scenario")], set_style=False)
+tools_baseline = GraphTools(
+    [get_scenario("1342", "Baseline Scenario")], set_style=False
+)
 tools_baseline.pre_graphing(multi_scenario=False)
 
-tools_hydro = GraphTools([get_scenario("H050", "50% Hydro Scenario (from Set B)")], set_style=False)
+tools_hydro = GraphTools(
+    [get_scenario("H050", "50% Hydro Scenario (from Set B)")], set_style=False
+)
 tools_hydro.pre_graphing(multi_scenario=False)
 
 ROLLING_AVERAGE_DAYS = 7

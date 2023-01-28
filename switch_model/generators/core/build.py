@@ -41,8 +41,13 @@ from switch_model.reporting import write_table
 from switch_model.tools.graph import graph
 from switch_model.utilities.scaling import get_assign_default_value_rule
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
-    'switch_model.financials', 'switch_model.energy_sources.properties.properties'
+dependencies = (
+    "switch_model.timescales",
+    "switch_model.balancing.load_zones",
+    "switch_model.financials",
+    "switch_model.energy_sources.properties.properties",
+)
+
 
 def define_components(mod):
     """
@@ -221,35 +226,74 @@ def define_components(mod):
         mod.GENERATION_PROJECTS,
         input_file="generation_projects_info.csv",
         default=lambda m, g: g,
-        within=Any)
-    mod.gen_tech = Param(mod.GENERATION_PROJECTS,
-                         input_file="generation_projects_info.csv",
-                         within=Any)
-    mod.GENERATION_TECHNOLOGIES = Set(ordered=False, initialize=lambda m:
-    {m.gen_tech[g] for g in m.GENERATION_PROJECTS}
-                                      )
-    mod.gen_energy_source = Param(mod.GENERATION_PROJECTS, within=Any,
-                                  input_file="generation_projects_info.csv",
-
-                                  validate=lambda m, val, g: val in m.ENERGY_SOURCES or val == "multiple")
-    mod.gen_load_zone = Param(mod.GENERATION_PROJECTS, input_file="generation_projects_info.csv",
-                              within=mod.LOAD_ZONES)
-    mod.gen_max_age = Param(mod.GENERATION_PROJECTS, input_file="generation_projects_info.csv",
-                            within=PositiveIntegers)
-    mod.gen_is_variable = Param(mod.GENERATION_PROJECTS, input_file="generation_projects_info.csv",
-                                within=Boolean)
-    mod.gen_is_baseload = Param(mod.GENERATION_PROJECTS, input_file="generation_projects_info.csv",
-                                 within=Boolean, default=False)
-    mod.gen_is_cogen = Param(mod.GENERATION_PROJECTS, within=Boolean, default=False,
-                             input_file="generation_projects_info.csv")
-    mod.gen_is_distributed = Param(mod.GENERATION_PROJECTS, within=Boolean, default=False,
-                                   input_file="generation_projects_info.csv")
-    mod.gen_scheduled_outage_rate = Param(mod.GENERATION_PROJECTS, input_file="generation_projects_info.csv",
-                                          within=PercentFraction, default=0)
-    mod.gen_forced_outage_rate = Param(mod.GENERATION_PROJECTS, input_file="generation_projects_info.csv",
-                                       within=PercentFraction, default=0)
-    mod.min_data_check('GENERATION_PROJECTS', 'gen_tech', 'gen_energy_source',
-                       'gen_load_zone', 'gen_max_age', 'gen_is_variable')
+        within=Any,
+    )
+    mod.gen_tech = Param(
+        mod.GENERATION_PROJECTS, input_file="generation_projects_info.csv", within=Any
+    )
+    mod.GENERATION_TECHNOLOGIES = Set(
+        ordered=False,
+        initialize=lambda m: {m.gen_tech[g] for g in m.GENERATION_PROJECTS},
+    )
+    mod.gen_energy_source = Param(
+        mod.GENERATION_PROJECTS,
+        within=Any,
+        input_file="generation_projects_info.csv",
+        validate=lambda m, val, g: val in m.ENERGY_SOURCES or val == "multiple",
+    )
+    mod.gen_load_zone = Param(
+        mod.GENERATION_PROJECTS,
+        input_file="generation_projects_info.csv",
+        within=mod.LOAD_ZONES,
+    )
+    mod.gen_max_age = Param(
+        mod.GENERATION_PROJECTS,
+        input_file="generation_projects_info.csv",
+        within=PositiveIntegers,
+    )
+    mod.gen_is_variable = Param(
+        mod.GENERATION_PROJECTS,
+        input_file="generation_projects_info.csv",
+        within=Boolean,
+    )
+    mod.gen_is_baseload = Param(
+        mod.GENERATION_PROJECTS,
+        input_file="generation_projects_info.csv",
+        within=Boolean,
+        default=False,
+    )
+    mod.gen_is_cogen = Param(
+        mod.GENERATION_PROJECTS,
+        within=Boolean,
+        default=False,
+        input_file="generation_projects_info.csv",
+    )
+    mod.gen_is_distributed = Param(
+        mod.GENERATION_PROJECTS,
+        within=Boolean,
+        default=False,
+        input_file="generation_projects_info.csv",
+    )
+    mod.gen_scheduled_outage_rate = Param(
+        mod.GENERATION_PROJECTS,
+        input_file="generation_projects_info.csv",
+        within=PercentFraction,
+        default=0,
+    )
+    mod.gen_forced_outage_rate = Param(
+        mod.GENERATION_PROJECTS,
+        input_file="generation_projects_info.csv",
+        within=PercentFraction,
+        default=0,
+    )
+    mod.min_data_check(
+        "GENERATION_PROJECTS",
+        "gen_tech",
+        "gen_energy_source",
+        "gen_load_zone",
+        "gen_max_age",
+        "gen_is_variable",
+    )
 
     """Construct GENS_* indexed sets efficiently with a
     'construction dictionary' pattern: on the first call, make a single
@@ -257,7 +301,7 @@ def define_components(mod):
     use that for subsequent lookups, and clean up at the last call."""
 
     def GENS_IN_ZONE_init(m, z):
-        if not hasattr(m, 'GENS_IN_ZONE_dict'):
+        if not hasattr(m, "GENS_IN_ZONE_dict"):
             m.GENS_IN_ZONE_dict = {_z: [] for _z in m.LOAD_ZONES}
             for g in m.GENERATION_PROJECTS:
                 m.GENS_IN_ZONE_dict[m.gen_load_zone[g]].append(g)
@@ -265,22 +309,21 @@ def define_components(mod):
         if not m.GENS_IN_ZONE_dict:
             del m.GENS_IN_ZONE_dict
         return result
-    mod.GENS_IN_ZONE = Set(
-        mod.LOAD_ZONES,
-        initialize=GENS_IN_ZONE_init
-    )
+
+    mod.GENS_IN_ZONE = Set(mod.LOAD_ZONES, initialize=GENS_IN_ZONE_init)
     mod.VARIABLE_GENS = Set(
-        initialize=mod.GENERATION_PROJECTS,
-        filter=lambda m, g: m.gen_is_variable[g])
+        initialize=mod.GENERATION_PROJECTS, filter=lambda m, g: m.gen_is_variable[g]
+    )
     mod.VARIABLE_GENS_IN_ZONE = Set(
         mod.LOAD_ZONES,
-        initialize=lambda m, z: [g for g in m.GENS_IN_ZONE[z] if m.gen_is_variable[g]])
+        initialize=lambda m, z: [g for g in m.GENS_IN_ZONE[z] if m.gen_is_variable[g]],
+    )
     mod.BASELOAD_GENS = Set(
-        initialize=mod.GENERATION_PROJECTS,
-        filter=lambda m, g: m.gen_is_baseload[g])
+        initialize=mod.GENERATION_PROJECTS, filter=lambda m, g: m.gen_is_baseload[g]
+    )
 
     def GENS_BY_TECHNOLOGY_init(m, t):
-        if not hasattr(m, 'GENS_BY_TECH_dict'):
+        if not hasattr(m, "GENS_BY_TECH_dict"):
             m.GENS_BY_TECH_dict = {_t: [] for _t in m.GENERATION_TECHNOLOGIES}
             for g in m.GENERATION_PROJECTS:
                 m.GENS_BY_TECH_dict[m.gen_tech[g]].append(g)
@@ -288,55 +331,73 @@ def define_components(mod):
         if not m.GENS_BY_TECH_dict:
             del m.GENS_BY_TECH_dict
         return result
+
     mod.GENS_BY_TECHNOLOGY = Set(
-        mod.GENERATION_TECHNOLOGIES,
-        initialize=GENS_BY_TECHNOLOGY_init
+        mod.GENERATION_TECHNOLOGIES, initialize=GENS_BY_TECHNOLOGY_init
     )
 
     mod.CAPACITY_LIMITED_GENS = Set(within=mod.GENERATION_PROJECTS)
     mod.gen_capacity_limit_mw = Param(
-        mod.CAPACITY_LIMITED_GENS, input_file="generation_projects_info.csv",
-        input_optional=True, within=NonNegativeReals)
+        mod.CAPACITY_LIMITED_GENS,
+        input_file="generation_projects_info.csv",
+        input_optional=True,
+        within=NonNegativeReals,
+    )
     mod.DISCRETELY_SIZED_GENS = Set(within=mod.GENERATION_PROJECTS)
     mod.gen_unit_size = Param(
-        mod.DISCRETELY_SIZED_GENS, input_file="generation_projects_info.csv",
-        input_optional=True, within=PositiveReals)
+        mod.DISCRETELY_SIZED_GENS,
+        input_file="generation_projects_info.csv",
+        input_optional=True,
+        within=PositiveReals,
+    )
     mod.CCS_EQUIPPED_GENS = Set(within=mod.GENERATION_PROJECTS)
     mod.gen_ccs_capture_efficiency = Param(
-        mod.CCS_EQUIPPED_GENS, input_file="generation_projects_info.csv",
-        input_optional=True, within=PercentFraction)
+        mod.CCS_EQUIPPED_GENS,
+        input_file="generation_projects_info.csv",
+        input_optional=True,
+        within=PercentFraction,
+    )
     mod.gen_ccs_energy_load = Param(
-        mod.CCS_EQUIPPED_GENS, input_file="generation_projects_info.csv",
-        input_optional=True, within=PercentFraction)
+        mod.CCS_EQUIPPED_GENS,
+        input_file="generation_projects_info.csv",
+        input_optional=True,
+        within=PercentFraction,
+    )
 
     mod.gen_uses_fuel = Param(
         mod.GENERATION_PROJECTS,
         initialize=lambda m, g: (
-            m.gen_energy_source[g] in m.FUELS
-                or m.gen_energy_source[g] == "multiple"))
+            m.gen_energy_source[g] in m.FUELS or m.gen_energy_source[g] == "multiple"
+        ),
+    )
     mod.NON_FUEL_BASED_GENS = Set(
-        initialize=mod.GENERATION_PROJECTS,
-        filter=lambda m, g: not m.gen_uses_fuel[g])
+        initialize=mod.GENERATION_PROJECTS, filter=lambda m, g: not m.gen_uses_fuel[g]
+    )
     mod.FUEL_BASED_GENS = Set(
-        initialize=mod.GENERATION_PROJECTS,
-        filter=lambda m, g: m.gen_uses_fuel[g])
+        initialize=mod.GENERATION_PROJECTS, filter=lambda m, g: m.gen_uses_fuel[g]
+    )
 
     mod.gen_full_load_heat_rate = Param(
-        mod.FUEL_BASED_GENS, input_file="generation_projects_info.csv",
-
-        within=NonNegativeReals)
+        mod.FUEL_BASED_GENS,
+        input_file="generation_projects_info.csv",
+        within=NonNegativeReals,
+    )
     mod.MULTIFUEL_GENS = Set(
         initialize=mod.GENERATION_PROJECTS,
-        filter=lambda m, g: m.gen_energy_source[g] == "multiple")
+        filter=lambda m, g: m.gen_energy_source[g] == "multiple",
+    )
     mod.FUELS_FOR_MULTIFUEL_GEN = Set(mod.MULTIFUEL_GENS, within=mod.FUELS)
-    mod.FUELS_FOR_GEN = Set(mod.FUEL_BASED_GENS,
+    mod.FUELS_FOR_GEN = Set(
+        mod.FUEL_BASED_GENS,
         initialize=lambda m, g: (
             m.FUELS_FOR_MULTIFUEL_GEN[g]
             if g in m.MULTIFUEL_GENS
-            else [m.gen_energy_source[g]]))
+            else [m.gen_energy_source[g]]
+        ),
+    )
 
     def GENS_BY_ENERGY_SOURCE_init(m, e):
-        if not hasattr(m, 'GENS_BY_ENERGY_dict'):
+        if not hasattr(m, "GENS_BY_ENERGY_dict"):
             m.GENS_BY_ENERGY_dict = {_e: [] for _e in m.ENERGY_SOURCES}
             for g in m.GENERATION_PROJECTS:
                 if g in m.FUEL_BASED_GENS:
@@ -348,29 +409,26 @@ def define_components(mod):
         if not m.GENS_BY_ENERGY_dict:
             del m.GENS_BY_ENERGY_dict
         return result
+
     mod.GENS_BY_ENERGY_SOURCE = Set(
-        mod.ENERGY_SOURCES,
-        initialize=GENS_BY_ENERGY_SOURCE_init
+        mod.ENERGY_SOURCES, initialize=GENS_BY_ENERGY_SOURCE_init
     )
     mod.GENS_BY_NON_FUEL_ENERGY_SOURCE = Set(
-        mod.NON_FUEL_ENERGY_SOURCES,
-        initialize=lambda m, s: m.GENS_BY_ENERGY_SOURCE[s]
+        mod.NON_FUEL_ENERGY_SOURCES, initialize=lambda m, s: m.GENS_BY_ENERGY_SOURCE[s]
     )
     mod.GENS_BY_FUEL = Set(
-        mod.FUELS,
-        initialize=lambda m, f: m.GENS_BY_ENERGY_SOURCE[f]
+        mod.FUELS, initialize=lambda m, f: m.GENS_BY_ENERGY_SOURCE[f]
     )
 
     # This set is defined by gen_build_predetermined.csv
     mod.PREDETERMINED_GEN_BLD_YRS = Set(
-        input_file="gen_build_predetermined.csv",
-        input_optional=True,
-        dimen=2)
+        input_file="gen_build_predetermined.csv", input_optional=True, dimen=2
+    )
     mod.PREDETERMINED_BLD_YRS = Set(
         dimen=1,
         ordered=False,
         initialize=lambda m: set(bld_yr for (g, bld_yr) in m.PREDETERMINED_GEN_BLD_YRS),
-        doc="Set of all the years where pre-determined builds occurs."
+        doc="Set of all the years where pre-determined builds occurs.",
     )
 
     # This set is defined by gen_build_costs.csv
@@ -378,17 +436,19 @@ def define_components(mod):
         dimen=2,
         input_file="gen_build_costs.csv",
         validate=lambda m, g, bld_yr: (
-            (g, bld_yr) in m.PREDETERMINED_GEN_BLD_YRS or
-            (g, bld_yr) in m.GENERATION_PROJECTS * m.PERIODS))
+            (g, bld_yr) in m.PREDETERMINED_GEN_BLD_YRS
+            or (g, bld_yr) in m.GENERATION_PROJECTS * m.PERIODS
+        ),
+    )
     mod.NEW_GEN_BLD_YRS = Set(
-        dimen=2,
-        initialize=lambda m: m.GEN_BLD_YRS - m.PREDETERMINED_GEN_BLD_YRS)
+        dimen=2, initialize=lambda m: m.GEN_BLD_YRS - m.PREDETERMINED_GEN_BLD_YRS
+    )
     mod.gen_predetermined_cap = Param(
         mod.PREDETERMINED_GEN_BLD_YRS,
         input_file="gen_build_predetermined.csv",
-        within=NonNegativeReals)
-    mod.min_data_check('gen_predetermined_cap')
-
+        within=NonNegativeReals,
+    )
+    mod.min_data_check("gen_predetermined_cap")
 
     def gen_build_can_operate_in_period(m, g, build_year, period):
         # If a period has the same name as a predetermined build year then we have a problem.
@@ -406,14 +466,17 @@ def define_components(mod):
         # Previously the code read return online <= m.period_start[period] < retirement
         # However using the midpoint of the period as the "cutoff" seems more correct so
         # we've made the switch.
-        return online <= m.period_start[period] + 0.5 * m.period_length_years[period] < retirement
+        return (
+            online
+            <= m.period_start[period] + 0.5 * m.period_length_years[period]
+            < retirement
+        )
 
     # This verifies that a predetermined build year doesn't conflict with a period since if that's the case
     # gen_build_can_operate_in_period will mistaken the prebuild for an investment build
     # (see note in gen_build_can_operate_in_period)
     mod.no_predetermined_bld_yr_vs_period_conflict = BuildCheck(
-        mod.PREDETERMINED_BLD_YRS, mod.PERIODS,
-        rule=lambda m, bld_yr, p: bld_yr != p
+        mod.PREDETERMINED_BLD_YRS, mod.PERIODS, rule=lambda m, bld_yr, p: bld_yr != p
     )
 
     # The set of periods when a project built in a certain year will be online
@@ -422,45 +485,54 @@ def define_components(mod):
         within=mod.PERIODS,
         ordered=True,
         initialize=lambda m, g, bld_yr: [
-            period for period in m.PERIODS
-            if gen_build_can_operate_in_period(m, g, bld_yr, period)])
+            period
+            for period in m.PERIODS
+            if gen_build_can_operate_in_period(m, g, bld_yr, period)
+        ],
+    )
 
     mod.BLD_YRS_FOR_GEN = Set(
         mod.GENERATION_PROJECTS,
         ordered=False,
         initialize=lambda m, g: set(
             bld_yr for (gen, bld_yr) in m.GEN_BLD_YRS if gen == g
-        )
+        ),
     )
 
     # The set of build years that could be online in the given period
     # for the given project.
     mod.BLD_YRS_FOR_GEN_PERIOD = Set(
-        mod.GENERATION_PROJECTS, mod.PERIODS,
+        mod.GENERATION_PROJECTS,
+        mod.PERIODS,
         ordered=False,
         initialize=lambda m, g, period: set(
-            bld_yr for bld_yr in m.BLD_YRS_FOR_GEN[g]
-            if gen_build_can_operate_in_period(m, g, bld_yr, period)))
+            bld_yr
+            for bld_yr in m.BLD_YRS_FOR_GEN[g]
+            if gen_build_can_operate_in_period(m, g, bld_yr, period)
+        ),
+    )
     # The set of periods when a generator is available to run
     mod.PERIODS_FOR_GEN = Set(
         mod.GENERATION_PROJECTS,
-        initialize=lambda m, g: [p for p in m.PERIODS if len(m.BLD_YRS_FOR_GEN_PERIOD[g, p]) > 0]
+        initialize=lambda m, g: [
+            p for p in m.PERIODS if len(m.BLD_YRS_FOR_GEN_PERIOD[g, p]) > 0
+        ],
     )
 
     def bounds_BuildGen(model, g, bld_yr):
-        if((g, bld_yr) in model.PREDETERMINED_GEN_BLD_YRS):
-            return (model.gen_predetermined_cap[g, bld_yr],
-                    model.gen_predetermined_cap[g, bld_yr])
-        elif(g in model.CAPACITY_LIMITED_GENS):
+        if (g, bld_yr) in model.PREDETERMINED_GEN_BLD_YRS:
+            return (
+                model.gen_predetermined_cap[g, bld_yr],
+                model.gen_predetermined_cap[g, bld_yr],
+            )
+        elif g in model.CAPACITY_LIMITED_GENS:
             # This does not replace Max_Build_Potential because
             # Max_Build_Potential applies across all build years.
             return (0, model.gen_capacity_limit_mw[g])
         else:
             return (0, None)
-    mod.BuildGen = Var(
-        mod.GEN_BLD_YRS,
-        within=NonNegativeReals,
-        bounds=bounds_BuildGen)
+
+    mod.BuildGen = Var(mod.GEN_BLD_YRS, within=NonNegativeReals, bounds=bounds_BuildGen)
     # Some projects are retired before the first study period, so they
     # don't appear in the objective function or any constraints.
     # In this case, pyomo may leave the variable value undefined even
@@ -471,7 +543,8 @@ def define_components(mod):
     # projects here.
     mod.BuildGen_assign_default_value = BuildAction(
         mod.PREDETERMINED_GEN_BLD_YRS,
-        rule=get_assign_default_value_rule("BuildGen", "gen_predetermined_cap"))
+        rule=get_assign_default_value_rule("BuildGen", "gen_predetermined_cap"),
+    )
 
     # note: in pull request 78, commit e7f870d..., GEN_PERIODS
     # was mistakenly redefined as GENERATION_PROJECTS * PERIODS.
@@ -484,14 +557,18 @@ def define_components(mod):
     # and 'C-Coal_ST' in m.GENS_IN_PERIOD[2020] and 'C-Coal_ST' not in m.GENS_IN_PERIOD[2030]
     mod.GEN_PERIODS = Set(
         dimen=2,
-        initialize=lambda m:
-            [(g, p) for g in m.GENERATION_PROJECTS for p in m.PERIODS_FOR_GEN[g]])
+        initialize=lambda m: [
+            (g, p) for g in m.GENERATION_PROJECTS for p in m.PERIODS_FOR_GEN[g]
+        ],
+    )
 
     mod.GenCapacity = Expression(
-        mod.GENERATION_PROJECTS, mod.PERIODS,
+        mod.GENERATION_PROJECTS,
+        mod.PERIODS,
         rule=lambda m, g, period: sum(
-            m.BuildGen[g, bld_yr]
-            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, period]))
+            m.BuildGen[g, bld_yr] for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, period]
+        ),
+    )
 
     # We use a scaling factor to improve the numerical properties
     # of the model. The scaling factor was determined using trial
@@ -499,28 +576,34 @@ def define_components(mod):
     # Learn more by reading the documentation on Numerical Issues.
     max_build_potential_scaling_factor = 1e-1
     mod.Max_Build_Potential = Constraint(
-        mod.CAPACITY_LIMITED_GENS, mod.PERIODS,
+        mod.CAPACITY_LIMITED_GENS,
+        mod.PERIODS,
         rule=lambda m, g, p: (
-                m.gen_capacity_limit_mw[g] * max_build_potential_scaling_factor >= m.GenCapacity[
-            g, p] * max_build_potential_scaling_factor))
+            m.gen_capacity_limit_mw[g] * max_build_potential_scaling_factor
+            >= m.GenCapacity[g, p] * max_build_potential_scaling_factor
+        ),
+    )
 
     # The following components enforce minimum capacity build-outs.
     # Note that this adds binary variables to the model.
-    mod.gen_min_build_capacity = Param(mod.GENERATION_PROJECTS, input_file="generation_projects_info.csv",
-                                       within=NonNegativeReals, default=0)
+    mod.gen_min_build_capacity = Param(
+        mod.GENERATION_PROJECTS,
+        input_file="generation_projects_info.csv",
+        within=NonNegativeReals,
+        default=0,
+    )
     mod.NEW_GEN_WITH_MIN_BUILD_YEARS = Set(
         dimen=2,
         initialize=mod.NEW_GEN_BLD_YRS,
-        filter=lambda m, g, p: (
-                m.gen_min_build_capacity[g] > 0))
-    mod.BuildMinGenCap = Var(
-        mod.NEW_GEN_WITH_MIN_BUILD_YEARS,
-        within=Binary)
+        filter=lambda m, g, p: (m.gen_min_build_capacity[g] > 0),
+    )
+    mod.BuildMinGenCap = Var(mod.NEW_GEN_WITH_MIN_BUILD_YEARS, within=Binary)
     mod.Enforce_Min_Build_Lower = Constraint(
         mod.NEW_GEN_WITH_MIN_BUILD_YEARS,
         rule=lambda m, g, p: (
-            m.BuildMinGenCap[g, p] * m.gen_min_build_capacity[g]
-            <= m.BuildGen[g, p]))
+            m.BuildMinGenCap[g, p] * m.gen_min_build_capacity[g] <= m.BuildGen[g, p]
+        ),
+    )
 
     # Define a constant for enforcing binary constraints on project capacity
     # The value of 100 GW should be larger than any expected build size. For
@@ -528,49 +611,61 @@ def define_components(mod):
     # is 22.5 GW. I tried using 1 TW, but CBC had numerical stability problems
     # with that value and chose a suboptimal solution for the
     # discrete_and_min_build example which is installing capacity of 3-5 MW.
-    mod._gen_max_cap_for_binary_constraints = 10 ** 5
+    mod._gen_max_cap_for_binary_constraints = 10**5
     mod.Enforce_Min_Build_Upper = Constraint(
         mod.NEW_GEN_WITH_MIN_BUILD_YEARS,
         rule=lambda m, g, p: (
-                m.BuildGen[g, p] <= m.BuildMinGenCap[g, p] *
-                mod._gen_max_cap_for_binary_constraints))
+            m.BuildGen[g, p]
+            <= m.BuildMinGenCap[g, p] * mod._gen_max_cap_for_binary_constraints
+        ),
+    )
 
     # Costs
-    mod.gen_variable_om = Param(mod.GENERATION_PROJECTS, input_file="generation_projects_info.csv",
-                                within=NonNegativeReals)
-    mod.gen_connect_cost_per_mw = Param(mod.GENERATION_PROJECTS, within=NonNegativeReals,
-                                        input_file="generation_projects_info.csv",
-                                        )
-    mod.min_data_check('gen_variable_om', 'gen_connect_cost_per_mw')
+    mod.gen_variable_om = Param(
+        mod.GENERATION_PROJECTS,
+        input_file="generation_projects_info.csv",
+        within=NonNegativeReals,
+    )
+    mod.gen_connect_cost_per_mw = Param(
+        mod.GENERATION_PROJECTS,
+        within=NonNegativeReals,
+        input_file="generation_projects_info.csv",
+    )
+    mod.min_data_check("gen_variable_om", "gen_connect_cost_per_mw")
 
     mod.gen_overnight_cost = Param(
-        mod.GEN_BLD_YRS,
-        input_file="gen_build_costs.csv",
-        within=NonNegativeReals)
+        mod.GEN_BLD_YRS, input_file="gen_build_costs.csv", within=NonNegativeReals
+    )
     mod.gen_fixed_om = Param(
-        mod.GEN_BLD_YRS,
-        input_file="gen_build_costs.csv",
-        within=NonNegativeReals)
-    mod.min_data_check('gen_overnight_cost', 'gen_fixed_om')
+        mod.GEN_BLD_YRS, input_file="gen_build_costs.csv", within=NonNegativeReals
+    )
+    mod.min_data_check("gen_overnight_cost", "gen_fixed_om")
 
     # Derived annual costs
     mod.gen_capital_cost_annual = Param(
         mod.GEN_BLD_YRS,
         initialize=lambda m, g, bld_yr: (
-            (m.gen_overnight_cost[g, bld_yr] +
-                m.gen_connect_cost_per_mw[g]) *
-            crf(m.interest_rate, m.gen_max_age[g])))
+            (m.gen_overnight_cost[g, bld_yr] + m.gen_connect_cost_per_mw[g])
+            * crf(m.interest_rate, m.gen_max_age[g])
+        ),
+    )
 
     mod.GenCapitalCosts = Expression(
-        mod.GENERATION_PROJECTS, mod.PERIODS,
+        mod.GENERATION_PROJECTS,
+        mod.PERIODS,
         rule=lambda m, g, p: sum(
             m.BuildGen[g, bld_yr] * m.gen_capital_cost_annual[g, bld_yr]
-            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]))
+            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]
+        ),
+    )
     mod.GenFixedOMCosts = Expression(
-        mod.GENERATION_PROJECTS, mod.PERIODS,
+        mod.GENERATION_PROJECTS,
+        mod.PERIODS,
         rule=lambda m, g, p: sum(
             m.BuildGen[g, bld_yr] * m.gen_fixed_om[g, bld_yr]
-            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]))
+            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]
+        ),
+    )
     # Summarize costs for the objective function. Units should be total
     # annual future costs in $base_year real dollars. The objective
     # function will convert these to base_year Net Present Value in
@@ -579,37 +674,45 @@ def define_components(mod):
         mod.PERIODS,
         rule=lambda m, p: sum(
             m.GenCapitalCosts[g, p] + m.GenFixedOMCosts[g, p]
-            for g in m.GENERATION_PROJECTS))
-    mod.Cost_Components_Per_Period.append('TotalGenFixedCosts')
+            for g in m.GENERATION_PROJECTS
+        ),
+    )
+    mod.Cost_Components_Per_Period.append("TotalGenFixedCosts")
 
 
 def load_inputs(mod, switch_data, inputs_dir):
     # Construct sets of capacity-limited, ccs-capable and unit-size-specified
     # projects. These sets include projects for which these parameters have
     # a value
-    if 'gen_capacity_limit_mw' in switch_data.data():
-        switch_data.data()['CAPACITY_LIMITED_GENS'] = {
-            None: list(switch_data.data(name='gen_capacity_limit_mw').keys())}
-    if 'gen_unit_size' in switch_data.data():
-        switch_data.data()['DISCRETELY_SIZED_GENS'] = {
-            None: list(switch_data.data(name='gen_unit_size').keys())}
-    if 'gen_ccs_capture_efficiency' in switch_data.data():
-        switch_data.data()['CCS_EQUIPPED_GENS'] = {
-            None: list(switch_data.data(name='gen_ccs_capture_efficiency').keys())}
+    if "gen_capacity_limit_mw" in switch_data.data():
+        switch_data.data()["CAPACITY_LIMITED_GENS"] = {
+            None: list(switch_data.data(name="gen_capacity_limit_mw").keys())
+        }
+    if "gen_unit_size" in switch_data.data():
+        switch_data.data()["DISCRETELY_SIZED_GENS"] = {
+            None: list(switch_data.data(name="gen_unit_size").keys())
+        }
+    if "gen_ccs_capture_efficiency" in switch_data.data():
+        switch_data.data()["CCS_EQUIPPED_GENS"] = {
+            None: list(switch_data.data(name="gen_ccs_capture_efficiency").keys())
+        }
     # read FUELS_FOR_MULTIFUEL_GEN from gen_multiple_fuels.dat if available
-    if os.path.isfile(os.path.join(inputs_dir, 'gen_multiple_fuels.dat')):
-        if 'switch_model.generators.core.commit.fuel_use' in mod.module_list:
+    if os.path.isfile(os.path.join(inputs_dir, "gen_multiple_fuels.dat")):
+        if "switch_model.generators.core.commit.fuel_use" in mod.module_list:
             raise NotImplementedError(
                 "Multi-fuel generation is being used with generators.core.commit.fuel_use despite not being fully "
                 "supported.\n"
                 "Specifically, DispatchGenByFuel has not been constrained to match the true fuel use (GenFuelUseRate)."
                 "Therefore, DispatchGenByFuel may result in incorrect values. DispatchGenByFuel is used when calculating"
                 "non-CO2 emissions resulting in incorrect non-CO2 emission values. If there exists carbon_policies for"
-                "non-CO2 emissions, the model may return an incorrect solution.")
+                "non-CO2 emissions, the model may return an incorrect solution."
+            )
 
         # TODO handle multi fuel input file
         raise NotImplementedError(
-            "This code has not been updated to the latest version. We no longer handle .dat files.")
+            "This code has not been updated to the latest version. We no longer handle .dat files."
+        )
+
 
 def post_solve(m, outdir):
     write_table(
@@ -617,29 +720,44 @@ def post_solve(m, outdir):
         m.GEN_PERIODS,
         output_file=os.path.join(outdir, "gen_cap.csv"),
         headings=(
-            "GENERATION_PROJECT", "PERIOD",
-            "gen_tech", "gen_load_zone", "gen_energy_source",
-            "GenCapacity", "GenCapitalCosts", "GenFixedOMCosts"),
+            "GENERATION_PROJECT",
+            "PERIOD",
+            "gen_tech",
+            "gen_load_zone",
+            "gen_energy_source",
+            "GenCapacity",
+            "GenCapitalCosts",
+            "GenFixedOMCosts",
+        ),
         # Indexes are provided as a tuple, so put (g,p) in parentheses to
         # access the two components of the index individually.
         values=lambda m, g, p: (
-            g, p,
-            m.gen_tech[g], m.gen_load_zone[g], m.gen_energy_source[g],
-            m.GenCapacity[g, p], m.GenCapitalCosts[g, p], m.GenFixedOMCosts[g, p]))
+            g,
+            p,
+            m.gen_tech[g],
+            m.gen_load_zone[g],
+            m.gen_energy_source[g],
+            m.GenCapacity[g, p],
+            m.GenCapitalCosts[g, p],
+            m.GenFixedOMCosts[g, p],
+        ),
+    )
 
 
-@graph(
-    "generation_capacity_per_period",
-    title="Online Generation Capacity Per Period"
-)
+@graph("generation_capacity_per_period", title="Online Generation Capacity Per Period")
 def graph_capacity(tools):
     # Load gen_cap.csv
     gen_cap = tools.get_dataframe("gen_cap.csv")
     # Map energy sources to technology type
     gen_cap = tools.transform.gen_type(gen_cap)
     # Aggregate by gen_tech_type and PERIOD by summing the generation capacity
-    capacity_df = gen_cap.pivot_table(index='PERIOD', columns='gen_type', values='GenCapacity', aggfunc=tools.np.sum,
-                                      fill_value=0)
+    capacity_df = gen_cap.pivot_table(
+        index="PERIOD",
+        columns="gen_type",
+        values="GenCapacity",
+        aggfunc=tools.np.sum,
+        fill_value=0,
+    )
     capacity_df = capacity_df * 1e-3  # Convert values to GW
 
     # For generation types that make less than 0.5% in every period, group them under "Other"
@@ -650,7 +768,9 @@ def graph_capacity(tools):
     # Check for each technology if it's below the cutoff for every period
     is_below_cutoff = capacity_df.lt(cutoff_per_period, axis=0).all()
     # groupby if the technology is below the cutoff
-    capacity_df = capacity_df.groupby(axis=1, by=lambda c: "Other" if is_below_cutoff[c] else c).sum()
+    capacity_df = capacity_df.groupby(
+        axis=1, by=lambda c: "Other" if is_below_cutoff[c] else c
+    ).sum()
 
     # Sort columns by the last period
     capacity_df = capacity_df.sort_values(by=capacity_df.index[-1], axis=1)
@@ -658,7 +778,7 @@ def graph_capacity(tools):
     # Plot
     # Get a new set of axis to create a breakdown of the generation capacity
     capacity_df.plot(
-        kind='bar',
+        kind="bar",
         ax=tools.get_axes(),
         stacked=True,
         ylabel="Capacity Online (GW)",
@@ -668,16 +788,21 @@ def graph_capacity(tools):
 
     tools.bar_label()
 
+
 @graph(
     "buildout_gen_per_period",
     title="Built Capacity per Period",
-    supports_multi_scenario=True
+    supports_multi_scenario=True,
 )
 def graph_buildout(tools):
     build_gen = tools.get_dataframe("BuildGen.csv", dtype={"GEN_BLD_YRS_1": str})
     build_gen = build_gen.rename(
-        {"GEN_BLD_YRS_1": "GENERATION_PROJECT", "GEN_BLD_YRS_2": "build_year", "BuildGen": "Amount"},
-        axis=1
+        {
+            "GEN_BLD_YRS_1": "GENERATION_PROJECT",
+            "GEN_BLD_YRS_2": "build_year",
+            "BuildGen": "Amount",
+        },
+        axis=1,
     )
     build_gen = tools.transform.build_year(build_gen)
     gen = tools.get_dataframe("generation_projects_info", from_inputs=True)
@@ -687,10 +812,14 @@ def graph_buildout(tools):
         gen,
         on=["GENERATION_PROJECT", "scenario_name"],
         how="left",
-        validate="many_to_one"
+        validate="many_to_one",
     )
-    groupby = "build_year" if tools.num_scenarios == 1 else ["build_year", "scenario_name"]
-    build_gen = build_gen.pivot_table(index=groupby, columns="gen_type", values="Amount", aggfunc=tools.np.sum)
+    groupby = (
+        "build_year" if tools.num_scenarios == 1 else ["build_year", "scenario_name"]
+    )
+    build_gen = build_gen.pivot_table(
+        index=groupby, columns="gen_type", values="Amount", aggfunc=tools.np.sum
+    )
     build_gen = build_gen * 1e-3  # Convert values to GW
     build_gen = build_gen.sort_index(ascending=False, key=tools.sort_build_years)
 
@@ -702,7 +831,9 @@ def graph_buildout(tools):
     # Check for each technology if it's below the cutoff for every period
     is_below_cutoff = build_gen.lt(cutoff_per_period, axis=0).all()
     # groupby if the technology is below the cutoff
-    build_gen = build_gen.groupby(axis=1, by=lambda c: "Other" if is_below_cutoff[c] else c).sum()
+    build_gen = build_gen.groupby(
+        axis=1, by=lambda c: "Other" if is_below_cutoff[c] else c
+    ).sum()
 
     # Sort columns by the last period
     build_gen = build_gen.sort_values(by=build_gen.index[-1], axis=1)
@@ -710,7 +841,7 @@ def graph_buildout(tools):
     # Plot
     # Get a new set of axis to create a breakdown of the generation capacity
     build_gen.plot(
-        kind='bar',
+        kind="bar",
         ax=tools.get_axes(),
         stacked=True,
         ylabel="Capacity Online (GW)",
@@ -723,8 +854,8 @@ def graph_buildout(tools):
     "gen_buildout_per_tech_period",
     title="Buildout relative to max allowed for period",
     note="\nNote 1: This graph excludes predetermined buildout and projects that have no capacity limit."
-         "\nTechnologies that contain projects with no capacity limit are marked by a * and their graphs may"
-         "be misleading."
+    "\nTechnologies that contain projects with no capacity limit are marked by a * and their graphs may"
+    "be misleading.",
 )
 def graph_buildout_per_tech(tools):
     # Load gen_cap.csv
@@ -732,17 +863,19 @@ def graph_buildout_per_tech(tools):
     # Map energy sources to technology type
     gen_cap = tools.transform.gen_type(gen_cap)
     # Load generation_projects_info.csv
-    gen_info = tools.get_dataframe('generation_projects_info.csv', from_inputs=True)
+    gen_info = tools.get_dataframe("generation_projects_info.csv", from_inputs=True)
     # Filter out projects with unlimited capacity since we can't consider those (coerce converts '.' to NaN)
-    gen_info['gen_capacity_limit_mw'] = tools.pd.to_numeric(gen_info["gen_capacity_limit_mw"], errors='coerce')
+    gen_info["gen_capacity_limit_mw"] = tools.pd.to_numeric(
+        gen_info["gen_capacity_limit_mw"], errors="coerce"
+    )
     # Set the type to be the same to ensure merge works
     gen_cap["GENERATION_PROJECT"] = gen_cap["GENERATION_PROJECT"].astype(object)
     gen_info["GENERATION_PROJECT"] = gen_info["GENERATION_PROJECT"].astype(object)
     # Add the capacity_limit to the gen_cap dataframe which has the total capacity at each period
     df = gen_cap.merge(
         gen_info[["GENERATION_PROJECT", "gen_capacity_limit_mw"]],
-        on='GENERATION_PROJECT',
-        validate='many_to_one'
+        on="GENERATION_PROJECT",
+        validate="many_to_one",
     )
     # Get the predetermined generation
     predetermined = tools.get_dataframe("gen_build_predetermined.csv", from_inputs=True)
@@ -752,50 +885,66 @@ def graph_buildout_per_tech(tools):
     # TODO we should order this by period here to ensure they're in increasing order
     df["PERIOD"] = df["PERIOD"].astype("category")
     # Get gen_types that have projects with unlimited buildout
-    unlimited_gen_types = df[df['gen_capacity_limit_mw'].isna()]['gen_type'].drop_duplicates()
+    unlimited_gen_types = df[df["gen_capacity_limit_mw"].isna()][
+        "gen_type"
+    ].drop_duplicates()
     # Filter out unlimited generation
-    df = df[~df['gen_capacity_limit_mw'].isna()]
-    if df.size == 0:  # in this case there are no projects that have a limit on build capacity
+    df = df[~df["gen_capacity_limit_mw"].isna()]
+    if (
+        df.size == 0
+    ):  # in this case there are no projects that have a limit on build capacity
         return
         # Sum the GenCapacity and gen_capacity_limit_mw for all projects in the same period and type
-    df = df.groupby(['PERIOD', 'gen_type']).sum()
+    df = df.groupby(["PERIOD", "gen_type"]).sum()
     # Create a dataframe that's the division of the Capacity and the capacity limit
-    df = (df['GenCapacity'] / df['gen_capacity_limit_mw']).unstack()
+    df = (df["GenCapacity"] / df["gen_capacity_limit_mw"]).unstack()
     # Filter out generation types that don't make up a large percent of the energy mix to decultter graph
     # df = df.loc[:, ~is_below_cutoff]
 
     # Set the name of the legend.
-    df = df.rename_axis("Type", axis='columns')
+    df = df.rename_axis("Type", axis="columns")
     # Add a * to tech
-    df = df.rename(lambda c: f"{c}*" if c in unlimited_gen_types.values else c, axis='columns')
+    df = df.rename(
+        lambda c: f"{c}*" if c in unlimited_gen_types.values else c, axis="columns"
+    )
     # Plot
     colors = tools.get_colors()
     if colors is not None:
         # Add the same colors but with a * to support our legend.
         colors.update({f"{k}*": v for k, v in colors.items()})
     ax = tools.get_axes()
-    df.plot(ax=ax, kind='line', color=colors, xlabel='Period', marker="x")
+    df.plot(ax=ax, kind="line", color=colors, xlabel="Period", marker="x")
     # Set the y-axis to use percent
     ax.yaxis.set_major_formatter(tools.plt.ticker.PercentFormatter(1.0))
     # Horizontal line at 100%
-    ax.axhline(y=1, linestyle="--", color='b')
+    ax.axhline(y=1, linestyle="--", color="b")
 
-@graph(
-    "online_capacity_map",
-    title="Map of online capacity per load zone."
-)
+
+@graph("online_capacity_map", title="Map of online capacity per load zone.")
 def buildout_map(tools):
     if not tools.maps.can_make_maps():
         return
-    buildout = tools.get_dataframe("gen_cap.csv").rename({"GenCapacity": "value"}, axis=1)
+    buildout = tools.get_dataframe("gen_cap.csv").rename(
+        {"GenCapacity": "value"}, axis=1
+    )
     buildout = tools.transform.gen_type(buildout)
-    buildout = buildout.groupby(["gen_type", "gen_load_zone"], as_index=False)["value"].sum()
+    buildout = buildout.groupby(["gen_type", "gen_load_zone"], as_index=False)[
+        "value"
+    ].sum()
     buildout["value"] *= 1e-3  # Convert to GW
     ax = tools.maps.graph_pie_chart(buildout)
-    transmission = tools.get_dataframe("transmission.csv", convert_dot_to_na=True).fillna(0)
-    transmission = transmission.rename({"trans_lz1": "from", "trans_lz2": "to", "TxCapacityNameplate": "value"}, axis=1)
+    transmission = tools.get_dataframe(
+        "transmission.csv", convert_dot_to_na=True
+    ).fillna(0)
+    transmission = transmission.rename(
+        {"trans_lz1": "from", "trans_lz2": "to", "TxCapacityNameplate": "value"}, axis=1
+    )
     transmission = transmission[["from", "to", "value", "PERIOD"]]
-    transmission = transmission.groupby(["from", "to", "PERIOD"], as_index=False).sum().drop("PERIOD", axis=1)
+    transmission = (
+        transmission.groupby(["from", "to", "PERIOD"], as_index=False)
+        .sum()
+        .drop("PERIOD", axis=1)
+    )
     # Rename the columns appropriately
     transmission.value *= 1e-3
     tools.maps.graph_transmission_capacity(transmission, ax=ax, legend=True)

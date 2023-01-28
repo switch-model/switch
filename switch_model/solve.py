@@ -13,12 +13,23 @@ import warnings
 import datetime
 import platform
 
-from pyomo.solvers.plugins.solvers.direct_or_persistent_solver import DirectOrPersistentSolver
+from pyomo.solvers.plugins.solvers.direct_or_persistent_solver import (
+    DirectOrPersistentSolver,
+)
 
 import switch_model
 from switch_model.utilities import (
-    create_model, _ArgumentParser, StepTimer, make_iterable, LogOutput, warn, query_yes_no,
-    get_module_list, add_module_args, _ScaledVariable, add_git_info
+    create_model,
+    _ArgumentParser,
+    StepTimer,
+    make_iterable,
+    LogOutput,
+    warn,
+    query_yes_no,
+    get_module_list,
+    add_module_args,
+    _ScaledVariable,
+    add_git_info,
 )
 from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 from switch_model.tools.graph.cli_graph import main as graph_main
@@ -26,7 +37,10 @@ from switch_model.utilities.patches import patch_pyomo
 from switch_model.utilities.results_info import save_info, add_info, ResultsInfoSection
 import switch_model.utilities.gurobi_aug  # We keep this line here to ensure that 'gurobi_aug' gets registered as a solver
 
-def main(args=None, return_model=False, return_instance=False, attach_data_portal=False):
+
+def main(
+    args=None, return_model=False, return_instance=False, attach_data_portal=False
+):
     start_to_end_timer = StepTimer()
     timer = StepTimer()
     if args is None:
@@ -43,21 +57,24 @@ def main(args=None, return_model=False, return_instance=False, attach_data_porta
     # turn on post-mortem debugging mode if requested
     # (from http://stackoverflow.com/a/1237407 ; more options available there)
     if pre_module_options.debug:
+
         def debug(type, value, tb):
             import traceback
+
             try:
                 from ipdb import pm
             except ImportError:
                 from pdb import pm
             traceback.print_exception(type, value, tb)
             pm()
+
         sys.excepthook = debug
 
     # Write output to a log file if logging option is specified
     if pre_module_options.log_run_to_file:
         logs_dir = pre_module_options.logs_dir
     else:
-        logs_dir = None # disables logging
+        logs_dir = None  # disables logging
 
     with LogOutput(logs_dir):
 
@@ -69,7 +86,8 @@ def main(args=None, return_model=False, return_instance=False, attach_data_porta
 
         if not os.path.exists(module_options.inputs_dir):
             raise NotADirectoryError(
-                "Inputs directory '{}' does not exist".format(module_options.inputs_dir))
+                "Inputs directory '{}' does not exist".format(module_options.inputs_dir)
+            )
 
         if do_inputs_need_upgrade(module_options.inputs_dir):
             do_upgrade = query_yes_no(
@@ -120,15 +138,25 @@ def main(args=None, return_model=False, return_instance=False, attach_data_porta
             import gurobipy
 
         if model.options.verbose:
-            print("\n=======================================================================")
+            print(
+                "\n======================================================================="
+            )
             print("Switch {}, http://switch-model.org".format(switch_model.__version__))
-            print("=======================================================================")
+            print(
+                "======================================================================="
+            )
             print("Arguments:")
-            print(", ".join(k + "=" + repr(v) for k, v in model.options.__dict__.items() if v))
-            print("Modules:\n"+", ".join(m for m in modules))
+            print(
+                ", ".join(
+                    k + "=" + repr(v) for k, v in model.options.__dict__.items() if v
+                )
+            )
+            print("Modules:\n" + ", ".join(m for m in modules))
             if iterate_modules:
                 print("Iteration modules:", iterate_modules)
-            print("=======================================================================\n")
+            print(
+                "=======================================================================\n"
+            )
             print(f"Model created in {timer.step_time_as_str()}.")
 
         # create an instance (also reports time spent reading data and loading into model)
@@ -141,8 +169,10 @@ def main(args=None, return_model=False, return_instance=False, attach_data_porta
             print(f"Total time spent constructing model: {timer.step_time_as_str()}.\n")
 
         if instance.options.enable_breakpoints:
-            print("Breaking after constructing model.  See "
-                  "https://docs.python.org/3/library/pdb.html for instructions on using pdb.")
+            print(
+                "Breaking after constructing model.  See "
+                "https://docs.python.org/3/library/pdb.html for instructions on using pdb."
+            )
             breakpoint()
 
         # return the instance as-is if requested
@@ -172,10 +202,12 @@ def main(args=None, return_model=False, return_instance=False, attach_data_porta
                 print(f"Loaded warm start inputs in {timer.step_time_as_str()}.")
 
         if instance.options.reload_prior_solution:
-            print('Loading prior solution...')
+            print("Loading prior solution...")
             reload_prior_solution_from_pickle(instance, instance.options.outputs_dir)
             if instance.options.verbose:
-                print(f'Loaded previous results into model instance in {timer.step_time_as_str()}.')
+                print(
+                    f"Loaded previous results into model instance in {timer.step_time_as_str()}."
+                )
         else:
             # solve the model (reports time for each step as it goes)
             if iterate_modules:
@@ -193,8 +225,10 @@ def main(args=None, return_model=False, return_instance=False, attach_data_porta
                 gc.collect()
 
         if instance.options.enable_breakpoints:
-            print("Breaking before post_solve. See "
-                  "https://docs.python.org/3/library/pdb.html for instructions on using pdb.")
+            print(
+                "Breaking before post_solve. See "
+                "https://docs.python.org/3/library/pdb.html for instructions on using pdb."
+            )
             breakpoint()
 
         # report results
@@ -213,12 +247,21 @@ def main(args=None, return_model=False, return_instance=False, attach_data_porta
         total_time = start_to_end_timer.step_time_as_str()
         add_info("Total run time", total_time, section=ResultsInfoSection.GENERAL)
 
-        add_info("End date", datetime.datetime.now().strftime('%Y-%m-%d'), section=ResultsInfoSection.GENERAL)
-        add_info("End time", datetime.datetime.now().strftime('%H:%M:%S'), section=ResultsInfoSection.GENERAL)
+        add_info(
+            "End date",
+            datetime.datetime.now().strftime("%Y-%m-%d"),
+            section=ResultsInfoSection.GENERAL,
+        )
+        add_info(
+            "End time",
+            datetime.datetime.now().strftime("%H:%M:%S"),
+            section=ResultsInfoSection.GENERAL,
+        )
 
         save_info(
-            os.path.join(getattr(instance.options, "outputs_dir", "outputs"),
-                         "info.txt")
+            os.path.join(
+                getattr(instance.options, "outputs_dir", "outputs"), "info.txt"
+            )
         )
 
         if instance.options.verbose:
@@ -239,7 +282,10 @@ def main(args=None, return_model=False, return_instance=False, attach_data_porta
             "=======================================================================\n"
         )
         import code
-        code.interact(banner=banner, local=dict(list(globals().items()) + list(locals().items())))
+
+        code.interact(
+            banner=banner, local=dict(list(globals().items()) + list(locals().items()))
+        )
 
 
 def warm_start_mip(instance):
@@ -252,7 +298,8 @@ def warm_start_mip(instance):
     warm_start_dir = os.path.join(instance.options.warm_start_mip, "outputs")
     if not os.path.isdir(warm_start_dir):
         warnings.warn(
-            f"Path {warm_start_dir} does not exist and cannot be used to warm start solver. Warm start skipped.")
+            f"Path {warm_start_dir} does not exist and cannot be used to warm start solver. Warm start skipped."
+        )
         return
 
     # Loop through every variable in our model
@@ -263,7 +310,9 @@ def warm_start_mip(instance):
 
         filepath = os.path.join(warm_start_dir, varname + ".csv")
         if not os.path.exists(filepath):
-            warnings.warn(f"Skipping warm start for set {varname} since {filepath} does not exist.")
+            warnings.warn(
+                f"Skipping warm start for set {varname} since {filepath} does not exist."
+            )
             continue
         df = pd.read_csv(filepath, index_col=list(range(variable._index.dimen)))
         for index, val in df.iterrows():
@@ -275,12 +324,10 @@ def warm_start_mip(instance):
 
 
 def reload_prior_solution_from_pickle(instance, outdir):
-    with open(os.path.join(outdir, 'results.pickle'), 'rb') as fh:
+    with open(os.path.join(outdir, "results.pickle"), "rb") as fh:
         results = pickle.load(fh)
     instance.solutions.load_from(results)
     return instance
-
-
 
 
 def reload_prior_solution_from_csvs(instance):
@@ -289,9 +336,10 @@ def reload_prior_solution_from_csvs(instance):
     previous solution. (Not currently used.)
     """
     import csv
+
     var_objects = instance.component_objects(Var)
     for var in var_objects:
-        var_file = os.path.join(instance.options.outputs_dir, '{}.csv'.format(var.name))
+        var_file = os.path.join(instance.options.outputs_dir, "{}.csv".format(var.name))
         if not os.path.isfile(var_file):
             raise RuntimeError(
                 "Tab output file for variable {} cannot be found in outputs "
@@ -302,19 +350,20 @@ def reload_prior_solution_from_csvs(instance):
             key_types = [type(i) for i in make_iterable(next(var.iterkeys()))]
         except StopIteration:
             key_types = []  # no keys
-        with open(var_file,'r') as f:
-            reader = csv.reader(f, delimiter=',')
-            next(reader) # skip headers
+        with open(var_file, "r") as f:
+            reader = csv.reader(f, delimiter=",")
+            next(reader)  # skip headers
             for row in reader:
                 index = tuple(t(k) for t, k in zip(key_types, row[:-1]))
                 try:
                     v = var[index]
                 except KeyError:
                     raise KeyError(
-                        "Unable to set value for {}[{}]; index is invalid."
-                        .format(var.name, index)
+                        "Unable to set value for {}[{}]; index is invalid.".format(
+                            var.name, index
+                        )
                     )
-                if row[-1] == '':
+                if row[-1] == "":
                     # Variables that are not used in the model end up with no
                     # value after the solve and get saved as blanks; we skip those.
                     continue
@@ -323,7 +372,7 @@ def reload_prior_solution_from_csvs(instance):
                     val = int(val)
                 v.value = val
         if instance.options.verbose:
-            print('Loaded variable {} values into instance.'.format(var.name))
+            print("Loaded variable {} values into instance.".format(var.name))
 
 
 def iterate(m, iterate_modules, depth=0):
@@ -359,8 +408,13 @@ def iterate(m, iterate_modules, depth=0):
         # module list, and have already been loaded, so they are accessible via sys.modules
         # This prepends 'switch_model.' if needed, to be consistent with modules.txt.
         current_modules = [
-            sys.modules[module_name if module_name in sys.modules else 'switch_model.' + module_name]
-            for module_name in iterate_modules[depth]]
+            sys.modules[
+                module_name
+                if module_name in sys.modules
+                else "switch_model." + module_name
+            ]
+            for module_name in iterate_modules[depth]
+        ]
 
         j = 0
         converged = False
@@ -375,23 +429,32 @@ def iterate(m, iterate_modules, depth=0):
             m.iteration_number = j
             m.iteration_node = m.iteration_node[:depth] + (j,)
             for module in current_modules:
-                converged = iterate_module_func(m, module, 'pre_iterate', converged)
+                converged = iterate_module_func(m, module, "pre_iterate", converged)
 
             # converge the deeper-level modules, if any (inner loop)
-            iterate(m, iterate_modules, depth=depth+1)
+            iterate(m, iterate_modules, depth=depth + 1)
 
             # post-iterate modules at this level
-            m.iteration_number = j      # may have been changed during iterate()
+            m.iteration_number = j  # may have been changed during iterate()
             m.iteration_node = m.iteration_node[:depth] + (j,)
             for module in current_modules:
-                converged = iterate_module_func(m, module, 'post_iterate', converged)
+                converged = iterate_module_func(m, module, "post_iterate", converged)
 
             j += 1
         if converged:
-            print("Iteration of {ms} was completed after {j} rounds.".format(ms=iterate_modules[depth], j=j))
+            print(
+                "Iteration of {ms} was completed after {j} rounds.".format(
+                    ms=iterate_modules[depth], j=j
+                )
+            )
         else:
-            print("Iteration of {ms} was stopped after {j} iterations without convergence.".format(ms=iterate_modules[depth], j=j))
+            print(
+                "Iteration of {ms} was stopped after {j} iterations without convergence.".format(
+                    ms=iterate_modules[depth], j=j
+                )
+            )
     return
+
 
 def iterate_module_func(m, module, func, converged):
     """Call function func() in specified module (if available) and use the result to
@@ -419,66 +482,115 @@ def define_arguments(argparser):
 
     # iteration options
     argparser.add_argument(
-        "--iterate-list", default=None,
+        "--iterate-list",
+        default=None,
         help="Text file with a list of modules to iterate until converged (default is iterate.txt); "
-             "each row is one level of iteration, and there can be multiple modules on each row"
+        "each row is one level of iteration, and there can be multiple modules on each row",
     )
     argparser.add_argument(
-        "--max-iter", type=int, default=None,
-        help="Maximum number of iterations to complete at each level for iterated models"
+        "--max-iter",
+        type=int,
+        default=None,
+        help="Maximum number of iterations to complete at each level for iterated models",
     )
 
     # scenario information
     argparser.add_argument(
-        "--scenario-name", default="", help="Name of research scenario represented by this model"
+        "--scenario-name",
+        default="",
+        help="Name of research scenario represented by this model",
     )
 
     # note: pyomo has a --solver-suffix option but it is not clear
     # whether that does the same thing as --suffix defined here,
     # so we don't reuse the same name.
-    argparser.add_argument("--suffixes", "--suffix", nargs="+", action='extend', default=['rc','dual','slack'],
-        help="Extra suffixes to add to the model and exchange with the solver (e.g., iis, rc, dual, or slack)")
+    argparser.add_argument(
+        "--suffixes",
+        "--suffix",
+        nargs="+",
+        action="extend",
+        default=["rc", "dual", "slack"],
+        help="Extra suffixes to add to the model and exchange with the solver (e.g., iis, rc, dual, or slack)",
+    )
 
     # Define solver-related arguments
     # These are a subset of the arguments offered by "pyomo solve --solver=cplex --help"
-    argparser.add_argument("--solver-manager", default="serial",
-        help='Name of Pyomo solver manager to use for the model ("neos" to use remote NEOS server)')
-    argparser.add_argument("--solver-io", default=None, help="Method for Pyomo to use to communicate with solver")
+    argparser.add_argument(
+        "--solver-manager",
+        default="serial",
+        help='Name of Pyomo solver manager to use for the model ("neos" to use remote NEOS server)',
+    )
+    argparser.add_argument(
+        "--solver-io",
+        default=None,
+        help="Method for Pyomo to use to communicate with solver",
+    )
     # note: pyomo has a --solver-options option but it is not clear
     # whether that does the same thing as --solver-options-string so we don't reuse the same name.
-    argparser.add_argument("--solver-options-string", default="",
-        help='A quoted string of options to pass to the model solver. Each option must be of the form option=value. '
-            '(e.g., --solver-options-string "mipgap=0.001 primalopt=\'\' advance=2 threads=1")')
-    argparser.add_argument("--solver-method", default=None, type=str,
-                           help="Specify the solver method to use.")
-    argparser.add_argument("--keepfiles", action='store_true', default=None,
-        help="Keep temporary files produced by the solver (may be useful with --symbolic-solver-labels)")
     argparser.add_argument(
-        "--stream-output", "--stream-solver", action='store_true', dest="tee", default=None,
-        help="Display information from the solver about its progress (usually combined with a suitable --solver-options-string)")
+        "--solver-options-string",
+        default="",
+        help="A quoted string of options to pass to the model solver. Each option must be of the form option=value. "
+        "(e.g., --solver-options-string \"mipgap=0.001 primalopt='' advance=2 threads=1\")",
+    )
     argparser.add_argument(
-        "--no-stream-output", "--no-stream-solver", action='store_false', dest="tee", default=None,
-        help="Don't display information from the solver about its progress")
+        "--solver-method",
+        default=None,
+        type=str,
+        help="Specify the solver method to use.",
+    )
     argparser.add_argument(
-        "--symbolic-solver-labels", action='store_true', default=None,
-        help='Use symbol names derived from the model when interfacing with the solver. '
-            'See "pyomo solve --solver=x --help" for more details.')
-    argparser.add_argument("--tempdir", default=None,
-        help='The name of a directory to hold temporary files produced by the solver. '
-             'This is usually paired with --keepfiles and --symbolic-solver-labels.')
+        "--keepfiles",
+        action="store_true",
+        default=None,
+        help="Keep temporary files produced by the solver (may be useful with --symbolic-solver-labels)",
+    )
     argparser.add_argument(
-        '--retrieve-cplex-mip-duals', default=False, action='store_true',
+        "--stream-output",
+        "--stream-solver",
+        action="store_true",
+        dest="tee",
+        default=None,
+        help="Display information from the solver about its progress (usually combined with a suitable --solver-options-string)",
+    )
+    argparser.add_argument(
+        "--no-stream-output",
+        "--no-stream-solver",
+        action="store_false",
+        dest="tee",
+        default=None,
+        help="Don't display information from the solver about its progress",
+    )
+    argparser.add_argument(
+        "--symbolic-solver-labels",
+        action="store_true",
+        default=None,
+        help="Use symbol names derived from the model when interfacing with the solver. "
+        'See "pyomo solve --solver=x --help" for more details.',
+    )
+    argparser.add_argument(
+        "--tempdir",
+        default=None,
+        help="The name of a directory to hold temporary files produced by the solver. "
+        "This is usually paired with --keepfiles and --symbolic-solver-labels.",
+    )
+    argparser.add_argument(
+        "--retrieve-cplex-mip-duals",
+        default=False,
+        action="store_true",
         help=(
             "Patch Pyomo's solver script for cplex to re-solve and retrieve "
             "dual values for mixed-integer programs."
-        )
+        ),
     )
     argparser.add_argument(
-        '--gurobi-find-iis', default=False, action='store_true',
-        help='Make Gurobi compute an irreducible inconsistent subsystem (IIS) if the model is found to be infeasible. '
-             'The IIS will be writen to outputs\\iis.ilp. Note this flag enables --symbolic-solver-labels since '
-             'otherwise debugging would be impossible. To learn more about IIS read: '
-             'https://www.gurobi.com/documentation/9.1/refman/py_model_computeiis.html.'
+        "--gurobi-find-iis",
+        default=False,
+        action="store_true",
+        help="Make Gurobi compute an irreducible inconsistent subsystem (IIS) if the model is found to be infeasible. "
+        "The IIS will be writen to outputs\\iis.ilp. Note this flag enables --symbolic-solver-labels since "
+        "otherwise debugging would be impossible. To learn more about IIS read: "
+        "https://www.gurobi.com/documentation/9.1/refman/py_model_computeiis.html.",
     )
 
     # NOTE: the following could potentially be made into standard arguments for all models,
@@ -490,85 +602,135 @@ def define_arguments(argparser):
     # argparser.add_argument("--inputs-dir", default="inputs",
     #     help='Directory containing input files (default is "inputs")')
     argparser.add_argument(
-        "--input-alias", "--input-aliases", dest="input_aliases", nargs='+', default=[],
-        help='List of input file substitutions, in form of standard_file.csv=alternative_file.csv, '
-        'useful for sensitivity studies with different inputs.')
-    argparser.add_argument("--outputs-dir", default="outputs",
-        help='Directory to write output files (default is "outputs")')
+        "--input-alias",
+        "--input-aliases",
+        dest="input_aliases",
+        nargs="+",
+        default=[],
+        help="List of input file substitutions, in form of standard_file.csv=alternative_file.csv, "
+        "useful for sensitivity studies with different inputs.",
+    )
+    argparser.add_argument(
+        "--outputs-dir",
+        default="outputs",
+        help='Directory to write output files (default is "outputs")',
+    )
 
     # General purpose arguments
     argparser.add_argument(
-        '--verbose', '-v', dest='verbose', default=False, action='store_true',
-        help='Show information about model preparation and solution')
-    argparser.add_argument(
-        '--quiet', '-q', dest='verbose', action='store_false',
-        help="Don't show information about model preparation and solution (cancels --verbose setting)")
-    argparser.add_argument(
-        '--no-post-solve', default=False, action='store_true',
-        help="Don't run post-solve code on the completed model (i.e., reporting functions).")
-    argparser.add_argument(
-        '--reload-prior-solution', default=False, action='store_true',
-        help='Load a previously saved solution; useful for re-running post-solve code or interactively exploring the model (via --interact).')
-    argparser.add_argument(
-        '--save-solution', default=False, action='store_true',
-        help="Save the solution to a pickle file after model is solved to allow for later inspection via --reload-prior-solution.")
-    argparser.add_argument(
-        '--save-warm-start', default=False, action='store_true',
-        help="Save warm_start.pickle to the outputs which allows future runs to warm start from this one."
+        "--verbose",
+        "-v",
+        dest="verbose",
+        default=False,
+        action="store_true",
+        help="Show information about model preparation and solution",
     )
     argparser.add_argument(
-        '--interact', default=False, action='store_true',
-        help='Enter interactive shell after solving the instance to enable inspection of the solved model.')
-    argparser.add_argument(
-        '--enable-breakpoints', default=False, action='store_true',
-        help='Break and enter the Python Debugger at key points during the solving process.'
+        "--quiet",
+        "-q",
+        dest="verbose",
+        action="store_false",
+        help="Don't show information about model preparation and solution (cancels --verbose setting)",
     )
     argparser.add_argument(
-        "--sig-figs-output", default=5, type=int,
-        help='The number of significant digits to include in the output by default'
+        "--no-post-solve",
+        default=False,
+        action="store_true",
+        help="Don't run post-solve code on the completed model (i.e., reporting functions).",
     )
     argparser.add_argument(
-        "--zero-cutoff-output", default=1e-5, type=float,
-        help="If the magnitude of an output value is less than this value, it is rounded to 0."
+        "--reload-prior-solution",
+        default=False,
+        action="store_true",
+        help="Load a previously saved solution; useful for re-running post-solve code or interactively exploring the model (via --interact).",
+    )
+    argparser.add_argument(
+        "--save-solution",
+        default=False,
+        action="store_true",
+        help="Save the solution to a pickle file after model is solved to allow for later inspection via --reload-prior-solution.",
+    )
+    argparser.add_argument(
+        "--save-warm-start",
+        default=False,
+        action="store_true",
+        help="Save warm_start.pickle to the outputs which allows future runs to warm start from this one.",
+    )
+    argparser.add_argument(
+        "--interact",
+        default=False,
+        action="store_true",
+        help="Enter interactive shell after solving the instance to enable inspection of the solved model.",
+    )
+    argparser.add_argument(
+        "--enable-breakpoints",
+        default=False,
+        action="store_true",
+        help="Break and enter the Python Debugger at key points during the solving process.",
+    )
+    argparser.add_argument(
+        "--sig-figs-output",
+        default=5,
+        type=int,
+        help="The number of significant digits to include in the output by default",
+    )
+    argparser.add_argument(
+        "--zero-cutoff-output",
+        default=1e-5,
+        type=float,
+        help="If the magnitude of an output value is less than this value, it is rounded to 0.",
     )
 
     argparser.add_argument(
-        "--sorted-output", default=False, action='store_true',
-        dest='sorted_output',
-        help='Write generic variable result values in sorted order')
-    argparser.add_argument(
-        "--graph", default=False, action='store_true',
-        help="Automatically run switch graph after post solve"
+        "--sorted-output",
+        default=False,
+        action="store_true",
+        dest="sorted_output",
+        help="Write generic variable result values in sorted order",
     )
     argparser.add_argument(
-        "--no-crossover", default=False, action='store_true',
+        "--graph",
+        default=False,
+        action="store_true",
+        help="Automatically run switch graph after post solve",
+    )
+    argparser.add_argument(
+        "--no-crossover",
+        default=False,
+        action="store_true",
         help="Disables crosssover when using the barrier algorithm. This reduces"
-             ' the solve time greatly however may result in less accurate values and may fail to find an optimal'
-             " solution. If you find that the solver returns a suboptimal solution remove this flag."
+        " the solve time greatly however may result in less accurate values and may fail to find an optimal"
+        " solution. If you find that the solver returns a suboptimal solution remove this flag.",
     )
 
     argparser.add_argument(
-        "--threads", type=int, default=None,
-        help="Number of threads to be used while solving. Currently only supported for Gurobi"
+        "--threads",
+        type=int,
+        default=None,
+        help="Number of threads to be used while solving. Currently only supported for Gurobi",
     )
 
     argparser.add_argument(
-        "--warm-start-mip", default=None,
+        "--warm-start-mip",
+        default=None,
         help="Enables warm start for a Mixed Integer problem by specifying the "
-             "path to a previous scenario. Warm starting only works if the solution to the previous solution"
-             "is also a feasible (but not necessarily optimal) solution to the current scenario."
+        "path to a previous scenario. Warm starting only works if the solution to the previous solution"
+        "is also a feasible (but not necessarily optimal) solution to the current scenario.",
     )
 
     argparser.add_argument(
-        "--warm-start", default=None,
+        "--warm-start",
+        default=None,
         help="Enables warm start for a LP Problem by specifying the path to the previous scenario. Note"
-             " that all variables must be the same between the previous and current scenario."
+        " that all variables must be the same between the previous and current scenario.",
     )
 
     argparser.add_argument(
-        "--gurobi-make-mps", default=False, action="store_true",
+        "--gurobi-make-mps",
+        default=False,
+        action="store_true",
         help="Instead of solving just output a Gurobi .mps file that can be used for debugging numerical properties."
-             " See https://github.com/staadecker/lp-analyzer/ for details."
+        " See https://github.com/staadecker/lp-analyzer/ for details.",
     )
 
 
@@ -579,23 +741,32 @@ def add_recommended_args(argparser):
     are recommended.
     """
     argparser.add_argument(
-        "--recommended", default=False, action='store_true',
-        help='Includes several flags that are recommended including --solver gurobi --verbose --stream-output and more. '
-             'See parse_recommended_args() in solve.py for the full list of recommended flags.'
+        "--recommended",
+        default=False,
+        action="store_true",
+        help="Includes several flags that are recommended including --solver gurobi --verbose --stream-output and more. "
+        "See parse_recommended_args() in solve.py for the full list of recommended flags.",
     )
 
     argparser.add_argument(
-        "--recommended-fast", default=False, action='store_true',
-        help='Equivalent to --recommended with --no-crossover.'
+        "--recommended-fast",
+        default=False,
+        action="store_true",
+        help="Equivalent to --recommended with --no-crossover.",
     )
 
     argparser.add_argument(
-        "--recommended-debug", default=False, action='store_true',
-        help='Same as --recommended but adds the flags --keepfiles --tempdir temp --symbolic-solver-labels which are useful when debugging Gurobi.'
+        "--recommended-debug",
+        default=False,
+        action="store_true",
+        help="Same as --recommended but adds the flags --keepfiles --tempdir temp --symbolic-solver-labels which are useful when debugging Gurobi.",
     )
 
-    argparser.add_argument("--solver", default="gurobi",
-                           help='Name of Pyomo solver to use for the model (default is "gurobi")')
+    argparser.add_argument(
+        "--solver",
+        default="gurobi",
+        help='Name of Pyomo solver to use for the model (default is "gurobi")',
+    )
 
 
 def parse_recommended_args(args):
@@ -603,28 +774,36 @@ def parse_recommended_args(args):
     add_recommended_args(argparser)
     options = argparser.parse_known_args(args)[0]
 
-    flags_used = options.recommended + options.recommended_fast + options.recommended_debug
+    flags_used = (
+        options.recommended + options.recommended_fast + options.recommended_debug
+    )
     if flags_used > 1:
-        raise Exception("Must pick between --recommended-debug, --recommended-fast or --recommended.")
+        raise Exception(
+            "Must pick between --recommended-debug, --recommended-fast or --recommended."
+        )
     if flags_used == 0:
         return args
 
     # Note we don't append but rather prepend so that flags can override the --recommend flags to allow for overriding.
     args = [
-               '-v',
-               '--sorted-output',
-               '--stream-output',
-               '--log-run',
-               '--debug',
-               '--graph',
-               '--solver-method', 'barrier',
-           ] + args
+        "-v",
+        "--sorted-output",
+        "--stream-output",
+        "--log-run",
+        "--debug",
+        "--graph",
+        "--solver-method",
+        "barrier",
+    ] + args
     if options.solver in ("gurobi", "gurobi_direct", "gurobi_aug"):
-        args = ['--solver-options-string', "BarHomogeneous=1 FeasibilityTol=1e-5"] + args
+        args = [
+            "--solver-options-string",
+            "BarHomogeneous=1 FeasibilityTol=1e-5",
+        ] + args
     if options.recommended_fast:
         args = ["--no-crossover"] + args
     if options.recommended_debug:
-        args = ['--keepfiles', '--tempdir', 'temp', '--symbolic-solver-labels'] + args
+        args = ["--keepfiles", "--tempdir", "temp", "--symbolic-solver-labels"] + args
 
     return args
 
@@ -633,12 +812,25 @@ def add_pre_module_args(parser):
     """
     Add arguments needed before any modules are loaded.
     """
-    parser.add_argument("--log-run", dest="log_run_to_file", default=False, action="store_true",
-                        help="Log output to a file.")
-    parser.add_argument("--logs-dir", dest="logs_dir", default="logs",
-                        help='Directory containing log files (default is "logs"')
-    parser.add_argument("--debug", action="store_true", default=False,
-                        help='Automatically start pdb debugger on exceptions')
+    parser.add_argument(
+        "--log-run",
+        dest="log_run_to_file",
+        default=False,
+        action="store_true",
+        help="Log output to a file.",
+    )
+    parser.add_argument(
+        "--logs-dir",
+        dest="logs_dir",
+        default="logs",
+        help='Directory containing log files (default is "logs"',
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        default=False,
+        help="Automatically start pdb debugger on exceptions",
+    )
 
 
 def parse_pre_module_options(args):
@@ -668,7 +860,8 @@ def get_iteration_list(m):
         iterate_modules = [re.sub("[ \t,]+", " ", r).split(" ") for r in iterate_rows]
     return iterate_modules
 
-def get_option_file_args(dir='.', extra_args=[]):
+
+def get_option_file_args(dir=".", extra_args=[]):
 
     args = []
     # retrieve base arguments from options.txt (if present)
@@ -684,8 +877,10 @@ def get_option_file_args(dir='.', extra_args=[]):
     args.extend(extra_args)
     return args
 
+
 # Generic argument-related code; could potentially be moved to utilities.py
 # if we want to make these standard parts of Switch.
+
 
 def add_extra_suffixes(model):
     """
@@ -711,7 +906,9 @@ def solve(model):
 
     if model.options.warm_start is not None or model.options.save_warm_start:
         if solver_type not in gurobi_types:
-            raise NotImplementedError("Warm start functionality requires --solver gurobi")
+            raise NotImplementedError(
+                "Warm start functionality requires --solver gurobi"
+            )
         model.options.solver = "gurobi_aug"
 
         # Method 1 (dual simplex) is required since it supports warm starting.
@@ -746,7 +943,9 @@ def solve(model):
             model.options.solver_options_string += " ResultFile=iis.ilp"
         if model.options.gurobi_make_mps:
             # Output the input file and set time limit to zero to ensure it doesn't actually solve
-            model.options.solver_options_string += f" ResultFile=problem.mps TimeLimit=0"
+            model.options.solver_options_string += (
+                f" ResultFile=problem.mps TimeLimit=0"
+            )
 
     if model.options.no_crossover:
         if solver_type in gurobi_types:
@@ -754,7 +953,9 @@ def solve(model):
         elif solver_type in cplex_types:
             options_string = " solutiontype=2"
         else:
-            raise NotImplementedError(f"--no-crossover not implemented for solver {solver}")
+            raise NotImplementedError(
+                f"--no-crossover not implemented for solver {solver}"
+            )
 
     if model.options.threads is not None:
         options_string += f" threads={model.options.threads}"
@@ -769,7 +970,9 @@ def solve(model):
                 method = 4
             options_string += f" LPMethod={method}"
         else:
-            raise NotImplementedError(f"Can't specify method {method} for solver {solver_type}")
+            raise NotImplementedError(
+                f"Can't specify method {method} for solver {solver_type}"
+            )
 
     # get solver arguments
     solver_args = dict(
@@ -777,14 +980,18 @@ def solve(model):
         keepfiles=model.options.keepfiles,
         tee=model.options.tee,
         symbolic_solver_labels=model.options.symbolic_solver_labels,
-        save_results=model.options.save_solution if isinstance(solver, DirectOrPersistentSolver) else None,
+        save_results=model.options.save_solution
+        if isinstance(solver, DirectOrPersistentSolver)
+        else None,
     )
 
     if model.options.warm_start_mip is not None or model.options.warm_start is not None:
         solver_args["warmstart"] = True
 
     if model.options.warm_start is not None:
-        solver_args["read_warm_start"] = os.path.join(model.options.warm_start, "outputs", "warm_start.pickle")
+        solver_args["read_warm_start"] = os.path.join(
+            model.options.warm_start, "outputs", "warm_start.pickle"
+        )
 
     if model.options.save_warm_start:
         solver_args["write_warm_start"] = os.path.join("outputs", "warm_start.pickle")
@@ -793,9 +1000,7 @@ def solve(model):
     solver_args = {k: v for (k, v) in solver_args.items() if v is not None}
 
     # Automatically send all defined suffixes to the solver
-    solver_args["suffixes"] = [
-        c.name for c in model.component_objects(ctype=Suffix)
-    ]
+    solver_args["suffixes"] = [c.name for c in model.component_objects(ctype=Suffix)]
 
     # note: the next few lines are faster than the line above, but seem risky:
     # i = m._ctypes.get(Suffix, [None])[0]
@@ -819,6 +1024,7 @@ def solve(model):
 
         # from https://pyomo.readthedocs.io/en/stable/working_models.html#changing-the-temporary-directory
         from pyomo.common.tempfiles import TempfileManager
+
         TempfileManager.tempdir = model.options.tempdir
 
     # Cleanup memory before entering solver to use up as little memory as possible.
@@ -829,8 +1035,10 @@ def solve(model):
         print(f"Solved model. Total time spent in solver: {timer.step_time_as_str()}.")
 
     if model.options.enable_breakpoints:
-        print("Breaking after solving model. See "
-              "https://docs.python.org/3/library/pdb.html for instructions on using pdb.")
+        print(
+            "Breaking after solving model. See "
+            "https://docs.python.org/3/library/pdb.html for instructions on using pdb."
+        )
         breakpoint()
 
     solver_status = results.solver.status
@@ -838,7 +1046,10 @@ def solve(model):
     termination_condition = results.solver.termination_condition
     solution_status = model.solutions[-1].status if len(model.solutions) != 0 else None
 
-    if solver_status != SolverStatus.ok or termination_condition != TerminationCondition.optimal:
+    if (
+        solver_status != SolverStatus.ok
+        or termination_condition != TerminationCondition.optimal
+    ):
         warn(
             f"Solver termination status is not 'ok' or not 'optimal':\n"
             f"\t- Termination condition: {termination_condition}\n"
@@ -847,21 +1058,29 @@ def solve(model):
             f"\t- Solution status: {solution_status}"
         )
 
-        if solution_status == SolutionStatus.feasible and solver_status == SolverStatus.warning:
-            print("\nThis often happens when using --recommended-fast. If that's the case it's likely that you have a feasible"
-                  " but sub-optimal solution.\nYou should compare the difference between the primal and dual objective to determine"
-                  " whether the solution is close enough to the optimal solution for your purposes. The smaller the difference"
-                  " the more accurate the solution.\nIf the solution is not accurate enough"
-                  " you should try running switch solve again with --recommended instead of --recommended-fast.\n")
+        if (
+            solution_status == SolutionStatus.feasible
+            and solver_status == SolverStatus.warning
+        ):
+            print(
+                "\nThis often happens when using --recommended-fast. If that's the case it's likely that you have a feasible"
+                " but sub-optimal solution.\nYou should compare the difference between the primal and dual objective to determine"
+                " whether the solution is close enough to the optimal solution for your purposes. The smaller the difference"
+                " the more accurate the solution.\nIf the solution is not accurate enough"
+                " you should try running switch solve again with --recommended instead of --recommended-fast.\n"
+            )
 
         # Note the '\a' will make a noise on most OS' which is useful to get the person's attention
-        if query_yes_no("Do you want to abort and exit (without running post-solve)?\a", default=None):
+        if query_yes_no(
+            "Do you want to abort and exit (without running post-solve)?\a",
+            default=None,
+        ):
             raise SystemExit()
 
     if model.options.verbose:
         print(f"\nOptimization termination condition was {termination_condition}.")
-        if str(solver_message) != '<undefined>':
-            print(f'Solver message: {solver_message}')
+        if str(solver_message) != "<undefined>":
+            print(f"Solver message: {solver_message}")
         print("")
 
     if model.options.save_solution:
@@ -869,40 +1088,45 @@ def solve(model):
             timer.step_time()  # restart counter for next step
         save_results(model, model.options.outputs_dir)
         if model.options.verbose:
-            print(f'Saved results in {timer.step_time_as_str()}.')
+            print(f"Saved results in {timer.step_time_as_str()}.")
 
     # Save memory by not storing the solutions
     del model.solutions
     del results
+
 
 def retrieve_cplex_mip_duals():
     """patch Pyomo's solver to retrieve duals and reduced costs for MIPs
     from cplex lp solver. (This could be made permanent in
     pyomo.solvers.plugins.solvers.CPLEX.create_command_line)."""
     from pyomo.solvers.plugins.solvers.CPLEX import CPLEXSHELL
+
     old_create_command_line = CPLEXSHELL.create_command_line
+
     def new_create_command_line(*args, **kwargs):
         # call original command
         command = old_create_command_line(*args, **kwargs)
         # alter script
-        if hasattr(command, 'script') and 'optimize\n' in command.script:
+        if hasattr(command, "script") and "optimize\n" in command.script:
             command.script = command.script.replace(
-                'optimize\n',
-                'optimize\nchange problem fix\noptimize\n'
+                "optimize\n",
+                "optimize\nchange problem fix\noptimize\n"
                 # see http://www-01.ibm.com/support/docview.wss?uid=swg21399941
                 # and http://www-01.ibm.com/support/docview.wss?uid=swg21400009
             )
             print("changed CPLEX solve script to the following:")
             print(command.script)
         else:
-            print (
+            print(
                 "Unable to patch CPLEX solver script to retrieve duals "
                 "for MIP problems"
             )
         return command
+
     new_create_command_line.is_patched = True
-    if not getattr(CPLEXSHELL.create_command_line, 'is_patched', False):
+    if not getattr(CPLEXSHELL.create_command_line, "is_patched", False):
         CPLEXSHELL.create_command_line = new_create_command_line
+
 
 def save_results(instance, outdir):
     """
@@ -915,7 +1139,7 @@ def save_results(instance, outdir):
     # First, save the full solution data to the results object, because recent
     # versions of Pyomo only store execution metadata there by default.
     instance.solutions.store_to(instance.last_results)
-    with open(os.path.join(outdir, 'results.pickle'), 'wb') as fh:
+    with open(os.path.join(outdir, "results.pickle"), "wb") as fh:
         pickle.dump(instance.last_results, fh, protocol=-1)
     # remove the solution from the results object, to minimize long-term memory use
     instance.last_results.solution.clear()

@@ -4,20 +4,24 @@
 # Use this by adding terms like the following to the runph command:
 # --linearize-nonbinary-penalty-terms=5 --bounds-cfgfile=pha_bounds_cfg.py
 
+
 def pysp_boundsetter_callback(self, scenario_tree, scenario):
-    m = scenario._instance 	# see pyomo/pysp/scenariotree/tree_structure.py
+    m = scenario._instance  # see pyomo/pysp/scenariotree/tree_structure.py
 
     # BuildLocalTD
     for p in m.PERIODS:
         for lz in m.LOAD_ZONES:
-            m.BuildLocalTD[lz, p].setub(2 * m.zone_expected_coincident_peak_demand[lz, p])
+            m.BuildLocalTD[lz, p].setub(
+                2 * m.zone_expected_coincident_peak_demand[lz, p]
+            )
 
     # Estimate an upper bound of system peak demand for limiting generation unit
     # & transmission line builds
     system_wide_peak = {}
     for p in m.PERIODS:
         system_wide_peak[p] = sum(
-            m.zone_expected_coincident_peak_demand[lz, p] for lz in m.LOAD_ZONES)
+            m.zone_expected_coincident_peak_demand[lz, p] for lz in m.LOAD_ZONES
+        )
 
     # BuildGen
     for g, bld_yr in m.NEW_GEN_BLD_YRS:
@@ -26,6 +30,7 @@ def pysp_boundsetter_callback(self, scenario_tree, scenario):
     # BuildTx
     for tx, bld_yr in m.TRANS_BLD_YRS:
         m.BuildTx[tx, bld_yr].setub(5 * system_wide_peak[bld_yr])
+
 
 # For some reason runph looks for pysp_boundsetter_callback when run in
 # single-thread mode and ph_boundsetter_callback when called from mpirun with

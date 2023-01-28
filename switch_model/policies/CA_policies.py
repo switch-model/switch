@@ -77,46 +77,66 @@ def define_components(mod):
         input_file="load_zones.csv",
         default=lambda m, z: z.partition("_")[0],
         within=Any,
-        doc="Two-letter state code for each load zone inferred from the load zone id.")
+        doc="Two-letter state code for each load zone inferred from the load zone id.",
+    )
 
-    mod.CA_ZONES = Set(initialize=mod.LOAD_ZONES, within=mod.LOAD_ZONES,
-                       filter=lambda m, z: m.load_zone_state[z] == "CA",
-                       doc="Set of load zones within California.")
+    mod.CA_ZONES = Set(
+        initialize=mod.LOAD_ZONES,
+        within=mod.LOAD_ZONES,
+        filter=lambda m, z: m.load_zone_state[z] == "CA",
+        doc="Set of load zones within California.",
+    )
 
-    mod.ca_min_gen_timepoint_ratio = Param(mod.PERIODS, within=PercentFraction, default=0,
-                                           input_file="ca_policies.csv",
-                                           doc="Fraction of demand that must be satisfied through in-state"
-                                               "generation during each timepoint.")
+    mod.ca_min_gen_timepoint_ratio = Param(
+        mod.PERIODS,
+        within=PercentFraction,
+        default=0,
+        input_file="ca_policies.csv",
+        doc="Fraction of demand that must be satisfied through in-state"
+        "generation during each timepoint.",
+    )
 
-    mod.ca_min_gen_period_ratio = Param(mod.PERIODS, within=PercentFraction, default=0,
-                                        input_file="ca_policies.csv",
-                                        doc="Fraction of demand that must be satisfied through in-state"
-                                            "generation across an entire period.")
+    mod.ca_min_gen_period_ratio = Param(
+        mod.PERIODS,
+        within=PercentFraction,
+        default=0,
+        input_file="ca_policies.csv",
+        doc="Fraction of demand that must be satisfied through in-state"
+        "generation across an entire period.",
+    )
 
-    mod.carbon_cap_tco2_per_yr_CA = Param(mod.PERIODS, default=float('inf'),
-                                          input_file="ca_policies.csv",
-                                          input_optional=True,
-                                          doc=(
-                                              "Emissions from California must be less than this cap. Specified in metric tonnes of CO2 per year."))
+    mod.carbon_cap_tco2_per_yr_CA = Param(
+        mod.PERIODS,
+        default=float("inf"),
+        input_file="ca_policies.csv",
+        input_optional=True,
+        doc=(
+            "Emissions from California must be less than this cap. Specified in metric tonnes of CO2 per year."
+        ),
+    )
 
-    mod.AnnualEmissions_CA = Expression(mod.PERIODS,
-                                        rule=lambda m, period: sum(
-                                            m.DispatchEmissions[g, t, f] * m.tp_weight_in_year[t]
-                                            for (g, t, f) in m.GEN_TP_FUELS
-                                            if m.tp_period[t] == period and (
-                                                    m.load_zone_state[m.gen_load_zone[g]] == "CA")),
-                                        doc="CA's annual emissions, in metric tonnes of CO2 per year.")
+    mod.AnnualEmissions_CA = Expression(
+        mod.PERIODS,
+        rule=lambda m, period: sum(
+            m.DispatchEmissions[g, t, f] * m.tp_weight_in_year[t]
+            for (g, t, f) in m.GEN_TP_FUELS
+            if m.tp_period[t] == period
+            and (m.load_zone_state[m.gen_load_zone[g]] == "CA")
+        ),
+        doc="CA's annual emissions, in metric tonnes of CO2 per year.",
+    )
 
     # Carbon caps when specified in tons of CO2 are normally very large numbers ~10^8
     # We express the constraint in terms of thousands of tons of CO2 to avoid numerical
     # issues while solving
-    scaling_factor_Enforce_Carbon_Cap = 10 ** -3
+    scaling_factor_Enforce_Carbon_Cap = 10**-3
     mod.Enforce_Carbon_Cap_CA = Constraint(
         mod.PERIODS,
         rule=lambda m, p: m.AnnualEmissions_CA[p] * scaling_factor_Enforce_Carbon_Cap
-                          <= m.carbon_cap_tco2_per_yr_CA[p] * scaling_factor_Enforce_Carbon_Cap
-        if m.carbon_cap_tco2_per_yr_CA[p] != float('inf') else Constraint.Skip,
-        doc="Enforces the carbon cap for generation-related emissions."
+        <= m.carbon_cap_tco2_per_yr_CA[p] * scaling_factor_Enforce_Carbon_Cap
+        if m.carbon_cap_tco2_per_yr_CA[p] != float("inf")
+        else Constraint.Skip,
+        doc="Enforces the carbon cap for generation-related emissions.",
     )
 
     # TODO test that m.Zone_Power_injections includes all the power injection *even if this module is the first
@@ -126,33 +146,52 @@ def define_components(mod):
         mod.TIMEPOINTS,
         # Sum of all power injections except for transmission
         rule=lambda m, t: sum(
-            sum(
-                getattr(m, component)[z, t] for z in m.CA_ZONES
-            ) for component in m.Zone_Power_Injections if component != "TXPowerNet")
+            sum(getattr(m, component)[z, t] for z in m.CA_ZONES)
+            for component in m.Zone_Power_Injections
+            if component != "TXPowerNet"
+        ),
     )
 
     mod.CA_Demand = Expression(
         mod.TIMEPOINTS,
         # Sum of all power withdrawals
         rule=lambda m, t: sum(
-            sum(
-                getattr(m, component)[z, t] for z in m.CA_ZONES
-            ) for component in m.Zone_Power_Withdrawals)
+            sum(getattr(m, component)[z, t] for z in m.CA_ZONES)
+            for component in m.Zone_Power_Withdrawals
+        ),
     )
 
-    mod.CA_AnnualDispatch = Expression(mod.PERIODS, rule=lambda m, p: sum(m.CA_Dispatch[t] * m.tp_weight_in_year[t] for t in m.TPS_IN_PERIOD[p]))
-    mod.CA_AnnualDemand = Expression(mod.PERIODS, rule=lambda m, p: sum(m.CA_Demand[t] * m.tp_weight_in_year[t] for t in m.TPS_IN_PERIOD[p]))
+    mod.CA_AnnualDispatch = Expression(
+        mod.PERIODS,
+        rule=lambda m, p: sum(
+            m.CA_Dispatch[t] * m.tp_weight_in_year[t] for t in m.TPS_IN_PERIOD[p]
+        ),
+    )
+    mod.CA_AnnualDemand = Expression(
+        mod.PERIODS,
+        rule=lambda m, p: sum(
+            m.CA_Demand[t] * m.tp_weight_in_year[t] for t in m.TPS_IN_PERIOD[p]
+        ),
+    )
 
     mod.CA_Min_Gen_Timepoint_Constraint = Constraint(
         mod.TIMEPOINTS,
-        rule=lambda m, t: (m.CA_Dispatch[t] >= m.CA_Demand[t] * m.ca_min_gen_timepoint_ratio[m.tp_period[t]])
-        if m.ca_min_gen_timepoint_ratio[m.tp_period[t]] != 0 else Constraint.Skip
+        rule=lambda m, t: (
+            m.CA_Dispatch[t]
+            >= m.CA_Demand[t] * m.ca_min_gen_timepoint_ratio[m.tp_period[t]]
+        )
+        if m.ca_min_gen_timepoint_ratio[m.tp_period[t]] != 0
+        else Constraint.Skip,
     )
 
     mod.CA_Min_Gen_Period_Constraint = Constraint(
         mod.PERIODS,
-        rule=lambda m, p: (m.CA_AnnualDispatch[p] >= m.ca_min_gen_period_ratio[p] * m.CA_AnnualDemand[p])
-        if m.ca_min_gen_period_ratio[p] != 0 else Constraint.Skip
+        rule=lambda m, p: (
+            m.CA_AnnualDispatch[p]
+            >= m.ca_min_gen_period_ratio[p] * m.CA_AnnualDemand[p]
+        )
+        if m.ca_min_gen_period_ratio[p] != 0
+        else Constraint.Skip,
     )
 
 
@@ -162,31 +201,36 @@ def post_solve(model, outdir):
     for each period.
     """
     reporting.write_table(
-        model, model.PERIODS,
+        model,
+        model.PERIODS,
         output_file=os.path.join(outdir, "ca_policies.csv"),
-        headings=("PERIOD",
-                  "AnnualEmissions_tCO2_per_yr_CA", "carbon_cap_tco2_per_yr_CA", "CA_AnnualDispatch", "CA_AnnualDemand",
-                  "Dispatch/Demand ratio", "Minimum ratio"),
-        values=lambda m, p: [p,
-                             m.AnnualEmissions_CA[p],
-                             m.carbon_cap_tco2_per_yr_CA[p],
-                             m.CA_AnnualDispatch[p],
-                             m.CA_AnnualDemand[p],
-                             m.CA_AnnualDispatch[p] / m.CA_AnnualDemand[p],
-                             m.ca_min_gen_period_ratio[p]
-                             ])
+        headings=(
+            "PERIOD",
+            "AnnualEmissions_tCO2_per_yr_CA",
+            "carbon_cap_tco2_per_yr_CA",
+            "CA_AnnualDispatch",
+            "CA_AnnualDemand",
+            "Dispatch/Demand ratio",
+            "Minimum ratio",
+        ),
+        values=lambda m, p: [
+            p,
+            m.AnnualEmissions_CA[p],
+            m.carbon_cap_tco2_per_yr_CA[p],
+            m.CA_AnnualDispatch[p],
+            m.CA_AnnualDemand[p],
+            m.CA_AnnualDispatch[p] / m.CA_AnnualDemand[p],
+            m.ca_min_gen_period_ratio[p],
+        ],
+    )
 
 
-@graph(
-    "emissions_CA",
-    "California's Total Emissions"
-)
+@graph("emissions_CA", "California's Total Emissions")
 def graph(tools):
     # Plot emissions over time
-    df = tools.get_dataframe("ca_policies.csv").set_index("PERIOD")["AnnualEmissions_tCO2_per_yr_CA"]
+    df = tools.get_dataframe("ca_policies.csv").set_index("PERIOD")[
+        "AnnualEmissions_tCO2_per_yr_CA"
+    ]
     df.plot(
-        ax=tools.get_axes(),
-        kind='bar',
-        ylabel="Annual Emissions (tCO2)",
-        xlabel="Year"
+        ax=tools.get_axes(), kind="bar", ylabel="Annual Emissions (tCO2)", xlabel="Year"
     )

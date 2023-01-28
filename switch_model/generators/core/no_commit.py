@@ -9,9 +9,15 @@ module which constrains dispatch to unit commitment decisions.
 
 from pyomo.environ import *
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
-    'switch_model.financials', 'switch_model.energy_sources.properties.properties', \
-    'switch_model.generators.core.build', 'switch_model.generators.core.dispatch'
+dependencies = (
+    "switch_model.timescales",
+    "switch_model.balancing.load_zones",
+    "switch_model.financials",
+    "switch_model.energy_sources.properties.properties",
+    "switch_model.generators.core.build",
+    "switch_model.generators.core.dispatch",
+)
+
 
 def define_components(mod):
     """
@@ -75,25 +81,31 @@ def define_components(mod):
     # and dispatch.
     mod.BASELOAD_GEN_PERIODS = Set(
         dimen=2,
-        initialize=lambda m:
-            [(g, p) for g in m.BASELOAD_GENS for p in m.PERIODS_FOR_GEN[g]])
+        initialize=lambda m: [
+            (g, p) for g in m.BASELOAD_GENS for p in m.PERIODS_FOR_GEN[g]
+        ],
+    )
     mod.BASELOAD_GEN_TPS = Set(
         dimen=2,
-        initialize=lambda m:
-            [(g, t) for g, p in m.BASELOAD_GEN_PERIODS for t in m.TPS_IN_PERIOD[p]])
+        initialize=lambda m: [
+            (g, t) for g, p in m.BASELOAD_GEN_PERIODS for t in m.TPS_IN_PERIOD[p]
+        ],
+    )
 
     mod.DispatchBaseloadByPeriod = Var(mod.BASELOAD_GEN_PERIODS)
 
     mod.DispatchUpperLimit = Expression(
         mod.GEN_TPS,
-        rule=lambda m, g, t: m.GenCapacityInTP[g, t] * m.gen_availability[g] * (
-            m.gen_max_capacity_factor[g, t] if m.gen_is_variable[g] else 1
-        ))
+        rule=lambda m, g, t: m.GenCapacityInTP[g, t]
+        * m.gen_availability[g]
+        * (m.gen_max_capacity_factor[g, t] if m.gen_is_variable[g] else 1),
+    )
 
     mod.Enforce_Dispatch_Baseload_Flat = Constraint(
         mod.BASELOAD_GEN_TPS,
-        rule=lambda m, g, t:
-            m.DispatchGen[g, t] == m.DispatchBaseloadByPeriod[g, m.tp_period[t]])
+        rule=lambda m, g, t: m.DispatchGen[g, t]
+        == m.DispatchBaseloadByPeriod[g, m.tp_period[t]],
+    )
 
     # We use a scaling factor to improve the numerical properties
     # of the model. The scaling factor was determined using trial
@@ -101,11 +113,12 @@ def define_components(mod):
     # Learn more by reading the documentation on Numerical Issues.
     mod.Enforce_Dispatch_Upper_Limit = Constraint(
         mod.GEN_TPS,
-        rule=lambda m, g, t:
-        m.DispatchGen[g, t] * 1e4 <= 1e4 * m.DispatchUpperLimit[g, t]
+        rule=lambda m, g, t: m.DispatchGen[g, t] * 1e4
+        <= 1e4 * m.DispatchUpperLimit[g, t],
     )
 
     mod.GenFuelUseRate_Calculate = Constraint(
         mod.GEN_TP_FUELS,
-        rule=lambda m, g, t, f: m.GenFuelUseRate[g,t,f] == m.DispatchGenByFuel[g,t,f] * m.gen_full_load_heat_rate[g]
+        rule=lambda m, g, t, f: m.GenFuelUseRate[g, t, f]
+        == m.DispatchGenByFuel[g, t, f] * m.gen_full_load_heat_rate[g],
     )

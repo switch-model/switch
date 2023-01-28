@@ -6,7 +6,11 @@ The map is available in the REAM Google Drive under Research -> Switch documenta
 
 from matplotlib import pyplot as plt
 
-from papers.Martin_Staadecker_et_al_2022.util import get_scenario, set_style, save_figure
+from papers.Martin_Staadecker_et_al_2022.util import (
+    get_scenario,
+    set_style,
+    save_figure,
+)
 from switch_model.tools.graph.main import GraphTools
 
 tools = GraphTools([get_scenario("1342")], set_style=False)
@@ -34,7 +38,14 @@ tx = tx[["trans_lz1", "trans_lz2"]]
 for _, line in tx.iterrows():
     from_center = centers[line["trans_lz1"]]
     to_center = centers[line["trans_lz2"]]
-    ax.plot([from_center.x, to_center.x], [from_center.y, to_center.y], color="k", linestyle="--", linewidth=1, alpha=0.3)
+    ax.plot(
+        [from_center.x, to_center.x],
+        [from_center.y, to_center.y],
+        color="k",
+        linestyle="--",
+        linewidth=1,
+        alpha=0.3,
+    )
 
 for lz, center in centers.items():
     ax.text(center.x, center.y, lz, fontsize="small")

@@ -15,9 +15,13 @@ def post_process(_):
         return
 
     # Read two files that need modification
-    gen_build_costs = pd.read_csv("gen_build_costs.csv", index_col=False, dtype={"GENERATION_PROJECT": object})
+    gen_build_costs = pd.read_csv(
+        "gen_build_costs.csv", index_col=False, dtype={"GENERATION_PROJECT": object}
+    )
     gen_build_predetermined = pd.read_csv(
-        "gen_build_predetermined.csv", index_col=False, dtype={"GENERATION_PROJECT": object}
+        "gen_build_predetermined.csv",
+        index_col=False,
+        dtype={"GENERATION_PROJECT": object},
     )
     # Save their size
     rows_prior = gen_build_costs.size, gen_build_predetermined.size

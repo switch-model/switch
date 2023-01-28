@@ -48,7 +48,9 @@ class PicklableData:
 
     def save_component(self, component, val):
         """Add a Pyomo Component (e.g. Variable Data) to our object for later pickling"""
-        self._names[self._next_index] = component.getname(fully_qualified=True, name_buffer=self._names_buffer)
+        self._names[self._next_index] = component.getname(
+            fully_qualified=True, name_buffer=self._names_buffer
+        )
         self._vals[self._next_index] = val
         self._next_index += 1
 
@@ -61,13 +63,20 @@ class PicklableData:
     def get_component(self, component):
         """Retrieves a component from the data."""
         # Initialize the dictionary on the first call to this function
-        return self._get_dict()[component.getname(fully_qualified=True, name_buffer=self._names_buffer)]
+        return self._get_dict()[
+            component.getname(fully_qualified=True, name_buffer=self._names_buffer)
+        ]
 
     def __getstate__(self):
         """Return value is what gets pickled."""
         if self._next_index != self.n:
-            warnings.warn("Pickling more data than necessary, n is greater than the number of components stored")
-        return np.array(self._names), self._vals  # Note, we cast self._names to a numpy array to save space.
+            warnings.warn(
+                "Pickling more data than necessary, n is greater than the number of components stored"
+            )
+        return (
+            np.array(self._names),
+            self._vals,
+        )  # Note, we cast self._names to a numpy array to save space.
 
     def __setstate__(self, state):
         """Called when restoring the object from a pickle file."""
@@ -109,6 +118,7 @@ class VBasis(PicklableData):
     def get_component(self, component):
         return int(super(VBasis, self).get_component(component)) * -1
 
+
 class WarmStartData:
     """Data that gets pickled"""
 
@@ -117,7 +127,10 @@ class WarmStartData:
         self.const_data = const_data
         self.use_c_v_basis = use_c_v_basis
 
-@SolverFactory.register("gurobi_aug", doc="Python interface to Gurobi that supports LP warm starting")
+
+@SolverFactory.register(
+    "gurobi_aug", doc="Python interface to Gurobi that supports LP warm starting"
+)
 class GurobiAugmented(GurobiDirect):
     CBASIS_DEFAULT = 0  # Corresponds to a basic constraint
     VBASIS_DEFAULT = 0  # Corresponds to a basic variable
@@ -188,7 +201,8 @@ class GurobiAugmented(GurobiDirect):
         if error is not None:
             warnings.warn(
                 f"{error} and {error_count - 1} others were not found in warm start pickle file. "
-                f"If many variables or constraints are not found it may be more efficient to not use --warm-start.")
+                f"If many variables or constraints are not found it may be more efficient to not use --warm-start."
+            )
 
         print(f"Time spent warm starting: {time.step_time_as_str()}")
 
@@ -199,7 +213,9 @@ class GurobiAugmented(GurobiDirect):
         results = super(GurobiAugmented, self)._postsolve()
         if self._write_warm_start is not None:
             if self._solver_model.IsMIP:
-                warnings.warn("--save-warm-start doesn't work for MIP models. Not creating a .pickle file.")
+                warnings.warn(
+                    "--save-warm-start doesn't work for MIP models. Not creating a .pickle file."
+                )
             else:
                 timer = StepTimer(msg="Saving results to warm_start.pickle...")
                 self._save_warm_start(self._save_c_v_basis)

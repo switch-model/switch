@@ -15,55 +15,61 @@ def define_components(mod):
     mod.GEN_TECH_PER_PERIOD = Set(
         initialize=lambda m: m.GENERATION_TECHNOLOGIES * m.PERIODS,
         dimen=2,
-        doc="Set of generation technologies and periods"
+        doc="Set of generation technologies and periods",
     )
 
     mod.minimum_capacity_mw = Param(
         mod.GEN_TECH_PER_PERIOD,
         within=NonNegativeReals,
         default=0,
-        doc="The minimum amount of capacity for a period and generation technology"
+        doc="The minimum amount of capacity for a period and generation technology",
     )
 
     mod.minimum_energy_capacity_mwh = Param(
         mod.GEN_TECH_PER_PERIOD,
         within=NonNegativeReals,
         default=0,
-        doc="The minimum amount of energy capacity for a period and generation technology (only considers storage)"
+        doc="The minimum amount of energy capacity for a period and generation technology (only considers storage)",
     )
 
     mod.GenCapacityPerTech = Expression(
         mod.GEN_TECH_PER_PERIOD,
-        rule=lambda m, tech, p: sum(m.GenCapacity[g, p] for g in m.GENS_BY_TECHNOLOGY[tech]),
-        doc="The amount of power capacity for a period and technology."
+        rule=lambda m, tech, p: sum(
+            m.GenCapacity[g, p] for g in m.GENS_BY_TECHNOLOGY[tech]
+        ),
+        doc="The amount of power capacity for a period and technology.",
     )
 
     mod.GenEnergyCapacityPerTech = Expression(
         mod.GEN_TECH_PER_PERIOD,
-        rule=lambda m, tech, p: sum(m.StorageEnergyCapacity[g, p] for g in m.STORAGE_GENS if m.gen_tech[g] == tech),
-        doc="The amount of energy capacity for a period and technology (only considers storage from the storage module)."
+        rule=lambda m, tech, p: sum(
+            m.StorageEnergyCapacity[g, p]
+            for g in m.STORAGE_GENS
+            if m.gen_tech[g] == tech
+        ),
+        doc="The amount of energy capacity for a period and technology (only considers storage from the storage module).",
     )
 
     power_scaling_factor = 1e-4
 
     mod.Enforce_Minimum_Capacity_Per_Tech = Constraint(
         mod.GEN_TECH_PER_PERIOD,
-        rule=lambda m, tech, p:
-        Constraint.Skip if m.minimum_capacity_mw[tech, p] == 0
-        else m.GenCapacityPerTech[tech, p] * power_scaling_factor >=
-             m.minimum_capacity_mw[tech, p] * power_scaling_factor,
-        doc="Constraint enforcing that the power capacity > minimum"
+        rule=lambda m, tech, p: Constraint.Skip
+        if m.minimum_capacity_mw[tech, p] == 0
+        else m.GenCapacityPerTech[tech, p] * power_scaling_factor
+        >= m.minimum_capacity_mw[tech, p] * power_scaling_factor,
+        doc="Constraint enforcing that the power capacity > minimum",
     )
 
     energy_scaling_factor = 1e-5
 
     mod.Enforce_Minimum_Energy_Capacity_Per_Tech = Constraint(
         mod.GEN_TECH_PER_PERIOD,
-        rule=lambda m, tech, p:
-        Constraint.Skip if m.minimum_energy_capacity_mwh[tech, p] == 0
-        else m.GenEnergyCapacityPerTech[tech, p] * energy_scaling_factor >=
-             m.minimum_energy_capacity_mwh[tech, p] * energy_scaling_factor,
-        doc="Constraint enforcing that the energy capacity > minimum"
+        rule=lambda m, tech, p: Constraint.Skip
+        if m.minimum_energy_capacity_mwh[tech, p] == 0
+        else m.GenEnergyCapacityPerTech[tech, p] * energy_scaling_factor
+        >= m.minimum_energy_capacity_mwh[tech, p] * energy_scaling_factor,
+        doc="Constraint enforcing that the energy capacity > minimum",
     )
 
 
@@ -81,7 +87,7 @@ def load_inputs(mod, switch_data, inputs_dir):
         auto_select=True,
         # We want this module to run even if we don't specify a constraint so we still get the useful outputs
         optional=True,
-        optional_params=(mod.minimum_capacity_mw, mod.minimum_energy_capacity_mwh)
+        optional_params=(mod.minimum_capacity_mw, mod.minimum_energy_capacity_mwh),
     )
 
 
@@ -91,9 +97,19 @@ def post_solve(mod, outdir):
         mod.GEN_TECH_PER_PERIOD,
         output_file=os.path.join(outdir, "gen_cap_per_tech.csv"),
         headings=(
-            "gen_tech", "period", "gen_capacity", "minimum_capacity_mw", "energy_capacity",
-            "minimum_energy_capacity_mwh"),
+            "gen_tech",
+            "period",
+            "gen_capacity",
+            "minimum_capacity_mw",
+            "energy_capacity",
+            "minimum_energy_capacity_mwh",
+        ),
         values=lambda m, tech, p: (
-            tech, p, m.GenCapacityPerTech[tech, p], m.minimum_capacity_mw[tech, p], m.GenEnergyCapacityPerTech[tech, p],
-            m.minimum_energy_capacity_mwh[tech, p])
+            tech,
+            p,
+            m.GenCapacityPerTech[tech, p],
+            m.minimum_capacity_mw[tech, p],
+            m.GenEnergyCapacityPerTech[tech, p],
+            m.minimum_energy_capacity_mwh[tech, p],
+        ),
     )

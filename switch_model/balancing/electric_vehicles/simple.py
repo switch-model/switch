@@ -23,23 +23,23 @@ INPUT FILE FORMAT
 import os
 from pyomo.environ import *
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones'
-optional_dependencies = 'switch_model.transmission.local_td'
+dependencies = "switch_model.timescales", "switch_model.balancing.load_zones"
+optional_dependencies = "switch_model.transmission.local_td"
 
 
 def define_components(mod):
-    
+
     """
     Adds components to a Pyomo abstract model object to describe a virtual
     battery charging pattern.
 
-    ev_charge_limit[z,t] is a parameter that describes the maximum 
+    ev_charge_limit[z,t] is a parameter that describes the maximum
     instantaneous charge (power limit) in MW for a virtual battery in load
     zone z at timepoint t.
 
     ev_cumulative_charge_upper_mwh[z,t] is a parameter that describes the
     upper limit to the cumulative charge state in MWh for the virtual
-    battery in load zone z at a timepoint t. 
+    battery in load zone z at a timepoint t.
 
     ev_cumulative_charge_lower_mwh[z,t] is a parameter that describes the
     lower limit to the cumulative charge state in MWh for the virtual battery
@@ -55,7 +55,7 @@ def define_components(mod):
     charge of the virtual battery in load zone z at timepoint t in MWh. It is calculated by
     summing all the charges at previous timepoints of t within its timeseries
     and multiplying them by their duration in hours.
-    
+
     EV_Cumulative_Charge_Upper_Limit[z,t] is a constraint that limits the
     cumulative charge of the virtual battery to its upper limit defined on
     ev_cumulative_charge_upper.
@@ -68,57 +68,66 @@ def define_components(mod):
     with local_td's distributed node for energy balancing purposes. If
     local_td is not included, it will be registered with load zone's central
     node and will not reflect efficiency losses in the distribution network.
-    
-        
+
+
     """
-    
+
     mod.ev_charge_limit_mw = Param(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
-        default = float('inf'),
+        mod.LOAD_ZONES,
+        mod.TIMEPOINTS,
+        default=float("inf"),
         input_file="ev_limits.csv",
-        within=NonNegativeReals)
+        within=NonNegativeReals,
+    )
 
     mod.ev_cumulative_charge_upper_mwh = Param(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
-        default = 0.0,
+        mod.LOAD_ZONES,
+        mod.TIMEPOINTS,
+        default=0.0,
         input_file="ev_limits.csv",
-        within=NonNegativeReals)
+        within=NonNegativeReals,
+    )
 
     mod.ev_cumulative_charge_lower_mwh = Param(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
-        default = 0.0,
+        mod.LOAD_ZONES,
+        mod.TIMEPOINTS,
+        default=0.0,
         input_file="ev_limits.csv",
-        within=NonNegativeReals)
+        within=NonNegativeReals,
+    )
 
     mod.EVCharge = Var(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
+        mod.LOAD_ZONES,
+        mod.TIMEPOINTS,
         within=NonNegativeReals,
-        bounds=lambda m, z, t:
-        (
-           0.0,
-           m.ev_charge_limit_mw[z,t]
-           )
-        )
+        bounds=lambda m, z, t: (0.0, m.ev_charge_limit_mw[z, t]),
+    )
 
     mod.EVCumulativeCharge = Expression(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
-        rule=lambda m, z, t: \
-            sum(m.EVCharge[z,tau]*m.tp_duration_hrs[tau]
-                for tau in m.TPS_IN_TS[m.tp_ts[t]]
-                if tau <= t)
-        )
+        mod.LOAD_ZONES,
+        mod.TIMEPOINTS,
+        rule=lambda m, z, t: sum(
+            m.EVCharge[z, tau] * m.tp_duration_hrs[tau]
+            for tau in m.TPS_IN_TS[m.tp_ts[t]]
+            if tau <= t
+        ),
+    )
 
-    mod.EV_Cumulative_Charge_Upper_Limit =  Constraint(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
-        rule=lambda m, z, t:
-        m.EVCumulativeCharge[z,t] <= m.ev_cumulative_charge_upper_mwh[z,t]) 
+    mod.EV_Cumulative_Charge_Upper_Limit = Constraint(
+        mod.LOAD_ZONES,
+        mod.TIMEPOINTS,
+        rule=lambda m, z, t: m.EVCumulativeCharge[z, t]
+        <= m.ev_cumulative_charge_upper_mwh[z, t],
+    )
 
-    mod.Vbat_Cumulative_Charge_Lower_Limit =  Constraint(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
-        rule=lambda m, z, t:
-        m.EVCumulativeCharge[z,t] >= m.ev_cumulative_charge_lower_mwh[z,t]) 
+    mod.Vbat_Cumulative_Charge_Lower_Limit = Constraint(
+        mod.LOAD_ZONES,
+        mod.TIMEPOINTS,
+        rule=lambda m, z, t: m.EVCumulativeCharge[z, t]
+        >= m.ev_cumulative_charge_lower_mwh[z, t],
+    )
 
-    if 'Distributed_Power_Injections' in dir(mod):
-        mod.Distributed_Power_Withdrawals.append('EVCharge')
+    if "Distributed_Power_Injections" in dir(mod):
+        mod.Distributed_Power_Withdrawals.append("EVCharge")
     else:
-        mod.Zone_Power_Withdrawals.append('EVCharge')
+        mod.Zone_Power_Withdrawals.append("EVCharge")

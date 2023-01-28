@@ -33,7 +33,8 @@ INPUT FILE FORMAT
 import os
 from pyomo.environ import *
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones'
+dependencies = "switch_model.timescales", "switch_model.balancing.load_zones"
+
 
 def define_components(mod):
     """
@@ -122,27 +123,53 @@ def define_components(mod):
 
     """
 
-    mod.NON_FUEL_ENERGY_SOURCES = Set(input_file='non_fuel_energy_sources.csv', input_optional=True)
+    mod.NON_FUEL_ENERGY_SOURCES = Set(
+        input_file="non_fuel_energy_sources.csv", input_optional=True
+    )
     mod.FUELS = Set(dimen=1, input_file="fuels.csv")
 
-    mod.f_co2_intensity = Param(mod.FUELS, within=NonNegativeReals, input_file="fuels.csv",
-                                input_column="co2_intensity", )
-    mod.f_upstream_co2_intensity = Param(mod.FUELS, within=Reals, input_file="fuels.csv",
-                                         input_column="upstream_co2_intensity", default=0)
-    mod.f_nox_intensity = Param(mod.FUELS, within=NonNegativeReals, default=0, input_file="fuels.csv",
-                                input_column="nox_intensity", )
-    mod.f_so2_intensity = Param(mod.FUELS, within=NonNegativeReals, default=0, input_file="fuels.csv",
-                                input_column="so2_intensity", )
-    mod.f_ch4_intensity = Param(mod.FUELS, within=NonNegativeReals, default=0, input_file="fuels.csv",
-                                input_column="ch4_intensity", )
+    mod.f_co2_intensity = Param(
+        mod.FUELS,
+        within=NonNegativeReals,
+        input_file="fuels.csv",
+        input_column="co2_intensity",
+    )
+    mod.f_upstream_co2_intensity = Param(
+        mod.FUELS,
+        within=Reals,
+        input_file="fuels.csv",
+        input_column="upstream_co2_intensity",
+        default=0,
+    )
+    mod.f_nox_intensity = Param(
+        mod.FUELS,
+        within=NonNegativeReals,
+        default=0,
+        input_file="fuels.csv",
+        input_column="nox_intensity",
+    )
+    mod.f_so2_intensity = Param(
+        mod.FUELS,
+        within=NonNegativeReals,
+        default=0,
+        input_file="fuels.csv",
+        input_column="so2_intensity",
+    )
+    mod.f_ch4_intensity = Param(
+        mod.FUELS,
+        within=NonNegativeReals,
+        default=0,
+        input_file="fuels.csv",
+        input_column="ch4_intensity",
+    )
 
-    mod.min_data_check('f_co2_intensity')
+    mod.min_data_check("f_co2_intensity")
     # Ensure that fuel and non-fuel sets have no overlap.
     mod.e_source_is_fuel_or_not_check = BuildCheck(
-        rule=lambda m: len(m.FUELS & m.NON_FUEL_ENERGY_SOURCES) == 0)
+        rule=lambda m: len(m.FUELS & m.NON_FUEL_ENERGY_SOURCES) == 0
+    )
 
     # ENERGY_SOURCES is the union of fuel and non-fuels sets. Pipe | is
     # the union operator for Pyomo sets.
-    mod.ENERGY_SOURCES = Set(
-        initialize=mod.NON_FUEL_ENERGY_SOURCES | mod.FUELS)
-    mod.min_data_check('ENERGY_SOURCES')
+    mod.ENERGY_SOURCES = Set(initialize=mod.NON_FUEL_ENERGY_SOURCES | mod.FUELS)
+    mod.min_data_check("ENERGY_SOURCES")

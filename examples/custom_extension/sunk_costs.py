@@ -27,7 +27,5 @@ from pyomo.environ import *
 
 
 def define_components(mod):
-    mod.administration_fees = Param(
-        mod.PERIODS,
-        initialize=lambda m, p: 1000000)
-    mod.Cost_Components_Per_Period.append('administration_fees')
+    mod.administration_fees = Param(mod.PERIODS, initialize=lambda m, p: 1000000)
+    mod.Cost_Components_Per_Period.append("administration_fees")

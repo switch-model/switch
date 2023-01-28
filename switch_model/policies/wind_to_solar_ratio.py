@@ -33,28 +33,28 @@ def define_components(mod):
     mod.WindCapacity = Expression(
         mod.PERIODS,
         rule=lambda m, p: sum(
-            m.GenCapacity[g, p] for g in m.VARIABLE_GENS if m.gen_energy_source[g] == _WIND_ENERGY_TYPE
-        )
+            m.GenCapacity[g, p]
+            for g in m.VARIABLE_GENS
+            if m.gen_energy_source[g] == _WIND_ENERGY_TYPE
+        ),
     )
 
     mod.SolarCapacity = Expression(
         mod.PERIODS,
         rule=lambda m, p: sum(
-            m.GenCapacity[g, p] for g in m.VARIABLE_GENS if m.gen_energy_source[g] == _SOLAR_ENERGY_TYPE
-        )
+            m.GenCapacity[g, p]
+            for g in m.VARIABLE_GENS
+            if m.gen_energy_source[g] == _SOLAR_ENERGY_TYPE
+        ),
     )
 
     mod.wind_to_solar_ratio = Param(
         mod.PERIODS,
         default=0,  # 0 means the constraint is inactive
-        within=NonNegativeReals
+        within=NonNegativeReals,
     )
 
-    mod.wind_to_solar_ratio_const_gt = Param(
-        mod.PERIODS,
-        default=True,
-        within=Boolean
-    )
+    mod.wind_to_solar_ratio_const_gt = Param(mod.PERIODS, default=True, within=Boolean)
 
     # We use a scaling factor to improve the numerical properties
     # of the model.
@@ -73,23 +73,37 @@ def define_components(mod):
         else:
             return lhs <= rhs
 
-    mod.wind_to_solar_ratio_const = Constraint(mod.PERIODS, rule=wind_to_solar_ratio_const_rule)
+    mod.wind_to_solar_ratio_const = Constraint(
+        mod.PERIODS, rule=wind_to_solar_ratio_const_rule
+    )
 
 
 def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'wind_to_solar_ratio.csv'),
+        filename=os.path.join(inputs_dir, "wind_to_solar_ratio.csv"),
         auto_select=True,
         param=(mod.wind_to_solar_ratio, mod.wind_to_solar_ratio_const_gt),
-        optional=True  # We want to allow including this module even if the file isn't there
+        optional=True,  # We want to allow including this module even if the file isn't there
     )
 
 
 def post_solve(m, outdir):
-    df = pd.DataFrame({
-                          "WindCapacity (GW)": value(m.WindCapacity[p]) / 1000,
-                          "SolarCapacity (GW)": value(m.SolarCapacity[p]) / 1000,
-                          "ComputedRatio": value(m.WindCapacity[p] / m.SolarCapacity[p]) if value(m.SolarCapacity[p]) != 0 else ".",
-                          "ExpectedRatio": value(m.wind_to_solar_ratio[p]) if m.wind_to_solar_ratio[p] != 0 else "."
-                      } for p in m.PERIODS)
-    write_table(m, output_file=os.path.join(outdir, "wind_to_solar_ratio.csv"), df=df, index=False)
+    df = pd.DataFrame(
+        {
+            "WindCapacity (GW)": value(m.WindCapacity[p]) / 1000,
+            "SolarCapacity (GW)": value(m.SolarCapacity[p]) / 1000,
+            "ComputedRatio": value(m.WindCapacity[p] / m.SolarCapacity[p])
+            if value(m.SolarCapacity[p]) != 0
+            else ".",
+            "ExpectedRatio": value(m.wind_to_solar_ratio[p])
+            if m.wind_to_solar_ratio[p] != 0
+            else ".",
+        }
+        for p in m.PERIODS
+    )
+    write_table(
+        m,
+        output_file=os.path.join(outdir, "wind_to_solar_ratio.csv"),
+        df=df,
+        index=False,
+    )

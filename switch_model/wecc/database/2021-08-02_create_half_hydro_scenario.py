@@ -29,9 +29,18 @@ def main():
         f"""
         SELECT DISTINCT generation_plant_id, year, month, hydro_min_flow_mw, hydro_avg_flow_mw FROM hydro_historical_monthly_capacity_factors
         WHERE hydro_simple_scenario_id={all_plants_scenario};
-    """)
-    df = pd.DataFrame(db_cursor.fetchall(),
-                      columns=["generation_plant_id", "year", "month", "hydro_min_flow_mw", "hydro_avg_flow_mw"])
+    """
+    )
+    df = pd.DataFrame(
+        db_cursor.fetchall(),
+        columns=[
+            "generation_plant_id",
+            "year",
+            "month",
+            "hydro_min_flow_mw",
+            "hydro_avg_flow_mw",
+        ],
+    )
 
     # 2. Set all the flows to zero and set the scenario id
     df["hydro_avg_flow_mw"] /= 2
@@ -45,7 +54,9 @@ def main():
     print(f"Num hydro plants: {df.generation_plant_id.nunique()}")
     print(f"Example data:\n{df.head()}")
 
-    if not query_yes_no("\nAre you sure you want to add this data to the database?", default="no"):
+    if not query_yes_no(
+        "\nAre you sure you want to add this data to the database?", default="no"
+    ):
         raise SystemExit
 
     db_cursor.execute(
@@ -58,7 +69,8 @@ def main():
     for i, r in enumerate(df.itertuples(index=False)):
         if i != 0 and i % 1000 == 0:
             print(
-                f"{i}/{n} inserts completed. Estimated time remaining {format_seconds((n - i) * (time.time() - start_time) / i)}")
+                f"{i}/{n} inserts completed. Estimated time remaining {format_seconds((n - i) * (time.time() - start_time) / i)}"
+            )
         db_cursor.execute(
             f"INSERT INTO hydro_historical_monthly_capacity_factors(hydro_simple_scenario_id, generation_plant_id, year, month, hydro_min_flow_mw, hydro_avg_flow_mw) "
             f"VALUES ({r.hydro_simple_scenario_id},{r.generation_plant_id},{r.year},{r.month},{r.hydro_min_flow_mw},{r.hydro_avg_flow_mw})"

@@ -854,6 +854,7 @@ def query_db(config, skip_cf):
     print("\tgraph_config files...")
     shutil.copytree(graph_config, ".", dirs_exist_ok=True)
 
+
 def write_wind_to_solar_ratio(wind_to_solar_ratio):
     # TODO ideally we'd have a table where we can specify the wind_to_solar_ratios per period.
     #   At the moment only the wind_to_solar_ratio is specified and which doesn't allow different values per period
@@ -880,6 +881,7 @@ def write_wind_to_solar_ratio(wind_to_solar_ratio):
     df["wind_to_solar_ratio_const_gt"] = 1 if wind_to_solar_ratio > cutoff_ratio else 0
 
     df.to_csv("wind_to_solar_ratio.csv", index=False)
+
 
 def ca_policies(db_cursor, scenario_params):
     if scenario_params.ca_policies_scenario_id is None:
@@ -918,7 +920,9 @@ def ca_policies(db_cursor, scenario_params):
             1;
         """
     else:
-        raise Exception(f"Unknown ca_policies_scenario_id {scenario_params.ca_policies_scenario_id}")
+        raise Exception(
+            f"Unknown ca_policies_scenario_id {scenario_params.ca_policies_scenario_id}"
+        )
 
     write_csv_from_query(
         db_cursor,
@@ -965,7 +969,7 @@ def planning_reserves(db_cursor, scenario_params):
                 year = date_part('year', timestamp_utc)
             )
         where time_sample_id = {scenario_params.time_sample_id};
-        """
+        """,
     )
 
     write_csv_from_query(
@@ -976,7 +980,7 @@ def planning_reserves(db_cursor, scenario_params):
         SELECT
             planning_reserve_requirement, load_zone
         FROM planning_reserve_zones
-        """
+        """,
     )
 
     write_csv_from_query(
@@ -991,7 +995,7 @@ def planning_reserves(db_cursor, scenario_params):
         SELECT
             planning_reserve_requirement, prr_cap_reserve_margin, prr_enforcement_timescale
         FROM planning_reserve_requirements
-        """
+        """,
     )
 
     modules.append("switch_model.balancing.planning_reserves")

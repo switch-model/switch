@@ -18,8 +18,8 @@ INPUT FILE FORMAT
 import os
 from pyomo.environ import *
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones'
-optional_dependencies = 'switch_model.transmission.local_td'
+dependencies = "switch_model.timescales", "switch_model.balancing.load_zones"
+optional_dependencies = "switch_model.transmission.local_td"
 
 
 def define_components(mod):
@@ -54,31 +54,37 @@ def define_components(mod):
     """
 
     mod.dr_shift_down_limit = Param(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
-        default= 0.0,
+        mod.LOAD_ZONES,
+        mod.TIMEPOINTS,
+        default=0.0,
         within=NonNegativeReals,
         input_file="dr_data.csv",
-        validate=lambda m, value, z, t: value <= m.zone_demand_mw[z, t])
+        validate=lambda m, value, z, t: value <= m.zone_demand_mw[z, t],
+    )
     mod.dr_shift_up_limit = Param(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
-        default= float('inf'),
+        mod.LOAD_ZONES,
+        mod.TIMEPOINTS,
+        default=float("inf"),
         input_file="dr_data.csv",
-        within=NonNegativeReals)
+        within=NonNegativeReals,
+    )
     mod.ShiftDemand = Var(
-        mod.LOAD_ZONES, mod.TIMEPOINTS,
+        mod.LOAD_ZONES,
+        mod.TIMEPOINTS,
         within=Reals,
-        bounds=lambda m, z, t:
-        (
-            (-1.0) * m.dr_shift_down_limit[z,t],
-            m.dr_shift_up_limit[z,t]
-        ))
+        bounds=lambda m, z, t: (
+            (-1.0) * m.dr_shift_down_limit[z, t],
+            m.dr_shift_up_limit[z, t],
+        ),
+    )
 
     mod.DR_Shift_Net_Zero = Constraint(
-        mod.LOAD_ZONES, mod.TIMESERIES,
-        rule=lambda m, z, ts:
-        sum(m.ShiftDemand[z, t] for t in m.TPS_IN_TS[ts]) == 0.0)
+        mod.LOAD_ZONES,
+        mod.TIMESERIES,
+        rule=lambda m, z, ts: sum(m.ShiftDemand[z, t] for t in m.TPS_IN_TS[ts]) == 0.0,
+    )
 
     try:
-        mod.Distributed_Power_Withdrawals.append('ShiftDemand')
+        mod.Distributed_Power_Withdrawals.append("ShiftDemand")
     except AttributeError:
-        mod.Zone_Power_Withdrawals.append('ShiftDemand')
+        mod.Zone_Power_Withdrawals.append("ShiftDemand")

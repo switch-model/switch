@@ -8,7 +8,8 @@ from matplotlib.ticker import PercentFormatter
 from switch_model.tools.graph.main import GraphTools
 from papers.Martin_Staadecker_et_al_2022.util import (
     get_scenario,
-    set_style, save_figure,
+    set_style,
+    save_figure,
 )
 
 scenarios = [

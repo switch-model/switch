@@ -24,67 +24,62 @@ Usage details can be found by running 'switch drop -h'.
 # second element is the relevant column name
 data_types = {
     "load_zones": (
-        ('load_zones.csv', "LOAD_ZONE"),
+        ("load_zones.csv", "LOAD_ZONE"),
         [
-            ('fuel_cost.csv', 'load_zone'),
-            ('generation_projects_info.csv', 'gen_load_zone'),
-            ('loads.csv', 'LOAD_ZONE'),
-            ('rps_targets.csv', 'load_zone'),
-            ('transmission_lines.csv', 'trans_lz1'),
-            ('transmission_lines.csv', 'trans_lz2'),
-            ('zone_balancing_areas.csv', 'LOAD_ZONE'),
-            ('zone_to_regional_fuel_market.csv', 'load_zone')
-        ]
+            ("fuel_cost.csv", "load_zone"),
+            ("generation_projects_info.csv", "gen_load_zone"),
+            ("loads.csv", "LOAD_ZONE"),
+            ("rps_targets.csv", "load_zone"),
+            ("transmission_lines.csv", "trans_lz1"),
+            ("transmission_lines.csv", "trans_lz2"),
+            ("zone_balancing_areas.csv", "LOAD_ZONE"),
+            ("zone_to_regional_fuel_market.csv", "load_zone"),
+        ],
     ),
     "regional_fuel_markets": (
-        ('zone_to_regional_fuel_market.csv', "regional_fuel_market"),
+        ("zone_to_regional_fuel_market.csv", "regional_fuel_market"),
         [
-            ('fuel_supply_curves.csv', 'regional_fuel_market'),
-            ('regional_fuel_markets.csv', 'regional_fuel_market')
-        ]
+            ("fuel_supply_curves.csv", "regional_fuel_market"),
+            ("regional_fuel_markets.csv", "regional_fuel_market"),
+        ],
     ),
     "balancing_areas": (
-        ('zone_balancing_areas.csv', "balancing_area"),
-        [
-            ('balancing_areas.csv', "BALANCING_AREAS")
-        ]
+        ("zone_balancing_areas.csv", "balancing_area"),
+        [("balancing_areas.csv", "BALANCING_AREAS")],
     ),
     "periods": (
-        ('periods.csv', "INVESTMENT_PERIOD"),
+        ("periods.csv", "INVESTMENT_PERIOD"),
         [
-            ('carbon_policies.csv', 'PERIOD'),
-            ('fuel_cost.csv', 'period'),
-            ('fuel_supply_curves.csv', 'period'),
-            ('rps_targets.csv', 'period'),
-            ('timeseries.csv', 'ts_period'),
+            ("carbon_policies.csv", "PERIOD"),
+            ("fuel_cost.csv", "period"),
+            ("fuel_supply_curves.csv", "period"),
+            ("rps_targets.csv", "period"),
+            ("timeseries.csv", "ts_period"),
             # It is impossible to know if a row in gen_build_costs.csv is for predetermined generation or for
             # a period that was removed. So instead we don't touch it and let the user manually edit
             # the input file.
-        ]
+        ],
     ),
     "timeseries": (
-        ('timeseries.csv', 'TIMESERIES'),
-        [
-            ('hydro_timeseries.csv', 'timeseries'),
-            ('timepoints.csv', 'timeseries')
-        ]
+        ("timeseries.csv", "TIMESERIES"),
+        [("hydro_timeseries.csv", "timeseries"), ("timepoints.csv", "timeseries")],
     ),
     "timepoints": (
-        ('timepoints.csv', 'timepoint_id'),
+        ("timepoints.csv", "timepoint_id"),
         [
-            ('loads.csv', 'TIMEPOINT'),
-            ('variable_capacity_factors.csv', 'timepoint'),
-            ('hydro_timepoints.csv', 'timepoint_id')
-        ]
+            ("loads.csv", "TIMEPOINT"),
+            ("variable_capacity_factors.csv", "timepoint"),
+            ("hydro_timepoints.csv", "timepoint_id"),
+        ],
     ),
     "projects": (
-        ('generation_projects_info.csv', "GENERATION_PROJECT"),
+        ("generation_projects_info.csv", "GENERATION_PROJECT"),
         [
-            ('gen_build_costs.csv', 'GENERATION_PROJECT'),
-            ('gen_build_predetermined.csv', 'GENERATION_PROJECT'),
-            ('hydro_timeseries.csv', 'hydro_project'),
-            ('variable_capacity_factors.csv', 'GENERATION_PROJECT')
-        ]
+            ("gen_build_costs.csv", "GENERATION_PROJECT"),
+            ("gen_build_predetermined.csv", "GENERATION_PROJECT"),
+            ("hydro_timeseries.csv", "hydro_project"),
+            ("variable_capacity_factors.csv", "GENERATION_PROJECT"),
+        ],
     ),
 }
 
@@ -94,17 +89,31 @@ def main(args=None):
     parser = ArgumentParser(
         description="Drops subsets of the input data to form a smaller model that is easier to debug.",
         epilog="To use this command,\n"
-               "\t1) Remove the subset you wish to drop. For example, if you want to drop some load zones, "
-               "remove them from load_zones.csv. If you want to drop periods, remove them from periods.csv.\n\n"
-               "\t2) Run 'switch drop --run' to remove all the references to now missing keys. For example"
-               " if you've removed a load zone, all the projects, transmissions lines, etc. for that load "
-               "zone will be removed from the input files.",
-    formatter_class=RawTextHelpFormatter)
+        "\t1) Remove the subset you wish to drop. For example, if you want to drop some load zones, "
+        "remove them from load_zones.csv. If you want to drop periods, remove them from periods.csv.\n\n"
+        "\t2) Run 'switch drop --run' to remove all the references to now missing keys. For example"
+        " if you've removed a load zone, all the projects, transmissions lines, etc. for that load "
+        "zone will be removed from the input files.",
+        formatter_class=RawTextHelpFormatter,
+    )
 
-    parser.add_argument('--run', default=False, action='store_true', help='Drop the data.')
-    parser.add_argument('--inputs-dir', default='inputs', help='Directory of the input files. Defaults to "inputs".')
-    parser.add_argument('--silent', default=False, action='store_true', help='Suppress output')
-    parser.add_argument('--no-confirm', default=False, action='store_true', help="Skip confirmation prompts")
+    parser.add_argument(
+        "--run", default=False, action="store_true", help="Drop the data."
+    )
+    parser.add_argument(
+        "--inputs-dir",
+        default="inputs",
+        help='Directory of the input files. Defaults to "inputs".',
+    )
+    parser.add_argument(
+        "--silent", default=False, action="store_true", help="Suppress output"
+    )
+    parser.add_argument(
+        "--no-confirm",
+        default=False,
+        action="store_true",
+        help="Skip confirmation prompts",
+    )
     args = parser.parse_args(args)
 
     if not args.run:
@@ -114,8 +123,12 @@ def main(args=None):
     if not os.path.isdir(args.inputs_dir):
         raise NotADirectoryError("{} is not a directory".format(args.inputs_dir))
 
-    should_continue = args.no_confirm or query_yes_no("WARNING: This will permanently delete data from directory '{}' "
-                                   "WITHOUT backing it up. Are you sure you want to continue?".format(args.inputs_dir))
+    should_continue = args.no_confirm or query_yes_no(
+        "WARNING: This will permanently delete data from directory '{}' "
+        "WITHOUT backing it up. Are you sure you want to continue?".format(
+            args.inputs_dir
+        )
+    )
 
     if not should_continue:
         print("Operation cancelled.")
@@ -146,16 +159,24 @@ def main(args=None):
         pass_count += 1
 
     if not args.silent:
-        print("\n\nRemove {} rows in total from the input files.".format(total_rows_removed))
-        print("\n\nNote: If SWITCH fails to load the model when solving it is possible that some input files were missed."
-              " If this is the case, please add the missing input files to 'data_types' in 'switch_model/tools/drop.py'.")
+        print(
+            "\n\nRemove {} rows in total from the input files.".format(
+                total_rows_removed
+            )
+        )
+        print(
+            "\n\nNote: If SWITCH fails to load the model when solving it is possible that some input files were missed."
+            " If this is the case, please add the missing input files to 'data_types' in 'switch_model/tools/drop.py'."
+        )
 
     # It is impossible to know if a row in gen_build_costs.csv is for predetermined generation or for
     # a period that was removed. So instead we don't touch it and let the user manually edit
     # the input file.
     if warn_about_periods:
-        warnings.warn("\n\nCould not update gen_build_costs.csv. Please manually edit gen_build_costs.csv to remove "
-                      "references to the removed periods.")
+        warnings.warn(
+            "\n\nCould not update gen_build_costs.csv. Please manually edit gen_build_costs.csv to remove "
+            "references to the removed periods."
+        )
 
 
 def drop_data(id_type, args):
@@ -208,5 +229,5 @@ def drop_from_file(filename, foreign_key, valid_ids, args):
     return rows_removed
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

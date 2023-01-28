@@ -15,9 +15,14 @@ INPUT FILE INFORMATION
 """
 from pyomo.environ import *
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
-    'switch_model.energy_sources.properties.properties',\
-    'switch_model.generators.core.build', 'switch_model.generators.core.dispatch'
+dependencies = (
+    "switch_model.timescales",
+    "switch_model.balancing.load_zones",
+    "switch_model.energy_sources.properties.properties",
+    "switch_model.generators.core.build",
+    "switch_model.generators.core.dispatch",
+)
+
 
 def define_components(mod):
     """
@@ -51,36 +56,39 @@ def define_components(mod):
         dimen=3,
         input_file="fuel_cost.csv",
         validate=lambda m, z, f, p: (
-            z in m.LOAD_ZONES and
-            f in m.FUELS and
-            p in m.PERIODS))
+            z in m.LOAD_ZONES and f in m.FUELS and p in m.PERIODS
+        ),
+    )
     mod.fuel_cost = Param(
-        mod.ZONE_FUEL_PERIODS,
-        input_file="fuel_cost.csv",
-        within=NonNegativeReals)
-    mod.min_data_check('ZONE_FUEL_PERIODS', 'fuel_cost')
+        mod.ZONE_FUEL_PERIODS, input_file="fuel_cost.csv", within=NonNegativeReals
+    )
+    mod.min_data_check("ZONE_FUEL_PERIODS", "fuel_cost")
 
     mod.GEN_TP_FUELS_UNAVAILABLE = Set(
         initialize=mod.GEN_TP_FUELS,
         filter=lambda m, g, t, f: (
-            (m.gen_load_zone[g], f, m.tp_period[t])
-            not in m.ZONE_FUEL_PERIODS))
+            (m.gen_load_zone[g], f, m.tp_period[t]) not in m.ZONE_FUEL_PERIODS
+        ),
+    )
     mod.Enforce_Fuel_Unavailability = Constraint(
         mod.GEN_TP_FUELS_UNAVAILABLE,
-        rule=lambda m, g, t, f: m.GenFuelUseRate[g, t, f] == 0)
+        rule=lambda m, g, t, f: m.GenFuelUseRate[g, t, f] == 0,
+    )
 
     # Summarize total fuel costs in each timepoint for the objective function
     def FuelCostsPerTP_rule(m, t):
-        if not hasattr(m, 'FuelCostsPerTP_dict'):
+        if not hasattr(m, "FuelCostsPerTP_dict"):
             # cache all Fuel_Cost_TP values in a dictionary (created in one pass)
             m.FuelCostsPerTP_dict = {t2: 0.0 for t2 in m.TIMEPOINTS}
             for (g, t2, f) in m.GEN_TP_FUELS:
                 if (m.gen_load_zone[g], f, m.tp_period[t2]) in m.ZONE_FUEL_PERIODS:
                     m.FuelCostsPerTP_dict[t2] += (
                         m.GenFuelUseRate[g, t2, f]
-                        * m.fuel_cost[m.gen_load_zone[g], f, m.tp_period[t2]])
+                        * m.fuel_cost[m.gen_load_zone[g], f, m.tp_period[t2]]
+                    )
         # return a result from the dictionary and pop the element each time
         # to release memory
         return m.FuelCostsPerTP_dict.pop(t)
+
     mod.FuelCostsPerTP = Expression(mod.TIMEPOINTS, rule=FuelCostsPerTP_rule)
-    mod.Cost_Components_Per_TP.append('FuelCostsPerTP')
+    mod.Cost_Components_Per_TP.append("FuelCostsPerTP")

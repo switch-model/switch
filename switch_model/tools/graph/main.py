@@ -21,7 +21,12 @@ import plotnine
 
 # Local imports
 from switch_model.tools.graph.maps import GraphMapTools
-from switch_model.utilities import StepTimer, get_module_list, query_yes_no, catch_exceptions
+from switch_model.utilities import (
+    StepTimer,
+    get_module_list,
+    query_yes_no,
+    catch_exceptions,
+)
 
 # When True exceptions that are thrown while graphing will be caught
 # and outputted to console as a warning instead of an error
@@ -34,12 +39,12 @@ registered_graphs = {}
 
 
 def graph(
-        name,
-        title=None,
-        supports_multi_scenario=False,
-        requires_multi_scenario=False,
-        is_long=False,
-        note=None
+    name,
+    title=None,
+    supports_multi_scenario=False,
+    requires_multi_scenario=False,
+    is_long=False,
+    note=None,
 ):
     """
     This function should be used as a decorator to register a graphing function.
@@ -57,7 +62,9 @@ def graph(
 
     def decorator(func):
         @functools.wraps(func)
-        @catch_exceptions("Failed to run a graphing function.", should_catch=CATCH_EXCEPTIONS)
+        @catch_exceptions(
+            "Failed to run a graphing function.", should_catch=CATCH_EXCEPTIONS
+        )
         def wrapper(tools: GraphTools):
             if tools.skip_long and is_long:
                 return
@@ -73,7 +80,9 @@ def graph(
         wrapper.note = note
 
         if name in registered_graphs:
-            raise Exception(f"Graph '{name}' already exists. Make sure to pick a unique name.")
+            raise Exception(
+                f"Graph '{name}' already exists. Make sure to pick a unique name."
+            )
 
         registered_graphs[name] = wrapper
         return wrapper
@@ -93,6 +102,7 @@ class Scenario:
 
     Here, some operation will be run as if the working directory were the directory of the scenario
     """
+
     root_path = os.getcwd()
 
     def __init__(self, rel_path=".", name=""):
@@ -119,9 +129,15 @@ class TransformTools:
         self.time_zone = time_zone
         self.tools = graph_tools
 
-    def gen_type(self, df: pd.DataFrame, map_name='default', gen_tech_col='gen_tech',
-                 energy_source_col='gen_energy_source', drop_previous_col=True,
-                 others=None):
+    def gen_type(
+        self,
+        df: pd.DataFrame,
+        map_name="default",
+        gen_tech_col="gen_tech",
+        energy_source_col="gen_energy_source",
+        drop_previous_col=True,
+        others=None,
+    ):
         """
         Returns a dataframe that contains a column 'gen_type'.
 
@@ -131,12 +147,22 @@ class TransformTools:
         # If there's no mapping, we simply make the mapping the sum of both columns
         # Read the tech_colors and tech_types csv files.
         try:
-            cols = ["map_name", "gen_type", "gen_tech", "energy_source", "scenario_index"]
-            tech_types = self.tools.get_dataframe("graph_tech_types.csv", from_inputs=True, drop_scenario_info=False)[cols]
+            cols = [
+                "map_name",
+                "gen_type",
+                "gen_tech",
+                "energy_source",
+                "scenario_index",
+            ]
+            tech_types = self.tools.get_dataframe(
+                "graph_tech_types.csv", from_inputs=True, drop_scenario_info=False
+            )[cols]
         except FileNotFoundError:
-            df['gen_type'] = df[gen_tech_col] + "_" + df[energy_source_col]
+            df["gen_type"] = df[gen_tech_col] + "_" + df[energy_source_col]
             return df
-        tech_types = tech_types[tech_types['map_name'] == map_name].drop('map_name', axis=1)
+        tech_types = tech_types[tech_types["map_name"] == map_name].drop(
+            "map_name", axis=1
+        )
         # If we got many scenarios "scenario_name" will exist in tech_types and in that case
         # we want to merge by scenario
         left_on = [gen_tech_col, energy_source_col]
@@ -151,8 +177,11 @@ class TransformTools:
             left_on=left_on,
             right_on=right_on,
             validate="many_to_one",
-            how="left")
-        df["gen_type"] = df["gen_type"].fillna("Other")  # Fill with Other so the colors still work
+            how="left",
+        )
+        df["gen_type"] = df["gen_type"].fillna(
+            "Other"
+        )  # Fill with Other so the colors still work
         if drop_previous_col:
             df = df.drop([gen_tech_col, energy_source_col], axis=1)
         if others is not None:
@@ -164,11 +193,15 @@ class TransformTools:
         Replaces all the build years that aren't a period with the value "Pre-existing".
         """
         # Get list of valid periods
-        periods = self.tools.get_dataframe("periods", from_inputs=True)["INVESTMENT_PERIOD"].astype("str")
+        periods = self.tools.get_dataframe("periods", from_inputs=True)[
+            "INVESTMENT_PERIOD"
+        ].astype("str")
         df = df.copy()  # Make copy to not modify source
-        df[build_year_col] = df[build_year_col].apply(
-            lambda b: str(b) if str(b) in periods.values else "Pre-existing"
-        ).astype("category")
+        df[build_year_col] = (
+            df[build_year_col]
+            .apply(lambda b: str(b) if str(b) in periods.values else "Pre-existing")
+            .astype("category")
+        )
         return df
 
     def timestamp(self, df, key_col="timestamp", use_timepoint=False):
@@ -179,44 +212,57 @@ class TransformTools:
         - datetime: timestamp formatted as a US/Pacific Datetime object
         - hour: The hour of the timestamp (US/Pacific timezone)
         """
-        timepoints = self.tools.get_dataframe(filename="timepoints.csv", from_inputs=True, drop_scenario_info=False)
-        timeseries = self.tools.get_dataframe(filename="timeseries.csv", from_inputs=True, drop_scenario_info=False)
+        timepoints = self.tools.get_dataframe(
+            filename="timepoints.csv", from_inputs=True, drop_scenario_info=False
+        )
+        timeseries = self.tools.get_dataframe(
+            filename="timeseries.csv", from_inputs=True, drop_scenario_info=False
+        )
 
         timepoints = timepoints.merge(
             timeseries,
-            how='left',
-            left_on=['timeseries', 'scenario_index'],
-            right_on=['TIMESERIES', 'scenario_index'],
-            validate="many_to_one"
+            how="left",
+            left_on=["timeseries", "scenario_index"],
+            right_on=["TIMESERIES", "scenario_index"],
+            validate="many_to_one",
         )
         timestamp_mapping = timepoints[
-            ["timepoint_id", "timestamp", "ts_period", "timeseries", "ts_duration_of_tp"]].drop_duplicates()
-        timestamp_mapping = timestamp_mapping.rename({
-            "ts_period": "period",
-            "timepoint_id": "timepoint",
-            "ts_duration_of_tp": "tp_duration"}, axis=1)
+            [
+                "timepoint_id",
+                "timestamp",
+                "ts_period",
+                "timeseries",
+                "ts_duration_of_tp",
+            ]
+        ].drop_duplicates()
+        timestamp_mapping = timestamp_mapping.rename(
+            {
+                "ts_period": "period",
+                "timepoint_id": "timepoint",
+                "ts_duration_of_tp": "tp_duration",
+            },
+            axis=1,
+        )
         timestamp_mapping = timestamp_mapping.astype({"period": "category"})
 
         if use_timepoint:
             df = df.rename({key_col: "timepoint"}, axis=1)
-            df = df.merge(
-                timestamp_mapping,
-                how='left',
-                on="timepoint"
-            )
+            df = df.merge(timestamp_mapping, how="left", on="timepoint")
         else:
             df = df.rename({key_col: "timestamp"}, axis=1)
             df = df.merge(
                 timestamp_mapping,
-                how='left',
+                how="left",
                 on="timestamp",
             )
 
         try:
             # TODO support using graph_timestamp_map on multiple scenarios
             df = df.merge(
-                self.tools.get_dataframe("graph_timestamp_map.csv", from_inputs=True, force_one_scenario=True),
-                how='left',
+                self.tools.get_dataframe(
+                    "graph_timestamp_map.csv", from_inputs=True, force_one_scenario=True
+                ),
+                how="left",
                 on="timestamp",
             )
         except FileNotFoundError:
@@ -224,8 +270,11 @@ class TransformTools:
             df["time_column"] = df["timeseries"]
 
         # Add datetime and hour column
-        df["datetime"] = pd.to_datetime(df["timestamp"], format="%Y%m%d%H").dt.tz_localize("utc").dt.tz_convert(
-            self.time_zone)
+        df["datetime"] = (
+            pd.to_datetime(df["timestamp"], format="%Y%m%d%H")
+            .dt.tz_localize("utc")
+            .dt.tz_convert(self.time_zone)
+        )
         df["hour"] = df["datetime"].dt.hour
         season_map = {1: "Winter", 2: "Spring", 3: "Summer", 4: "Fall"}
         df["season"] = df["datetime"].dt.quarter.apply(lambda x: season_map[x])
@@ -239,9 +288,7 @@ class TransformTools:
         defaults to just using the load_zone.
         """
         df = df.copy()  # Don't modify the source
-        df["region"] = df[load_zone_col].apply(
-            lambda z: z.partition("_")[0]
-        )
+        df["region"] = df[load_zone_col].apply(lambda z: z.partition("_")[0])
         return df
 
 
@@ -261,7 +308,9 @@ class Figure:
 
     def add_note(self, note):
         if note is not None:
-            self.fig.text(0.5, -0.1, note, wrap=True, horizontalalignment='center', fontsize=12)
+            self.fig.text(
+                0.5, -0.1, note, wrap=True, horizontalalignment="center", fontsize=12
+            )
 
 
 class FigureHandler:
@@ -283,7 +332,9 @@ class FigureHandler:
         self._default_filename = None
         self._title = None
         self._note = None
-        self._allow_multiple_figures = None  # If False there can only be one figure per file
+        self._allow_multiple_figures = (
+            None  # If False there can only be one figure per file
+        )
 
     def set_properties(self, default_filename, title, note, allow_multiple_figures):
         """
@@ -314,8 +365,10 @@ class FigureHandler:
         elif self._allow_multiple_figures:
             self._figures[filename].append(figure)
         else:
-            raise Exception(f"A figure with name '{filename}' already exists and multiple figures are not allowed for"
-                            f" {self._default_filename}.")
+            raise Exception(
+                f"A figure with name '{filename}' already exists and multiple figures are not allowed for"
+                f" {self._default_filename}."
+            )
 
     def get_axes(self, name=None):
         if name is None:
@@ -325,11 +378,15 @@ class FigureHandler:
         figures = self._figures[name]
         if len(figures) > 1:
             raise Exception("Can't call get_axes() when multiple figures exist.")
-        return figures[0].axes  # We access the 0 index since we expect there to only be 1 figure
+        return figures[
+            0
+        ].axes  # We access the 0 index since we expect there to only be 1 figure
 
     def save_figures(self):
         if self._output_dir is None:
-            raise Exception("Cannot call save_figures() when the output directory is None.")
+            raise Exception(
+                "Cannot call save_figures() when the output directory is None."
+            )
         for filename, figures in self._figures.items():
             # If we have a single figure just save it
             if len(figures) == 1:
@@ -340,11 +397,16 @@ class FigureHandler:
             # If we have multiple figures, save each one to a separate file and then concat the files
             for i, fig in enumerate(figures):
                 # Get note from self._note and the scenario name and add it to the figure
-                fig.add_note(("" if self._note is None else self._note) + f"\nScenario: {self._scenarios[i].name}")
+                fig.add_note(
+                    ("" if self._note is None else self._note)
+                    + f"\nScenario: {self._scenarios[i].name}"
+                )
                 fig.save_figure(os.path.join(self._output_dir, filename + "_" + str(i)))
 
             # If we have multiple figures, concat them into a single one
-            FigureHandler._concat_figures(os.path.join(self._output_dir, filename), len(figures))
+            FigureHandler._concat_figures(
+                os.path.join(self._output_dir, filename), len(figures)
+            )
 
         self._figures = {}  # Reset our list of figures
 
@@ -393,7 +455,9 @@ class DataHandler:
     def __init__(self, scenarios):
         # Check that the scenario names are unique. This is required so that get_dataframe doesn't have conflicts
         all_names = list(map(lambda s: s.name, scenarios))
-        if len(all_names) > len(set(all_names)):  # set() drops duplicates, so if not unique len() will be less
+        if len(all_names) > len(
+            set(all_names)
+        ):  # set() drops duplicates, so if not unique len() will be less
             raise Exception("Scenario names are not unique.")
 
         self._scenarios: List[Scenario] = scenarios
@@ -420,8 +484,17 @@ class DataHandler:
         """
         return self._scenarios[index].name
 
-    def get_dataframe(self, filename, folder=None, from_inputs=False, convert_dot_to_na=False, force_one_scenario=False,
-                      drop_scenario_info=True, usecols=None, **kwargs):
+    def get_dataframe(
+        self,
+        filename,
+        folder=None,
+        from_inputs=False,
+        convert_dot_to_na=False,
+        force_one_scenario=False,
+        drop_scenario_info=True,
+        usecols=None,
+        **kwargs,
+    ):
         """
         Returns the dataframe for the active scenario.
 
@@ -437,19 +510,25 @@ class DataHandler:
         if not filename.endswith(".csv"):
             filename += ".csv"
 
-        path = self.get_file_path(filename, folder, from_inputs, scenario_specific=False)
+        path = self.get_file_path(
+            filename, folder, from_inputs, scenario_specific=False
+        )
 
         # If doesn't exist, create it
         if path not in self._dfs:
-            df = self._load_dataframe(path, na_values="." if convert_dot_to_na else None, **kwargs)
+            df = self._load_dataframe(
+                path, na_values="." if convert_dot_to_na else None, **kwargs
+            )
             if DataHandler.ENABLE_DF_CACHING:
-                self._dfs[path] = df.copy()  # We save a copy so the source isn't modified
+                self._dfs[
+                    path
+                ] = df.copy()  # We save a copy so the source isn't modified
         else:
             df = self._dfs[path].copy()  # We return a copy so the source isn't modified
 
         if not self._is_multi_scenario_func or force_one_scenario:
             # Filter dataframe to only the current scenario
-            df = df[df['scenario_index'] == self._active_scenario]
+            df = df[df["scenario_index"] == self._active_scenario]
             # Drop the columns related to the scenario
             if drop_scenario_info:
                 df = df.drop(["scenario_index", "scenario_name"], axis=1)
@@ -457,7 +536,9 @@ class DataHandler:
             df = df[usecols]
         return df
 
-    def get_file_path(self, filename, folder=None, from_inputs=False, scenario_specific=True):
+    def get_file_path(
+        self, filename, folder=None, from_inputs=False, scenario_specific=True
+    ):
         if folder is None:
             folder = "inputs" if from_inputs else "outputs"
 
@@ -474,20 +555,25 @@ class DataHandler:
         the rows from every scenario with a column for the scenario name and index.
         """
         if dtype is None:
-            dtype = {"generation_project": str, "gen_dbid": str, "GENERATION_PROJECT": str}
+            dtype = {
+                "generation_project": str,
+                "gen_dbid": str,
+                "GENERATION_PROJECT": str,
+            }
 
         df_all_scenarios: List[pd.DataFrame] = []
         for i, scenario in enumerate(self._scenarios):
             df = pd.read_csv(
-                os.path.join(scenario.path, path), index_col=False,
+                os.path.join(scenario.path, path),
+                index_col=False,
                 # Fix: force the datatype to str for some columns to avoid warnings of mismatched types
                 dtype=dtype,
                 sep=",",
                 engine="c",
-                **kwargs
+                **kwargs,
             )
-            df['scenario_name'] = scenario.name
-            df['scenario_index'] = i
+            df["scenario_name"] = scenario.name
+            df["scenario_index"] = i
             df_all_scenarios.append(df)
 
         return pd.concat(df_all_scenarios)
@@ -500,7 +586,13 @@ class GraphTools(DataHandler):
     @graph() annotation.
     """
 
-    def __init__(self, scenarios: List[Scenario], graph_dir: Optional[str] = None, skip_long=False, set_style=True):
+    def __init__(
+        self,
+        scenarios: List[Scenario],
+        graph_dir: Optional[str] = None,
+        skip_long=False,
+        set_style=True,
+    ):
         """
         @param scenarios list of scenarios that we should run graphing for
                 graph_dir directory where graphs should be saved
@@ -527,7 +619,7 @@ class GraphTools(DataHandler):
             # Set the style to Seaborn default style
             sns.set()
             # Don't show white outline around shapes to avoid confusion
-            plt.rcParams["patch.edgecolor"] = 'none'
+            plt.rcParams["patch.edgecolor"] = "none"
 
         # Disables pandas warnings that will occur since we are constantly returning only a slice of our master dataframe
         pd.options.mode.chained_assignment = None
@@ -535,16 +627,21 @@ class GraphTools(DataHandler):
         self.transform = TransformTools(self)
         self.maps = GraphMapTools(self)
 
-    def _create_axes(self, num_rows=1, size=(8, 5), ylabel=None, projection=None, **kwargs):
+    def _create_axes(
+        self, num_rows=1, size=(8, 5), ylabel=None, projection=None, **kwargs
+    ):
         """
         Create a set of matplotlib axes
         """
         num_columns = 1 if self._is_multi_scenario_func else self.num_scenarios
-        fig = GraphTools._create_figure(
-            size=(size[0] * num_columns, size[1]),
-            **kwargs
+        fig = GraphTools._create_figure(size=(size[0] * num_columns, size[1]), **kwargs)
+        ax = fig.subplots(
+            nrows=num_rows,
+            ncols=num_columns,
+            sharey="row",
+            squeeze=False,
+            subplot_kw=dict(projection=projection),
         )
-        ax = fig.subplots(nrows=num_rows, ncols=num_columns, sharey='row', squeeze=False, subplot_kw=dict(projection=projection))
 
         ax = [[ax[j][i] for j in range(num_rows)] for i in range(num_columns)]
 
@@ -573,9 +670,9 @@ class GraphTools(DataHandler):
             fig.set_size_inches(size[0], size[1])
 
         if xlabel is not None:
-            fig.text(0.5, 0.01, xlabel, ha='center')
+            fig.text(0.5, 0.01, xlabel, ha="center")
         if ylabel is not None:
-            fig.text(0.01, 0.5, ylabel, va='center', rotation='vertical')
+            fig.text(0.01, 0.5, ylabel, va="center", rotation="vertical")
 
         return fig
 
@@ -594,7 +691,7 @@ class GraphTools(DataHandler):
         ax = axes[self._active_scenario]
 
         if note is not None:
-            ax.text(0.5, -0.2, note, size=12, ha='center', transform=ax.transAxes)
+            ax.text(0.5, -0.2, note, size=12, ha="center", transform=ax.transAxes)
 
         return ax
 
@@ -625,30 +722,37 @@ class GraphTools(DataHandler):
     def pre_graphing(self, multi_scenario, name=None, title=None, note=None):
         self._is_multi_scenario_func = multi_scenario
         self._figure_handler.set_properties(
-            name,
-            title,
-            note,
-            allow_multiple_figures=not self._is_multi_scenario_func)
+            name, title, note, allow_multiple_figures=not self._is_multi_scenario_func
+        )
 
     def post_graphing(self):
         # Save the graphs
         self._figure_handler.save_figures()
 
-    def get_colors(self, n=None, map_name='default'):
+    def get_colors(self, n=None, map_name="default"):
         """
         Returns an object that can be passed to color= when doing a bar plot.
         @param n should be specified when using a stacked bar chart as the number of bars
         @param map_name is the name of the technology mapping in use
         """
         try:
-            tech_colors = self.get_dataframe(filename="graph_tech_colors.csv", from_inputs=True, force_one_scenario=True)
+            tech_colors = self.get_dataframe(
+                filename="graph_tech_colors.csv",
+                from_inputs=True,
+                force_one_scenario=True,
+            )
         except:
             return None
-        filtered_tech_colors = tech_colors[tech_colors['map_name'] == map_name]
+        filtered_tech_colors = tech_colors[tech_colors["map_name"] == map_name]
         if n is not None:
-            return {r['gen_type']: [r['color']] * n for _, r in filtered_tech_colors.iterrows()}
+            return {
+                r["gen_type"]: [r["color"]] * n
+                for _, r in filtered_tech_colors.iterrows()
+            }
         else:
-            return {r['gen_type']: r['color'] for _, r in filtered_tech_colors.iterrows()}
+            return {
+                r["gen_type"]: r["color"] for _, r in filtered_tech_colors.iterrows()
+            }
 
     def graph_time_matrix(self, df, value_column, ylabel):
         # Add the technology type column and filter out unneeded columns
@@ -660,7 +764,9 @@ class GraphTools(DataHandler):
         # Add the columns time_row and time_column
         df = self.transform.timestamp(df)
         # Sum across all technologies that are in the same hour and quarter
-        df = df.groupby(["hour", "gen_type", "time_column", "time_row"], as_index=False).mean()
+        df = df.groupby(
+            ["hour", "gen_type", "time_column", "time_row"], as_index=False
+        ).mean()
         self.graph_matrix(df, value_column, ylabel, "time_row", "time_column")
 
     def graph_scenario_matrix(self, df, value_column, ylabel):
@@ -669,7 +775,9 @@ class GraphTools(DataHandler):
         # Keep only important columns
         df = df[["gen_type", "timestamp", value_column, "scenario_name"]]
         # Sum the values for all technology types and timepoints
-        df = df.groupby(["gen_type", "timestamp", "scenario_name"], as_index=False).sum()
+        df = df.groupby(
+            ["gen_type", "timestamp", "scenario_name"], as_index=False
+        ).sum()
         # Add the columns time_row and time_column
         df = self.transform.timestamp(df)
         # Sum across all technologies that are in the same hour and scenario
@@ -680,7 +788,7 @@ class GraphTools(DataHandler):
             value_column,
             ylabel=ylabel,
             col_specifier="scenario_name",
-            row_specifier=None
+            row_specifier=None,
         )
 
     def graph_matrix(self, df, value_column, ylabel, row_specifier, col_specifier):
@@ -700,15 +808,15 @@ class GraphTools(DataHandler):
             ncols = max(ncols, len(columns))
         ncols = min(ncols, 8)
         fig = self.get_figure(
-            size=(10 * ncols / nrows, 8),
-            ylabel=ylabel,
-            xlabel="Time of day (PST)"
+            size=(10 * ncols / nrows, 8), ylabel=ylabel, xlabel="Time of day (PST)"
         )
 
-        ax = fig.subplots(nrows, ncols, sharey='row', sharex=False, squeeze=False)
+        ax = fig.subplots(nrows, ncols, sharey="row", sharex=False, squeeze=False)
 
         # Sort the technologies by standard deviation to have the smoothest ones at the bottom of the stacked area plot
-        df_all = df.pivot_table(index='hour', columns='gen_type', values=value_column, aggfunc=np.sum)
+        df_all = df.pivot_table(
+            index="hour", columns="gen_type", values=value_column, aggfunc=np.sum
+        )
         ordered_columns = df_all.std().sort_values().index
 
         legend = {}
@@ -727,7 +835,9 @@ class GraphTools(DataHandler):
                 if len(sub_df) == 0:
                     continue
                 # Make it into a proper dataframe
-                sub_df = sub_df.pivot(index='hour', columns='gen_type', values=value_column)
+                sub_df = sub_df.pivot(
+                    index="hour", columns="gen_type", values=value_column
+                )
                 sub_df = sub_df.reindex(columns=ordered_columns)
                 # # Fill hours with no data with zero so x-axis doesn't skip hours
                 # all_hours = tools.np.arange(0, 24, 1)
@@ -736,22 +846,28 @@ class GraphTools(DataHandler):
                 # Get axes
 
                 # Rename to make legend proper
-                sub_df = sub_df.rename_axis("Type", axis='columns')
+                sub_df = sub_df.rename_axis("Type", axis="columns")
                 # Plot
                 colors = self.get_colors()
                 if colors is None:
-                    sub_df.plot.area(ax=current_ax, stacked=True,
-                                     xlabel=column,
-                                     ylabel=row,
-                                     xticks=[],
-                                     legend=False)
+                    sub_df.plot.area(
+                        ax=current_ax,
+                        stacked=True,
+                        xlabel=column,
+                        ylabel=row,
+                        xticks=[],
+                        legend=False,
+                    )
                 else:
-                    sub_df.plot.area(ax=current_ax, stacked=True,
-                                     color=colors,
-                                     xlabel=column,
-                                     ylabel=row,
-                                     xticks=[],
-                                     legend=False)
+                    sub_df.plot.area(
+                        ax=current_ax,
+                        stacked=True,
+                        color=colors,
+                        xlabel=column,
+                        ylabel=row,
+                        xticks=[],
+                        legend=False,
+                    )
                 # Get all the legend labels and add them to legend dictionary.
                 # Since it's a dictionary, duplicates are dropped
                 handles, labels = current_ax.get_legend_handles_labels()
@@ -769,7 +885,7 @@ class GraphTools(DataHandler):
         i = 1
         labels = []
         while i < len(bins):
-            low = bins[i-1]
+            low = bins[i - 1]
             high = bins[i]
             if low == float("-inf"):
                 labels.append(f"<{high}")
@@ -790,11 +906,19 @@ class GraphTools(DataHandler):
         return xm
 
 
-def graph_scenarios(scenarios: List[Scenario], graph_dir, overwrite=False, module_names=None, figures=None, **kwargs):
+def graph_scenarios(
+    scenarios: List[Scenario],
+    graph_dir,
+    overwrite=False,
+    module_names=None,
+    figures=None,
+    **kwargs,
+):
     # If directory already exists, verify we should overwrite its contents
     if os.path.exists(graph_dir):
         if not overwrite and not query_yes_no(
-                f"Folder '{graph_dir}' already exists. Some graphs may be overwritten. Continue?"):
+            f"Folder '{graph_dir}' already exists. Some graphs may be overwritten. Continue?"
+        ):
             return
     # Otherwise create the directory
     else:
@@ -812,7 +936,9 @@ def graph_scenarios(scenarios: List[Scenario], graph_dir, overwrite=False, modul
         try:
             importlib.import_module(module_name)
         except ModuleNotFoundError:
-            warnings.warn(f"Failed to load {module_name}. Graphs in this module will not be created.")
+            warnings.warn(
+                f"Failed to load {module_name}. Graphs in this module will not be created."
+            )
 
     # Initialize the graphing tool
     graph_tools = GraphTools(scenarios=scenarios, graph_dir=graph_dir, **kwargs)
@@ -827,8 +953,10 @@ def graph_scenarios(scenarios: List[Scenario], graph_dir, overwrite=False, modul
             try:
                 func = registered_graphs[figure]
             except KeyError:
-                raise Exception(f"{figures} not found in list of registered graphs. "
-                                f"Make sure your graphing function is in a module.")
+                raise Exception(
+                    f"{figures} not found in list of registered graphs. "
+                    f"Make sure your graphing function is in a module."
+                )
             run_graph_func(graph_tools, func)
 
     print(f"\nTook {timer.step_time_as_str()} to generate all graphs.")
@@ -870,9 +998,11 @@ def read_modules(scenarios):
     for scenario in other_scenarios:
         scenario_module_names = read_modules_txt(scenario)
         if not np.array_equal(module_names, scenario_module_names):
-            warnings.warn(f"modules.txt is not equivalent between {scenario_base.name} (len={len(module_names)}) and "
-                          f"{scenario.name} (len={len(scenario_module_names)}). "
-                          f"We will use the modules.txt in {scenario_base.name} however this may result "
-                          f"in missing graphs and/or errors.")
+            warnings.warn(
+                f"modules.txt is not equivalent between {scenario_base.name} (len={len(module_names)}) and "
+                f"{scenario.name} (len={len(scenario_module_names)}). "
+                f"We will use the modules.txt in {scenario_base.name} however this may result "
+                f"in missing graphs and/or errors."
+            )
 
     return module_names

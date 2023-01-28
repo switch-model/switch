@@ -16,16 +16,18 @@ resource allocation problems. Computational  Management Science.
 from pyomo.repn import generate_canonical_repn
 from pyomo.environ import Objective
 
+
 def ph_rhosetter_callback(ph, scenario_tree, scenario):
     # This Rho coefficient is set to 1.0 to implement the CP(1.0) strategy
-    # that Watson & Woodruff report as a good trade off between convergence 
+    # that Watson & Woodruff report as a good trade off between convergence
     # to the extensive form optimum and number of PH iterations.
     rho_coefficient = 1.0
 
     scenario_instance = scenario._instance
     symbol_map = scenario_instance._ScenarioTreeSymbolMap
     objective = scenario_instance.component_data_objects(
-        Objective, active=True, descend_into=True )
+        Objective, active=True, descend_into=True
+    )
     objective = objective.next()
 
     def coef_via_sympify(CostExpression):
@@ -54,7 +56,7 @@ def ph_rhosetter_callback(ph, scenario_tree, scenario):
             alias = "x" + str(id(component))
             component_by_alias[alias] = component
             CostExpression_as_str = CostExpression_as_str.replace(cname, alias)
-    
+
         # We can parse with sympify now that the var+indexes have clean names
         CostExpression_parsed = sympify(CostExpression_as_str)
 
@@ -66,7 +68,6 @@ def ph_rhosetter_callback(ph, scenario_tree, scenario):
             var_names[variable_id] = component.name
         return (cost_coefficients, var_names)
 
-    
     def coef_via_pyomo(CostExpression):
         canonical_repn = generate_canonical_repn(CostExpression.expr)
         cost_coefficients = {}
@@ -76,12 +77,11 @@ def ph_rhosetter_callback(ph, scenario_tree, scenario):
             cost_coefficients[variable_id] = canonical_repn.linear[index]
             var_names[variable_id] = variable.name
         return (cost_coefficients, var_names)
-    
-    
+
     def test(CostExpression):
         from testfixtures import compare
 
-        (coefficients_sympify, var_names_sympify) = coef_via_sympify(CostExpression) 
+        (coefficients_sympify, var_names_sympify) = coef_via_sympify(CostExpression)
         (coefficients_pyomo, var_names_pyomo) = coef_via_pyomo(CostExpression)
 
         compare(var_names_sympify, var_names_pyomo)
@@ -93,14 +93,16 @@ def ph_rhosetter_callback(ph, scenario_tree, scenario):
         # insists on numeric equality, and the sympify's round-trip of
         # binary->text->binary results in slight rounding errors.
         from switch_model.utilities import approx_equal
+
         for vid in coefficients_pyomo.keys():
-            assert(approx_equal(coefficients_sympify[vid], coefficients_pyomo[vid],
-                                tolerance=.000001))
+            assert approx_equal(
+                coefficients_sympify[vid], coefficients_pyomo[vid], tolerance=0.000001
+            )
 
     # This test passed, so I'm disabling the slower sympify function for now.
     # test(objective)
     (cost_coefficients, var_names) = coef_via_pyomo(objective)
-    
+
     for variable_id in cost_coefficients:
         set_rho = False
         for tree_node in scenario._node_list:
@@ -109,8 +111,13 @@ def ph_rhosetter_callback(ph, scenario_tree, scenario):
                     tree_node,
                     scenario,
                     variable_id,
-                    cost_coefficients[variable_id] * rho_coefficient)
+                    cost_coefficients[variable_id] * rho_coefficient,
+                )
                 set_rho = True
                 break
         if set_rho == False:
-            print("Warning! Could not find tree node for variable {}; rho not set.".format(var_names[variable_id]))
+            print(
+                "Warning! Could not find tree node for variable {}; rho not set.".format(
+                    var_names[variable_id]
+                )
+            )

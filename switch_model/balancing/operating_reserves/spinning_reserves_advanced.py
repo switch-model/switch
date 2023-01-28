@@ -9,64 +9,80 @@ from collections import defaultdict
 from pyomo.environ import *
 
 dependencies = (
-    'switch_model.timescales',
-    'switch_model.balancing.load_zones',
-    'switch_model.balancing.operating_reserves.areas',
-    'switch_model.financials',
-    'switch_model.energy_sources.properties',
-    'switch_model.generators.core.build',
-    'switch_model.generators.core.dispatch',
-    'switch_model.generators.core.commit.operate',
+    "switch_model.timescales",
+    "switch_model.balancing.load_zones",
+    "switch_model.balancing.operating_reserves.areas",
+    "switch_model.financials",
+    "switch_model.energy_sources.properties",
+    "switch_model.generators.core.build",
+    "switch_model.generators.core.dispatch",
+    "switch_model.generators.core.commit.operate",
 )
 
 
 def define_arguments(argparser):
     group = argparser.add_argument_group(__name__)
-    group.add_argument('--unit-contingency', default=False, action='store_true',
-        help=("This will enable an n-1 contingency based on a single unit of "
-              "a generation project falling offline. Note: This create a new "
-              "binary variable for each timepoint for each generation project "
-              "that has a gen_unit_size specified.")
+    group.add_argument(
+        "--unit-contingency",
+        default=False,
+        action="store_true",
+        help=(
+            "This will enable an n-1 contingency based on a single unit of "
+            "a generation project falling offline. Note: This create a new "
+            "binary variable for each timepoint for each generation project "
+            "that has a gen_unit_size specified."
+        ),
     )
-    group.add_argument('--project-contingency', default=False, action='store_true',
-        help=("This will enable an n-1 contingency based on the entire "
-              "committed capacity of a generation project falling offline. "
-              "Unlike unit contingencies, this is a purely linear expression.")
+    group.add_argument(
+        "--project-contingency",
+        default=False,
+        action="store_true",
+        help=(
+            "This will enable an n-1 contingency based on the entire "
+            "committed capacity of a generation project falling offline. "
+            "Unlike unit contingencies, this is a purely linear expression."
+        ),
     )
-    group.add_argument('--fixed-contingency', type=float, default=0.0,
-        help=("Add a fixed generator contingency reserve margin, specified in MW. "
-              "This can be used alone or in combination with the other "
-              "contingency options.")
+    group.add_argument(
+        "--fixed-contingency",
+        type=float,
+        default=0.0,
+        help=(
+            "Add a fixed generator contingency reserve margin, specified in MW. "
+            "This can be used alone or in combination with the other "
+            "contingency options."
+        ),
     )
-    group.add_argument('--spinning-requirement-rule', default=None,
-        choices = ["Hawaii", "3+5", "none"],
-        help=("Choose rules for spinning reserves requirements as a function "
-              "of variable renewable power and load. Hawaii uses rules "
-              "bootstrapped from the GE RPS study, and '3+5' requires 3%% of "
-              "load and 5%% of variable renewable output, based on the heuristic "
-              "described in the 2010 Western Wind and Solar Integration Study. "
-              "Specify 'none' if applying your own rules instead. "
-        )
+    group.add_argument(
+        "--spinning-requirement-rule",
+        default=None,
+        choices=["Hawaii", "3+5", "none"],
+        help=(
+            "Choose rules for spinning reserves requirements as a function "
+            "of variable renewable power and load. Hawaii uses rules "
+            "bootstrapped from the GE RPS study, and '3+5' requires 3%% of "
+            "load and 5%% of variable renewable output, based on the heuristic "
+            "described in the 2010 Western Wind and Solar Integration Study. "
+            "Specify 'none' if applying your own rules instead. "
+        ),
     )
     # TODO: define these inputs in data files
     group.add_argument(
-        '--contingency-reserve-type', dest='contingency_reserve_type',
-        default='spinning',
-        help=
-            "Type of reserves to use to meet the contingency reserve requirements "
-            "defined for generation projects and sometimes for loss-of-load events "
-            "(e.g., 'contingency' or 'spinning'); default is 'spinning'."
+        "--contingency-reserve-type",
+        dest="contingency_reserve_type",
+        default="spinning",
+        help="Type of reserves to use to meet the contingency reserve requirements "
+        "defined for generation projects and sometimes for loss-of-load events "
+        "(e.g., 'contingency' or 'spinning'); default is 'spinning'.",
     )
     group.add_argument(
-        '--regulating-reserve-type', dest='regulating_reserve_type',
-        default='spinning',
-        help=
-            "Type of reserves to use to meet the regulating reserve requirements "
-            "defined by the spinning requirements rule (e.g., 'spinning' or "
-            "'regulation'); default is 'spinning'."
+        "--regulating-reserve-type",
+        dest="regulating_reserve_type",
+        default="spinning",
+        help="Type of reserves to use to meet the regulating reserve requirements "
+        "defined by the spinning requirements rule (e.g., 'spinning' or "
+        "'regulation'); default is 'spinning'.",
     )
-
-
 
 
 def define_dynamic_lists(m):
@@ -118,10 +134,10 @@ def gen_fixed_contingency(m):
     that is usually online and/or reserves are cheap).
     """
     m.GenFixedContingency = Param(
-        m.BALANCING_AREA_TIMEPOINTS,
-        initialize=lambda m: m.options.fixed_contingency
+        m.BALANCING_AREA_TIMEPOINTS, initialize=lambda m: m.options.fixed_contingency
     )
-    m.Spinning_Reserve_Up_Contingencies.append('GenFixedContingency')
+    m.Spinning_Reserve_Up_Contingencies.append("GenFixedContingency")
+
 
 def gen_unit_contingency(m):
     """
@@ -159,40 +175,50 @@ def gen_unit_contingency(m):
     # should be a prerequisite for this functionality.
     m.UNIT_CONTINGENCY_DISPATCH_POINTS = Set(
         dimen=2,
-        initialize=lambda m:
-            [(g, t) for g in m.DISCRETELY_SIZED_GENS for t in m.TPS_FOR_GEN[g]]
+        initialize=lambda m: [
+            (g, t) for g in m.DISCRETELY_SIZED_GENS for t in m.TPS_FOR_GEN[g]
+        ],
     )
     m.GenIsCommitted = Var(
         m.UNIT_CONTINGENCY_DISPATCH_POINTS,
         within=Binary,
-        doc="Stores the status of unit committment as a binary variable."
+        doc="Stores the status of unit committment as a binary variable.",
     )
     m.Enforce_GenIsCommitted = Constraint(
         m.UNIT_CONTINGENCY_DISPATCH_POINTS,
-        rule=lambda m, g, tp:
-            m.CommitGen[g, tp] <= m.GenIsCommitted[g, tp] * (
-                m._gen_max_cap_for_binary_constraints
-                if g not in m.CAPACITY_LIMITED_GENS
-                else m.gen_capacity_limit_mw[g]
-            )
+        rule=lambda m, g, tp: m.CommitGen[g, tp]
+        <= m.GenIsCommitted[g, tp]
+        * (
+            m._gen_max_cap_for_binary_constraints
+            if g not in m.CAPACITY_LIMITED_GENS
+            else m.gen_capacity_limit_mw[g]
+        ),
     )
     # TODO: would it be faster to add all generator contingencies directly
     # to Spinning_Reserve_Contingencies instead of introducing this intermediate
     # variable and constraint?
     m.GenUnitLargestContingency = Var(
-        m.BALANCING_AREA_TIMEPOINTS, within=NonNegativeReals,
-        doc="Largest generating unit that could drop offline.")
+        m.BALANCING_AREA_TIMEPOINTS,
+        within=NonNegativeReals,
+        doc="Largest generating unit that could drop offline.",
+    )
+
     def Enforce_GenUnitLargestContingency_rule(m, g, t):
         b = m.zone_balancing_area[m.gen_load_zone[g]]
-        return (m.GenUnitLargestContingency[b,t] >=
-                m.GenIsCommitted[g, t] * m.gen_unit_size[g])
+        return (
+            m.GenUnitLargestContingency[b, t]
+            >= m.GenIsCommitted[g, t] * m.gen_unit_size[g]
+        )
+
     m.Enforce_GenUnitLargestContingency = Constraint(
         m.UNIT_CONTINGENCY_DISPATCH_POINTS,
         rule=Enforce_GenUnitLargestContingency_rule,
-        doc=("Force GenUnitLargestContingency to be at least as big as the "
-             "maximum unit contingency.")
+        doc=(
+            "Force GenUnitLargestContingency to be at least as big as the "
+            "maximum unit contingency."
+        ),
     )
-    m.Spinning_Reserve_Up_Contingencies.append('GenUnitLargestContingency')
+    m.Spinning_Reserve_Up_Contingencies.append("GenUnitLargestContingency")
 
 
 def gen_project_contingency(m):
@@ -218,24 +244,33 @@ def gen_project_contingency(m):
     """
     m.GenProjectLargestContingency = Var(
         m.BALANCING_AREA_TIMEPOINTS,
-        doc="Largest generating project that could drop offline.")
+        doc="Largest generating project that could drop offline.",
+    )
+
     def Enforce_GenProjectLargestContingency_rule(m, g, t):
         b = m.zone_balancing_area[m.gen_load_zone[g]]
         if g in m.SPINNING_RESERVE_CAPABLE_GENS:
             total_up_reserves = sum(
                 m.CommitGenSpinningReservesUp[rt, g, t]
-                for rt in m.SPINNING_RESERVE_TYPES_FOR_GEN[g])
-            return m.GenProjectLargestContingency[b, t] >= \
-                m.DispatchGen[g, t] + total_up_reserves
+                for rt in m.SPINNING_RESERVE_TYPES_FOR_GEN[g]
+            )
+            return (
+                m.GenProjectLargestContingency[b, t]
+                >= m.DispatchGen[g, t] + total_up_reserves
+            )
         else:
             return m.GenProjectLargestContingency[b, t] >= m.DispatchGen[g, t]
+
     m.Enforce_GenProjectLargestContingency = Constraint(
         m.GEN_TPS,
         rule=Enforce_GenProjectLargestContingency_rule,
-        doc=("Force GenProjectLargestContingency to be at least as big as the "
-             "maximum generation project contingency.")
+        doc=(
+            "Force GenProjectLargestContingency to be at least as big as the "
+            "maximum generation project contingency."
+        ),
     )
-    m.Spinning_Reserve_Up_Contingencies.append('GenProjectLargestContingency')
+    m.Spinning_Reserve_Up_Contingencies.append("GenProjectLargestContingency")
+
 
 def hawaii_spinning_reserve_requirements(m):
     # These parameters were found by regressing the reserve requirements from
@@ -251,23 +286,30 @@ def hawaii_spinning_reserve_requirements(m):
     # (could eventually use some linearized quadratic formulation based
     # on load, magnitude of renewables and geographic dispersion of renewables)
     m.var_gen_power_reserve = Param(
-        m.VARIABLE_GENS, default=1.0,
-        doc=("Spinning reserves required to back up variable renewable "
-             "generators, as fraction of potential output.")
+        m.VARIABLE_GENS,
+        default=1.0,
+        doc=(
+            "Spinning reserves required to back up variable renewable "
+            "generators, as fraction of potential output."
+        ),
     )
+
     def var_gen_cap_reserve_limit_default(m, g):
-        if m.gen_energy_source[g] == 'SUN':
+        if m.gen_energy_source[g] == "SUN":
             return 0.21288916
-        elif m.gen_energy_source[g] == 'WND':
+        elif m.gen_energy_source[g] == "WND":
             return 0.21624407
         else:
             raise ValueError(
-                "Unable to calculate reserve requirement for energy source {}".format(m.gen_energy_source[g])
+                "Unable to calculate reserve requirement for energy source {}".format(
+                    m.gen_energy_source[g]
+                )
             )
+
     m.var_gen_cap_reserve_limit = Param(
         m.VARIABLE_GENS,
         default=var_gen_cap_reserve_limit_default,
-        doc="Maximum spinning reserves required, as fraction of installed capacity"
+        doc="Maximum spinning reserves required, as fraction of installed capacity",
     )
     m.HawaiiVarGenUpSpinningReserveRequirement = Expression(
         [m.options.regulating_reserve_type],
@@ -276,17 +318,20 @@ def hawaii_spinning_reserve_requirements(m):
             m.GenCapacityInTP[g, t]
             * min(
                 m.var_gen_power_reserve[g] * m.gen_max_capacity_factor[g, t],
-                m.var_gen_cap_reserve_limit[g]
+                m.var_gen_cap_reserve_limit[g],
             )
             for z in m.ZONES_IN_BALANCING_AREA[b]
             for g in m.VARIABLE_GENS_IN_ZONE[z]
-            if (g, t) in m.VARIABLE_GEN_TPS),
-        doc="The spinning reserves for backing up variable generation with Hawaii rules."
+            if (g, t) in m.VARIABLE_GEN_TPS
+        ),
+        doc="The spinning reserves for backing up variable generation with Hawaii rules.",
     )
-    m.Spinning_Reserve_Up_Requirements.append('HawaiiVarGenUpSpinningReserveRequirement')
+    m.Spinning_Reserve_Up_Requirements.append(
+        "HawaiiVarGenUpSpinningReserveRequirement"
+    )
 
     # Calculate and register loss-of-load (down) contingencies
-    if hasattr(m, 'WithdrawFromCentralGrid'):
+    if hasattr(m, "WithdrawFromCentralGrid"):
         rule = lambda m, ba, tp: 0.10 * sum(
             m.WithdrawFromCentralGrid[z, tp] for z in m.ZONES_IN_BALANCING_AREA[ba]
         )
@@ -295,10 +340,8 @@ def hawaii_spinning_reserve_requirements(m):
         rule = lambda m, ba, tp: 0.10 * sum(
             m.zone_demand_mw[z, tp] for z in m.ZONES_IN_BALANCING_AREA[ba]
         )
-    m.HawaiiLoadDownContingency = Expression(
-        m.BALANCING_AREA_TIMEPOINTS, rule=rule
-    )
-    m.Spinning_Reserve_Down_Contingencies.append('HawaiiLoadDownContingency')
+    m.HawaiiLoadDownContingency = Expression(m.BALANCING_AREA_TIMEPOINTS, rule=rule)
+    m.Spinning_Reserve_Down_Contingencies.append("HawaiiLoadDownContingency")
 
 
 def nrel_3_5_spinning_reserve_requirements(m):
@@ -312,26 +355,30 @@ def nrel_3_5_spinning_reserve_requirements(m):
     be set to WithdrawFromCentralGrid. Otherwise load will be set to
     zone_demand_mw.
     """
+
     def NREL35VarGenSpinningReserveRequirement_rule(m, rt, b, t):
         try:
             load = m.WithdrawFromCentralGrid
         except AttributeError:
             load = m.zone_demand_mw
-        return (
-            0.03 * sum(load[z, t]
-                       for z in m.LOAD_ZONES
-                       if b == m.zone_balancing_area[z])
-            + 0.05 * sum(m.DispatchGen[g, t]
-                         for g in m.VARIABLE_GENS
-                         if (g, t) in m.VARIABLE_GEN_TPS and
-                            b == m.zone_balancing_area[m.gen_load_zone[g]]))
+        return 0.03 * sum(
+            load[z, t] for z in m.LOAD_ZONES if b == m.zone_balancing_area[z]
+        ) + 0.05 * sum(
+            m.DispatchGen[g, t]
+            for g in m.VARIABLE_GENS
+            if (g, t) in m.VARIABLE_GEN_TPS
+            and b == m.zone_balancing_area[m.gen_load_zone[g]]
+        )
+
     m.NREL35VarGenSpinningReserveRequirement = Expression(
         [m.options.regulating_reserve_type],
         m.BALANCING_AREA_TIMEPOINTS,
-        rule=NREL35VarGenSpinningReserveRequirement_rule
+        rule=NREL35VarGenSpinningReserveRequirement_rule,
     )
-    m.Spinning_Reserve_Up_Requirements.append('NREL35VarGenSpinningReserveRequirement')
-    m.Spinning_Reserve_Down_Requirements.append('NREL35VarGenSpinningReserveRequirement')
+    m.Spinning_Reserve_Up_Requirements.append("NREL35VarGenSpinningReserveRequirement")
+    m.Spinning_Reserve_Down_Requirements.append(
+        "NREL35VarGenSpinningReserveRequirement"
+    )
 
 
 def define_components(m):
@@ -371,16 +418,18 @@ def define_components(m):
     project_contingency and spinning_requirement_rule, other components may be
     added by other functions which are documented above.
     """
-    m.contingency_safety_factor = Param(default=1.0,
-        doc=("The spinning reserve requiremet will be set to this value "
-             "times the maximum contingency. This defaults to 1 to provide "
-             "n-1 security for the largest committed generator. "))
+    m.contingency_safety_factor = Param(
+        default=1.0,
+        doc=(
+            "The spinning reserve requiremet will be set to this value "
+            "times the maximum contingency. This defaults to 1 to provide "
+            "n-1 security for the largest committed generator. "
+        ),
+    )
 
     m.GEN_SPINNING_RESERVE_TYPES = Set(dimen=2)
     m.gen_reserve_type_max_share = Param(
-        m.GEN_SPINNING_RESERVE_TYPES,
-        within=PercentFraction,
-        default=1.0
+        m.GEN_SPINNING_RESERVE_TYPES, within=PercentFraction, default=1.0
     )
 
     # reserve types that are supplied by generation projects
@@ -388,11 +437,11 @@ def define_components(m):
     # note: these are also the indexing sets of the above set arrays; maybe that could be used?
     m.SPINNING_RESERVE_TYPES_FROM_GENS = Set(
         ordered=False,
-        initialize=lambda m: set(rt for (g, rt) in m.GEN_SPINNING_RESERVE_TYPES)
+        initialize=lambda m: set(rt for (g, rt) in m.GEN_SPINNING_RESERVE_TYPES),
     )
     m.SPINNING_RESERVE_CAPABLE_GENS = Set(
         ordered=False,
-        initialize=lambda m: set(g for (g, rt) in m.GEN_SPINNING_RESERVE_TYPES)
+        initialize=lambda m: set(g for (g, rt) in m.GEN_SPINNING_RESERVE_TYPES),
     )
 
     # slice GEN_SPINNING_RESERVE_TYPES both ways for later use
@@ -402,56 +451,70 @@ def define_components(m):
         for g, rt in m.GEN_SPINNING_RESERVE_TYPES:
             m.SPINNING_RESERVE_TYPES_FOR_GEN_dict[g].append(rt)
             m.GENS_FOR_SPINNING_RESERVE_TYPE_dict[rt].append(g)
+
     m.build_spinning_reserve_indexed_sets = BuildAction(rule=rule)
 
     m.SPINNING_RESERVE_TYPES_FOR_GEN = Set(
         m.SPINNING_RESERVE_CAPABLE_GENS,
-        initialize=lambda m, g: m.SPINNING_RESERVE_TYPES_FOR_GEN_dict.pop(g)
+        initialize=lambda m, g: m.SPINNING_RESERVE_TYPES_FOR_GEN_dict.pop(g),
     )
     m.GENS_FOR_SPINNING_RESERVE_TYPE = Set(
         m.SPINNING_RESERVE_TYPES_FROM_GENS,
-        initialize=lambda m, rt: m.GENS_FOR_SPINNING_RESERVE_TYPE_dict.pop(rt)
+        initialize=lambda m, rt: m.GENS_FOR_SPINNING_RESERVE_TYPE_dict.pop(rt),
     )
 
     # types, generators and timepoints when reserves could be supplied
-    m.SPINNING_RESERVE_TYPE_GEN_TPS = Set(dimen=3, initialize=lambda m: (
-        (rt, g, tp)
-        for g, rt in m.GEN_SPINNING_RESERVE_TYPES
-        for tp in m.TPS_FOR_GEN[g]
-    ))
+    m.SPINNING_RESERVE_TYPE_GEN_TPS = Set(
+        dimen=3,
+        initialize=lambda m: (
+            (rt, g, tp)
+            for g, rt in m.GEN_SPINNING_RESERVE_TYPES
+            for tp in m.TPS_FOR_GEN[g]
+        ),
+    )
     # generators and timepoints when reserves could be supplied
-    m.SPINNING_RESERVE_CAPABLE_GEN_TPS = Set(dimen=2, initialize=lambda m: (
-        (g, tp)
-        for g in m.SPINNING_RESERVE_CAPABLE_GENS
-        for tp in m.TPS_FOR_GEN[g]
-    ))
+    m.SPINNING_RESERVE_CAPABLE_GEN_TPS = Set(
+        dimen=2,
+        initialize=lambda m: (
+            (g, tp) for g in m.SPINNING_RESERVE_CAPABLE_GENS for tp in m.TPS_FOR_GEN[g]
+        ),
+    )
 
     # decide how much of each type of reserves to produce from each generator
     # during each timepoint
-    m.CommitGenSpinningReservesUp = Var(m.SPINNING_RESERVE_TYPE_GEN_TPS, within=NonNegativeReals)
-    m.CommitGenSpinningReservesDown = Var(m.SPINNING_RESERVE_TYPE_GEN_TPS, within=NonNegativeReals)
+    m.CommitGenSpinningReservesUp = Var(
+        m.SPINNING_RESERVE_TYPE_GEN_TPS, within=NonNegativeReals
+    )
+    m.CommitGenSpinningReservesDown = Var(
+        m.SPINNING_RESERVE_TYPE_GEN_TPS, within=NonNegativeReals
+    )
 
     # constrain reserve provision appropriately
     m.CommitGenSpinningReservesUp_Limit = Constraint(
         m.SPINNING_RESERVE_CAPABLE_GEN_TPS,
-        rule=lambda m, g, tp:
-            sum(m.CommitGenSpinningReservesUp[rt, g, tp] for rt in m.SPINNING_RESERVE_TYPES_FOR_GEN[g])
-            <=
-            m.DispatchSlackUp[g, tp]
-            # storage can give more up response by stopping charging
-            + (m.ChargeStorage[g, tp] if g in getattr(m, 'STORAGE_GENS', []) else 0.0)
+        rule=lambda m, g, tp: sum(
+            m.CommitGenSpinningReservesUp[rt, g, tp]
+            for rt in m.SPINNING_RESERVE_TYPES_FOR_GEN[g]
+        )
+        <= m.DispatchSlackUp[g, tp]
+        # storage can give more up response by stopping charging
+        + (m.ChargeStorage[g, tp] if g in getattr(m, "STORAGE_GENS", []) else 0.0),
     )
     m.CommitGenSpinningReservesDown_Limit = Constraint(
         m.SPINNING_RESERVE_CAPABLE_GEN_TPS,
-        rule=lambda m, g, tp:
-            sum(m.CommitGenSpinningReservesDown[rt, g, tp] for rt in m.SPINNING_RESERVE_TYPES_FOR_GEN[g])
-            <=
-            m.DispatchSlackDown[g, tp]
-            + ( # storage could give more down response by raising ChargeStorage to the maximum rate
-                (m.DispatchUpperLimit[g, tp] * m.gen_store_to_release_ratio[g] - m.ChargeStorage[g, tp])
-                if g in getattr(m, 'STORAGE_GENS', [])
-                else 0.0
+        rule=lambda m, g, tp: sum(
+            m.CommitGenSpinningReservesDown[rt, g, tp]
+            for rt in m.SPINNING_RESERVE_TYPES_FOR_GEN[g]
+        )
+        <= m.DispatchSlackDown[g, tp]
+        + (  # storage could give more down response by raising ChargeStorage to the maximum rate
+            (
+                m.DispatchUpperLimit[g, tp] * m.gen_store_to_release_ratio[g]
+                - m.ChargeStorage[g, tp]
             )
+            if g in getattr(m, "STORAGE_GENS", [])
+            else 0.0
+        ),
     )
 
     # Calculate total spinning reserves from generation projects,
@@ -467,13 +530,16 @@ def define_components(m):
                 up[rt, ba, tp] += m.CommitGenSpinningReservesUp[rt, g, tp]
                 down[rt, ba, tp] += m.CommitGenSpinningReservesDown[rt, g, tp]
         m.TotalGenSpinningReservesUp = Expression(list(up.keys()), initialize=dict(up))
-        m.TotalGenSpinningReservesDown = Expression(list(down.keys()), initialize=dict(down))
+        m.TotalGenSpinningReservesDown = Expression(
+            list(down.keys()), initialize=dict(down)
+        )
         # construct these, so they can be used immediately
         for c in [m.TotalGenSpinningReservesUp, m.TotalGenSpinningReservesDown]:
             c.index_set().construct()
             c.construct()
-        m.Spinning_Reserve_Up_Provisions.append('TotalGenSpinningReservesUp')
-        m.Spinning_Reserve_Down_Provisions.append('TotalGenSpinningReservesDown')
+        m.Spinning_Reserve_Up_Provisions.append("TotalGenSpinningReservesUp")
+        m.Spinning_Reserve_Down_Provisions.append("TotalGenSpinningReservesDown")
+
     m.TotalGenSpinningReserves_aggregate = BuildAction(rule=rule)
 
     # define reserve requirements
@@ -483,14 +549,16 @@ def define_components(m):
         gen_unit_contingency(m)
     if m.options.project_contingency:
         gen_project_contingency(m)
-    if m.options.spinning_requirement_rule == 'Hawaii':
+    if m.options.spinning_requirement_rule == "Hawaii":
         hawaii_spinning_reserve_requirements(m)
-    elif m.options.spinning_requirement_rule == '3+5':
+    elif m.options.spinning_requirement_rule == "3+5":
         nrel_3_5_spinning_reserve_requirements(m)
-    elif m.options.spinning_requirement_rule == 'none':
-        pass # users can turn off the rules and use their own instead
+    elif m.options.spinning_requirement_rule == "none":
+        pass  # users can turn off the rules and use their own instead
     else:
-        raise ValueError('No --spinning-requirement-rule specified on command line; unable to allocate reserves.')
+        raise ValueError(
+            "No --spinning-requirement-rule specified on command line; unable to allocate reserves."
+        )
 
 
 def define_dynamic_components(m):
@@ -522,26 +590,32 @@ def define_dynamic_components(m):
 
     # define largest contingencies
     m.MaximumContingencyUp = Var(
-        m.BALANCING_AREA_TIMEPOINTS, within=NonNegativeReals,
-        doc=("Maximum of the registered Spinning_Reserve_Up_Contingencies, after "
-             "multiplying by contingency_safety_factor.")
+        m.BALANCING_AREA_TIMEPOINTS,
+        within=NonNegativeReals,
+        doc=(
+            "Maximum of the registered Spinning_Reserve_Up_Contingencies, after "
+            "multiplying by contingency_safety_factor."
+        ),
     )
     m.MaximumContingencyDown = Var(
-        m.BALANCING_AREA_TIMEPOINTS, within=NonNegativeReals,
-        doc=("Maximum of the registered Spinning_Reserve_Down_Contingencies, after "
-             "multiplying by contingency_safety_factor.")
+        m.BALANCING_AREA_TIMEPOINTS,
+        within=NonNegativeReals,
+        doc=(
+            "Maximum of the registered Spinning_Reserve_Down_Contingencies, after "
+            "multiplying by contingency_safety_factor."
+        ),
     )
     m.Calculate_MaximumContingencyUp = Constraint(
         m.BALANCING_AREA_TIMEPOINTS,
-        m.Spinning_Reserve_Up_Contingencies, # list of contingency events
-        rule=lambda m, b, t, contingency:
-            m.MaximumContingencyUp[b, t] >= m.contingency_safety_factor * getattr(m, contingency)[b, t]
+        m.Spinning_Reserve_Up_Contingencies,  # list of contingency events
+        rule=lambda m, b, t, contingency: m.MaximumContingencyUp[b, t]
+        >= m.contingency_safety_factor * getattr(m, contingency)[b, t],
     )
     m.Calculate_MaximumContingencyDown = Constraint(
         m.BALANCING_AREA_TIMEPOINTS,
-        m.Spinning_Reserve_Down_Contingencies, # list of contingency events
-        rule=lambda m, b, t, contingency:
-            m.MaximumContingencyDown[b, t] >= m.contingency_safety_factor * getattr(m, contingency)[b, t]
+        m.Spinning_Reserve_Down_Contingencies,  # list of contingency events
+        rule=lambda m, b, t, contingency: m.MaximumContingencyDown[b, t]
+        >= m.contingency_safety_factor * getattr(m, contingency)[b, t],
     )
 
     # create reserve requirements equal to the largest contingencies
@@ -549,16 +623,16 @@ def define_dynamic_components(m):
     m.MaximumContingencyUpRequirement = Expression(
         [m.options.contingency_reserve_type],
         m.BALANCING_AREA_TIMEPOINTS,
-        rule=lambda m, rt, ba, tp: m.MaximumContingencyUp[ba, tp]
+        rule=lambda m, rt, ba, tp: m.MaximumContingencyUp[ba, tp],
     )
     m.MaximumContingencyDownRequirement = Expression(
         [m.options.contingency_reserve_type],
         m.BALANCING_AREA_TIMEPOINTS,
-        rule=lambda m, rt, ba, tp: m.MaximumContingencyDown[ba, tp]
+        rule=lambda m, rt, ba, tp: m.MaximumContingencyDown[ba, tp],
     )
 
-    m.Spinning_Reserve_Up_Requirements.append('MaximumContingencyUpRequirement')
-    m.Spinning_Reserve_Down_Requirements.append('MaximumContingencyDownRequirement')
+    m.Spinning_Reserve_Up_Requirements.append("MaximumContingencyUpRequirement")
+    m.Spinning_Reserve_Down_Requirements.append("MaximumContingencyDownRequirement")
 
     # aggregate the requirements for each type of reserves during each timepoint
     def rule(m):
@@ -569,36 +643,38 @@ def define_dynamic_components(m):
                 obj = getattr(m, comp)
                 for key, val in obj.items():
                     d[key] += val
-            setattr(m, lst + '_dict', d)
-        makedict(m, 'Spinning_Reserve_Up_Requirements')
-        makedict(m, 'Spinning_Reserve_Down_Requirements')
-        makedict(m, 'Spinning_Reserve_Up_Provisions')
-        makedict(m, 'Spinning_Reserve_Down_Provisions')
+            setattr(m, lst + "_dict", d)
+
+        makedict(m, "Spinning_Reserve_Up_Requirements")
+        makedict(m, "Spinning_Reserve_Down_Requirements")
+        makedict(m, "Spinning_Reserve_Up_Provisions")
+        makedict(m, "Spinning_Reserve_Down_Provisions")
+
     m.Aggregate_Spinning_Reserve_Details = BuildAction(rule=rule)
 
     m.SPINNING_RESERVE_REQUIREMENT_UP_BALANCING_AREA_TIMEPOINTS = Set(
         dimen=3,
-        initialize=lambda m: list(m.Spinning_Reserve_Up_Requirements_dict.keys())
+        initialize=lambda m: list(m.Spinning_Reserve_Up_Requirements_dict.keys()),
     )
     m.SPINNING_RESERVE_REQUIREMENT_DOWN_BALANCING_AREA_TIMEPOINTS = Set(
         dimen=3,
-        initialize=lambda m: list(m.Spinning_Reserve_Down_Requirements_dict.keys())
+        initialize=lambda m: list(m.Spinning_Reserve_Down_Requirements_dict.keys()),
     )
 
     # satisfy all spinning reserve requirements
     m.Satisfy_Spinning_Reserve_Up_Requirement = Constraint(
         m.SPINNING_RESERVE_REQUIREMENT_UP_BALANCING_AREA_TIMEPOINTS,
-        rule=lambda m, rt, ba, tp:
-            m.Spinning_Reserve_Up_Provisions_dict.pop((rt, ba, tp), 0.0)
-            >=
-            m.Spinning_Reserve_Up_Requirements_dict.pop((rt, ba, tp))
+        rule=lambda m, rt, ba, tp: m.Spinning_Reserve_Up_Provisions_dict.pop(
+            (rt, ba, tp), 0.0
+        )
+        >= m.Spinning_Reserve_Up_Requirements_dict.pop((rt, ba, tp)),
     )
     m.Satisfy_Spinning_Reserve_Down_Requirement = Constraint(
         m.SPINNING_RESERVE_REQUIREMENT_DOWN_BALANCING_AREA_TIMEPOINTS,
-        rule=lambda m, rt, ba, tp:
-            m.Spinning_Reserve_Down_Provisions_dict.pop((rt, ba, tp), 0.0)
-            >=
-            m.Spinning_Reserve_Down_Requirements_dict.pop((rt, ba, tp))
+        rule=lambda m, rt, ba, tp: m.Spinning_Reserve_Down_Provisions_dict.pop(
+            (rt, ba, tp), 0.0
+        )
+        >= m.Spinning_Reserve_Down_Requirements_dict.pop((rt, ba, tp)),
     )
 
 
@@ -613,23 +689,25 @@ def load_inputs(m, switch_data, inputs_dir):
     contingency_safety_factor. Note that this only contains one header row
     and one data row.
     """
-    path=os.path.join(inputs_dir, 'generation_projects_reserve_capability.csv')
+    path = os.path.join(inputs_dir, "generation_projects_reserve_capability.csv")
     switch_data.load_aug(
         filename=path,
         optional=True,
         auto_select=True,
-        optional_params=['gen_reserve_type_max_share]'],
+        optional_params=["gen_reserve_type_max_share]"],
         index=m.GEN_SPINNING_RESERVE_TYPES,
-        param=(m.gen_reserve_type_max_share)
+        param=(m.gen_reserve_type_max_share),
     )
     if not os.path.isfile(path):
-        gen_projects = switch_data.data()['GENERATION_PROJECTS'][None]
-        switch_data.data()['GEN_SPINNING_RESERVE_TYPES'] = {}
-        switch_data.data()['GEN_SPINNING_RESERVE_TYPES'][None] = \
-            [(g, "spinning") for g in gen_projects]
+        gen_projects = switch_data.data()["GENERATION_PROJECTS"][None]
+        switch_data.data()["GEN_SPINNING_RESERVE_TYPES"] = {}
+        switch_data.data()["GEN_SPINNING_RESERVE_TYPES"][None] = [
+            (g, "spinning") for g in gen_projects
+        ]
 
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'spinning_reserve_params.csv'),
-        optional=True, auto_select=True,
-        param=(m.contingency_safety_factor,)
+        filename=os.path.join(inputs_dir, "spinning_reserve_params.csv"),
+        optional=True,
+        auto_select=True,
+        param=(m.contingency_safety_factor,),
     )

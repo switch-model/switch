@@ -64,19 +64,20 @@ import os
 from pyomo.environ import *
 
 dependencies = (
-    'switch_model.timescales',
-    'switch_model.financials',
-    'switch_model.balancing.load_zones',
-    'switch_model.energy_sources.properties',
-    'switch_model.generators.core.build',
-    'switch_model.generators.core.dispatch',
+    "switch_model.timescales",
+    "switch_model.financials",
+    "switch_model.balancing.load_zones",
+    "switch_model.energy_sources.properties",
+    "switch_model.generators.core.build",
+    "switch_model.generators.core.dispatch",
 )
 optional_prerequisites = (
-    'switch_model.generators.storage',
-    'switch_model.transmission.local_td',
-    'switch_model.transmission.transport.build',
-    'switch_model.transmission.transport.dispatch',
+    "switch_model.generators.storage",
+    "switch_model.transmission.local_td",
+    "switch_model.transmission.transport.build",
+    "switch_model.transmission.transport.dispatch",
 )
+
 
 def define_dynamic_lists(model):
     """
@@ -142,31 +143,35 @@ def define_components(model):
     """
     model.PLANNING_RESERVE_REQUIREMENTS = Set(
         doc="Areas and times where planning reserve margins are specified.",
-        input_file='planning_reserve_requirements.csv',
-        dimen=1
+        input_file="planning_reserve_requirements.csv",
+        dimen=1,
     )
     model.PRR_ZONES = Set(
         dimen=2,
-        input_file='planning_reserve_requirement_zones.csv',
-        doc=("A set of (prr, z) that describes which zones contribute to each "
-             "Planning Reserve Requirement.")
+        input_file="planning_reserve_requirement_zones.csv",
+        doc=(
+            "A set of (prr, z) that describes which zones contribute to each "
+            "Planning Reserve Requirement."
+        ),
     )
     model.prr_cap_reserve_margin = Param(
         model.PLANNING_RESERVE_REQUIREMENTS,
         within=PercentFraction,
-        input_file='planning_reserve_requirements.csv',
-        default=0.15
+        input_file="planning_reserve_requirements.csv",
+        default=0.15,
     )
     model.prr_enforcement_timescale = Param(
         model.PLANNING_RESERVE_REQUIREMENTS,
-        default='period_peak_load',
-        validate=lambda m, value, prr:
-            value in ('all_timepoints', 'peak_load'),
-        input_file='planning_reserve_requirements.csv',
-        doc=("Determines whether planning reserve requirements are enforced in "
-             "each timepoint, or just timepoints with peak load (zone_demand_mw)."),
-        within=Any
+        default="period_peak_load",
+        validate=lambda m, value, prr: value in ("all_timepoints", "peak_load"),
+        input_file="planning_reserve_requirements.csv",
+        doc=(
+            "Determines whether planning reserve requirements are enforced in "
+            "each timepoint, or just timepoints with peak load (zone_demand_mw)."
+        ),
+        within=Any,
     )
+
     def get_peak_timepoints(m, prr):
         """
         Return the set of timepoints with peak load within a planning reserve
@@ -185,32 +190,40 @@ def define_components(model):
                     peak_load = load
             peak_timepoint_list.add(peak_timepoint)
         return peak_timepoint_list
+
     def PRR_TIMEPOINTS_init(m):
         PRR_TIMEPOINTS = []
         for prr in m.PLANNING_RESERVE_REQUIREMENTS:
-            if m.prr_enforcement_timescale[prr] == 'all_timepoints':
+            if m.prr_enforcement_timescale[prr] == "all_timepoints":
                 PRR_TIMEPOINTS.extend([(prr, t) for t in m.TIMEPOINTS])
-            elif m.prr_enforcement_timescale[prr] == 'peak_load':
+            elif m.prr_enforcement_timescale[prr] == "peak_load":
                 PRR_TIMEPOINTS.extend([(prr, t) for t in get_peak_timepoints(m, prr)])
             else:
-                raise ValueError("prr_enforcement_timescale not recognized: '{}'".format(
-                    m.prr_enforcement_timescale[prr]))
+                raise ValueError(
+                    "prr_enforcement_timescale not recognized: '{}'".format(
+                        m.prr_enforcement_timescale[prr]
+                    )
+                )
         return PRR_TIMEPOINTS
+
     model.PRR_TIMEPOINTS = Set(
         dimen=2,
         within=model.PLANNING_RESERVE_REQUIREMENTS * model.TIMEPOINTS,
         initialize=PRR_TIMEPOINTS_init,
-        doc=("The sparse set of (prr, t) for which planning reserve "
-             "requirements are enforced.")
+        doc=(
+            "The sparse set of (prr, t) for which planning reserve "
+            "requirements are enforced."
+        ),
     )
 
     model.gen_can_provide_cap_reserves = Param(
         model.GENERATION_PROJECTS,
         within=Boolean,
         default=True,
-        input_file='generation_projects_info.csv',
-        doc="Indicates whether a generator can provide capacity reserves."
+        input_file="generation_projects_info.csv",
+        doc="Indicates whether a generator can provide capacity reserves.",
     )
+
     def gen_capacity_value_default(m, g, t):
         if not m.gen_can_provide_cap_reserves[g]:
             return 0.0
@@ -218,6 +231,7 @@ def define_components(model):
             return m.gen_max_capacity_factor[g, t]
         else:
             return 1.0
+
     model.gen_capacity_value = Param(
         # Note we pass in the product of both sets rather than GEN_TPS
         # since GEN_TPS only includes timepoints in periods where the generation
@@ -231,9 +245,8 @@ def define_components(model):
         input_file="reserve_capacity_value.csv",
         default=gen_capacity_value_default,
         validate=lambda m, value, g, t: (
-            value == 0.0
-            if not m.gen_can_provide_cap_reserves[g]
-            else True)
+            value == 0.0 if not m.gen_can_provide_cap_reserves[g] else True
+        ),
     )
 
     def zones_for_prr(m, prr):
@@ -252,51 +265,60 @@ def define_components(model):
             # Storage is only credited with its expected output
             # Note: this code appears to have no users, since it references
             # DispatchGen, which doesn't exist (should be m.DispatchGen).
-            if g in getattr(m, 'STORAGE_GENS', set()):
+            if g in getattr(m, "STORAGE_GENS", set()):
                 reserve_cap += m.DispatchGen[g, t] - m.ChargeStorage[g, t]
             # If local_td is included with DER modeling, avoid allocating
             # distributed generation to central grid capacity because it will
             # be credited with adjusting load at the distribution node.
-            elif hasattr(m, 'Distributed_Power_Injections') and m.gen_is_distributed[g]:
+            elif hasattr(m, "Distributed_Power_Injections") and m.gen_is_distributed[g]:
                 pass
             else:
                 reserve_cap += m.gen_capacity_value[g, t] * m.GenCapacityInTP[g, t]
         return reserve_cap
+
     model.AvailableReserveCapacity = Expression(
         model.PRR_TIMEPOINTS, rule=AvailableReserveCapacity_rule
     )
-    model.CAPACITY_FOR_RESERVES.append('AvailableReserveCapacity')
+    model.CAPACITY_FOR_RESERVES.append("AvailableReserveCapacity")
 
-    if 'TXPowerNet' in model:
-        model.CAPACITY_FOR_RESERVES.append('TXPowerNet')
+    if "TXPowerNet" in model:
+        model.CAPACITY_FOR_RESERVES.append("TXPowerNet")
 
     def CapacityRequirements_rule(m, prr, t):
         ZONES = zones_for_prr(m, prr)
-        if hasattr(m, 'WithdrawFromCentralGrid'):
+        if hasattr(m, "WithdrawFromCentralGrid"):
             return sum(
-                (1 + m.prr_cap_reserve_margin[prr]) * m.WithdrawFromCentralGrid[z,t]
+                (1 + m.prr_cap_reserve_margin[prr]) * m.WithdrawFromCentralGrid[z, t]
                 for z in ZONES
             )
         else:
             return sum(
-                (1 + m.prr_cap_reserve_margin[prr]) * m.zone_demand_mw[z,t]
+                (1 + m.prr_cap_reserve_margin[prr]) * m.zone_demand_mw[z, t]
                 for z in ZONES
             )
+
     model.CapacityRequirements = Expression(
-        model.PRR_TIMEPOINTS,
-        rule=CapacityRequirements_rule
+        model.PRR_TIMEPOINTS, rule=CapacityRequirements_rule
     )
-    model.REQUIREMENTS_FOR_CAPACITY_RESERVES.append('CapacityRequirements')
+    model.REQUIREMENTS_FOR_CAPACITY_RESERVES.append("CapacityRequirements")
 
 
 def define_dynamic_components(model):
-    """
-    """
+    """ """
     model.Enforce_Planning_Reserve_Margin = Constraint(
-        model.PRR_TIMEPOINTS, rule=lambda m, prr, t: (
-            sum(getattr(m, reserve_cap)[prr,t]
+        model.PRR_TIMEPOINTS,
+        rule=lambda m, prr, t: (
+            sum(
+                getattr(m, reserve_cap)[prr, t]
                 for reserve_cap in m.CAPACITY_FOR_RESERVES
-            ) >= sum(getattr(m, cap_requirement)[prr,t]
-                for cap_requirement in m.REQUIREMENTS_FOR_CAPACITY_RESERVES)),
-        doc=("Ensures that the sum of CAPACITY_FOR_RESERVES satisfies the sum "
-             "of REQUIREMENTS_FOR_CAPACITY_RESERVES for each of PRR_TIMEPOINTS."))
+            )
+            >= sum(
+                getattr(m, cap_requirement)[prr, t]
+                for cap_requirement in m.REQUIREMENTS_FOR_CAPACITY_RESERVES
+            )
+        ),
+        doc=(
+            "Ensures that the sum of CAPACITY_FOR_RESERVES satisfies the sum "
+            "of REQUIREMENTS_FOR_CAPACITY_RESERVES for each of PRR_TIMEPOINTS."
+        ),
+    )

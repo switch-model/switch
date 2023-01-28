@@ -43,10 +43,14 @@ def sample_timepoints(
             # Find timepoint with peak load
             subset_peak = subset["demand_mw"].idxmax()
             # Get a range of timepoints around the peak
-            start_timepoint = subset_peak - pd.Timedelta(value=delta_t * 2, unit="hours")
-            end_timepoint = subset_peak + pd.Timedelta(value=(delta_t * 2 + delta_t), unit="hours")
+            start_timepoint = subset_peak - pd.Timedelta(
+                value=delta_t * 2, unit="hours"
+            )
+            end_timepoint = subset_peak + pd.Timedelta(
+                value=(delta_t * 2 + delta_t), unit="hours"
+            )
             # Return the timepoints in that range
-            tps = subset[start_timepoint: end_timepoint: delta_t]
+            tps = subset[start_timepoint:end_timepoint:delta_t]
         else:
             # Get all the timepoints in that day
             subset = df.loc[date].copy()
@@ -181,12 +185,7 @@ def peak_median(
         )
         # Add the median day timepoints
         sampled_tps.append(
-            sample_timepoints(
-                df_tmp,
-                median_days,
-                period_id=period_id,
-                peak=False
-            )
+            sample_timepoints(df_tmp, median_days, period_id=period_id, peak=False)
         )
 
     # Merge our dataframes together and sort by time
