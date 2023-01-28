@@ -1,0 +1,10 @@
+gen_tech,variable_om
+Battery_Storage,0
+Wind,0
+Central_PV,0
+Commercial_PV,0
+Residential_PV,0
+CSP_Trough_6h_Storage,3.5854875
+CCGT,4.499017682
+Gas_Combustion_Turbine,2.161100196
+Geothermal,0
