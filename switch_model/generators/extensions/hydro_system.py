@@ -32,9 +32,15 @@ from __future__ import division
 import os
 from pyomo.environ import *
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
-    'switch_model.financials', 'switch_model.energy_sources.properties.properties', \
-    'switch_model.generators.core.build', 'switch_model.generators.core.dispatch'
+dependencies = (
+    "switch_model.timescales",
+    "switch_model.balancing.load_zones",
+    "switch_model.financials",
+    "switch_model.energy_sources.properties.properties",
+    "switch_model.generators.core.build",
+    "switch_model.generators.core.dispatch",
+)
+
 
 def define_components(mod):
     """
@@ -255,126 +261,115 @@ def define_components(mod):
     #################
     # Nodes of the water network
     mod.WATER_NODES = Set()
-    mod.WNODE_TPS = Set(
-        dimen=2,
-        initialize=lambda m: m.WATER_NODES * m.TIMEPOINTS)
+    mod.WNODE_TPS = Set(dimen=2, initialize=lambda m: m.WATER_NODES * m.TIMEPOINTS)
     mod.wnode_constant_inflow = Param(
-        mod.WATER_NODES,
-        within=NonNegativeReals,
-        default=0.0)
+        mod.WATER_NODES, within=NonNegativeReals, default=0.0
+    )
     mod.wnode_constant_consumption = Param(
-        mod.WATER_NODES,
-        within=NonNegativeReals,
-        default=0.0)
+        mod.WATER_NODES, within=NonNegativeReals, default=0.0
+    )
     mod.wnode_tp_inflow = Param(
         mod.WNODE_TPS,
         within=NonNegativeReals,
-        default=lambda m, wn, t: m.wnode_constant_inflow[wn])
+        default=lambda m, wn, t: m.wnode_constant_inflow[wn],
+    )
     mod.wnode_tp_consumption = Param(
         mod.WNODE_TPS,
         within=NonNegativeReals,
-        default=lambda m, wn, t: m.wnode_constant_consumption[wn])
-    mod.wn_is_sink = Param(
-        mod.WATER_NODES,
-        within=Boolean)
-    mod.min_data_check('wn_is_sink')
-    mod.spillage_penalty = Param(
-        within=NonNegativeReals,
-        default=100)
-    mod.SpillWaterAtNode = Var(
-        mod.WNODE_TPS,
-        within=NonNegativeReals)
+        default=lambda m, wn, t: m.wnode_constant_consumption[wn],
+    )
+    mod.wn_is_sink = Param(mod.WATER_NODES, within=Boolean)
+    mod.min_data_check("wn_is_sink")
+    mod.spillage_penalty = Param(within=NonNegativeReals, default=100)
+    mod.SpillWaterAtNode = Var(mod.WNODE_TPS, within=NonNegativeReals)
 
     #################
     # Reservoir nodes
-    mod.RESERVOIRS = Set(
-        within=mod.WATER_NODES)
-    mod.RESERVOIR_TPS = Set(
-        dimen=2,
-        initialize=lambda m: m.RESERVOIRS * m.TIMEPOINTS)
-    mod.res_min_vol = Param(
-        mod.RESERVOIRS,
-        within=NonNegativeReals)
+    mod.RESERVOIRS = Set(within=mod.WATER_NODES)
+    mod.RESERVOIR_TPS = Set(dimen=2, initialize=lambda m: m.RESERVOIRS * m.TIMEPOINTS)
+    mod.res_min_vol = Param(mod.RESERVOIRS, within=NonNegativeReals)
     mod.res_max_vol = Param(
         mod.RESERVOIRS,
         within=NonNegativeReals,
-        validate=lambda m, val, r: val >= m.res_min_vol[r])
+        validate=lambda m, val, r: val >= m.res_min_vol[r],
+    )
     mod.res_min_vol_tp = Param(
         mod.RESERVOIR_TPS,
         within=NonNegativeReals,
-        default=lambda m, r, t: m.res_min_vol[r])
+        default=lambda m, r, t: m.res_min_vol[r],
+    )
     mod.res_max_vol_tp = Param(
         mod.RESERVOIR_TPS,
         within=NonNegativeReals,
-        default=lambda m, r, t: m.res_max_vol[r])
+        default=lambda m, r, t: m.res_max_vol[r],
+    )
     mod.initial_res_vol = Param(
         mod.RESERVOIRS,
         within=NonNegativeReals,
-        validate=lambda m, val, r: (
-            m.res_min_vol[r] <= val <= m.res_max_vol[r]))
+        validate=lambda m, val, r: (m.res_min_vol[r] <= val <= m.res_max_vol[r]),
+    )
     mod.final_res_vol = Param(
         mod.RESERVOIRS,
         within=NonNegativeReals,
-        validate=lambda m, val, r: (
-            m.res_min_vol[r] <= val <= m.res_max_vol[r]))
-    mod.min_data_check('res_min_vol', 'res_max_vol', 'initial_res_vol',
-        'final_res_vol')
+        validate=lambda m, val, r: (m.res_min_vol[r] <= val <= m.res_max_vol[r]),
+    )
+    mod.min_data_check("res_min_vol", "res_max_vol", "initial_res_vol", "final_res_vol")
+
     def ReservoirVol_bounds(m, r, t):
         # In the first timepoint of each period, this is externally defined
         if t == m.TPS_IN_PERIOD[m.tp_period[t]].first():
-            return(m.initial_res_vol[r], m.initial_res_vol[r])
+            return (m.initial_res_vol[r], m.initial_res_vol[r])
         # In all other timepoints, this is constrained by min & max params
         else:
-            return(m.res_min_vol[r], m.res_max_vol[r])
+            return (m.res_min_vol[r], m.res_max_vol[r])
+
     mod.ReservoirVol = Var(
-        mod.RESERVOIR_TPS,
-        within=NonNegativeReals,
-        bounds=ReservoirVol_bounds)
+        mod.RESERVOIR_TPS, within=NonNegativeReals, bounds=ReservoirVol_bounds
+    )
     mod.ReservoirFinalVol = Var(
-        mod.RESERVOIRS, mod.PERIODS,
+        mod.RESERVOIRS,
+        mod.PERIODS,
         within=NonNegativeReals,
-        bounds=lambda m, r, p: (m.final_res_vol[r], m.res_max_vol[r]))
+        bounds=lambda m, r, p: (m.final_res_vol[r], m.res_max_vol[r]),
+    )
 
     ################
     # Edges of the water network
     mod.WATER_CONNECTIONS = Set()
-    mod.WCON_TPS = Set(
-        dimen=2,
-        initialize=lambda m: m.WATER_CONNECTIONS * m.TIMEPOINTS)
-    mod.water_node_from = Param(
-        mod.WATER_CONNECTIONS,
-        within=mod.WATER_NODES)
-    mod.water_node_to = Param(
-        mod.WATER_CONNECTIONS,
-        within=mod.WATER_NODES)
+    mod.WCON_TPS = Set(dimen=2, initialize=lambda m: m.WATER_CONNECTIONS * m.TIMEPOINTS)
+    mod.water_node_from = Param(mod.WATER_CONNECTIONS, within=mod.WATER_NODES)
+    mod.water_node_to = Param(mod.WATER_CONNECTIONS, within=mod.WATER_NODES)
     mod.wc_capacity = Param(
-        mod.WATER_CONNECTIONS,
-        within=NonNegativeReals,
-        default=float('inf'))
-    mod.min_eco_flow = Param(
-        mod.WCON_TPS,
-        within=NonNegativeReals,
-        default=0.0)
-    mod.min_data_check('water_node_from', 'water_node_to')
+        mod.WATER_CONNECTIONS, within=NonNegativeReals, default=float("inf")
+    )
+    mod.min_eco_flow = Param(mod.WCON_TPS, within=NonNegativeReals, default=0.0)
+    mod.min_data_check("water_node_from", "water_node_to")
     mod.INWARD_WCONS_TO_WNODE = Set(
         mod.WATER_NODES,
-        initialize=lambda m, wn: set(wc for wc in m.WATER_CONNECTIONS
-            if m.water_node_to[wc] == wn))
+        initialize=lambda m, wn: set(
+            wc for wc in m.WATER_CONNECTIONS if m.water_node_to[wc] == wn
+        ),
+    )
     mod.OUTWARD_WCONS_FROM_WNODE = Set(
         mod.WATER_NODES,
-        initialize=lambda m, wn: set(wc for wc in m.WATER_CONNECTIONS
-            if m.water_node_from[wc] == wn))
+        initialize=lambda m, wn: set(
+            wc for wc in m.WATER_CONNECTIONS if m.water_node_from[wc] == wn
+        ),
+    )
     mod.DispatchWater = Var(
         mod.WCON_TPS,
         within=NonNegativeReals,
-        bounds=lambda m, wc, t: (m.min_eco_flow[wc, t], m.wc_capacity[wc]))
+        bounds=lambda m, wc, t: (m.min_eco_flow[wc, t], m.wc_capacity[wc]),
+    )
 
     def Enforce_Wnode_Balance_rule(m, wn, t):
         # Sum inflows and outflows from and to other nodes
-        dispatch_inflow = sum(m.DispatchWater[wc, t]
-            for wc in m.INWARD_WCONS_TO_WNODE[wn])
-        dispatch_outflow = sum(m.DispatchWater[wc, t]
-            for wc in m.OUTWARD_WCONS_FROM_WNODE[wn])
+        dispatch_inflow = sum(
+            m.DispatchWater[wc, t] for wc in m.INWARD_WCONS_TO_WNODE[wn]
+        )
+        dispatch_outflow = sum(
+            m.DispatchWater[wc, t] for wc in m.OUTWARD_WCONS_FROM_WNODE[wn]
+        )
         # net change in reservoir volume (m3/s): 0 for non-reservoirs
         reservoir_fill_rate = 0.0
         if wn in m.RESERVOIRS:
@@ -384,62 +379,62 @@ def define_components(mod):
             else:
                 end_of_tp_volume = m.ReservoirVol[wn, m.TPS_IN_PERIOD[p].next(t)]
             reservoir_fill_rate = (
-                (end_of_tp_volume - m.ReservoirVol[wn, t]) * 1000000.0 /
-                (m.tp_duration_hrs[t] * 3600))
+                (end_of_tp_volume - m.ReservoirVol[wn, t])
+                * 1000000.0
+                / (m.tp_duration_hrs[t] * 3600)
+            )
         # Conservation of mass flow
         return (
             # inflows (m3/s)
             m.wnode_tp_inflow[wn, t] + dispatch_inflow
             # less outflows (m3/s)
-            - m.wnode_tp_consumption[wn, t] - dispatch_outflow
+            - m.wnode_tp_consumption[wn, t]
+            - dispatch_outflow
             - m.SpillWaterAtNode[wn, t]
             # net change in volume (m3/s)
             == reservoir_fill_rate
         )
+
     mod.Enforce_Wnode_Balance = Constraint(
-        mod.WNODE_TPS,
-        rule=Enforce_Wnode_Balance_rule)
+        mod.WNODE_TPS, rule=Enforce_Wnode_Balance_rule
+    )
 
     mod.NodeSpillageCosts = Expression(
         mod.TIMEPOINTS,
         rule=lambda m, t: sum(
             # prior to Switch 2.0.3, this did not account for tp_duration_hrs
-            m.SpillWaterAtNode[wn,t] * 3600 * m.tp_duration_hrs[t] *
-            m.spillage_penalty
+            m.SpillWaterAtNode[wn, t] * 3600 * m.tp_duration_hrs[t] * m.spillage_penalty
             for wn in m.WATER_NODES
             if not m.wn_is_sink[wn]
-        )
+        ),
     )
-    mod.Cost_Components_Per_TP.append('NodeSpillageCosts')
+    mod.Cost_Components_Per_TP.append("NodeSpillageCosts")
 
     ################
     # Hydro projects
-    mod.HYDRO_GENS = Set(
-        validate=lambda m, val: val in m.GENERATION_PROJECTS)
+    mod.HYDRO_GENS = Set(validate=lambda m, val: val in m.GENERATION_PROJECTS)
     mod.HYDRO_GEN_TPS = Set(
-        initialize=mod.GEN_TPS,
-        filter=lambda m, g, t: g in m.HYDRO_GENS)
-    mod.hydro_efficiency = Param(
-        mod.HYDRO_GENS,
-        within=NonNegativeReals)
+        initialize=mod.GEN_TPS, filter=lambda m, g, t: g in m.HYDRO_GENS
+    )
+    mod.hydro_efficiency = Param(mod.HYDRO_GENS, within=NonNegativeReals)
     mod.hydraulic_location = Param(
-        mod.HYDRO_GENS,
-        validate=lambda m, val, g: val in m.WATER_CONNECTIONS)
-    mod.TurbinateFlow = Var(
-        mod.HYDRO_GEN_TPS,
-        within=NonNegativeReals)
-    mod.SpillFlow = Var(
-        mod.HYDRO_GEN_TPS,
-        within=NonNegativeReals)
+        mod.HYDRO_GENS, validate=lambda m, val, g: val in m.WATER_CONNECTIONS
+    )
+    mod.TurbinateFlow = Var(mod.HYDRO_GEN_TPS, within=NonNegativeReals)
+    mod.SpillFlow = Var(mod.HYDRO_GEN_TPS, within=NonNegativeReals)
     mod.Enforce_Hydro_Generation = Constraint(
         mod.HYDRO_GEN_TPS,
-        rule=lambda m, g, t: (m.DispatchGen[g, t] ==
-            m.hydro_efficiency[g] * m.TurbinateFlow[g, t]))
+        rule=lambda m, g, t: (
+            m.DispatchGen[g, t] == m.hydro_efficiency[g] * m.TurbinateFlow[g, t]
+        ),
+    )
     mod.Enforce_Hydro_Extraction = Constraint(
         mod.HYDRO_GEN_TPS,
-        rule=lambda m, g, t: (m.TurbinateFlow[g, t] +
-            m.SpillFlow[g, t] ==
-            m.DispatchWater[m.hydraulic_location[g], t]))
+        rule=lambda m, g, t: (
+            m.TurbinateFlow[g, t] + m.SpillFlow[g, t]
+            == m.DispatchWater[m.hydraulic_location[g], t]
+        ),
+    )
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -463,53 +458,67 @@ def load_inputs(mod, switch_data, inputs_dir):
     """
 
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'water_nodes.csv'),
+        filename=os.path.join(inputs_dir, "water_nodes.csv"),
         auto_select=True,
         index=mod.WATER_NODES,
-        optional_params=['mod.wnode_constant_inflow',
-            'mod.wnode_constant_consumption'],
-        param=(mod.wn_is_sink, mod.wnode_constant_inflow,
-            mod.wnode_constant_consumption))
+        optional_params=["mod.wnode_constant_inflow", "mod.wnode_constant_consumption"],
+        param=(
+            mod.wn_is_sink,
+            mod.wnode_constant_inflow,
+            mod.wnode_constant_consumption,
+        ),
+    )
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'water_node_tp_flows.csv'),
+        filename=os.path.join(inputs_dir, "water_node_tp_flows.csv"),
         auto_select=True,
-        optional_params=['mod.wnode_tp_inflow', 'mod.wnode_tp_consumption'],
-        param=(mod.wnode_tp_inflow, mod.wnode_tp_consumption))
+        optional_params=["mod.wnode_tp_inflow", "mod.wnode_tp_consumption"],
+        param=(mod.wnode_tp_inflow, mod.wnode_tp_consumption),
+    )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'reservoirs.csv'),
+        filename=os.path.join(inputs_dir, "reservoirs.csv"),
         auto_select=True,
         index=mod.RESERVOIRS,
-        param=(mod.res_min_vol, mod.res_max_vol,
-            mod.initial_res_vol, mod.final_res_vol))
-    if os.path.exists(os.path.join(inputs_dir, 'reservoir_tp_data.csv')):
+        param=(
+            mod.res_min_vol,
+            mod.res_max_vol,
+            mod.initial_res_vol,
+            mod.final_res_vol,
+        ),
+    )
+    if os.path.exists(os.path.join(inputs_dir, "reservoir_tp_data.csv")):
         raise NotImplementedError(
             "Code needs to be added to hydro_system module to enforce "
             "reservoir volume limits per timepoint."
         )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'reservoir_tp_data.csv'),
+        filename=os.path.join(inputs_dir, "reservoir_tp_data.csv"),
         optional=True,
         auto_select=True,
-        optional_params=['mod.res_max_vol_tp', 'mod.res_min_vol_tp'],
-        param=(mod.res_max_vol_tp, mod.res_min_vol_tp))
+        optional_params=["mod.res_max_vol_tp", "mod.res_min_vol_tp"],
+        param=(mod.res_max_vol_tp, mod.res_min_vol_tp),
+    )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'water_connections.csv'),
+        filename=os.path.join(inputs_dir, "water_connections.csv"),
         auto_select=True,
         index=mod.WATER_CONNECTIONS,
-        param=(mod.water_node_from, mod.water_node_to, mod.wc_capacity))
+        param=(mod.water_node_from, mod.water_node_to, mod.wc_capacity),
+    )
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'min_eco_flows.csv'),
+        filename=os.path.join(inputs_dir, "min_eco_flows.csv"),
         auto_select=True,
-        param=(mod.min_eco_flow))
+        param=(mod.min_eco_flow),
+    )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'hydro_generation_projects.csv'),
+        filename=os.path.join(inputs_dir, "hydro_generation_projects.csv"),
         auto_select=True,
         index=mod.HYDRO_GENS,
-        param=(mod.hydro_efficiency, mod.hydraulic_location))
+        param=(mod.hydro_efficiency, mod.hydraulic_location),
+    )
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'spillage_penalty.csv'),
-        optional=True, auto_select=True,
-        param=(mod.spillage_penalty,)
+        filename=os.path.join(inputs_dir, "spillage_penalty.csv"),
+        optional=True,
+        auto_select=True,
+        param=(mod.spillage_penalty,),
     )
