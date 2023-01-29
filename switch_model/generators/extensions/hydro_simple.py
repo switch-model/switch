@@ -22,6 +22,7 @@ read and understand. To really take advantage of it, you'll also need more
 data than we usually have available.
 """
 from __future__ import division
+
 # ToDo: Refactor this code to move the core components into a
 # switch_model.hydro.core module, the simplist components into
 # switch_model.hydro.simple, and the advanced components into
@@ -31,9 +32,15 @@ from __future__ import division
 from pyomo.environ import *
 import os
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones',\
-    'switch_model.financials', 'switch_model.energy_sources.properties.properties', \
-    'switch_model.generators.core.build', 'switch_model.generators.core.dispatch'
+dependencies = (
+    "switch_model.timescales",
+    "switch_model.balancing.load_zones",
+    "switch_model.financials",
+    "switch_model.energy_sources.properties.properties",
+    "switch_model.generators.core.build",
+    "switch_model.generators.core.dispatch",
+)
+
 
 def define_components(mod):
     """
@@ -66,52 +73,56 @@ def define_components(mod):
 
     mod.HYDRO_GEN_TS_RAW = Set(
         dimen=2,
-        validate=lambda m, g, ts: (g in m.GENERATION_PROJECTS) & (ts in m.TIMESERIES))
+        validate=lambda m, g, ts: (g in m.GENERATION_PROJECTS) & (ts in m.TIMESERIES),
+    )
 
     mod.HYDRO_GENS = Set(
         initialize=lambda m: set(g for (g, ts) in m.HYDRO_GEN_TS_RAW),
-        doc="Dispatchable hydro projects")
+        doc="Dispatchable hydro projects",
+    )
     mod.HYDRO_GEN_TS = Set(
         dimen=2,
         initialize=lambda m: set(
-            (g, m.tp_ts[tp])
-                for g in m.HYDRO_GENS
-                    for tp in m.TPS_FOR_GEN[g]))
+            (g, m.tp_ts[tp]) for g in m.HYDRO_GENS for tp in m.TPS_FOR_GEN[g]
+        ),
+    )
     mod.HYDRO_GEN_TPS = Set(
-        initialize=mod.GEN_TPS,
-        filter=lambda m, g, t: g in m.HYDRO_GENS)
+        initialize=mod.GEN_TPS, filter=lambda m, g, t: g in m.HYDRO_GENS
+    )
 
     # Validate that a timeseries data is specified for every hydro generator /
     # timeseries that we need. Extra data points (ex: outside of planning
     # horizon or beyond a plant's lifetime) can safely be ignored to make it
     # easier to create input files.
     mod.have_minimal_hydro_params = BuildCheck(
-        mod.HYDRO_GEN_TS,
-        rule=lambda m, g, ts: (g,ts) in m.HYDRO_GEN_TS_RAW)
+        mod.HYDRO_GEN_TS, rule=lambda m, g, ts: (g, ts) in m.HYDRO_GEN_TS_RAW
+    )
 
     # To do: Add validation check that timeseries data are specified for every
     # valid timepoint.
 
     mod.hydro_min_flow_mw = Param(
-        mod.HYDRO_GEN_TS_RAW,
-        within=NonNegativeReals,
-        default=0.0)
+        mod.HYDRO_GEN_TS_RAW, within=NonNegativeReals, default=0.0
+    )
     mod.Enforce_Hydro_Min_Flow = Constraint(
         mod.HYDRO_GEN_TPS,
         rule=lambda m, g, t: (
-            m.DispatchGen[g, t] >= m.hydro_min_flow_mw[g, m.tp_ts[t]]))
+            m.DispatchGen[g, t] >= m.hydro_min_flow_mw[g, m.tp_ts[t]]
+        ),
+    )
 
     mod.hydro_avg_flow_mw = Param(
-        mod.HYDRO_GEN_TS_RAW,
-        within=NonNegativeReals,
-        default=0.0)
+        mod.HYDRO_GEN_TS_RAW, within=NonNegativeReals, default=0.0
+    )
     mod.Enforce_Hydro_Avg_Flow = Constraint(
         mod.HYDRO_GEN_TS,
         rule=lambda m, g, ts: (
             sum(m.DispatchGen[g, t] for t in m.TPS_IN_TS[ts]) / m.ts_num_tps[ts]
-            == m.hydro_avg_flow_mw[g, ts]))
+            == m.hydro_avg_flow_mw[g, ts]
+        ),
+    )
 
-    mod.min_data_check('hydro_min_flow_mw', 'hydro_avg_flow_mw')
+    mod.min_data_check("hydro_min_flow_mw", "hydro_avg_flow_mw")
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -133,8 +144,8 @@ def load_inputs(mod, switch_data, inputs_dir):
     """
     switch_data.load_aug(
         optional=True,
-        filename=os.path.join(inputs_dir, 'hydro_timeseries.csv'),
+        filename=os.path.join(inputs_dir, "hydro_timeseries.csv"),
         autoselect=True,
         index=mod.HYDRO_GEN_TS_RAW,
-        param=(mod.hydro_min_flow_mw, mod.hydro_avg_flow_mw)
+        param=(mod.hydro_min_flow_mw, mod.hydro_avg_flow_mw),
     )

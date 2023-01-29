@@ -13,7 +13,8 @@ remove this file.
 import os
 from switch_model.reporting import write_table
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones'
+dependencies = "switch_model.timescales", "switch_model.balancing.load_zones"
+
 
 def post_solve(instance, outdir):
     """
@@ -21,13 +22,21 @@ def post_solve(instance, outdir):
     a different file name (load_balance2.csv).
     """
     write_table(
-        instance, instance.LOAD_ZONES, instance.TIMEPOINTS,
+        instance,
+        instance.LOAD_ZONES,
+        instance.TIMEPOINTS,
         output_file=os.path.join(outdir, "load_balance2.csv"),
-        headings=("load_zone", "timestamp",) + tuple(
-            instance.Zone_Power_Injections +
-            instance.Zone_Power_Withdrawals),
-        values=lambda m, z, t: (z, m.tp_timestamp[t],) + tuple(
+        headings=(
+            "load_zone",
+            "timestamp",
+        )
+        + tuple(instance.Zone_Power_Injections + instance.Zone_Power_Withdrawals),
+        values=lambda m, z, t: (
+            z,
+            m.tp_timestamp[t],
+        )
+        + tuple(
             getattr(m, component)[z, t]
-            for component in (
-                m.Zone_Power_Injections +
-                m.Zone_Power_Withdrawals)))
+            for component in (m.Zone_Power_Injections + m.Zone_Power_Withdrawals)
+        ),
+    )

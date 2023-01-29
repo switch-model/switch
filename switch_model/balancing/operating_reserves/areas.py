@@ -7,7 +7,8 @@ Defines balancing areas for operational reserves.
 import os
 from pyomo.environ import *
 
-dependencies = 'switch_model.timescales', 'switch_model.balancing.load_zones'
+dependencies = "switch_model.timescales", "switch_model.balancing.load_zones"
+
 
 def define_components(mod):
     """
@@ -30,15 +31,19 @@ def define_components(mod):
 
     """
 
-    mod.zone_balancing_area = Param(mod.LOAD_ZONES, default='system_wide_balancing_area')
-    mod.BALANCING_AREAS = Set(initialize=lambda m: set(
-        m.zone_balancing_area[z] for z in m.LOAD_ZONES))
+    mod.zone_balancing_area = Param(
+        mod.LOAD_ZONES, default="system_wide_balancing_area"
+    )
+    mod.BALANCING_AREAS = Set(
+        initialize=lambda m: set(m.zone_balancing_area[z] for z in m.LOAD_ZONES)
+    )
     mod.ZONES_IN_BALANCING_AREA = Set(
         mod.BALANCING_AREAS,
         initialize=lambda m, b: (
-            z for z in m.LOAD_ZONES if m.zone_balancing_area[z] == b))
-    mod.BALANCING_AREA_TIMEPOINTS = Set(
-        initialize=mod.BALANCING_AREAS * mod.TIMEPOINTS)
+            z for z in m.LOAD_ZONES if m.zone_balancing_area[z] == b
+        ),
+    )
+    mod.BALANCING_AREA_TIMEPOINTS = Set(initialize=mod.BALANCING_AREAS * mod.TIMEPOINTS)
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -54,6 +59,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     # column names, be indifferent to column order, and throw an error
     # message if some columns are not found.
     switch_data.load_aug(
-        filename=os.path.join(inputs_dir, 'load_zones.csv'),
+        filename=os.path.join(inputs_dir, "load_zones.csv"),
         auto_select=True,
-        param=(mod.zone_balancing_area))
+        param=(mod.zone_balancing_area),
+    )
