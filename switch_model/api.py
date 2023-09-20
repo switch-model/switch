@@ -126,14 +126,16 @@ def arg_dict(arg, *ops):
         action = action[:-6]
     result = {}
     for flag in arg.option_strings:
+        if flag + "s" in arg.option_strings:
+            # skip single version of flags when there are duplicate single/plural
+            # (e.g., --save-expression and --save-expressions)
+            continue
         d = result[flag] = dict()
         d["action"] = action
         for op in ops + ("nargs", "default", "choices", "help"):
             d[op] = getattr(arg, op)
         # help text may be linewrapped, which Python automatically cleans up
         d["help"] = unwrap(d["help"])
-        if flag == "--rps-no-new-renewables":
-            breakpoint()
     return result
 
 
