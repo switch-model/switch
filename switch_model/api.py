@@ -61,6 +61,19 @@ def info():
             "info about data type, single vs multiple, help text, etc."
         ),
     )
+    argparser.add_argument(
+        "--scenario-argument-values",
+        default=None,
+        nargs="?",  # 0 or 1 arg
+        const="",  # value used if no name provided (means base scenario)
+        dest="arguments_scenario",
+        help=(
+            "Report current values for all arguments for specified scenario, "
+            "parsed from options.txt and/or scenarios.txt. Specify the name of "
+            "the scenario after the flag, or pass the flag alone to report on "
+            "the base scenario.",
+        ),
+    )
     options = argparser.parse_args()
 
     output = []
@@ -70,6 +83,9 @@ def info():
 
     if options.module is not None:
         output.append(module_arguments(options.module))
+
+    if options.arguments_scenario is not None:
+        output.append(scenario_argument_values(options.arguments_scenario))
 
     if len(output) == 1:
         output = output[0]
@@ -225,7 +241,7 @@ def arg_dict(arg, *ops):
             continue
         d = result[flag] = dict()
         d["action"] = action
-        for op in ops + ("nargs", "default", "choices", "help"):
+        for op in ops + ("dest", "nargs", "default", "choices", "help"):
             d[op] = getattr(arg, op)
         # help text may be linewrapped, which Python automatically cleans up
         d["help"] = unwrap(d["help"])
@@ -233,20 +249,56 @@ def arg_dict(arg, *ops):
 
 
 def module_arguments(module):
-    import argparse as ap
+    import argparse
 
     result = dict()
 
-    mod = importlib.import_module(module)  # or sys.modules[module]
+    mod = importlib.import_module(module)
 
     if hasattr(mod, "define_arguments"):
         mod_parser = _ArgumentParser()
         mod.define_arguments(mod_parser)
         for arg in mod_parser._actions:
-            if isinstance(arg, ap._HelpAction):
+            if isinstance(arg, argparse._HelpAction):
                 # skip the default --help option
                 continue
             else:
                 result.update(arg_dict(arg))
 
     return result
+
+
+def scenario_argument_values(scenario):
+    """
+    Parse argument values for specified scenario from options.txt and possibly
+    also scenarios.txt.
+    """
+    import sys
+    from . import solve
+
+    if scenario == "":
+        # report on base scenario
+        args = solve.get_option_file_args()
+    else:
+        # replicate part of solve_scenarios.scenarios_to_run(), so we don't rely
+        # on module-level parsing of the selected scenario and don't checkout
+        # the scenario.
+        from . import solve_scenarios as ss
+
+        option_file_args = solve.get_option_file_args()
+        scenario_manager_args = ss.parser.parse_known_args(args=option_file_args)[0]
+        scenario_option_file_args = ss.parser.parse_known_args(args=option_file_args)[1]
+        # update global scenario_list_file if needed for get_scenario_dict() (ugh)
+        ss.scenario_list_file = scenario_manager_args.scenario_list
+        args = scenario_option_file_args + ss.get_scenario_dict()[scenario]
+
+    # Parse arguments as done in switch_model.utilities.SwitchAbstractModel.__init__
+    # We replicate the code here in order to do the parsing but skip the
+    # logger setup, model construction, etc.
+    argparser = _ArgumentParser(allow_abbrev=False)
+    for m in solve.get_module_list(args):
+        module = importlib.import_module(m)
+        if hasattr(module, "define_arguments"):
+            module.define_arguments(argparser)
+    options = argparser.parse_args(args)
+    return vars(options)  # convert to dict
