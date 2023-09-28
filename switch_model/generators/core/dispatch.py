@@ -157,7 +157,7 @@ def define_components(mod):
     def period_active_gen_rule(m, period):
         if not hasattr(m, "period_active_gen_dict"):
             m.period_active_gen_dict = dict()
-            for (_g, _period) in m.GEN_PERIODS:
+            for _g, _period in m.GEN_PERIODS:
                 m.period_active_gen_dict.setdefault(_period, []).append(_g)
         result = m.period_active_gen_dict.pop(period)
         if len(m.period_active_gen_dict) == 0:
@@ -266,7 +266,7 @@ def define_components(mod):
         mod.Zone_Power_Injections.append("ZoneTotalDistributedDispatch")
 
     def init_gen_availability(m, g):
-        if m.gen_is_baseload[g]:
+        if g in m.BASELOAD_GENS:
             return (1 - m.gen_forced_outage_rate[g]) * (
                 1 - m.gen_scheduled_outage_rate[g]
             )
@@ -302,7 +302,7 @@ def define_components(mod):
             if extra_indexes:
                 num_impacted_generators = len(set(g for g, t in extra_indexes))
                 extraneous = {g: [] for (g, t) in extra_indexes}
-                for (g, t) in extra_indexes:
+                for g, t in extra_indexes:
                     extraneous[g].append(t)
                 pprint = "\n".join(
                     "* {}: {} to {}".format(g, min(tps), max(tps))
@@ -311,12 +311,13 @@ def define_components(mod):
                 # basic message for everyone at info level
                 msg = unwrap(
                     """
-                    {} generation project[s] have data in
+                    {} generation project{} data in
                     variable_capacity_factors.csv for timepoints when they are
                     not operable, either before construction is possible or
                     after retirement.
                 """.format(
-                        num_impacted_generators
+                        num_impacted_generators,
+                        " has" if num_impacted == 1 else "s have",
                     )
                 )
                 if m.logger.isEnabledFor(logging.DEBUG):

@@ -197,6 +197,8 @@ def main(args=None, return_model=False, return_instance=False):
         # create an instance (also reports time spent reading data and loading into model)
         logger.info("\nLoading inputs...")
         instance = model.load_inputs()
+        # steps above reported their own timing; now reset timer for next step
+        timer.step_time()
 
         #### Below here, we refer to instance instead of model ####
 
@@ -290,6 +292,12 @@ def main(args=None, return_model=False, return_instance=False):
                 "",
             ]
         )
+
+        # turn off exception interception while interacting, because that
+        # causes Python to bomb out on any error
+        switch_excepthook = sys.excepthook
+        sys.excepthook = old_excepthook
+
         # IPython support is disabled until they fix
         # https://github.com/ipython/ipython/issues/12199
         if has_ipython and False:
@@ -306,6 +314,9 @@ def main(args=None, return_model=False, return_instance=False):
                 banner=banner,
                 local=dict(list(globals().items()) + list(locals().items())),
             )
+
+        # restore excepthook
+        sys.excepthook = switch_excepthook
 
     # return solved model for users who want to do other things with it
     return instance

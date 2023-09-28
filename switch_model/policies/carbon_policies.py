@@ -54,7 +54,7 @@ def define_components(model):
         model.PERIODS,
         rule=lambda model, period: model.AnnualEmissions[period]
         * model.carbon_cost_dollar_per_tco2[period],
-        doc=("Enforces the carbon cap for generation-related emissions."),
+        doc=("Calculates the carbon cost for generation-related emissions."),
     )
     model.Cost_Components_Per_Period.append("EmissionsCosts")
 
@@ -110,8 +110,15 @@ def post_solve(model, outdir):
             period in model.Enforce_Carbon_Cap
             and model.Enforce_Carbon_Cap[period] in model.dual
         ):
+            # Note: until 2023, this reported the dual directly, which was
+            # always negative because this is a <= constraint in a minimization
+            # problem (see paragraph below equ 12 in
+            # https://web.mit.edu/15.053/www/AMP-Chapter-04.pdf). Beginning in
+            # 2023, we report the absolute value, since users are generally just
+            # interested in the magnitude of the shadow price, not the direction
+            # of the constraint.
             row.append(
-                model.dual[model.Enforce_Carbon_Cap[period]]
+                abs(model.dual[model.Enforce_Carbon_Cap[period]])
                 / model.bring_annual_costs_to_base_year[period]
             )
         else:

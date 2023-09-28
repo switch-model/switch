@@ -251,6 +251,7 @@ def save_cost_components(m, outdir):
     """
     Save values for all individual components of total system cost on NPV basis.
     """
+    # TODO: should this use bring_future_costs_to_base_year instead of bring_annual_costs_to_base_year
     cost_dict = dict()
     for annual_cost in m.Cost_Components_Per_Period:
         cost = getattr(m, annual_cost)

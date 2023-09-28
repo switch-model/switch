@@ -227,14 +227,19 @@ def define_components(mod):
         within=NonNegativeReals, default=lambda m: value(m.interest_rate)
     )
     mod.min_data_check("base_financial_year", "interest_rate")
+    mod.bring_future_costs_to_base_year = Param(
+        mod.PERIODS,
+        within=NonNegativeReals,
+        initialize=lambda m, p: future_to_present_value(
+            m.discount_rate, m.period_start[p] - m.base_financial_year
+        ),
+    )
     mod.bring_annual_costs_to_base_year = Param(
         mod.PERIODS,
         within=NonNegativeReals,
         initialize=lambda m, p: (
             uniform_series_to_present_value(m.discount_rate, m.period_length_years[p])
-            * future_to_present_value(
-                m.discount_rate, m.period_start[p] - m.base_financial_year
-            )
+            * m.bring_future_costs_to_base_year[p]
         ),
     )
     mod.bring_timepoint_costs_to_base_year = Param(
@@ -295,9 +300,8 @@ def define_dynamic_components(mod):
                 calc_annual_costs_in_period(m, p)
                 + sum(calc_tp_costs_in_period(m, t) for t in m.TPS_IN_PERIOD[p])
             )
-            *
             # Conversion from annual costs to base year
-            m.bring_annual_costs_to_base_year[p]
+            * m.bring_annual_costs_to_base_year[p]
         )
 
     mod.SystemCostPerPeriod = Expression(mod.PERIODS, rule=calc_sys_costs_per_period)
@@ -328,21 +332,36 @@ def load_inputs(mod, switch_data, inputs_dir):
 def post_solve(instance, outdir):
     m = instance
     # Overall electricity costs, if appropriate (some models may be gas-only)
+
+    # Note: through (and including) v. 2.0.7, SystemCostPerPeriod_Real was
+    # mistakenly an annual
+    # cost and EnergyCostReal_per_MWh was low by a factor of
+    # bring_annual_costs_to_base_year / bring_future_costs_to_base_year
+    # (discounted number of years per period)
+
+    # Starting with 2.0.8, we report costs and quantities per year instead of
+    # costs per period to avoid this problem.
+
     if hasattr(m, "zone_total_demand_in_period_mwh"):
         normalized_dat = [
             {
                 "PERIOD": p,
-                "SystemCostPerPeriod_NPV": value(m.SystemCostPerPeriod[p]),
-                "SystemCostPerPeriod_Real": value(
+                "SystemCostPerYear_Real": value(
                     m.SystemCostPerPeriod[p] / m.bring_annual_costs_to_base_year[p]
+                ),
+                "SystemDemandPerYear_MWh": value(
+                    sum(m.zone_total_demand_in_period_mwh[z, p] for z in m.LOAD_ZONES)
                 ),
                 "EnergyCostReal_per_MWh": value(
                     m.SystemCostPerPeriod[p]
                     / m.bring_annual_costs_to_base_year[p]
-                    / sum(m.zone_total_demand_in_period_mwh[z, p] for z in m.LOAD_ZONES)
-                ),
-                "SystemDemand_MWh": value(
-                    sum(m.zone_total_demand_in_period_mwh[z, p] for z in m.LOAD_ZONES)
+                    / (
+                        sum(
+                            m.zone_total_demand_in_period_mwh[z, p]
+                            for z in m.LOAD_ZONES
+                        )
+                        / m.period_length_years[p]
+                    )
                 ),
             }
             for p in m.PERIODS
@@ -354,13 +373,19 @@ def post_solve(instance, outdir):
         df.to_csv(os.path.join(outdir, "electricity_cost.csv"))
 
     # Itemized annual costs
+    # Note: through v. 2.0.7, AnnualCost_NPV was actually a period cost
+    # TODO: decide whether to report these costs as total NPV values for each period
+    # for model review and diagnosis (should add up to objective function) or
+    # as annual costs for analysis and reporting. Maybe they should be in two
+    # separate files? Or at least rename the NPV terms to say they are per period
+    # and the real terms to say they are per year, real.
     annualized_costs = [
         {
             "PERIOD": p,
             "Component": annual_cost,
             "Component_type": "annual",
             "AnnualCost_NPV": value(
-                getattr(m, annual_cost)[p] * m.bring_annual_costs_to_base_year[p]
+                getattr(m, annual_cost)[p] * m.bring_future_costs_to_base_year[p]
             ),
             "AnnualCost_Real": value(getattr(m, annual_cost)[p]),
         }
@@ -376,7 +401,7 @@ def post_solve(instance, outdir):
                     getattr(m, tp_cost)[t] * m.tp_weight_in_year[t]
                     for t in m.TPS_IN_PERIOD[p]
                 )
-                * m.bring_annual_costs_to_base_year[p]
+                * m.bring_future_costs_to_base_year[p]
             ),
             "AnnualCost_Real": value(
                 sum(

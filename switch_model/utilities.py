@@ -211,12 +211,17 @@ class SwitchAbstractModel(AbstractModel):
         except:
             next_report = 0
 
-        fraction_constructed = self.__n_components_constructed / len(self._decl_order)
+        # note: we previously used self._decl_order (collection of all
+        # components in model), but that may have dummy entries, especially when
+        # using the diagnose_infeasibility module, so we switched to self._decl,
+        # which shows the indexes in _decl_order for all the actual components
+        # in the model.
+        fraction_constructed = self.__n_components_constructed / len(self._decl)
 
         if fraction_constructed >= next_report:
             self.logger.info(
                 f"Constructed "
-                f"{self.__n_components_constructed} of {len(self._decl_order)} "
+                f"{self.__n_components_constructed} of {len(self._decl)} "
                 f"components ({fraction_constructed:.0%})"
             )
             self.__next_report_components_construction = next_report + 0.1
@@ -332,7 +337,7 @@ def unique_list(seq):
     deprecates use of Python's unordered sets for initialization.
     """
     # from https://stackoverflow.com/a/17016257/
-    # Note that this solution depends on Python's order-preserving dicts after
+    # Note that this solution depends on Python's order-preserving dicts
     # in version 3.7+, which is fine since Switch requires Python >= 3.7.
     return list(dict.fromkeys(seq))
 
@@ -711,7 +716,7 @@ def load_aug(switch_data, optional=False, optional_params=[], **kwargs):
         params = kwargs["param"]
     # optional_params may include Param objects instead of names. In
     # those cases, convert objects to names.
-    for (i, p) in enumerate(optional_params):
+    for i, p in enumerate(optional_params):
         if not isinstance(p, string_types):
             optional_params[i] = p.name
     # Expand the list of optional parameters to include any parameter that has
@@ -769,7 +774,7 @@ def load_aug(switch_data, optional=False, optional_params=[], **kwargs):
     if isinstance(kwargs["select"], tuple):
         kwargs["select"] = list(kwargs["select"])
     del_items = []
-    for (i, col) in enumerate(kwargs["select"]):
+    for i, col in enumerate(kwargs["select"]):
         p_i = i - num_indexes
         if col not in headers:
             if len(params) > p_i >= 0 and params[p_i].name in optional_params:
@@ -779,7 +784,7 @@ def load_aug(switch_data, optional=False, optional_params=[], **kwargs):
     # When deleting entries from select & param lists, go from last
     # to first so that the indexes won't get messed up as we go.
     del_items.sort(reverse=True)
-    for (i, p_i) in del_items:
+    for i, p_i in del_items:
         del kwargs["select"][i]
         del kwargs["param"][p_i]
 
@@ -903,6 +908,7 @@ test_parser.add_argument("--arg1", nargs="+", default=[])
 bad_equal_parser = (
     len(test_parser.parse_known_args(["--arg1", "a", "--arg2=a=1 b=2"])[1]) == 0
 )
+
 
 # TODO: merge the _ArgumentParserAllowAbbrev code into this class
 class _ArgumentParser(_ArgumentParserAllowAbbrev):

@@ -49,3 +49,19 @@ def define_components(mod):
             m.BuildGen[g, bld_yr] == m.BuildUnits[g, bld_yr] * m.gen_unit_size[g]
         ),
     )
+    if hasattr(mod, "EarlyRetireGen"):
+        mod.DISCRETE_GEN_BLD_RETIRE_YRS = Set(
+            dimen=3,
+            initialize=mod.GEN_BLD_RETIRE_YRS,
+            filter=lambda m, g, bld_yr, ret_yr: g in m.DISCRETELY_SIZED_GENS,
+        )
+        mod.EarlyRetireUnits = Var(
+            mod.DISCRETE_GEN_BLD_RETIRE_YRS, within=NonNegativeIntegers
+        )
+        mod.Early_Retire_Units_Consistency = Constraint(
+            mod.DISCRETE_GEN_BLD_RETIRE_YRS,
+            rule=lambda m, g, bld_yr, ret_yr: (
+                m.EarlyRetireGen[g, bld_yr, ret_yr]
+                == m.EarlyRetireUnits[g, bld_yr, ret_yr] * m.gen_unit_size[g]
+            ),
+        )
