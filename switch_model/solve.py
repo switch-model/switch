@@ -45,7 +45,6 @@ from switch_model.upgrade import do_inputs_need_upgrade, upgrade_inputs
 
 
 def main(args=None, return_model=False, return_instance=False):
-
     timer = StepTimer()
     if args is None:
         # combine default arguments read from options.txt file with
@@ -1122,8 +1121,8 @@ def solve(model):
     model.logger.info("\nSolving model...")
 
     if model.options.tempdir is not None:
-        # from https://software.sandia.gov/downloads/pub/pyomo/PyomoOnlineDocs.html#_changing_the_temporary_directory
-        from pyutilib.services import TempfileManager
+        # from deprecation warning for previous method (pyutilib.services.TempfileManager)
+        from pyomo.common.tempfiles import TempfileManager
 
         TempfileManager.tempdir = model.options.tempdir
 
