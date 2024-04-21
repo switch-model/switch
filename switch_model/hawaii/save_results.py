@@ -261,15 +261,19 @@ def write_results(m, outputs_dir):
         + tuple("curtail_" + s for s in m.NON_FUEL_ENERGY_SOURCES)
         + tuple(m.Zone_Power_Injections)
         + tuple(m.Zone_Power_Withdrawals)
-        + tuple(m.Distributed_Power_Withdrawals)
+        + (
+            tuple(m.Distributed_Power_Withdrawals)
+            if hasattr(m, "Distributed_Power_Withdrawals")
+            else tuple()
+        )
         + ("spinning_reserve_provision", "spinning_reserve_requirement")
         + ("marginal_cost", "peak_day"),
         values=lambda m, z, t: (z, m.tp_period[t], m.tp_timestamp[t])
         + tuple(
             sum(
-                DispatchGenByFuel(m, p, t, f)
+                DispatchGenByFuel(m, g, t, f)
                 for g in gens_by_fuel_and_zone[f, z]
-                if (p, t) in m.GEN_TPS
+                if (g, t) in m.GEN_TPS
             )
             for f in m.FUELS
         )
@@ -297,8 +301,13 @@ def write_results(m, outputs_dir):
         )
         + tuple(getattr(m, component)[z, t] for component in m.Zone_Power_Injections)
         + tuple(getattr(m, component)[z, t] for component in m.Zone_Power_Withdrawals)
-        + tuple(
-            getattr(m, component)[z, t] for component in m.Distributed_Power_Withdrawals
+        + (
+            tuple(
+                getattr(m, component)[z, t]
+                for component in m.Distributed_Power_Withdrawals
+            )
+            if hasattr(m, "Distributed_Power_Withdrawals")
+            else tuple()
         )
         + (  # save spinning reserve requirements and provisions; note: this assumes one zone per balancing area
             (
@@ -506,9 +515,11 @@ def write_results(m, outputs_dir):
         values=lambda m, z, t, pe: (z, t, pe, tech_cap[z, t, pe]),
     )
 
-    built_gens_for_tech_and_zone = {(t, z): [] for t in built_tech}
+    built_gens_for_tech_and_zone = {
+        (t, z): [] for z in m.LOAD_ZONES for t in built_tech
+    }
     for g in built_gens:
-        built_gens_for_tech_and_zone[m.gen_tech[g], m.gen_load_zone[z]].append(g)
+        built_gens_for_tech_and_zone[m.gen_tech[g], m.gen_load_zone[g]].append(g)
 
     util.write_table(
         m,
@@ -610,10 +621,11 @@ def write_results(m, outputs_dir):
         )
         + tuple(  # total output for each gen tech in this zone/period
             sum(
-                m.DispatchGen[g, tp] * m.tp_weight_in_year[tp] * 0.001  # MWh -> GWh
+                m.DispatchGen[g, tp] * m.tp_weight_in_year[tp]
                 for g in built_gens_for_tech_and_zone[t, z]
                 for tp in m.TPS_FOR_GEN_IN_PERIOD[g, pe]
             )
+            * 0.001  # MWh -> GWh
             for t in built_tech
         )
         + tuple(  # ad hoc techs: hydrogen, pumped storage, etc.
