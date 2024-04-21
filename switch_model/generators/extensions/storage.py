@@ -26,86 +26,95 @@ def define_components(mod):
 
     STORAGE_GENS is the subset of projects that can provide energy storage.
 
-    STORAGE_GEN_BLD_YRS is the subset of GEN_BLD_YRS, restricted
-    to storage projects.
+    STORAGE_GEN_BLD_YRS is the subset of GEN_BLD_YRS, restricted to storage
+    projects.
 
-    gen_storage_efficiency[STORAGE_GENS] describes the round trip
-    efficiency of a storage technology. A storage technology that is 75
-    percent efficient would have a storage_efficiency of .75. If 1 MWh
-    was stored in such a storage project, 750 kWh would be available for
-    extraction later. Internal leakage or energy dissipation of storage
-    technologies is assumed to be neglible, which is consistent with
-    short-duration storage technologies currently on the market which
-    tend to consume stored power within 1 day. If a given storage
-    technology has significant internal discharge when it stores power
-    for extended time perios, then those behaviors will need to be
-    modeled in more detail.
+    gen_storage_efficiency[STORAGE_GENS] describes the round trip efficiency of
+    a storage technology. A storage technology that is 75 percent efficient
+    would have a storage_efficiency of .75. If 1 MWh was stored in such a
+    storage project, 750 kWh would be available for extraction later. Internal
+    leakage or energy dissipation of storage technologies is assumed to be
+    neglible, which is consistent with short-duration storage technologies
+    currently on the market which tend to consume stored power within 1 day. If
+    a given storage technology has significant internal discharge when it stores
+    power for extended time perios, then those behaviors will need to be modeled
+    in more detail.
 
-    gen_store_to_release_ratio[STORAGE_GENS] describes the maximum rate
-    that energy can be stored, expressed as a ratio of discharge power
-    capacity. This is an optional parameter and will default to 1. If a
-    storage project has 1 MW of dischage capacity and a gen_store_to_release_ratio
-    of 1.2, then it can consume up to 1.2 MW of power while charging.
+    gen_store_to_release_ratio[STORAGE_GENS] describes the maximum rate that
+    energy can be stored, expressed as a ratio of discharge power capacity. This
+    is an optional parameter and will default to 1. If a storage project has 1
+    MW of dischage capacity and a gen_store_to_release_ratio of 1.2, then it can
+    consume up to 1.2 MW of power while charging.
 
-    gen_storage_energy_to_power_ratio[STORAGE_GENS], if specified, restricts
-    the storage capacity (in MWh) to be a fixed multiple of the output
-    power (in MW), i.e., specifies a particular number of hours of
-    storage capacity. Omit this column or specify "." to allow Switch
-    to choose the energy/power ratio. (Note: gen_storage_energy_overnight_cost
-    or gen_overnight_cost should often be set to 0 when using this.)
+    gen_storage_energy_to_power_ratio[STORAGE_GENS], if specified, restricts the
+    storage capacity (in MWh) to be a fixed multiple of the output power (in
+    MW), i.e., specifies a particular number of hours of storage capacity. Omit
+    this column or specify "." to allow Switch to choose the energy/power ratio.
+    (Note: gen_storage_energy_overnight_cost or gen_overnight_cost should often
+    be set to 0 when using this.)
 
-    gen_storage_max_cycles_per_year[STORAGE_GENS], if specified, restricts
-    the number of charge/discharge cycles each storage project can perform
-    per year; one cycle is defined as discharging an amount of energy
-    equal to the storage capacity of the project.
+    gen_storage_max_cycles_per_year[STORAGE_GENS], if specified, restricts the
+    number of charge/discharge cycles each storage project can perform per year;
+    one cycle is defined as discharging an amount of energy equal to the storage
+    capacity of the project.
 
-    gen_storage_energy_overnight_cost[(g, bld_yr) in
-    STORAGE_GEN_BLD_YRS] is the overnight capital cost per MWh of
-    energy capacity for building the given storage technology installed in the
-    given investment period. This is only defined for storage technologies.
-    Note that this describes the energy component and the overnight_cost
-    describes the power component.
+    gen_storage_energy_overnight_cost[(g, bld_yr) in STORAGE_GEN_BLD_YRS] is the
+    overnight capital cost per MWh of energy capacity for building the given
+    storage technology installed in the given investment period. This is only
+    defined for storage technologies. Note that this describes the energy
+    component and the overnight_cost describes the power component.
 
-    build_gen_energy_predetermined[(g, bld_yr) in
-    PREDETERMINED_GEN_BLD_YRS] is the amount of storage that has either been
-    installed previously, or is slated for installation and is not a free
-    decision variable. This is analogous to build_gen_predetermined, but in
-    units of energy of storage capacity (MWh) rather than power (MW).
+    gen_storage_energy_fixed_om[(g, bld_yr) in STORAGE_GEN_BLD_YRS] is the
+    annual fixed operations & maintenance cost per MWh of energy capacity
+    installed. This is charged every year over the life of the storage project,
+    whether it is operated or not. It should be in units of real dollars per
+    year per MWh of capacity. This should only be defined for storage
+    technologies; it will be ignored for non-storage generators. Note that this
+    shows the cost per unit of energy capacity (i.e., batteries) and
+    gen_fixed_om shows the cost per unit of power capacity (i.e. inverters).
+    Note: there is no gen_storage_energy_variable_om parameter; variable O&M for
+    the storage component should be included in variable O&M for the power
+    component (gen_fixed_om).
 
-    BuildStorageEnergy[(g, bld_yr) in STORAGE_GEN_BLD_YRS]
-    is a decision of how much energy capacity to build onto a storage
-    project. This is analogous to BuildGen, but for energy rather than power.
+    build_gen_energy_predetermined[(g, bld_yr) in PREDETERMINED_GEN_BLD_YRS] is
+    the amount of storage that has either been installed previously, or is
+    slated for installation and is not a free decision variable. This is
+    analogous to build_gen_predetermined, but in units of energy of storage
+    capacity (MWh) rather than power (MW).
 
-    StorageEnergyInstallCosts[PERIODS] is an expression of the
-    annual costs incurred by the BuildStorageEnergy decision.
+    BuildStorageEnergy[(g, bld_yr) in STORAGE_GEN_BLD_YRS] is a decision of how
+    much energy capacity to build onto a storage project. This is analogous to
+    BuildGen, but for energy rather than power.
 
-    StorageEnergyCapacity[g, period] is an expression describing the
-    cumulative available energy capacity of BuildStorageEnergy. This is
-    analogous to GenCapacity.
+    StorageEnergyInstallCosts[PERIODS] is an expression of the annual costs
+    incurred by the BuildStorageEnergy decision.
 
-    STORAGE_GEN_TPS is the subset of GEN_TPS,
-    restricted to storage projects.
+    StorageEnergyCapacity[g, period] is an expression describing the cumulative
+    available energy capacity of BuildStorageEnergy. This is analogous to
+    GenCapacity.
 
-    ChargeStorage[(g, t) in STORAGE_GEN_TPS] is a dispatch
-    decision of how much to charge a storage project in each timepoint.
+    STORAGE_GEN_TPS is the subset of GEN_TPS, restricted to storage projects.
+
+    ChargeStorage[(g, t) in STORAGE_GEN_TPS] is a dispatch decision of how much
+    to charge a storage project in each timepoint.
 
     StorageNetCharge[LOAD_ZONE, TIMEPOINT] is an expression describing the
     aggregate impact of ChargeStorage in each load zone and timepoint.
 
-    Charge_Storage_Upper_Limit[(g, t) in STORAGE_GEN_TPS]
-    constrains ChargeStorage to available power capacity (accounting for
+    Charge_Storage_Upper_Limit[(g, t) in STORAGE_GEN_TPS] constrains
+    ChargeStorage to available power capacity (accounting for
     gen_store_to_release_ratio)
 
-    StateOfCharge[(g, t) in STORAGE_GEN_TPS] is a variable
-    for tracking state of charge. This value stores the state of charge at
-    the end of each timepoint for each storage project.
+    StateOfCharge[(g, t) in STORAGE_GEN_TPS] is a variable for tracking state of
+    charge. This value stores the state of charge at the end of each timepoint
+    for each storage project.
 
-    Track_State_Of_Charge[(g, t) in STORAGE_GEN_TPS] constrains
-    StateOfCharge based on the StateOfCharge in the previous timepoint,
-    ChargeStorage and DispatchGen.
+    Track_State_Of_Charge[(g, t) in STORAGE_GEN_TPS] constrains StateOfCharge
+    based on the StateOfCharge in the previous timepoint, ChargeStorage and
+    DispatchGen.
 
-    State_Of_Charge_Upper_Limit[(g, t) in STORAGE_GEN_TPS]
-    constrains StateOfCharge based on installed energy capacity.
+    State_Of_Charge_Upper_Limit[(g, t) in STORAGE_GEN_TPS] constrains
+    StateOfCharge based on installed energy capacity.
 
     """
 
@@ -143,6 +152,10 @@ def define_components(mod):
         mod.PREDETERMINED_GEN_BLD_YRS, within=NonNegativeReals
     )
 
+    mod.gen_storage_energy_fixed_om = Param(
+        mod.STORAGE_GEN_BLD_YRS, within=NonNegativeReals, default=0.0
+    )
+
     def bounds_BuildStorageEnergy(m, g, bld_yr):
         if (g, bld_yr) in m.build_gen_energy_predetermined:
             return (
@@ -158,9 +171,8 @@ def define_components(mod):
         bounds=bounds_BuildStorageEnergy,
     )
 
-    # Summarize capital costs of energy storage for the objective function
-    # Note: A bug in to 2.0.0b3 - 2.0.5, assigned costs that were several times
-    # too high
+    # Summarize capital and O&M costs of energy storage for the objective
+    # function
     mod.StorageEnergyCapitalCost = Expression(
         mod.STORAGE_GENS,
         mod.PERIODS,
@@ -168,22 +180,27 @@ def define_components(mod):
             m.BuildStorageEnergy[g, bld_yr]
             * m.gen_storage_energy_overnight_cost[g, bld_yr]
             * crf(m.interest_rate, m.gen_max_age[g])
+            # apply to all vintages (bld_yr) of storage that are active in the
+            # current period (p)
+            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]
+        ),
+    )
+    mod.StorageEnergyFixedOMCost = Expression(
+        mod.STORAGE_GENS,
+        mod.PERIODS,
+        rule=lambda m, g, p: sum(
+            m.BuildStorageEnergy[g, bld_yr] * m.gen_storage_energy_fixed_om[g, bld_yr]
             for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]
         ),
     )
     mod.StorageEnergyFixedCost = Expression(
         mod.PERIODS,
-        rule=lambda m, p: sum(m.StorageEnergyCapitalCost[g, p] for g in m.STORAGE_GENS),
+        rule=lambda m, p: sum(
+            m.StorageEnergyCapitalCost[g, p] + m.StorageEnergyFixedOMCost[g, p]
+            for g in m.STORAGE_GENS
+        ),
     )
     mod.Cost_Components_Per_Period.append("StorageEnergyFixedCost")
-
-    # 2.0.0b3 code:
-    # mod.StorageEnergyInstallCosts = Expression(
-    # mod.PERIODS,
-    # rule=lambda m, p: sum(m.BuildStorageEnergy[g, bld_yr] *
-    #            m.gen_storage_energy_overnight_cost[g, bld_yr] *
-    #            crf(m.interest_rate, m.gen_max_age[g])
-    #            for (g, bld_yr) in m.STORAGE_GEN_BLD_YRS))
 
     mod.StorageEnergyCapacity = Expression(
         mod.STORAGE_GENS,
@@ -225,11 +242,14 @@ def define_components(mod):
     # use fixed energy/power ratio (# hours of capacity) when specified
     mod.Enforce_Fixed_Energy_Storage_Ratio = Constraint(
         mod.STORAGE_GEN_BLD_YRS,
-        rule=lambda m, g, y: Constraint.Skip
-        if m.gen_storage_energy_to_power_ratio[g] == float("inf")  # no value specified
-        else (
-            m.BuildStorageEnergy[g, y]
-            == m.gen_storage_energy_to_power_ratio[g] * m.BuildGen[g, y]
+        rule=lambda m, g, y: (
+            Constraint.Skip
+            if m.gen_storage_energy_to_power_ratio[g]
+            == float("inf")  # no value specified
+            else (
+                m.BuildStorageEnergy[g, y]
+                == m.gen_storage_energy_to_power_ratio[g] * m.BuildGen[g, y]
+            )
         ),
     )
 
@@ -272,18 +292,50 @@ def define_components(mod):
         mod.STORAGE_GEN_PERIODS,
         rule=lambda m, g, p:
         # solvers sometimes perform badly with infinite constraint
-        Constraint.Skip
-        if m.gen_storage_max_cycles_per_year[g] == float("inf")
-        else (
-            sum(
-                m.DispatchGen[g, tp] * m.tp_duration_hrs[tp]
-                for tp in m.TPS_IN_PERIOD[p]
+        (
+            Constraint.Skip
+            if m.gen_storage_max_cycles_per_year[g] == float("inf")
+            else (
+                sum(
+                    m.DispatchGen[g, tp] * m.tp_duration_hrs[tp]
+                    for tp in m.TPS_IN_PERIOD[p]
+                )
+                <= m.gen_storage_max_cycles_per_year[g]
+                * m.StorageEnergyCapacity[g, p]
+                * m.period_length_years[p]
             )
-            <= m.gen_storage_max_cycles_per_year[g]
-            * m.StorageEnergyCapacity[g, p]
-            * m.period_length_years[p]
         ),
     )
+
+    # Some projects are retired before the first study period, so they don't
+    # appear in the objective function or any constraints. In this case, pyomo
+    # may leave the variable value undefined even after a solve instead of
+    # assigning a value within the allowed range. This causes errors in the
+    # Progressive Hedging code, which expects every variable to have a value
+    # after the solve. So as a starting point we assign an appropriate value to
+    # all the existing projects here.
+    def BuildStorageEnergy_assign_default_value(m, g, bld_yr):
+        if (g, bld_yr) in m.build_gen_energy_predetermined:
+            m.BuildStorageEnergy[g, bld_yr] = m.build_gen_energy_predetermined[
+                g, bld_yr
+            ]
+        elif g in m.STORAGE_GENS and m.gen_storage_energy_to_power_ratio[g] == float(
+            "inf"
+        ):
+            raise ValueError(
+                f"For storage generator g='{g}', gen_build_predetermined[g, {bld_yr}] "
+                f"has been specified, but not "
+                f"gen_build_energy_predetermined[g, {bld_yr}] or "
+                f"gen_storage_energy_to_power_ratio[g]."
+            )
+
+    mod.BuildStorageEnergy_assign_default_value = BuildAction(
+        mod.PREDETERMINED_GEN_BLD_YRS, rule=BuildStorageEnergy_assign_default_value
+    )
+
+    # TODO: expand m.PREDETERMINED_GEN_BLD_YRS to include generators with energy
+    # specified but not power, and in these cases, raise an error if
+    # energy_to_power_ratio is not specified.
 
 
 def load_inputs(mod, switch_data, inputs_dir):
@@ -299,6 +351,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     gen_build_costs.csv
         GENERATION_PROJECT, build_year, ...
         gen_storage_energy_overnight_cost
+        gen_storage_energy_fixed_om*
 
     gen_build_predetermined.csv
         GENERATION_PROJECT, build_year, ...,
@@ -333,7 +386,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     }
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "gen_build_costs.csv"),
-        param=(mod.gen_storage_energy_overnight_cost),
+        param=(mod.gen_storage_energy_overnight_cost, mod.gen_storage_energy_fixed_om),
     )
     switch_data.load_aug(
         optional=True,
