@@ -1193,39 +1193,21 @@ def solve(model):
     # SolverStatus.warning} is not enough because with a warning there will
     # sometimes be a solution and sometimes not.
 
-    try:
-        # pyomo 5.2, maybe earlier or later
-        no_solution = len(model.solutions.solutions) == 0
-        solution_status = "unavailable"
-    except AttributeError:
-        # other pyomo version (4.4 or 5.6.8?)
-        # Note: the results object originally contains values for model components
-        # in results.solution.variable, etc., but pyomo.solvers.solve erases it via
-        # result.solution.clear() after calling model.solutions.load_from() with it.
-        # load_from() loads values into the model.solutions._entry, so we check there.
-        # (See pyomo.PyomoModel.ModelSolutions.add_solution() for the code that
-        # actually creates _entry).
-        # Another option might be to check that model.solutions[-1].status (previously
-        # result.solution.status, but also cleared) is in
-        # pyomo.opt.SolutionStatus.['optimal', 'bestSoFar', 'feasible', 'globallyOptimal', 'locallyOptimal'],
-        # but this seems pretty foolproof (if undocumented).
-        no_solution = len(model.solutions[-1]._entry["variable"]) == 0
-        solution_status = model.solutions[-1].status
-
-    if no_solution:
+    if results.problem.lower_bound == float(
+        "-inf"
+    ) and results.problem.upper_bound == float("inf"):
         # no solution returned
         model.logger.error("Solver terminated without a solution.")
-        model.logger.error("  Solver Status: ", results.solver.status)
-        model.logger.error("  Solution Status: ", solution_status)
+        model.logger.error(f"  Solver Status: {results.solver.status}")
         model.logger.error(
-            "  Termination Condition: ", results.solver.termination_condition
+            f"  Termination Condition: {results.solver.termination_condition}"
         )
         if (
             model.options.solver == "glpk"
             and results.solver.termination_condition == TerminationCondition.other
         ):
             model.logger.error(
-                "Hint: glpk has been known to classify infeasible problems as 'other'."
+                "Hint: glpk sometimes classifies infeasible problems as 'other'."
             )
             model.logger.error(infeasibility_message)
         raise RuntimeError("Solver failed to find an optimal solution.")
