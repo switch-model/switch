@@ -230,6 +230,25 @@ def write_results(m, outputs_dir):
     avg_ts_scale = float(sum(m.ts_scale_to_year[ts] for ts in m.TIMESERIES)) / len(
         m.TIMESERIES
     )
+    # do some lookups in advance to avoid re-filtering every timepoint
+    gens_by_fuel_and_zone = {
+        (f, z): [g for g in m.GENS_BY_FUEL[f] if m.gen_load_zone[g] == z]
+        for f in m.FUELS
+        for z in m.LOAD_ZONES
+    }
+    gens_by_non_fuel_energy_source_and_zone = {
+        (s, z): [
+            g for g in m.GENS_BY_NON_FUEL_ENERGY_SOURCE[s] if m.gen_load_zone[g] == z
+        ]
+        for z in m.LOAD_ZONES
+        for s in m.NON_FUEL_ENERGY_SOURCES
+    }
+    gens_by_non_fuel_tech_and_zone = {
+        (tech, z): [g for g in m.GENS_BY_TECHNOLOGY[tech] if m.gen_load_zone[g] == z]
+        for tech in non_fuel_techs
+        for z in m.LOAD_ZONES
+    }
+
     util.write_table(
         m,
         m.LOAD_ZONES,
@@ -242,44 +261,45 @@ def write_results(m, outputs_dir):
         + tuple("curtail_" + s for s in m.NON_FUEL_ENERGY_SOURCES)
         + tuple(m.Zone_Power_Injections)
         + tuple(m.Zone_Power_Withdrawals)
+        + tuple(m.Distributed_Power_Withdrawals)
         + ("spinning_reserve_provision", "spinning_reserve_requirement")
         + ("marginal_cost", "peak_day"),
         values=lambda m, z, t: (z, m.tp_period[t], m.tp_timestamp[t])
         + tuple(
             sum(
                 DispatchGenByFuel(m, p, t, f)
-                for p in m.GENS_BY_FUEL[f]
-                if (p, t) in m.GEN_TPS and m.gen_load_zone[p] == z
+                for g in gens_by_fuel_and_zone[f, z]
+                if (p, t) in m.GEN_TPS
             )
             for f in m.FUELS
         )
         + tuple(
             sum(
-                util.get(m.DispatchGen, (p, t), 0.0)
-                for p in m.GENS_BY_NON_FUEL_ENERGY_SOURCE[s]
-                if m.gen_load_zone[p] == z
+                util.get(m.DispatchGen, (g, t), 0.0)
+                for g in gens_by_non_fuel_energy_source_and_zone[s, z]
             )
             for s in m.NON_FUEL_ENERGY_SOURCES
         )
         + tuple(
             sum(
                 util.get(m.DispatchGen, (g, t), 0.0)
-                for g in m.GENS_BY_TECHNOLOGY[tech]
-                if m.gen_load_zone[g] == z
+                for g in gens_by_non_fuel_tech_and_zone[tech, z]
             )
             for tech in non_fuel_techs
         )
         + tuple(
             sum(
-                util.get(m.DispatchUpperLimit, (p, t), 0.0)
-                - util.get(m.DispatchGen, (p, t), 0.0)
-                for p in m.GENS_BY_NON_FUEL_ENERGY_SOURCE[s]
-                if m.gen_load_zone[p] == z
+                util.get(m.DispatchUpperLimit, (g, t), 0.0)
+                - util.get(m.DispatchGen, (g, t), 0.0)
+                for g in gens_by_non_fuel_energy_source_and_zone[s, z]
             )
             for s in m.NON_FUEL_ENERGY_SOURCES
         )
         + tuple(getattr(m, component)[z, t] for component in m.Zone_Power_Injections)
         + tuple(getattr(m, component)[z, t] for component in m.Zone_Power_Withdrawals)
+        + tuple(
+            getattr(m, component)[z, t] for component in m.Distributed_Power_Withdrawals
+        )
         + (  # save spinning reserve requirements and provisions; note: this assumes one zone per balancing area
             (
                 spinning_reserve_provisions[m.zone_balancing_area[z], t],
@@ -424,7 +444,7 @@ def write_results(m, outputs_dir):
     used_cap = getattr(
         m, "CommitGen", m.DispatchGen
     )  # use CommitGen if available, otherwise DispatchGen
-    for (g, tp) in m.GEN_TPS:
+    for g, tp in m.GEN_TPS:
         if value(used_cap[g, tp]) > 0.001:
             active_periods_for_gen[g].add(m.tp_period[tp])
     # add the periods between the first and last active period if capacity was available then
@@ -486,6 +506,10 @@ def write_results(m, outputs_dir):
         values=lambda m, z, t, pe: (z, t, pe, tech_cap[z, t, pe]),
     )
 
+    built_gens_for_tech_and_zone = {(t, z): [] for t in built_tech}
+    for g in built_gens:
+        built_gens_for_tech_and_zone[m.gen_tech[g], m.gen_load_zone[z]].append(g)
+
     util.write_table(
         m,
         m.LOAD_ZONES,
@@ -501,8 +525,7 @@ def write_results(m, outputs_dir):
         + tuple(
             sum(
                 (m.GenCapacity[g, pe] if ((g, pe) in operate_gen_in_period) else 0.0)
-                for g in built_gens
-                if m.gen_tech[g] == t and m.gen_load_zone[g] == z
+                for g in built_gens_for_tech_and_zone[t, z]
             )
             for t in built_tech
         )
@@ -585,11 +608,10 @@ def write_results(m, outputs_dir):
             z,
             pe,
         )
-        + tuple(
+        + tuple(  # total output for each gen tech in this zone/period
             sum(
                 m.DispatchGen[g, tp] * m.tp_weight_in_year[tp] * 0.001  # MWh -> GWh
-                for g in built_gens
-                if m.gen_tech[g] == t and m.gen_load_zone[g] == z
+                for g in built_gens_for_tech_and_zone[t, z]
                 for tp in m.TPS_FOR_GEN_IN_PERIOD[g, pe]
             )
             for t in built_tech
