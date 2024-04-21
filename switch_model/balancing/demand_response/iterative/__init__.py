@@ -10,6 +10,7 @@ it back to the bid function when needed.
 note: we also take advantage of this assumption and store a reference to the
 current demand_module in this module (rather than storing it in the model itself)
 """
+
 from __future__ import print_function
 from __future__ import division
 
@@ -66,7 +67,6 @@ def define_arguments(argparser):
 
 
 def define_components(m):
-
     # load scipy.optimize; this is done here to avoid loading it during unit tests
     try:
         global scipy
@@ -193,9 +193,11 @@ def define_components(m):
     m.DR_Convex_Bid_Weight = Constraint(
         m.LOAD_ZONES,
         m.TIMESERIES,
-        rule=lambda m, z, ts: Constraint.Skip
-        if len(m.DR_BID_LIST) == 0
-        else (sum(m.DRBidWeight[b, z, ts] for b in m.DR_BID_LIST) == 1),
+        rule=lambda m, z, ts: (
+            Constraint.Skip
+            if len(m.DR_BID_LIST) == 0
+            else (sum(m.DRBidWeight[b, z, ts] for b in m.DR_BID_LIST) == 1)
+        ),
     )
 
     # Since we don't have differentiated prices for each zone, we have to use the same
@@ -279,18 +281,21 @@ def define_components(m):
     # private benefit of the electricity consumption
     # (i.e., willingness to pay for the current electricity supply)
     # reported as negative cost, i.e., positive benefit
-    # also divide by number of timepoints in the timeseries
-    # to convert from a cost per timeseries to a cost per timepoint.
+    # also divide by duration of the timeseries
+    # to convert from a cost per timeseries to a cost per hour,
+    # which can be reported per timepoint.
+    # TODO: this assumes wtp per timeseries accounts for duration of timepoints
+    # but the weighting in the convergence test may not, and the bidding module
+    # may not (e.g., it may just take a sum across timepoints, which would have
+    # units of $/MWh * ts_num_tps, not $/timeseries)
     m.DR_Welfare_Cost = Expression(
         m.TIMEPOINTS,
-        rule=lambda m, tp: (-1.0)
-        * sum(
-            m.DRBidWeight[b, z, m.tp_ts[tp]] * m.dr_bid_benefit[b, z, m.tp_ts[tp]]
+        rule=lambda m, tp: sum(
+            -m.DRBidWeight[b, z, m.tp_ts[tp]] * m.dr_bid_benefit[b, z, m.tp_ts[tp]]
             for b in m.DR_BID_LIST
             for z in m.LOAD_ZONES
         )
-        * m.tp_duration_hrs[tp]
-        / m.ts_num_tps[m.tp_ts[tp]],
+        / m.ts_duration_hrs[m.tp_ts[tp]],
     )
 
     # add the private benefit to the model's objective function
@@ -469,6 +474,12 @@ def pre_iterate(m):
             sum(
                 (
                     -sum(m.dr_bid_benefit[b, z, ts] for z in m.LOAD_ZONES)
+                    # TODO: clarify whether bids should return total benefit
+                    # per timeseries, which must consider duration of timepoints
+                    # or just benefit per hour * number of timepoints (weird, but
+                    # probably what they do), since the bidding module probably
+                    # just looks at $/MWh marginal costs and treats them as
+                    # $/MW/timepoint
                     * m.tp_duration_hrs[tp]
                     / m.ts_num_tps[ts]
                 )
@@ -873,7 +884,7 @@ def get_bids(m):
             if m.options.dr_flat_pricing:
                 # assume demand side will not provide reserves, even if they offered some
                 # (at zero price)
-                for (k, v) in demand.items():
+                for k, v in demand.items():
                     if k != "energy":
                         for i in range(len(v)):
                             v[i] = 0.0
@@ -959,7 +970,8 @@ def find_flat_prices(m, marginal_costs, revenue_neutral):
 
 def revenue_imbalance(flat_price, m, load_zone, period, dynamic_prices):
     """find demand and revenue that would occur in this load_zone and period with flat prices, and
-    compare to the cost of meeting that demand by purchasing power at the current dynamic prices"""
+    compare to the cost of meeting that demand by purchasing power at the current dynamic prices
+    """
     flat_price_revenue = 0.0
     dynamic_price_revenue = 0.0
     for ts in m.TS_IN_PERIOD[period]:
@@ -1009,7 +1021,7 @@ def add_bids(m, bids):
     m.DR_BID_LIST.add(b)
 
     # add the bids for each load zone and timepoint to the dr_bid list
-    for (z, ts, prices, demand, wtp) in bids:
+    for z, ts, prices, demand, wtp in bids:
         # record the private benefit
         m.dr_bid_benefit[b, z, ts] = wtp
         # record the level of demand for each timepoint
@@ -1346,9 +1358,11 @@ def write_results(m, include_iter_num=True):
         + tuple(final_prices[z, t, prod] for prod in m.DR_PRODUCTS)
         + tuple(final_quantities[z, t, prod] for prod in m.DR_PRODUCTS)
         + (
-            "peak"
-            if m.ts_scale_to_year[m.tp_ts[t]] < 0.5 * avg_ts_scale
-            else "typical",
+            (
+                "peak"
+                if m.ts_scale_to_year[m.tp_ts[t]] < 0.5 * avg_ts_scale
+                else "typical"
+            ),
             m.base_data_dict[z, t][0],
             m.base_data_dict[z, t][1],
         ),

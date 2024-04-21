@@ -1,7 +1,7 @@
 from __future__ import division
 
 
-def calibrate(base_data, dr_elasticity_scenario=3):
+def calibrate(m, base_data, dr_elasticity_scenario=3):
     """Accept a list of tuples showing [base hourly loads], and [base hourly prices] for each
     location (load_zone) and date (time_series). Store these for later reference by bid().
     """
@@ -23,14 +23,15 @@ def calibrate(base_data, dr_elasticity_scenario=3):
     elasticity_scenario = dr_elasticity_scenario
 
 
-def bid(load_zone, time_series, prices):
+def bid(m, load_zone, time_series, prices):
     """Accept a vector of current prices, for a particular location (load_zone) and day (time_series).
     Return a tuple showing hourly load levels and willingness to pay for those loads (relative to the
     loads achieved at the base_price).
 
     This version assumes that part of the load is price elastic with constant elasticity of 0.1 and no
     substitution between hours (this part is called "elastic load" below), and the rest of the load is inelastic
-    in total volume, but schedules itself to the cheapest hours (this part is called "shiftable load")."""
+    in total volume, but schedules itself to the cheapest hours (this part is called "shiftable load").
+    """
 
     elasticity = 0.1
     shiftable_share = 0.1 * elasticity_scenario  # 1-3
