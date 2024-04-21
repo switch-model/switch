@@ -283,7 +283,7 @@ def upgrade_input_dir(inputs_dir):
             if col not in df:
                 df.rename(columns={default_col: col}, inplace=True)
             else:
-                df[col].fillna(df[default_col], inplace=True)
+                df[col] = df[col].fillna(df[default_col])
                 del df[default_col]
 
     columns_with_defaults = [
