@@ -254,24 +254,24 @@ def define_components(mod):
 def define_dynamic_components(mod):
     """
 
-    Adds components to a Pyomo abstract model object to summarize net
-    present value of all system costs. Other modules will register cost
-    components into dynamic lists that are used here to calculate total
-    system costs. This function is called after define_components() so
-    that other modules have a chance to add entries to the dynamic
-    lists.
+    Adds components to a Pyomo abstract model object to summarize net present
+    value of all system costs. Other modules will register cost components into
+    dynamic lists that are used here to calculate total system costs. This
+    function is called after define_components() so that other modules have a
+    chance to add entries to the dynamic lists.
 
-    Unless otherwise stated, all terms describing power are in units of
-    MW and all terms describing energy are in units of MWh. Future costs
-    (both hourly and annual) are in real dollars relative to the
-    base_year and are converted to net present value in the base year
-    within this module.
+    Unless otherwise stated, all terms describing power are in units of MW and
+    all terms describing energy are in units of MWh. Future costs (both hourly
+    and annual) are in real dollars relative to the base_year and are converted
+    to net present value in the base year within this module.
 
-    SystemCostPerPeriod[p in PERIODS] is an expression that sums
-    total system costs in each period based on the two lists
+    SystemCostPerPeriod[p in PERIODS] is an expression that sums total system
+    costs in each period on a discounted basis, based on the two lists
     Cost_Components_Per_TP and Cost_Components_Per_Period. Components in the
-    first list are indexed by timepoint and components in the second are
-    indexed by period.
+    first list are indexed by timepoint and components in the second are indexed
+    by period. Components in the _Per_TP list should have costs given in $/hour
+    (not $/timepoint) and components in the _Per_Period list should have costs
+    given in $/year (not $/period).
 
     Minimize_System_Cost is the objective function that seeks to minimize
     TotalSystemCost.
@@ -334,40 +334,36 @@ def post_solve(instance, outdir):
     # Overall electricity costs, if appropriate (some models may be gas-only)
 
     # Note: through (and including) v. 2.0.7, SystemCostPerPeriod_Real was
-    # mistakenly an annual
-    # cost and EnergyCostReal_per_MWh was low by a factor of
-    # bring_annual_costs_to_base_year / bring_future_costs_to_base_year
-    # (discounted number of years per period)
+    # a (mislabeled) annual cost but SystemDemand_MWh was a total for the period
+    # so EnergyCostReal_per_MWh was low by the number of years in the period.
 
-    # Starting with 2.0.8, we report costs and quantities per year instead of
-    # costs per period to avoid this problem.
+    # Starting with 2.0.8, we report both costs and quantities per year to avoid
+    # this problem.
 
     if hasattr(m, "zone_total_demand_in_period_mwh"):
         normalized_dat = [
             {
                 "PERIOD": p,
                 "SystemCostPerYear_Real": value(
-                    m.SystemCostPerPeriod[p] / m.bring_annual_costs_to_base_year[p]
-                ),
-                "SystemDemandPerYear_MWh": value(
-                    sum(m.zone_total_demand_in_period_mwh[z, p] for z in m.LOAD_ZONES)
-                ),
-                "EnergyCostReal_per_MWh": value(
+                    # dividing SystemCostPerPeriod[p] by m.bring_annual_costs_to_base_year[p]
+                    # undoes the conversion from real $/year to NPV $/period, so
+                    # this expression is a cost per year in period p
                     m.SystemCostPerPeriod[p]
                     / m.bring_annual_costs_to_base_year[p]
-                    / (
-                        sum(
-                            m.zone_total_demand_in_period_mwh[z, p]
-                            for z in m.LOAD_ZONES
-                        )
-                        / m.period_length_years[p]
-                    )
+                ),
+                "SystemDemandPerYear_MWh": value(
+                    # zone_total_demand_in_period_mwh is a total value for the period,
+                    # so must be divided by the length of the period to get MWh/year
+                    sum(m.zone_total_demand_in_period_mwh[z, p] for z in m.LOAD_ZONES)
+                    / m.period_length_years[p]
                 ),
             }
             for p in m.PERIODS
         ]
-        df = pd.DataFrame(normalized_dat)
-        df.set_index(["PERIOD"], inplace=True)
+        df = pd.DataFrame(normalized_dat).set_index("PERIOD")
+        df["EnergyCostReal_per_MWh"] = (
+            df["SystemCostPerYear_Real"] / df["SystemDemandPerYear_MWh"]
+        )
         if instance.options.sorted_output:
             df.sort_index(inplace=True)
         df.to_csv(os.path.join(outdir, "electricity_cost.csv"))
