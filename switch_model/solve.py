@@ -257,7 +257,17 @@ def main(args=None, return_model=False, return_instance=False):
                     indent=4,
                 )
 
-            if not instance.options.no_save_solution:
+            if instance.options.no_save_solution:
+                logger.warning(
+                    "\nThe --no-save-solution option is deprecated because it "
+                    "is now the default setting. This flag will raise an error "
+                    "in future versions of Switch. Please use the "
+                    "--save-solution-file option if you want to save a "
+                    "results.pickle file."
+                )
+                # no action needed, because this just requests the new default behavior
+
+            if instance.options.save_solution_file:
                 logger.info(f"\nSaving solution file...")
                 save_results(instance, instance.options.outputs_dir)
                 logger.info(f"Saved solution file in {timer.step_time():.2f} s.")
@@ -806,7 +816,16 @@ def define_arguments(argparser):
         "--no-save-solution",
         default=False,
         action="store_true",
-        help="Don't save solution after model is solved.",
+        help=argparse.SUPPRESS,  # deprecated
+    )
+    argparser.add_argument(
+        "--save-solution-file",
+        default=False,
+        action="store_true",
+        help="""
+            Save solution file (results.pickle) after model is solved, to enable
+            reloading via `--reload-prior-solution`.
+        """,
     )
     argparser.add_argument(
         "--interact",
