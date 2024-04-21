@@ -209,7 +209,7 @@ def load_inputs(mod, switch_data, inputs_dir):
                 if not approx_equal(min_load[g], min_load_dat):
                     raise ValueError(
                         (
-                            "gen_min_load_fraction is inconsistant with "
+                            "gen_min_load_fraction is inconsistent with "
                             + "incremental heat rate data for project "
                             + "{}."
                         ).format(g)
@@ -226,7 +226,7 @@ def load_inputs(mod, switch_data, inputs_dir):
                 if abs((full_hr[g] - full_hr_dat) / full_hr_dat) > 0.01:
                     raise ValueError(
                         (
-                            "gen_full_load_heat_rate is inconsistant with "
+                            "gen_full_load_heat_rate is inconsistent with "
                             + "incremental heat rate data for project "
                             + "{}."
                         ).format(g)
@@ -326,7 +326,7 @@ def _parse_inc_heat_rate_file(path, id_column):
         (min_power, junk, ihr_prev) = ihr_dat[u][0]
         min_cap_factor[u] = min_power / capacity
         # Process each line segment.
-        for (p_start, p_end, ihr) in ihr_dat[u]:
+        for p_start, p_end, ihr in ihr_dat[u]:
             # Error check: This incremental heat rate cannot be less than
             # the previous one.
             if ihr_prev > ihr:

@@ -224,7 +224,7 @@ def define_components(mod):
 
     def zone_fuel_rfm_init(m, load_zone, fuel):
         # find first (only) matching rfm
-        for (z, rfm) in m.ZONE_RFMS:
+        for z, rfm in m.ZONE_RFMS:
             if z == load_zone and fuel == m.rfm_fuel[rfm]:
                 return rfm
 
@@ -482,6 +482,7 @@ def _load_simple_cost_data(mod, switch_data, path):
     with open(path, "r") as simple_cost_file:
         simple_cost_dat = list(csv.DictReader(simple_cost_file, delimiter=","))
         # Scan once for error checking
+        fname = os.path.basename(path)
         for row in simple_cost_dat:
             z = row["load_zone"]
             f = row["fuel"]
@@ -490,52 +491,36 @@ def _load_simple_cost_data(mod, switch_data, path):
             # Basic data validity checks
             if z not in switch_data.data(name="LOAD_ZONES"):
                 raise ValueError(
-                    "Load zone "
-                    + z
-                    + " in zone_simple_fuel_cost.csv is not "
-                    + "a known load zone from load_zones.csv."
+                    f"Load zone {z} in {fname} is not "
+                    f"a known load zone from load_zones.csv."
                 )
             if f not in switch_data.data(name="FUELS"):
                 raise ValueError(
-                    "Fuel "
-                    + f
-                    + " in zone_simple_fuel_cost.csv is not "
-                    + "a known fuel from fuels.csv."
+                    f"Fuel {f} in {fname} is not a known fuel from fuels.csv."
                 )
             if p not in switch_data.data(name="PERIODS"):
                 raise ValueError(
-                    "Period "
-                    + p
-                    + " in zone_simple_fuel_cost.csv is not "
-                    + "a known investment period."
+                    f"Period {p} in {fname} is not a known investment period."
                 )
             # Make sure they aren't overriding a supply curve or
             # regional fuel market defined in previous files.
-            for (z, rfm) in switch_data.data(name="ZONE_RFMS"):
+            for z, rfm in switch_data.data(name="ZONE_RFMS"):
                 if z == z and switch_data.data(name="rfm_fuel")[rfm] == f:
                     raise ValueError(
-                        "The supply for fuel '"
-                        + f
-                        + "' for load_zone '"
-                        + z
-                        + "' was already registered with the regional fuel "
-                        + "market '"
-                        + rfm
-                        + "', so you cannot "
-                        + "specify a simple fuel cost for it in "
-                        + "zone_simple_fuel_cost.csv. You either need to delete "
-                        + "that entry from zone_to_regional_fuel_market.csv, or "
-                        + "remove those entries in zone_simple_fuel_cost.csv."
+                        f"The supply for fuel '{f}' for load_zone '{z}' was "
+                        f"already registered with the regional fuel market "
+                        f"'{rfm}', so you cannot specify a simple fuel cost for "
+                        f"it in {fname}. You either need to delete that entry "
+                        f"from zone_to_regional_fuel_market.csv, or remove those "
+                        f"entries in {fname}."
                     )
             # Make a new single-load zone regional fuel market.
             rfm = z + "_" + f
             if rfm in switch_data.data(name="REGIONAL_FUEL_MARKETS"):
                 raise ValueError(
-                    "Trying to construct a simple Regional Fuel Market "
-                    + "called "
-                    + rfm
-                    + " from data in zone_simple_fuel_cost.csv"
-                    + ", but an RFM of that name already exists. Bailing out!"
+                    f"Trying to construct a simple Regional Fuel Market called "
+                    f"{rfm} from data in {fname}, but an RFM of that name already "
+                    f"exists. Bailing out!"
                 )
         # Scan again and actually import the data
         for row in simple_cost_dat:
