@@ -4,7 +4,19 @@
 from __future__ import print_function
 
 import logging
-import sys, os, time, shlex, re, inspect, textwrap, types, threading, json, traceback
+import sys
+import os
+import time
+import shlex
+import re
+import inspect
+import textwrap
+import types
+import threading
+import json
+import traceback
+import argparse
+import pickle
 
 try:
     import IPython
@@ -12,18 +24,6 @@ try:
     has_ipython = True
 except ImportError:
     has_ipython = False
-
-try:
-    # Python 2
-    import cPickle as pickle
-except ImportError:
-    import pickle
-
-try:
-    # Python 2
-    input = raw_input
-except NameError:
-    pass
 
 from pyomo.environ import *
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
@@ -1121,7 +1121,6 @@ def solve(model):
     model.logger.info("\nSolving model...")
 
     if model.options.tempdir is not None:
-        # from deprecation warning for previous method (pyutilib.services.TempfileManager)
         from pyomo.common.tempfiles import TempfileManager
 
         TempfileManager.tempdir = model.options.tempdir
@@ -1146,7 +1145,7 @@ def solve(model):
         model.logger.info("-" * 28 + " end of solver output " + "-" * 28 + "\n")
 
     model.logger.info(
-        f"Solved model. Total time spent in solver: {timer.step_time():0.2f} s."
+        f"Solver finished. Total time spent in solver: {timer.step_time():0.2f} s."
     )
 
     # Treat infeasibility as an error, rather than trying to load and save the results
@@ -1292,7 +1291,7 @@ def retrieve_cplex_mip_duals(model):
         ):
             command.script = command.script.replace(
                 "optimize\n",
-                "optimize\nchange problem fix\noptimize\n"
+                "optimize\nchange problem fix\noptimize\n",
                 # see http://www-01.ibm.com/support/docview.wss?uid=swg21399941
                 # and http://www-01.ibm.com/support/docview.wss?uid=swg21400009
             )
