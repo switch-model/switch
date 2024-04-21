@@ -429,14 +429,31 @@ def define_components(mod):
 
     def gen_build_can_operate_in_period(m, g, build_year, period):
         if build_year in m.PERIODS:
+            # always build at start of period
             online = m.period_start[build_year]
         else:
             online = build_year
         retirement = online + m.gen_max_age[g]
-        return online <= m.period_start[period] < retirement
-        # This is probably more correct, but is a different behavior
-        # mid_period = m.period_start[period] + 0.5 * m.period_length_years[period]
-        # return online <= m.period_start[period] and mid_period <= retirement
+        if build_year == period:
+            # always allow operation during the period it is built, even
+            # if asset life isn't enough to cover the period
+            can_run = True
+        elif m.options.retire_time == "late":
+            # default:
+            # operate if it survives across the start of the period
+            # (but not if it retires exactly at the start, i.e., in the
+            # prior period)
+            can_run = online <= m.period_start[period] < retirement
+        elif m.options.retire_time == "mid":
+            mid_period = m.period_start[period] + 0.5 * m.period_length_years[period]
+            can_run = online <= mid_period <= retirement
+        else:
+            # user-chose retire-at-start-of-period option
+            # operate if it survives across the end of the period
+            # (but not if it's built right at the end, i.e., in the
+            # next period)
+            can_run = online < m.period_end[period] <= retirement
+        return can_run
 
     # The set of periods when a project built in a certain year will be online
     mod.PERIODS_FOR_GEN_BLD_YR = Set(
@@ -451,7 +468,7 @@ def define_components(mod):
         ],
     )
     # The set of build years that could be online in the given period
-    # for the given project.
+    # for the given project (possibly empty).
     mod.BLD_YRS_FOR_GEN_PERIOD = Set(
         mod.GENERATION_PROJECTS,
         mod.PERIODS,
