@@ -15,6 +15,7 @@ Constraint2`, we know that Constraint1 and Constraint2 cannot be satisfied at
 the same time. Users should then look for inconsistencies in the data used for
 these two constraints.
 """
+
 from switch_model.utilities import make_iterable
 import pyomo.environ as pyo
 
@@ -114,16 +115,20 @@ def post_solve(m, outputs_dir):
     # errors, and because it prevents chatter from the test suite.
     if unsatisfied_constraints:
         for name, val in unsatisfied_constraints:
-            m.logger.info(
-                "WARNING: Constraint {} violated by {:.4g} units.".format(name, val)
-            )
+            m.logger.info("")
+            m.logger.info(f"WARNING: Constraint {name} violated by {val:.4g} units.")
     else:
         m.logger.info(
-            "\nCongratulations, the model is feasible. Please solve again "
-            "without using the {} module to obtain the optimal solution.\n".format(
-                __name__
-            )
+            "\nCongratulations, the model is feasible. To obtain the optimal\n"
+            f"solution, please solve again without using the {__name__} module."
         )
+
+    m.logger.info(
+        f"\nNOTE: Module {__name__} was used for this run.\n"
+        "This seeks only to minimize violations of constraints, and does not minimize\n"
+        "costs. All results from this run (other than constraint violations) should be\n"
+        "ignored.\n"
+    )
 
 
 def relax_var_name(constraint, direction):
@@ -143,6 +148,9 @@ def relax_constraint(c):
         # a concrete instance.
         expr = getattr(m, c.name).original_rule(m, *idx)
         if expr is not pyo.Constraint.Skip and expr is not pyo.Constraint.Infeasible:
+            if isinstance(expr, tuple):
+                # constraint of type (lb, expr, up)
+                expr = expr[1]
             # pyomo provides a .args argument but it is not editable.
             # some versions provide ._args and some provide ._args_, so we use
             # what is available
