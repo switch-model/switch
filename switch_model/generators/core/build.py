@@ -1,8 +1,7 @@
-# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2024 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 """
-Defines generation projects build-outs.
-
+Defines generation project construction and suspension/retirement plan.
 """
 
 import os
@@ -19,178 +18,219 @@ dependencies = (
 )
 
 
+def define_arguments(argparser):
+    argparser.add_argument(
+        "--retire",
+        dest="retire_time",
+        default="late",
+        choices=["early", "mid", "late"],
+        help=(
+            "Retire generation projects at the start of the period when they "
+            "reach end-of-life ('early') (i.e., only run if they survive to the "
+            "end of the period), or retire them if they survive past the middle "
+            "of the period ('mid'), or extend operation to the end of the period "
+            "when they reach end-of-life ('late'). Late is the default."
+        ),
+    )
+
+
 def define_components(mod):
     """
 
-    Adds components to a Pyomo abstract model object to describe
-    generation and storage projects. Unless otherwise stated, all power
-    capacity is specified in units of MW and all sets and parameters
-    are mandatory.
+    Adds components to a Pyomo abstract model object to describe generation and
+    storage projects. Unless otherwise stated, all power capacity is specified
+    in units of MW and all sets and parameters are mandatory.
 
-    GENERATION_PROJECTS is the set of generation and storage projects that
-    have been built or could potentially be built. A project is a combination
-    of generation technology, load zone and location. A particular build-out
-    of a project should also include the year in which construction was
-    complete and additional capacity came online. Members of this set are
-    abbreviated as gen in parameter names and g in indexes. Use of p instead
-    of g is discouraged because p is reserved for period.
+    GENERATION_PROJECTS is the set of generation and storage projects that have
+    been built or could potentially be built. A project is a combination of
+    generation technology, load zone and location. A particular build-out of a
+    project should also include the year in which construction was complete and
+    additional capacity came online. Members of this set are abbreviated as gen
+    in parameter names and g in indexes. Use of p instead of g is discouraged
+    because p is reserved for period.
 
     gen_dbid[g] is an external database id for each generation project. This is
     an optional parameter than defaults to the project index.
 
-    gen_tech[g] describes what kind of technology a generation project is
-    using.
+    gen_tech[g] describes what kind of technology a generation project is using.
 
     gen_load_zone[g] is the load zone this generation project is built in.
 
-    VARIABLE_GENS is a subset of GENERATION_PROJECTS that only includes
-    variable generators such as wind or solar that have exogenous
-    constraints on their energy production.
+    VARIABLE_GENS is a subset of GENERATION_PROJECTS that only includes variable
+    generators such as wind or solar that have exogenous constraints on their
+    energy production.
 
-    BASELOAD_GENS is a subset of GENERATION_PROJECTS that only includes
-    baseload generators such as coal or geothermal.
+    BASELOAD_GENS is a subset of GENERATION_PROJECTS that only includes baseload
+    generators such as coal or geothermal.
 
-    GENS_IN_ZONE[z in LOAD_ZONES] is an indexed set that lists all
-    generation projects within each load zone.
+    GENS_IN_ZONE[z in LOAD_ZONES] is an indexed set that lists all generation
+    projects within each load zone.
 
-    CAPACITY_LIMITED_GENS is the subset of GENERATION_PROJECTS that are
-    capacity limited. Most of these will be generator types that are resource
-    limited like wind, solar or geothermal, but this can be specified for any
-    generation project. Some existing or proposed generation projects may have
-    upper bounds on increasing capacity or replacing capacity as it is retired
-    based on permits or local air quality regulations.
+    CAPACITY_LIMITED_GENS is the subset of GENERATION_PROJECTS that are capacity
+    limited. Most of these will be generator types that are resource limited
+    like wind, solar or geothermal, but this can be specified for any generation
+    project. Some existing or proposed generation projects may have upper bounds
+    on increasing capacity or replacing capacity as it is retired based on
+    permits or local air quality regulations.
 
     gen_capacity_limit_mw[g] is defined for generation technologies that are
     resource limited and do not compete for land area. This describes the
     maximum possible capacity of a generation project in units of megawatts.
 
-    -- CONSTRUCTION --
+    -- CONSTRUCTION / SUSPENSION / RETIREMENT --
 
-    GEN_BLD_YRS is a two-dimensional set of generation projects and the
-    years in which construction or expansion occured or can occur. You
-    can think of a project as a physical site that can be built out over
-    time. BuildYear is the year in which construction is completed and
-    new capacity comes online, not the year when constrution begins.
-    BuildYear will be in the past for existing projects and will be the
-    first year of an investment period for new projects. Investment
-    decisions are made for each project/invest period combination. This
-    set is derived from other parameters for all new construction. This
-    set also includes entries for existing projects that have already
-    been built and planned projects whose capacity buildouts have already been
-    decided; information for legacy projects come from other files
-    and their build years will usually not correspond to the set of
-    investment periods. There are two recommended options for
-    abbreviating this set for denoting indexes: typically this should be
-    written out as (g, build_year) for clarity, but when brevity is
-    more important (g, b) is acceptable.
+    GEN_BLD_YRS is a two-dimensional set of generation projects and the years in
+    which construction or expansion occured or can occur. You can think of a
+    project as a physical site that can be built out over time. BuildYear is the
+    year in which construction is completed and new capacity comes online, not
+    the year when constrution begins. BuildYear will be in the past for existing
+    projects and will be the first year of an investment period for new
+    projects. Investment decisions are made for each project/invest period
+    combination. This set is derived from other parameters for all new
+    construction. This set also includes entries for existing projects that have
+    already been built and planned projects whose capacity buildouts have
+    already been decided; information for legacy projects come from other files
+    and their build years will usually not correspond to the set of investment
+    periods. There are two recommended options for abbreviating this set for
+    denoting indexes: typically this should be written out as (g, build_year)
+    for clarity, but when brevity is more important (g, b) is acceptable.
 
-    NEW_GEN_BLD_YRS is a subset of GEN_BLD_YRS that only
-    includes projects that have not yet been constructed. This is
-    derived by joining the set of GENERATION_PROJECTS with the set of
-    NEW_GENERATION_BUILDYEARS using generation technology.
+    NEW_GEN_BLD_YRS is a subset of GEN_BLD_YRS that only includes projects that
+    have not yet been constructed. This is derived by joining the set of
+    GENERATION_PROJECTS with the set of NEW_GENERATION_BUILDYEARS using
+    generation technology.
 
-    PREDETERMINED_GEN_BLD_YRS is a subset of GEN_BLD_YRS that
-    only includes existing or planned projects that are not subject to
-    optimization.
+    PREDETERMINED_GEN_BLD_YRS is a subset of GEN_BLD_YRS that only includes
+    existing or planned projects that are not subject to optimization.
 
-    build_gen_predetermined[(g, build_year) in PREDETERMINED_GEN_BLD_YRS] is
-    a parameter that describes how much capacity was built in the past
-    for existing projects, or is planned to be built for future projects.
+    GEN_BLD_SUSPEND_YRS is the set of all valid generation projects, build years
+    and suspension years, i.e., generator vintages that are active in a given
+    study period, which could therefore be suspended or retired in that period
 
-    BuildGen[g, build_year] is a decision variable that describes
-    how much capacity of a project to install in a given period. This also
-    stores the amount of capacity that was installed in existing projects
-    that are still online.
+    NEW_GEN_WITH_MIN_BUILD_YEARS is the subset of NEW_GEN_BLD_YRS for which
+    minimum capacity build-out constraints will be enforced.
 
-    GenCapacity[g, period] is an expression that returns the total
-    capacity online in a given period. This is the sum of installed capacity
-    minus all retirements.
+    build_gen_predetermined[(g, build_year) in PREDETERMINED_GEN_BLD_YRS] is a
+    parameter that describes how much capacity was built in the past for
+    existing projects, or is planned to be built for future projects.
 
-    Max_Build_Potential[g] is a constraint defined for each project
-    that enforces maximum capacity limits for resource-limited projects.
+    gen_can_suspend[g] is a parameter that indicates whether generator `g` can
+    be suspended for one or more periods; if this flag is set to 1 or True, the
+    generator can be suspended and then be unsuspended in later periods.
+
+    gen_can_retire_early[g] is a parameter that indicates whether generator `g`
+    can be retired, which is implemented by being suspended for all the
+    remaining periods of its normal life. If this flag is set to 1 or True, the
+    generator can be suspended in any period, but not resume in later periods.
+    If both gen_can_suspend and gen_can_retire_early are set True,
+    gen_can_suspend takes precedence and temporary suspension is allowed.
+
+    BuildGen[g, build_year] is a decision variable that describes how much
+    capacity of a project to install in a given period. This also stores the
+    amount of capacity that was installed in existing projects that are still
+    online.
+
+    SuspendGen[g, bld_yr, sus_yr] shows how much capacity of project `g` that
+    was built in year `bld_yr` will be suspended in year `sus_yr`, where
+    `sus_yr` is before automatic end of life at `bld_yr + gen_max_age`. For
+    suspended generators, fixed O&M costs go to zero, but capital recovery
+    continues as usual.
+
+    GenCapacity[g, period] is an expression that returns the total capacity
+    online in a given period. This is the sum of installed capacity minus all
+    suspensions and end-of-life retirements.
+
+    Max_Build_Potential[g] is a constraint defined for each project that
+    enforces maximum capacity limits for resource-limited projects.
 
         GenCapacity <= gen_capacity_limit_mw
 
-    NEW_GEN_WITH_MIN_BUILD_YEARS is the subset of NEW_GEN_BLD_YRS for
-    which minimum capacity build-out constraints will be enforced.
+    BuildMinGenCap[g, build_year] is a binary variable that indicates whether a
+    project will build capacity in a period or not. If the model is committing
+    to building capacity, then the minimum must be enforced.
 
-    BuildMinGenCap[g, build_year] is a binary variable that indicates
-    whether a project will build capacity in a period or not. If the model is
-    committing to building capacity, then the minimum must be enforced.
+    Enforce_Min_Build_Lower[g, build_year]  and Enforce_Min_Build_Upper[g,
+    build_year] are a pair of constraints that force project build-outs to meet
+    the minimum build requirements for generation technologies that have those
+    requirements. They force BuildGen to be 0 when BuildMinGenCap is 0, and to
+    be greater than gen_min_build_capacity when BuildMinGenCap is 1. In the
+    latter case, the upper constraint should be non-binding; the upper limit is
+    set to 10 times the peak non-conincident demand of the entire system.
 
-    Enforce_Min_Build_Lower[g, build_year]  and
-    Enforce_Min_Build_Upper[g, build_year] are a pair of constraints that
-    force project build-outs to meet the minimum build requirements for
-    generation technologies that have those requirements. They force BuildGen
-    to be 0 when BuildMinGenCap is 0, and to be greater than
-    gen_min_build_capacity when BuildMinGenCap is 1. In the latter case,
-    the upper constraint should be non-binding; the upper limit is set to 10
-    times the peak non-conincident demand of the entire system.
+    Only_Suspend_Built_Capacity[g, build_year, suspend_year] is a constraint
+    that prevents suspending more capacity than has been built
+
+    Only_Suspend_Suspendable_Gens[g, build_year, suspend_year] is a constraint
+    that prevents suspension of generators unless gen_can_suspend or
+    gen_can_retire_early are set.
+
+    Suspend_Retired_gens[g, build_year, suspend_year] is a constraint that
+    requires generators to remain suspended in later periods if they were
+    suspended in an earlier period and gen_can_retire_early is set to True or 1
+    and gen_can_suspend is not set to True or 1.
 
     --- OPERATIONS ---
 
-    PERIODS_FOR_GEN_BLD_YR[g, build_year] is an indexed
-    set that describes which periods a given project build will be
-    operational.
+    PERIODS_FOR_GEN_BLD_YR[g, build_year] is an indexed set that describes which
+    periods a given project build will be operational.
 
-    BLD_YRS_FOR_GEN_PERIOD[g, period] is a complementary
-    indexed set that identify which build years will still be online
-    for the given project in the given period. For some project-period
-    combinations, this will be an empty set.
+    BLD_YRS_FOR_GEN_PERIOD[g, period] is a complementary indexed set that
+    identify which build years will still be online for the given project in the
+    given period. For some project-period combinations, this will be an empty
+    set.
 
-    PERIODS_FOR_GEN[g] is the set of all periods when generation project
-    g could potentially be operated.
+    PERIODS_FOR_GEN[g] is the set of all periods when generation project g could
+    potentially be operated.
 
-    GEN_PERIODS describes periods in which generation projects
-    could be operational. Unlike the related sets above, it is not
-    indexed. Instead it is specified as a set of (g, period)
-    combinations useful for indexing other model components.
+    GEN_PERIODS describes periods in which generation projects could be
+    operational. Unlike the related sets above, it is not indexed. Instead it is
+    specified as a set of (g, period) combinations useful for indexing other
+    model components.
 
 
     --- COSTS ---
 
-    gen_connect_cost_per_mw[g] is the cost of grid upgrades to support a
-    new project, in dollars per peak MW. These costs include new
-    transmission lines to a substation, substation upgrades and any
-    other grid upgrades that are needed to deliver power from the
-    interconnect point to the load center or from the load center to the
-    broader transmission network.
+    gen_connect_cost_per_mw[g] is the cost of grid upgrades to support a new
+    project, in dollars per peak MW. These costs include new transmission lines
+    to a substation, substation upgrades and any other grid upgrades that are
+    needed to deliver power from the interconnect point to the load center or
+    from the load center to the broader transmission network.
 
-    The following cost components are defined for each project and build
-    year. These parameters will always be available, but will typically
-    be populated by the generic costs specified in generator costs
-    inputs file and the load zone cost adjustment multipliers from
-    load_zones inputs file.
+    The following cost components are defined for each project and build year.
+    These parameters will always be available, but will typically be populated
+    by the generic costs specified in generator costs inputs file and the load
+    zone cost adjustment multipliers from load_zones inputs file.
 
-    gen_overnight_cost[g, build_year] is the overnight capital cost per
-    MW of capacity for building a project in the given period. By
-    "installed in the given period", I mean that it comes online at the
-    beginning of the given period and construction starts before that.
+    gen_overnight_cost[g, build_year] is the overnight capital cost per MW of
+    capacity for building a project in the given period. By "installed in the
+    given period", I mean that it comes online at the beginning of the given
+    period and construction starts before that.
 
-    gen_fixed_om[g, build_year] is the annual fixed Operations and
-    Maintenance costs (O&M) per MW of capacity for given project that
-    was installed in the given period.
+    gen_fixed_om[g, build_year] is the annual fixed Operations and Maintenance
+    costs (O&M) per MW of capacity for given project that was installed in the
+    given period.
 
     -- Derived cost parameters --
 
-    gen_capital_cost_annual[g, build_year] is the annualized loan
-    payments for a project's capital and connection costs in units of
-    $/MW per year. This is specified in non-discounted real dollars in a
-    future period, not real dollars in net present value.
+    gen_capital_cost_annual[g, build_year] is the annualized loan payments for a
+    project's capital and connection costs in units of $/MW per year. This is
+    specified in non-discounted real dollars in a future period, not real
+    dollars in net present value.
 
-    Proj_Fixed_Costs_Annual[g, period] is the total annual fixed
-    costs (capital as well as fixed operations & maintenance) incurred
-    by a project in a period. This reflects all of the builds are
-    operational in the given period. This is an expression that reflect
-    decision variables.
+    GenCapitalCosts[g, period] is the total annual capital recovery required for
+    a project in a period. This includes all of the builds that have not yet
+    reached their maximum age. Capital costs continue to be recovered even if a
+    generator is suspended or retired (and they are not brought forward to the
+    retirement year).
 
-    ProjFixedCosts[period] is the sum of
-    Proj_Fixed_Costs_Annual[g, period] for all projects that could be
-    online in the target period. This aggregation is performed for the
-    benefit of the objective function.
+    GenFixedOMCosts[g, period] is the total annual fixed operations &
+    maintenance cost incurred by a project in a period. This reflects all of the
+    builds that are operational (haven't reached end of life or been suspended)
+    in the given period.
 
-    TODO:
-    - Allow early capacity retirements with savings on fixed O&M
+    TotalGenFixedCosts[period] is the sum of GenCapitalCosts[g, period] and
+    GenFixedOMCosts[g, period] for all projects that could be online in the
+    target period.
 
     """
     mod.GENERATION_PROJECTS = Set(dimen=1)
@@ -218,6 +258,10 @@ def define_components(mod):
     )
     mod.gen_forced_outage_rate = Param(
         mod.GENERATION_PROJECTS, within=PercentFraction, default=0
+    )
+    mod.gen_can_suspend = Param(mod.GENERATION_PROJECTS, within=Boolean, default=False)
+    mod.gen_can_retire_early = Param(
+        mod.GENERATION_PROJECTS, within=Boolean, default=False
     )
     mod.min_data_check(
         "GENERATION_PROJECTS",
@@ -473,11 +517,70 @@ def define_components(mod):
         ],
     )
 
+    # set of years when a generator vintage (generator/build-year combination)
+    # can have operation suspended and avoid fixed O&M charges.
+    mod.GEN_BLD_SUSPEND_YRS = Set(
+        dimen=3,
+        within=mod.GEN_BLD_YRS * mod.PERIODS,
+        initialize=lambda m: [
+            (g, bld_yr, sus_yr)
+            for g, bld_yr in m.GEN_BLD_YRS
+            for sus_yr in m.PERIODS_FOR_GEN_BLD_YR[g, bld_yr]
+        ],
+    )
+
+    # SuspendGen[g, bld_yr, sus_yr] shows how much capacity of project `g`
+    # that was built in year `bld_yr` will be suspended in year `sus_yr`, where
+    # `sus_yr` is before automatic end of life at `bld_yr + gen_max_age`
+    mod.SuspendGen = Var(mod.GEN_BLD_SUSPEND_YRS, within=NonNegativeReals)
+
+    # Don't suspend more capacity than has been built
+    mod.Only_Suspend_Built_Capacity = Constraint(
+        mod.GEN_BLD_SUSPEND_YRS,
+        rule=lambda m, g, bld_yr, sus_yr: m.SuspendGen[g, bld_yr, sus_yr]
+        <= m.BuildGen[g, bld_yr],
+    )
+
+    # only suspend if allowed
+    mod.Only_Suspend_Suspendable_Gens = Constraint(
+        mod.GEN_BLD_SUSPEND_YRS,
+        rule=lambda m, g, bld_yr, sus_yr: (
+            Constraint.Skip
+            if m.gen_can_suspend[g] or m.gen_can_retire_early[g]
+            else (m.SuspendGen[g, bld_yr, sus_yr] == 0)
+        ),
+    )
+
+    # Force permanent retirement (suspension must continue through all later
+    # years), if early retirement is allowed but suspension is not
+    def rule(m, g, bld_yr, sus_yr):
+        if m.gen_can_retire_early[g] and not m.gen_can_suspend[g]:
+            # gen can retire, but not suspend
+            try:
+                # it's tricky to anticipate which combinations of g, bld_yr, and
+                # sus_yr could have been suspended in the prior period (e.g., a
+                # plant scheduled for construction in 2025 would be active in a
+                # 2021-2030 period when using early retirement, but not when
+                # using late retirement). So we just give it a try and catch
+                # errors if the previous period doesn't exist or wasn't a
+                # suspendable year.
+                return (
+                    m.SuspendGen[g, bld_yr, sus_yr]
+                    >= m.SuspendGen[g, bld_yr, m.PERIODS.prev(sus_yr)]
+                )
+            except (KeyError, IndexError):
+                # couldn't suspend in previous period (if it existed)
+                pass
+        return Constraint.Skip
+
+    mod.Suspend_Retired_Gens = Constraint(mod.GEN_BLD_SUSPEND_YRS, rule=rule)
+
     mod.GenCapacity = Expression(
         mod.GENERATION_PROJECTS,
         mod.PERIODS,
         rule=lambda m, g, period: sum(
-            m.BuildGen[g, bld_yr] for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, period]
+            m.BuildGen[g, bld_yr] - m.SuspendGen[g, bld_yr, period]
+            for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, period]
         ),
     )
 
@@ -528,7 +631,7 @@ def define_components(mod):
     mod.min_data_check("gen_variable_om", "gen_connect_cost_per_mw")
 
     mod.gen_overnight_cost = Param(mod.GEN_BLD_YRS, within=NonNegativeReals)
-    mod.gen_fixed_om = Param(mod.GEN_BLD_YRS, within=NonNegativeReals)
+    mod.gen_fixed_om = Param(mod.GEN_BLD_YRS, within=Reals)
     mod.min_data_check("gen_overnight_cost", "gen_fixed_om")
 
     # Derived annual costs
@@ -553,7 +656,8 @@ def define_components(mod):
         mod.GENERATION_PROJECTS,
         mod.PERIODS,
         rule=lambda m, g, p: sum(
-            m.BuildGen[g, bld_yr] * m.gen_fixed_om[g, bld_yr]
+            (m.BuildGen[g, bld_yr] - m.SuspendGen[g, bld_yr, p])
+            * m.gen_fixed_om[g, bld_yr]
             for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]
         ),
     )
@@ -641,6 +745,8 @@ def load_inputs(mod, switch_data, inputs_dir):
             mod.gen_connect_cost_per_mw,
             mod.gen_is_cogen,
             mod.gen_is_distributed,
+            mod.gen_can_suspend,
+            mod.gen_can_retire_early,
         ),
     )
     # Construct sets of capacity-limited, ccs-capable and unit-size-specified
@@ -678,13 +784,9 @@ def load_inputs(mod, switch_data, inputs_dir):
 
 
 def post_solve(m, outdir):
-    # report generator and storage additions in each period and total
+    # report generator and storage additions in each period and and total
     # capital outlay for those (up-front capital outlay is not treated as a
     # direct cost by Switch, but is often interesting to users)
-    # note: we report 0.0 values for additions and cost even when additions is
-    # not possible (e.g., out of allowed date range, or storage energy for
-    # non-stroage projects). This is done to simplify reporting and graphing,
-    # but may be slightly confusing in some cases.
     write_table(
         m,
         m.GEN_PERIODS,
@@ -740,6 +842,7 @@ def post_solve(m, outdir):
             "gen_load_zone",
             "gen_energy_source",
             "GenCapacity",
+            "SuspendGen_total",
             "GenStorageCapacity",
             "GenCapitalRecovery",
             "GenFixedOMCosts",
@@ -751,6 +854,9 @@ def post_solve(m, outdir):
             m.gen_load_zone[g],
             m.gen_energy_source[g],
             m.GenCapacity[g, p],
+            sum(
+                m.SuspendGen[g, bld_yr, p] for bld_yr in m.BLD_YRS_FOR_GEN_PERIOD[g, p]
+            ),
             (
                 m.StorageEnergyCapacity[g, p]
                 if hasattr(m, "StorageEnergyCapacity")
