@@ -8,6 +8,7 @@ import sys
 import os
 import time
 import shlex
+import ast
 import re
 import inspect
 import textwrap
@@ -692,7 +693,7 @@ def define_arguments(argparser):
     argparser.add_argument(
         "--solver-options-string",
         dest="solver_options_string",
-        default=None,
+        default="",
         help="""
             A quoted string of options to pass to the model solver. Each option
             must be of the form option=value. (e.g., --solver-options-string
@@ -1070,47 +1071,39 @@ def solve(model):
         # with its own solver object (e.g., with runph or a parallel solver server).
         # In those cases, we don't want to go through the expense of creating an
         # unused solver object, or get errors if the solver options are invalid.
-        model.solver = SolverFactory(
-            model.options.solver, solver_io=model.options.solver_io
-        )
-
-        # patch for Pyomo < 4.2
-        # note: Pyomo added an options_string argument to solver.solve() in Pyomo 4.2 rev 10587.
-        # (See https://software.sandia.gov/trac/pyomo/browser/pyomo/trunk/pyomo/opt/base/solvers.py?rev=10587 )
-        # This is misreported in the documentation as options=, but options= actually accepts a dictionary.
-        if model.options.solver_options_string and not hasattr(
-            model.solver, "_options_string_to_dict"
-        ):
-            for k, v in _options_string_to_dict(
-                model.options.solver_options_string
-            ).items():
-                model.solver.options[k] = v
+        # Only specify keyword args if values are provided; `None` can cause errors
+        solver_args = {}
+        if model.options.solver_io is not None:
+            solver_args["solver_io"] = model.options.solver_io
+        model.solver = SolverFactory(model.options.solver, **solver_args)
 
         model.solver_manager = SolverManagerFactory(model.options.solver_manager)
 
     # get solver arguments
     solver_args = dict(
-        options_string=model.options.solver_options_string,
+        # note: prior to switch 2.0.8, we passed solver_options_string as
+        # a solver_options argument, but the appsi_ solvers don't accept that,
+        # so now we pass an options dict for all solvers instead
+        options=options_string_to_dict(model.options.solver_options_string),
         keepfiles=model.options.keepfiles,
         tee=model.options.tee,
         symbolic_solver_labels=model.options.symbolic_solver_labels,
     )
     # drop all the unspecified options
-    solver_args = {k: v for (k, v) in solver_args.items() if v is not None}
+    solver_args = {k: v for (k, v) in solver_args.items() if v}
 
-    # Automatically send all defined suffixes to the solver
-    solver_args["suffixes"] = [c.name for c in model.component_objects(ctype=Suffix)]
-
-    # note: the next few lines are faster than the line above, but seem risky:
-    # i = m._ctypes.get(Suffix, [None])[0]
-    # solver_args["suffixes"] = []
-    # while i is not None:
-    #     c, i = m._decl_order[i]
-    #     solver_args[suffixes].append(c.name)
-
-    # patch for Pyomo < 4.2
-    if not hasattr(model.solver, "_options_string_to_dict"):
-        solver_args.pop("options_string", "")
+    # Automatically send any defined suffixes to the solver
+    # This is mostly obsolete: appsi_* solvers won't accept any suffixes but
+    # automatically adapt to duals, slack and rc; cplex and gurobi accept
+    # suffixes but will also produce duals automatically if the model has
+    # a duals component. But we send these anyway in case that treatment doesn't
+    # extend to more specialized suffixes like iis.
+    suffixes = [c.name for c in model.component_objects(ctype=Suffix)]
+    if suffixes and not model.options.solver.startswith("appsi_"):
+        # don't assign at all if no suffixes are defined, since appsi_highs
+        # (and maybe others, but also maybe only old versions) want None
+        # instead of an empty list, but cplex and gurobi crash with None
+        solver_args["suffixes"] = suffixes
 
     # patch Pyomo to retrieve MIP duals from cplex if needed
     if model.options.retrieve_cplex_mip_duals:
@@ -1309,33 +1302,6 @@ def retrieve_cplex_mip_duals(model):
         CPLEXSHELL.create_command_line = new_create_command_line
 
 
-# taken from https://software.sandia.gov/trac/pyomo/browser/pyomo/trunk/pyomo/opt/base/solvers.py?rev=10784
-# This can be removed when all users are on Pyomo 4.2
-import pyutilib
-
-
-def _options_string_to_dict(istr):
-    ans = {}
-    istr = istr.strip()
-    if not istr:
-        return ans
-    if istr[0] == "'" or istr[0] == '"':
-        istr = eval(istr)
-    tokens = pyutilib.misc.quote_split("[ ]+", istr)
-    for token in tokens:
-        index = token.find("=")
-        if index == -1:
-            raise ValueError(
-                "Solver options must have the form option=value: '{}'".format(istr)
-            )
-        try:
-            val = eval(token[(index + 1) :])
-        except:
-            val = token[(index + 1) :]
-        ans[token[:index]] = val
-    return ans
-
-
 def save_results(instance, outdir):
     """
     Save model solution for later reuse.
@@ -1412,6 +1378,27 @@ def report_model_in_traceback(tb):
                 )
                 return
     print("\nNo Pyomo model was found in the current stack trace.")
+
+
+def options_string_to_dict(opt_str):
+    opt_dict = {}
+    tokens = shlex.split(opt_str)
+    for token in tokens:
+        try:
+            key, val = token.split("=", 1)
+        except ValueError:
+            # couldn't split at an equal sign
+            raise ValueError(
+                "Solver options must have the form option=value: '{}'".format(opt_str)
+            )
+        # convert to standard types if possible, otherwise leave as is (usually
+        # an unquoted string)
+        try:
+            val = ast.literal_eval(val)
+        except ValueError:
+            pass
+        opt_dict[key] = val
+    return opt_dict
 
 
 ###############
