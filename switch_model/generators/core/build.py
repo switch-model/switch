@@ -441,6 +441,7 @@ def define_components(mod):
             return (0, None)
 
     mod.BuildGen = Var(mod.GEN_BLD_YRS, within=NonNegativeReals, bounds=bounds_BuildGen)
+
     # Some projects are retired before the first study period, so they
     # don't appear in the objective function or any constraints.
     # In this case, pyomo may leave the variable value undefined even
@@ -520,7 +521,7 @@ def define_components(mod):
     )
 
     # Costs
-    mod.gen_variable_om = Param(mod.GENERATION_PROJECTS, within=NonNegativeReals)
+    mod.gen_variable_om = Param(mod.GENERATION_PROJECTS, within=Reals)
     mod.gen_connect_cost_per_mw = Param(
         mod.GENERATION_PROJECTS, within=NonNegativeReals
     )
@@ -677,9 +678,13 @@ def load_inputs(mod, switch_data, inputs_dir):
 
 
 def post_solve(m, outdir):
-    # report generator and storage additions in each period and and total
+    # report generator and storage additions in each period and total
     # capital outlay for those (up-front capital outlay is not treated as a
     # direct cost by Switch, but is often interesting to users)
+    # note: we report 0.0 values for additions and cost even when additions is
+    # not possible (e.g., out of allowed date range, or storage energy for
+    # non-stroage projects). This is done to simplify reporting and graphing,
+    # but may be slightly confusing in some cases.
     write_table(
         m,
         m.GEN_PERIODS,
