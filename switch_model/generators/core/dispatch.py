@@ -317,7 +317,7 @@ def define_components(mod):
                     after retirement.
                 """.format(
                         num_impacted_generators,
-                        " has" if num_impacted == 1 else "s have",
+                        " has" if num_impacted_generators == 1 else "s have",
                     )
                 )
                 if m.logger.isEnabledFor(logging.DEBUG):
@@ -458,14 +458,17 @@ def post_solve(instance, outdir):
                 * instance.gen_variable_om[g]
                 * instance.tp_weight_in_year[t]
             ),
-            "DispatchEmissions_tCO2_per_typical_yr": value(
-                sum(
-                    instance.DispatchEmissions[g, t, f] * instance.tp_weight_in_year[t]
-                    for f in instance.FUELS_FOR_GEN[g]
+            "DispatchEmissions_tCO2_per_typical_yr": (
+                value(
+                    sum(
+                        instance.DispatchEmissions[g, t, f]
+                        * instance.tp_weight_in_year[t]
+                        for f in instance.FUELS_FOR_GEN[g]
+                    )
                 )
-            )
-            if instance.gen_uses_fuel[g]
-            else 0,
+                if instance.gen_uses_fuel[g]
+                else 0
+            ),
             "GenCapacity_MW": value(instance.GenCapacity[g, p]),
             "GenCapitalCosts": value(instance.GenCapitalCosts[g, p]),
             "GenFixedOMCosts": value(instance.GenFixedOMCosts[g, p]),
