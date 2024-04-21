@@ -11,6 +11,7 @@ from __future__ import division
 import os
 from pyomo.environ import *
 from . import utilities
+from .utilities import unique_list
 
 hours_per_year = 8766
 
@@ -124,6 +125,20 @@ def define_components(mod):
     those expected costs over an entire period or else the levelized
     costs of power that is being optimized will not make sense.
 
+    Date-related fields, used to identify individual dates when running multi-
+    day timeseries. These are used by modules that require balancing within the
+    day, such as demand response or hydrogen production. The tp_date column in
+    timepoints.csv should be filled in when using these modules.
+
+    tp_date[tp]: date ID for timepoint tp, read from timepoints.csv. If not
+    provided, we use the timeseries that holds this timepoint (tp_ts[tp]).
+
+    DATES: set of all dates used in this model, based on tp_date. Will be
+    equivalent to TIMESERIES if tp_date is not provided.
+
+    TPS_IN_DATE[d in DATES]: indexed set of all TIMEPOINTS that fall in DATE
+    d, derived from tp_date. Will be equivalent to TPS_IN_TS[ts in
+    TIMESERIES] if tp_date is not provided.
 
     EXAMPLES
 
@@ -395,6 +410,65 @@ def define_components(mod):
 
     mod.validate_time_weights = BuildCheck(mod.PERIODS, rule=validate_time_weights_rule)
 
+    #############
+    # date-related code
+
+    # Use a custom timepoint -> date mapping if tp_dates.csv is provided.
+    # Otherwise just use the timeseries as the date ID (more common). Custom
+    # dates can be useful when running a single timeseries for the whole year,
+    # but you still need to identify dates within the year for the flexible load
+    # calculations.
+    mod.tp_date = Param(mod.TIMEPOINTS, default=lambda m, tp: m.tp_ts[tp], within=Any)
+    mod.DATES = Set(
+        initialize=lambda m: unique_list(m.tp_date[tp] for tp in m.TIMEPOINTS)
+    )
+
+    # Efficiently construct the set of timepoints within each date
+    def TPS_IN_DATE_init(m, d):
+        try:
+            dd = m.TPS_IN_DATE_dict
+        except AttributeError:
+            # haven't constructed the date dictionary yet (first call to this
+            # function); build it now
+            dd = m.TPS_IN_DATE_dict = dict()
+            for tp in m.TIMEPOINTS:
+                # create an empty list for the date holding this timepoint (if
+                # needed), then append this timepoint
+                dd.setdefault(m.tp_date[tp], []).append(tp)
+        return dd.pop(d)  # use pop to free memory as we go
+
+    mod.TPS_IN_DATE = Set(mod.DATES, initialize=TPS_IN_DATE_init)
+
+    # Efficiently construct the set of dates within each timeseries
+    # If any date spans multiple timeseries, it will be an error
+    def DATES_IN_TS_init(m, ts):
+        try:
+            dd = m.DATES_IN_TS_dict
+        except AttributeError:
+            # haven't constructed the date dictionary yet (first call to this
+            # function); build it now
+            dd = m.DATES_IN_TS_dict = dict()
+            date_ts = dict()  # cache of already known ts for each date
+            for tp in m.TIMEPOINTS:
+                d = m.tp_date[tp]
+                _ts = m.tp_ts[tp]
+                if _ts != date_ts.setdefault(d, _ts):
+                    # was previously assigned to a different date
+                    raise ValueError(
+                        "Timepoints from different timeseries have been "
+                        f"assigned to the same date {d} in tp_dates.csv. "
+                        "This is not allowed."
+                    )
+                # create a new list for the timeseries holding this
+                # timepoint (if needed), then add this date
+                dd.setdefault(_ts, []).append(d)
+        # return all unique dates for this timeseries
+        return unique_list(dd.pop(ts))
+
+    mod.DATES_IN_TS = Set(mod.TIMESERIES, initialize=DATES_IN_TS_init)
+    # End date code
+    ##########
+
     def validate_period_lengths_rule(m, p):
         tol = 0.01
         if p != m.PERIODS.last():
@@ -436,7 +510,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     format.
 
     timepoints.csv
-        timepoint_id, timestamp, timeseries
+        timepoint_id, timestamp, timeseries, tp_date*
 
     """
     # Include select in each load() function so that it will check out column
@@ -459,7 +533,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "timepoints.csv"),
-        select=("timepoint_id", "timestamp", "timeseries"),
+        select=("timepoint_id", "timestamp", "timeseries", "tp_date"),
         index=mod.TIMEPOINTS,
-        param=(mod.tp_timestamp, mod.tp_ts),
+        param=(mod.tp_timestamp, mod.tp_ts, mod.tp_date),
     )

@@ -4,7 +4,7 @@
 """
 Defines a simple Demand Response Shift Service for the Switch model.
 Load in a certain load zone may be shifted between timepoints belonging to the
-same timeseries at no cost, which allows assessing the potential value of
+same date at no cost, which allows assessing the potential value of
 demand shifting. This does not include a Shed Service (curtailment of load),
 nor a Shimmy Service (fast dispatch for load following or regulation).
 
@@ -18,7 +18,6 @@ optional_dependencies = "switch_model.transmission.local_td"
 
 
 def define_components(mod):
-
     """
     Adds components to a Pyomo abstract model object to describe a demand
     response shift service.
@@ -43,9 +42,13 @@ def define_components(mod):
     local_td is not included, it will be registered with load zone's central
     node and will not reflect efficiency losses in the distribution network.
 
-    DR_Shift_Net_Zero[z,ts in TIMESERIES] is a constraint that forces all the
-    changes in the demand to balance out over the course of each timeseries.
+    DR_Shift_Net_Zero[z, d in DATES] is a constraint that forces all the
+    changes in the demand to balance out over the course of each date.
 
+    When using multi-day timeseries (e.g., weeks or years), you should provide
+    tp_date values in timepoints.csv to identify which timepoints fall on the
+    same date. Otherwise, load will be shifted freely to any other part of the
+    same timeseries (possibly months away).
     """
 
     mod.dr_shift_down_limit = Param(
@@ -70,8 +73,8 @@ def define_components(mod):
 
     mod.DR_Shift_Net_Zero = Constraint(
         mod.LOAD_ZONES,
-        mod.TIMESERIES,
-        rule=lambda m, z, ts: sum(m.ShiftDemand[z, t] for t in m.TPS_IN_TS[ts]) == 0.0,
+        mod.DATES,
+        rule=lambda m, z, d: sum(m.ShiftDemand[z, t] for t in m.TPS_IN_DATE[d]) == 0.0,
     )
 
     try:

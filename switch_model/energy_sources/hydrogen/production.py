@@ -9,7 +9,7 @@ all hydrogen must be used the same day or else liquefied and stored in a
 tank. Further, we only consider one kind of tank (spheres similar to those
 used for rockets) and assume tank capacity must be large enough to hold the
 full year's withdrawals. (This avoids needing to track the sequence of
-timeseries within the year.)
+dates within the year.)
 
 The hydrogen fuel ("Hydrogen" by default) must also be added to fuels.csv and
 fuel_cost.csv or fuel_supply_curves.csv. It should usually be added with a zero
@@ -91,7 +91,7 @@ def define_components(m):
     # note: we assume there is a gaseous hydrogen storage tank that is big enough to buffer
     # daily production, storage and withdrawals of hydrogen, but we don't include a cost
     # for this (because it will be negligible compared to the rest of the costs)
-    # This allows the system to do some intra-day arbitrage without going all the way to liquefication
+    # This allows the system to do some intra-day arbitrage without going all the way to liquefaction
 
     # liquefier details
     m.hydrogen_liquefier_capital_cost_per_kg_per_hour = Param(within=NonNegativeReals)
@@ -141,13 +141,13 @@ def define_components(m):
     )
     m.StoreLiquidHydrogenKg = Expression(
         m.LOAD_ZONES,
-        m.TIMESERIES,
-        rule=lambda m, z, ts: m.ts_duration_of_tp[ts]
-        * sum(m.LiquefyHydrogenKgPerHour[z, tp] for tp in m.TPS_IN_TS[ts]),
+        m.DATES,
+        rule=lambda m, z, d: sum(
+            m.ts_duration_of_tp[m.tp_ts[tp]] * m.LiquefyHydrogenKgPerHour[z, tp]
+            for tp in m.TPS_IN_DATE[d]
+        ),
     )
-    m.WithdrawLiquidHydrogenKg = Var(
-        m.LOAD_ZONES, m.TIMESERIES, within=NonNegativeReals
-    )
+    m.WithdrawLiquidHydrogenKg = Var(m.LOAD_ZONES, m.DATES, within=NonNegativeReals)
     # note: we assume the system will be large enough to neglect boil-off
 
     ############
@@ -206,22 +206,27 @@ def define_components(m):
     # of hydrogen without ever liquefying it
     m.Hydrogen_Conservation_of_Mass_Daily = Constraint(
         m.LOAD_ZONES,
-        m.TIMESERIES,
-        rule=lambda m, z, ts: m.StoreLiquidHydrogenKg[z, ts]
-        - m.WithdrawLiquidHydrogenKg[z, ts]
-        == m.ts_duration_of_tp[ts]
-        * sum(
-            m.ProduceHydrogenKgPerHour[z, tp] - m.ConsumeHydrogenKgPerHour[z, tp]
-            for tp in m.TPS_IN_TS[ts]
+        m.DATES,
+        rule=lambda m, z, d: (
+            m.StoreLiquidHydrogenKg[z, d] - m.WithdrawLiquidHydrogenKg[z, d]
+            == sum(
+                m.ts_duration_of_tp[m.tp_ts[tp]]
+                * (
+                    m.ProduceHydrogenKgPerHour[z, tp]
+                    - m.ConsumeHydrogenKgPerHour[z, tp]
+                )
+                for tp in m.TPS_IN_DATE[d]
+            )
         ),
     )
     m.Hydrogen_Conservation_of_Mass_Annual = Constraint(
         m.LOAD_ZONES,
         m.PERIODS,
         rule=lambda m, z, p: sum(
-            (m.StoreLiquidHydrogenKg[z, ts] - m.WithdrawLiquidHydrogenKg[z, ts])
+            (m.StoreLiquidHydrogenKg[z, d] - m.WithdrawLiquidHydrogenKg[z, d])
             * m.ts_scale_to_year[ts]
             for ts in m.TS_IN_PERIOD[p]
+            for d in m.DATES_IN_TS[ts]
         )
         == 0,
     )
@@ -272,8 +277,9 @@ def define_components(m):
         m.LOAD_ZONES,
         m.PERIODS,
         rule=lambda m, z, p: sum(
-            m.StoreLiquidHydrogenKg[z, ts] * m.ts_scale_to_year[ts]
+            m.StoreLiquidHydrogenKg[z, d] * m.ts_scale_to_year[ts]
             for ts in m.TS_IN_PERIOD[p]
+            for d in m.DATES_IN_TS[ts]
         )
         <= m.LiquidHydrogenTankCapacityKg[z, p],
     )
