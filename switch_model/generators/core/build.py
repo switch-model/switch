@@ -824,22 +824,24 @@ def post_solve(m, outdir):
             m.gen_tech[g],
             m.gen_load_zone[g],
             m.gen_energy_source[g],
-            m.BuildGen[g, p] if (g, p) in m.BuildGen else 0.0,
+            m.BuildGen[g, p] if (g, p) in m.BuildGen else ".",
             (
                 m.BuildStorageEnergy[g, p]
                 if hasattr(m, "BuildStorageEnergy") and (g, p) in m.BuildStorageEnergy
-                else 0.0
+                else "."
             ),
             (
                 (m.gen_overnight_cost[g, p] + m.gen_connect_cost_per_mw[g])
                 * m.BuildGen[g, p]
+                + (
+                    m.BuildStorageEnergy[g, p]
+                    * m.gen_storage_energy_overnight_cost[g, p]
+                    if hasattr(m, "BuildStorageEnergy")
+                    and (g, p) in m.BuildStorageEnergy
+                    else 0.0
+                )
                 if (g, p) in m.BuildGen
-                else 0.0
-            )
-            + (
-                (m.BuildStorageEnergy[g, p] * m.gen_storage_energy_overnight_cost[g, p])
-                if hasattr(m, "BuildStorageEnergy") and (g, p) in m.BuildStorageEnergy
-                else 0.0
+                else "."
             ),
         ),
     )
@@ -878,7 +880,7 @@ def post_solve(m, outdir):
                 m.StorageEnergyCapacity[g, p]
                 if hasattr(m, "StorageEnergyCapacity")
                 and (g, p) in m.StorageEnergyCapacity
-                else 0.0
+                else "."
             ),
             m.GenCapitalCosts[g, p]
             + (
