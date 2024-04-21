@@ -45,217 +45,203 @@ dependencies = (
 def define_components(mod):
     """
 
-    WATER_NODES is the set of nodes of the water system that do not have
-    storage capacity. These usually represent confluence and/or divergence
-    of different water flows. Members of this set can be abbreviated as
-    wn or wnode.
+    WATER_NODES is the set of nodes of the water system that do not have storage
+    capacity. These usually represent confluence and/or divergence of different
+    water flows. Members of this set can be abbreviated as wn or wnode.
 
-    WNODE_TPS is a set showing all the combinations of
-    water nodes and timepoints, in which the conservation of mass law
-    must be enforced. For now it is initialized as the cross product of
-    the WATER_NODES and TIMEPOINTS sets, but it should be flexibilized
-    to allow for addition and removal of water nodes in intermediate
-    timepoints of the simulation horizon.
+    WNODE_TPS is a set showing all the combinations of water nodes and
+    timepoints, in which the conservation of mass law must be enforced. For now
+    it is initialized as the cross product of the WATER_NODES and TIMEPOINTS
+    sets, but it should be flexibilized to allow for addition and removal of
+    water nodes in intermediate timepoints of the simulation horizon.
 
-    wnode_constant_inflow[wn] is the value of constant inflow of
-    water at each node of the hydraulic system throughout the whole
-    simulation. Inflow refers to an external source of water that comes
-    into the system at the water node, such as rainfall. Water flows
-    that originate from an upstream model component, such as another water
-    node or a reservoir, are decided by the model and so must not be
-    specified here. This parameter is specified in cubic meters per second
-    (cumec) and defaults to 0.
+    wnode_constant_inflow[wn] is the value of constant inflow of water at each
+    node of the hydraulic system throughout the whole simulation. Inflow refers
+    to an external source of water that comes into the system at the water node,
+    such as rainfall. Water flows that originate from an upstream model
+    component, such as another water node or a reservoir, are decided by the
+    model and so must not be specified here. This parameter is specified in
+    cubic meters per second (cumec) and defaults to 0.
 
-    wnode_constant_consumption[wn] is the value of constant
-    consumption of water at each node of the hydraulic system throughout
-    the whole simulation. Consumption refers to any activity that takes
-    water out of the modeled hydraulic system, such as crop irrigation,
-    human and animal consumption, minimum ecological flow for a sink
-    node, etc. This parameter is specified in cubic meters per second
-    (cumec) and defaults to 0.
+    wnode_constant_consumption[wn] is the value of constant consumption of water
+    at each node of the hydraulic system throughout the whole simulation.
+    Consumption refers to any activity that takes water out of the modeled
+    hydraulic system, such as crop irrigation, human and animal consumption,
+    minimum ecological flow for a sink node, etc. This parameter is specified in
+    cubic meters per second (cumec) and defaults to 0.
 
-    wnode_tp_inflow[wn, t] and wnode_tp_consumption[wn, t]
-    are the values of water inflow and consumption at each node of the
-    hydraulic system specified at each timepoint. These are optional
-    parameters that default to wnode_constant_inflow and
-    wnode_constant_consumption. Depending on data availability,
-    these parameters may be used to represent different phenomena. In
-    example, the Chilean datasets specify water inflows due to rainfall
-    and melting snows at different nodes in a weekly basis. So, all
-    simulated timepoints that belong to the same week will have the same
-    wnode_tp_inflow parameter specified for each water node.
+    wnode_tp_inflow[wn, t] and wnode_tp_consumption[wn, t] are the values of
+    water inflow and consumption at each node of the hydraulic system specified
+    at each timepoint. These are optional parameters that default to
+    wnode_constant_inflow and wnode_constant_consumption. Depending on data
+    availability, these parameters may be used to represent different phenomena.
+    In example, the Chilean datasets specify water inflows due to rainfall and
+    melting snows at different nodes in a weekly basis. So, all simulated
+    timepoints that belong to the same week will have the same wnode_tp_inflow
+    parameter specified for each water node.
 
-    wn_is_sink[WATER_NODES] is a binary flag indicating whether a water
-    node is a sink. These nodes need not obey the law of conservation of
-    mass, so that water flows that go into them may be greater than the
-    ones that flow out. The main use case for these is to be the end of a
-    water basin (such as the ocean or a lake).
+    wn_is_sink[WATER_NODES] is a binary flag indicating whether a water node is
+    a sink. These nodes need not obey the law of conservation of mass, so that
+    water flows that go into them may be greater than the ones that flow out.
+    The main use case for these is to be the end of a water basin (such as the
+    ocean or a lake).
 
     node_spillage_cost is the parameter that sets the cost in $/(cubic meters)
     of spilling water out of the water network. This is equivalent to relaxing
     the conservation of mass law when balancing flows in each node and
     timepoint, so cost is set to a high default value. This parameter lets the
-    model spill water freely in sink nodes, but relaxes the equality
-    constraint for mass balance. This aids the solver in obtaining optimal
-    solutions significantly faster and with small water spillages.
+    model spill water freely in sink nodes, but relaxes the equality constraint
+    for mass balance. This aids the solver in obtaining optimal solutions
+    significantly faster and with small water spillages.
 
-    SpillWaterAtNode[WNODE_TPS] are  the decisions of
-    water spillage out of the water network at each node and timepoint
-    in  cubic meters per second.
+    SpillWaterAtNode[WNODE_TPS] are  the decisions of water spillage out of the
+    water network at each node and timepoint in  cubic meters per second.
 
 
-    RESERVOIRS is a subset of water nodes that are reservoirs. These
-    require additional characterization. Members of this set may be
-    abbreviated as r or res.
+    RESERVOIRS is a subset of water nodes that are reservoirs. These require
+    additional characterization. Members of this set may be abbreviated as r or
+    res.
 
-    res_min_vol[r] is a parameter that specifies the minimum storage
-    capacity of the reservoir in millions of cubic meters. Usually
-    this will be a positive value, since reservoirs cannot be
-    completely emptied because of physical limitations, but it is
-    allowed to be 0 in case relative volumes want to be used.
+    res_min_vol[r] is a parameter that specifies the minimum storage capacity of
+    the reservoir in millions of cubic meters. Usually this will be a positive
+    value, since reservoirs cannot be completely emptied because of physical
+    limitations, but it is allowed to be 0 in case relative volumes want to be
+    used.
 
-    res_max_vol[r] is a parameter that specifies the maximum storage
-    capacity of the reservoir in millions of cubic meters. If at any
+    res_max_vol[r] is a parameter that specifies the maximum storage capacity of
+    the reservoir in millions of cubic meters. If at any timepoint the volume of
+    water in the reservoir reaches this limit, spillage may occur to mantain the
+    mass balance. This parameter is determined by the physical characteristics
+    of the reservoir.
 
-    timepoint the volume of water in the reservoir reaches this limit,
-    spillage may occur to mantain the mass balance. This parameter is
-    determined by the physical characteristics of the reservoir.
+    RESERVOIR_TPS is a set showing all the combinations of reservoirs and
+    timepoints, in which the conservation of mass law must be enforced. For now
+    it is initialized as the cross product of the RESERVOIRS and TIMEPOINTS
+    sets, but it should be flexibilized to allow for addition and removal of
+    reservoirs in intermediate timepoints of the simulation horizon.
 
-    RESERVOIR_TPS is a set showing all the combinations of
-    reservoirs and timepoints, in which the conservation of mass law
-    must be enforced. For now it is initialized as the cross product of
-    the RESERVOIRS and TIMEPOINTS sets, but it should be flexibilized
-    to allow for addition and removal of reservoirs in intermediate
-    timepoints of the simulation horizon.
+    res_min_vol_tp[r, t] and res_max_vol_tp[r, t] are the values of allowable
+    minimum and maximum water volume at each reservoir specified at each
+    timepoint. These may be used to represent seasonal restrictions in water
+    levels at any reservoir. In example, minimum volumes of water must be kept
+    during summer at some reservoirs to allow for leisure and tourism
+    activities, such as water sports. These parameters are optional and must be
+    specified in cubic meters and default to reservoir_min_vol and
+    reservoir_max_vol.
 
-    res_min_vol_tp[r, t] and res_max_vol_tp[r, t] are the
-    values of allowable minimum and maximum water volume at each
-    reservoir specified at each timepoint. These may be used to represent
-    seasonal restrictions in water levels at any reservoir. In example,
-    minimum volumes of water must be kept during summer at some reservoirs
-    to allow for leisure and tourism activities, such as water sports.
-    These parameters are optional and must be specified in cubic meters
-    and default to reservoir_min_vol and reservoir_max_vol.
-
-    initial_res_vol[r] is a parameter that states the starting volume
-    of stored water in each reservoir in millions of cubic meters. The
-    same value will be used as a starting point in each period of the
-    simulation, independent of which was the final level at the last
-    timepoint of the previous period. This methodology has been used
-    in several expansion planning papers  that include reservoir hydro
-    power plants, because it allows decoupling the operational
+    initial_res_vol[r] is a parameter that states the starting volume of stored
+    water in each reservoir in millions of cubic meters. The same value will be
+    used as a starting point in each period of the simulation, independent of
+    which was the final level at the last timepoint of the previous period. This
+    methodology has been used in several expansion planning papers  that include
+    reservoir hydro power plants, because it allows decoupling the operational
     subproblems of each period and thus speeding up the optimization
     considerably.
 
-    final_res_vol[r] is a parameter that states the final volume of
-    stored water in each reservoir in millions of cubic meters. This
-    level is enforced as a minimum for the final volume. Usually, this
-    parameter is specified to be the same as  the initial volume, so
-    that the reservoir may only arbitrage with the water inflows that
-    come into it during the period.
+    final_res_vol[r] is a parameter that states the final volume of stored water
+    in each reservoir in millions of cubic meters. This level is enforced as a
+    minimum for the final volume. Usually, this parameter is specified to be the
+    same as  the initial volume, so that the reservoir may only arbitrage with
+    the water inflows that come into it during the period.
 
-    ReservoirVol[r, t] is a variable that tracks the volume of water
-    at each reservoir in the beginging of each timepoint, specified in
-    cubic meters. This variable is determined by the volume in the
-    previous timepoint, the inflows and the outflows.
+    ReservoirVol[r, t] is a variable that tracks the volume of water at each
+    reservoir in the beginging of each timepoint, specified in millions of cubic
+    meters. This variable is determined by the volume in the previous timepoint,
+    the inflows and the outflows.
 
-    ReservoirFinalVol[r, p] is the amount of water in the reservoir after
-    the last timepoint of each period.
+    ReservoirFinalVol[r, p] is the amount of water in the reservoir after the
+    last timepoint of each period.
 
-    WATER_CONNECTIONS is the set of flows that begin and end in different
-    water bodies, such as reservoirs and nodes. The model decides how much
-    water is "dispatched" through each connection at each timepoint. Water
-    may only flow in one direction, so "to" and "from" parameters must be
-    inputted. Members of this set may be abbreviated by wc or wcon.
+    WATER_CONNECTIONS is the set of flows that begin and end in different water
+    bodies, such as reservoirs and nodes. The model decides how much water is
+    "dispatched" through each connection at each timepoint. Water may only flow
+    in one direction, so "to" and "from" parameters must be inputted. Members of
+    this set may be abbreviated by wc or wcon.
 
-    WCON_TPS is the set of the cross product between
-    TIMEPOINTS and WATER_CONNECTIONS. In the future, this should be
-    flexibilized to allow for new water connections to be created within
-    the simulation horizon (as with WNODE_TPS and
-    RESERVOIR_TPS).
+    WCON_TPS is the set of the cross product between TIMEPOINTS and
+    WATER_CONNECTIONS. In the future, this should be flexibilized to allow for
+    new water connections to be created within the simulation horizon (as with
+    WNODE_TPS and RESERVOIR_TPS).
 
-    water_node_from[wc] is a parameter that specifies the water body from
-    which the connection extracts water.
+    water_node_from[wc] is a parameter that specifies the water body from which
+    the connection extracts water.
 
-    water_node_to[wc] is a parameter that specifies the water body to which
-    the connection injects water.
+    water_node_to[wc] is a parameter that specifies the water body to which the
+    connection injects water.
 
-    wc_capacity[wc] is a parameter that specifies the limit, in cubic
-    meters per second, of the water flow through the connection. This
-    datum is difficult to find, but could be relevant in some cases where
-    rivers or streams have a defined capacity and greater flows could
-    cause them to collapse and/or flood the surrounding area. Defaults
-    to 9999 cumec.
+    wc_capacity[wc] is a parameter that specifies the limit, in cubic meters per
+    second, of the water flow through the connection. This datum is difficult to
+    find, but could be relevant in some cases where rivers or streams have a
+    defined capacity and greater flows could cause them to collapse and/or flood
+    the surrounding area. Defaults to infinity.
 
     min_eco_flow[wc, t] is a parameter that indicates the minimum ecological
     water flow that must be dispatched through each water connection at each
-    timepoint, specified in cubic meters per second. The parameter is
-    indexed by timepoint to allow for representation of seasonal or hourly
-    ecological or social constraints. This is an optional parameter that
-    defaults to 0.
+    timepoint, specified in cubic meters per second. The parameter is indexed by
+    timepoint to allow for representation of seasonal or hourly ecological or
+    social constraints. This is an optional parameter that defaults to 0.
 
-    DispatchWater[wc, t] is a variable that represents how much water is
-    flowing through each water connection at each timepoint. The lower bound is
-    m.min_eco_flow[wc, t] and the upper bound is m.wc_capacity[wc].
+    DispatchWater[wc, t] is a variable that represents how much water is flowing
+    through each water connection at each timepoint, in cubic meters per second.
+    The lower bound is m.min_eco_flow[wc, t] and the upper bound is
+    m.wc_capacity[wc].
 
-    Enforce_Wnode_Balance[(wn, t) for (wn, t) in WNODE_TPS]
-    is a constraint that enforces conservation of mass at water nodes. This
-    accounts for any spills at sink nodes, or any change in reservoir volume
-    between one timepoint and the next. This also links the reservoir volumes
-    between timepoints, and enforces the final reservoir volume constraint.
+    Enforce_Wnode_Balance[(wn, t) for (wn, t) in WNODE_TPS] is a constraint that
+    enforces conservation of mass at water nodes. This accounts for any spills
+    at sink nodes, or any change in reservoir volume between one timepoint and
+    the next. This also links the reservoir volumes between timepoints, and
+    enforces the final reservoir volume constraint.
 
-    HYDRO_GENS is a subset of GENERATION_PROJECTS which are to be linked with the
-    hydraulic system. Both reservoir generators as well as hydroelectric
-    projects in series must be specified as HYDRO_GENS and will be
-    treated the same. Members of this set may be abbreviated as hproj.
+    HYDRO_GENS is a subset of GENERATION_PROJECTS which are to be linked with
+    the hydraulic system. Both reservoir generators as well as hydroelectric
+    projects in series must be specified as HYDRO_GENS and will be treated the
+    same. Members of this set may be abbreviated as hproj.
 
-    HYDRO_GEN_TPS is a subset of GEN_TPS only with
-    projects that belong to the HYDRO_GENS set. This set is used to
-    index the electricity generation decisions.
+    HYDRO_GEN_TPS is a subset of GEN_TPS only with projects that belong to the
+    HYDRO_GENS set. This set is used to index the electricity generation
+    decisions.
 
     hydro_efficiency[hproj] is a parameter that specifies the hydraulic
-    efficiency of a project, in units of MW/(cubic meters per second).
-    The amount of power generated by a hydroelectric generator with a
-    certain flow depends on the water head. This creates a non linear
-    relationship between the generated power per water flow and the volume
-    of stored water. In this module the efficiency is assumed to be a
-    constant for each project, to keep the problem linear.
+    efficiency of a project, in units of MW/(cubic meters per second). The
+    amount of power generated by a hydroelectric generator with a certain flow
+    depends on the water head. This creates a non linear relationship between
+    the generated power per water flow and the volume of stored water. In this
+    module the efficiency is assumed to be a constant for each project, to keep
+    the problem linear.
 
-    hydraulic_location[hproj] is a parameter that specifies the water
-    connection in which each hydro project is located. Multiple projects
-    may be located at the same connection, which allows modeling of
-    cascading generation.
+    hydraulic_location[hproj] is a parameter that specifies the water connection
+    in which each hydro project is located. Multiple projects may be located at
+    the same connection, which allows modeling of cascading generation.
 
-    TurbinateFlow[hg, t] is a variable that represents the water flow,
-    in cubic meters per second, that is passed through the turbines of each
-    project at each timepoint. This is the flow that is used to generate
-    electricity.
+    TurbinateFlow[hg, t] is a variable that represents the water flow, in cubic
+    meters per second, that is passed through the turbines of each project at
+    each timepoint. This is the flow that is used to generate electricity.
 
-    SpillFlow[hg, t] is a variable that represents the water flow,
-    in cubic meters per second, that is spilled by each project at each
-    timepoint. All spilled water is considered to be returned to the same
-    water connection from which it was originally extracted.
+    SpillFlow[hg, t] is a variable that represents the water flow, in cubic
+    meters per second, that is spilled by each project at each timepoint. All
+    spilled water is considered to be returned to the same water connection from
+    which it was originally extracted.
 
     Enforce_Hydro_Generation[hg, t] is the constraint that forces power
-    generation at each hydro project to be equal to the flow of water that
-    goes through its turbines, times its hydro efficiency. This relation
-    is observed at each timepoint.
+    generation at each hydro project to be equal to the flow of water that goes
+    through its turbines, times its hydro efficiency. This relation is observed
+    at each timepoint.
 
     Enforce_Hydro_Extraction[hg, t] is the constraint that mantains the
-    conservation of mass at each project's water extraction point, so that
-    the sum of the flows that go through its turbines and the one that is
-    spilled are equal to the water that is flowing at each timepoint through
-    the water connection where it is located.
+    conservation of mass at each project's water extraction point, so that the
+    sum of the flows that go through its turbines and the one that is spilled
+    are equal to the water that is flowing at each timepoint through the water
+    connection where it is located.
 
     -----
     TODO:
     -Implement pumped storage
 
-    -Allow setting the water spillage cost as a parameter. The default
-    of 10000 US$/cumecshould prevent significant water spillage in
-    non-sink nodes in mostcases. Nonetheless, some users could want to
-    lower the penalties forsome nodes in order to get faster solution
-    times, and other could want to raise them to avoid spilling completely.
+    -Allow setting the water spillage cost as a parameter. The default of 10000
+    US$/cumec should prevent significant water spillage in non-sink nodes in
+    most cases. Nonetheless, some users could want to lower the penalties for
+    some nodes in order to get faster solution times, and others could want to
+    raise them to avoid spilling completely.
 
     """
     #################
@@ -413,11 +399,13 @@ def define_components(mod):
     mod.Cost_Components_Per_TP.append("NodeSpillageCosts")
 
     ################
-    # Hydro projects
+    # Hydro projects and available timepoints
     mod.HYDRO_GENS = Set(dimen=1, within=mod.GENERATION_PROJECTS)
     mod.HYDRO_GEN_TPS = Set(
-        dimen=2, initialize=mod.GEN_TPS, filter=lambda m, g, t: g in m.HYDRO_GENS
+        dimen=2,
+        initialize=lambda m: ((g, tp) for g in m.HYDRO_GENS for tp in m.TPS_FOR_GEN[g]),
     )
+
     mod.hydro_efficiency = Param(mod.HYDRO_GENS, within=NonNegativeReals)
     mod.hydraulic_location = Param(mod.HYDRO_GENS, within=mod.WATER_CONNECTIONS)
     mod.TurbinateFlow = Var(mod.HYDRO_GEN_TPS, within=NonNegativeReals)
@@ -470,7 +458,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         optional=True,
         filename=os.path.join(inputs_dir, "water_node_tp_flows.csv"),
-        optional_params=["mod.wnode_tp_inflow", "mod.wnode_tp_consumption"],
+        optional_params=["wnode_tp_inflow", "wnode_tp_consumption"],
         param=(mod.wnode_tp_inflow, mod.wnode_tp_consumption),
     )
     switch_data.load_aug(
@@ -491,7 +479,7 @@ def load_inputs(mod, switch_data, inputs_dir):
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "reservoir_tp_data.csv"),
         optional=True,
-        optional_params=["mod.res_max_vol_tp", "mod.res_min_vol_tp"],
+        optional_params=["res_max_vol_tp", "res_min_vol_tp"],
         param=(mod.res_max_vol_tp, mod.res_min_vol_tp),
     )
     switch_data.load_aug(

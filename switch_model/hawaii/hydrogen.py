@@ -26,7 +26,6 @@ def define_components(m):
 
 
 def define_hydrogen_components(m):
-
     # electrolyzer details
     m.hydrogen_electrolyzer_capital_cost_per_mw = Param(within=NonNegativeReals)
     m.hydrogen_electrolyzer_fixed_cost_per_mw_year = Param(
@@ -239,6 +238,8 @@ def define_hydrogen_components(m):
         rule=lambda m, z, t: m.HydrogenFuelCellMaxReservePower[z, t]
         <= 2.0 * m.ElectrolyzerCapacityMW[z, m.tp_period[t]],
     )
+
+    # TODO: add fuel cells to planning reserves by adding them to m.CAPACITY_FOR_RESERVES
 
     # how much extra power could hydrogen equipment produce or absorb on short notice (for reserves)
     m.HydrogenSlackUp = Expression(

@@ -392,10 +392,8 @@ def save_inputs_as_dat(
     """
     # helper function to convert values to strings,
     # putting quotes around values that start as strings
-    quote_str = (
-        lambda v: '"{}"'.format(v)
-        if isinstance(v, string_types)
-        else "{}".format(str(v))
+    quote_str = lambda v: (
+        '"{}"'.format(v) if isinstance(v, string_types) else "{}".format(str(v))
     )
     # helper function to create delimited lists from single items or iterables of any data type
     from switch_model.reporting import make_iterable
@@ -800,6 +798,9 @@ def load_aug(switch_data, optional=False, optional_params=[], **kwargs):
     if optional and file_has_no_data_rows:
         # Skip the file.  Note that we are only doing this after having
         # validated the file's column headings.
+        # TODO: allow skipping even if the table is not optional, to deal with
+        # .csv files with empty index sets. This may be equivalent to
+        # https://github.com/Pyomo/pyomo/issues/1083#issuecomment-723528448
         return
     # All done with cleaning optional bits. Pass the updated arguments
     # into the DataPortal.load() function.
