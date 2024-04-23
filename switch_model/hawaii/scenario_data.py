@@ -1369,7 +1369,7 @@ def db_cursor():
                 PGHOST = hostname or IP address of postgres server
                 PGDATABASE = name of switch database on this server.
                 There should also be a line like "*:*:*:<user>:<password>" in ~/.pgpass (which should be chmod 0600)
-                or in %APPDATA%\postgresql\pgpass.conf (Windows).
+                or in %APPDATA%\\postgresql\\pgpass.conf (Windows).
                 See http://www.postgresql.org/docs/9.1/static/libpq-pgpass.html for more details.
                 ############################################################################################
                 """.format(
