@@ -1,4 +1,172 @@
 -------------------------------------------------------------------------------
+Switch 2.0.8
+-------------------------------------------------------------------------------
+This release includes several new features, bug fixes and compatibility
+improvements. It should have minimal effect on results from existing models
+other than some improvements and bug fixes in the electricity_cost.csv output
+file.
+
+The updates are summarized below. For more details, see the [git commit log](https://github.com/switch-model/switch/blob/master/updates208.txt).
+
+**Changes that may affect existing models and results**
+
+- In Switch 2.0.7 and earlier, the `SystemCostPerPeriod_Real` column in
+  `outputs/electricity_cost.csv` was a (mislabeled) annual cost but
+  `SystemDemand_MWh` was a total for the whole period. The
+  `EnergyCostReal_per_MWh` was calculated as the ratio of these, making it too
+  low by a factor equal to the number of years in the period. Starting with
+  Switch 2.0.8, we report both costs and quantities on a per-year basis
+  (`SystemCostPerYear_Real` and `SystemDemandPerYear_MWh`), and the error in
+  `EnergyCostReal_per_MWh` has been corrected.
+- Pyomo dependencies have been updated to to versions 6.0.0-6.7.1 (the current
+  latest version).
+  - If you are using Pyomo 5.7, you will need to update to at least 6.0. This
+    change was made to avoid complex dependencies on `pyutilib`.
+- Made `--no-save-solution` the default behavior, so the large `results.pickle`
+  file will not be written unless requested. Users who have previously set this
+  flag should now remove it. Users who need the `results.pickle` file (sometimes
+  useful for reloading and inspecting a previous solution, with
+  `--reload-prior-solution`) should add the new `--save-solution-file` flag.
+- Fixed a bug in `hawaii.save_results` that erroneously grouped all generators
+  into the same zone in `capacity_used_by_technology.csv` and
+  `production_by_technology.csv`
+- `build_gen.csv` will now contain a `.` instead of `0.0` for periods when
+  generators can't be built
+- Fixed a bug that previously crashed Switch when using the gurobi or cplex
+  solver without any suffixes.
+- Fixed a bug that previously dropped users into a debugging terminal when
+  an infeasible model was encountered.
+- Fixed a bug that crashed `hawaii.save_results` if the model did not use the
+  `transmission.local_td` module
+- Fixed bugs in `balancing.diagnose_infeasibility` that would crash when
+  analyzing singleton constraints or constraints formulated as (lower_bound,
+  expression, upper_bound).
+
+**New features**
+
+- Added a hydrogen production module. This produces a fuel (by default called
+  "Hydrogen") that can be used by any generator.
+  - There is assumed to be one set of hydrogen production equipment per load
+    zone, and one possible cost for each component, regardless of location.
+    Hydrogen production equipment, once built, continues to the end of the study
+    (similar to transmission infrastructure).
+  - This feature can be turned on by adding
+    `switch_model.energy_sources.hydrogen.production` to your module list and
+    adding parameters for each production component to `inputs/hydrogen.csv`.
+  - Components include
+    - electrolyzer (cost per MW power rating and per kg produced, kg of hydrogen
+      produced per MWh of power consumed, lifespan),
+    - liquefier/refrigerator (capital and fixed costs per kg/hr of capacity,
+      variable cost per kg produced, MWh of electricity required per kg
+      liquefied, lifespan) and
+    - liquid storage tank (cost per kg of capacity, lifespan).
+  - The module is designed to represent storage of liquefied hydrogen in
+    NASA-type above ground tanks, but it can be used to represent compressed
+    hydrogen storage instead by setting the liquefier energy requirement and
+    cost to zero, so compressed hydrogen can be stored as if there were no cost
+    for liquefication.
+  - This module assumes production within the day can be used without a tank,
+    but any surplus or shortfall for the day must be moved to a tank, and the
+    tank must be large enough to hold all the withdrawals for the whole year.
+    This formulation will work regardless of the actual order of removals, so it
+    avoids the need to link sequences of days. However, if tank costs are high,
+    it may be overly conservative.
+  - If using this module with multi-day timeseries, you should fill in date
+    markers in the `td_date` column of `inputs/timepoints.csv` (see below).
+  - An example implementation can be found in
+    [`examples/hydrogen`](https://github.com/switch-model/switch/tree/master/examples/hydrogen)
+  - Future work could extend this to allow different costs for different
+    locaitons and vintages, retire components at end of life, allow multiple
+    production facilities per zone, better represent compressed (not liquefied)
+    storage and consider the sequence of dates in the year when setting the tank
+    size.
+- Added option to perform optimal early retirement and suspension for generators
+  - Setting `gen_can_retire_early` or `gen_can_suspend` flags in `gen_info.csv`
+    to `True` or `1` now allows generators to be retired permanently or
+    temporarily suspended before they reach their maximum age. In both cases,
+    the amount of capacity of a particular vintage that is offline in a given
+    period will be shown by the new `SuspendGen` variable. These both default to
+    `False`/`0`, and `gen_can_suspend` will take precedence (temporary
+    suspension will be allowed) if both are set to `True`/`1`.
+  - The `GenCapacity` expression now reports only capacity that has not been
+    suspended, and a new column in `gen_cap.csv`, `SuspendGen_total`, shows the
+    total capacity in each generation project that is suspended/inactive in each
+    period.
+  - Suspended generators avoid fixed O&M costs, but must continue to pay
+    capital recovery (amortized capital costs) as normal.
+- Added generator retrofit capability via a new
+  `switch_model.generators.extensions.retrofit` module. This makes it possible
+  to define retrofit generators that supersede existing generators.
+  - Retrofit options are implemented by defining a new generation project that
+    can replace a previously built one (i.e., it performs like the original
+    generator plus the retrofit) and adding columns to `gen_retrofits.csv`
+    showing all allowed combinations of base projects that can be replaced by
+    retrofit projects. In each row, `base_gen_project` shows the name of the
+    original (base) project and `retrofit_gen_project` shows the name of a
+    retrofit project that can replace it.
+  - Retrofit projects will only be built if the base project has also been built
+    in the same or an earlier period. When a base project is retrofitted, the
+    base project is suspended (via SuspendGen) and the retrofit version is built
+    and operated instead. In addition, retrofit projects are automatically
+    suspended at the end of life of the base project. (To enable these
+    behaviors, `gen_can_retire_early` or `gen_can_suspend` must be set to `True`
+    or `1` in `gen_info.csv` for both the base project and the retrofit
+    version.)
+  - Because of this framing, retrofitted projects will have capital expenditure
+    equal to the capital recovery for the base project plus capital recovery for
+    the retrofit project. So gen_overnight_cost for the retrofit project should be
+    set equal to the cost of the retrofit work, not the combined project. However,
+    fixed and variable O&M will no longer be collected for the base project, so
+    O&M cost inputs for the retrofit project should be the ones that apply for the
+    total retrofitted project.
+  - Capital recovery for the retrofitted project will be amortized over the
+    remaining life of the base project that it replaces, which may cause faster
+    capital recovery than would otherwise be expected for these assets.
+  - A working example is available in
+    [`examples/retrofits`](https://github.com/switch-model/switch/tree/master/examples/retrofits)
+- Added `tp_date` parameter to identify which date each timepoint falls on. This is
+  used by modules that enforce constraints between hours of the same date (e.g.,
+  hydrogen production or intra-day demand response). It defaults to be the same as
+  the timeseries (the previous behavior), which works fine if each timeseries is
+  one day long. But if models use multi-day timeseries, they should specify a
+  code for the corresponding date for each timepoint in the `tp_date` column of
+  `inputs/timepoints.csv`.
+- Added `--retire {early, mid, late}` command-line flag. This flag controls
+  whether to retire projects at the start of the period when they reach
+  end-of-life ('early') (i.e., only run if they survive to the end of the
+  period), or retire them if they survive past the middle of the period ('mid'),
+  or extend operation to the end of the period when they reach end-of-life
+  ('late'). Late is the default and matches previous behavior by Switch. Early
+  and mid match some other models' behavior. Note that `early` requires that a
+  project's life extends not just up to the end of the period, but beyond it
+  into the next period, or else it will retire at the start of the period.
+- Added a new, optional `gen_storage_energy_fixed_om` parameter to
+  `gen_build_costs.csv` to indicate fixed O&M costs for the energy component of
+  storage projects. Note that no column is needed for variable O&M for the
+  energy component, because this is already covered by `gen_variable_om` for the
+  power component.
+- Switch now allows negative values for fixed and variable O&M for generators.
+  These can be useful for representing subsidies that produce net-negative
+  carrying or operating costs.
+- Switch is now compatible with `appsi_highs` and other [appsi_*](https://pyomo.readthedocs.io/en/stable/library_reference/appsi/appsi.solvers.html) solvers.
+  - HiGHS is one of the fastest open-source solvers we have found for
+    medium-sized models.
+    - To use HiGHS, first install Switch following the standard
+      instructions, then install HiGHS itself into your environment via either a
+      binary download or `conda install highs`, then install the HiGHS-Python
+      bindings into your environment via `pip install highspy`, then run with
+      `--solver appsi_highs`. (It is also possible to download an AMPL-compatible
+      version of HiGHS from https://portal.ampl.com/user/ampl/download/highs,
+      place it in your path and then set --solver highs.)
+    - `appsi_highs` requires Pyomo 6.4.3 or later. The ampl version of HiGHS can
+      be used with any version of Pyomo.
+  - CBC is another of the fastest open-source solvers we have found for
+    medium-sized models. It can be installed on Linux and macOS via
+    `conda install coincbc`, then use `--solver cbc` or `--solver appsi_cbc`.
+    It currently has [limited availability](https://stackoverflow.com/questions/58868054/how-to-install-coincbc-using-conda-in-windows) for Windows.
+
+
+-------------------------------------------------------------------------------
 Switch 2.0.7
 -------------------------------------------------------------------------------
 This release includes a large number of new features and compatibility and

@@ -1,0 +1,272 @@
+commit c3ca7763bc3470479a1acaf1c91f77089221252c
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Tue Apr 23 10:01:51 2024 +0900
+
+    update dependencies for 2.0.8
+
+commit b5b89e8863cf7c6babee06af33acb5ca0f71a491
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Mon Apr 22 11:31:50 2024 -0700
+
+    bump version to 2.0.8
+
+commit 1f1948bb72c45900ee4fde8748283cbb79ed94e0
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Sun Apr 21 16:13:38 2024 -0700
+
+    fix bugs in hawaii.save_results
+
+commit 7bc4d531fecf7c313de6956367e7a5a9a4b1b482
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Sun Apr 21 15:52:50 2024 -0700
+
+    Add tp_date parameter to identify which date each timepoint falls on
+    
+    This is used by modules that enforce constraints between hours of the
+    same date (e.g., hydrogen production or simple demand response). It
+    defaults to be the same as the timeseries, which works fine if each
+    timeseries is one day long. But if models use multi-day timeseries,
+    they should specify a code for the corresponding date for each timepoint
+    in the tp_date column of inputs/timepoints.csv.
+
+commit 7641dce5221a6b215f249c071a5f47e6164c6288
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Sun Apr 21 15:12:37 2024 -0700
+
+    Add hydrogen production module and example
+
+commit 99e691817fccd00edbe9c3c05d2d383fb1b4fb1c
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Sun Apr 21 10:34:47 2024 -0700
+
+    Add generator retrofit capability (switch_model.generators.extensions.retrofit)
+    
+    The switch_model.generators.extensions.retrofit module makes it possible to
+    define retrofits for existing generators. These are done by defining a new
+    generation project that can replace a previously built one (i.e., it performs
+    like the original generator plus the retrofit) and adding columns to
+    `gen_retrofits.csv` showing all allowed combinations of base projects that can
+    be replaced by retrofit projects. In each row, `base_gen_project` shows the
+    name of the original (base) project and `retrofit_gen_project` shows the name
+    of a retrofit project that can replace it.
+    
+    Retrofit projects will only be built if the base project has also been built
+    in the same or an earlier period. When a base project is retrofitted, the base
+    project is suspended (via SuspendGen) and the retrofit version is built and
+    operated instead. In addition, retrofit projects are automatically suspended
+    at the end of life of the base project. (To enable these behaviors,
+    gen_can_retire_early or gen_can_suspend must be set to True or 1 in
+    gen_info.csv for both the base project and the retrofit version.)
+    
+    Because of this framing, retrofitted projects will have capital expenditure
+    equal to the capital recovery for the base project plus capital recovery for
+    the retrofit project. So gen_overnight_cost for the retrofit project should be
+    set equal to the cost of the retrofit work, not the combined project. However,
+    fixed and variable O&M will no longer be collected for the base project, so
+    O&M cost inputs for the retrofit project should be the ones that apply for the
+    total retrofitted project.
+    
+    Capital recovery for the retrofitted project will be amortized over the
+    remaining life of the base project that it replaces, which may cause faster
+    capital recovery than would otherwise be expected for these assets.
+
+commit 711819ac5c17e07174d4f6f6f0edf569aff03b45
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Sun Apr 21 09:37:51 2024 -0700
+
+    update examples/*/total_cost.txt
+
+commit c71131ec952314a16dd51f5374d5b4b64b3db4d3
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Sun Apr 21 09:23:58 2024 -0700
+
+    Report '.' instead of 0.0 in build_gen.csv for periods when gens can't be built
+
+commit 68392392fa386e7d2b11d87596fceb65ce39f5ff
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Sun Apr 21 09:10:13 2024 -0700
+
+    Implement --retire {early, mid, late} flag
+    
+    This flag controls whether to retire projects at the start of the period
+    when they reach end-of-life ('early') (i.e., only run if they survive to
+    the end of the period), or retire them if they survive past the middle of
+    the period ('mid'), or extend operation to the end of the period when
+    they reach end-of-life ('late'). Late is the default and matches
+    previous behavior by Switch. Early and mid match some other models'
+    behavior.
+
+commit 500226a15e7ebb11566b17eaf0b7a106070d0354
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Sun Apr 21 09:02:43 2024 -0700
+
+    Add early retirement and suspsension for generators
+    
+    Setting gen_can_retire_early or gen_can_suspend flags to True or 1 in
+    gen_info.csv enables generators to be retired permanently or temporarily
+    suspended before they reach their maximum age. In both cases, the amount of
+    capacity of a particular vintage that is offline in a given period will be
+    shown by the SuspendGen variable. These both default to False/0, and
+    gen_can_suspend will take precedence (temporary suspension will be allowed)
+    if both are set to True/1.
+    
+    GenCapacity now reports only capacity that has not been suspended, and a
+    new column in gen_cap.csv, SuspendGen_total, shows the total capacity in
+    each generation project that is suspended/inactive in each period.
+    
+    Suspended generators avoid fixed O&M costs, but must continue to pay
+    capital recovery (amortized capital costs) as normal.
+
+commit 228af1741668f99eda56b3ce1eefcc9d56381ea7
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Sun Apr 21 08:17:42 2024 -0700
+
+    Add gen_storage_energy_fixed_om parameter for fixed O&M for energy component of storage projects
+
+commit cef311fe5478ade1f8ed3f24f4f79018a484ce50
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Sat Apr 20 21:45:42 2024 -0700
+
+    Fix pandas update error in upgrade_2_0_0b1
+
+commit 1ae0765df407a7418c8c498b8a27f8d8c3cfa3ff
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Sat Apr 20 21:44:20 2024 -0700
+
+    Improve code efficiency in hawaii.save_results
+
+commit 0c638309a0530fad3208771400c3db92dc2d87ed
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Sat Apr 20 21:43:17 2024 -0700
+
+    Fix hydro example column name and drop unused column
+
+commit 3585573151d6e59537c9018aed23c765b7e45ddb
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Sat Apr 20 21:40:07 2024 -0700
+
+    reformat code and add some TODO notes
+
+commit affe8f261ee4ee08f15efe04802a538c375280cd
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Sat Apr 20 21:35:34 2024 -0700
+
+    fix rare bug in generators.core.dispatch
+
+commit 20f36aae4b8c57fa0555bca349b18b361bdb1658
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Sat Apr 20 19:15:16 2024 -0700
+
+    allow negative O&M costs (e.g., with subsidies)
+
+commit bb19a6daa73c4f959ec6a22fdee0d8bcbac78d4e
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Sat Apr 20 19:14:16 2024 -0700
+
+    Streamline and reformat code
+
+commit 81f720b3d87fea5b78815ec42fde37270631937b
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Sat Apr 20 19:11:01 2024 -0700
+
+    Improve comments and maintainability for annual costs and quantities reported by financials module
+
+commit a69421cf6d9fc85158d83a8c038d53148a642900
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Sat Apr 20 19:06:14 2024 -0700
+
+    Fix rare bug and improve reporting for balancing.diagnose_infeasibility
+
+commit 67b7405237a9535afaf1aa97ab1380479ba6202c
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Sat Apr 20 19:05:21 2024 -0700
+
+    fix bugs and improve weighting for balancing.demand_response.iterative
+
+commit b971cdfb9f42387fa4e3500c29af971bd05478f6
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Sat Apr 20 18:58:11 2024 -0700
+
+    Make detection of unsolved models compatible with Pyomo 6.7+ and improve reporting
+
+commit 3c8e5138c5c1bedcc44cf05791b3fbcaa2ce541f
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Sat Apr 20 18:26:16 2024 -0700
+
+    Make --no-save-solution the default (and deprecated) and add --save-solution-file option
+
+commit ae2c46eab04fb29b5ea93e3bd7bc3ac98b2bea01
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Sat Apr 20 18:24:37 2024 -0700
+
+    Make compatible with appsi_highs and other appsi_* solvers
+
+commit 34eeccb2a3b3c9cacfa888ffa5f08bd7727d2321
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Sat Apr 20 18:22:23 2024 -0700
+
+    reformat and remove some obsolete code from solve.py
+
+commit 5a99c83d923254c580b726d0361fc08b5195c66e
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Fri Oct 6 19:46:36 2023 -0700
+
+    Use new Pyomo TempfileManager location to avoid deprecation warning
+
+commit 3ed4b9bfcb5a0e6ed53aaa080911dbb043344d3d
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Wed Sep 27 18:34:37 2023 -0700
+
+    Add `--scenario-argument-values <scenario-name>` option to `switch info` api
+    
+    This reads the current arguments for the specified scenario (or the base
+    scenario if no name is provided) and reports them back as a dictionary
+    with the destination for each argument as the key.
+    
+    This commit also updates `switch info --module-arguments` to report the
+    destination for each argument so it can be cross-referenced if needed.
+
+commit 1445b5dbd46f27568f44e715f61f6e34c1a66375
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Wed Sep 27 18:34:12 2023 -0700
+
+    Pre-sort and cache built-in modules for switch info --module-list
+
+commit 2632e3c55ce81427f2b44a02475ad60067e6cd8a
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Sep 19 18:29:12 2023 -0700
+
+    only report plural version of some flags from `switch info --module-arguments`
+
+commit 6e4368f2be57eeb18515241d9ee77f1735d6238f
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Sep 19 18:03:31 2023 -0700
+
+    add `switch info` with `--module-list` and `--module-arguments <modname>` flags
+    
+    We are in the process of implementing a GUI wrapper for Switch, which will work
+    with a bundled copy of Switch that runs as a command-line application. The GUI
+    app needs a way to learn which modules are available and which arguments they
+    take. This provides that capability. Results will be pretty printed to stdout
+    as Python code by default (generally not very useful, but maybe for diagnosis),
+    or sent as json code if the --json flag is used (best for calling from other
+    programs).
+    
+    The `--module-list` flag gives a list of all available modules in the search
+    path. In the future this will be updated to return them in the order they can
+    appear in modules.txt.
+    
+    The `--module-arguments <modname>` command reports all the command-line
+    arguments that can be accepted by module <modname>.
+
+commit 20e5f27d3d7a9b4cc75a657de443da3ba5f0b6b9
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Nov 15 13:39:53 2022 -0800
+
+    Fix bug for constraints with one-dimensional index sets in diagnose_infeasibility
+
+commit 07d858e70f00933d5244a5ea112c87e683467781
+Author: Matthias Fripp <mfripp@hawaii.edu>
+Date:   Tue Nov 8 08:51:07 2022 -0800
+
+    move gen_multiple_fuels.csv upgrade code from upgrade_2_0_6 to upgrade_2_0_7
