@@ -67,31 +67,28 @@ setup(
         "planning",
         "optimization",
     ],
-    # Pyomo <=6.4.2 crashes on Python 3.11, so we rule that out until they
-    # resolve it
-    python_requires=">=3.7.0, <3.11.0a0",
+    # We pin the upper limit for Pyomo and Python because there have been cases
+    # where Pyomo introduced non-backward compatible changes or started crashing
+    # with a new version of Python (e.g., Pyomo <=6.4.2 crashed on Python 3.11).
+    # There's still some chance users will end up with an incompatible mix with
+    # these or with other packages (e.g., newer versions of testfixtures don't
+    # work on older versions of Python without adding mock, and testfixtures
+    # 6.3.0 fails on Python >= 3.10), but we don't have an easy way to identify
+    # compatible mixes and we don't want to be overly restrictive.
+    # Note: testfixtures requires a separate mock installation if running with
+    # Python 3.7.0 or 3.7.1, so we require a higher version to avoid this. (Newer
+    # versions of Pyomo need 3.8+ anyway.)
+    python_requires=">=3.7.2, <3.13.0a0",
     install_requires=[
-        # Most of our code is compatible with Pyomo 5.5.1+, but Pyomo <=5.6.8
-        # has a bug that makes it fail to report when values are out of domain
-        # for a parameter. So we must require a later version than 5.6.8, which
-        # was the highest version we previously supported, so all users will
-        # need to upgrade their Pyomo version.
-        # In principle, we could accept Pyomo 5.6.9 with pyutilib 5.8.0 (works
-        # OK in testing), but we block that because Pyomo 5.6.9 says it's
-        # willing to work with pyutilib 6.0.0, but isn't actually compatible.
-        # We have to allow pyutilib 6.0.0 for the later versions of Pyomo and
-        # setuptools doesn't give us a way to say Pyomo 5.6.9 should only be
-        # installed with pyutilib 5.8.0, so we just block Pyomo 5.6.9.
-        "Pyomo >=5.7.0, <=6.4.2",
-        # Pyomo 5.7 specifies that it needs pyutilib >=6.0.0. We've seen cases
-        # cases where Pyomo released a later pyutilib that broke an earlier
-        # Pyomo (e.g., Pyomo 5.6.x with Pyutilib 6.0.0), so we had to
-        # retroactively pin the pyutilib version. Pyomo 6.0 phased out the
-        # pyutilib dependency, but we still pin at 6.0.0, just in case the user
-        # installs Pyomo 5.7 and Pyutilib releases an incompatible update.
-        "pyutilib ==6.0.0",
-        # pint is needed by Pyomo when running our tests, but isn't installed by
-        # Pyomo.
+        # In principle, we could accept Pyomo 5.6.9, but it tends to install
+        # a non-compatible version of pyutilib (needs 5.8.0 but accepts 6.0.0
+        # and then breaks). On the other hand, Pyomo 5.7 requires pyutilib 6.0.0
+        # and Pyomo 6.0 doesn't require pyutilib at all. So we now use Pyomo 6.0+
+        # and skip pyutilib.
+        "Pyomo >=6.0.0, <=6.7.1",
+        # pint is needed by Pyomo 6.4.1, 6.7.1 and probably others (but not
+        # 6.0.0) when running our tests. But it isn't listed as a Pyomo
+        # dependency, so we add it explicitly. (Still true as of Pyomo 6.7.1).
         "pint",
         # used for standard tests
         "testfixtures",
