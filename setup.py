@@ -105,12 +105,12 @@ setup(
         ],
         "dev": ["ipdb"],
         "plotting": [
-            # plotnine before <= 0.9.0 is not compatible with matplotlib >= 3.6
-            # later versions of plotnine may be, but for now we require that
-            # matplotlib be below 3.6.0 to ensure compatibility.
-            # See https://stackoverflow.com/a/73797154/
-            "plotnine<=0.9.0",
-            "matplotlib<3.6.0a0",
+            # We have previously had to work around incompatibilities between
+            # different versions of plotnine and matplotlib
+            # (https://stackoverflow.com/a/73797154/) but they seem to be
+            # resolved now.
+            "plotnine",
+            "matplotlib",
         ],
         "database_access": ["psycopg2-binary"],
     },
