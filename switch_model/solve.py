@@ -265,7 +265,7 @@ def main(args=None, return_model=False, return_instance=False):
 
             if instance.options.save_solution_file:
                 logger.info(f"\nSaving solution file...")
-                save_results(instance, instance.options.outputs_dir)
+                save_solution_file(instance, instance.options.outputs_dir)
                 logger.info(f"Saved solution file in {timer.step_time():.2f} s.")
 
         # report results
@@ -723,6 +723,16 @@ def define_arguments(argparser):
         """,
     )
     argparser.add_argument(
+        "--no-load-solution",
+        default=False,
+        action="store_true",
+        help="""
+            Attempt to solve model but do not load the results from the solver.
+            This can be useful for reporting additional information on models
+            that fail to solve.
+        """,
+    )
+    argparser.add_argument(
         "--reload-prior-solution",
         default=False,
         action="store_true",
@@ -1031,6 +1041,9 @@ def solve(model):
     # drop all the unspecified options
     solver_args = {k: v for (k, v) in solver_args.items() if v}
 
+    if model.options.no_load_solution:
+        solver_args["load_solutions"] = False
+
     # Automatically send any defined suffixes to the solver
     # This is mostly obsolete: appsi_* solvers won't accept any suffixes but
     # automatically adapt to duals, slack and rc; cplex and gurobi accept
@@ -1063,13 +1076,49 @@ def solve(model):
 
     try:
         results = model.solver_manager.solve(model, opt=model.solver, **solver_args)
-    except ValueError as err:
-        # show the solver status for obscure errors if possible
-        model.logger.error("\n" + "=" * 80 + "\nError during solve:\n")
-        try:
-            model.logger.error(err.__traceback__.tb_frame.f_locals["results"])
-        except:
-            pass
+    except Exception as err:
+        # report miscellaneous errors
+        # TODO: convert appsi's recommendations into Switch recommendations,
+        # i.e., create a --no-load-results option and tell the user to set that,
+        # then report the actual status (without results loaded, which will get
+        # us down to the invalid-solution step later...)
+        err_str = str(err)
+
+        # convert some errors to more useful form
+        if "Solver <class" in err_str and "is not available" in err_str:
+            raise RuntimeError(
+                f"Solver {model.options.solver} could not be found. "
+                "This is usually due to missing either the solver binary "
+                "software or the python bindings for it."
+            )
+        elif err_str.startswith(
+            "A feasible solution was not found, so no solution can be loaded."
+        ):
+            new_err = (
+                "A feasible solution was not found, so no solution could be loaded. "
+                "You may be able to obtain additional details by re-running Switch "
+                "with the `--no-load-solution` flag. "
+            )
+            if model.options.tee:
+                new_err += (
+                    "There may also be additional details in the solver log above."
+                )
+            else:
+                new_err += "The solver may also report additional details if you specify `--stream-solver`."
+            raise RuntimeError(new_err)
+
+        # Report and re-raise error as is
+        model.logger.error(
+            "\n" + "=" * 80 + "\nAn error occurred while solving the model:\n"
+        )
+        model.logger.error(err_str + "\n")
+        if model.options.tee:
+            model.logger.error("Check the solver log above for more details.")
+        else:
+            model.logger.error(
+                "Specify `--stream-solver` and then check the solver log for "
+                "more details."
+            )
         raise
 
     if model.options.tee:
@@ -1094,13 +1143,17 @@ def solve(model):
     )
 
     if results.solver.termination_condition == TerminationCondition.infeasible:
+        model.logger.info("")
         if hasattr(model, "iis"):
             model.logger.error(
-                "Model was infeasible; irreducibly inconsistent set (IIS) returned by solver:"
+                rewrap(
+                    "Model was infeasible; irreducibly inconsistent set (IIS) "
+                    "returned by solver:"
+                )
             )
             model.logger.error("\n".join(sorted(c.name for c in model.iis)))
         else:
-            model.logger.error("Model was infeasible. " + infeasibility_message)
+            model.logger.error(rewrap("Model was infeasible. " + infeasibility_message))
 
         # This infeasibility logging module could be nice, but it doesn't work
         # for my solvers and produces extraneous messages.
@@ -1108,16 +1161,42 @@ def solve(model):
         # pyomo.util.infeasible.log_infeasible_constraints(model)
         raise RuntimeError("Infeasible model")
 
-    # Raise an error if the solver failed to produce a solution
-    # Note that checking for results.solver.status in {SolverStatus.ok,
-    # SolverStatus.warning} is not enough because with a warning there will
-    # sometimes be a solution and sometimes not.
+    # There is no clear way to determine whether there is a solution, even if
+    # results.solver.status is not SolverStatus.ok. If results.solver.status ==
+    # SolverStatus.warning (maybe others too), there will sometimes be a
+    # solution and sometimes not (e.g., some solvers give a warning if iteration
+    # limit runs out but still return a valid model). For glpk, infeasible
+    # models produce SolverStatus.ok but termination condition "other" and a
+    # seemingly OK result object, but variable values of None in the model.
+    # Options we've considered:
+    # - (len(model.solutions.solutions) == 0 or
+    #   len(model.solutions[-1]._entry["variable"]) == 0)
+    #   - our standard test through Switch 2.0.7
+    #   - appsi solvers fail this test even when they have a solution
+    # - (results.problem.lower_bound == float("-inf") and
+    #   results.problem.upper_bound == float("inf"))
+    #   - always fails for ampl solvers
+    # - does the solve call raise an error?
+    #   - appsi raises error whenever there's no solution
+    #   - cplexamp raises error when there's no solution (e.g., iteration count
+    #     too low to get a candidate)
+    #   - cplexamp doesn't raise an error if model is proved infeasible
+    #   - glpk does not raise an error even if there's no solution
+    # - len(model.solutions.symbol_map) == 0
+    #   - ampl solver fails this even when it's successful
 
-    if results.problem.lower_bound == float(
-        "-inf"
-    ) and results.problem.upper_bound == float("inf"):
+    # Starting with 2.0.8, we just duck-type it: if the active objective is
+    # accessible valid, it must be OK, otherwise not.
+    try:
+        for o in model.component_objects(Objective):
+            if o.active:
+                # this mentions the first component that can't be evaluated,
+                # but this is a rare error and there's not much harm in that
+                o()
+    except ValueError:
         # no solution returned
-        model.logger.error("Solver terminated without a solution.")
+        model.logger.error("\n" + "=" * 80)
+        model.logger.error("\nSolver terminated without a solution:")
         model.logger.error(f"  Solver Status: {results.solver.status}")
         model.logger.error(
             f"  Termination Condition: {results.solver.termination_condition}"
@@ -1127,17 +1206,39 @@ def solve(model):
             and results.solver.termination_condition == TerminationCondition.other
         ):
             model.logger.error(
-                "Hint: glpk sometimes classifies infeasible problems as 'other'."
+                rewrap(
+                    "Hint: glpk sometimes reports infeasible problems as "
+                    "'Termination condition: other'."
+                )
             )
+        if model.options.no_load_solution:
+            model.logger.error(
+                "This may be resolved by removing the --no-load-solution flag."
+            )
+
+        if model.options.tee:
+            model.logger.error("Check the solver log above for more details.")
+        else:
+            model.logger.error(
+                "Specify `--stream-solver` and then check the solver log for "
+                "more details."
+            )
+
             model.logger.error(infeasibility_message)
-        raise RuntimeError("Solver failed to find an optimal solution.")
+        model.logger.error("")  # add extra line to set info apart
+        raise RuntimeError("Solver failed to produce a solution.")
 
     # Report any warnings; these are written to stderr so users can find them in
     # error logs (e.g. on HPC systems). These can occur, e.g., if solver reaches
     # time limit or iteration limit but still returns a valid solution
-    if results.solver.status == SolverStatus.warning:
+    if results.solver.status != SolverStatus.ok:
+        stat = (
+            "warning"
+            if results.solver.status == SolverStatus.warning
+            else "unexpected status"
+        )
         model.logger.warning(
-            "Solver terminated with warning.\n"
+            f"Solver terminated with {stat}.\n"
             f"  Solver Status: {results.solver.status}\n"
             f"  Solution Status: {model.solutions[-1].status}\n"
             f"  Termination Condition: {results.solver.termination_condition}"
@@ -1223,7 +1324,7 @@ def retrieve_cplex_mip_duals(model):
         CPLEXSHELL.create_command_line = new_create_command_line
 
 
-def save_results(instance, outdir):
+def save_solution_file(instance, outdir):
     """
     Save model solution for later reuse.
 
