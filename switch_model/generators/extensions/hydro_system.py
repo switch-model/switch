@@ -97,7 +97,6 @@ def define_components(mod):
     SpillWaterAtNode[WNODE_TPS] are  the decisions of water spillage out of the
     water network at each node and timepoint in  cubic meters per second.
 
-
     RESERVOIRS is a subset of water nodes that are reservoirs. These require
     additional characterization. Members of this set may be abbreviated as r or
     res.
@@ -123,34 +122,29 @@ def define_components(mod):
     res_min_vol_tp[r, t] and res_max_vol_tp[r, t] are the values of allowable
     minimum and maximum water volume at each reservoir specified at each
     timepoint. These may be used to represent seasonal restrictions in water
-    levels at any reservoir. In example, minimum volumes of water must be kept
+    levels at any reservoir. For example, minimum volumes of water must be kept
     during summer at some reservoirs to allow for leisure and tourism
-    activities, such as water sports. These parameters are optional and must be
-    specified in cubic meters and default to reservoir_min_vol and
-    reservoir_max_vol.
+    activities, such as water sports. These parameters are optional and default
+    to reservoir_min_vol and reservoir_max_vol. They must be specified in
+    millionis of cubic meters.
 
-    initial_res_vol[r] is a parameter that states the starting volume of stored
-    water in each reservoir in millions of cubic meters. The same value will be
-    used as a starting point in each period of the simulation, independent of
-    which was the final level at the last timepoint of the previous period. This
-    methodology has been used in several expansion planning papers  that include
-    reservoir hydro power plants, because it allows decoupling the operational
-    subproblems of each period and thus speeding up the optimization
-    considerably.
+    res_initial_vol[r, ts] is a parameter that states the starting volume of
+    stored water in each reservoir for each timeseries in millions of cubic
+    meters. If not provided, Switch will assume operators adjust to an optimal
+    level before each timeseries.
 
-    final_res_vol[r] is a parameter that states the final volume of stored water
-    in each reservoir in millions of cubic meters. This level is enforced as a
-    minimum for the final volume. Usually, this parameter is specified to be the
-    same as  the initial volume, so that the reservoir may only arbitrage with
-    the water inflows that come into it during the period.
+    res_final_vol[r, ts] is a parameter that states the final volume of stored
+    water in each reservoir for each timeseries in millions of cubic meters. If
+    not provided, Switch will assume the reservoir must return to the starting
+    level at the end of each timeseries. It is recommended to omit res_final_vol
+    for most models or set it equal to res_initial_vol, to ensure that the
+    system could function with an arbitrary number of repetitions of each
+    timeseries, either sequentially or at random times of the year.
 
     ReservoirVol[r, t] is a variable that tracks the volume of water at each
-    reservoir in the beginging of each timepoint, specified in millions of cubic
+    reservoir at the beginging of each timepoint, specified in millions of cubic
     meters. This variable is determined by the volume in the previous timepoint,
     the inflows and the outflows.
-
-    ReservoirFinalVol[r, p] is the amount of water in the reservoir after the
-    last timepoint of each period.
 
     WATER_CONNECTIONS is the set of flows that begin and end in different water
     bodies, such as reservoirs and nodes. The model decides how much water is
@@ -273,7 +267,7 @@ def define_components(mod):
     # Reservoir nodes
     mod.RESERVOIRS = Set(within=mod.WATER_NODES, dimen=1)
     mod.RESERVOIR_TPS = Set(dimen=2, initialize=lambda m: m.RESERVOIRS * m.TIMEPOINTS)
-    mod.res_min_vol = Param(mod.RESERVOIRS, within=NonNegativeReals)
+    mod.res_min_vol = Param(mod.RESERVOIRS, within=NonNegativeReals, default=0.0)
     mod.res_max_vol = Param(
         mod.RESERVOIRS,
         within=NonNegativeReals,
@@ -283,40 +277,67 @@ def define_components(mod):
         mod.RESERVOIR_TPS,
         within=NonNegativeReals,
         default=lambda m, r, t: m.res_min_vol[r],
+        validate=lambda m, val, r, t: val >= m.res_min_vol[r],
     )
     mod.res_max_vol_tp = Param(
         mod.RESERVOIR_TPS,
         within=NonNegativeReals,
         default=lambda m, r, t: m.res_max_vol[r],
+        validate=lambda m, val, r, t: val <= m.res_max_vol[r],
     )
-    mod.initial_res_vol = Param(
-        mod.RESERVOIRS,
-        within=NonNegativeReals,
-        validate=lambda m, val, r: (m.res_min_vol[r] <= val <= m.res_max_vol[r]),
-    )
-    mod.final_res_vol = Param(
-        mod.RESERVOIRS,
-        within=NonNegativeReals,
-        validate=lambda m, val, r: (m.res_min_vol[r] <= val <= m.res_max_vol[r]),
-    )
-    mod.min_data_check("res_min_vol", "res_max_vol", "initial_res_vol", "final_res_vol")
 
-    def ReservoirVol_bounds(m, r, t):
-        # In the first timepoint of each period, this is externally defined
-        if t == m.TPS_IN_PERIOD[m.tp_period[t]].first():
-            return (m.initial_res_vol[r], m.initial_res_vol[r])
-        # In all other timepoints, this is constrained by min & max params
-        else:
-            return (m.res_min_vol[r], m.res_max_vol[r])
+    mod.res_initial_vol = Param(
+        mod.RESERVOIRS,
+        mod.TIMESERIES,
+        within=NonNegativeReals,
+        default=float("inf"),
+        validate=lambda m, val, r, ts: val == float("inf")
+        or (
+            m.res_min_vol_tp[r, m.TPS_IN_TS[ts].first()]
+            <= val
+            <= m.res_max_vol_tp[r, m.TPS_IN_TS[ts].first()]
+        ),
+    )
+    mod.res_final_vol = Param(
+        mod.RESERVOIRS,
+        mod.TIMESERIES,
+        within=NonNegativeReals,
+        default=float("inf"),
+        validate=lambda m, val, r, ts: val == float("inf")
+        or (
+            m.res_min_vol_tp[r, m.TPS_IN_TS[ts].last()]
+            <= val
+            <= m.res_max_vol_tp[r, m.TPS_IN_TS[ts].last()]
+        ),
+    )
+    mod.min_data_check("res_max_vol")
+
+    # make sure they don't set a final reservoir volume without also setting
+    # a starting volume, because then Switch would just set the starting
+    # volume as high as it wants, then run down to the final volume.
+    mod.Set_res_initial_vol_If_Setting_res_final_vol = BuildCheck(
+        mod.TIMESERIES,
+        rule=lambda m, ts: m.res_final_vol == float("inf")
+        or m.res_initial_vol != float("inf"),
+    )
 
     mod.ReservoirVol = Var(
-        mod.RESERVOIR_TPS, within=NonNegativeReals, bounds=ReservoirVol_bounds
-    )
-    mod.ReservoirFinalVol = Var(
-        mod.RESERVOIRS,
-        mod.PERIODS,
+        mod.RESERVOIR_TPS,
         within=NonNegativeReals,
-        bounds=lambda m, r, p: (m.final_res_vol[r], m.res_max_vol[r]),
+        bounds=lambda m, r, tp: (m.res_min_vol_tp[r, tp], m.res_max_vol_tp[r, tp]),
+    )
+
+    # apply res_initial_vol if provided
+    mod.Enforce_res_initial_vol = Constraint(
+        mod.RESERVOIRS,
+        mod.TIMESERIES,
+        rule=lambda m, r, ts: (
+            Constraint.Skip
+            if (m.res_initial_vol[r, ts] == float("inf"))  # not specified
+            else (
+                m.ReservoirVol[r, m.TPS_IN_TS[ts].first()] == m.res_initial_vol[r, ts]
+            )
+        ),
     )
 
     ################
@@ -350,35 +371,43 @@ def define_components(mod):
         bounds=lambda m, wc, t: (m.min_eco_flow[wc, t], m.wc_capacity[wc]),
     )
 
-    def Enforce_Wnode_Balance_rule(m, wn, t):
+    def Enforce_Wnode_Balance_rule(m, wn, tp):
         # Sum inflows and outflows from and to other nodes
         dispatch_inflow = sum(
-            m.DispatchWater[wc, t] for wc in m.INWARD_WCONS_TO_WNODE[wn]
+            m.DispatchWater[wc, tp] for wc in m.INWARD_WCONS_TO_WNODE[wn]
         )
         dispatch_outflow = sum(
-            m.DispatchWater[wc, t] for wc in m.OUTWARD_WCONS_FROM_WNODE[wn]
+            m.DispatchWater[wc, tp] for wc in m.OUTWARD_WCONS_FROM_WNODE[wn]
         )
-        # net change in reservoir volume (m3/s): 0 for non-reservoirs
-        reservoir_fill_rate = 0.0
+
+        # calculate reservoir_fill_rate rate during this timepoint in m3/s
         if wn in m.RESERVOIRS:
-            p = m.tp_period[t]
-            if t == m.TPS_IN_PERIOD[p].last():
-                end_of_tp_volume = m.ReservoirFinalVol[wn, p]
+            ts = m.tp_ts[tp]
+            if tp == m.TPS_IN_TS[ts].last() and m.res_final_vol[wn, ts] != float("inf"):
+                # reach res_final_vol if specified
+                end_of_tp_volume = m.res_final_vol[wn, ts]
             else:
-                end_of_tp_volume = m.ReservoirVol[wn, m.TPS_IN_PERIOD[p].next(t)]
+                # otherwise use next timepoint (possibly wrapping back to the first)
+                end_of_tp_volume = m.ReservoirVol[wn, m.TPS_IN_TS[ts].nextw(tp)]
+
+            # fill rate in m3/s (based on volumes given in million m3)
             reservoir_fill_rate = (
-                (end_of_tp_volume - m.ReservoirVol[wn, t])
+                (end_of_tp_volume - m.ReservoirVol[wn, tp])
                 * 1000000.0
-                / (m.tp_duration_hrs[t] * 3600)
+                / (m.tp_duration_hrs[tp] * 3600)
             )
+        else:
+            # not a reservoir: fill rate is 0 m3/s
+            reservoir_fill_rate = 0.0
+
         # Conservation of mass flow
         return (
             # inflows (m3/s)
-            m.wnode_tp_inflow[wn, t] + dispatch_inflow
+            m.wnode_tp_inflow[wn, tp] + dispatch_inflow
             # less outflows (m3/s)
-            - m.wnode_tp_consumption[wn, t]
+            - m.wnode_tp_consumption[wn, tp]
             - dispatch_outflow
-            - m.SpillWaterAtNode[wn, t]
+            - m.SpillWaterAtNode[wn, tp]
             # net change in volume (m3/s)
             == reservoir_fill_rate
         )
@@ -467,20 +496,17 @@ def load_inputs(mod, switch_data, inputs_dir):
         param=(
             mod.res_min_vol,
             mod.res_max_vol,
-            mod.initial_res_vol,
-            mod.final_res_vol,
         ),
     )
-    if os.path.exists(os.path.join(inputs_dir, "reservoir_tp_data.csv")):
-        raise NotImplementedError(
-            "Code needs to be added to hydro_system module to enforce "
-            "reservoir volume limits per timepoint."
-        )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "reservoir_tp_data.csv"),
         optional=True,
-        optional_params=["res_max_vol_tp", "res_min_vol_tp"],
         param=(mod.res_max_vol_tp, mod.res_min_vol_tp),
+    )
+    switch_data.load_aug(
+        filename=os.path.join(inputs_dir, "reservoir_ts_data.csv"),
+        optional=True,
+        param=(mod.res_initial_vol, mod.res_final_vol),
     )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "water_connections.csv"),

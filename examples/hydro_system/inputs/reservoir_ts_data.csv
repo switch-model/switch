@@ -1,0 +1,5 @@
+RESERVOIRS,TIMESERIES,res_initial_vol,res_final_vol
+Dam_1,2020_Summer_Sample,0.072,0.072
+Dam_1,2020_Winter_Sample,0.072,0.072
+Dam_2,2020_Summer_Sample,0.054,0.054
+Dam_2,2020_Winter_Sample,0.054,0.054

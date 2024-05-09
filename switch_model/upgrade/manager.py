@@ -1,15 +1,13 @@
 # Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0, which is in the LICENSE file.
 
-from __future__ import print_function
-from __future__ import absolute_import
-
 import argparse
 import os
 import shutil
 from pkg_resources import parse_version
 
 import switch_model
+from switch_model.utilities import rewrap
 
 from . import upgrade_2_0_0b1
 from . import upgrade_2_0_0b2
@@ -19,6 +17,7 @@ from . import upgrade_2_0_4
 from . import upgrade_2_0_5
 from . import upgrade_2_0_6
 from . import upgrade_2_0_7
+from . import upgrade_2_0_9
 
 # Available upgrade code. This needs to be in consecutive order so
 # upgrade_inputs can incrementally apply the upgrades.
@@ -33,6 +32,7 @@ upgrade_plugins = [
         upgrade_2_0_5,
         upgrade_2_0_6,
         upgrade_2_0_7,
+        upgrade_2_0_9,
     ]
 ]
 
@@ -117,13 +117,11 @@ def _backup(inputs_dir):
         shutil.make_archive(inputs_backup, "zip", inputs_dir)
 
 
-def print_verbose(*args, indent=True):
+def print_verbose(message="", indent=True):
     global verbose
     if verbose:
-        if indent:
-            print("       ", *args)
-        else:
-            print(*args)
+        ind = 7 if indent else 0
+        print(rewrap(message, indent=ind))
 
 
 def upgrade_inputs(inputs_dir, backup=True, assign_current_version=False):
@@ -135,7 +133,7 @@ def upgrade_inputs(inputs_dir, backup=True, assign_current_version=False):
             print_verbose("Backed up original inputs")
             _backup(inputs_dir)
         # Successively apply the upgrade scripts as needed.
-        for (upgrader, v_from, v_to) in upgrade_plugins:
+        for upgrader, v_from, v_to in upgrade_plugins:
             inputs_v = parse_version(get_input_version(inputs_dir))
             # note: the next line catches datasets created by/for versions of Switch that
             # didn't require input directory upgrades

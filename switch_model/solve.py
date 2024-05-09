@@ -152,6 +152,9 @@ def main(args=None, return_model=False, return_instance=False):
             )
             if do_upgrade:
                 upgrade_inputs(module_options.inputs_dir)
+                # display the upgrade messages before moving on
+                sys.stdout.write("Press Enter to continue.")
+                input()
             else:
                 print(
                     rewrap(

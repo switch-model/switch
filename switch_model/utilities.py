@@ -452,14 +452,35 @@ def save_inputs_as_dat(
 
 
 def unwrap(message, **kwargs):
-    return textwrap.dedent(message).replace(" \n", " ").replace("\n", " ").strip()
+    """
+    Dedent and unwrap message, preserving double line breaks
+    """
+    # split paragraphs
+    paras = textwrap.dedent(message).split("\n\n")
+    # unwrap each paragraph
+    paras = [p.replace(" \n", " ").replace("\n", " ").strip() for p in paras]
+    return "\n\n".join(paras)
 
 
 def wrap(message, width=80, indent=0):
+    """
+    Wrap message, preserving double line breaks
+    """
     ind = " " * indent
-    return "\n".join(
-        textwrap.wrap(message, width=80, initial_indent=ind, subsequent_indent=ind)
-    )
+    paras = message.split("\n\n")
+    paras = [
+        "\n".join(
+            textwrap.wrap(
+                p,
+                width=80,
+                initial_indent=ind,
+                subsequent_indent=ind,
+                replace_whitespace=False,
+            )
+        )
+        for p in paras
+    ]
+    return "\n\n".join(paras)
 
 
 def rewrap(message, **kwargs):
