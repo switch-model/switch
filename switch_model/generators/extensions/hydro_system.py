@@ -27,10 +27,9 @@ investment periods, and have their levels externally determined at the
 beginning and end of investment periods.
 
 """
-from __future__ import division
-
 import os
 from pyomo.environ import *
+from switch_model.utilities import unique_list
 
 dependencies = (
     "switch_model.timescales",
@@ -351,6 +350,87 @@ def define_components(mod):
     )
     mod.min_eco_flow = Param(mod.WCON_TPS, within=NonNegativeReals, default=0.0)
     mod.min_data_check("water_node_from", "water_node_to")
+    mod.DispatchWater = Var(
+        mod.WCON_TPS,
+        within=NonNegativeReals,
+        bounds=lambda m, wc, t: (m.min_eco_flow[wc, t], m.wc_capacity[wc]),
+    )
+
+    ################
+    # Hydro and pumping projects and available timepoints
+    mod.HYDRO_GENS = Set(dimen=1, within=mod.GENERATION_PROJECTS)
+    mod.HYDRO_GEN_TPS = Set(
+        dimen=2,
+        initialize=lambda m: ((g, tp) for g in m.HYDRO_GENS for tp in m.TPS_FOR_GEN[g]),
+    )
+
+    mod.hydro_efficiency = Param(mod.HYDRO_GENS, within=NonNegativeReals)
+    mod.hydraulic_location = Param(mod.HYDRO_GENS, within=mod.WATER_CONNECTIONS)
+    mod.TurbinateFlow = Var(mod.HYDRO_GEN_TPS, within=NonNegativeReals)
+    mod.SpillFlow = Var(mod.HYDRO_GEN_TPS, within=NonNegativeReals)
+    mod.Enforce_Hydro_Generation = Constraint(
+        mod.HYDRO_GEN_TPS,
+        rule=lambda m, g, t: (
+            m.DispatchGen[g, t] == m.hydro_efficiency[g] * m.TurbinateFlow[g, t]
+        ),
+    )
+    mod.Enforce_Hydro_Extraction = Constraint(
+        mod.HYDRO_GEN_TPS,
+        rule=lambda m, g, t: (
+            m.TurbinateFlow[g, t] + m.SpillFlow[g, t]
+            == m.DispatchWater[m.hydraulic_location[g], t]
+        ),
+    )
+
+    mod.PUMPED_HYDRO_GENS = Set(
+        dimen=1,
+        initialize=lambda m: (
+            (m.HYDRO_GENS & m.ALL_STORAGE_GENS)
+            if hasattr(m, "ALL_STORAGE_GENS")
+            else []
+        ),
+    )
+    mod.PUMPED_HYDRO_GEN_TPS = Set(
+        dimen=2,
+        initialize=lambda m: [
+            (g, tp) for g in m.PUMPED_HYDRO_GENS for tp in m.TPS_FOR_GEN[g]
+        ],
+    )
+
+    # all timepoints when pumping is possible
+    mod.PUMPED_WCON_TPS = Set(
+        dimen=2,
+        initialize=lambda m: unique_list(
+            (m.hydraulic_location[g], tp) for (g, tp) in m.PUMPED_HYDRO_GEN_TPS
+        ),
+    )
+    # Amount of water pumped upstream along each connection. This has to be a
+    # Var rather than an Expression, because it may be tied to the ChargeStorage
+    # choice for multiple gens/pumps on this connection.
+    mod.PumpWater = Var(
+        mod.PUMPED_WCON_TPS,
+        within=NonNegativeReals,
+        bounds=lambda m, wc, t: (0, m.wc_capacity[wc]),
+    )
+
+    # Amount of water pumped upstream when the storage is charged must be
+    # correct. If a gen/pump had 100% round-trip efficiency, we would have
+    # ChargeStorage = DispatchGen = TurbinateFlow * hydro_efficiency = PumpWater
+    # * hydro_efficiency but with lower round-trip efficiency, we get less water
+    # per MWh used for charging.
+    # This applies the constraint separately for each gen, so if there are
+    # multiple pumps on the same water connection, they all must pump the same
+    # amount (cascading, to match the generators).
+    mod.Enforce_Hydro_Pumping = Constraint(
+        mod.PUMPED_HYDRO_GEN_TPS,
+        rule=lambda m, g, t: (
+            m.ChargeStorage[g, t] * m.gen_storage_efficiency[g]
+            == m.PumpWater[m.hydraulic_location[g], t] * m.hydro_efficiency[g]
+        ),
+    )
+
+    ##############
+    # Hydro flow balance
     mod.INWARD_WCONS_TO_WNODE = Set(
         mod.WATER_NODES,
         dimen=1,
@@ -365,19 +445,18 @@ def define_components(mod):
             wc for wc in m.WATER_CONNECTIONS if m.water_node_from[wc] == wn
         ],
     )
-    mod.DispatchWater = Var(
-        mod.WCON_TPS,
-        within=NonNegativeReals,
-        bounds=lambda m, wc, t: (m.min_eco_flow[wc, t], m.wc_capacity[wc]),
-    )
 
     def Enforce_Wnode_Balance_rule(m, wn, tp):
         # Sum inflows and outflows from and to other nodes
         dispatch_inflow = sum(
-            m.DispatchWater[wc, tp] for wc in m.INWARD_WCONS_TO_WNODE[wn]
+            m.DispatchWater[wc, tp]
+            - (m.PumpWater[wc, tp] if (wc, tp) in m.PUMPED_WCON_TPS else 0)
+            for wc in m.INWARD_WCONS_TO_WNODE[wn]
         )
         dispatch_outflow = sum(
-            m.DispatchWater[wc, tp] for wc in m.OUTWARD_WCONS_FROM_WNODE[wn]
+            m.DispatchWater[wc, tp]
+            - (m.PumpWater[wc, tp] if (wc, tp) in m.PUMPED_WCON_TPS else 0)
+            for wc in m.OUTWARD_WCONS_FROM_WNODE[wn]
         )
 
         # calculate reservoir_fill_rate rate during this timepoint in m3/s
@@ -416,42 +495,18 @@ def define_components(mod):
         mod.WNODE_TPS, rule=Enforce_Wnode_Balance_rule
     )
 
+    # TODO: maybe allow creation of water at sink nodes? For now, users must
+    # specify the size of the lower reservoir for pumped storage systems and
+    # Switch will respect that limit when pumping.
     mod.NodeSpillageCosts = Expression(
         mod.TIMEPOINTS,
         rule=lambda m, t: sum(
-            # prior to Switch 2.0.3, this did not account for tp_duration_hrs
             m.SpillWaterAtNode[wn, t] * 3600 * m.tp_duration_hrs[t] * m.spillage_penalty
             for wn in m.WATER_NODES
             if not m.wn_is_sink[wn]
         ),
     )
     mod.Cost_Components_Per_TP.append("NodeSpillageCosts")
-
-    ################
-    # Hydro projects and available timepoints
-    mod.HYDRO_GENS = Set(dimen=1, within=mod.GENERATION_PROJECTS)
-    mod.HYDRO_GEN_TPS = Set(
-        dimen=2,
-        initialize=lambda m: ((g, tp) for g in m.HYDRO_GENS for tp in m.TPS_FOR_GEN[g]),
-    )
-
-    mod.hydro_efficiency = Param(mod.HYDRO_GENS, within=NonNegativeReals)
-    mod.hydraulic_location = Param(mod.HYDRO_GENS, within=mod.WATER_CONNECTIONS)
-    mod.TurbinateFlow = Var(mod.HYDRO_GEN_TPS, within=NonNegativeReals)
-    mod.SpillFlow = Var(mod.HYDRO_GEN_TPS, within=NonNegativeReals)
-    mod.Enforce_Hydro_Generation = Constraint(
-        mod.HYDRO_GEN_TPS,
-        rule=lambda m, g, t: (
-            m.DispatchGen[g, t] == m.hydro_efficiency[g] * m.TurbinateFlow[g, t]
-        ),
-    )
-    mod.Enforce_Hydro_Extraction = Constraint(
-        mod.HYDRO_GEN_TPS,
-        rule=lambda m, g, t: (
-            m.TurbinateFlow[g, t] + m.SpillFlow[g, t]
-            == m.DispatchWater[m.hydraulic_location[g], t]
-        ),
-    )
 
 
 def load_inputs(mod, switch_data, inputs_dir):

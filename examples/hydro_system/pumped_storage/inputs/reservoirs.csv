@@ -1,0 +1,4 @@
+RESERVOIRS,res_min_vol,res_max_vol
+Dam_1,0.036,0.18
+Dam_2,0.086,0.864
+Lower_Pool_2,0.001,0.144

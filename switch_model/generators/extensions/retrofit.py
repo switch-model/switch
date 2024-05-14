@@ -82,17 +82,6 @@ def define_components(m):
         m.BASE_GENS, initialize=lambda m, g: m.GEN_RETROFITS_dict.pop(g)
     )
 
-    def BLD_YRS_FOR_GEN_init(m, g):
-        try:
-            d = m.BLD_YRS_FOR_GEN_dict
-        except AttributeError:
-            d = m.BLD_YRS_FOR_GEN_dict = {_g: [] for _g in m.GENERATION_PROJECTS}
-            for _g, _bld_yr in m.GEN_BLD_YRS:
-                d[_g].append(_bld_yr)
-        return d.pop(g)
-
-    m.BLD_YRS_FOR_GEN = Set(m.GENERATION_PROJECTS, initialize=BLD_YRS_FOR_GEN_init)
-
     # set of all gens and bld_yrs that can later have retrofits
     m.BASE_BLD_YRS = Set(
         dimen=2,

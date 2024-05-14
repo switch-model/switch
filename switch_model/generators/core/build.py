@@ -488,6 +488,18 @@ def define_components(mod):
         ],
     )
 
+    # The set of years when a generator can be built
+    def BLD_YRS_FOR_GEN_init(m, g):
+        try:
+            d = m.BLD_YRS_FOR_GEN_dict
+        except AttributeError:
+            d = m.BLD_YRS_FOR_GEN_dict = {_g: [] for _g in m.GENERATION_PROJECTS}
+            for _g, _bld_yr in m.GEN_BLD_YRS:
+                d[_g].append(_bld_yr)
+        return d.pop(g)
+
+    mod.BLD_YRS_FOR_GEN = Set(mod.GENERATION_PROJECTS, initialize=BLD_YRS_FOR_GEN_init)
+
     def bounds_BuildGen(model, g, bld_yr):
         if (g, bld_yr) in model.PREDETERMINED_GEN_BLD_YRS:
             return (

@@ -118,7 +118,17 @@ def define_components(mod):
 
     """
 
-    mod.STORAGE_GENS = Set(within=mod.GENERATION_PROJECTS, dimen=1)
+    # includes generators that we manage depth of charge for and also ones that
+    # we don't, i.e., pumped storage hydro
+    mod.ALL_STORAGE_GENS = Set(within=mod.GENERATION_PROJECTS, dimen=1)
+    # peek at the hydro gens (so this can load before hydro_system module)
+    mod._STORAGE_HYDRO_GENS = Set(within=mod.GENERATION_PROJECTS, dimen=1)
+    # standard storage gens (not hydro)
+    mod.STORAGE_GENS = Set(
+        within=mod.GENERATION_PROJECTS,
+        dimen=1,
+        initialize=lambda m: m.ALL_STORAGE_GENS - m._STORAGE_HYDRO_GENS,
+    )
     mod.STORAGE_GEN_PERIODS = Set(
         dimen=2,
         within=mod.GEN_PERIODS,
@@ -126,10 +136,11 @@ def define_components(mod):
             (g, p) for g in m.STORAGE_GENS for p in m.PERIODS_FOR_GEN[g]
         ],
     )
-    mod.gen_storage_efficiency = Param(mod.STORAGE_GENS, within=PercentFraction)
+
+    mod.gen_storage_efficiency = Param(mod.ALL_STORAGE_GENS, within=PercentFraction)
     # TODO: rename to gen_charge_to_discharge_ratio?
     mod.gen_store_to_release_ratio = Param(
-        mod.STORAGE_GENS, within=NonNegativeReals, default=1.0
+        mod.ALL_STORAGE_GENS, within=NonNegativeReals, default=1.0
     )
     mod.gen_storage_energy_to_power_ratio = Param(
         mod.STORAGE_GENS, within=NonNegativeReals, default=float("inf")
@@ -144,10 +155,15 @@ def define_components(mod):
         initialize=mod.GEN_BLD_YRS,
         filter=lambda m, g, bld_yr: g in m.STORAGE_GENS,
     )
+    # storage may be priced per MW and/or per MWh
+    # NOTE: gen_storage_energy_overnight_cost must be supplied even if zero,
+    # just to be sure the user has thought about this; but we don't do a
+    # min_data_check on it because it may not be supplied in systems that use
+    # this module only for pumped hydro, where storage capacity is handled via
+    # the hydro network.
     mod.gen_storage_energy_overnight_cost = Param(
         mod.STORAGE_GEN_BLD_YRS, within=NonNegativeReals
     )
-    mod.min_data_check("gen_storage_energy_overnight_cost")
     mod.build_gen_energy_predetermined = Param(
         mod.PREDETERMINED_GEN_BLD_YRS, within=NonNegativeReals
     )
@@ -217,8 +233,14 @@ def define_components(mod):
             (g, tp) for g in m.STORAGE_GENS for tp in m.TPS_FOR_GEN[g]
         ),
     )
+    mod.ALL_STORAGE_GEN_TPS = Set(
+        dimen=2,
+        initialize=lambda m: (
+            (g, tp) for g in m.ALL_STORAGE_GENS for tp in m.TPS_FOR_GEN[g]
+        ),
+    )
 
-    mod.ChargeStorage = Var(mod.STORAGE_GEN_TPS, within=NonNegativeReals)
+    mod.ChargeStorage = Var(mod.ALL_STORAGE_GEN_TPS, within=NonNegativeReals)
 
     # Summarize storage charging for the energy balance equations
     # TODO: rename this StorageTotalCharging or similar (to indicate it's a
@@ -227,7 +249,7 @@ def define_components(mod):
         # Construct and cache a set for summation as needed
         if not hasattr(m, "Storage_Charge_Summation_dict"):
             m.Storage_Charge_Summation_dict = collections.defaultdict(set)
-            for g, t2 in m.STORAGE_GEN_TPS:
+            for g, t2 in m.ALL_STORAGE_GEN_TPS:
                 z2 = m.gen_load_zone[g]
                 m.Storage_Charge_Summation_dict[z2, t2].add(g)
         # Use pop to free memory
@@ -253,14 +275,10 @@ def define_components(mod):
         ),
     )
 
-    def Charge_Storage_Upper_Limit_rule(m, g, t):
-        return (
-            m.ChargeStorage[g, t]
-            <= m.DispatchUpperLimit[g, t] * m.gen_store_to_release_ratio[g]
-        )
-
     mod.Charge_Storage_Upper_Limit = Constraint(
-        mod.STORAGE_GEN_TPS, rule=Charge_Storage_Upper_Limit_rule
+        mod.ALL_STORAGE_GEN_TPS,
+        rule=lambda m, g, t: m.ChargeStorage[g, t]
+        <= m.DispatchUpperLimit[g, t] * m.gen_store_to_release_ratio[g],
     )
 
     mod.StateOfCharge = Var(mod.STORAGE_GEN_TPS, within=NonNegativeReals)
@@ -379,13 +397,23 @@ def load_inputs(mod, switch_data, inputs_dir):
             mod.gen_storage_max_cycles_per_year,
         ),
     )
+    switch_data.load_aug(
+        filename=os.path.join(inputs_dir, "hydro_generation_projects.csv"),
+        index=mod._STORAGE_HYDRO_GENS,
+        param=(),
+        optional=True,
+    )
+
     # Base the set of storage projects on storage efficiency being specified.
     # TODO: define this in a more normal way
-    switch_data.data()["STORAGE_GENS"] = {
+    switch_data.data()["ALL_STORAGE_GENS"] = {
         None: list(switch_data.data(name="gen_storage_efficiency").keys())
     }
+    # cost data must be provided for non-hydro storage gens, but may not be
+    # provided if this module is only used for pumped hydro storage
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "gen_build_costs.csv"),
+        optional=True,
         param=(mod.gen_storage_energy_overnight_cost, mod.gen_storage_energy_fixed_om),
     )
     switch_data.load_aug(
@@ -406,7 +434,7 @@ def post_solve(instance, outdir):
 
     reporting.write_table(
         instance,
-        instance.STORAGE_GEN_TPS,
+        instance.ALL_STORAGE_GEN_TPS,
         output_file=os.path.join(outdir, "storage_dispatch.csv"),
         headings=(
             "generation_project",
@@ -422,6 +450,6 @@ def post_solve(instance, outdir):
             m.gen_load_zone[g],
             m.ChargeStorage[g, t],
             m.DispatchGen[g, t],
-            m.StateOfCharge[g, t],
+            m.StateOfCharge[g, t] if g in m.STORAGE_GENS else ".",
         ),
     )
