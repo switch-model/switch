@@ -1,8 +1,5 @@
-from __future__ import print_function
-from __future__ import division
 import os
 from pyomo.environ import *
-from switch_model import timescales
 
 
 def define_arguments(argparser):
@@ -85,13 +82,15 @@ def define_components(m):
     # m.Cost_Components_Per_Period.append('ev_extra_annual_cost')
     # m.Cost_Components_Per_Period.append('ice_annual_fuel_cost')
 
-    # calculate the amount of energy used during each timeseries under business-as-usual charging
-    m.ev_mwh_ts = Param(
+    # calculate the amount of energy used each day under business-as-usual charging
+    m.ev_mwh_date = Param(
         m.LOAD_ZONES,
-        m.TIMESERIES,
+        m.DATES,
         within=NonNegativeReals,
-        initialize=lambda m, z, ts: sum(m.ev_bau_mw[z, tp] for tp in m.TPS_IN_TS[ts])
-        * m.ts_duration_of_tp[ts],
+        initialize=lambda m, z, dt: sum(
+            m.ev_bau_mw[z, tp] * m.ts_duration_of_tp[m.tp_ts[tp]]
+            for tp in m.TPS_IN_DATE[dt]
+        ),
     )
 
     # decide when to provide the EV energy
@@ -102,10 +101,12 @@ def define_components(m):
     # but there may be some room to reschedule it.)
     m.ChargeEVs_min = Constraint(
         m.LOAD_ZONES,
-        m.TIMESERIES,
-        rule=lambda m, z, ts: sum(m.ChargeEVs[z, tp] for tp in m.TPS_IN_TS[ts])
-        * m.ts_duration_of_tp[ts]
-        == m.ev_mwh_ts[z, ts],
+        m.DATES,
+        rule=lambda m, z, dt: sum(
+            m.ChargeEVs[z, tp] * m.ts_duration_of_tp[m.tp_ts[tp]]
+            for tp in m.TPS_IN_DATE[dt]
+        )
+        == m.ev_mwh_date[z, dt],
     )
 
     # set rules for when to charge EVs
