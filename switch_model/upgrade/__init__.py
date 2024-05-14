@@ -31,4 +31,4 @@ from .manager import (
 )
 
 # Private utility functions for this upgrade sub-package
-from .manager import _backup, _write_input_version, print_verbose
+from .manager import _backup, _write_input_version, print_verbose, rewrap
