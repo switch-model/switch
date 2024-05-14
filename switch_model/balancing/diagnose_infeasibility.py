@@ -60,6 +60,11 @@ def relaxable_constraints(m):
 
 
 def define_dynamic_components(m):
+    # convert bounds into constraints, which can then be relaxed along with the
+    # other constraints
+    for v in m.component_objects(pyo.Var):
+        convert_bounds_to_constraint(m, v)
+
     # loop over an explicit list, otherwise the generator gets altered by the loop
     for c in list(relaxable_constraints(m)):
         # Define relaxation variables for all indices of this constraint
@@ -125,9 +130,8 @@ def post_solve(m, outputs_dir):
 
     m.logger.info(
         f"\nNOTE: Module {__name__} was used for this run.\n"
-        "This seeks only to minimize violations of constraints, and does not minimize\n"
-        "costs. All results from this run (other than constraint violations) should be\n"
-        "ignored.\n"
+        "This only minimizes violations of constraints. It does not minimize costs.\n"
+        "All results from this run (other than constraint violations) should be ignored.\n"
     )
 
 
@@ -149,22 +153,29 @@ def relax_constraint(c):
         expr = getattr(m, c.name).original_rule(m, *idx)
         if expr is not pyo.Constraint.Skip and expr is not pyo.Constraint.Infeasible:
             if isinstance(expr, tuple):
-                # constraint of type (lb, expr, up)
-                expr = expr[1]
-            # pyomo provides a .args argument but it is not editable.
-            # some versions provide ._args and some provide ._args_, so we use
-            # what is available
-            a = "_args" if hasattr(expr, "_args") else "_args_"
-            args = list(getattr(expr, a))  # make mutable
-            # add up and down relaxation vars to an arbitrary point in the
-            # inequality (usually works out as high side)
-            for direction in [1, -1]:
-                relax_var = getattr(m, relax_var_name(c, direction))
-                # next line uses idx if supplied, otherwise treats var as scalar
-                args[1] += direction * (relax_var[idx] if idx else relax_var)
-            setattr(
-                expr, a, type(getattr(expr, a))(args)
-            )  # convert back to original type
+                # constraint of type (lb, expr, ub) or (lb, var, ub)
+                # add slack variables to the central expression
+                lb, expr, ub = expr
+                expr += sum(
+                    direction * getattr(m, relax_var_name(c, direction))[idx]
+                    for direction in [1, -1]
+                )
+                expr = (lb, expr, ub)
+            else:
+                # standard inequality constraint
+                # pyomo provides a .args argument but it is not editable.
+                # some versions provide ._args and some provide ._args_, so we use
+                # what is available
+                a = "_args" if hasattr(expr, "_args") else "_args_"
+                args = list(getattr(expr, a))  # make mutable
+                # add up and down relaxation vars to an arbitrary point in the
+                # inequality (usually works out as high side)
+                for direction in [1, -1]:
+                    relax_var = getattr(m, relax_var_name(c, direction))
+                    # next line uses idx if supplied, otherwise treats var as scalar
+                    args[1] += direction * (relax_var[idx] if idx else relax_var)
+                # convert back to original type
+                setattr(expr, a, type(getattr(expr, a))(args))
         return expr
 
     # older versions of pyomo store the user's original rule function in the
@@ -176,6 +187,59 @@ def relax_constraint(c):
     else:  # older Pyomo
         c.original_rule = c.rule
         c.rule = new_rule
+
+
+def convert_bounds_to_constraint(m, v):
+    """
+    Relax upper and lower bounds on variables, if specified (will have no effect
+    on inherent bounds like NonNegativeReals)
+    """
+    # At this point, the vars have all been defined but not yet constructed.
+
+    # Store the original bounds rule and bypass it, then define a constraint
+    # to enforce the bounds instead
+
+    # older versions of Pyomo store the user's original bounds function in the
+    # `_bounds_init_rule` attribute of the variable, but newer versions
+    # (beginning sometime between 6.0 and 6.4) convert the rule into a
+    # BoundInitializer object which contains a IndexedCallInitializer object,
+    # which contains the rule in its _fcn attribute.
+    try:
+        bounds_rule = v._rule_bounds._initializer._fcn
+        v._rule_bounds = None
+    except AttributeError:
+        # older Pyomo (ending somewhere between 5.4 and 6.4)
+        try:
+            bounds_rule = v._bounds_init_rule
+            v._bounds_init_rule = None
+        except AttributeError:
+            # no bounds rule in place
+            return
+
+    def constraint_rule(m, *idx):
+        # note: we use getattr(m, v.name) instead of just v, because
+        # v is an object in the AbstractModel and this rule will be called on
+        # a concrete instance.
+        var = getattr(m, v.name)[idx]
+        lb, ub = bounds_rule(m, *idx)
+
+        # This can work with None according to
+        # https://pyomo.readthedocs.io/en/stable/pyomo_modeling_components/Constraints.html
+        return (lb, m.BuildGen["S-Geothermal", 2020], ub)
+
+        # # all possible constraint options, depending on presence of lower or
+        # # upper bounds
+        # options = {
+        #     (True, True): lb <= var <= ub,
+        #     (True, False): lb <= var,
+        #     (False, True): var <= ub,
+        #     (False, False): pyo.Constraint.Skip,
+        # }
+        # constraint = options[lb is not None, ub is not None]
+        # return constraint
+
+    # Add the bounds constraint to the model
+    setattr(m, v.name + "_bounds", pyo.Constraint(v.index_set(), rule=constraint_rule))
 
 
 def move_component_above(new_component, old_component):
