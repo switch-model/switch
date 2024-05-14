@@ -418,6 +418,10 @@ def post_solve(instance, outdir):
     dispatch_annual_summary.csv - Similar to dispatch.csv, but summarized
     by generation technology and period.
 
+    dispatch_gen_annual_summary.csv - Similar to dispatch_annual_summary.csv
+    but broken out by generation project. (Was called
+    gen_project_annual_summary.csv prior to 2.0.9.)
+
     dispatch_zonal_annual_summary.csv - Similar to dispatch_annual_summary.csv
     but broken out by load zone.
 
@@ -566,7 +570,7 @@ def post_solve(instance, outdir):
 
     gen_sum = add_cap_factor_and_lcoe(gen_sum)
     gen_sum.to_csv(
-        os.path.join(outdir, "gen_project_annual_summary.csv"), columns=summary_columns
+        os.path.join(outdir, "dispatch_gen_annual_summary.csv"), columns=summary_columns
     )
 
     zone_sum = gen_sum.groupby(
