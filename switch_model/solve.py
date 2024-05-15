@@ -1110,6 +1110,24 @@ def solve(model):
                 new_err += "The solver may also report additional details if you specify `--stream-solver`."
             raise RuntimeError(new_err)
 
+        try:
+            # Retrieve and display the results object from Pyomo if possible, to
+            # give a little extra info (e.g., highs-ampl 1.7.1 doesn't show
+            # anything on screen when it is given a bad argument but returns an
+            # error message, which Pyomo doesn't show.)
+            for frame, line in reversed(list(traceback.walk_tb(err.__traceback__))):
+                if (
+                    "results" in frame.f_locals
+                    and "pyomo" in frame.f_globals["__name__"].lower()
+                ):
+                    model.logger.error(
+                        "\n" + "-" * 80 + "\nError while trying to solve:"
+                    )
+                    model.logger.error(frame.f_locals["results"])
+                    break
+        except:
+            pass
+
         # Report and re-raise error as is
         model.logger.error(
             "\n" + "=" * 80 + "\nAn error occurred while solving the model:\n"
@@ -1188,14 +1206,17 @@ def solve(model):
     # - len(model.solutions.symbol_map) == 0
     #   - ampl solver fails this even when it's successful
 
-    # Starting with 2.0.8, we just duck-type it: if the active objective is
-    # accessible valid, it must be OK, otherwise not.
+    # Starting with 2.0.8, we just duck-type it: if the all objectives are
+    # accessible, it must be OK, otherwise not.
+    # Note: we could test only the active ones (o.active), but that misses when
+    # diagnose_infeasibility produces infeasibility (with glpk), because all the
+    # variables included in that objective are initialized to zero. So we check
+    # all available objectives.
     try:
         for o in model.component_objects(Objective):
-            if o.active:
-                # this mentions the first component that can't be evaluated,
-                # but this is a rare error and there's not much harm in that
-                o()
+            # this mentions the first component that can't be evaluated,
+            # but this is a rare error and there's not much harm in that
+            o()
     except ValueError:
         # no solution returned
         model.logger.error("\n" + "=" * 80)
@@ -1210,8 +1231,8 @@ def solve(model):
         ):
             model.logger.error(
                 rewrap(
-                    "Hint: glpk sometimes reports infeasible problems as "
-                    "'Termination condition: other'."
+                    "Note: glpk sometimes reports infeasible problems as "
+                    "'Termination Condition: other'."
                 )
             )
         if model.options.no_load_solution:
@@ -1420,7 +1441,7 @@ def options_string_to_dict(opt_str):
         # an unquoted string)
         try:
             val = ast.literal_eval(val)
-        except ValueError:
+        except (ValueError, SyntaxError):
             pass
         opt_dict[key] = val
     return opt_dict
