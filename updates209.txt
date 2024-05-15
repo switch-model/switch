@@ -1,0 +1,123 @@
+commit fedb52e0edb6cbe7d1a5eb4d5ccf98bffc55c3ee
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Wed May 15 15:57:28 2024 -0700
+
+    Update copyright date
+
+commit 8bf5d1d4c69a479a6a13d5d5bc30b81d0b4b1511
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Wed May 15 15:35:09 2024 -0700
+
+    Update diagnose_infeasibility to work with older Pyomo
+
+commit ffd96124266f2cc319961dd8d8826c0839150c60
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Tue May 14 19:01:42 2024 -0700
+
+    Change .tab to .csv in README
+
+commit d4746476e633ab560735fe98c2eccb620b8d01fc
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Tue May 14 18:59:11 2024 -0700
+
+    Allow use of cbc bundled with PuLP via --solver pulp_cbc
+
+commit 724a62f073bf43528269c7166c862d78d94934b5
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Tue May 14 18:22:42 2024 -0700
+
+    Improve reporting for unusual solver problems
+
+commit 874d42af3a08fecef009dfd6db7c2b90dd0ed67f
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Tue May 14 15:28:03 2024 -0700
+
+    Allow diagnose_infeasibility to relax direct variable bounds
+
+commit 0b5896f0e4a97895c6fe9c7ed43720223b5e16e3
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Tue May 14 11:30:06 2024 -0700
+
+    fix bug in 2.0.9 upgrade code
+
+commit 67666c7f14f2b3a9292b1a71064f0b241627d225
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Tue May 14 11:23:25 2024 -0700
+
+    Balance EV charging by date instead of timeseries in hawaii.ev
+
+    This will require full charging every day when using multi-day
+    timeseries, rather than allowing EVs to delay charging multiple
+    days, possibly exceeding their storage capacity.
+
+commit a470df42ff6e7b9afb6aaab03ae2d771e3e63cf2
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Tue May 14 11:18:52 2024 -0700
+
+    Rename gen_project_annual_summary.csv to dispatch_gen_annual_summary.csv
+
+    The new name is more consistent with the other dispatch summaries, such
+    as dispatch_zonal_annual_summary.csv or dispatch_annual_summary.csv.
+
+commit 4d5ad776fee3efab39bfafbf49ca6f885d175d3d
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Tue May 14 11:05:27 2024 -0700
+
+    Add pumped storage option to switch_model.generators.extensions.hydro_system
+
+    When using the `hydro_system` module, hydro generators can now be designated as
+    reversible (able to do pumped hydro storage) by setting `gen_storage_efficiency`
+    in `gen_info.csv` to a numeric value (generally 0.5 - 1.0). To use this feature
+    you must also add `switch_model.generators.extensions.storage` somewhere above
+    `switch_model.generators.extensions.hydro_system` in `modules.txt`.
+
+    When generators are identified as reversible, water can be pumped from the node
+    below the generator to the one above, with the specified round-trip efficiency.
+    The nodes above and below the generator should have reservoir data in
+    reservoirs.csv to indicate the amount of storage available.
+
+    The storage module now defines a new set called ALL_STORAGE_GENS, which will
+    rarely be used. This is the union of pumped-storage hydro generators and
+    standard storage generators (usually batteries), which are still listed in
+    STORAGE_GENS.
+
+commit 457565310747f72a504e73fa573b59a199dbe317
+Author: Matthias Fripp <mfripp@edf.org>
+Date:   Wed May 8 18:34:06 2024 -0700
+
+    Track hydro reservoir levels by timeseries instead of period
+
+    The hydro_system module now tracks reservoir levels over the course of each
+    timeseries instead of each period. Previously the hydro_system module tracked
+    levels of reservoirs across all the timepoints in a period, as if each
+    timeseries was linked to the one after it. This was an error, and in models
+    with multiple timeseries with different weights, Switch could retain water
+    during low-weight timeseries, then release it during high-weight timeseries,
+    effectively producing free energy.
+
+    The new approach matches the general principle in Switch that each timeseries is
+    independent and it must be possible to to repeat each timeseries many times in a
+    row if necessary. Although this is more correct than the previous approach, it
+    is also more conservative: hydro networks must reach the same level (or a
+    prespecified level) at the start and end of each timeseries, instead of the
+    start and end of each period.
+
+    Users should now set res_initial_vol and res_final_vol for each timeseries in
+    reservoir_ts_data.csv instead of setting initial_res_vol and final_res_vol for
+    each period in reservoirs.csv. The standard upgrade script will automatically
+    make this change if needed. It will also interpolate between the previous
+    full-period reservoir volumes to set the reservoir volumes at the start and end
+    of each timeseries.
+
+    For models with a single, long timeseries for each period (the most common use
+    case for this module), this change won't make a difference. However, for models
+    with multiple timeseries in each period with different weights, this update
+    may change the model results.
+
+    In addition, res_initial_vol and res_final_vol are now optional. If
+    res_initial_vol is set but not res_final_vol, Switch will set the final level
+    equal to the initial level. If neither is set, Switch will choose an optimal
+    initial volume for each timeseries and also return to that level at the end of
+    the timeseries. (For most models, it is best not to set res_final_vol, so Switch
+    will return the reservoir to the starting level. This makes it possible to have
+    an arbitrary number of repetitions of each timeseries.)

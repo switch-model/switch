@@ -1,4 +1,92 @@
 -------------------------------------------------------------------------------
+Switch 2.0.9
+-------------------------------------------------------------------------------
+This release includes several new features, most notably implementation of
+pumped storage hydro. It also renames one output file and changes the balancing
+rules for hydro systems when there are multiple timeseries in the same
+investment period.
+
+The updates are summarized below. For more details, see the
+[git commit log](https://github.com/switch-model/switch/blob/master/updates209.txt).
+
+**Changes that may affect existing models and results**
+
+- The `switch_model.generators.extensions.hydro_system` module now tracks hydro
+  reservoir levels separately for each timeseries instead of linking them together
+  across the whole period.
+  - Previously the hydro_system module tracked levels of reservoirs across all
+    the timepoints in a period, as if each timeseries was linked to the one
+    after it. This was an error, and in models with multiple timeseries with
+    different weights, Switch could retain water during low-weight timeseries,
+    then release it during high-weight timeseries, effectively producing free
+    energy.
+  - The new approach matches the general principle in Switch that each
+    timeseries is independent and it must be possible to repeat each timeseries
+    many times in a row if necessary. Although this is more correct than the
+    previous approach, it is also more conservative: hydro networks must now
+    reach the same level (or a prespecified level) at the start and end of each
+    timeseries, instead of the start and end of each period.
+  - Users should now set `res_initial_vol` and `res_final_vol` for each
+    timeseries in `reservoir_ts_data.csv` instead of setting `initial_res_vol`
+    and `final_res_vol` for each period in reservoirs.csv. The standard upgrade
+    script will automatically rename and move these columns if needed. It will
+    also interpolate between the previous full-period reservoir volumes to set
+    the reservoir volumes at the start and end of each timeseries.
+  - For models with a single, long timeseries for each period (the most common
+    use case for this module), this change won't affect results. However, for
+    models with multiple timeseries in each period with different weights, this
+    update may change the model results.
+  - The `res_initial_vol` and `res_final_vol` inputs are now optional. If
+    `res_initial_vol` is set but not `res_final_vol`, Switch will set the final
+    level equal to the initial level. If neither is set, Switch will choose an
+    optimal initial volume for each timeseries and also return to that level at
+    the end of the timeseries. (For most models, it is best not to set
+    `res_final_vol`, so Switch will return the reservoir to the starting level.
+    This makes it possible to have an arbitrary number of repetitions of each
+    timeseries.)
+- The `gen_project_annual_summary.csv` output file has been renamed to
+  `dispatch_gen_annual_summary.csv`. The new name is more consistent with the
+  other dispatch summaries, such as `dispatch_zonal_annual_summary.csv` or
+  `dispatch_annual_summary.csv`.
+
+**New features**
+
+- The `switch_model.generators.extensions.hydro_system` module can now model
+  pumped storage hydro systems.
+  - To use this feature you must also add
+    `switch_model.generators.extensions.storage` somewhere above
+    `switch_model.generators.extensions.hydro_system` in `modules.txt`.
+  - Hydro generators can be designated as reversible (able to do pumped hydro
+    storage) by setting `gen_storage_efficiency` in `gen_info.csv` to a numeric
+    value (generally 0.5 - 1.0).
+  - When generators are identified as reversible, water can be pumped from the
+    node below the generator to the one above, with the specified round-trip
+    efficiency. The nodes above and below the generator should have reservoir
+    data in reservoirs.csv to indicate the amount of storage available. If you
+    currently have a sink node below the dam, you may need to add a reservoir
+    with a fixed size for the lower pool, then connect the sink node downstream
+    of that.
+  - The storage module now defines a new set called ALL_STORAGE_GENS, which will
+    rarely be used. This is the union of pumped-storage hydro generators and
+    standard storage generators (usually batteries), which are still listed in
+    STORAGE_GENS.
+- If you have installed pulp (easy to do via pip or conda), you can use the
+  cbc solver bundled with it by specifying `--solver pulp_cbc` when running
+  Switch. CBC is a fairly fast solver and can be difficult to install on
+  Windows, so this may be a convenient way to use it.
+- The `switch_model.balancing.diagnose_infeasibility` module now relaxes
+  bounds on variables in addition to constraints. These will show up in the
+  reporting as `VariableName_bounds`, and can be turned back on via
+  `--no-relax VariableName_bounds`. This can give a clearer picture of which
+  constraints and/or bounds are interacting to make a model infeasible.
+- The `switch_model.hawaii.ev` module now balances EV charging by date instead
+  of timeseries, if the tp_date column is provided in timepoints.csv. This
+  forces full charging every day when using multi-day timeseries, rather than
+  allowing EVs to delay charging multiple days, possibly exceeding their storage
+  capacity.
+
+
+-------------------------------------------------------------------------------
 Switch 2.0.8
 -------------------------------------------------------------------------------
 This release includes several new features, bug fixes and compatibility
