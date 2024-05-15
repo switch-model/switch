@@ -1027,6 +1027,15 @@ def solve(model):
         solver_args = {}
         if model.options.solver_io is not None:
             solver_args["solver_io"] = model.options.solver_io
+        # special support for CBC distributed with PuLP, since it's otherwise
+        # hard to install on Windows
+        if model.options.solver == 'pulp_cbc':
+            try:
+                from pulp.apis.core import pulp_cbc_path
+                model.options.solver = pulp_cbc_path
+            except:
+                raise RuntimeError("Unable to import pulp.apis.core.pulp_cbc_path; is PuLP installed?")
+
         model.solver = SolverFactory(model.options.solver, **solver_args)
 
         model.solver_manager = SolverManagerFactory(model.options.solver_manager)
