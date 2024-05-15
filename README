@@ -22,18 +22,18 @@ To run an example, navigate to an example directory and run the command:
 
 CONFIGURING YOUR OWN MODELS
 
-At a minimum, each model requires a list of SWITCH modules to define the model
-and a set of input files to provide the data. The SWITCH framework and
+At a minimum, each model requires a list of Switch modules to define the model
+and a set of input files to provide the data. The Switch framework and
 individual modules also accept command-line arguments to change their behavior.
 
-Each SWITCH model or collection of models is defined in a specific directory
+Each Switch model or collection of models is defined in a specific directory
 (e.g., examples/3zone_toy). This directory contains one or more subdirectories
 that hold input data and results (e.g., "inputs" and "outputs"). The models in
 the examples directory show the type of text files used to provide inputs for a
 model. You can change any of the model's input data by editing the *.csv files
 in the input directory.
 
-SWITCH contains a number of different modules, which can be selected and
+Switch contains a number of different modules, which can be selected and
 combined to create models with different capabilities and amounts of detail.
 You can look through the *.py files within switch_mod and its subdirectories to
 see the standard modules that are available and the columns that each one will
@@ -44,7 +44,7 @@ functions as the standard modules (e.g., define_components()).
 
 Each model has a text file which lists the modules that will be used for that
 model. Normally this file is called "modules.txt" and is stored in the main
-model directory or in an inputs subdirectory. SWITCH will automatically look in
+model directory or in an inputs subdirectory. Switch will automatically look in
 those locations for this list; alternatively, you can specify a different file
 with the "--module-list" argument.
 
@@ -71,5 +71,5 @@ first apply all arguments from options.txt, then arguments from the relevant
 line of scenarios.txt, then any arguments specified on the command line.
 
 After the model runs, results will be written in tab-separated text files (with
-extension .tsv or .tab) in the "outputs" directory (or some other directory
-specified via the "--outputs-dir" argument).
+extension .csv) in the "outputs" directory (or a different directory specified
+via the "--outputs-dir" argument).
