@@ -85,7 +85,7 @@ setup(
         # and then breaks). On the other hand, Pyomo 5.7 requires pyutilib 6.0.0
         # and Pyomo 6.0 doesn't require pyutilib at all. So we now use Pyomo 6.0+
         # and skip pyutilib.
-        "Pyomo >=6.0.0, <=6.7.1",
+        "Pyomo >=6.0.0, <=6.7.2",
         # pint is needed by Pyomo 6.4.1, 6.7.1 and probably others (but not
         # 6.0.0) when running our tests. But it isn't listed as a Pyomo
         # dependency, so we add it explicitly. (Still true as of Pyomo 6.7.1).
