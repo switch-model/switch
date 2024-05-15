@@ -1,6 +1,6 @@
 from __future__ import division
 
-# Copyright (c) 2015-2022 The Switch Authors. All rights reserved.
+# Copyright (c) 2015-2024 The Switch Authors. All rights reserved.
 # Licensed under the Apache License, Version 2, which is in the LICENSE file.
 
 import os
