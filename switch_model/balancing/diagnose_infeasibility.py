@@ -130,8 +130,8 @@ def post_solve(m, outputs_dir):
 
     m.logger.info(
         f"\nNOTE: Module {__name__} was used for this run.\n"
-        "This only minimizes violations of constraints. It does not minimize costs.\n"
-        "All results from this run (other than constraint violations) should be ignored.\n"
+        "This minimizes violations of constraints, ignoring financial costs. Results from\n"
+        "this run (other than constraint violations) should not be used for analysis.\n"
     )
 
 
@@ -205,15 +205,20 @@ def convert_bounds_to_constraint(m, v):
     # BoundInitializer object which contains a IndexedCallInitializer object,
     # which contains the rule in its _fcn attribute.
     try:
+        if v._rule_bounds is None:
+            return
         bounds_rule = v._rule_bounds._initializer._fcn
         v._rule_bounds = None
     except AttributeError:
         # older Pyomo (ending somewhere between 5.4 and 6.4)
         try:
+            if v._bounds_init_rule is None:
+                return
             bounds_rule = v._bounds_init_rule
             v._bounds_init_rule = None
         except AttributeError:
-            # no bounds rule in place
+            # unexpected Pyomo behavior; let it pass but report it
+            m.logger.error(f"ERROR: unable to determine bounds rule for {v.name}")
             return
 
     def constraint_rule(m, *idx):
