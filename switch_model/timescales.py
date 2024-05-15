@@ -413,11 +413,11 @@ def define_components(mod):
     #############
     # date-related code
 
-    # Use a custom timepoint -> date mapping if tp_dates.csv is provided.
-    # Otherwise just use the timeseries as the date ID (more common). Custom
-    # dates can be useful when running a single timeseries for the whole year,
-    # but you still need to identify dates within the year for the flexible load
-    # calculations.
+    # Use a custom timepoint -> date mapping if tp_date column is included in
+    # timepoints.csv. Otherwise just use the timeseries as the date ID (more
+    # common). Custom dates can be useful when running a single timeseries for
+    # the whole year, but you still need to identify dates within the year for
+    # the flexible load calculations.
     mod.tp_date = Param(mod.TIMEPOINTS, default=lambda m, tp: m.tp_ts[tp], within=Any)
     mod.DATES = Set(
         initialize=lambda m: unique_list(m.tp_date[tp] for tp in m.TIMEPOINTS)
