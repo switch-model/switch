@@ -47,7 +47,7 @@ class TestLoader(unittest.TestLoader):
 
 
 def main():
-    script_dir = os.path.join(os.getcwd(), os.path.dirname(__file__))
+    script_dir = os.path.abspath(os.path.dirname(__file__))
     # print('old argv: {}'.format(sys.argv))
     argv = [
         sys.argv[0],

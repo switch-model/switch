@@ -9,7 +9,7 @@ import unittest
 
 import switch_model.utilities as utilities
 import switch_model.solve
-from pyomo.environ import DataPortal
+from pyomo.environ import DataPortal, SolverFactory
 from testfixtures import compare
 
 
@@ -21,7 +21,7 @@ class UtilitiesTest(unittest.TestCase):
         assert utilities.approx_equal(1, 1)
 
     def test_retrieve_cplex_mip_duals(self):
-        try:
+        if SolverFactory("cplex").available():
             m = switch_model.solve.main(
                 args=[
                     "--inputs-dir",
@@ -41,12 +41,7 @@ class UtilitiesTest(unittest.TestCase):
                     "cplex",
                 ]
             )
-        except Exception as e:  # cplex unavailable
-            if str(e) == "No executable found for solver 'cplex'":
-                pass
-            else:
-                raise
-        else:
+
             # breakpoint() # inspect model to get new values
             model_vals = [
                 m.dual[m.Distributed_Energy_Balance["South", 1]],
