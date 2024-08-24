@@ -227,19 +227,27 @@ def define_components(mod):
         mod.GEN_TPS, rule=lambda m, g, t: m.GenCapacity[g, m.tp_period[t]]
     )
     mod.DispatchGen = Var(mod.GEN_TPS, within=NonNegativeReals)
+
+    def rule(m):
+        vals = {(z, t): [] for z in m.LOAD_ZONES for t in m.TIMEPOINTS}
+        for z in m.LOAD_ZONES:
+            for g in m.GENS_IN_ZONE[z]:
+                if not m.gen_is_distributed[g]:
+                    # add all centralized generation
+                    for t in m.TPS_FOR_GEN[g]:
+                        vals[z, t].append(m.DispatchGen[g, t])
+                if g in m.CCS_EQUIPPED_GENS:
+                    # subtract CCS station loads
+                    for t in m.TPS_FOR_GEN[g]:
+                        vals[z, t].append(
+                            -m.DispatchGen[g, t] * m.gen_ccs_energy_load[g]
+                        )
+        return {k: sum(v) for k, v in vals.items()}
+
     mod.ZoneTotalCentralDispatch = Expression(
         mod.LOAD_ZONES,
         mod.TIMEPOINTS,
-        rule=lambda m, z, t: sum(
-            m.DispatchGen[p, t]
-            for p in m.GENS_IN_ZONE[z]
-            if (p, t) in m.GEN_TPS and not m.gen_is_distributed[p]
-        )
-        - sum(
-            m.DispatchGen[p, t] * m.gen_ccs_energy_load[p]
-            for p in m.GENS_IN_ZONE[z]
-            if (p, t) in m.GEN_TPS and p in m.CCS_EQUIPPED_GENS
-        ),
+        rule=rule,
         doc="Net power from grid-tied generation projects.",
     )
     mod.Zone_Power_Injections.append("ZoneTotalCentralDispatch")
@@ -247,14 +255,20 @@ def define_components(mod):
     # Divide distributed generation into a separate expression so that we can
     # put it in the distributed node's power balance equations if local_td is
     # included.
+    def rule(m):
+        vals = {(z, t): [] for z in m.LOAD_ZONES for t in m.TIMEPOINTS}
+        for z in m.LOAD_ZONES:
+            for g in m.GENS_IN_ZONE[z]:
+                if m.gen_is_distributed[g]:
+                    # add all distributed generation
+                    for t in m.TPS_FOR_GEN[g]:
+                        vals[z, t].append(m.DispatchGen[g, t])
+        return {k: sum(v) for k, v in vals.items()}
+
     mod.ZoneTotalDistributedDispatch = Expression(
         mod.LOAD_ZONES,
         mod.TIMEPOINTS,
-        rule=lambda m, z, t: sum(
-            m.DispatchGen[g, t]
-            for g in m.GENS_IN_ZONE[z]
-            if (g, t) in m.GEN_TPS and m.gen_is_distributed[g]
-        ),
+        rule=rule,
         doc="Total power from distributed generation projects.",
     )
     try:
