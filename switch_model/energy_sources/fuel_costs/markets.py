@@ -214,8 +214,8 @@ def define_components(mod):
     mod.rfm_fuel = Param(mod.REGIONAL_FUEL_MARKETS, within=mod.FUELS)
     mod.ZONE_RFMS = Set(
         dimen=2,
-        validate=lambda m, z, rfm: (
-            rfm in m.REGIONAL_FUEL_MARKETS and z in m.LOAD_ZONES
+        validate=lambda m, zm: (
+            zm[0] in m.LOAD_ZONES and zm[1] in m.REGIONAL_FUEL_MARKETS
         ),
     )
     mod.ZONE_FUELS = Set(
@@ -241,7 +241,9 @@ def define_components(mod):
     # RFM_SUPPLY_TIERS = [(regional_fuel_market, period, supply_tier_index)...]
     mod.RFM_SUPPLY_TIERS = Set(
         dimen=3,
-        validate=lambda m, r, p, st: (r in m.REGIONAL_FUEL_MARKETS and p in m.PERIODS),
+        validate=lambda m, rpt: (
+            rpt[0] in m.REGIONAL_FUEL_MARKETS and rpt[1] in m.PERIODS
+        ),
     )
     mod.rfm_supply_tier_cost = Param(mod.RFM_SUPPLY_TIERS, within=Reals)
     mod.rfm_supply_tier_limit = Param(
@@ -366,7 +368,7 @@ def define_components(mod):
     mod.GEN_TP_FUELS_UNAVAILABLE = Set(
         dimen=3,
         initialize=mod.GEN_TP_FUELS,
-        filter=lambda m, g, t, f: (m.gen_load_zone[g], f) not in m.ZONE_FUELS,
+        filter=lambda m, gtf: (m.gen_load_zone[gtf[0]], gtf[2]) not in m.ZONE_FUELS,
     )
     mod.Enforce_Fuel_Unavailability = Constraint(
         mod.GEN_TP_FUELS_UNAVAILABLE,

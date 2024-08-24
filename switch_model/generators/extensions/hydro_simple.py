@@ -82,7 +82,7 @@ def define_components(mod):
 
     mod.HYDRO_GEN_TS_RAW = Set(
         dimen=2,
-        validate=lambda m, g, ts: ((g in m.GENERATION_PROJECTS) & (ts in m.TIMESERIES)),
+        validate=lambda m, gt: gt in m.GENERATION_PROJECTS * m.TIMESERIES,
     )
     mod.HYDRO_GENS = Set(
         dimen=1,
@@ -96,7 +96,8 @@ def define_components(mod):
         ),
     )
     mod.HYDRO_GEN_TPS = Set(
-        dimen=2, initialize=mod.GEN_TPS, filter=lambda m, g, t: g in m.HYDRO_GENS
+        dimen=2,
+        initialize=lambda m: [(g, t) for g in m.HYDRO_GENS for t in m.TPS_FOR_GEN[g]],
     )
 
     # Validate that a timeseries data is specified for every hydro generator /
@@ -106,6 +107,7 @@ def define_components(mod):
     mod.have_minimal_hydro_params = BuildCheck(
         mod.HYDRO_GEN_TS, rule=lambda m, g, ts: (g, ts) in m.HYDRO_GEN_TS_RAW
     )
+
     # Generate a warning if the input files specify timeseries for renewable
     # plant capacity factors that extend beyond the expected lifetime of the
     # plant. This could be caused by simple logic to build input files, or
@@ -114,7 +116,7 @@ def define_components(mod):
     def _warn_on_extra_HYDRO_GEN_TS(m):
         extra_indexes = m.HYDRO_GEN_TS_RAW - m.HYDRO_GEN_TS
         extraneous = {g: [] for (g, t) in extra_indexes}
-        for (g, t) in extra_indexes:
+        for g, t in extra_indexes:
             extraneous[g].append(t)
         pprint = "\n".join(
             "* {}: {} to {}".format(g, min(tps), max(tps))

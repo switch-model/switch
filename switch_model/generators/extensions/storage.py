@@ -153,7 +153,7 @@ def define_components(mod):
     mod.STORAGE_GEN_BLD_YRS = Set(
         dimen=2,
         initialize=mod.GEN_BLD_YRS,
-        filter=lambda m, g, bld_yr: g in m.STORAGE_GENS,
+        filter=lambda m, gy: gy[0] in m.STORAGE_GENS,
     )
     # storage may be priced per MW and/or per MWh
     # NOTE: gen_storage_energy_overnight_cost must be supplied even if zero,

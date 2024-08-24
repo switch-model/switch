@@ -50,9 +50,7 @@ def define_components(mod):
 
     mod.ZONE_FUEL_PERIODS = Set(
         dimen=3,
-        validate=lambda m, z, f, p: (
-            z in m.LOAD_ZONES and f in m.FUELS and p in m.PERIODS
-        ),
+        validate=lambda m, zfp: zfp in m.LOAD_ZONES * m.FUELS * m.PERIODS,
     )
     mod.fuel_cost = Param(mod.ZONE_FUEL_PERIODS, within=NonNegativeReals)
     mod.min_data_check("ZONE_FUEL_PERIODS", "fuel_cost")
@@ -60,7 +58,7 @@ def define_components(mod):
     mod.GEN_TP_FUELS_UNAVAILABLE = Set(
         dimen=3,
         initialize=mod.GEN_TP_FUELS,
-        filter=lambda m, g, t, f: (m.gen_load_zone[g], f, m.tp_period[t])
+        filter=lambda m, gtf: (m.gen_load_zone[gtf[0]], gtf[2], m.tp_period[gtf[1]])
         not in m.ZONE_FUEL_PERIODS,
     )
     mod.Enforce_Fuel_Unavailability = Constraint(
@@ -73,7 +71,7 @@ def define_components(mod):
         if not hasattr(m, "FuelCostsPerTP_dict"):
             # cache all Fuel_Cost_TP values in a dictionary (created in one pass)
             m.FuelCostsPerTP_dict = {t2: 0.0 for t2 in m.TIMEPOINTS}
-            for (g, t2, f) in m.GEN_TP_FUELS:
+            for g, t2, f in m.GEN_TP_FUELS:
                 if (g, t2, f) not in m.GEN_TP_FUELS_UNAVAILABLE:
                     m.FuelCostsPerTP_dict[t2] += (
                         m.GenFuelUseRate[g, t2, f]

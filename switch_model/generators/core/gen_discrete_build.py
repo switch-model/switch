@@ -40,7 +40,7 @@ def define_components(mod):
     mod.DISCRETE_GEN_BLD_YRS = Set(
         dimen=2,
         initialize=mod.GEN_BLD_YRS,
-        filter=lambda m, g, bld_yr: g in m.DISCRETELY_SIZED_GENS,
+        filter=lambda m, gy: gy[0] in m.DISCRETELY_SIZED_GENS,
     )
     mod.BuildUnits = Var(mod.DISCRETE_GEN_BLD_YRS, within=NonNegativeIntegers)
     mod.Build_Units_Consistency = Constraint(

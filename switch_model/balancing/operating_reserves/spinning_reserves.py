@@ -202,8 +202,9 @@ def gen_unit_contingency(m):
     # should be a prerequisite for this functionality.
     m.UNIT_CONTINGENCY_DISPATCH_POINTS = Set(
         dimen=2,
-        initialize=m.GEN_TPS,
-        filter=lambda m, g, tp: g in m.DISCRETELY_SIZED_GENS,
+        initialize=lambda m: [
+            (g, t) for g in m.DISCRETELY_SIZED_GENS for t in m.TPS_FOR_GEN[g]
+        ],
     )
     m.GenIsCommitted = Var(
         m.UNIT_CONTINGENCY_DISPATCH_POINTS,
@@ -452,8 +453,12 @@ def define_components(m):
     )
     m.SPINNING_RESERVE_GEN_TPS = Set(
         dimen=2,
-        initialize=m.GEN_TPS,
-        filter=lambda m, g, t: m.gen_can_provide_spinning_reserves[g],
+        initialize=lambda m: [
+            (g, tp)
+            for g in m.GENERATION_PROJECTS
+            if m.gen_can_provide_spinning_reserves[g]
+            for tp in m.TPS_FOR_GEN[g]
+        ],
     )
     m.CommitGenSpinningReservesUp = Var(
         m.SPINNING_RESERVE_GEN_TPS, within=NonNegativeReals

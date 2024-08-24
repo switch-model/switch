@@ -199,8 +199,12 @@ def define_components(mod):
     )
     mod.TRANS_BLD_YRS = Set(
         dimen=2,
-        initialize=mod.TRANSMISSION_LINES * mod.PERIODS,
-        filter=lambda m, tx, p: m.trans_new_build_allowed[tx],
+        initialize=lambda m: [
+            (tx, p)
+            for tx in m.TRANSMISSION_LINES
+            if m.trans_new_build_allowed[tx]
+            for p in m.PERIODS
+        ],
     )
     mod.BuildTx = Var(mod.TRANS_BLD_YRS, within=NonNegativeReals)
     mod.TxCapacityNameplate = Expression(

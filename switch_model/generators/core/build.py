@@ -356,7 +356,7 @@ def define_components(mod):
         filter=lambda m, g: m.gen_energy_source[g] == "multiple",
     )
     mod.MULTI_FUEL_GEN_FUELS = Set(
-        dimen=2, validate=lambda m, g, f: g in m.MULTIFUEL_GENS and f in m.FUELS
+        dimen=2, validate=lambda m, gf: gf in m.MULTIFUEL_GENS * m.FUELS
     )
 
     def FUELS_FOR_MULTIFUEL_GEN_init(m, g):
@@ -414,9 +414,8 @@ def define_components(mod):
     mod.PREDETERMINED_GEN_BLD_YRS = Set(dimen=2)
     mod.GEN_BLD_YRS = Set(
         dimen=2,
-        validate=lambda m, g, bld_yr: (
-            (g, bld_yr) in m.PREDETERMINED_GEN_BLD_YRS
-            or (g, bld_yr) in m.GENERATION_PROJECTS * m.PERIODS
+        validate=lambda m, gy: (
+            gy in m.PREDETERMINED_GEN_BLD_YRS or gy in m.GENERATION_PROJECTS * m.PERIODS
         ),
     )
     mod.NEW_GEN_BLD_YRS = Set(
@@ -627,7 +626,7 @@ def define_components(mod):
     mod.NEW_GEN_WITH_MIN_BUILD_YEARS = Set(
         dimen=2,
         initialize=mod.NEW_GEN_BLD_YRS,
-        filter=lambda m, g, p: (m.gen_min_build_capacity[g] > 0),
+        filter=lambda m, gp: (m.gen_min_build_capacity[gp[0]] > 0),
     )
     mod.BuildMinGenCap = Var(mod.NEW_GEN_WITH_MIN_BUILD_YEARS, within=Binary)
     mod.Enforce_Min_Build_Lower = Constraint(
