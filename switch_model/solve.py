@@ -175,7 +175,7 @@ def main(args=None, return_model=False, return_instance=False):
         # Add any suffixes specified on the command line (usually only iis)
         add_extra_suffixes(model)
 
-        logger.info("Model defined in {:.2f} s.".format(timer.step_time()))
+        logger.info("Model rules defined in {:.2f} s.".format(timer.step_time()))
 
         # return the model as-is if requested
         if return_model and not return_instance:
@@ -194,7 +194,7 @@ def main(args=None, return_model=False, return_instance=False):
                 )
 
         # create an instance (also reports time spent reading data and loading into model)
-        logger.info("\nLoading inputs...")
+        logger.info("\nLoading input data...")
         instance = model.load_inputs()
         # steps above reported their own timing; now reset timer for next step
         timer.step_time()
@@ -1029,12 +1029,15 @@ def solve(model):
             solver_args["solver_io"] = model.options.solver_io
         # special support for CBC distributed with PuLP, since it's otherwise
         # hard to install on Windows
-        if model.options.solver == 'pulp_cbc':
+        if model.options.solver == "pulp_cbc":
             try:
                 from pulp.apis.core import pulp_cbc_path
+
                 model.options.solver = pulp_cbc_path
             except:
-                raise RuntimeError("Unable to import pulp.apis.core.pulp_cbc_path; is PuLP installed?")
+                raise RuntimeError(
+                    "Unable to import pulp.apis.core.pulp_cbc_path; is PuLP installed?"
+                )
 
         model.solver = SolverFactory(model.options.solver, **solver_args)
 

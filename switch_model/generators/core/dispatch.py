@@ -147,10 +147,7 @@ def define_components(mod):
     Parasitic loads that make solar thermal plants consume energy from
     the grid on cold nights to keep their fluids from getting too cold.
 
-    Storage support.
-
-    Hybrid project support (pumped hydro & CAES) will eventually get
-    implemented in separate modules.
+    CAES may eventually get implemented in a separate module
 
     """
 
