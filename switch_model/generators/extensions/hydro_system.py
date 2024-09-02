@@ -259,8 +259,20 @@ def define_components(mod):
     )
     mod.wn_is_sink = Param(mod.WATER_NODES, within=Boolean)
     mod.min_data_check("wn_is_sink")
-    mod.spillage_penalty = Param(within=NonNegativeReals, default=100)
-    mod.SpillWaterAtNode = Var(mod.WNODE_TPS, within=NonNegativeReals)
+    mod.spillage_penalty = Param(within=NonNegativeReals, default=float("inf"))
+    mod.SpillWaterAtNode = Var(
+        mod.WNODE_TPS,
+        within=NonNegativeReals,
+        bounds=lambda m, wn, tp: (
+            None,
+            # require 0 spillage from non-sink nodes when penalty is infinite
+            (
+                0
+                if m.spillage_penalty == float("inf") and not m.wn_is_sink[wn]
+                else None
+            ),
+        ),
+    )
 
     #################
     # Reservoir nodes
@@ -479,17 +491,19 @@ def define_components(mod):
             # not a reservoir: fill rate is 0 m3/s
             reservoir_fill_rate = 0.0
 
-        # Conservation of mass flow
-        return (
+        # net change in volume (m3/s)
+        net_inflow = (
             # inflows (m3/s)
-            m.wnode_tp_inflow[wn, tp] + dispatch_inflow
+            m.wnode_tp_inflow[wn, tp]
+            + dispatch_inflow
             # less outflows (m3/s)
             - m.wnode_tp_consumption[wn, tp]
             - dispatch_outflow
             - m.SpillWaterAtNode[wn, tp]
-            # net change in volume (m3/s)
-            == reservoir_fill_rate
         )
+
+        # Conservation of mass flow
+        return net_inflow == reservoir_fill_rate
 
     mod.Enforce_Wnode_Balance = Constraint(
         mod.WNODE_TPS, rule=Enforce_Wnode_Balance_rule
@@ -503,7 +517,7 @@ def define_components(mod):
         rule=lambda m, t: sum(
             m.SpillWaterAtNode[wn, t] * 3600 * m.tp_duration_hrs[t] * m.spillage_penalty
             for wn in m.WATER_NODES
-            if not m.wn_is_sink[wn]
+            if m.spillage_penalty < float("inf") and not m.wn_is_sink[wn]
         ),
     )
     mod.Cost_Components_Per_TP.append("NodeSpillageCosts")
