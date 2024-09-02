@@ -148,12 +148,11 @@ def define_components(mod):
     mod.gen_storage_max_cycles_per_year = Param(
         mod.STORAGE_GENS, within=NonNegativeReals, default=float("inf")
     )
-
-    # TODO: build this set up instead of filtering down, to improve performance
     mod.STORAGE_GEN_BLD_YRS = Set(
         dimen=2,
-        initialize=mod.GEN_BLD_YRS,
-        filter=lambda m, gy: gy[0] in m.STORAGE_GENS,
+        initialize=lambda m: [
+            (g, y) for g in m.STORAGE_GENS for y in m.BLD_YRS_FOR_GEN[g]
+        ],
     )
     # storage may be priced per MW and/or per MWh
     # NOTE: gen_storage_energy_overnight_cost must be supplied even if zero,
