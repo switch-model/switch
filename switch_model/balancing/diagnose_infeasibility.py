@@ -230,7 +230,7 @@ def convert_bounds_to_constraint(m, v):
 
         # This can work with None according to
         # https://pyomo.readthedocs.io/en/stable/pyomo_modeling_components/Constraints.html
-        return (lb, m.BuildGen["S-Geothermal", 2020], ub)
+        return (lb, var, ub)
 
         # # all possible constraint options, depending on presence of lower or
         # # upper bounds
