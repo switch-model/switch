@@ -687,7 +687,9 @@ def define_arguments(argparser):
         action="store_true",
         help="""
             Patch Pyomo's solver script for cplex to re-solve and retrieve dual
-            values for mixed-integer programs.
+            values for mixed-integer programs. (Should be used with CPLEX
+            12.8+ because a bug in earlier versions sometimes causes them to ignore
+            variable bounds.)
         """,
     )
 

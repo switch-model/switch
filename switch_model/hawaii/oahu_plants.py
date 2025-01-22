@@ -13,6 +13,12 @@ def define_arguments(argparser):
         help="Enforce the 75 MW minimum-output rule for Kalaeloa in all years (otherwise relaxed "
         "if RPS or EV share >= 75%%). Mimics behavior from switch 2.0.0b2.",
     )
+    argparser.add_argument(
+        "--allow-kalaeloa-shutdown",
+        action="store_true",
+        default=False,
+        help="Relax the 75 MW minimum-output rule for Kalaeloa in all years.",
+    )
 
 
 def define_components(m):
@@ -129,9 +135,13 @@ def kalaeloa(m):
 
         # We assume that Kalaeloa's must-run rule applies only until the
         # refineries close, as specified in the m.oahu_refineries_closed parameter
-        if both_units_out or (
-            tp in m.REFINERIES_CLOSED_TPS
-            and not m.options.run_kalaeloa_even_with_high_rps
+        if (
+            both_units_out
+            or (
+                tp in m.REFINERIES_CLOSED_TPS
+                and not m.options.run_kalaeloa_even_with_high_rps
+            )
+            or m.options.allow_kalaeloa_shutdown
         ):
             return Constraint.Skip
         else:
@@ -198,6 +208,7 @@ def cogen(m):
     m.Relax_Refinery_Cogen_Baseload_Constraint = BuildAction(
         m.REFINERY_GENS, m.REFINERIES_CLOSED_TPS, rule=rule
     )
+
     # force 0 production when refineries are closed
     def rule(m, g, t):
         if (g, t) not in m.GEN_TPS:
@@ -218,6 +229,7 @@ def cogen(m):
             if m.f_rps_eligible[f]
         ),
     )
+
     # don't burn biofuels in cogen plants
     def rule(m, g, t, f):
         if (g, t, f) not in m.GenFuelUseRate:

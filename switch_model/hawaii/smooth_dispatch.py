@@ -16,6 +16,7 @@ from pyomo.core.base.numvalue import native_numeric_types
 import switch_model.solve
 from switch_model.utilities import iteritems
 
+
 # This uses define_dynamic_components instead of define_components, to ensure
 # that whatever components it needs to access will already be constructed. This
 # should be placed high in the module list so that the post-solve smoothing code
@@ -151,10 +152,11 @@ def define_dynamic_components(m):
         )
 
         # constrain smoothing objective to find unbounded ray
-        # m.Bound_Obj = Constraint(rule=lambda m: Smooth_Free_Variables_obj_rule(m) <= 1e12)
+        # m.Bound_Obj = Constraint(rule=lambda m: Smooth_Free_Variables_obj_rule(m) >= -1e9)
 
         # leave standard objective in effect for now
         m.Smooth_Free_Variables.deactivate()
+        m.Bound_Obj.deactivate()
 
 
 def pre_iterate(m):
@@ -188,7 +190,7 @@ def post_iterate(m):
                 "WARNING: batteries are simultaneously charged and discharged in some hours."
             )
             print("This is usually done to relax the biofuel limit.")
-            for (z, t, c, d) in double_charge:
+            for z, t, c, d in double_charge:
                 print(
                     "ChargeBattery[{z}, {t}]={c}, DischargeBattery[{z}, {t}]={d}".format(
                         z=z, t=m.tp_timestamp[t], c=c, d=d
@@ -222,7 +224,6 @@ def post_solve(m, outputs_dir):
     if m.options.smooth_dispatch and not getattr(m, "iterated_smooth_dispatch", False):
         pre_smooth_solve(m)
         # re-solve and load results
-        m.preprocess()
         solve(m)
         post_smooth_solve(m)
 
@@ -238,15 +239,18 @@ def pre_smooth_solve(m):
 
 def solve(m):
     try:
+        m.preprocess()
         switch_model.solve.solve(m)
-    except RuntimeError as e:
-        if str(e).lower() == "infeasible model":
-            # show a warning, but don't abort the overall post_solve process
-            print(
-                "WARNING: model became infeasible when smoothing; reverting to original solution."
-            )
-        else:
-            raise
+    except Exception as e:
+        # Model didn't solve successfully, e.g., an integrality problem after freezing
+        # at a not-quite-integer solution.
+        # Show a warning, but don't abort the overall post_solve process.
+        # We could try to narrow this down to infeasibility, but not all solvers
+        # or versions of Pyomo report that in the same way.
+        print(
+            "WARNING: an error occurred while smoothing dispatch; reverting to original solution."
+        )
+        print("Error message: {}".format(e))
 
 
 def post_smooth_solve(m):

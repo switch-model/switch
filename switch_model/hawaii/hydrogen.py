@@ -217,7 +217,9 @@ def define_hydrogen_components(m):
     # Note: we assume we can't use fuel cells for reserves unless we've also built at least half
     # as much electrolyzer capacity and a tank that can provide the reserves for 12 hours
     # (this is pretty arbitrary, but avoids just installing a fuel cell as a "free" source of reserves)
-    m.HydrogenFuelCellMaxReservePower = Var(m.LOAD_ZONES, m.TIMEPOINTS)
+    m.HydrogenFuelCellMaxReservePower = Var(
+        m.LOAD_ZONES, m.TIMEPOINTS, within=NonNegativeReals
+    )
     m.Hydrogen_FC_Reserve_Capacity_Limit = Constraint(
         m.LOAD_ZONES,
         m.TIMEPOINTS,
