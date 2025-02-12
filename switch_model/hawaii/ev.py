@@ -7,33 +7,51 @@ def define_arguments(argparser):
         "--ev-timing",
         default=["optimal"],
         nargs="+",
-        help="Rule(s) for when to charge EVs -- bau=business-as-usual (upon arrival), "
-        "flat=around the clock, or optimal (default). You may also specify "
-        "multiple options in the form --ev-timing bau=0.32 optimal=0.68 to "
-        "use more than one mode. Modes without shares assigned will receive "
-        "equal fractions of the unallocated charging.",
+        help=(
+            "Rule(s) for when to charge EVs: bau = business-as-usual (upon arrival), "
+            "flat = around the clock, or optimal (default). You may also specify "
+            "multiple options in the form --ev-timing bau=0.32 optimal=0.68 to "
+            "use more than one mode. Modes without shares assigned will receive "
+            "equal fractions of the unallocated charging."
+        ),
     )
     argparser.add_argument(
         "--ev-reserve-types",
         nargs="+",
         default=["spinning"],
-        help="Type(s) of reserves to provide from electric-vehicle charging (e.g., 'contingency' or 'regulation')."
-        "Default is generic 'spinning'. Specify 'none' to disable. Only takes effect with '--ev-timing optimal'.",
+        help=(
+            "Type(s) of reserves to provide from electric-vehicle charging (e.g., "
+            "'contingency' or 'regulation'). Default is generic 'spinning'. Specify "
+            "'none' to disable. Only takes effect with '--ev-timing optimal'."
+        ),
     )
 
 
 def define_components(m):
     # setup various parameters describing the EV and ICE fleet each year
-    m.ev_share = Param(m.LOAD_ZONES, m.PERIODS, within=PercentFraction)
-    m.ice_miles_per_gallon = Param(m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals)
-    m.ev_miles_per_kwh = Param(m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals)
-    m.ev_extra_cost_per_vehicle_year = Param(m.LOAD_ZONES, m.PERIODS, within=Reals)
     m.n_all_vehicles = Param(m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals)
     m.vmt_per_vehicle = Param(m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals)
+    m.ev_share = Param(m.LOAD_ZONES, m.PERIODS, within=PercentFraction)
+    m.ev_miles_per_kwh = Param(m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals)
+    # optional parameters used to calculate incremental cost of electrification
+    # note: ice_fuel will be ignored if omitted or "none"; ice_miles_per_gallon
+    # will be ignored if omitted or 0.0
+    m.ev_extra_cost_per_vehicle_year = Param(
+        m.LOAD_ZONES, m.PERIODS, within=Reals, default=0.0
+    )
+    m.ice_fuel = Param(m.LOAD_ZONES, m.PERIODS, within=Any, default="none")
+    m.ice_miles_per_gallon = Param(
+        m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals, default=0.0
+    )
 
     m.ev_bau_mw = Param(m.LOAD_ZONES, m.TIMEPOINTS, within=Reals)
 
-    # calculate the extra annual cost (non-fuel) of having EVs, relative to ICEs (mostly for batteries, could also be chargers)
+    # Calculate ICE and EV costs of this scenario for comparison to other scenarios.
+    # Users who want to save these values should include switch_model.reporting and
+    # specify --save-expressions ev_extra_annual_cost ice_annual_fuel_cost
+
+    # extra annual cost (non-fuel) of having EVs, relative to ICEs
+    # (mostly for batteries, could also be chargers).
     m.ev_extra_annual_cost = Param(
         m.PERIODS,
         within=Reals,
@@ -48,17 +66,17 @@ def define_components(m):
     # calculate total fuel cost for ICE (non-EV) VMTs
     if hasattr(m, "rfm_supply_tier_cost"):
         # using fuel_costs.markets
-        ice_fuel_cost_func = lambda m, z, p: m.rfm_supply_tier_cost[
-            "Hawaii_Motor_Gasoline", p, "base"
+        ice_fuel_cost_func = lambda m, z, p, f: m.rfm_supply_tier_cost[
+            m.zone_fuel_rfm[z, f], p, "base"
         ]
     elif hasattr(m, "ZONE_FUEL_PERIODS"):
         # using fuel_costs.simple
-        ice_fuel_cost_func = lambda m, z, p: m.fuel_cost[z, "Motor_Gasoline", p]
+        ice_fuel_cost_func = lambda m, z, p, f: m.fuel_cost[z, f, p]
     elif hasattr(m, "ZONE_FUEL_TIMEPOINTS"):
         # using fuel_costs.simple_per_timepoint
         ice_fuel_cost_func = (
-            lambda m, z, p: sum(
-                m.tp_weight[t] * m.fuel_cost_per_timepoint[z, "Motor_Gasoline", t]
+            lambda m, z, p, f: sum(
+                m.tp_weight[t] * m.fuel_cost_per_timepoint[z, f, t]
                 for t in m.TPS_IN_PERIOD[p]
             )
             / m.period_length_hours[p]
@@ -70,9 +88,18 @@ def define_components(m):
             (1.0 - m.ev_share[z, p])
             * m.n_all_vehicles[z, p]
             * m.vmt_per_vehicle[z, p]
-            / m.ice_miles_per_gallon[z, p]
-            * 0.114  # 0.114 MBtu/gal gasoline
-            * ice_fuel_cost_func(m, z, p)
+            * (
+                0.0
+                if m.ice_miles_per_gallon[z, p] == 0.0
+                else (1.0 / m.ice_miles_per_gallon[z, p])
+            )
+            # MMBtu/gal from https://www.eia.gov/Energyexplained/?page=about_energy_units
+            * (0.1375 if "diesel" in m.ice_fuel[z, p].lower() else 0.1205)  # gasoline
+            * (
+                0.0
+                if m.ice_fuel[z, p] == "none"
+                else ice_fuel_cost_func(m, z, p, m.ice_fuel[z, p])
+            )
             for z in m.LOAD_ZONES
         ),
     )
@@ -164,7 +191,7 @@ def define_components(m):
         m.LOAD_ZONES,
         m.TIMEPOINTS,
         rule=lambda m, z, tp: mode_shares["flat"]
-        * (m.ev_mwh_ts[z, m.tp_ts[tp]] / m.ts_duration_hrs[m.tp_ts[tp]])
+        * (m.ev_mwh_date[z, m.tp_ts[tp]] / m.date_duration_hrs[m.tp_date[tp]])
         + mode_shares["bau"] * m.ev_bau_mw[z, tp],
     )
     m.Enforce_EV_Charging_Modes = Constraint(
@@ -233,19 +260,15 @@ def load_inputs(m, switch_data, inputs_dir):
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "ev_fleet_info.csv"),
         param=[
-            getattr(m, p)
-            for p in [
-                "ev_share",
-                "ice_miles_per_gallon",
-                "ev_miles_per_kwh",
-                "ev_extra_cost_per_vehicle_year",
-                "n_all_vehicles",
-                "vmt_per_vehicle",
-            ]
+            m.n_all_vehicles,
+            m.vmt_per_vehicle,
+            m.ev_share,
+            m.ev_miles_per_kwh,
+            m.ev_extra_cost_per_vehicle_year,
+            m.ice_fuel,
+            m.ice_miles_per_gallon,
         ],
     )
-    # print "loading ev_bau_load.csv"
-    # import pdb; pdb.set_trace()
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "ev_bau_load.csv"), param=m.ev_bau_mw
     )

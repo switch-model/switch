@@ -189,20 +189,27 @@ def schofield(m):
 
 def cogen(m):
     """
-    Shutdown small cogen plants when refineries are closed.
-    Don't burn biodiesel in cogen plants.
+    Shutdown refinery cogen plants when refineries are closed.
     """
+    # first make sure the refinery cogen plants haven't been switched to an
+    # unexpected fuel
+    m.Cogens_Use_LSFO_or_MSW = BuildCheck(
+        rule=lambda m: all(
+            m.gen_energy_source[g] in {"LSFO", "MSW"}
+            for g in m.GENERATION_PROJECTS
+            if m.gen_is_cogen[g]
+        )
+    )
+
     m.REFINERY_GENS = Set(
         dimen=1,
         initialize=m.GENERATION_PROJECTS,
-        filter=lambda m, g: any(rg in g for rg in ["Hawaii_Cogen", "Tesoro_Hawaii"]),
+        filter=lambda m, g: m.gen_is_cogen[g] and m.gen_energy_source[g] == "LSFO",
     )
-    m.Two_Refinery_Gens = BuildCheck(rule=lambda m: len(m.REFINERY_GENS) == 2)
 
     # relax commitment requirement when refineries are closed
     def rule(m, g, tp):
         if (g, tp) in m.Enforce_Commit_Lower_Limit:
-            print("relaxing commitment for {}, {}".format(g, tp))
             m.Enforce_Commit_Lower_Limit[g, tp].deactivate()
 
     m.Relax_Refinery_Cogen_Baseload_Constraint = BuildAction(
@@ -214,29 +221,8 @@ def cogen(m):
         if (g, t) not in m.GEN_TPS:
             return Constraint.Skip  # beyond retirement date
         else:
-            return m.DispatchGen[g, tp] == 0
+            return m.DispatchGen[g, t] == 0
 
     m.Shutdown_Refinery_Cogens = Constraint(
         m.REFINERY_GENS, m.REFINERIES_CLOSED_TPS, rule=rule
-    )
-
-    m.REFINERY_BIOFUELS = Set(
-        dimen=1,
-        initialize=lambda m: unique_list(
-            f
-            for g in m.REFINERY_GENS
-            for f in m.FUELS_FOR_GEN[g]
-            if m.f_rps_eligible[f]
-        ),
-    )
-
-    # don't burn biofuels in cogen plants
-    def rule(m, g, t, f):
-        if (g, t, f) not in m.GenFuelUseRate:
-            return Constraint.Skip  # beyond retirement date or wrong fuel
-        else:
-            return m.GenFuelUseRate[g, t, f] == 0.0
-
-    m.Cogen_No_Biofuel = Constraint(
-        m.REFINERY_GENS, m.TIMEPOINTS, m.REFINERY_BIOFUELS, rule=rule
     )

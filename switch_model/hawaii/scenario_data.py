@@ -716,6 +716,8 @@ def get_queries(args):
             CASE
                 WHEN gen_energy_source IN ('SUN', 'WND', 'MSW', 'Battery', 'Hydro')
                 THEN gen_energy_source
+                WHEN gen_energy_source LIKE '%% only'   -- flagged as single-fuel
+                THEN LEFT(gen_energy_source, -5)
                 ELSE 'multiple'
             END AS gen_energy_source,
             CASE
@@ -980,11 +982,14 @@ def get_queries(args):
                 technology,
                 gen_energy_source as orig_fuel
             FROM study_generator_info
-        ), all_fueled_techs AS (
-            SELECT * from all_techs WHERE orig_fuel NOT IN ('SUN', 'WND', 'MSW', 'Battery', 'Hydro')
+        ), multi_fueled_techs AS (
+            SELECT * from all_techs
+                WHERE
+                    orig_fuel NOT IN ('SUN', 'WND', 'MSW', 'Battery', 'Hydro')
+                    AND orig_fuel NOT LIKE '%% only'
         ), gen_multiple_fuels AS (
             SELECT DISTINCT technology, b.energy_source as fuel
-            FROM all_fueled_techs t
+            FROM multi_fueled_techs t
                 JOIN energy_sources a ON a.energy_source = t.orig_fuel
                 JOIN energy_sources b ON b.fuel_rank >= a.fuel_rank AND
                     (a.fuel_rank > 0 OR a.energy_source = b.energy_source)    -- 0-rank can't change fuels
@@ -1003,7 +1008,7 @@ def get_queries(args):
 
     # skip this step if the user specifies "skip_cf" in the arguments (to speed up execution)
     if args.get("skip_cf", False):
-        print("SKIPPING variable_capacity_factors.csv")
+        print("SKIPPING variable_capacity_factors.csv (skip_cf=True)")
     else:
         add_query(
             queries,
@@ -1135,7 +1140,8 @@ def get_queries(args):
             "ev_fleet_info.csv",
             """
             SELECT load_zone as "LOAD_ZONE", period as "PERIOD",
-                ev_share, ice_miles_per_gallon, ev_miles_per_kwh, ev_extra_cost_per_vehicle_year,
+                ev_share, ice_miles_per_gallon, ice_fuel, 
+                ev_miles_per_kwh, ev_extra_cost_per_vehicle_year,
                 n_all_vehicles, vmt_per_vehicle
             FROM ev_adoption a JOIN periods p on a.year = p.period
             WHERE load_zone in %(load_zones)s
@@ -1250,7 +1256,7 @@ def get_queries(args):
         # per load zone and timestep, which is larger than the renewable
         # capacity factor data)
         if args.get("skip_ev_bids", False):
-            print("SKIPPING ev_charging_bids.csv")
+            print("SKIPPING ev_charging_bids.csv (skip_ev_bids=True)")
         else:
             add_query(
                 queries,
