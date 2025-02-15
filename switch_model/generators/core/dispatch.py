@@ -8,10 +8,7 @@ generators.core.no_commit to constrain project dispatch to either committed or
 installed capacity.
 
 """
-from __future__ import division
-
-import logging
-import os, collections
+import logging, os, sys
 
 import pandas as pd
 from pyomo.environ import *
@@ -126,6 +123,14 @@ def define_components(mod):
     ignores unit commitment and assumes a full load heat rate, while the
     project.unitcommit module implements unit commitment decisions with
     startup fuel requirements and a marginal heat rate.
+
+    DispatchGenByFuel[(g, t, f) in GEN_TP_FUELS] estimates power
+    production by each generator from each available fuel during each
+    timepoint. When part-load heat rates and startup fuels are used,
+    this is ill-defined, so we just prorate production based on the
+    amount of each fuel used during the timepoint. Note that this is
+    a nonlinear expression so it should only be used for reporting, not
+    for constraints or the objective function.
 
     DispatchEmissions[(g, t, f) in GEN_TP_FUELS] is the
     emissions produced by dispatching a fuel-based project in units of
@@ -359,6 +364,21 @@ def define_components(mod):
             "Other modules constraint this variable based on DispatchGen and "
             "module-specific formulations of unit commitment and heat rates."
         ),
+    )
+
+    # Allocate power production by fuel. This is a nonlinear expression, so it cannot be
+    # used in constraints (e.g., for the RPS), but it is useful for reporting. For
+    # no_commit cases, this could be defined as GenFuelUseRate / full_load_heat_rate, but
+    # for unit-commitment cases, part-load heat rates and startup fuel force a nonlinear
+    # and somewhat arbitrary allocation.
+    # Note: we add a tiny number to the denominator to avoid division by zero when there
+    # is no production.
+    eps = sys.float_info.min
+    mod.DispatchGenByFuel = Expression(
+        mod.GEN_TP_FUELS,
+        rule=lambda m, g, tp, fuel: m.DispatchGen[g, tp]
+        * m.GenFuelUseRate[g, tp, fuel]
+        / (sum(m.GenFuelUseRate[g, tp, f] for f in m.FUELS_FOR_GEN[g]) + eps),
     )
 
     def DispatchEmissions_rule(m, g, t, f):

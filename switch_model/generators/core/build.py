@@ -545,6 +545,49 @@ def define_components(mod):
         ],
     )
 
+    # Identify all generators that are operating in a particular zone during a
+    # particular period and can use a particular fuel
+    def GENS_FOR_ZONE_PERIOD_ENERGY_SOURCE_init(m, z, p, e):
+        try:
+            d = m.GENS_FOR_ZONE_PERIOD_ENERGY_SOURCE_dict
+        except AttributeError:
+            d = m.GENS_FOR_ZONE_PERIOD_ENERGY_SOURCE_dict = {
+                (_z, _p, _e): []
+                for _z in m.LOAD_ZONES
+                for _p in m.PERIODS
+                for _e in m.ENERGY_SOURCES
+            }
+            for _e in m.ENERGY_SOURCES:
+                for _g in m.GENS_BY_ENERGY_SOURCE[_e]:
+                    for _p in m.PERIODS_FOR_GEN[_g]:
+                        d[m.gen_load_zone[_g], _p, _e].append(_g)
+        result = d.pop((z, p, e))
+        if not d:
+            del m.GENS_FOR_ZONE_PERIOD_ENERGY_SOURCE_dict
+        return result
+
+    mod.GENS_FOR_ZONE_PERIOD_ENERGY_SOURCE = Set(
+        mod.LOAD_ZONES,
+        mod.PERIODS,
+        mod.ENERGY_SOURCES,
+        dimen=1,
+        initialize=GENS_FOR_ZONE_PERIOD_ENERGY_SOURCE_init,
+    )
+    mod.GENS_FOR_ZONE_PERIOD_NON_FUEL_ENERGY_SOURCE = Set(
+        mod.LOAD_ZONES,
+        mod.PERIODS,
+        mod.NON_FUEL_ENERGY_SOURCES,
+        dimen=1,
+        initialize=lambda m, z, p, s: m.GENS_FOR_ZONE_PERIOD_ENERGY_SOURCE[z, p, s],
+    )
+    mod.GENS_FOR_ZONE_PERIOD_FUEL = Set(
+        mod.LOAD_ZONES,
+        mod.PERIODS,
+        mod.FUELS,
+        dimen=1,
+        initialize=lambda m, z, p, f: m.GENS_FOR_ZONE_PERIOD_ENERGY_SOURCE[z, p, f],
+    )
+
     # set of years when a generator vintage (generator/build-year combination)
     # can have operation suspended and avoid fixed O&M charges.
     mod.GEN_BLD_SUSPEND_YRS = Set(

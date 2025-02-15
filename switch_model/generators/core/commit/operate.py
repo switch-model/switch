@@ -9,9 +9,7 @@ constraints. If you want to use this module directly in a list of switch
 modules (instead of including the package operations.unitcommit), you will also
 need to include the module operations.unitcommit.fuel_use.
 """
-from __future__ import division
-
-import os, itertools
+import os
 from pyomo.environ import *
 
 dependencies = (
@@ -191,8 +189,6 @@ def define_components(mod):
     amount by which dispatch could be lowered, that is how much downramp
     potential each project has in each timepoint: DispatchGen -
     DispatchLowerLimit
-
-
     """
 
     # Commitment decision, bounds and associated slack variables

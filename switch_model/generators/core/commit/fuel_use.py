@@ -60,11 +60,8 @@ energy production so that the lines collectively form a convex boundary
 for fuel use.
 
 """
-from __future__ import division
-
-import os
+import os, csv
 from pyomo.environ import *
-import csv
 from switch_model.utilities import approx_equal
 
 dependencies = (
