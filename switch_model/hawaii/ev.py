@@ -1,5 +1,6 @@
 import os
 from pyomo.environ import *
+from switch_model.reporting import write_table
 
 
 def define_arguments(argparser):
@@ -25,6 +26,18 @@ def define_arguments(argparser):
             "'none' to disable. Only takes effect with '--ev-timing optimal'."
         ),
     )
+    argparser.add_argument(
+        "--ev-report-vehicle-costs",
+        action="store_true",
+        default=False,
+        help="""
+            Calculate and report extra cost or avoided cost of using electric vehicles
+            (EVs) instead of internal combustion engine vehicles (ICEs). When using this
+            setting, you must also fill in ev_extra_cost_per_vehicle_year, ice_fuel and
+            ice_miles_per_gallon in inputs/ev_fleet_info.csv and use the fuel_costs or 
+            fuel_supply_curve module to provide costs for a fuel matching ice_fuel.
+        """,
+    )
 
 
 def define_components(m):
@@ -33,81 +46,8 @@ def define_components(m):
     m.vmt_per_vehicle = Param(m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals)
     m.ev_share = Param(m.LOAD_ZONES, m.PERIODS, within=PercentFraction)
     m.ev_miles_per_kwh = Param(m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals)
-    # optional parameters used to calculate incremental cost of electrification
-    # note: ice_fuel will be ignored if omitted or "none"; ice_miles_per_gallon
-    # will be ignored if omitted or 0.0
-    m.ev_extra_cost_per_vehicle_year = Param(
-        m.LOAD_ZONES, m.PERIODS, within=Reals, default=0.0
-    )
-    m.ice_fuel = Param(m.LOAD_ZONES, m.PERIODS, within=Any, default="none")
-    m.ice_miles_per_gallon = Param(
-        m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals, default=0.0
-    )
 
     m.ev_bau_mw = Param(m.LOAD_ZONES, m.TIMEPOINTS, within=Reals)
-
-    # Calculate ICE and EV costs of this scenario for comparison to other scenarios.
-    # Users who want to save these values should include switch_model.reporting and
-    # specify --save-expressions ev_extra_annual_cost ice_annual_fuel_cost
-
-    # extra annual cost (non-fuel) of having EVs, relative to ICEs
-    # (mostly for batteries, could also be chargers).
-    m.ev_extra_annual_cost = Param(
-        m.PERIODS,
-        within=Reals,
-        initialize=lambda m, p: sum(
-            m.ev_extra_cost_per_vehicle_year[z, p]
-            * m.ev_share[z, p]
-            * m.n_all_vehicles[z, p]
-            for z in m.LOAD_ZONES
-        ),
-    )
-
-    # calculate total fuel cost for ICE (non-EV) VMTs
-    if hasattr(m, "rfm_supply_tier_cost"):
-        # using fuel_costs.markets
-        ice_fuel_cost_func = lambda m, z, p, f: m.rfm_supply_tier_cost[
-            m.zone_fuel_rfm[z, f], p, "base"
-        ]
-    elif hasattr(m, "ZONE_FUEL_PERIODS"):
-        # using fuel_costs.simple
-        ice_fuel_cost_func = lambda m, z, p, f: m.fuel_cost[z, f, p]
-    elif hasattr(m, "ZONE_FUEL_TIMEPOINTS"):
-        # using fuel_costs.simple_per_timepoint
-        ice_fuel_cost_func = (
-            lambda m, z, p, f: sum(
-                m.tp_weight[t] * m.fuel_cost_per_timepoint[z, f, t]
-                for t in m.TPS_IN_PERIOD[p]
-            )
-            / m.period_length_hours[p]
-        )
-    m.ice_annual_fuel_cost = Param(
-        m.PERIODS,
-        within=NonNegativeReals,
-        initialize=lambda m, p: sum(
-            (1.0 - m.ev_share[z, p])
-            * m.n_all_vehicles[z, p]
-            * m.vmt_per_vehicle[z, p]
-            * (
-                0.0
-                if m.ice_miles_per_gallon[z, p] == 0.0
-                else (1.0 / m.ice_miles_per_gallon[z, p])
-            )
-            # MMBtu/gal from https://www.eia.gov/Energyexplained/?page=about_energy_units
-            * (0.1375 if "diesel" in m.ice_fuel[z, p].lower() else 0.1205)  # gasoline
-            * (
-                0.0
-                if m.ice_fuel[z, p] == "none"
-                else ice_fuel_cost_func(m, z, p, m.ice_fuel[z, p])
-            )
-            for z in m.LOAD_ZONES
-        ),
-    )
-
-    # add cost components to account for the vehicle miles traveled via EV or ICE
-    # (not used because it interferes with calculation of cost per kWh for electricity)
-    # m.Cost_Components_Per_Period.append('ev_extra_annual_cost')
-    # m.Cost_Components_Per_Period.append('ice_annual_fuel_cost')
 
     # calculate the amount of energy used each day under business-as-usual charging
     m.ev_mwh_date = Param(
@@ -252,6 +192,115 @@ def define_components(m):
                     )
                 m.Spinning_Reserve_Up_Provisions.append("EVSlackUp")
 
+    if m.options.ev_report_vehicle_costs:
+        # Calculate ICE and EV costs of this scenario for comparison to other scenarios.
+        define_vehicle_cost_components(m)
+
+
+def post_solve(m, outputs_dir):
+    if m.options.ev_report_vehicle_costs:
+        # Calculate ICE and EV costs of this scenario for comparison to other scenarios.
+        report_vehicle_cost_components(m, outputs_dir)
+
+
+def define_vehicle_cost_components(m):
+    """
+    Calculate ICE and EV costs of this scenario for comparison to other scenarios.
+    """
+
+    # parameters used to calculate incremental cost of electrifying transport
+    m.ev_extra_cost_per_vehicle_year = Param(
+        m.LOAD_ZONES, m.PERIODS, within=Reals, default=0.0
+    )
+    m.ice_fuel = Param(m.LOAD_ZONES, m.PERIODS, within=Any)
+    m.ice_miles_per_gallon = Param(m.LOAD_ZONES, m.PERIODS, within=NonNegativeReals)
+    # TODO: move this upstream to the input files?
+    m.ice_miles_per_mmbtu = Param(
+        m.LOAD_ZONES,
+        m.PERIODS,
+        within=NonNegativeReals,
+        initialize=lambda m, z, p: (
+            m.ice_miles_per_gallon[z, p]
+            # MMBtu/gal from https://www.eia.gov/Energyexplained/?page=about_energy_units
+            / (0.1375 if "diesel" in m.ice_fuel[z, p].lower() else 0.1205)  # gasoline
+        ),
+    )
+
+    # extra annual cost (non-fuel) of having EVs, relative to ICEs
+    # (higher vehicle purchase cost and possibly charging infrastructure).
+    m.ev_extra_annual_cost = Param(
+        m.PERIODS,
+        within=Reals,
+        initialize=lambda m, p: sum(
+            m.ev_extra_cost_per_vehicle_year[z, p]
+            * m.ev_share[z, p]
+            * m.n_all_vehicles[z, p]
+            for z in m.LOAD_ZONES
+        ),
+    )
+
+    # calculate total fuel cost for ICE (non-EV) VMTs
+    if hasattr(m, "rfm_supply_tier_cost"):
+        # using fuel_costs.markets
+        ice_fuel_cost_func = lambda m, z, p, f: m.rfm_supply_tier_cost[
+            m.zone_fuel_rfm[z, f], p, "base"
+        ]
+    elif hasattr(m, "ZONE_FUEL_PERIODS"):
+        # using fuel_costs.simple
+        ice_fuel_cost_func = lambda m, z, p, f: m.fuel_cost[z, f, p]
+    elif hasattr(m, "ZONE_FUEL_TIMEPOINTS"):
+        # using fuel_costs.simple_per_timepoint
+        ice_fuel_cost_func = (
+            lambda m, z, p, f: sum(
+                m.tp_weight[t] * m.fuel_cost_per_timepoint[z, f, t]
+                for t in m.TPS_IN_PERIOD[p]
+            )
+            / m.period_length_hours[p]
+        )
+
+    m.ice_annual_fuel_cost = Param(
+        m.PERIODS,
+        within=NonNegativeReals,
+        initialize=lambda m, p: sum(
+            (1.0 - m.ev_share[z, p])
+            * m.n_all_vehicles[z, p]
+            * m.vmt_per_vehicle[z, p]
+            * (1.0 / m.ice_miles_per_mmbtu[z, p])
+            * ice_fuel_cost_func(m, z, p, m.ice_fuel[z, p])
+            for z in m.LOAD_ZONES
+        ),
+    )
+
+    # Note: we don't add these to system cost via m.Cost_Components_Per_Period because
+    # that would interfere with the reporting of cost per kWh for electricity production
+
+
+def report_vehicle_cost_components(m, outputs_dir):
+    write_table(
+        m,
+        m.PERIODS,
+        output_file=os.path.join(outputs_dir, "vehicle_costs.csv"),
+        headings=(
+            "period",
+            "electricity_annual_cost",  # total expenditure for power production
+            "ev_extra_annual_cost",  # extra cost vs. staying with ICE
+            "ice_annual_fuel_cost",  # fuel to run remaining ICE vehicles
+            "n_ev",  # number of EVs
+            "n_ice",  # number of ICEs
+        ),
+        values=lambda m, p: (
+            p,
+            m.SystemCostPerPeriod[p] / m.bring_annual_costs_to_base_year[p],
+            m.ev_extra_annual_cost[p],
+            m.ice_annual_fuel_cost[p],
+            sum(m.ev_share[z, p] * m.n_all_vehicles[z, p] for z in m.LOAD_ZONES),
+            sum(
+                (1.0 - m.ev_share[z, p]) * m.n_all_vehicles[z, p] for z in m.LOAD_ZONES
+            ),
+        ),
+        digits=3,
+    )
+
 
 def load_inputs(m, switch_data, inputs_dir):
     """
@@ -264,11 +313,18 @@ def load_inputs(m, switch_data, inputs_dir):
             m.vmt_per_vehicle,
             m.ev_share,
             m.ev_miles_per_kwh,
-            m.ev_extra_cost_per_vehicle_year,
-            m.ice_fuel,
-            m.ice_miles_per_gallon,
         ],
     )
     switch_data.load_aug(
         filename=os.path.join(inputs_dir, "ev_bau_load.csv"), param=m.ev_bau_mw
     )
+    if m.options.ev_report_vehicle_costs:
+        # extra data for vehicle cost calculations
+        switch_data.load_aug(
+            filename=os.path.join(inputs_dir, "ev_fleet_info.csv"),
+            param=[
+                m.ev_extra_cost_per_vehicle_year,
+                m.ice_fuel,
+                m.ice_miles_per_gallon,
+            ],
+        )

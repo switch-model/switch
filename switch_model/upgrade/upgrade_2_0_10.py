@@ -22,11 +22,11 @@ module_messages = {
         The `switch_model.hawaii.ev` module no longer assumes internal combustion engine
         vehicles use "Motor_Gasoline" as their fuel. The new default is "none", which will
         cause the cost of ICE fuel to be reported as zero. Set `ice_fuel` to
-        "Motor_Gasoline" in inputs/ev.csv to continue the previous behavior. Also note: the
-        `ev_extra_cost_per_vehicle_year`, `ice_fuel` and `ice_miles_per_gallon` columns in
-        ev.csv are now optional. They can be omitted if you are not reporting or using EV
-        incremental costs or ICE fuel costs via `--save-expressions ev_extra_annual_cost
-        ice_annual_fuel_cost`.
+        "Motor_Gasoline" in inputs/ev_fleet_info.csv to continue the previous behavior.
+        Also note: the `ev_extra_cost_per_vehicle_year`, `ice_fuel` and
+        `ice_miles_per_gallon` columns in ev.csv are now optional. They can be omitted if
+        you are not reporting or using EV incremental costs or ICE fuel costs via
+        `--save-expressions ev_extra_annual_cost ice_annual_fuel_cost`.
         """
     )
 }
@@ -179,7 +179,7 @@ def update_modules(inputs_dir):
 
 
 def set_ice_fuel(inputs_dir):
-    ev_file = os.path.join(inputs_dir, "ev.csv")
+    ev_file = os.path.join(inputs_dir, "ev_fleet_info.csv")
     if os.path.exists(ev_file):
         ev = pd.read_csv(ev_file, na_values=".")
         # add the previous default ICE fuel ("Motor_Gasoline")
