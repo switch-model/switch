@@ -1311,6 +1311,16 @@ def get_queries(args):
     )
 
     #########################
+    # unserved load
+    if "unserved_load_penalty" in args:
+        add_one_row_literal(
+            queries,
+            "lost_load_cost.csv",
+            ["unserved_load_penalty"],
+            args,
+        )
+
+    #########################
     # PHA data
     pha_params = sorted([k for k in args if k.startswith("pha_")])
     if pha_params:

@@ -158,13 +158,6 @@ def define_components(m):
         within=Reals,
         default=lambda m, z, tp: m.zone_demand_mw[z, tp],
     )
-    # amount of unserved load during each timepoint
-    m.DRUnservedLoad = Var(m.LOAD_ZONES, m.TIMEPOINTS, within=NonNegativeReals)
-    # total cost for unserved load
-    m.DR_Unserved_Load_Penalty = Expression(
-        m.TIMEPOINTS,
-        rule=lambda m, tp: sum(
-            m.DRUnservedLoad[z, tp] * m.dr_unserved_load_penalty_per_mwh
     m.dr_base_price = Param(m.ZONE_TIMEPOINTS, within=Reals)
 
     # Baseline expenditure for use in optimality gap (expressed in NPV terms)
@@ -174,14 +167,9 @@ def define_components(m):
             * m.dr_base_price[z, tp]
             * m.bring_timepoint_costs_to_base_year[tp]  # converts $/hour to NPV
             for z in m.LOAD_ZONES
-        ),
             for tp in m.TIMEPOINTS
         )
     )
-    # add unserved load to the zonal energy balance
-    m.Zone_Power_Injections.append("DRUnservedLoad")
-    # add the unserved load penalty to the model's objective function
-    m.Cost_Components_Per_TP.append("DR_Unserved_Load_Penalty")
 
     # list of products (commodities and reserves) that can be bought or sold
     m.DR_PRODUCTS = Set(dimen=1, initialize=["energy", "energy up", "energy down"])
@@ -215,7 +203,7 @@ def define_components(m):
         within=Reals,
     )
 
-    # the private benefit of serving each bid
+    # the private benefit of serving each bid (average $/h during this timeseries)
     m.dr_bid_benefit = Param(
         m.DR_BID_LIST, m.LOAD_ZONES, m.TIMESERIES, mutable=True, within=Reals
     )
@@ -314,21 +302,15 @@ def define_components(m):
     # private benefit of the electricity consumption
     # (i.e., willingness to pay for the current electricity supply)
     # reported as negative cost, i.e., positive benefit
-    # also divide by duration of the timeseries
-    # to convert from a cost per timeseries to a cost per hour,
-    # which can be reported per timepoint.
-    # TODO: this assumes wtp per timeseries accounts for duration of timepoints
-    # but the weighting in the convergence test may not, and the bidding module
-    # may not (e.g., it may just take a sum across timepoints, which would have
-    # units of $/MWh * ts_num_tps, not $/timeseries)
+    # note that dr_bid_benefit is reported by bid() in $/hour, so it is already
+    # in correct units to report as a cost component per timepoint.
     m.DR_Welfare_Cost = Expression(
         m.TIMEPOINTS,
         rule=lambda m, tp: sum(
             -m.DRBidWeight[b, z, m.tp_ts[tp]] * m.dr_bid_benefit[b, z, m.tp_ts[tp]]
             for b in m.DR_BID_LIST
             for z in m.LOAD_ZONES
-        )
-        / m.ts_duration_hrs[m.tp_ts[tp]],
+        ),
     )
 
     # add the private benefit to the model's objective function
@@ -1033,13 +1015,20 @@ def get_bids(m, prices):
     quantities]}, wtp).
 
     Quantity will be positive for consumption, negative if customer will supply product.
+
+    wtp should be the average per hour for the timeseries. Note that prices are in $/MWh
+    and quantities are in MW (possibly for a multi-hour timepoint). If the bid function
+    calculates wtp in units of price * quantity and averages across the timepoints, the
+    result will be in $/hr.
     """
 
     # get bids for all load zones and timeseries
     bids = []
     for z in m.LOAD_ZONES:
         for ts in m.TIMESERIES:
-            demand, wtp = demand_module.bid(m, z, ts, prices[z, ts])
+            demand, wtp = demand_module.bid(
+                m, z, ts, m.ts_duration_of_tp[ts], prices[z, ts]
+            )
             # import pdb; pdb.set_trace()
             if m.options.dr_flat_pricing:
                 # assume demand side will not provide reserves, even if they offered some
@@ -1139,7 +1128,9 @@ def revenue_imbalance(flat_price, m, load_zone, period, dynamic_prices):
             prod: [flat_price if prod == "energy" else 0.0] * len(m.TPS_IN_TS[ts])
             for prod in m.DR_PRODUCTS
         }
-        demand, wtp = demand_module.bid(m, load_zone, ts, prices)
+        demand, wtp = demand_module.bid(
+            m, load_zone, ts, m.ts_duration_of_tp[ts], prices
+        )
         # flat_price_revenue += sum(
         #     p * d * m.ts_duration_of_tp[ts] * m.ts_scale_to_year[ts]
         #     for p, d in zip(prices['energy'], demand['energy']

@@ -1,16 +1,16 @@
 """
-Bridge to R demand system.
-
-Note that calibration data is stored in the R instance, and rpy2 only
-creates one instance. So this module can only be used with one model
-at a time (or at least only with models that use the same calibration data).
-
-An alternative approach would be to store calibration data in a particular
-environment or object in R, and return that to Python. Then that could be
-returned by the python calibrate() function and attached to the model.
+Bridge to demand system implemented in an R script.
 """
-from __future__ import print_function
+
 from switch_model.utilities import unique_list
+
+# Note that calibration data is stored in the R instance, and rpy2 only
+# creates one instance. So this module can only be used with one model
+# at a time (or at least only with models that use the same calibration data).
+
+# An alternative approach would be to store calibration data in a particular
+# environment or object in R, and return that to Python. Then that could be
+# returned by the python calibrate() function and attached to the model.
 
 
 def define_arguments(argparser):
@@ -105,7 +105,7 @@ def calibrate(m, base_data):
     r.calibrate(base_loads, base_prices, m.options.dr_elasticity_scenario)
 
 
-def bid(m, load_zone, timeseries, prices):
+def bid(m, load_zone, timeseries, tp_duration_hrs, prices):
     """Accept a vector of prices in a particular load_zone during a particular day (time_series).
     Return a tuple showing hourly load levels and willingness to pay for those loads."""
 
