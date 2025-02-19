@@ -47,11 +47,11 @@ def define_arguments(argparser):
         help="Charge a constant (average) price for electricity, rather than varying hour by hour",
     )
     argparser.add_argument(
-      "--dr-optimality-gap",
-      default=0.01,
-      help="Optimality gap when demand response iteration should stop. This is the "
-      "difference between current solution and best possible solution. This should be "
-      "specified as a fraction of baseline cost sum(base load * base price), e.g., 0.01.",
+        "--dr-optimality-gap",
+        default=0.01,
+        help="Optimality gap when demand response iteration should stop. This is the "
+        "difference between current solution and best possible solution. This should be "
+        "specified as a fraction of baseline cost sum(base load * base price), e.g., 0.01.",
     )
     argparser.add_argument(
         "--dr-demand-module",
@@ -406,9 +406,7 @@ def pre_iterate(m):
 
     if m.iteration_number == 0:
         # show some first-pass info
-        m.logger.info(
-            f"Baseline cost is ${value(m.dr_base_expenditure):,.0f} (NPV)"
-        )
+        m.logger.info(f"Baseline cost is ${value(m.dr_base_expenditure):,.0f} (NPV)")
 
     if m.iteration_number > 0:
         # store cost of previous solution before it gets altered by update_demand()
@@ -546,7 +544,8 @@ def pre_iterate(m):
     # Check for convergence -- optimality gap is less than 1% of baseline expenditure
     converged = (
         m.iteration_number > 0
-        and (prev_cost - best_cost) / m.dr_base_expenditure <= m.options.dr_optimality_gap
+        and (prev_cost - best_cost) / m.dr_base_expenditure
+        <= m.options.dr_optimality_gap
     )
 
     return converged
@@ -898,24 +897,45 @@ def total_direct_costs_per_year(m, period):
 
 
 def electricity_marginal_cost(m, z, tp, prod):
-    """Return marginal cost of providing product prod in load_zone z during timepoint tp."""
+    """
+    Return marginal cost of providing product prod in load_zone z during
+    timepoint tp.
+    """
     if hasattr(m, "zone_balancing_area"):
         ba = m.zone_balancing_area[z]
-    if prod == "energy":
-        component = m.Zone_Energy_Balance[z, tp]
-    elif prod == "energy up":
-        if hasattr(m, "Limit_DemandResponseSpinningReserveUp"):
-            component = m.Limit_DemandResponseSpinningReserveUp[ba, tp]
-        else:
-            component = m.Satisfy_Spinning_Reserve_Up_Requirement[ba, tp]
-    elif prod == "energy down":
-        if hasattr(m, "Limit_DemandResponseSpinningReserveUp"):
-            component = m.Limit_DemandResponseSpinningReserveDown[ba, tp]
-        else:
-            component = m.Satisfy_Spinning_Reserve_Down_Requirement[ba, tp]
     else:
+        ba = None
+    # Dual value will be calculated from first matching constraint for the
+    # specified product
+    constraints = {
+        # product: [(constraint_name, keys), ...]
+        "energy": [
+            ("Zone_Energy_Balance", (z, tp)),
+        ],
+        "energy up": [
+            ("Limit_DemandResponseSpinningReserveUp", (ba, tp)),
+            ("Satisfy_Spinning_Reserve_Up_Requirement", (ba, tp)),
+        ],
+        "energy down": [
+            ("Limit_DemandResponseSpinningReserveDown", (ba, tp)),
+            ("Satisfy_Spinning_Reserve_Down_Requirement", (ba, tp)),
+        ],
+    }
+    try:
+        components = constraints[prod]
+    except KeyError:
         raise ValueError("Unrecognized electricity product: {}.".format(prod))
-    return m.dual[component] / m.bring_timepoint_costs_to_base_year[tp]
+
+    for component, keys in components:
+        try:
+            c = getattr(m, component)
+        except AttributeError:
+            continue
+        return m.dual[c[keys]] / m.bring_timepoint_costs_to_base_year[tp]
+
+    # ran off the end with no matching constraint available; probably not
+    # using reserves in this model
+    return 0.0
 
 
 def electricity_demand(m, z, tp, prod):
