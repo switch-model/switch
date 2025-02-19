@@ -4,8 +4,6 @@
 """
 Utility functions for Switch.
 """
-from __future__ import print_function, division
-
 import argparse
 import datetime
 import importlib
@@ -16,6 +14,7 @@ import logging
 import time
 import types
 import textwrap
+import math
 
 from pyomo.environ import *
 import pyomo.opt, pyomo.version
@@ -485,6 +484,25 @@ def wrap(message, width=80, indent=0):
 
 def rewrap(message, **kwargs):
     return wrap(unwrap(message), **kwargs)
+
+
+def format_large_number(f, digits=3):
+    """
+    Format number f as an integer if greater than 10**digits, otherwise
+    with the specified number of digits of precision.
+    """
+    if f == 0:
+        return "0"
+    negative = f < 0
+    if negative:
+        f = -f
+    first_digit = math.floor(math.log10(f)) + 1  # 1-based position
+    last_digit = first_digit - digits
+    if last_digit > 0:
+        last_digit = 0
+    if negative:
+        f = -f
+    return f"{f:,.{-last_digit}f}"
 
 
 def check_mandatory_components(model, *mandatory_components):

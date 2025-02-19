@@ -20,8 +20,7 @@ current demand_module in this module (rather than storing it in the model itself
 # and use something like scipy.optimize.newton() to find the right tax to come out
 # revenue-neutral (i.e., recover any stranded costs, rebate any supply-side rents)
 
-import os, sys, time
-from pprint import pprint
+import os, sys, time, logging
 from pyomo.environ import *
 
 try:
@@ -30,11 +29,8 @@ except ImportError:
     # this was called generate_canonical_repn before Pyomo 5.6
     from pyomo.repn import generate_canonical_repn as generate_standard_repn
 
-import switch_model.utilities as utilities
-
-# TODO: move part of the reporting back into Hawaii module and eliminate these dependencies
-from switch_model.hawaii.save_results import DispatchGenByFuel
-import switch_model.hawaii.util as util
+from switch_model.utilities import format_large_number as fmt
+import switch_model.reporting
 
 demand_module = None  # will be set via command-line options
 
@@ -68,6 +64,20 @@ def define_arguments(argparser):
         help="Type(s) of reserves to provide from demand response (e.g., 'contingency' or 'regulation'). "
         "Specify 'none' to disable. Default is 'spinning' if an operating reserve module is used, "
         "otherwise it is 'none'.",
+    )
+    argparser.add_argument(
+        "--dr-stop-on-nonconvexity",
+        action="store_true",
+        dest="dr_stop_on_nonconvexity",
+        default=True,
+        help="Stop and report an error if nonconvexity is detected in the demand response bids.",
+    )
+    argparser.add_argument(
+        "--dr-continue-on-nonconvexity",
+        action="store_false",
+        dest="dr_stop_on_nonconvexity",
+        help="Continue running even if nonconvexity is detected in the demand response bids. "
+        "Model may fail to converge.",
     )
     argparser.add_argument(
         "--dr-read-saved-bids",
@@ -447,10 +457,21 @@ def pre_iterate(m):
         )
         prev_cost = prev_direct_cost + prev_welfare_cost
 
-        print("")
-        print("previous direct cost: ${:,.0f}".format(prev_direct_cost))
-        print("previous welfare cost: ${:,.0f}".format(prev_welfare_cost))
-        print("")
+        # m.logger.info("")
+        # m.logger.info("previous direct cost: ${:,.0f}".format(prev_direct_cost))
+        # m.logger.info("previous welfare cost: ${:,.0f}".format(prev_welfare_cost))
+        # m.logger.info("")
+
+        # save bid weights from prior solution to report after the convergence info
+        # (looks better there, but update_demand() may mess these up?)
+        weights = {b: 0.0 for b in m.DR_BID_LIST}
+        for (b, z, ts), w in m.DRBidWeight.items():
+            weights[b] += value(w) * len(m.DR_BID_LIST) / len(m.DRBidWeight)
+        weights_message = "Average bid weights: " + ", ".join(
+            "{}: {:.5f}".format(b, w)
+            for b, w in weights.items()
+            if w != 0.0 or b == m.DR_BID_LIST.last()
+        )
 
     # get the next bid and attach it to the model (may also calibrate the model and
     # create a first bid using baseline prices or read saved bids from previously
@@ -487,24 +508,27 @@ def pre_iterate(m):
         )
         best_cost = best_direct_cost + best_bid_benefit
 
-        print("")
-        print("best direct cost: ${:,.0f}".format(best_direct_cost))
-        print("best bid benefit: ${:,.0f}".format(best_bid_benefit))
+        # m.logger.info("best direct cost: ${:,.0f}".format(best_direct_cost))
+        # m.logger.info("best bid benefit: ${:,.0f}".format(best_bid_benefit))
+        # m.logger.info("")
 
-        print("")
-        print(
-            "lower bound=${:,.0f}, previous cost=${:,.0f}, optimality gap (vs baseline cost)={}".format(
-                best_cost, prev_cost, (prev_cost - best_cost) / m.dr_base_expenditure
-            )
+        m.logger.info(
+            "Total marginal cost for demand response system, net of customer benefit"
+        )
+        m.logger.info(f"Lower bound:                       ${fmt(best_cost)}")
+        m.logger.info(f"Current:                           ${fmt(prev_cost)}")
+        m.logger.info(
+            f"Optimality gap (vs. baseline cost): "
+            f"{fmt((prev_cost - best_cost) / m.dr_base_expenditure)}"
         )
         if prev_cost < best_cost:
-            print(
-                "WARNING: final cost is below reported lower bound; "
-                "there is probably a problem with the demand system."
+            m.logger.warn(
+                f"WARNING: final cost ${fmt(prev_cost)} is below calculated lower bound "
+                f"${fmt(prev_cost)}; there is probably a problem with the demand system."
             )
-        print("")
 
-        # import pdb; pdb.set_trace()
+        m.logger.info("")
+        m.logger.info(weights_message)
 
     # basis for optimality test:
     # 1. The total cost of supply, as a function of quantity produced each hour, forms
@@ -552,45 +576,10 @@ def pre_iterate(m):
 
 
 def post_iterate(m):
-    print("\n\n=======================================================")
-    print(
-        "Solved model {}, bid {}".format(
-            "(no name)" if not m.options.scenario_name else m.options.scenario_name,
-            m.DR_BID_LIST.last(),
-        )
-    )
-    print("=======================================================")
-    print("Total cost: ${v:,.0f}".format(v=value(m.SystemCost)))
-
-    # TODO:
-    # maybe calculate prices for the next round here and attach them to the
-    # model, so they can be reported as final prices (currently we don't
-    # report the final prices, only the prices prior to the final model run)
-
-    SystemCost = value(m.SystemCost)  # calculate once to save time
-    if m.prev_SystemCost is None:
-        print(
-            "prev_SystemCost=<n/a>, SystemCost={:,.0f}, ratio=<n/a>".format(SystemCost)
-        )
-    else:
-        print(
-            "prev_SystemCost={:,.0f}, SystemCost={:,.0f}, ratio={}".format(
-                m.prev_SystemCost, SystemCost, SystemCost / m.prev_SystemCost
-            )
-        )
-
-    # # store the current bid weights for future reference
-    # tag = filename_tag(m, False)
-    # outputs_dir = m.options.outputs_dir
-    # if len(m.DR_BID_LIST) == 0:
-    #     util.create_table(
-    #         output_file=os.path.join(outputs_dir, "bid_weights{t}.csv".format(t=tag)),
-    #         headings=("iteration", "load_zone", "timeseries", "bid_num", "weight")
-    #     )
-    # util.append_table(m, m.LOAD_ZONES, m.TIMESERIES, m.DR_BID_LIST,
-    #     output_file=os.path.join(outputs_dir, "bid_weights{t}.csv".format(t=tag)),
-    #     values=lambda m, z, ts, b: (len(m.DR_BID_LIST), z, ts, b, m.DRBidWeight[b, z, ts])
-    # )
+    scen_name = " " + m.options.scenario_name if m.options.scenario_name else ""
+    m.logger.info("\n\n=======================================================")
+    m.logger.info(f"Solved model{scen_name}, bid {m.DR_BID_LIST.last()}")
+    m.logger.info("=======================================================")
 
     # Stop if there are no duals. This is an efficient point to check, and
     # otherwise the errors later are pretty cryptic.
@@ -601,13 +590,52 @@ def post_iterate(m):
             "may need to specify --retrieve-cplex-mip-duals."
         )
 
+    write_demand_response_summary(m)
+
+    # TODO:
+    # maybe calculate prices for the next round here and attach them to the
+    # model, so they can be reported as final prices (currently we don't
+    # report the final prices, only the prices prior to the final model run)
+
+    SystemCost = value(m.SystemCost)  # calculate once to save time
+
+    # show progress from iteration to iteration
+    m.logger.info("")
+    m.logger.info("Total system cost, net of customer benefit")
+    if m.prev_SystemCost is None:
+        m.logger.info(f"Previous iteration:                 <n/a>")
+        m.logger.info(f"Current iteration:                 ${fmt(SystemCost)}")
+        m.logger.info(f"Improvement (fraction):             <n/a>")
+    else:
+        m.logger.info(f"Previous iteration:                ${fmt(m.prev_SystemCost)}")
+        m.logger.info(f"Current iteration:                 ${fmt(SystemCost)}")
+        m.logger.info(
+            f"Improvement (fraction):             {fmt(1 - SystemCost / m.prev_SystemCost)}"
+        )
+    m.logger.info("")
+
+    # previously, sometimes for diagnostics we reported more info as the iteration
+    # proceeded. These are mostly left for post_solve() now.
+
     # if len(m.DR_BID_LIST) % 5 == 0:
     #     # save time by only writing results every 5 iterations
     #     write_results(m)
 
     # write_dual_costs(m)
     # write_results(m)
-    write_demand_response_summary(m)
+
+    # # store the current bid weights for future reference
+    # tag = filename_tag(m, False)
+    # outputs_dir = m.options.outputs_dir
+    # if len(m.DR_BID_LIST) == 0:
+    #     switch_model.reporting.create_table(
+    #         output_file=os.path.join(outputs_dir, "bid_weights{t}.csv".format(t=tag)),
+    #         headings=("iteration", "load_zone", "timeseries", "bid_num", "weight")
+    #     )
+    # switch_model.reporting.append_table(m, m.LOAD_ZONES, m.TIMESERIES, m.DR_BID_LIST,
+    #     output_file=os.path.join(outputs_dir, "bid_weights{t}.csv".format(t=tag)),
+    #     values=lambda m, z, ts, b: (len(m.DR_BID_LIST), z, ts, b, m.DRBidWeight[b, z, ts])
+    # )
 
 
 def update_demand(m):
@@ -624,19 +652,6 @@ def update_demand(m):
             # retrieved seed bids or previously saved bids; nothing else to do
             return
 
-    # print bid weights from prior solution
-    if m.iteration_number > 0:
-        weights = {b: 0.0 for b in m.DR_BID_LIST}
-        for (b, z, ts), w in m.DRBidWeight.items():
-            weights[b] += value(w) * len(m.DR_BID_LIST) / len(m.DRBidWeight)
-        print(
-            "average bid weights: "
-            + ", ".join(
-                "{}: {:.5f}".format(b, w)
-                for b, w in weights.items()
-                if w != 0.0 or b == m.DR_BID_LIST.last()
-            )
-        )
     # Watch for crazy errors in the weights. Sometimes bounds are ignored in the
     # fixed milp stage (used to get duals) in CPLEX 12.5 or 12.6. This seems to
     # be OK in 12.8+, but CPLEX does still make small errors, on the order of
@@ -654,34 +669,37 @@ def update_demand(m):
 
     # get new bids from the demand system at the current prices (will use baseline
     # prices on the first run)
-    print("attaching new demand bids to model")
+    # print("attaching new demand bids to model")
     prices = get_prices(m)
     bids = get_bids(m, prices)
 
     # add the new bids to the model
-    if m.options.verbose:
-        print("adding bids to model")
-        # print "first day (z, ts, prices, demand, wtp) ="
-        # pprint(bids[0])
+    # if m.options.verbose:
+    # print("adding bids to model")
+    # print "first day (z, ts, prices, demand, wtp) ="
+    # pprint(bids[0])
     add_bids(m, bids)
 
     # save latest bid for retrieval or reference
     # we do this now instead of in post_iterate, so the bid can be
     # reloaded if the job is interrupted while solving; this also
-    # avoids double-saving the last bid after reloading.
+    # avoids double-saving the last bid after reloading and makes
+    # the bid available for inspection if non-convexity is found.
     save_latest_bid(m)
 
-    # print "m.dr_bid_benefit (first day):"
-    # pprint([(b, z, ts, value(m.dr_bid_benefit[b, z, ts]))
-    #     for b in m.DR_BID_LIST
-    #     for z in m.LOAD_ZONES
-    #     for ts in [m.TIMESERIES.first()]])
-
-    # print "m.dr_bid (first day):"
-    # print [(b, z, ts, value(m.dr_bid[b, z, ts]))
-    #     for b in m.DR_BID_LIST
-    #     for z in m.LOAD_ZONES
-    #     for ts in m.TPS_IN_TS[m.TIMESERIES.first()]]
+    # check that the bids are convex -- that customers wouldn't be better off at current
+    # prices with a prior bid
+    convex = check_last_bid_convexity(m)
+    if not convex and m.options.dr_stop_on_nonconvexity:
+        if m.logger.isEnabledFor(logging.WARNING):
+            extra = ""
+        else:
+            extra = " Re-run with `--log-level warning` or higher to see which bids were non-convex."
+        raise RuntimeError(
+            f"Nonconvexity found in bid {m.DR_BID_LIST.last()}.{extra} "
+            "Run with --dr-continue-on-nonconvexity to continue despite this problem "
+            "(model may fail to converge)."
+        )
 
 
 def save_latest_bid(m):
@@ -694,7 +712,7 @@ def save_latest_bid(m):
         # Model only has one bid so far: remake the file and put the bid there
         # Note: this will need to change if we start getting multiple bids per
         # iteration, but then we'd need to write multiple bids at this point too.
-        util.create_table(
+        switch_model.reporting.create_table(
             output_file=os.path.join(outputs_dir, "bid{t}.csv".format(t=tag)),
             headings=("bid_num", "load_zone", "timeseries", "timepoint")
             + tuple("marginal_cost " + prod for prod in m.DR_PRODUCTS)
@@ -702,7 +720,7 @@ def save_latest_bid(m):
             + tuple("bid " + prod for prod in m.DR_PRODUCTS)
             + ("wtp", "base_price", "base_load"),
         )
-    util.append_table(
+    switch_model.reporting.append_table(
         m,
         m.LOAD_ZONES,
         m.TIMEPOINTS,
@@ -738,8 +756,8 @@ def retrieve_saved_bids(m):
         # (timestamps will be read in as strings, so we use str() here to match)
         timestamp_tp = {str(stamp): tp for (tp, stamp) in m.tp_timestamp.items()}
         with open(bid_file) as f:
-            # csv is already loaded in util, and switch-csv dialect is already registered
-            rows = list(util.csv.DictReader(f, dialect="switch-csv"))
+            # csv is already loaded in switch_model.reporting, and switch-csv dialect is already registered
+            rows = list(switch_model.reporting.csv.DictReader(f, dialect="switch-csv"))
 
         if m.options.dr_seed_bids:
             seed_bid_count = 3 + (0 if m.options.dr_flat_pricing else 4 * 24)
@@ -1062,22 +1080,81 @@ def get_bids(m, prices):
     return bids
 
 
-# def zone_period_average_marginal_cost(m, load_zone, period):
-#     avg_cost = value(
-#         sum(
-#             electricity_marginal_cost(m, load_zone, tp, 'energy')
-#             * electricity_demand(m, load_zone, tp, 'energy')
-#             * m.tp_weight_in_year[tp]
-#             for tp in m.PERIOD_TPS[period]
-#         )
-#         /
-#         sum(
-#             electricity_demand(m, load_zone, tp, 'energy')
-#             * m.tp_weight_in_year[tp]
-#             for tp in m.PERIOD_TPS[period]
-#         )
-#     )
-#     return avg_cost
+def check_last_bid_convexity(m):
+    """
+    Verify convexity of the bids by checking that no prior bid would be a better choice
+    than the customers offered at the most recent prices. It is easy to accidentally
+    create nonconvex demand systems where the offered bid doesn't appear to be the best
+    choice at the current prices, and then the model can get stuck because it is better to
+    use a combination of prior bids and ignore the new bid.
+
+    Our test verifies the subgradient inequality or separation property of
+    convex functions. We use the fact that the prices for bid i must be a
+    subgradient of the cost function at quantity i, and this property says all
+    other points on a convex surface must fall below the hyperplane defined by
+    this subgradient at this point. So we just test each new point against all
+    existing points amd all existing points against this point.
+
+    This is equivalent to testing whether some prior bid j would be preferable
+    to the new bid i at current prices i or bid i would be preferable to bid j
+    at prices j.
+
+    This always rules out nonconvexity because if all points are at or below the
+    subgradient hyperplane of all other points, then in particular the points forming the
+    facet around j before it is added must be below a plane around j so j is on or above
+    the existing hull. Bur also j is at or below all the other points' subgradient
+    hyperplanes, so the next derivative could be monotonic, ie gradient can change
+    smoothly from j to each other point without having to bend down and then up again. Put
+    another way, for the new point not to break convexity of the surface, it must have all
+    its subgradient hyperplanes above the points that define the facet where it lies (to
+    avoid bending the surface down and then up within this facet) and must be below all
+    the subgradient hyperplanes of all those facet points (to avoid bending the surface up
+    and then down within the facet).
+
+    All bids received so far are on the convex hull of bids, i.e. form a convex
+    surface, if and only if they satisfy the subgradient inequality with respect
+    to each other. If they satisfy it, you can always build a convex shape
+    consisting of the minimum of all the subgradient hyperplanes defined by the
+    bids. But if any violate it, it is nonconvex (must have a down-up bend in
+    between).
+    """
+    convex = True
+    b_cur = m.DR_BID_LIST.last()
+    for z in m.LOAD_ZONES:
+        for ts in m.TIMESERIES:
+            n_tps = m.ts_num_tps[ts]
+            # get consumer surplus from most recent bid at most recent prices
+            cs_cur = value(
+                n_tps * m.dr_bid_benefit[b_cur, z, ts]
+                - sum(
+                    m.dr_price[b_cur, z, tp, prod] * m.dr_bid[b_cur, z, tp, prod]
+                    for prod in m.DR_PRODUCTS
+                    for tp in m.TPS_IN_TS[ts]
+                )
+            )
+            # check against consumer surplus that would be achieved by all other bids at current prices
+            for b_prior in m.DR_BID_LIST:
+                if b_prior == b_cur:
+                    continue
+                cs_prior = value(
+                    n_tps * m.dr_bid_benefit[b_prior, z, ts]
+                    - sum(
+                        m.dr_price[b_cur, z, tp, prod] * m.dr_bid[b_prior, z, tp, prod]
+                        for prod in m.DR_PRODUCTS
+                        for tp in m.TPS_IN_TS[ts]
+                    )
+                )
+                if cs_prior > cs_cur + 0.0001 * abs(cs_cur):
+                    convex = False
+                    m.logger.warn(
+                        f"Warning, nonconvex bid for '{z}' in timeseries {ts}: "
+                        f"quantities from bid {b_prior} would produce "
+                        f"more consumer surplus than quantities from bid {b_cur}, "
+                        f"i.e., {n_tps} wtp_{b_prior} - q_{b_prior} • p_{b_cur} = {cs_prior} "
+                        f" > {n_tps} wtp_{b_cur} - q_{b_cur} • p_{b_cur}  = {cs_cur}. "
+                        f"See bid output file for specific values."
+                    )
+    return convex
 
 
 def find_flat_prices(m, marginal_costs, revenue_neutral):
@@ -1178,20 +1255,24 @@ def reconstruct(component):
     # Prior to Pyomo 6.0, this could be done with component.reconstruct(),
     # but that was removed in 6.0 and replaced with a recommendation to do the
     # following.
-    component.clear()
+    try:
+        component.clear()
+    except NotImplementedError as e:
+        # ignore error if component (e.g., BuildAction) doesn't define this method
+        pass
+
     component._constructed = False
     component.construct()
 
 
 def add_bids(m, bids):
     """
-    accept a list of bids written as tuples like
-    (z, ts, prices, demand, wtp)
-    where z is the load zone, ts is the timeseries, prod is the product,
-    demand is a dict with one entry per product; each entry contains a list of demand levels
-    for all the timepoints during that series (possibly negative, to sell),
-    and wtp is the net private benefit from consuming/selling the amount of power in that bid.
-    Then add that set of bids to the model.
+    accept a list of bids written as tuples like (z, ts, prices, demand, wtp) where z is
+    the load zone, ts is the timeseries, prices and demand are dicts with one entry per
+    product; each entry contains a list of price or demand levels for all the timepoints
+    during that series (possibly negative, to sell), and wtp is the net private benefit
+    from consuming/selling the amount of power in that bid. Then add that set of bids to
+    the model.
     """
     # create a bid ID and add it to the list of bids
     if len(m.DR_BID_LIST) == 0:
@@ -1211,8 +1292,7 @@ def add_bids(m, bids):
                 m.dr_bid[b, z, tp, prod] = demand[prod][i]
                 m.dr_price[b, z, tp, prod] = prices[prod][i]
 
-    print("len(m.DR_BID_LIST): {l}".format(l=len(m.DR_BID_LIST)))
-    # print("m.DR_BID_LIST: {b}".format(b=[x for x in m.DR_BID_LIST]))
+    # print(f"Number of bids collected: {len(m.DR_BID_LIST)}")
 
     # reconstruct components that depend on the bids
     reconstruct_dr_components(m)
@@ -1350,9 +1430,13 @@ def write_demand_response_summary(m, final=False):
     # TODO: clear this automatically whenever a new model starts, i.e., when the
     # bid file is created; but there is no neat hook for that.
     if final or not os.path.isfile(output_file):
-        util.create_table(output_file=output_file, headings=summary_headers(m))
+        switch_model.reporting.create_table(
+            output_file=output_file, headings=summary_headers(m)
+        )
 
-    util.append_table(m, output_file=output_file, values=lambda m: summary_values(m))
+    switch_model.reporting.append_table(
+        m, output_file=output_file, values=lambda m: summary_values(m)
+    )
 
 
 def summary_headers(m):
@@ -1518,7 +1602,7 @@ def write_results(m, include_bid_num=True):
     #         for prod in m.DR_PRODUCTS
     #     }
 
-    util.write_table(
+    switch_model.reporting.write_table(
         m,
         m.LOAD_ZONES,
         m.TIMEPOINTS,
@@ -1537,13 +1621,18 @@ def write_results(m, include_bid_num=True):
         + ("peak_day", "base_load", "base_price"),
         values=lambda m, z, t: (z, m.tp_period[t], m.tp_timestamp[t])
         + tuple(
-            sum(DispatchGenByFuel(m, p, t, f) for p in m.GENS_BY_FUEL[f])
+            sum(
+                m.DispatchGenByFuel[g, t, f]
+                for g in m.GENS_FOR_ZONE_PERIOD_FUEL[z, m.tp_period[t], f]
+            )
             for f in m.FUELS
         )
         + tuple(
             sum(
-                get(m.DispatchGen, (p, t), 0.0)
-                for p in m.GENS_BY_NON_FUEL_ENERGY_SOURCE[s]
+                m.DispatchGen[g, t]
+                for g in m.GENS_FOR_ZONE_PERIOD_NON_FUEL_ENERGY_SOURCE[
+                    z, m.tp_period[t], s
+                ]
             )
             for s in m.NON_FUEL_ENERGY_SOURCES
         )
@@ -1593,7 +1682,7 @@ def write_dual_costs(m, include_bid_num=True):
     outfile = os.path.join(outputs_dir, "dual_costs{t}.csv".format(t=tag))
     dual_data = []
     start_time = time.time()
-    print("Writing {} ... ".format(outfile), end=" ")
+    m.logger.debug("Writing {} ... ".format(outfile), end=" ")
 
     def add_dual(const, lbound, ubound, duals, prefix="", offset=0.0):
         if const in duals:
@@ -1663,7 +1752,7 @@ def write_dual_costs(m, include_bid_num=True):
             ",".join(["constraint", "direction", "bound", "dual", "total_cost"]) + "\n"
         )
         f.writelines(",".join(map(str, r)) + "\n" for r in dual_data)
-    print("time taken: {dur:.2f}s".format(dur=time.time() - start_time))
+    m.logger.debug("time taken: {dur:.2f}s".format(dur=time.time() - start_time))
 
 
 def filename_tag(m, include_bid_num=True):

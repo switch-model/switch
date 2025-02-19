@@ -28,11 +28,6 @@ import os
 import csv
 import itertools
 
-try:
-    # Python 2
-    import cPickle as pickle
-except ImportError:
-    import pickle
 from pyomo.environ import value, Var, Expression
 from switch_model.utilities import make_iterable
 
@@ -67,24 +62,36 @@ def define_arguments(argparser):
     )
 
 
-def write_table(instance, *indexes, **kwargs):
-    # there must be a way to accept specific named keyword arguments and
-    # also an open-ended list of positional arguments (*indexes), but I
-    # don't know what that is.
+def create_table(**kwargs):
+    """
+    Create specified output_file csv, with specified headings
+    """
     output_file = kwargs["output_file"]
     headings = kwargs["headings"]
-    values = kwargs["values"]
-    digits = kwargs.get("digits", 6)
 
     with open(output_file, "w") as f:
         w = csv.writer(f, dialect="switch-csv")
         # write header row
         w.writerow(list(headings))
+
+
+def append_table(instance, *indexes, **kwargs):
+    """
+    Append rows to specified output_file csv, iterating over the specified indexes and
+    obtaining row data from the specified values function.
+    """
+    output_file = kwargs["output_file"]
+    values = kwargs["values"]
+    digits = kwargs.get("digits", 6)
+
+    with open(output_file, "a") as f:
+        w = csv.writer(f, dialect="switch-csv")
+
         # write the data
         def format_row(row):
             row = [value(v) for v in row]
             sig_digits = "{0:." + str(digits) + "g}"
-            for (i, v) in enumerate(row):
+            for i, v in enumerate(row):
                 if isinstance(v, float):
                     if abs(v) < 1e-10:
                         row[i] = 0
@@ -96,34 +103,23 @@ def write_table(instance, *indexes, **kwargs):
         if instance.options.sorted_output:
             idx.sort()
 
-        try:
-            w.writerows(
-                format_row(row=values(instance, *unpack_elements(x))) for x in idx
-            )
-        except TypeError:  # lambda got wrong number of arguments
-            # use old code, which doesn't unpack the indices
-            w.writerows(
-                # TODO: flatten x (unpack tuples) like Pyomo before calling values()
-                # That may cause problems elsewhere though...
-                format_row(row=values(instance, *x))
-                for x in idx
-            )
-            print(
-                "DEPRECATION WARNING: switch_model.reporting.write_table() was called with a function"
-            )
-            print(
-                "that expects multidimensional index values to be stored in tuples, but Switch now unpacks"
-            )
-            print(
-                "these tuples automatically. Please update your code to work with unpacked index values."
-            )
-            print("Problem occured with {}.".format(values.__code__))
+        # NOTE: For very early versions of Switch, values() expected a tuple of
+        # arguments; if values() raises a TypeError here, it probably needs to be
+        # updated to accept separate arguments for all the index keys.
+        w.writerows(format_row(row=values(instance, *unpack_elements(x))) for x in idx)
+
+
+def write_table(instance, *indexes, **kwargs):
+    """Write an output table in one shot - headers and body."""
+    create_table(**kwargs)
+    append_table(instance, *indexes, **kwargs)
 
 
 def unpack_elements(items):
     """Unpack any multi-element objects within items, to make a single flat list.
     Note: this is not recursive.
-    This is used to flatten the product of a multi-dimensional index with anything else."""
+    This is used to flatten the product of a multi-dimensional index with anything else.
+    """
     l = []
     for x in items:
         if isinstance(x, string_types):
@@ -251,7 +247,6 @@ def save_cost_components(m, outdir):
     """
     Save values for all individual components of total system cost on NPV basis.
     """
-    # TODO: should this use bring_future_costs_to_base_year instead of bring_annual_costs_to_base_year
     cost_dict = dict()
     for annual_cost in m.Cost_Components_Per_Period:
         cost = getattr(m, annual_cost)
@@ -278,4 +273,3 @@ def save_cost_components(m, outdir):
         values=lambda m, c: (c, cost_dict[c]),
         digits=16,
     )
-
