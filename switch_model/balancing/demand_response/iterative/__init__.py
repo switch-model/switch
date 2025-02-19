@@ -1269,9 +1269,9 @@ def reconstruct_energy_balance(m):
 def register_demand_response_reserves(m):
     if m.options.demand_response_reserve_types == []:
         if hasattr(m, "Spinning_Reserve_Up_Provisions"):
-            m.options.demand_response_reserve_types == ["spinning"]
+            m.options.demand_response_reserve_types = ["spinning"]
         else:
-            m.options.demand_response_reserve_types == ["none"]
+            m.options.demand_response_reserve_types = ["none"]
 
     if [rt.lower() for rt in m.options.demand_response_reserve_types] != ["none"]:
         # Register with spinning reserves
