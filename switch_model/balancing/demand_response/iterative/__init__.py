@@ -22,6 +22,7 @@ current demand_module in this module (rather than storing it in the model itself
 
 import os, sys, time, logging
 from pyomo.environ import *
+from switch_model.utilities import wrap
 
 try:
     from pyomo.repn import generate_standard_repn
@@ -508,9 +509,10 @@ def pre_iterate(m):
         )
         best_cost = best_direct_cost + best_bid_benefit
 
-        # m.logger.info("best direct cost: ${:,.0f}".format(best_direct_cost))
-        # m.logger.info("best bid benefit: ${:,.0f}".format(best_bid_benefit))
-        # m.logger.info("")
+        # Check for convergence - optimality gap is less than 1% of baseline
+        # expenditure
+        optimality_status = (prev_cost - best_cost) / m.dr_base_expenditure
+        converged = optimality_status <= m.options.dr_optimality_gap
 
         m.logger.info(
             "Total marginal cost for demand response system, net of customer benefit"
@@ -518,17 +520,27 @@ def pre_iterate(m):
         m.logger.info(f"Lower bound:                       ${fmt(best_cost)}")
         m.logger.info(f"Current:                           ${fmt(prev_cost)}")
         m.logger.info(
-            f"Optimality gap (vs. baseline cost): "
-            f"{fmt((prev_cost - best_cost) / m.dr_base_expenditure)}"
+            f"Optimality gap (vs. baseline cost): {fmt(optimality_status)}"
+            + (
+                f" (<= {m.options.dr_optimality_gap}, converged)"
+                if converged
+                else f"(> {m.options.dr_optimality_gap}, continuing)"
+            )
         )
         if prev_cost < best_cost:
             m.logger.warn(
-                f"WARNING: final cost ${fmt(prev_cost)} is below calculated lower bound "
-                f"${fmt(prev_cost)}; there is probably a problem with the demand system."
+                wrap(
+                    f"WARNING: final cost ${fmt(prev_cost)} is below calculated lower bound "
+                    f"${fmt(prev_cost)}; there is probably a problem with the demand system."
+                )
             )
 
         m.logger.info("")
-        m.logger.info(weights_message)
+        m.logger.info(wrap(weights_message))
+
+    else:
+        # first iteration
+        converged = False
 
     # basis for optimality test:
     # 1. The total cost of supply, as a function of quantity produced each hour, forms
@@ -564,13 +576,6 @@ def pre_iterate(m):
     # -
     # = prev_marginal_cost * prev_demand + DR_Welfare_Cost
     #   - (prev_marginal_cost * dr_bid - dr_bid_benefit)
-
-    # Check for convergence -- optimality gap is less than 1% of baseline expenditure
-    converged = (
-        m.iteration_number > 0
-        and (prev_cost - best_cost) / m.dr_base_expenditure
-        <= m.options.dr_optimality_gap
-    )
 
     return converged
 
