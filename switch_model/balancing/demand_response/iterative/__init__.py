@@ -1607,6 +1607,19 @@ def write_results(m, include_bid_num=True):
     #         for prod in m.DR_PRODUCTS
     #     }
 
+    # find all variable gens and their energy sources (sorted like m.ENERGY_SOURCES)
+    # for curtailment reporting
+    VARIABLE_GENS_FOR_ZONE_PERIOD_ENERGY_SOURCE = {
+        (z, p, s): [g for g in G if m.gen_is_variable[g]]
+        for (z, p, s), G in m.GENS_FOR_ZONE_PERIOD_ENERGY_SOURCE.items()
+    }
+    variable_sources = {
+        s
+        for (z, p, s), GENS in VARIABLE_GENS_FOR_ZONE_PERIOD_ENERGY_SOURCE.items()
+        if GENS
+    }
+    VARIABLE_ENERGY_SOURCES = [s for s in m.ENERGY_SOURCES if s in variable_sources]
+
     switch_model.reporting.write_table(
         m,
         m.LOAD_ZONES,
@@ -1615,7 +1628,7 @@ def write_results(m, include_bid_num=True):
         headings=("load_zone", "period", "timepoint_label")
         + tuple(m.FUELS)
         + tuple(m.NON_FUEL_ENERGY_SOURCES)
-        + tuple("curtail_" + s for s in m.NON_FUEL_ENERGY_SOURCES)
+        + tuple("curtail_" + s for s in VARIABLE_ENERGY_SOURCES)
         + tuple(m.Zone_Power_Injections)
         + tuple(m.Zone_Power_Withdrawals)
         + tuple("offered price " + prod for prod in m.DR_PRODUCTS)
@@ -1628,25 +1641,30 @@ def write_results(m, include_bid_num=True):
         + tuple(
             sum(
                 m.DispatchGenByFuel[g, t, f]
-                for g in m.GENS_FOR_ZONE_PERIOD_FUEL[z, m.tp_period[t], f]
+                for g in m.GENS_FOR_ZONE_PERIOD_ENERGY_SOURCE[z, m.tp_period[t], f]
             )
             for f in m.FUELS
         )
         + tuple(
             sum(
                 m.DispatchGen[g, t]
-                for g in m.GENS_FOR_ZONE_PERIOD_NON_FUEL_ENERGY_SOURCE[
-                    z, m.tp_period[t], s
-                ]
+                for g in m.GENS_FOR_ZONE_PERIOD_ENERGY_SOURCE[z, m.tp_period[t], s]
             )
             for s in m.NON_FUEL_ENERGY_SOURCES
         )
+        # curtailment; note: prior to 2.0.10, this used DispatchUpperLimit, which
+        # can be thrown off by arbitrary unit commitment choices during curtailment
         + tuple(
             sum(
-                get(m.DispatchUpperLimit, (p, t), 0.0) - get(m.DispatchGen, (p, t), 0.0)
-                for p in m.GENS_BY_NON_FUEL_ENERGY_SOURCE[s]
+                m.GenCapacityInTP[g, t]
+                * m.gen_availability[g]
+                * m.gen_max_capacity_factor[g, t]
+                - m.DispatchGen[g, t]
+                for g in VARIABLE_GENS_FOR_ZONE_PERIOD_ENERGY_SOURCE[
+                    z, m.tp_period[t], s
+                ]
             )
-            for s in m.NON_FUEL_ENERGY_SOURCES
+            for s in VARIABLE_ENERGY_SOURCES
         )
         + tuple(getattr(m, component)[z, t] for component in m.Zone_Power_Injections)
         + tuple(getattr(m, component)[z, t] for component in m.Zone_Power_Withdrawals)

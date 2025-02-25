@@ -3,6 +3,7 @@
 Add this module to a standard Switch model, and the post_solve() callback will
 be called automatically to store results.
 """
+
 from __future__ import division
 
 # TODO: eventually make this code more generic, e.g., create a general reporting module
@@ -80,9 +81,11 @@ def summary_values(m):
     values.extend(
         [
             str(m.options.scenario_name),
-            m.demand_response_max_share
-            if hasattr(m, "demand_response_max_share")
-            else 0.0,
+            (
+                m.demand_response_max_share
+                if hasattr(m, "demand_response_max_share")
+                else 0.0
+            ),
         ]
     )
 
@@ -155,10 +158,12 @@ def annualize_present_value_period_cost(m, period, val):
 
 
 def DispatchGenByFuel(m, g, tp, fuel):
-    """This is a replacement for mod.DispatchGenByFuel, which is only defined in
-    project.no_commit, not project.unitcommit.fuel_use. In the unit commitment version
-    it can only be defined as a quadratically constrained variable, which we don't
-    want to force on all users."""
+    """
+    This is a replacement for m.DispatchGenByFuel, with some extra handling for the case
+    where a generator has multiple fuel options but doesn't use any fuel (!). If that case
+    is not important, then this is obsolete now that m.DispatchGenByFuel is defined for
+    generators.core.commit (it was always defined for generators.core.no_commit).
+    """
     if (g, tp) in m.DispatchGen:
         dispatch = value(m.DispatchGen[g, tp])
         total_fuel = value(sum(m.GenFuelUseRate[g, tp, f] for f in m.FUELS_FOR_GEN[g]))
@@ -231,23 +236,29 @@ def write_results(m, outputs_dir):
         m.TIMESERIES
     )
     # do some lookups in advance to avoid re-filtering every timepoint
-    gens_by_fuel_and_zone = {
+    GENS_BY_FUEL_AND_ZONE = {
         (f, z): [g for g in m.GENS_BY_FUEL[f] if m.gen_load_zone[g] == z]
         for f in m.FUELS
         for z in m.LOAD_ZONES
     }
-    gens_by_non_fuel_energy_source_and_zone = {
-        (s, z): [
-            g for g in m.GENS_BY_NON_FUEL_ENERGY_SOURCE[s] if m.gen_load_zone[g] == z
-        ]
-        for z in m.LOAD_ZONES
-        for s in m.NON_FUEL_ENERGY_SOURCES
-    }
-    gens_by_non_fuel_tech_and_zone = {
+    GENS_BY_NON_FUEL_TECH_AND_ZONE = {
         (tech, z): [g for g in m.GENS_BY_TECHNOLOGY[tech] if m.gen_load_zone[g] == z]
         for tech in non_fuel_techs
         for z in m.LOAD_ZONES
     }
+
+    # find all variable gens and their energy sources (sorted like m.ENERGY_SOURCES)
+    # for curtailment reporting
+    VARIABLE_GENS_FOR_ZONE_PERIOD_ENERGY_SOURCE = {
+        (z, p, s): [g for g in G if m.gen_is_variable[g]]
+        for (z, p, s), G in m.GENS_FOR_ZONE_PERIOD_ENERGY_SOURCE.items()
+    }
+    variable_sources = {
+        s
+        for (z, p, s), GENS in VARIABLE_GENS_FOR_ZONE_PERIOD_ENERGY_SOURCE.items()
+        if GENS
+    }
+    VARIABLE_ENERGY_SOURCES = [s for s in m.ENERGY_SOURCES if s in variable_sources]
 
     util.write_table(
         m,
@@ -258,7 +269,7 @@ def write_results(m, outputs_dir):
         + tuple(m.FUELS)
         + tuple(m.NON_FUEL_ENERGY_SOURCES)
         + non_fuel_techs
-        + tuple("curtail_" + s for s in m.NON_FUEL_ENERGY_SOURCES)
+        + tuple("curtail_" + s for s in VARIABLE_ENERGY_SOURCES)
         + tuple(m.Zone_Power_Injections)
         + tuple(m.Zone_Power_Withdrawals)
         + (
@@ -272,32 +283,37 @@ def write_results(m, outputs_dir):
         + tuple(
             sum(
                 DispatchGenByFuel(m, g, t, f)
-                for g in gens_by_fuel_and_zone[f, z]
-                if (g, t) in m.GEN_TPS
+                for g in m.GENS_FOR_ZONE_PERIOD_ENERGY_SOURCE[z, m.tp_period[t], f]
             )
             for f in m.FUELS
         )
         + tuple(
             sum(
-                util.get(m.DispatchGen, (g, t), 0.0)
-                for g in gens_by_non_fuel_energy_source_and_zone[s, z]
+                m.DispatchGen[g, t]
+                for g in m.GENS_FOR_ZONE_PERIOD_ENERGY_SOURCE[z, m.tp_period[t], s]
             )
             for s in m.NON_FUEL_ENERGY_SOURCES
         )
         + tuple(
             sum(
                 util.get(m.DispatchGen, (g, t), 0.0)
-                for g in gens_by_non_fuel_tech_and_zone[tech, z]
+                for g in GENS_BY_NON_FUEL_TECH_AND_ZONE[tech, z]
             )
             for tech in non_fuel_techs
         )
+        # curtailment; note: prior to 2.0.10, this used DispatchUpperLimit, which
+        # can be thrown off by arbitrary unit commitment choices during curtailment
         + tuple(
             sum(
-                util.get(m.DispatchUpperLimit, (g, t), 0.0)
-                - util.get(m.DispatchGen, (g, t), 0.0)
-                for g in gens_by_non_fuel_energy_source_and_zone[s, z]
+                m.GenCapacityInTP[g, t]
+                * m.gen_availability[g]
+                * m.gen_max_capacity_factor[g, t]
+                - m.DispatchGen[g, t]
+                for g in VARIABLE_GENS_FOR_ZONE_PERIOD_ENERGY_SOURCE[
+                    z, m.tp_period[t], s
+                ]
             )
-            for s in m.NON_FUEL_ENERGY_SOURCES
+            for s in VARIABLE_ENERGY_SOURCES
         )
         + tuple(getattr(m, component)[z, t] for component in m.Zone_Power_Injections)
         + tuple(getattr(m, component)[z, t] for component in m.Zone_Power_Withdrawals)
@@ -541,9 +557,11 @@ def write_results(m, outputs_dir):
             for t in built_tech
         )
         + (
-            m.Pumped_Hydro_Capacity_MW[z, pe]
-            if hasattr(m, "Pumped_Hydro_Capacity_MW")
-            else 0,
+            (
+                m.Pumped_Hydro_Capacity_MW[z, pe]
+                if hasattr(m, "Pumped_Hydro_Capacity_MW")
+                else 0
+            ),
             m.FuelCellCapacityMW[z, pe] if hasattr(m, "FuelCellCapacityMW") else 0,
         ),
     )
@@ -571,9 +589,11 @@ def write_results(m, outputs_dir):
             for s in built_energy_source
         )
         + (
-            m.Pumped_Hydro_Capacity_MW[z, pe]
-            if hasattr(m, "Pumped_Hydro_Capacity_MW")
-            else 0,
+            (
+                m.Pumped_Hydro_Capacity_MW[z, pe]
+                if hasattr(m, "Pumped_Hydro_Capacity_MW")
+                else 0
+            ),
             m.FuelCellCapacityMW[z, pe] if hasattr(m, "FuelCellCapacityMW") else 0,
         ),
     )
@@ -600,9 +620,11 @@ def write_results(m, outputs_dir):
             for s in built_energy_source
         )
         + (
-            m.Pumped_Hydro_Capacity_MW[z, pe]
-            if hasattr(m, "Pumped_Hydro_Capacity_MW")
-            else 0,
+            (
+                m.Pumped_Hydro_Capacity_MW[z, pe]
+                if hasattr(m, "Pumped_Hydro_Capacity_MW")
+                else 0
+            ),
             m.FuelCellCapacityMW[z, pe] if hasattr(m, "FuelCellCapacityMW") else 0,
         ),
     )
