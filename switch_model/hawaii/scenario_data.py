@@ -451,12 +451,18 @@ def get_queries(args):
         "non_fuel_energy_sources.csv",
         "WITH "
         + study_info
-        + """
-        SELECT DISTINCT gen_energy_source AS "NON_FUEL_ENERGY_SOURCES"
+        + """,
+        gen_energy_sources AS (SELECT DISTINCT 
+            CASE 
+                WHEN gen_energy_source LIKE '%% only' THEN LEFT(gen_energy_source, -5) 
+                ELSE gen_energy_source 
+            END AS "NON_FUEL_ENERGY_SOURCES"
             FROM study_generator_info
-            WHERE gen_energy_source NOT IN (SELECT fuel FROM fuel_costs)
+        )
+        SELECT * FROM gen_energy_sources
+            WHERE "NON_FUEL_ENERGY_SOURCES" NOT IN (SELECT fuel FROM fuel_costs)
             ORDER by 1;
-    """,
+        """,
         args,
     )
 
