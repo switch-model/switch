@@ -17,7 +17,10 @@ replace_modules = {
     "switch_model.balancing.demand_response.iterative": [
         "switch_model.balancing.demand_response.iterative",
         "switch_model.balancing.unserved_load",
-    ]
+    ],
+    "switch_model.hawaii.smooth_dispatch": [
+        "switch_model.reporting.smooth_dispatch",
+    ],
 }
 
 module_messages = {
