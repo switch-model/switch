@@ -65,7 +65,7 @@ module_messages = {
 }
 
 
-def create_unserved_load_penalty(inputs_dir):
+def write_iterative_dr_data(inputs_dir):
     with open(modules_file(inputs_dir)) as f:
         old_module_list = [line.strip() for line in f.read().splitlines()]
 
@@ -158,11 +158,38 @@ def create_unserved_load_penalty(inputs_dir):
             """
         )
 
+    # add base price to loads.csv (previously hard-coded in
+    # demand_response.iterative module)
+    up.print_verbose()
+    loads_file = os.path.join(inputs_dir, "loads.csv")
+    if os.path.exists(loads_file):
+        loads = pd.read_csv(loads_file, na_values=".")
+        loads["dr_base_price"] = 180
+        loads.to_csv(loads_file, na_rep=".", index=False)
+
+        up.print_verbose(
+            "NOTE: Beginning with Switch 2.0.10, "
+            "switch_model.balancing.demand_response.iterative requires "
+            f"dr_base_price to be set via a column in {loads_file} instead of "
+            "always using a value of $180/MWh. Your loads.csv has been "
+            "updated with the previous default value, so the model should "
+            "produce the same results as before."
+        )
+    else:
+        up.print_verbose(
+            "WARNING: Beginning with Switch 2.0.10, "
+            "switch_model.balancing.demand_response.iterative requires "
+            f"dr_base_price to be set via a column in {loads_file} instead of "
+            "always using a value of $180/MWh. This file is not present on "
+            "your system, so the upgrade script did not set dr_base_price. "
+            "You will need to set this before running Switch."
+        )
+
 
 module_actions = {
     # functions to run if they previously were using a particular module
     # old_module: function      # function must accept inputs_dir as its only argument
-    "switch_model.balancing.demand_response.iterative": create_unserved_load_penalty
+    "switch_model.balancing.demand_response.iterative": write_iterative_dr_data
 }
 
 

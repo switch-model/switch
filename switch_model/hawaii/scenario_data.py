@@ -413,15 +413,21 @@ def get_queries(args):
     # NOTE: we don't provide zone_peak_loads.csv (sometimes used by local_td.py) in this version.
 
     # get system loads, scaled from the historical years to the model years
-    # note: 'offset' is a keyword in postgresql, so we use double-quotes to specify the column name
+    # note: 'offset' is a keyword in postgresql, so we use double-quotes to
+    # specify the column name
+    if "dr_base_price" in args:
+        base_price = ",\n            %(dr_base_price)s AS dr_base_price"
+    else:
+        base_price = ""
+
     add_query(
         queries,
         "loads.csv",
-        """
+        f"""
         SELECT
             l.load_zone AS "LOAD_ZONE",
             timepoint AS "TIMEPOINT",
-            GREATEST(0, system_load * scale + "offset") AS zone_demand_mw
+            GREATEST(0, system_load * scale + "offset") AS zone_demand_mw{base_price}
         FROM timeseries d
             JOIN timepoints h USING (time_sample, timeseries)
             JOIN loads l USING (date_time)
