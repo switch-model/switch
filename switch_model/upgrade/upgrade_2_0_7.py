@@ -11,17 +11,18 @@ upgrades_to = "2.0.7"
 replace_modules = {
     # modules to be replaced in the module list
     # old_module: [new_module1, new_module2, ...],
+    "switch_model.hawaii.kalaeloa": ["switch_model.hawaii.oahu_plants"]
 }
 
 module_messages = {
     # description of significant changes to particular modules other than
     # moving/renaming
     # old_module: message
-    "switch_model.generators.core.build":
-    "Beginning with Switch 2.0.7, gen_multiple_fuels.dat should "
-    "be replaced with gen_multiple_fuels.csv. The .csv file should have "
-    "two columns: GENERATION_PROJECT and fuel. It should have one row for "
-    "each allowed fuel for each multi-fuel generator."
+    "switch_model.generators.core.build": "The upgrade script has replaced "
+    "gen_multiple_fuels.dat with gen_multiple_fuels.csv as required for "
+    "compatibility with Switch 2.0.7 and later. For future reference, the "
+    "new .csv file format has two columns: GENERATION_PROJECT and fuel. It "
+    "should have one row for each allowed fuel for each multi-fuel generator."
 }
 
 
@@ -35,7 +36,7 @@ def upgrade_input_dir(inputs_dir):
     switch_model.upgrade._write_input_version(inputs_dir, upgrades_to)
 
     # rename modules and report changes
-    # update_modules(inputs_dir)
+    update_modules(inputs_dir)
 
     # convert the multi-fuels file to csv format (this is the last .dat input)
     convert_gen_multiple_fuels_to_csv(inputs_dir)
