@@ -1,7 +1,4 @@
-from __future__ import division
-
-
-def calibrate(m, base_data, dr_elasticity_scenario=3):
+def calibrate_demand(m, base_data, dr_elasticity_scenario=3):
     """
     Accept a list of tuples showing [base hourly loads], and [base hourly
     prices] for each location (load_zone) and date (time_series). Store these
@@ -10,7 +7,7 @@ def calibrate(m, base_data, dr_elasticity_scenario=3):
     # import numpy; we delay till here to avoid interfering with unit tests
     global np
     import numpy as np
-    
+
     global base_load_dict, base_price_dict, elasticity_scenario
     # build dictionaries (indexed lists) of base loads and prices
     # store the load and price vectors as numpy arrays (vectors) for faster
@@ -26,7 +23,7 @@ def calibrate(m, base_data, dr_elasticity_scenario=3):
     elasticity_scenario = dr_elasticity_scenario
 
 
-def bid(m, load_zone, time_series, tp_duration_hrs, prices):
+def bid_demand(m, load_zone, time_series, prices):
     """
     Accept a vector of current prices, for a particular location (load_zone) and
     day (time_series). Return a tuple showing hourly load levels and willingness
@@ -80,7 +77,7 @@ def bid(m, load_zone, time_series, tp_duration_hrs, prices):
     # example is calculated as:
 
     # Integral(ebl * (p/bp)**(-e),  p=p, p=bp)
-    # = ebl * bp**e          * Integral(p**(-e), p=p, p=bp) 
+    # = ebl * bp**e          * Integral(p**(-e), p=p, p=bp)
     # = ebl * bp**e          * (bp**(1-e) - p**(1-e)) / (1-e)
     # = ebl * bp * bp**(e-1) * (bp**(1-e) - p**(1-e)) / (1-e)
     # = ebl * bp *       (1 - (p/bp)**(1-e))          / (1-e)
@@ -100,7 +97,7 @@ def bid(m, load_zone, time_series, tp_duration_hrs, prices):
     demand = shiftable_load + elastic_load
     n_steps = len(p)
 
-    # calculate average wtp per hour for this timeseries (note that all the 
+    # calculate average wtp per hour for this timeseries (note that all the
     # calculations so far have been in strange units: prices are $/MWh and loads
     # are MW (MWh/h), so cs integrals and expenditure sums are $/h * n_timesteps)
     wtp = (shiftable_load_wtp + elastic_load_cs_diff + elastic_load_paid_diff) / n_steps

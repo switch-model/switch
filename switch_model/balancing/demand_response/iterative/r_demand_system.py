@@ -2,30 +2,29 @@
 Bridge to demand system implemented in an R script.
 """
 
-from switch_model.utilities import unique_list
-
 # Note that calibration data is stored in the R instance, and rpy2 only
 # creates one instance. So this module can only be used with one model
 # at a time (or at least only with models that use the same calibration data).
 
 # An alternative approach would be to store calibration data in a particular
 # environment or object in R, and return that to Python. Then that could be
-# returned by the python calibrate() function and attached to the model.
+# returned by the python calibrate_demand() function and attached to the model.
 
 
 def define_arguments(argparser):
     argparser.add_argument(
-        "--dr-elasticity-scenario",
-        type=int,
-        default=3,
-        help="Choose a scenario of customer elasticity to be used by R script",
-    )
-    argparser.add_argument(
         "--dr-r-script",
         default=None,
         help="Name of R script to use for preparing demand response bids. "
-        "Only takes effect when using --dr-demand-module=r_demand_system. "
         "This script should provide calibrate() and bid() functions. ",
+    )
+    argparser.add_argument(
+        "--dr-r-options",
+        default="",
+        help="String to pass to the R demand response script, usually "
+        "used to identify input files or settings for this scenario, e.g., "
+        """"inputs.dir <- 'inputs_special'; ces.file <- 'ces_low.csv'". """
+        "Will be passed to the calibrate() function of the DR R script as is.",
     )
 
 
@@ -73,56 +72,70 @@ def define_components(m):
             "Please use --dr-r-script <scriptname.R> in options.txt, scenarios.txt or on "
             "the command line."
         )
+    if m.options.debug:
+        # setup postmortem debugging in R
+        r("options(error=browser)")
     r.source(m.options.dr_r_script)
 
 
-def calibrate(m, base_data):
-    """Accept a list of tuples showing load_zone, time_series, [base hourly loads], [base hourly prices]
-    for each load_zone and time_series (day). Perform any calibration needed in the demand system
-    so that customized bids can later be generated for each load_zone and time_series, using new prices.
-    Also accept an allocation among different elasticity classes (defined in the R module.)
+def calibrate_demand(m, base_data):
     """
-    base_load_dict = {
-        (z, ts): base_loads for (z, ts, base_loads, base_prices) in base_data
-    }
-    base_price_dict = {
-        (z, ts): base_prices for (z, ts, base_loads, base_prices) in base_data
-    }
-    load_zones = unique_list(z for (z, ts, base_loads, base_prices) in base_data)
-    time_series = unique_list(ts for (z, ts, base_loads, base_prices) in base_data)
-    # maybe this should use the hour of day from the model, but this is good enough for now
-    hours_of_day = list(range(1, 1 + len(base_data[0][2])))
+    Accept a list of tuples showing load_zone, time_series, [base hourly loads], [base
+    hourly prices] for each load_zone and time_series (day). Perform any calibration
+    needed in the demand system so that customized bids can later be generated for each
+    load_zone and timeseries, using new prices.
+    """
+    # convert base_data to a format that can be passed to R
+    # (string keys, vector data and no tuples)
+    base_data_for_r = [
+        [str(z), str(ts), np.array(base_loads), np.array(base_prices)]
+        for (z, ts, base_loads, base_prices) in base_data
+    ]
+    # note: prior to Jan 2025, we constructed an R array with named dimensions
+    # here and passed that to R, but that broke somewhere between rpy2 3.3.6
+    # and rpy2 3.5.11. It would also have broken if we ever used a model with
+    # mixed-length timeseries. So now we just pass the Switch calibration data
+    # through with minimal adjustments.
 
-    # create r arrays of base loads and prices, with indices = (hour of day, time series, load zone)
-    base_loads = make_r_value_array(
-        base_load_dict, hours_of_day, time_series, load_zones
-    )
-    base_prices = make_r_value_array(
-        base_price_dict, hours_of_day, time_series, load_zones
+    # prepare Switch options object to pass to R (this includes standard
+    # settings such as inputs_dir and input_aliases, and also anything people
+    # put in the dr_r_options flag; note that hyphens in the command line
+    # flags will be translated to underscores like --inputs-dir -> inputs_dir
+    null = r("NULL")
+    switch_options = rpy2.robjects.ListVector(
+        {k: null if v is None else v for (k, v) in vars(m.options).items()}
     )
 
     # calibrate the demand system within R
-    r.calibrate(base_loads, base_prices, m.options.dr_elasticity_scenario)
+    r.calibrate(base_data_for_r, switch_options)
 
 
-def bid(m, load_zone, timeseries, tp_duration_hrs, prices):
-    """Accept a vector of prices in a particular load_zone during a particular day (time_series).
-    Return a tuple showing hourly load levels and willingness to pay for those loads."""
+def bid_demand(m, load_zone, timeseries, prices):
+    """
+    Accept a vector of prices in a particular load_zone during a particular timeseries
+    (usually a day). Return a tuple showing load levels for each timepoint and willingness
+    to pay (avg. $/hr) for that load vector. Note that prices are in $/MWh and loads are
+    in MW (MWh/h), so wtp should be in units of prices dot demand / len(demand).
+    """
 
     bid = r.bid(
         str(load_zone),
         str(timeseries),
+        m.ts_duration_of_tp[timeseries],
         np.array(prices["energy"]),
         np.array(prices["energy up"]),
         np.array(prices["energy down"]),
-        m.options.dr_elasticity_scenario,
     )
     demand = {
         "energy": list(bid[0]),
         "energy up": list(bid[1]),
         "energy down": list(bid[2]),
     }
-    wtp = bid[3][0]  # everything is a vector in R, so we have to take the first element
+    # convert from numpy float64 array (everything is a vector in R)
+    wtp = float(bid[3][0])
+
+    if not demand["energy"]:
+        raise ValueError("Empty bid received from R demand system.")
 
     return (demand, wtp)
 
@@ -135,28 +148,5 @@ def test_calib():
         ("maui", 100, [3500, 4000, 4500], [0.35, 0.35, 0.35]),
         ("maui", 200, [5000, 5500, 6000], [0.35, 0.35, 0.35]),
     ]
-    calibrate(base_data)
+    calibrate_demand(base_data)
     r.print_calib()
-
-
-def make_r_value_array(base_value_dict, hours_of_day, time_series, load_zones):
-    # create a numpy array with indices = (hour of day, time series, load zone)
-    arr = np.array(
-        [[base_value_dict[(z, ts)] for ts in time_series] for z in load_zones],
-        dtype=float,
-    ).transpose()
-    # convert to an r array with dimnames, using R's standard array function
-    # (it might be slightly neater to use rinterface to build r_array entirely
-    # on the python side, but this is quick and well-documented since it uses
-    # the standard R array constructor, with light translation to Python)
-    # note: this uses automatic numpy <-> R conversion to pass the array and vectors to R
-    r_array = r.array(
-        arr,
-        dim=np.array(arr.shape),
-        dimnames=r.list(
-            np.array(hours_of_day, dtype=str),
-            np.array(time_series, dtype=str),
-            np.array(load_zones, dtype=str),
-        ),
-    )
-    return r_array

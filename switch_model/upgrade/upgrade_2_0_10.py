@@ -45,20 +45,28 @@ module_messages = {
         `fuel_supply_curves.csv` input file.
         """,
     "switch_model.balancing.demand_response.iterative": """
-        There are two important changes to the `demand_response.iterative`
+        There are several important changes to the `demand_response.iterative`
         module in Switch 2.0.10: (1) The bidding function in the demand module
-        must now accept duration_of_tp as an additional argument and must report
-        the benefit of each bid (WTP) in dollars per hour instead of total
-        dollars for the timeseries. Note that prices are given in $/MWh for each
-        timepoint in the timeseries and quantities are reported back in MW for
-        each timepoint (of indeterminate duration). WTP is typically calculated
-        from p • q, which has units of $/hour * n_timepoints, which was the
-        previous return value. Dividing this value by len(p) gives $/hour, which
-        will be more robust across different timeseries definitions. (2) This
-        module no longer defines its own unserved load components. Instead, you
-        should use the `switch_model.balancing.unserved_load` module to ensure
-        the model is feasible, even with large demand-side bids. Your modules
-        list has been updated to reflect this change.
+        must now report the benefit of each bid (WTP) in dollars per hour
+        instead of total dollars for the timeseries. Note that prices are given
+        in $/MWh for each timepoint in the timeseries and quantities are
+        reported back in MW for each timepoint (of indeterminate duration). WTP
+        is typically calculated from p • q, which has units of $/hour *
+        n_timepoints, which was the previous return value. Dividing this value
+        by len(p) gives $/hour, which will be more robust across different
+        timeseries definitions. (2) The calibration and bidding functions in the
+        demand module should now be named calibrate_demand() and bid_demand()
+        instead of calibrate() and bid(). (3) The `--dr-demand-module` flag is
+        no longer supported. Instead, the iterative demand response module will
+        now automatically find and call the calibrate_demand() and bid_demand()
+        functions in any modules specified in modules.txt. If multiple modules
+        define these functions, the WTP and quantities from all their bids will
+        be added together to create an aggregate bid. (4) The
+        `demand_response.iterative` module no longer defines its own unserved
+        load components. Instead, you should use the
+        `switch_model.balancing.unserved_load` module to ensure the model is
+        feasible, even with large demand-side bids. Your modules list has been
+        updated to reflect this change.
     """,
     "switch_model.balancing.demand_response.iterative.constant_elasticity_demand_system": """
     The built-in `constant_elasticity_demand_system` now reports bid benefit

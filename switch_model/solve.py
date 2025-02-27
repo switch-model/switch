@@ -273,6 +273,7 @@ def main(args=None, return_model=False, return_instance=False):
 
         # report results
         # (repeated if model is reloaded, to automatically run any new export code)
+        timer.step_time()  # restart counter for next step (gets missed sometimes)
         if not instance.options.no_post_solve:
             logger.info("\nExecuting post-solve functions...")
             instance.post_solve()
@@ -502,14 +503,16 @@ def iterate(m, depth=0):
             j += 1
         if converged:
             m.logger.info(
-                "Iteration of {ms} was completed after {j} rounds.".format(
-                    ms=m.iterate_modules[depth], j=j
+                wrap(
+                    f"Iteration of {m.iterate_modules[depth]} was completed "
+                    f"after {j} rounds."
                 )
             )
         else:
             m.logger.info(
-                "Iteration of {ms} was stopped after {j} iterations without convergence.".format(
-                    ms=m.iterate_modules[depth], j=j
+                wrap(
+                    f"Iteration of {m.iterate_modules[depth]} was stopped after "
+                    f"{j} iterations without convergence."
                 )
             )
     return
@@ -1348,8 +1351,8 @@ def retrieve_cplex_mip_duals(model):
                 # see http://www-01.ibm.com/support/docview.wss?uid=swg21399941
                 # and http://www-01.ibm.com/support/docview.wss?uid=swg21400009
             )
-            logger.info("changed CPLEX solve script to the following:")
-            logger.info(command.script)
+            logger.debug("changed CPLEX solve script to the following:")
+            logger.debug(command.script)
         else:
             logger.warning(
                 "Unable to patch CPLEX solver script to retrieve duals "

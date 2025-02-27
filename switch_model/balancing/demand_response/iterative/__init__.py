@@ -1,15 +1,5 @@
 """
 cancel out the basic system load and replace it with a convex combination of bids
-
-note: the demand_module (or some subsidiary module) may store calibration data
-at the module level (not in the model), so this module should only be used with one
-model at a time. An alternative approach would be to receive a calibration_data
-object back from demand_module.calibrate(), then add that to the model and pass
-it back to the bid function when needed.
-
-note: we also take advantage of this assumption and store a reference to the
-current demand_module in this module (rather than storing it in the model itself)
-
 """
 
 # TODO: create a new module to handle total-cost pricing.
@@ -22,7 +12,7 @@ current demand_module in this module (rather than storing it in the model itself
 
 import os, sys, time, logging
 from pyomo.environ import *
-from switch_model.utilities import wrap
+from switch_model.utilities import wrap, rewrap, unwrap
 
 try:
     from pyomo.repn import generate_standard_repn
@@ -32,8 +22,6 @@ except ImportError:
 
 from switch_model.utilities import format_large_number as fmt
 import switch_model.reporting
-
-demand_module = None  # will be set via command-line options
 
 
 def define_arguments(argparser):
@@ -45,18 +33,11 @@ def define_arguments(argparser):
     )
     argparser.add_argument(
         "--dr-optimality-gap",
+        type=float,
         default=0.01,
         help="Optimality gap when demand response iteration should stop. This is the "
         "difference between current solution and best possible solution. This should be "
         "specified as a fraction of baseline cost sum(base load * base price), e.g., 0.01.",
-    )
-    argparser.add_argument(
-        "--dr-demand-module",
-        default=None,
-        help="Name of module to use for demand-response bids. This should also be "
-        "specified in the modules list, and should provide calibrate() and bid() functions. "
-        "Pre-written options include constant_elasticity_demand_system or r_demand_system. "
-        "Specify one of these in the modules list and use --help again to see module-specific options.",
     )
     argparser.add_argument(
         "--demand-response-reserve-types",
@@ -132,30 +113,6 @@ def define_components(m):
         print("Please install this via 'conda install scipy' or 'pip install scipy'.")
         print("=" * 80)
         raise
-
-    ###################
-    # Choose the right demand module.
-    # NOTE: we assume only one model will be run at a time, so it's safe to store
-    # the setting in this module instead of in the model.
-    ##################
-
-    global demand_module
-    if m.options.dr_demand_module is None:
-        raise RuntimeError(
-            "No demand module was specified for the demand_response system; unable to continue. "
-            "Please use --dr-demand-module <module_name> in options.txt, scenarios.txt or on "
-            "the command line. "
-            "You should also add this module to the list of modules to load "
-            " via modules.txt or --include-module <module_name>."
-        )
-    if m.options.dr_demand_module not in sys.modules:
-        raise RuntimeError(
-            "Demand module {mod} cannot be used because it has not been loaded. "
-            "Please add this module to the modules list (usually modules.txt) "
-            "or specify --include-module {mod} in options.txt, scenarios.txt or "
-            "on the command line.".format(mod=m.options.dr_demand_module)
-        )
-    demand_module = sys.modules[m.options.dr_demand_module]
 
     # Make sure the model has dual and rc suffixes
     if not hasattr(m, "dual"):
@@ -417,7 +374,9 @@ def pre_iterate(m):
 
     if m.iteration_number == 0:
         # show some first-pass info
-        m.logger.info(f"Baseline cost is ${value(m.dr_base_expenditure):,.0f} (NPV)")
+        m.logger.info(
+            f"\nDemand response baseline cost is ${value(m.dr_base_expenditure):,.0f} (NPV)"
+        )
 
     if m.iteration_number > 0:
         # store cost of previous solution before it gets altered by update_demand()
@@ -520,9 +479,9 @@ def pre_iterate(m):
         m.logger.info(f"Lower bound:                       ${fmt(best_cost)}")
         m.logger.info(f"Current:                           ${fmt(prev_cost)}")
         m.logger.info(
-            f"Optimality gap (vs. baseline cost): {fmt(optimality_status)}"
+            f"Optimality gap (vs. baseline cost): {fmt(optimality_status)} "
             + (
-                f" (<= {m.options.dr_optimality_gap}, converged)"
+                f"(<= {m.options.dr_optimality_gap}, converged)"
                 if converged
                 else f"(> {m.options.dr_optimality_gap}, continuing)"
             )
@@ -1001,8 +960,10 @@ def calibrate_model(m):
         for ts in m.TIMESERIES
     ]
 
-    # calibrate the demand module
-    demand_module.calibrate(m, base_data)
+    # calibrate the demand module(s)
+    for module in m.get_modules():
+        if hasattr(module, "calibrate_demand"):
+            module.calibrate_demand(m, base_data)
 
 
 def get_prices(m, flat_revenue_neutral=True):
@@ -1048,6 +1009,24 @@ def get_prices(m, flat_revenue_neutral=True):
     return prices
 
 
+def bid_modules(m):
+    # find all modules that have a `bid_demand` function
+    demand_modules = [m for m in m.get_modules() if hasattr(m, "bid_demand")]
+    if demand_modules:
+        return demand_modules
+    else:
+        raise RuntimeError(
+            unwrap(
+                """
+                No demand module(s) found; please add one or more modules to
+                your module list that define a bid_demand() function (and
+                optionally a calibrate_demand() function), e.g.,
+                switch_model.balancing.demand_response.iterative.constant_elasticity_demand_system.
+                """
+            )
+        )
+
+
 def get_bids(m, prices):
     """
     Get bids from the demand system showing quantities at the specified prices (usually
@@ -1064,22 +1043,28 @@ def get_bids(m, prices):
     calculates wtp in units of price * quantity and averages across the timepoints, the
     result will be in $/hr.
     """
+    demand_modules = bid_modules(m)
 
     # get bids for all load zones and timeseries
     bids = []
     for z in m.LOAD_ZONES:
         for ts in m.TIMESERIES:
-            demand, wtp = demand_module.bid(
-                m, z, ts, m.ts_duration_of_tp[ts], prices[z, ts]
-            )
-            # import pdb; pdb.set_trace()
-            if m.options.dr_flat_pricing:
-                # assume demand side will not provide reserves, even if they offered some
-                # (at zero price)
-                for k, v in demand.items():
-                    if k != "energy":
-                        for i in range(len(v)):
-                            v[i] = 0.0
+            demand = {prod: [0.0] * len(p) for prod, p in prices[z, ts].items()}
+            wtp = 0
+            for demand_module in demand_modules:
+                d, w = demand_module.bid_demand(m, z, ts, prices[z, ts])
+                if m.options.dr_flat_pricing:
+                    # assume demand side will not provide reserves, even if they
+                    # offered some (at zero price)
+                    for prod, quants in d.items():
+                        if prod != "energy":
+                            for i in range(len(quants)):
+                                quants[i] = 0.0
+                # sum bids across demand modules (usually just one)
+                for prod, quants in d.items():
+                    for i, q in enumerate(quants):
+                        demand[prod][i] += float(q)  # convert from np.float64
+                wtp += w
             bids.append((z, ts, prices[z, ts], demand, wtp))
 
     return bids
@@ -1152,12 +1137,17 @@ def check_last_bid_convexity(m):
                 if cs_prior > cs_cur + 0.0001 * abs(cs_cur):
                     convex = False
                     m.logger.warn(
-                        f"Warning, nonconvex bid for '{z}' in timeseries {ts}: "
-                        f"quantities from bid {b_prior} would produce "
-                        f"more consumer surplus than quantities from bid {b_cur}, "
-                        f"i.e., {n_tps} wtp_{b_prior} - q_{b_prior} • p_{b_cur} = {cs_prior} "
-                        f" > {n_tps} wtp_{b_cur} - q_{b_cur} • p_{b_cur}  = {cs_cur}. "
-                        f"See bid output file for specific values."
+                        rewrap(
+                            f"""
+                            Warning, nonconvex bid for '{z}' in timeseries {ts}:
+                            quantities from bid {b_prior} would produce more
+                            consumer surplus than quantities from bid {b_cur},
+                            i.e., 
+                            {n_tps} * wtp_{b_prior} - q_{b_prior} • p_{b_cur} = {cs_prior} 
+                            > {n_tps} * wtp_{b_cur} - q_{b_cur} • p_{b_cur} = {cs_cur}. 
+                            See bid output file for specific values.
+                            """
+                        )
                     )
     return convex
 
@@ -1197,7 +1187,9 @@ def find_flat_prices(m, marginal_costs, revenue_neutral):
             if revenue_neutral:
                 # find a flat price that produces revenue equal to marginal costs
                 flat_prices[z, p] = scipy.optimize.newton(
-                    revenue_imbalance, price_guess, args=(m, z, p, marginal_costs)
+                    revenue_imbalance,
+                    price_guess,
+                    args=(m, z, p, marginal_costs, bid_modules(m)),
                 )
             else:
                 # used in final round, when LSE is considered to have
@@ -1219,9 +1211,11 @@ def find_flat_prices(m, marginal_costs, revenue_neutral):
     return final_prices
 
 
-def revenue_imbalance(flat_price, m, load_zone, period, dynamic_prices):
-    """find demand and revenue that would occur in this load_zone and period with flat prices, and
-    compare to the cost of meeting that demand by purchasing power at the current dynamic prices
+def revenue_imbalance(flat_price, m, load_zone, period, dynamic_prices, demand_modules):
+    """
+    Find demand and revenue that would occur in this load_zone and period with
+    flat prices, and compare to the cost of meeting that demand by purchasing
+    power at the current dynamic prices.
     """
     flat_price_revenue = 0.0
     dynamic_price_revenue = 0.0
@@ -1230,27 +1224,22 @@ def revenue_imbalance(flat_price, m, load_zone, period, dynamic_prices):
             prod: [flat_price if prod == "energy" else 0.0] * len(m.TPS_IN_TS[ts])
             for prod in m.DR_PRODUCTS
         }
-        demand, wtp = demand_module.bid(
-            m, load_zone, ts, m.ts_duration_of_tp[ts], prices
-        )
-        # flat_price_revenue += sum(
-        #     p * d * m.ts_duration_of_tp[ts] * m.ts_scale_to_year[ts]
-        #     for p, d in zip(prices['energy'], demand['energy']
-        # )
-        flat_price_revenue += flat_price * sum(
-            d * m.ts_duration_of_tp[ts] * m.ts_scale_to_year[ts]
-            for d in demand["energy"]
-        )
-        dynamic_price_revenue += sum(
-            p * d * m.ts_duration_of_tp[ts] * m.ts_scale_to_year[ts]
-            for p, d in zip(dynamic_prices[load_zone, ts]["energy"], demand["energy"])
-        )
+        for demand_module in demand_modules:
+            demand, wtp = demand_module.bid_demand(m, load_zone, ts, prices)
+            flat_price_revenue += flat_price * sum(
+                d * m.ts_duration_of_tp[ts] * m.ts_scale_to_year[ts]
+                for d in demand["energy"]
+            )
+            dynamic_price_revenue += sum(
+                p * d * m.ts_duration_of_tp[ts] * m.ts_scale_to_year[ts]
+                for p, d in zip(
+                    dynamic_prices[load_zone, ts]["energy"], demand["energy"]
+                )
+            )
     imbalance = dynamic_price_revenue - flat_price_revenue
 
-    print(
-        "{}, {}: price ${} produces revenue imbalance of ${}/year".format(
-            load_zone, period, flat_price, imbalance
-        )
+    m.logger.debug(
+        f"{load_zone}, {period}: price ${flat_price} produces revenue imbalance of ${imbalance}/year"
     )
 
     return imbalance
