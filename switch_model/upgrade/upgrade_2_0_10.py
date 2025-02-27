@@ -196,6 +196,8 @@ def write_iterative_dr_data(inputs_dir):
             "You will need to set this before running Switch."
         )
 
+    report_similar_files(loads_file)
+
 
 module_actions = {
     # functions to run if they previously were using a particular module
@@ -230,6 +232,7 @@ def rename_file(inputs_dir, old_name, new_name, optional_file=True):
     else:
         shutil.move(old_path, new_path)
         up.print_verbose(f"Input file {old_name} has been renamed to {new_name}.")
+        report_similar_files(old_path)
 
 
 def rename_column(
@@ -245,6 +248,7 @@ def rename_column(
         up.print_verbose(
             f"Column {old_col_name} has been renamed to {new_col_name} in {file_name}."
         )
+        report_similar_files(path)
     elif new_col_name in df.columns:
         up.print_verbose(
             f"Column {old_col_name} was already renamed to {new_col_name} in {file_name}."
@@ -281,6 +285,8 @@ def move_column(
         up.print_verbose(
             f"Column {old_file_name} > {old_col_name} has been moved to {new_file_name} > {new_col_name}."
         )
+        report_similar_files(old_path)
+        report_similar_files(new_path)
     elif new_col_name in new_df.columns:
         up.print_verbose(
             f"Column {old_file_name} > {old_col_name} was already moved to {new_file_name} > {new_col_name}."
@@ -357,13 +363,43 @@ def replace_module_entries(modules_path):
 
     if new_module_list != old_module_list:
         # write new modules list
-        # TODO: make a backup of this file and preserve comments
-        # drop any duplicates (e.g., if a replacement includes a module already
-        # in the list)
+        # TODO: drop any duplicates (e.g., if a replacement includes a module
+        # already in the list)
         new_module_list = list(dict.fromkeys(new_module_list))
         with open(modules_path, "w") as f:
             for module in new_module_list:
                 f.write(module + "\n")
+        report_similar_files(modules_path)
+
+
+def report_similar_files(file):
+    """
+    Report if there are any files with a similar name to `file`, but with
+    additional text before the extension. These are often used as aliases for
+    alternative scenarios.
+    """
+    # Note: this will get tripped up if ev_fleet_info and ev_fleet_info_advanced
+    # are both present. We could recommend that the scenario tag be set off with
+    # dots and search for "stem.*.ext" to avoid this, but we let it go for now.
+    base, ext = os.path.splitext(file)
+    similar = [f for f in glob.glob(f"{base}*{ext}") if f != file]
+    up.print_verbose("")
+    if len(similar) == 1:
+        up.print_verbose(
+            f"""
+            WARNING: {file} was updated but a similarly named file 
+            ({', '.join(similar)}) was not. You should update this manually 
+            if needed.
+            """
+        )
+    if len(similar) > 1:
+        up.print_verbose(
+            f"""
+            WARNING: {file} was updated but similarly named files 
+            ({', '.join(similar)}) were not. You should update these manually 
+            if needed.
+            """
+        )
 
 
 def set_ice_fuel(inputs_dir):
@@ -381,3 +417,4 @@ def set_ice_fuel(inputs_dir):
             --report-vehicle-costs flag with the switch_model.hawaii.ev module.
             """
         )
+        report_similar_files(ev_file)
