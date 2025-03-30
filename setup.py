@@ -21,6 +21,8 @@ version = {}
 with open(version_path) as f:
     exec(f.read(), version)
 __version__ = version["__version__"]
+# for metadata patch
+__version__ += ".post0"
 
 
 def read(*rnames):
@@ -78,14 +80,14 @@ setup(
     # Note: testfixtures requires a separate mock installation if running with
     # Python 3.7.0 or 3.7.1, so we require a higher version to avoid this. (Newer
     # versions of Pyomo need 3.8+ anyway.)
-    python_requires=">=3.7.2, <3.13.0a0",
+    python_requires=">=3.7.2, <3.14.0a0",
     install_requires=[
         # In principle, we could accept Pyomo 5.6.9, but it tends to install
         # a non-compatible version of pyutilib (needs 5.8.0 but accepts 6.0.0
         # and then breaks). On the other hand, Pyomo 5.7 requires pyutilib 6.0.0
         # and Pyomo 6.0 doesn't require pyutilib at all. So we now use Pyomo 6.0+
         # and skip pyutilib.
-        "Pyomo >=6.0.0, <=6.7.2",
+        "Pyomo >=6.0.0, <=6.9.1",
         # pint is needed by Pyomo 6.4.1, 6.7.1 and probably others (but not
         # 6.0.0) when running our tests. But it isn't listed as a Pyomo
         # dependency, so we add it explicitly. (Still true as of Pyomo 6.7.1).
@@ -94,6 +96,12 @@ setup(
         "testfixtures",
         # used for input upgrades and some reporting
         "pandas",
+        # provides pkg_resources used by upgrade scripts
+        "setuptools",
+        # Note: if users pick pyomo <6.8.0 and numpy >=2.0 (brought
+        # in by pandas), pyomo will crash. We could avoid this by requiring
+        # numpy <2.0, but instead we assume they will use a newer version
+        # of pyomo if they are using a newer version of numpy.
     ],
     extras_require={
         # packages used for advanced demand response, progressive hedging
