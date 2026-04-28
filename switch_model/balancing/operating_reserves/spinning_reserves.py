@@ -551,6 +551,7 @@ def define_dynamic_components(m):
     """
     m.MaximumContingency = Var(
         m.BALANCING_AREA_TIMEPOINTS,
+        within=NonNegativeReals,
         doc=(
             "Maximum of the registered Spinning_Reserve_Contingencies, after "
             "multiplying by contingency_safety_factor."
